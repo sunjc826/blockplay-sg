@@ -40,6 +40,11 @@ describe('Collective Corps cargo weapons', () => {
     supplyProxyMagazines(states, item.family!);
     expect(states[item.family!].magazineInventory!.slots.filter(mag => mag?.group === '5.80:magazine').length).toBeGreaterThanOrEqual(2);
   });
+  it('names the QTS-11 as a family and signature, with the launcher under the family', () => {
+    expect(itemById('cc-qts11')!.name).toBe('Win-Win Cooperation · Mutual Benefit');
+    expect(itemById('cc-qts11-launcher')!.name).toBe('Win-Win Cooperation · Launcher');
+    expect(FPS_WEAPONS[QTS_RIFLE].name).toBe('Win-Win Cooperation');
+  });
   it('leaves the SAR retrofit feeding from standard rifle stock', () => expect(comesWithCargoKit('sar-proxy-prototype')).toBe(false));
   it('trades the bullpup range for close-quarters pace against its service rifle', () => {
     const [bullpup, service] = BUILT.slice(0, 2).map(id => resolveLoadout(recoverProxyWeapon(createProfile(), id, 0)).weapons[itemById(id)!.family!]);

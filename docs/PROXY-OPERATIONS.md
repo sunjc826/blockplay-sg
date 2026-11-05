@@ -98,14 +98,14 @@ operation spawns: **SAR 21 · Unauthorised Upgrade** (the existing retrofit, on
 standard rifle magazines), **Strong Objection No. 496 · Final Warning No. 497**
 (QBZ-95-inspired 5.8 mm bullpup, reflex sight, fastest up close, slowest reload),
 **Consensus Builder · Unanimous Vote** (QBZ-191-inspired 5.8 mm rifle, 3× sight,
-lightest handling and longest reach of the two rifles) or **QTS-11** (5.8 mm rifle
+lightest handling and longest reach of the two rifles) or **Win-Win Cooperation · Mutual Benefit** (QTS-11-inspired 5.8 mm rifle
 and separate 5-round 20 mm launcher, shared 3× sight). The three new designs share
 5.8 mm magazines with each other and nothing else, and no loot drops 5.8 mm, so
 what the crate supplies is what you have. They obey the same rules as Freedom Force
 cargo: a kept weapon lasts this life, and is never saved or sold. Freedom Force
 cargo never grants them, as it never grants a SAR 21.
 
-Peace Offering and the QTS-11 switch between rifle and integral launcher with
+Peace Offering and Win-Win Cooperation switch between rifle and integral launcher with
 **U** or the HUD mode button (mouse or touch). The two modes use the same carry slot and
 keep separate loaded magazines, cooldowns and reload progress. Launcher spares
 occupy real rig positions alongside rifle/pistol spares; cargo adds up to two

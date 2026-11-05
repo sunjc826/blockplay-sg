@@ -21,7 +21,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
-| Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
+| Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **Win-Win Cooperation · Mutual Benefit** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
 
 The shortlist is an art-direction recommendation. It is not a claim that any
 real unit equips these weapons together, or that their real performance defines
@@ -119,6 +119,7 @@ space without receiving free ammunition.
 |---|---|---|---|
 | QBZ-191 family / Conductor | **Consensus Builder** | **Unanimous Vote** | `cc-network` |
 | QBZ-95 family / Bastion | **Strong Objection No. 496** | **Final Warning No. 497** | `cc-gatekeeper` |
+| QTS-11 / Conductor experimental option | **Win-Win Cooperation** | **Mutual Benefit** | `cc-qts11` |
 
 Consensus Builder / Unanimous Vote fits Conductor's coordination theme. The
 numbered-notice pair fits Bastion's protected-entry/interdiction study. **496**
@@ -136,15 +137,16 @@ Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 ## Paired experimental systems
 
 The owner's requested Chinese counterpart to the XM29 is represented by a
-separate **QTS-11** (`cc-qts11`), a Conductor experimental option. It sits
+separate **Win-Win Cooperation · Mutual Benefit** (`cc-qts11`, QTS-11 reference), a Conductor experimental option. It sits
 alongside the two named Collective Corps rifle families;
 it does not replace them or expand the specialist roster.
 
 The agreed XM29 study name is **Peace Offering · Escalation Clause**:
 **Peace Offering** is its family label and **Escalation Clause** its signature
 variant. The gallery separates the two labels and retains XM29 OICW as the base
-reference. Its stable `ff-oicw` ID is unchanged. QTS-11 keeps its working reference
-name until a fictional name is chosen. The SCAR-L remains **Soft Power · Foreign
+reference. Its stable `ff-oicw` ID is unchanged. Its counterpart is **Win-Win
+Cooperation · Mutual Benefit**, on the QTS-11 reference: two barrels, both winning.
+The SCAR-L remains **Soft Power · Foreign
 Aid** and the SCAR-H remains **Hard Power · Strings Attached**.
 
 The counterpart relationship describes the combined rifle/launcher concept,
@@ -183,7 +185,7 @@ Mythic cargo version now has a manual bolt cycle, a live 6× sight, .408
 magazines, a deployable bipod and weapon-specific recorded action audio. The
 gallery retains its static review pose; the rear monopod remains static.
 
-**QTS-11:** a narrower slate/graphite upper launcher shell sits above a
+**Win-Win Cooperation · Mutual Benefit (QTS-11):** a narrower slate/graphite upper launcher shell sits above a
 conventional rifle with a forward curved magazine. Two projecting muzzle
 openings, a skeletal stock with real negative space, a supported long sight and
 an offset jade sensor pod create an asymmetric silhouette. Cinnabar marks keep
@@ -217,8 +219,8 @@ anyone in gameplay.
 
 No real manufacturer logos, national flags, specifications for fabrication,
 weapon purchases or ballistics are added. Faction weapon names are fictional;
-XM29 OICW remains the base reference for Peace Offering; QTS-11 retains its
-working reference name.
+XM29 OICW remains the base reference for Peace Offering, and QTS-11 for Win-Win
+Cooperation.
 
 ## Existing systems and integration boundary
 
@@ -231,7 +233,7 @@ working reference name.
   existing faction-design route. The operator gallery still uses the original
   generic rifle/marksman placeholders. All eight designs now also have playable cargo variants,
   integrated in `buildServiceWeapon` and the live catalog. Peace Offering and
-  the QTS-11 each have an integral launcher mode with its own ammunition, not
+  Win-Win Cooperation each have an integral launcher mode with its own ammunition, not
   another cargo reward or carry slot.
 - Gallery art sockets are distinct from the playable attachment/hand poses.
   The two new cargo integrations, controls and separate ammunition are described

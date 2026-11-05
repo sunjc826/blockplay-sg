@@ -90,10 +90,10 @@ export const FPS_WEAPONS: readonly WeaponSpec[] = [
     traits: [{ kind: 'falloff', near: 30, far: 90, minScale: .55 }, { kind: 'precision', multiplier: 2 }] },
   { caliberMm: 5.8, id: 'cc-network', weightKg: 3.4, name: 'Consensus Builder', role: 'Collective Corps service rifle', capacity: 30, reserve: 120, interval: .1, reload: 1.9, recoil: .011, recoilRecovery: 1.3, sightHeight: .35, damage: 42, aimFov: magnifiedFov(3), mobility: 1, optic: 'precision', ballistics: muzzleBallistics(990),
     traits: [{ kind: 'falloff', near: 50, far: 130, minScale: .7 }, { kind: 'precision', multiplier: 2.2 }] },
-  { caliberMm: 5.8, id: 'cc-qts11', weightKg: 5.6, name: 'QTS-11', role: 'Collective Corps prototype rifle', capacity: 30, reserve: 120, interval: .09, reload: 2.2, recoil: .009, recoilRecovery: 1.35, sightHeight: .426, damage: 44, aimFov: magnifiedFov(3), mobility: .88, optic: 'precision', ballistics: muzzleBallistics(1050),
+  { caliberMm: 5.8, id: 'cc-qts11', weightKg: 5.6, name: 'Win-Win Cooperation', role: 'Collective Corps prototype rifle', capacity: 30, reserve: 120, interval: .09, reload: 2.2, recoil: .009, recoilRecovery: 1.35, sightHeight: .426, damage: 44, aimFov: magnifiedFov(3), mobility: .88, optic: 'precision', ballistics: muzzleBallistics(1050),
     traits: [{ kind: 'falloff', near: 60, far: 160, minScale: .8 }, { kind: 'precision', multiplier: 2.2 }] },
   // Integral mode, as with Peace Offering: lighter gun, shorter magazine, quicker to work.
-  { caliberMm: 20, id: 'cc-qts11-launcher', weightKg: 0, fireMode: 'semi', name: 'QTS-11 · Launcher', role: 'Integral impact grenade launcher', capacity: 5, reserve: 10, interval: .8, reload: 3, recoil: .036, recoilRecovery: 1.05, sightHeight: .426, damage: 90, aimFov: magnifiedFov(3), mobility: .88, optic: 'precision', traits: [{ kind: 'falloff', near: 0, far: 220, minScale: 1 }, { kind: 'splash', radius: 4, minScale: .2 }], ballistics: { velocity: 70, drop: 9.8 } },
+  { caliberMm: 20, id: 'cc-qts11-launcher', weightKg: 0, fireMode: 'semi', name: 'Win-Win Cooperation · Launcher', role: 'Integral impact grenade launcher', capacity: 5, reserve: 10, interval: .8, reload: 3, recoil: .036, recoilRecovery: 1.05, sightHeight: .426, damage: 90, aimFov: magnifiedFov(3), mobility: .88, optic: 'precision', traits: [{ kind: 'falloff', near: 0, far: 220, minScale: 1 }, { kind: 'splash', radius: 4, minScale: .2 }], ballistics: { velocity: 70, drop: 9.8 } },
 ];
 
 /** Stable family indexes are shared by saves, keyboard shortcuts and LAN packets. */
