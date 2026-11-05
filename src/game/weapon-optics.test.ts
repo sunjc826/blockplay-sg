@@ -5,6 +5,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createScopeRenderer, fitWeaponOptic, getWeaponSight, scopeFov, scopeScreenScale, setSightNightVision } from './weapon-optics';
 import { ADS_VIEW_FOV, ADS_WORLD_FOV, FPS_WEAPONS, HIP_FOV, aimWorldFov, magnifiedFov, opticMagnification } from './fps-rules';
 import { createProfile, equip, purchase, resolveLoadout, restoreProfile } from './armory-state';
+import { itemById } from './armory-catalog';
+import { buildProxyWeapon } from './proxy-weapon-models';
+import { MINI_REFLEX_WINDOW, windowRadius, type SightWindow } from './weapon-sight-housings';
 
 describe('fixed weapon optics', () => {
   it('changes optics by purchasing and equipping a complete variant', () => {
@@ -228,4 +231,67 @@ it('applies NV illumination to a canted dot without lighting the magnified etchi
   setSightNightVision(sight, false);
   expect(sight.offset!.nightVision.value).toBe(0);
   remove();
+});
+
+describe('open-frame red dots', () => {
+  const fitted = (id: string) => {
+    const item = itemById(id)!, base = createProfile();
+    return resolveLoadout(equip({ ...base, owned: [...base.owned, id] }, id, item.family!)).weapons[item.family!];
+  };
+  const bounds = (object: THREE.Object3D) => {
+    object.updateWorldMatrix(true, false);
+    return new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+  };
+
+  it.each(['ff-scar-l', 'cc-gatekeeper'] as const)('fills the whole of the %s window with glass, in a frame with rounded corners', id => {
+    const model = buildProxyWeapon(id, true), optic = model.root.userData.proxyOptic;
+    const window = optic.window as SightWindow, top = window.top ?? window.corner;
+    model.root.updateMatrixWorld(true);
+    const eye = new THREE.Vector3(0, optic.height, -optic.aimDepth);
+    const blocked = (x: number, y: number) => {
+      const direction = new THREE.Vector3(x, optic.height + y, optic.lens).sub(eye).normalize();
+      return new THREE.Raycaster(eye, direction, 0, 1).intersectObject(model.root, true).length > 0;
+    };
+    // The frame's corner is cut away, so the square's corner is frame, and the
+    // arch's edge just inside it is open. The emitter is left to the bottom edge.
+    expect(window.width).toBeGreaterThan(window.height);
+    expect(blocked(window.width / 2 - .001, window.height / 2 - .001)).toBe(true);
+    expect(blocked(0, window.height / 2 + .001)).toBe(true);
+    expect(blocked(window.width / 2 + .001, 0)).toBe(true);
+    const inset = top * (1 - Math.SQRT1_2) + .003;
+    expect(blocked(window.width / 2 - inset, window.height / 2 - inset)).toBe(false);
+    expect(blocked(0, window.height / 2 - .003)).toBe(false);
+    expect(blocked(window.width / 2 - .003, 0)).toBe(false);
+
+    const remove = fitWeaponOptic(model.root, fitted(id)), sight = getWeaponSight(model.root)!;
+    const glass = bounds(model.root.getObjectByName('optic-coated-glass')!), lens = bounds(sight.lens);
+    for (const size of [glass, lens]) {
+      expect(size.x).toBeCloseTo(window.width, 4);
+      expect(size.y).toBeCloseTo(window.height, 4);
+    }
+    expect(sight.radius).toBeCloseTo(windowRadius(window));
+    expect(sight.aimHeight).toBeCloseTo(optic.height);
+    remove(); model.dispose();
+  });
+
+  it('cuts the slide dot and the offset dot to their windows too', () => {
+    const slide = new THREE.Group(), removeSlide = fitWeaponOptic(slide, fitted('p30-silent'));
+    const slideSize = bounds(slide.getObjectByName('optic-coated-glass')!);
+    expect(slideSize.x).toBeCloseTo(MINI_REFLEX_WINDOW.width, 4);
+    expect(slideSize.y).toBeCloseTo(MINI_REFLEX_WINDOW.height, 4);
+    removeSlide();
+    const rifle = new THREE.Group(), removeRifle = fitWeaponOptic(rifle, fitted('sar-twoeyes'));
+    const offset = getWeaponSight(rifle)!.offset!;
+    expect(offset.lens.geometry).toBeInstanceOf(THREE.ShapeGeometry);
+    expect(offset.radius).toBeGreaterThan(MINI_REFLEX_WINDOW.height / 2);
+    removeRifle();
+  });
+
+  it('gives a window lens its own shader, since it drops the disc lens\'s round aperture', () => {
+    const round = new THREE.Group(), removeRound = fitWeaponOptic(round, { ...FPS_WEAPONS[1], optic: 'reflex', aimFov: HIP_FOV });
+    const framed = new THREE.Group(), removeFramed = fitWeaponOptic(framed, fitted('p30-silent'));
+    const key = (root: THREE.Object3D) => getWeaponSight(root)!.lens.material.customProgramCacheKey();
+    expect(key(framed)).not.toBe(key(round));
+    removeRound(); removeFramed();
+  });
 });

@@ -8,6 +8,7 @@
  * hider ends, so flare and tracers leave from the right place.
  */
 import type { ScopeReticle } from './scope-reticles';
+import type { SightWindow } from './weapon-sight-housings';
 
 type Point = readonly [number, number, number];
 /**
@@ -15,9 +16,10 @@ type Point = readonly [number, number, number];
  * `lens` on the `height` line, `radius` wide, and puts the eye `aimDepth` from
  * the model origin. A `reflex` draws a collimated dot at any magnification the
  * spec asks for; a `scope` renders the magnified picture-in-picture, etched
- * with `reticle` (the G36's ZF pattern when none is named).
+ * with `reticle` (the G36's ZF pattern when none is named). A `window` cuts the
+ * lens and glass to that outline instead of a disc of `radius`.
  */
-export interface EnemyOptic { kind: 'reflex' | 'scope'; height: number; lens: number; radius: number; aimDepth: number; reticle?: ScopeReticle }
+export interface EnemyOptic { kind: 'reflex' | 'scope'; height: number; lens: number; radius: number; aimDepth: number; reticle?: ScopeReticle; window?: SightWindow }
 interface EnemyWeaponLayout {
   axisY: number; sightHeight: number; aimDepth: number;
   defaultConfig: string;

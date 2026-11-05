@@ -25,10 +25,14 @@ export interface SightPlacement {
   aimDepth: number;
   /** The roll that brings this sight upright; an offset dot is mounted at 45°. */
   roll: number;
-  /** A rectangular window, for sights whose glass is not round. */
+  /** A window's outline, for sights whose glass is not round. */
   window?: SightWindow;
 }
-export interface SightWindow { width: number; height: number; corner: number }
+export interface SightWindow {
+  width: number; height: number; corner: number;
+  /** The upper corners' radius, when the window arches over the dot: `corner` otherwise. */
+  top?: number;
+}
 export interface SightHousing {
   main: SightPlacement;
   /** A 1x dot at 45° beside a magnified main sight. */
@@ -74,14 +78,75 @@ export const HOLO_WINDOW: SightWindow = { width: .042, height: .032, corner: .00
  */
 const HOLO_RISER: Record<string, number> = { 'ultimax-inspired': .046 };
 
-/** A rounded rectangle centred on the origin, for windows and their glass. */
-export function roundedRect(width: number, height: number, corner: number) {
-  const shape = new THREE.Shape(), x = width / 2, y = height / 2, r = Math.min(corner, x, y);
+/** A rounded rectangle centred on the origin, for windows and their glass; `top` rounds its upper corners differently. */
+export function roundedRect(width: number, height: number, corner: number, top = corner) {
+  const shape = new THREE.Shape(), x = width / 2, y = height / 2, r = Math.min(corner, x, y), t = Math.min(top, x, y);
   shape.moveTo(-x + r, -y); shape.lineTo(x - r, -y); shape.quadraticCurveTo(x, -y, x, -y + r);
-  shape.lineTo(x, y - r); shape.quadraticCurveTo(x, y, x - r, y);
-  shape.lineTo(-x + r, y); shape.quadraticCurveTo(-x, y, -x, y - r);
+  shape.lineTo(x, y - t); shape.quadraticCurveTo(x, y, x - t, y);
+  shape.lineTo(-x + t, y); shape.quadraticCurveTo(-x, y, -x, y - t);
   shape.lineTo(-x, -y + r); shape.quadraticCurveTo(-x, -y, -x + r, -y);
   return shape;
+}
+
+export const windowShape = ({ width, height, corner, top }: SightWindow) => roundedRect(width, height, corner, top);
+
+/** The radius that just reaches a window's corners, which is what a lens's `radius` means for one. */
+export const windowRadius = ({ width, height }: SightWindow) => Math.hypot(width / 2, height / 2);
+
+/** The rifle's window: wider than tall, with an arched top over a squarer base. */
+export const REFLEX_WINDOW: SightWindow = { width: .06, height: .046, corner: .007, top: .017 };
+/** The same sight cut down for a pistol's slide, or a dot bolted beside a scope. */
+export const MINI_REFLEX_WINDOW = { width: .0235, height: .019, corner: .0026, top: .0068 } as const satisfies SightWindow;
+
+type ReflexPart = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx?: number, ry?: number, rz?: number) => void;
+
+/**
+ * An open-frame reflex in the shape shooters know from Call of Duty: one thin
+ * rounded hoop at the front of a low base, shoulders sweeping down behind it,
+ * the emitter just showing under the glass. The hoop's opening is `window`, the
+ * same outline `weapon-optics` cuts the lens and glass to, so glass fills it.
+ *
+ * `y` is the window's centre, `lens` where the lens plane sits along the weapon,
+ * and `base` the surface it stands on. Everything scales with the window.
+ */
+export function buildOpenReflex(part: ReflexPart, window: SightWindow, y: number, lens: number, base: number, materials: { body: THREE.Material; dark: THREE.Material; edge: THREE.Material }) {
+  const { body, dark, edge } = materials, s = window.width / REFLEX_WINDOW.width;
+  const wall = .0036 * s, bevel = .0007 * s, depth = .017 * s;
+  const front = lens - depth + .002 * s, rear = lens + .002 * s, tail = lens + .048 * s;
+  const bottom = y - window.height / 2, outerWidth = window.width + wall * 2;
+  const rounded = (w: number, h: number, d: number, x: number, atY: number, z: number, material: THREE.Material) =>
+    part(new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * .32), material, x, atY, z);
+
+  // The hoop runs down into the base, so only its arch stands free.
+  const outerHeight = window.height + wall * 2;
+  const outer = new THREE.Shape(roundedRect(outerWidth, outerHeight, window.corner * .5, (window.top ?? window.corner) + wall).getPoints(10));
+  outer.holes.push(new THREE.Path(windowShape(window).getPoints(10)));
+  part(new THREE.ExtrudeGeometry(outer, { depth: depth - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2 }), body, 0, y, front + bevel);
+
+  // The base: a low flat bed from just ahead of the hoop to the tail.
+  const bedFront = front - .004 * s, bedLength = tail - bedFront, bedHeight = bottom - base + .0008 * s;
+  rounded(outerWidth, bedHeight, bedLength, 0, base + bedHeight / 2, (bedFront + tail) / 2, body);
+  // Battery tray along the top of the tail, and the two brightness keys on its end.
+  rounded(outerWidth * .56, .0028 * s, .017 * s, 0, bottom + .0008 * s, tail - .012 * s, dark);
+  for (const side of [-1, 1]) rounded(.009 * s, .0042 * s, .0022 * s, side * .0085 * s, base + bedHeight * .52, tail + .0006 * s, edge);
+
+  // Shoulders: the walls that brace the hoop, sweeping down to the tray.
+  const shoulder = new THREE.Shape([[-rear + .001 * s, bottom], [-rear + .001 * s, bottom + window.height * .5], [-rear - .004 * s, bottom + window.height * .42], [-tail + .016 * s, bottom + .001 * s], [-tail + .012 * s, bottom]]
+    .map(([u, v]) => new THREE.Vector2(u, v)));
+  const shoulderWidth = wall * .9;
+  for (const side of [-1, 1]) {
+    const geometry = new THREE.ExtrudeGeometry(shoulder, { depth: shoulderWidth - bevel, bevelEnabled: true, bevelThickness: bevel / 2, bevelSize: bevel / 2, bevelSegments: 1, steps: 1 });
+    geometry.translate(0, 0, -(shoulderWidth - bevel) / 2);
+    part(geometry, body, side * (outerWidth - shoulderWidth) / 2, 0, 0, 0, Math.PI / 2);
+  }
+
+  // The emitter under the glass, its top just caught in the bottom of the window.
+  rounded(.015 * s, .0062 * s, .011 * s, 0, bottom + .0012 * s, lens + .019 * s, dark);
+  part(new THREE.CylinderGeometry(.0024 * s, .0024 * s, .0012 * s, 14), edge, 0, bottom + .0012 * s, lens + .0132 * s, Math.PI / 2);
+
+  // Windage on the right shoulder, and the screws that hold the hoop to the base.
+  part(new THREE.CylinderGeometry(.0044 * s, .0044 * s, .0022 * s, 14), edge, outerWidth / 2 + .0006 * s, bottom + .0065 * s, lens + .015 * s, 0, 0, Math.PI / 2);
+  for (const side of [-1, 1]) part(new THREE.CylinderGeometry(.0018 * s, .0018 * s, .001 * s, 8), edge, side * (window.width / 2 - .004 * s), bottom - wall * .55, rear + .0002 * s, Math.PI / 2);
 }
 
 export function buildSightHousing(group: THREE.Group, platform: string, sight: SightModel, offsetDot: boolean): SightHousing | undefined {
@@ -112,26 +177,24 @@ export function buildSightHousing(group: THREE.Group, platform: string, sight: S
   /**
    * An open-frame dot on its own plate, built around its window centre so it
    * can be stood on a slide or bolted at 45° beside a scope. Returns the lens
-   * plane's offset from that centre along the weapon.
+   * plane's offset from that centre along the weapon, and the window it fills.
    */
   function miniDot(parent: THREE.Object3D, scale: number) {
-    const s = scale, w = .028 * s, d = .034 * s, wall = .004 * s, window = .022 * s;
-    // Plate under the window, battery tray at the back, then the open hood.
-    box(parent, w, .006 * s, d, 0, -window / 2 - .003 * s, 0);
-    box(parent, w * .7, .007 * s, .01 * s, 0, -window / 2 + .002 * s, d / 2 - .006 * s, dark);
-    for (const side of [-1, 1]) box(parent, wall, window, d * .55, side * (w / 2 - wall / 2), 0, -d * .2);
-    box(parent, w, wall, d * .55, 0, window / 2 + wall / 2, -d * .2);
-    mesh(parent, new THREE.BoxGeometry(.006 * s, .004 * s, .004 * s), dark, 0, -window / 2 + .001 * s, d * .12);
-    return { radius: window / 2 - .0005, lensZ: -d * .45 };
+    const { width, height, corner, top } = MINI_REFLEX_WINDOW;
+    const window: SightWindow = { width: width * scale, height: height * scale, corner: corner * scale, top: top * scale };
+    const lensZ = -.012 * scale;
+    buildOpenReflex((geometry, m, x, y, z, rx = 0, ry = 0, rz = 0) => { mesh(parent, geometry, m, x, y, z).rotation.set(rx, ry, rz); },
+      window, 0, lensZ, -window.height / 2 - .0055 * scale, { body, dark, edge });
+    return { radius: windowRadius(window), lensZ, window };
   }
 
   let main: SightPlacement, offset: SightPlacement | undefined;
   if (sight === 'mini-reflex') {
     const unit = new THREE.Group(); unit.name = 'sight-mini-reflex'; group.add(unit);
-    const centre = mount.base + .0055 + .011;
+    const centre = mount.base + .0055 + MINI_REFLEX_WINDOW.height / 2;
     unit.position.set(0, centre, mount.z);
     const dot = miniDot(unit, 1);
-    main = { x: 0, y: centre, lensZ: mount.z + dot.lensZ, glassZ: mount.z + dot.lensZ - .001, radius: dot.radius, aimDepth: -.52, roll: 0 };
+    main = { x: 0, y: centre, lensZ: mount.z + dot.lensZ, glassZ: mount.z + dot.lensZ - .002, radius: dot.radius, aimDepth: -.52, roll: 0, window: dot.window };
   } else if (sight === 'holo') {
     const unit = new THREE.Group(); unit.name = 'sight-holo'; group.add(unit);
     // The Ultimax's carry handle runs at y .294–.324 to z .02, square in the
@@ -262,7 +325,7 @@ export function buildSightHousing(group: THREE.Group, platform: string, sight: S
       const holder = new THREE.Group(); holder.name = 'sight-offset-dot';
       holder.position.set(at.x, axis + at.y, z + .02); holder.rotation.z = -CANT_ROLL; unit.add(holder);
       const dot = miniDot(holder, 1.1);
-      offset = { x: at.x, y: axis + at.y, lensZ: z + .02 + dot.lensZ, glassZ: z + .02 + dot.lensZ - .001, radius: dot.radius, aimDepth: -.45, roll: CANT_ROLL };
+      offset = { x: at.x, y: axis + at.y, lensZ: z + .02 + dot.lensZ, glassZ: z + .02 + dot.lensZ - .002, radius: dot.radius, aimDepth: -.45, roll: CANT_ROLL, window: dot.window };
     }
   } else {
     // A long eye-relief scope in two rings on a slide-ride mount.

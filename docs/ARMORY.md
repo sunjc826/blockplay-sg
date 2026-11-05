@@ -419,6 +419,12 @@ flash and the shot's origin move to), `fps-laser-emitter` and
 `fps-light-emitter` for the engine; `weapon-sight-housings.ts` builds the sight
 housings and says where `weapon-optics` puts each lens. Mount points were
 measured off the GLBs by binning vertices along -Z, as for the build fittings.
+Open-frame red dots share `buildOpenReflex`, shaped after Call of Duty's: a thin
+hoop with an arched top on a low base, with shoulders behind it and the emitter
+just showing under the window. It is used by the Soft Power, Strong Objection
+No. 496, the slide-cut dot and the offset dot. Lens and glass take the hoop's
+`SightWindow` outline, so glass fills the opening. On the proxy rifles the whole
+sight is the dark hardware material, because each model is held to six draw calls.
 The torch exists only when the loadout carries one and is switched by
 intensity, because adding a light recompiles every lit material.
 Touch play gets two pad buttons (`cant`, `rail`) only for a weapon that has them.

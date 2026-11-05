@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { WeaponSpec } from './fps-rules';
 import { ADS_VIEW_FOV, ADS_WORLD_FOV, HIP_FOV, opticMagnification } from './fps-rules';
 import { buildReflexHousing } from './weapon-reflex';
-import { buildSightHousing, roundedRect, type SightWindow } from './weapon-sight-housings';
+import { buildSightHousing, windowShape, type SightWindow } from './weapon-sight-housings';
 import { createOpticGlass, createScopeBacking, type OpticGlass } from './weapon-glass';
 import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
@@ -43,7 +43,8 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
     shader.uniforms.sightVisibility = visibility;
     shader.uniforms.sightNightVision = nightVision;
     shader.uniforms.sightBloom = { value: 0 };
-    shader.uniforms.sightRadius = { value: radius };
+    // How far the dot may pin from the centre during the raise: a window's narrower half.
+    shader.uniforms.sightRadius = { value: window ? Math.min(window.width, window.height) / 2 : radius };
     shader.vertexShader = 'varying vec2 sightUv;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n sightUv = uv;');
     if (!magnified) {
@@ -145,7 +146,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       float core = max(dotCore, patternCore * laserTexture);
       ` : `float angularAA = max(fwidth(angle), 0.00015);
       float core = 1.0 - smoothstep(0.0022, 0.0022 + angularAA, angle);`}
-      ${window ? 'float aperture = 1.0; // Geometry clips the complete hologram to the rectangular window.' : 'float aperture = 1.0 - smoothstep(0.46, 0.5, r);'}
+      ${window ? 'float aperture = 1.0; // Geometry clips the whole reticle to the window.' : 'float aperture = 1.0 - smoothstep(0.46, 0.5, r);'}
       if (sightBloom > 0.5) {
         // Add light around the emitter without replacing the scene behind it.
         // Both halo scales are angular, so they stay steady as the eye moves.
@@ -179,8 +180,9 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       `}
     `);
   };
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v7-nv${ring ? '-holo-v4-window' : ''}`;
-  const lensGeometry = window ? new THREE.ShapeGeometry(roundedRect(window.width, window.height, window.corner), 8) : new THREE.CircleGeometry(radius, 48);
+  const outline = ring ? '-holo-v4-window' : window ? '-window' : '';
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v7-nv${outline}`;
+  const lensGeometry = window ? new THREE.ShapeGeometry(windowShape(window), 8) : new THREE.CircleGeometry(radius, 48);
   if (window) {
     const positions = lensGeometry.attributes.position, uvs = lensGeometry.attributes.uv;
     for (let i = 0; i < positions.count; i++) uvs.setXY(i, .5 + positions.getX(i) / (2 * radius), .5 + positions.getY(i) / (2 * radius));
@@ -195,7 +197,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       lensMaterial.onBeforeCompile(shader, renderer);
       shader.uniforms.sightBloom.value = 1;
     };
-    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v4-nv${ring ? '-holo-v4-window' : ''}`;
+    bloomMaterial.customProgramCacheKey = () => `reflex-bloom-v4-nv${outline}`;
     const bloom = new THREE.Mesh(lensGeometry, bloomMaterial);
     bloom.name = 'fps-reflex-bloom'; bloom.renderOrder = 2;
     lens.renderOrder = 3;
@@ -238,14 +240,14 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
   if (mount) {
     group.name = `fps-${fitted}-optic`;
-    scopeGlass = createOpticGlass(radius, magnified ? .0014 : mount.main.window ? .0003 : .005, magnified ? 'scope' : 'reflex', reticle, mount.main.window);
+    scopeGlass = createOpticGlass(radius, magnified ? .0014 : fitted === 'holo' ? .0003 : .005, magnified ? 'scope' : fitted === 'holo' ? 'holo' : 'reflex', reticle, mount.main.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, mount.main.glassZ);
     group.add(scopeGlass.reflection.surface);
   } else if (built) {
     group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
     // A scope's coating sits on the eye side of its picture; a reflex's
     // mirror sits just beyond the dot, as on the receiver-mounted housing.
-    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle);
+    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle, built.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
     group.add(scopeGlass.reflection.surface);
   } else if (!integrated) {
@@ -258,7 +260,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }
-  const main = createLens(magnification, radius, reticle, fitted === 'holo', mount?.main.window);
+  const main = createLens(magnification, radius, reticle, fitted === 'holo', mount?.main.window ?? built?.window);
   main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
   // These telescopes have open modelled eyepieces. Keep actual glass behind
   // the PiP plane, including in the shop and during hip/inspection animations.
@@ -274,9 +276,9 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   let dot: ReturnType<typeof createLens> | undefined, dotGlass: ReturnType<typeof createOpticGlass> | undefined;
   if (mount?.offset) {
     const at = mount.offset;
-    dot = createLens(1, at.radius, undefined, false);
+    dot = createLens(1, at.radius, undefined, false, at.window);
     dot.lens.position.set(at.x, at.y, at.lensZ); dot.lens.rotation.z = -at.roll; group.add(dot.lens);
-    dotGlass = createOpticGlass(at.radius, .005, 'reflex');
+    dotGlass = createOpticGlass(at.radius, .005, 'reflex', undefined, at.window);
     dotGlass.reflection.surface.position.set(at.x, at.y, at.glassZ); dotGlass.reflection.surface.rotation.z = -at.roll;
     group.add(dotGlass.reflection.surface);
     sight.offset = { aimHeight: at.y, aimX: at.x, roll: at.roll, aimDepth: at.aimDepth, radius: at.radius, magnification: 1, lens: dot.lens, visibility: dot.visibility, nightVision: dot.nightVision, reflection: dotGlass.reflection };

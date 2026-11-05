@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildOpenReflex, REFLEX_WINDOW, windowRadius, windowShape, type SightWindow } from './weapon-sight-housings';
 
 export type ProxyWeaponId = 'ff-oicw' | 'ff-scar-l' | 'ff-scar-h' | 'ff-longwatch' | 'ff-intervention' | 'cc-gatekeeper' | 'cc-network' | 'cc-qts11';
 export interface ProxyWeaponStudy {
@@ -26,6 +27,12 @@ export interface ProxyWeaponModel {
   dispose(): void;
 }
 type Point = readonly [number, number];
+
+/** The Soft Power's red dot: its window's centre, its place on the rail, and its lens relative to that. */
+const SCAR_DOT_Y = .2025, SCAR_DOT_Z = -.03, SCAR_DOT_LENS = -.009;
+/** The bullpup's sits on its handle, a little smaller to fit the block. */
+const GATEKEEPER_DOT_Y = .283, GATEKEEPER_DOT_LENS = -.018;
+const GATEKEEPER_WINDOW: SightWindow = { width: .05, height: .038, corner: .006, top: .014 };
 
 export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rifle' | 'launcher' = 'rifle'): ProxyWeaponModel {
   const study = PROXY_WEAPONS.find(candidate => candidate.id === id);
@@ -99,6 +106,17 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     for (let i = 0; i < (shroud ? 3 : 1); i++) cylinder(radius + .0015, .008, 0, y, front + .012 + i * .03, metal);
     return front;
   };
+  /**
+   * The live glass comes from `weapon-optics`; only an art study needs a pane of
+   * its own. All one material: a model pays a draw call for each, and the faction
+   * colours would fill the sight picture, so its parts read by their shape alone.
+   */
+  const reflexSight = (y: number, lens: number, base: number, window: SightWindow) => {
+    buildOpenReflex(add, window, y, lens, base, { body: dark, dark, edge: dark });
+    if (!playable) add(new THREE.ShapeGeometry(windowShape(window), 8), glass, 0, y, lens - .003);
+    // The clamp's cross-bolt, on the right.
+    add(new THREE.CylinderGeometry(.0052, .0052, .007, 12), dark, .0225, base - .009, lens + .012, 0, 0, Math.PI / 2);
+  };
   const optic = (kind: 'reflex' | 'scope' | 'prism', z: number) => {
     box(.038, .035, .105, 0, .152, z, dark);
     if (kind === 'scope') {
@@ -141,11 +159,13 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
         } else box(.06, .065, .018, 0, .188, z + offset, metal);
       }
       box(.024, .025, .029, 0, .254, z, dark); box(.022, .023, .025, .03, .22, z, trim);
+    } else if (kind === 'reflex') {
+      reflexSight(SCAR_DOT_Y, z + SCAR_DOT_LENS, .1695, REFLEX_WINDOW);
     } else {
-      const w = kind === 'prism' ? .075 : .065, h = kind === 'prism' ? .075 : .065, depth = kind === 'prism' ? .12 : .05;
+      const w = .075, h = .075, depth = .12;
       const outline = opening(-w / 2, w / 2, .17, .17 + h), hole = opening(-w / 2 + .009, w / 2 - .009, .181, .16 + h);
       const geometry = new THREE.ExtrudeGeometry(profile(outline, [hole]), { depth, bevelEnabled: false, steps: 1 });
-      add(geometry, kind === 'prism' ? trim : dark, 0, 0, z - depth / 2);
+      add(geometry, trim, 0, 0, z - depth / 2);
       if (!playable) box(w - .021, h - .024, .003, 0, .17 + h / 2, z - depth / 2 - .002, glass);
       box(.017, .025, .045, w / 2 + .006, .19, z, metal);
     }
@@ -254,7 +274,8 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
       box(.004, .027, .125, x * (width / 2 + .003), .075, -.035, trim);
       for (let mark = 0; mark < (heavy ? 2 : 1); mark++) box(.005, .008, .015, x * (width / 2 + .006), .075, -.055 + mark * .027, accent);
     }
-    optic(heavy ? 'prism' : 'reflex', -.065);
+    // Further back on the rail for the red dot's tail, its lens where it always was.
+    optic(heavy ? 'prism' : 'reflex', heavy ? -.065 : SCAR_DOT_Z);
     front = muzzle(heavy ? -.68 : -.575, foreEnd + .01, .083); foreZ = heavy ? -.32 : -.275;
   } else if (id === 'ff-longwatch') {
     side([[-.195, .035], [.15, .035], [.15, .135], [-.175, .135], [-.195, .11]], .076);
@@ -318,10 +339,9 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     box(.078, .135, .02, 0, .078, .30, dark);
     // A low sight block leaves the carry bridge, rather than a SAR-style scope tube, dominant.
     if (playable) {
-      // Live reflex window on the same low block: open through the aiming ray.
-      box(.05, .008, .09, 0, .258, -.04, metal);
-      for (const x of [-.0225, .0225]) box(.005, .046, .05, x, .283, -.04, dark);
-      box(.05, .005, .05, 0, .3085, -.04, dark);
+      // The red dot on a low block, its window where the aiming ray has always been.
+      box(.05, .008, .09, 0, .258, -.008, metal);
+      reflexSight(GATEKEEPER_DOT_Y, GATEKEEPER_DOT_LENS, .262, GATEKEEPER_WINDOW);
     } else { box(.042, .03, .09, 0, .27, -.04, metal); box(.027, .015, .003, 0, .27, -.087, glass); }
     front = muzzle(-.50, -.29, .083); foreZ = -.23;
   } else {
@@ -377,9 +397,10 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     root.userData.artStudy = false;
     root.userData.proxyHands = { right: [.027, .105, gripZ + .02], support: [-.033, .15, foreZ], magazine: [-.025, .095, magZ] };
     const long = id === 'ff-longwatch' || id === 'ff-intervention', heavy = id === 'ff-scar-h' || id === 'cc-network', oicw = id === 'ff-oicw', qts = id === 'cc-qts11', bullpup = id === 'cc-gatekeeper';
-    const lens = id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : qts ? .094 : heavy ? -.004 : bullpup ? -.018 : -.039;
-    root.userData.proxyOptic = { ...(id === 'ff-longwatch' ? { reticle: 'tmr' } : id === 'ff-intervention' ? { reticle: 'mil-dot' } : {}), kind: long || heavy || oicw || qts ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : qts ? .286 : heavy ? .2075 : bullpup ? .283 : .2025) + lift,
-      lens, radius: precisionScope?.radius ?? (heavy || oicw ? .024 : qts ? .022 : bullpup ? .018 : .022), aimDepth: precisionScope ? -(lens + .15) : -.28 };
+    const lens = id === 'ff-intervention' ? .114 : long ? .039 : oicw ? .099 : qts ? .094 : heavy ? -.004 : bullpup ? GATEKEEPER_DOT_LENS : SCAR_DOT_Z + SCAR_DOT_LENS;
+    const dotWindow = bullpup ? GATEKEEPER_WINDOW : id === 'ff-scar-l' ? REFLEX_WINDOW : undefined;
+    root.userData.proxyOptic = { ...(id === 'ff-longwatch' ? { reticle: 'tmr' } : id === 'ff-intervention' ? { reticle: 'mil-dot' } : {}), kind: long || heavy || oicw || qts ? 'scope' : 'reflex', height: (long ? .22 : oicw ? .302 : qts ? .286 : heavy ? .2075 : bullpup ? GATEKEEPER_DOT_Y : SCAR_DOT_Y) + lift,
+      lens, radius: precisionScope?.radius ?? (dotWindow ? windowRadius(dotWindow) : heavy || oicw ? .024 : .022), window: dotWindow, aimDepth: precisionScope ? -(lens + .15) : -.28 };
   }
   if (animatingLauncher) root.traverse(node => { node.name = node.name.replace(id, `${id}-launcher`); });
   let disposed = false;
