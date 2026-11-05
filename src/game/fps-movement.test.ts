@@ -4,6 +4,21 @@ import { createVerticalMovement } from './vertical-movement';
 
 const flat = () => createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [], surfaces: [], traversalObstacles: [] });
 describe('weighted infantry movement', () => {
+  it('a running jump over a low solid prop with no top to stand on does not fall into it', () => {
+    const prop = { minX: 3, maxX: 6, minZ: -3, maxZ: 3, maxY: 1.2 };
+    const world = createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [prop], surfaces: [], traversalObstacles: [] });
+    let state = { x: 0, y: 0, z: 0, velocityY: INFANTRY_JUMP_SPEED };
+    const step = (dx: number) => { state = { ...state, ...world.move(state, dx, 0, 1 / 60, .38, 1.8, [], INFANTRY_GRAVITY) }; };
+    for (let i = 0; i < 60 && state.x < 4.5; i++) step(7 / 60);
+    expect(state.x).toBeGreaterThanOrEqual(4.5);
+    for (let i = 0; i < 90; i++) step(0);
+    expect(state.y).toBeGreaterThanOrEqual(1.2);
+    expect(world.canOccupy(state.x, state.y, state.z, .38, 1.8)).toBe(true);
+    for (let i = 0; i < 60; i++) step(4 / 60);
+    expect(state.x).toBeGreaterThan(6.38);
+    for (let i = 0; i < 90; i++) step(0);
+    expect(state.y).toBe(0);
+  });
   it('ramps up, brakes promptly and travels the same distance at 30/60/144 fps', () => {
     const distances = [30, 60, 144].map(fps => {
       const state = createMovementMotion(); let distance = 0;

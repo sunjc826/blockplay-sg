@@ -133,6 +133,9 @@ export function createVerticalMovement(world: VerticalWorld) {
       }
       const landing = supportHeight(x, z, y + EPS, radius, height, extra);
       if (velocityY <= 0 && landing !== null && nextY <= landing) { impactSpeed = Math.max(impactSpeed, -velocityY); nextY = landing; velocityY = 0; grounded = true; }
+      // Nothing to land on, but no room below either: a solid prop whose top is not a floor, cleared by a jump.
+      // Falling on would lodge the body inside it for good, so it stays above, free to move off.
+      if (velocityY <= 0 && canOccupy(x, y, z, radius, height, extra) && !canOccupy(x, Math.max(0, nextY), z, radius, height, extra)) { nextY = y; velocityY = 0; }
       y = Math.max(0, nextY);
     }
     return { x, y, z, velocityY, grounded, impactSpeed };
