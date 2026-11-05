@@ -1,6 +1,6 @@
 # Proxy faction weapon studies
 
-Status: **eight exterior design candidates**, not locked loadouts. Review at
+Status: **eight exterior designs, all playable as cargo rewards**, not operator loadouts. Review at
 **`/faction-designs?study=weapons`**, linked from the operator gallery. Profile,
 other-side, oblique and front presets, drag rotation and grayscale support
 silhouette review on desktop and mobile. Every study uses the same viewing
@@ -21,7 +21,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
-| Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11 study** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
+| Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **QTS-11** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
 
 The shortlist is an art-direction recommendation. It is not a claim that any
 real unit equips these weapons together, or that their real performance defines
@@ -126,8 +126,8 @@ fills the owner's unspecified first number so it immediately precedes **497**;
 this is a naming choice, not an asserted historical sequence for the models.
 Final Warning No. 497 references [China's final warning](https://en.wikipedia.org/wiki/China%27s_final_warning),
 as requested. Gatekeeper and Network are superseded display names; stable IDs,
-models and the two-operator roster are unchanged. These Collective Corps
-family/signature pairs remain gallery labels without live family registration.
+models and the two-operator roster are unchanged. Both pairs are now live cargo
+names, and each design is its own weapon family.
 
 Other brainstormed names retained for later use: Polite Request / Final Notice,
 Small Talk / Big Talk, Budget Approval / Cost Overrun and Limited Intervention /
@@ -136,7 +136,7 @@ Extended Stay. Democracy Lite / Democracy Deluxe were superseded working titles.
 ## Paired experimental systems
 
 The owner's requested Chinese counterpart to the XM29 is represented by a
-separate **QTS-11 study** (`cc-qts11`), a Conductor experimental option. It sits
+separate **QTS-11** (`cc-qts11`), a Conductor experimental option. It sits
 alongside the two named Collective Corps rifle families;
 it does not replace them or expand the specialist roster.
 
@@ -183,16 +183,17 @@ Mythic cargo version now has a manual bolt cycle, a live 6× sight, .408
 magazines, a deployable bipod and weapon-specific recorded action audio. The
 gallery retains its static review pose; the rear monopod remains static.
 
-**QTS-11 study:** a narrower slate/graphite upper launcher shell sits above a
+**QTS-11:** a narrower slate/graphite upper launcher shell sits above a
 conventional rifle with a forward curved magazine. Two projecting muzzle
 openings, a skeletal stock with real negative space, a supported long sight and
 an offset jade sensor pod create an asymmetric silhouette. Cinnabar marks keep
 it within Collective Corps' palette. These exterior choices contrast with the
 XM29's broad rear body and launcher-feed box in color and grayscale. The model
-has a launcher muzzle socket but no protruding rear launcher magazine or rear
-magazine socket. Stock proportions, pod shape and faction panels are stylized
+has a launcher muzzle and a short launcher box behind the grip, added when it
+became playable, with the open stock still clear. Stock proportions, pod shape and faction panels are stylized
 art choices, not a dimensional reproduction of a particular production variant.
-No launcher, sight electronics or targeting behavior is implemented.
+Its cargo version has a working 20 mm impact launcher mode; no sight electronics
+or targeting behavior is implemented.
 
 **Smart Power · Targeted Assistance:** bone/sand furniture, long upper rail, broad precision cheek rest,
 shorter straight magazine, large tube optic and folded bipod. Its precision stock, long scope and folded bipod distinguish it from the
@@ -228,21 +229,22 @@ working reference name.
   Outside surfaces merge by material, using at most six weapon mesh draws.
 - `src/components/ProxyWeaponStudies.tsx` provides the review page inside the
   existing faction-design route. The operator gallery still uses the original
-  generic rifle/marksman placeholders. All five Freedom Force designs now also have playable cargo variants,
-  integrated in `buildServiceWeapon` and the live catalog. Peace Offering has
-  an integral launcher mode with its own ammunition, not another cargo reward
-  or carry slot. Collective Corps designs remain gallery-only.
+  generic rifle/marksman placeholders. All eight designs now also have playable cargo variants,
+  integrated in `buildServiceWeapon` and the live catalog. Peace Offering and
+  the QTS-11 each have an integral launcher mode with its own ammunition, not
+  another cargo reward or carry slot.
 - Gallery art sockets are distinct from the playable attachment/hand poses.
   The two new cargo integrations, controls and separate ammunition are described
   in [proxy operations](PROXY-OPERATIONS.md).
 - Before replacing an operator's placeholder, review shoulder/grip fit, left
   hand clearance, scope placement, shield interference and gait/stance coverage.
-  The bullpup will need a distinct rear-magazine reload if it becomes playable.
+  Strong Objection's reload uses the shared motion with the hand sent to the
+  magazine behind the grip; the magazine sits low in the frame during the swap.
   Weapon-specific cargo sound work follows the local ElevenLabs once-only
   workflow. `scripts/proxy-cargo-sfx.mjs` owns the bounded 20-clip batch;
   published provenance lives in `src/audio/proxy/manifest.json`.
 
-Tests keep unimplemented candidates out of live catalogs and check eight different geometric silhouettes,
+Tests keep every design out of operator roles and check eight different geometric silhouettes,
 magazine layout relative to the grip, real stock/bridge openings, finite
 geometry, render budget and idempotent cleanup. Browser review covers all eight
 models at multiple angles, grayscale, mouse/touch rotation, portrait layout and

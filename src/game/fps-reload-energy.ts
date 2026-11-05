@@ -16,7 +16,7 @@ function accent(time: number, start: number, peak: number, end: number) {
 /** Light guns turn more readily; heavy ones carry more along their length. */
 function handlingWeight(weapon: Pick<WeaponSpec, 'id' | 'weightKg'>) {
   // The integral launcher inherits the mass of the rifle that carries it.
-  const mass = weapon.id === 'ff-oicw-launcher' ? 6.8 : weapon.weightKg ?? 3.8;
+  const mass = weapon.id === 'ff-oicw-launcher' ? 6.8 : weapon.id === 'cc-qts11-launcher' ? 5.6 : weapon.weightKg ?? 3.8;
   return { agility: Math.max(.38, Math.min(1.3, Math.sqrt(3.8 / Math.max(.8, mass)))), heft: Math.max(.8, Math.min(1.4, Math.sqrt(mass / 3.8))) };
 }
 

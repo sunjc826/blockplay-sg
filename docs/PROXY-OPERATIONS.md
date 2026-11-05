@@ -91,9 +91,22 @@ magazines, separately from FN MAG belts; the SCAR-L shares 5.56 mm rifle
 magazines. Keeping cargo equips the selected weapon in the normal pickup slot,
 with a loaded magazine and up to four spare magazines in available rig slots.
 It grants no permanent ownership and is removed on death, including after
-travel. The Collective Corps’ existing SAR retrofit reward remains unchanged.
-Peace Offering switches between rifle and integral launcher with **U** or the
-HUD mode button (mouse or touch). The two modes use the same carry slot and
+travel.
+
+Collective Corps crates roll one of four rewards with equal probability when the
+operation spawns: **SAR 21 · Unauthorised Upgrade** (the existing retrofit, on
+standard rifle magazines), **Strong Objection No. 496 · Final Warning No. 497**
+(QBZ-95-inspired 5.8 mm bullpup, reflex sight, fastest up close, slowest reload),
+**Consensus Builder · Unanimous Vote** (QBZ-191-inspired 5.8 mm rifle, 3× sight,
+lightest handling and longest reach of the two rifles) or **QTS-11** (5.8 mm rifle
+and separate 5-round 20 mm launcher, shared 3× sight). The three new designs share
+5.8 mm magazines with each other and nothing else, and no loot drops 5.8 mm, so
+what the crate supplies is what you have. They obey the same rules as Freedom Force
+cargo: a kept weapon lasts this life, and is never saved or sold. Freedom Force
+cargo never grants them, as it never grants a SAR 21.
+
+Peace Offering and the QTS-11 switch between rifle and integral launcher with
+**U** or the HUD mode button (mouse or touch). The two modes use the same carry slot and
 keep separate loaded magazines, cooldowns and reload progress. Launcher spares
 occupy real rig positions alongside rifle/pistol spares; cargo adds up to two
 rifle and two launcher magazines where room exists. To fit its launcher kit,
@@ -123,8 +136,11 @@ The M200 uses a 1.4-second manual cycle, 160 base damage, 6× scope and a distin
 or pistol spares. The right hand lifts/pulls/pushes/locks the bolt within the
 firing interval; a held trigger cannot repeatedly fire it. Its bipod deploys
 in a supported prone stance. Heavy-round armor/audio treatment avoids treating
-.408 as pistol ammunition. The QTS-11 and other Collective weapon designs
-remain gallery studies; operator loadouts are unchanged.
+.408 as pistol ammunition. Operator loadouts are unchanged; proxy operators still
+carry their placeholder rifles rather than these designs.
+
+The training range wall hangs every cargo weapon, in a Freedom Force row and a
+Collective Corps row. Taking one there changes that session's equipment only.
 
 `proxy-operations.ts` owns bounded personal state, choice validation, claims and
 lifetimes. `arena-rules.ts` owns placement, actors, sight/reach checks, combat

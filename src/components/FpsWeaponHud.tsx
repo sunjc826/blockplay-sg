@@ -1,4 +1,4 @@
-import { OICW_RIFLE, OICW_LAUNCHER } from '../game/weapon-modes';
+import { hasLauncherMode, isLauncherMode } from '../game/weapon-modes';
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Rotate3d } from 'lucide-react';
 import { tapProps } from './touch-tap';
@@ -87,7 +87,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickR
             {hud.rail && hud.offsetDot && ' · '}{hud.offsetDot && <>{hint('X ')}{hud.canted ? 'OFFSET DOT' : 'PRIMARY SIGHT'}</>}
           </p>}
           <p className="fps-ammo-detail fps-hud-hint">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
-          {canFight && onToggleMode && [OICW_RIFLE, OICW_LAUNCHER].includes(hud.weapon) && <button type="button" className="fps-mode-select" disabled={reloading} onClick={onToggleMode} aria-label="Switch rifle and grenade launcher">{!touch && 'U · '}{hud.weapon === OICW_LAUNCHER ? 'SELECT RIFLE' : 'SELECT LAUNCHER'}</button>}
+          {canFight && onToggleMode && hasLauncherMode(hud.weapon) && <button type="button" className="fps-mode-select" disabled={reloading} onClick={onToggleMode} aria-label="Switch rifle and grenade launcher">{!touch && 'U · '}{isLauncherMode(hud.weapon) ? 'SELECT RIFLE' : 'SELECT LAUNCHER'}</button>}
           {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}
             disabled={!canFight || hud.pilotEnabled || reloading || !!using || !!grenade || hud.aiming} title="Inspect weapon (K)"
             {...tapProps(onInspect)}><Rotate3d size={13} /><span>{hud.inspecting ? 'Inspecting' : 'Inspect'}</span></button>}

@@ -75,6 +75,6 @@ export function restoreMagazine(value: unknown): RigMagazine | null {
   if (!value || typeof value !== 'object') return null;
   const mag = value as RigMagazine;
   if (!Number.isInteger(mag.capacity) || mag.capacity < 1 || mag.capacity > 200 || !validWeaponIndex(mag.family) ||
-    ![5.56, 7.62, 9, 10.36, 12.7, 20].includes(mag.caliberMm) || !['magazine', 'drum', 'belt'].includes(mag.feed) || mag.group !== magazineGroup(mag)) return null;
+    ![5.56, 5.8, 7.62, 9, 10.36, 12.7, 20].includes(mag.caliberMm) || !['magazine', 'drum', 'belt'].includes(mag.feed) || mag.group !== magazineGroup(mag)) return null;
   return { group: mag.group, capacity: mag.capacity, family: mag.family, caliberMm: mag.caliberMm, feed: mag.feed };
 }

@@ -14,6 +14,10 @@ const WEAPON_RANGES: Readonly<Record<string, number>> = {
   'ff-oicw': 400,
   'ff-oicw-launcher': 220,
   'ff-intervention': 500,
+  'cc-gatekeeper': 300,
+  'cc-network': 350,
+  'cc-qts11': 400,
+  'cc-qts11-launcher': 220,
 };
 export const MAX_WEAPON_RANGE = Math.max(...Object.values(WEAPON_RANGES));
 /** Variants retain their platform id; unknown platforms use the rifle limit. */

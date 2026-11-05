@@ -31,7 +31,7 @@ describe('weapon-specific reload audio', () => {
   it('gives each mechanism its five recorded actions and routes variants by their hardware', () => {
     const mechanisms = FPS_WEAPONS.map(reloadMechanism);
     expect(new Set(mechanisms.slice(0, 8)).size).toBe(8);
-    expect(mechanisms.slice(11)).toEqual(['oicw', 'intervention', 'oicw-launcher']);
+    expect(mechanisms.slice(11)).toEqual(['oicw', 'intervention', 'oicw-launcher', 'bullpup', 'rifle', 'oicw', 'oicw-launcher']);
     for (const weapon of FPS_WEAPONS) for (const stage of stages) {
       const sample = reloadSample(weapon, stage);
       expect(sfxUrls(sample, '/')).toHaveLength(1);

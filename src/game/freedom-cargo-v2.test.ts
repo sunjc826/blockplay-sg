@@ -21,7 +21,7 @@ import { threatOf } from './armor-inserts';
 const equipped = (id: string) => resolveLoadout(recoverProxyWeapon(createProfile(), id, 0));
 it('adds two Mythic rewards without moving existing family indexes or adding the launcher as another reward', () => {
   expect(PROXY_REWARDS['freedom-force']).toEqual(['ff-scar-l','ff-scar-h','ff-longwatch','ff-oicw','ff-intervention']);
-  expect(FPS_WEAPONS.slice(8).map(w=>w.id)).toEqual(['ff-scar-l','ff-scar-h','ff-longwatch','ff-oicw','ff-intervention','ff-oicw-launcher']);
+  expect(FPS_WEAPONS.slice(8,14).map(w=>w.id)).toEqual(['ff-scar-l','ff-scar-h','ff-longwatch','ff-oicw','ff-intervention','ff-oicw-launcher']);
   for(const id of PROXY_REWARDS['freedom-force']) expect(itemById(id)?.tier).toBe('Mythic');
 });
 it('keeps the two Peace Offering modes in one carry slot with independent physical ammunition through travel and death', () => {

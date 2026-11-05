@@ -11,7 +11,7 @@ import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
 import { createFirearmCameraShake } from './firearm-camera-shake';
 import { bailoutRoll, BAILOUT_ROLL_SECONDS } from './bailout-roll';
 import { applyVehicleImpactCamera } from './vehicle-impact';
-import { recoverProxyWeapon, supplyProxyMagazines } from './proxy-equipment';
+import { comesWithCargoKit, recoverProxyWeapon, supplyProxyMagazines } from './proxy-equipment';
 import { createProxyCampaign, PROXY_IDS, proxyName, type ProxyAction, type ProxyCampaign } from './proxy-operations';
 import { createProxyOperationVisuals } from './proxy-operation-visuals';
 import { applyRespawnLoadout, type RespawnLoadoutSelection } from './respawn-loadout';
@@ -46,7 +46,7 @@ import { buildTutorialWorld } from './tutorial-world';
 import { TUTORIAL_DISTRICT, tutorialCheckpoint, COURSE_STEPS } from './tutorial-course';
 import { takeConfirmedImpacts } from './confirmed-impacts';
 import { createKeyboardCrouch, fpsControlKey, fpsInteractionTarget, fpsKeyAction } from './fps-keybindings';
-import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE, physicalWeaponFamilies, primaryWeaponFamily } from './weapon-modes';
+import { OICW_GRENADE, isLauncherMode, launcherOf, physicalWeaponFamilies, primaryWeaponFamily } from './weapon-modes';
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
@@ -1111,8 +1111,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.setStyles(weaponStyles, index); publish();
   }
   function toggleWeaponMode() {
-    if (hud.phase !== 'playing' || !equipment.carriedFamilies.includes(OICW_RIFLE) || primaryWeaponFamily(hud.weapon) !== OICW_RIFLE || vehicles.active && !vehicles.canUseFirearm || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || loadout[hud.weapon].cooldown > 0) return;
-    switchWeapon(hud.weapon === OICW_RIFLE ? OICW_LAUNCHER : OICW_RIFLE);
+    const rifle = primaryWeaponFamily(hud.weapon), launcher = launcherOf(rifle);
+    if (hud.phase !== 'playing' || launcher === undefined || !equipment.carriedFamilies.includes(rifle) || vehicles.active && !vehicles.canUseFirearm || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || loadout[hud.weapon].cooldown > 0) return;
+    switchWeapon(hud.weapon === rifle ? launcher : rifle);
   }
   /** Rentals run to the end of a life/game; equipment never changes mid-fight. */
   function settleEquipmentRentals() {
@@ -1604,7 +1605,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const next=recoverProxyWeapon(fieldProfile,item.id,hud.weapon);
       fieldProfile=next; equipment=resolveLoadout(next, { deferRentalExpiry: true }); specs=equipment.weapons;
       loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
-      if (item.id.startsWith('ff-') && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
+      if (comesWithCargoKit(item.id) && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
       arenaRuntime.updateLoadout(fieldProfile);
       undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressWeapon(model,specs[index])));
       weaponStyles[family] = effectStyleForWeapon(specs[family]);
@@ -2855,7 +2856,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     equipment = next; specs = next.weapons;
     loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
     resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} });
-    if (item.id.startsWith('ff-')) supplyProxyMagazines(loadout, family);
+    if (comesWithCargoKit(item.id)) supplyProxyMagazines(loadout, family);
     keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
     weapons.forEach((model, index) => { undress.push(dressWeapon(model, specs[index])); weaponStyles[index] = effectStyleForWeapon(specs[index]); });
     if (sameHand) {
@@ -3113,7 +3114,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     shoulderMotion.shot(specs[hud.weapon], recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: specs[hud.weapon].action === 'bolt' ? null : weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
-    if (hud.weapon === OICW_LAUNCHER) {
+    if (isLauncherMode(hud.weapon)) {
       if (arenaRuntime) arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, rangeLimit, prone);
       else localGrenades.throwGrenade('self', { id: OICW_GRENADE, origin: shotOrigin, direction: ray.ray.direction, under: false, cooked: 0 });
       publish(); return;

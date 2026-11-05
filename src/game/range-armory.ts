@@ -6,7 +6,8 @@ import { lookLimit, type Vec3 } from './loot-focus';
 import type { MapBounds } from './minimap';
 import type { Obstacle } from './marina-collision';
 import { hasItemAccess } from './weapon-rentals';
-import { OICW_LAUNCHER, physicalWeaponFamilies } from './weapon-modes';
+import { PROXY_REWARDS } from './proxy-operations';
+import { isLauncherMode, physicalWeaponFamilies } from './weapon-modes';
 
 /**
  * The training range's armoury: a gallery wall of the Armed Forces' issued
@@ -17,15 +18,18 @@ import { OICW_LAUNCHER, physicalWeaponFamilies } from './weapon-modes';
 
 const weapons = ARMORY_CATALOG.filter(item => item.category === 'weapon');
 const issued = DEFAULT_VARIANTS.slice(0, 5).map(id => itemById(id)!);
-/** The launcher is a mode of Peace Offering rather than a weapon to pick up. */
-const captured = weapons.filter(item => isEnemyIssue(item) && item.family !== OICW_LAUNCHER);
+/** A launcher is a mode of its rifle rather than a weapon to pick up. */
+const captured = weapons.filter(item => isEnemyIssue(item) && !isLauncherMode(item.family!));
 const platform = (family: number) => captured.filter(item => item.family === family);
 const PLATFORM_FAMILIES = [5, 6, 7];
+const collective: readonly string[] = PROXY_REWARDS['collective-cops'];
+const cargo = captured.filter(item => !PLATFORM_FAMILIES.includes(item.family!));
 
 export interface RangeWallRow { label: string; items: readonly ShopItem[] }
 export const RANGE_WALL_ROWS: readonly RangeWallRow[] = [
   { label: 'ARMED FORCES ISSUE', items: issued },
-  { label: 'PROXY CARGO', items: captured.filter(item => !PLATFORM_FAMILIES.includes(item.family!)) },
+  { label: 'FREEDOM FORCE CARGO', items: cargo.filter(item => !collective.includes(item.id)) },
+  { label: 'COLLECTIVE CORPS CARGO', items: cargo.filter(item => collective.includes(item.id)) },
   { label: 'CAPTURED XM8', items: platform(5) },
   { label: 'CAPTURED G36', items: platform(6) },
   { label: 'CAPTURED MG4', items: platform(7) },
@@ -63,7 +67,7 @@ function sessionProfile(profile: ArmoryProfile, equipment: Pick<ResolvedLoadout,
 /** What the session carries after taking `id`, or null if it is not a rack weapon. */
 export function takeRangeArmoryWeapon(profile: ArmoryProfile, equipment: ResolvedLoadout, id: string, active: number): ResolvedLoadout | null {
   const item = itemById(id);
-  if (item?.category !== 'weapon' || item.family === undefined || item.family === OICW_LAUNCHER) return null;
+  if (item?.category !== 'weapon' || item.family === undefined || isLauncherMode(item.family)) return null;
   const next = sessionProfile(profile, equipment), family = item.family;
   if (!hasItemAccess(next, id)) next.owned.push(id);
   next.guns[family].variant = id;
@@ -83,7 +87,7 @@ export function rangeArmoryPutDown(profile: ArmoryProfile, equipment: ResolvedLo
 }
 
 /** How far from the feet a hand reaches along the rack: the wall is taller than a crate. */
-export const RACK_REACH = 3.4;
+export const RACK_REACH = 3.7;
 export interface RackItem extends Vec3 { id: string }
 /** The rack weapon the crosshair is nearest, in reach. Two side by side are told apart by the look, as loot is. */
 export function focusRack<T extends RackItem>(items: readonly T[], feet: Vec3, eye: Vec3, forward: Vec3): T | null {
@@ -101,7 +105,7 @@ export function focusRack<T extends RackItem>(items: readonly T[], feet: Vec3, e
   return best;
 }
 
-export const WALL_WIDTH = 8.8, WALL_HEIGHT = 3.3, WALL_THICKNESS = .24;
+export const WALL_WIDTH = 8.8, WALL_HEIGHT = 3.85, WALL_THICKNESS = .24;
 /** Room to walk and turn between the wall and the table. */
 const AISLE = 2.2;
 export const TABLE_HEIGHT = .82;

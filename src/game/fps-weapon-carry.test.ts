@@ -10,7 +10,7 @@ import { beginWeaponSwitch, carryViewPose, weaponCarryClass, weaponCarryPose, we
 const pose = { x: 2, y: 0, z: 3, yaw: .7, visible: true, activeFamily: 0 };
 describe('body carried weapons and physical switching', () => {
   it('distinguishes hip, rifle, support and precision carry across all platforms', () => {
-    expect(FPS_WEAPONS.map(weaponCarryClass)).toEqual(['rifle-sling', 'support-sling', 'holster', 'support-sling', 'support-sling', 'rifle-sling', 'rifle-sling', 'support-sling', 'rifle-sling', 'rifle-sling', 'back-sling', 'rifle-sling', 'back-sling', 'rifle-sling']);
+    expect(FPS_WEAPONS.map(weaponCarryClass)).toEqual(['rifle-sling', 'support-sling', 'holster', 'support-sling', 'support-sling', 'rifle-sling', 'rifle-sling', 'support-sling', 'rifle-sling', 'rifle-sling', 'back-sling', 'rifle-sling', 'back-sling', 'rifle-sling', 'rifle-sling', 'rifle-sling', 'rifle-sling', 'rifle-sling']);
     expect(weaponCarryClass({ ...FPS_WEAPONS[1], feed: 'magazine', bipod: 'none' })).toBe('support-sling');
     expect(weaponCarryPose(FPS_WEAPONS[0], 0).position).not.toEqual(weaponCarryPose(FPS_WEAPONS[0], 1).position);
   });

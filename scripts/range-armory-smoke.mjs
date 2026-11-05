@@ -82,7 +82,7 @@ try {
   await send('Page.navigate', { url: origin + '/.cache/range-armory/fixture.html' });
   await enter({});
   const state = await evaluate('trainingEngine.rangeArmoryState()');
-  assert.equal(state.items.length, 27 + bought.length, 'Every issued, captured and bought weapon is on the rack');
+  assert.equal(state.items.length, 30 + bought.length, 'Every issued, captured and bought weapon is on the rack');
   for (const id of bought) assert(state.items.some(item => item.id === id), id);
   assert.deepEqual(state.carried.sort(), ['p30-issued', 'sar-issued']);
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.fps-loot-card')].length`), 0, 'No card until a gun is looked at');

@@ -1,6 +1,6 @@
 import { createLoadout, type AmmoSpec, type WeaponSpec, type WeaponState } from './fps-rules';
 import { addReserveMagazines, doubleStackMagazine, magazineGroup, magazineOf, magazineSlotFits, REAR_MAGAZINE_OFFSET, restoreMagazine, rigSlotCount, type MagazineInventory, type MagazineSpec } from './magazine-inventory';
-import { OICW_RIFLE, OICW_LAUNCHER } from './weapon-modes';
+import { launcherOf } from './weapon-modes';
 
 /** Legacy checkpoint/pickup API. Live reserves are whole magazines in rig slots. */
 export const MAX_RESERVE = 999;
@@ -122,7 +122,8 @@ export function replacePooledWeapon(states: WeaponState[], previous: readonly Po
   }
   inventory.slots = layout.slots; inventory.pouchCount = layout.pouchCount;
   states[family] = { ...createLoadout(specs)[family], loadedCapacity: specs[family].capacity };
-  if (family === OICW_RIFLE && carried.includes(OICW_LAUNCHER)) states[OICW_LAUNCHER] = { ...createLoadout(specs)[OICW_LAUNCHER], loadedCapacity: specs[OICW_LAUNCHER].capacity };
+  const launcher = launcherOf(family);
+  if (launcher !== undefined && carried.includes(launcher)) states[launcher] = { ...createLoadout(specs)[launcher], loadedCapacity: specs[launcher].capacity };
   inventory.heldSlots = carried.flatMap(i => states[i].pendingMagazine && states[i].reloadSlot !== undefined ? [states[i].reloadSlot!] : []);
   return linkReserves(states, specs, carried, inventory);
 }

@@ -7,9 +7,9 @@ export const proxyRival = (id: ProxyId): ProxyId => id === 'freedom-force' ? 'co
 export const PROXY_RULES = { firstIn: 60, cooldown: 420, warning: 18, duration: 180, pursuit: 65, withdrawal: 18, claim: 8, reach: 4, supplies: 60 } as const;
 export const PROXY_REWARDS = {
   'freedom-force': ['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention'],
-  'collective-cops': ['sar-proxy-prototype'],
+  'collective-cops': ['sar-proxy-prototype', 'cc-gatekeeper', 'cc-network', 'cc-qts11'],
 } as const;
-export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Smart Power · Targeted Assistance', 'ff-oicw': 'Peace Offering · Escalation Clause', 'ff-intervention': 'M200 Intervention', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade' })[id] ?? 'Prototype';
+export const proxyWeaponName = (id: string) => ({ 'ff-scar-l': 'Soft Power · Foreign Aid', 'ff-scar-h': 'Hard Power · Strings Attached', 'ff-longwatch': 'Smart Power · Targeted Assistance', 'ff-oicw': 'Peace Offering · Escalation Clause', 'ff-intervention': 'M200 Intervention', 'sar-proxy-prototype': 'SAR 21 · Unauthorised Upgrade', 'cc-gatekeeper': 'Strong Objection No. 496 · Final Warning No. 497', 'cc-network': 'Consensus Builder · Unanimous Vote', 'cc-qts11': 'QTS-11' })[id] ?? 'Prototype';
 export type ProxyAction = 'return' | 'rival' | 'keep' | 'carry' | 'deliver';
 export type ProxyPoint = { x: number; y: number; z: number };
 export interface ProxyCampaign {

@@ -81,7 +81,7 @@ describe('personal proxy tradeoffs',()=>{
       const bad=ops.snapshot();mutation(bad);expect(validProxySnapshot(bad)).toBe(false);
     }
   });
-  it.each(PROXY_REWARDS['freedom-force'])('keeps %s usable in the field but out of persistent ownership', id=>{
+  it.each([...PROXY_REWARDS['freedom-force'],'cc-gatekeeper','cc-network','cc-qts11'])('keeps %s usable in the field but out of persistent ownership', id=>{
     const item=itemById(id)!, profile=recoverProxyWeapon(createProfile(), id, 0);
     const field=restoreFieldProfile(profile), spec=resolveLoadout(field).weapons[item.family!];
     expect(spec.id).toBe(id); expect(spec.name).toBe(item.name);

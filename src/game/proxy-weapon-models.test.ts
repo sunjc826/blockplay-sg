@@ -11,11 +11,11 @@ function meshes(root: THREE.Object3D) {
 }
 
 describe('proxy weapon exterior studies', () => {
-  it('keeps unimplemented candidates out of gameplay and all studies out of operator roles', () => {
+  it('keeps every design playable as cargo and all of them out of operator roles', () => {
     expect(PROXY_WEAPONS).toHaveLength(8);
     expect(new Set(PROXY_WEAPONS.map(study => study.id)).size).toBe(8);
     for (const study of PROXY_WEAPONS) {
-      if (!['ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention'].includes(study.id)) { expect(itemById(study.id)).toBeUndefined(); expect(buildServiceWeapon(study.id)).toBeUndefined(); }
+      expect(itemById(study.id)?.category).toBe('weapon'); expect(buildServiceWeapon(study.id)).toBeDefined();
       expect(getArenaRole(study.id)).toBeUndefined();
       expect(study.referenceUrl).toMatch(/^https:\/\//);
     }
@@ -59,8 +59,8 @@ describe('proxy weapon exterior studies', () => {
 
   it('gives the QTS-11 its own launcher muzzle, open stock and asymmetric sensor silhouette', () => {
     const model = buildProxyWeapon('cc-qts11'), western = buildProxyWeapon('ff-oicw');
-    const { muzzle, launcherMuzzle, launcherMagazine } = model.sockets;
-    expect(launcherMuzzle).toBeDefined(); expect(launcherMagazine).toBeUndefined();
+    const { muzzle, launcherMuzzle, launcherMagazine, grip } = model.sockets;
+    expect(launcherMuzzle).toBeDefined(); expect(launcherMagazine!.position.z).toBeGreaterThan(grip.position.z);
     expect(launcherMuzzle!.position.y).toBeGreaterThan(muzzle.position.y + .1);
     expect(muzzle.position.z).toBeLessThan(launcherMuzzle!.position.z);
     model.root.updateMatrixWorld(true);

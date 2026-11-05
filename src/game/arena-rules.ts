@@ -6,7 +6,7 @@ import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLIO
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
-import { OICW_RIFLE, OICW_LAUNCHER, OICW_GRENADE, withWeaponModes } from './weapon-modes';
+import { OICW_GRENADE, isLauncherMode, primaryWeaponFamily, withWeaponModes } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyOperation, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
@@ -942,7 +942,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!entry || entry.actor.transport && !rifleSeat(entry.actor.aircrew) || (seatOf(vehicles, id)?.seat ?? 2) < 2 || finished || !entry.actor.alive || !entry.playing || !finitePoint(origin) || !finitePoint(direction)) return { ...EMPTY_SHOT };
     if (arenaConditionModifiers(entry.actor.conditions).frozen || entry.actor.bot&&(entry.actor.conditions?.['water-eyes']?.strength??0)>.8 || merlion?.state.operator===id) return { ...EMPTY_SHOT };
     if (!Number.isInteger(weapon) || weapon !== entry.actor.weapon || !entry.weapons[weapon] || !entry.allowedWeapons.includes(weapon)) return { ...EMPTY_SHOT };
-    if (weapon === OICW_LAUNCHER && !entry.allowedWeapons.includes(OICW_RIFLE)) return { ...EMPTY_SHOT };
+    if (isLauncherMode(weapon) && !entry.allowedWeapons.includes(primaryWeaponFamily(weapon))) return { ...EMPTY_SHOT };
     const ammo = entry.ammo[weapon];
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
@@ -964,7 +964,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.shotFlash = { at: elapsed, flare: muzzleSignature(muzzle).flare };
     ammo.cooldown = 0; fireWeapon(ammo, weapon, entry.weapons); entry.actor.shots++; warm(entry.actor, muzzleSignature(muzzle).heat); entry.shieldUntil = 0;
     if (!roundReady(ammo, entry.weapons[weapon])) startReload(entry, weapon);
-    if (weapon === OICW_LAUNCHER) {
+    if (isLauncherMode(weapon)) {
       grenadeSystem.throwGrenade(id, { id: OICW_GRENADE, origin, direction: ray, under: false, cooked: 0 });
       return { ...EMPTY_SHOT };
     }

@@ -1,11 +1,11 @@
 import { validWeaponIndex } from './fps-rules';
 import { hasItemAccess } from './weapon-rentals';
-import { OICW_LAUNCHER, primaryWeaponFamily, withWeaponModes } from './weapon-modes';
+import { isLauncherMode, primaryWeaponFamily, withWeaponModes } from './weapon-modes';
 
 export const SIDEARM_FAMILY = 2;
 export const EXTRA_SLOT_ID = 'slot-extra';
 export interface CarrySlots { main: number; extra: number | null }
-export const isMainWeapon = (family: unknown): family is number => validWeaponIndex(family) && family !== SIDEARM_FAMILY && family !== OICW_LAUNCHER;
+export const isMainWeapon = (family: unknown): family is number => validWeaponIndex(family) && family !== SIDEARM_FAMILY && !isLauncherMode(family);
 export function restoreCarrySlots(value: unknown, owned: readonly string[], rentals?: Record<string, number>): CarrySlots {
   const raw = value && typeof value === 'object' ? value as Partial<CarrySlots> : {};
   const main = isMainWeapon(raw.main) ? raw.main : 0;

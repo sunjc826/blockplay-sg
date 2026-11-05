@@ -9,7 +9,7 @@ import { getFpsDistrict } from './fps-districts';
 import { districtInfrastructure } from './district-infrastructure';
 import { REGION_IDS } from './regions';
 import { buildServiceWeapon } from './service-weapon-models';
-import { OICW_LAUNCHER, OICW_RIFLE } from './weapon-modes';
+import { OICW_LAUNCHER, OICW_RIFLE, QTS_LAUNCHER, QTS_RIFLE } from './weapon-modes';
 import * as THREE from 'three';
 import { applyEnemyWeaponConfig } from './enemy-weapon-models';
 import { carriedVariants, findRangeArmoryPlot, focusRack, RACK_REACH, RANGE_WALL_ROWS, rangeArmoryObstacles, rangeArmoryPlan, rangeTableWeapons, TABLE_CELL, takeRangeArmoryWeapon, WALL_WIDTH } from './range-armory';
@@ -19,10 +19,11 @@ const family = (id: string) => itemById(id)!.family!;
 
 describe('range armoury contents', () => {
   it('hangs every issued and every captured weapon once, without the launcher mode', () => {
-    const captured = ARMORY_CATALOG.filter(item => item.category === 'weapon' && isEnemyIssue(item) && item.id !== 'ff-oicw-launcher').map(item => item.id);
+    const captured = ARMORY_CATALOG.filter(item => item.category === 'weapon' && isEnemyIssue(item) && !item.id.endsWith('-launcher')).map(item => item.id);
     expect(new Set(wallIds).size).toBe(wallIds.length);
     expect([...wallIds].sort()).toEqual([...captured, ...DEFAULT_VARIANTS.slice(0, 5)].sort());
-    expect(wallIds).not.toContain('ff-oicw-launcher');
+    expect(wallIds).not.toContain('ff-oicw-launcher'); expect(wallIds).not.toContain('cc-qts11-launcher');
+    expect(RANGE_WALL_ROWS.find(row => row.label === 'COLLECTIVE CORPS CARGO')!.items.map(item => item.id)).toEqual(expect.arrayContaining(['sar-proxy-prototype', 'cc-gatekeeper', 'cc-network', 'cc-qts11']));
   });
   it('leaves bought and rented weapons on the table, and nothing else', () => {
     const base = createProfile();
@@ -74,6 +75,12 @@ describe('taking a rack weapon', () => {
     const { profile, equipment } = start();
     const next = takeRangeArmoryWeapon(profile, equipment, 'ff-oicw', 0)!;
     expect(next.carriedFamilies).toContain(OICW_RIFLE); expect(next.carriedFamilies).toContain(OICW_LAUNCHER);
+  });
+  it('brings the launcher mode with the QTS-11, and refuses the launcher on its own', () => {
+    const { profile, equipment } = start();
+    const next = takeRangeArmoryWeapon(profile, equipment, 'cc-qts11', 0)!;
+    expect(next.carriedFamilies).toContain(QTS_RIFLE); expect(next.carriedFamilies).toContain(QTS_LAUNCHER);
+    expect(takeRangeArmoryWeapon(profile, equipment, 'cc-qts11-launcher', 0)).toBeNull();
   });
   it('replaces the extra main when it is in hand', () => {
     const base = createProfile(), profile = { ...base, owned: [...base.owned, 'slot-extra'], carry: { main: 0, extra: 1 } };

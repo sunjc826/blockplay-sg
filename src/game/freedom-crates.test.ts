@@ -12,7 +12,8 @@ import { createPooledLoadout, replacePooledWeapon } from './ammo-pools';
 import { addReserveMagazines } from './magazine-inventory';
 import { fireWeapon, beginReload, advanceWeapon } from './fps-rules';
 
-it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and detachable magazine', id => {
+const BUILT=[...PROXY_REWARDS['freedom-force'],'cc-gatekeeper','cc-network','cc-qts11'] as const;
+it.each(BUILT)('%s has a live, unobstructed sight and detachable magazine', id => {
   const family=itemById(id)!.family!, spec=resolveLoadout(recoverProxyWeapon(createProfile(),id,0)).weapons[family];
   const model=buildProxyWeapon(id,true), root=model.root;
   expect(root.userData.artStudy).toBe(false);
@@ -35,12 +36,12 @@ it.each(PROXY_REWARDS['freedom-force'])('%s has a live, unobstructed sight and d
   expect(sight.aimHeight).toBe(height);
   if(id==='ff-longwatch') expect(sight.reticle).toBe('tmr');
   if(id==='ff-intervention') expect(sight.reticle).toBe('mil-dot');
-  expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='ff-scar-h'?2:1);
+  expect(sight.magnification).toBeCloseTo(id==='ff-intervention'?6:id==='ff-oicw'||id==='ff-longwatch'?4:id==='cc-network'||id==='cc-qts11'?3:id==='ff-scar-h'?2:1);
   const handling=createWeaponHandling(root,family);
   expect(Number.isFinite(handling.aimHeight)).toBe(true);
   handling.dispose(); remove(); model.dispose();
 });
-it.each(PROXY_REWARDS['freedom-force'])('%s can fire, reload and retain physical magazines across travel',id=>{
+it.each(BUILT)('%s can fire, reload and retain physical magazines across travel',id=>{
   const previous=resolveLoadout(createProfile()), next=resolveLoadout(recoverProxyWeapon(createProfile(),id,0)), family=itemById(id)!.family!, spec=next.weapons[family];
   const states=replacePooledWeapon(createPooledLoadout(previous.weapons,previous.carriedFamilies),previous.weapons,previous.carriedFamilies,next.weapons,next.carriedFamilies,family);
   const state=states[family]; addReserveMagazines(state,4);
@@ -48,7 +49,7 @@ it.each(PROXY_REWARDS['freedom-force'])('%s can fire, reload and retain physical
   state.cooldown=0;expect(beginReload(state,family,next.weapons)).toBe(true);advanceWeapon(state,family,spec.reload*2,next.weapons);
   expect(state.magazine).toBe(state.loadedCapacity!+1);
   expect(restoreMagazine(magazineOf(spec,family))?.family).toBe(family);
-  expect(magazineGroup(spec)).toBe(id==='ff-intervention'?'10.36:magazine':id==='ff-scar-l'||id==='ff-oicw'?'5.56:magazine':'7.62:magazine');
+  expect(magazineGroup(spec)).toBe(id==='ff-intervention'?'10.36:magazine':id.startsWith('cc-')?'5.80:magazine':id==='ff-scar-l'||id==='ff-oicw'?'5.56:magazine':'7.62:magazine');
   expect(magazineGroup(spec)).not.toBe('7.62:belt');
 });
 

@@ -24,13 +24,13 @@ const ACTION: Record<Stage, string> = { 'MAG OUT': 'out', 'MAG IN': 'in', 'SEAT 
 
 /** Feed hardware determines the sound, including equipped variants and future belt-fed guns. */
 export function reloadMechanism(weapon: ReloadWeapon): Mechanism {
-  if (weapon.id === 'ff-oicw') return 'oicw';
-  if (weapon.id === 'ff-oicw-launcher') return 'oicw-launcher';
+  if (weapon.id === 'ff-oicw' || weapon.id === 'cc-qts11') return 'oicw';
+  if (weapon.id === 'ff-oicw-launcher' || weapon.id === 'cc-qts11-launcher') return 'oicw-launcher';
   if (weapon.id === 'ff-intervention') return 'intervention';
   if (weapon.feed === 'belt') return weapon.caliberMm >= 12 ? 'heavy-belt' : weapon.caliberMm < 7 ? 'light-belt' : 'belt';
   if (weapon.feed === 'drum') return 'drum';
   if (weapon.id === 'p30-inspired') return 'pistol';
-  if (weapon.id === 'sar21-inspired') return 'bullpup';
+  if (weapon.id === 'sar21-inspired' || weapon.id === 'cc-gatekeeper') return 'bullpup';
   return weapon.id === 'xm8-inspired' ? 'carbine' : 'rifle';
 }
 

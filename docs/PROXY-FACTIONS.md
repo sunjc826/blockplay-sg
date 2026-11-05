@@ -5,8 +5,8 @@ Collective Corps deploy as finite two-person cells during contested prototype
 operations. Personal favor and encounter-local targets are active; faction-wide
 diplomacy remains a proposal. See [proxy operations](PROXY-OPERATIONS.md).
 The existing gallery remains a visual study; specialist shield/sensor mechanics
-remain proposals. All five Freedom Force weapon designs have playable
-cargo variants; the three Collective Corps designs remain gallery studies.
+remain proposals. All eight weapon designs have playable cargo variants, and
+all of them hang on the training range wall.
 
 Review the actual procedural models at **`/faction-designs`**. Drag to rotate,
 use Front/Rear, inspect Standing/Walking/Crouched poses, and toggle Grayscale.
