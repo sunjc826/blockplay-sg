@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 import { initialFpsHud } from '../game/fps-engine';
 import { FPS_WEAPONS } from '../game/fps-rules';
 import { isLauncherMode } from '../game/weapon-modes';
-import FpsWeaponSlider from './FpsWeaponSlider';
+import FpsWeaponSlider, { weaponTravel } from './FpsWeaponSlider';
 
 const names = ['SAR 21', 'Ultimax', 'P30'];
 const slider = () => renderToStaticMarkup(<FpsWeaponSlider hud={{ ...initialFpsHud, weapon: 0, carriedWeapons: [0, 1, 2] }} names={names} canSwitch onSwitch={() => {}} />);
@@ -27,4 +27,24 @@ it('has an outline for every gun a player can hold', () => {
 
 it('is absent with nothing to switch to', () => {
   expect(renderToStaticMarkup(<FpsWeaponSlider hud={{ ...initialFpsHud, weapon: 0, carriedWeapons: [0] }} names={names} canSwitch onSwitch={() => {}} />)).toBe('');
+});
+
+it('slides the guns the way the thumb went, even wrapping round the ends', () => {
+  expect(weaponTravel([0, 1, 2], 2, 0, { family: 0, travel: -1 })).toBe(-1);
+  expect(weaponTravel([0, 1, 2], 0, 2, { family: 2, travel: 1 })).toBe(1);
+});
+
+it('tells next from previous with two guns, where both are the same gun', () => {
+  expect(weaponTravel([0, 2], 0, 2, { family: 2, travel: -1 })).toBe(-1);
+  expect(weaponTravel([0, 2], 0, 2, { family: 2, travel: 1 })).toBe(1);
+});
+
+it('follows slot order for a change nobody swiped, and ignores a stale request', () => {
+  expect(weaponTravel([0, 1, 2], 0, 1, null)).toBe(-1);
+  expect(weaponTravel([0, 1, 2], 2, 1, null)).toBe(1);
+  expect(weaponTravel([0, 1, 2], 2, 1, { family: 0, travel: -1 })).toBe(1);
+});
+
+it('does not animate the gun already in hand when the switcher first appears', () => {
+  expect(slider()).not.toContain('data-slide');
 });
