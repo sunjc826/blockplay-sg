@@ -54,7 +54,7 @@ function linkReserves(states: WeaponState[], specs: readonly PoolSpec[], carried
     const spec = specs[index], group = magazineGroup(spec);
     state.magazineInventory = inventory; state.magazineGroup = group; state.reserveMagazine = magazineOf(spec, index);
     Object.defineProperty(state, 'reserve', { enumerable: true, configurable: true,
-      get: () => inventory.slots.reduce((sum, mag) => sum + (mag?.group === group ? mag.capacity : 0), 0),
+      get: () => inventory.slots.reduce((sum, mag) => sum + (mag?.group === group ? spec.capacity : 0), 0),
       // Kept for debug tools and legacy fixtures. Gameplay uses explicit magazine
       // operations so changing one weapon never repacks the player's rig.
       set: (value: number) => {

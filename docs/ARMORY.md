@@ -868,8 +868,8 @@ than adding an invisible reserve. Damage and reload durations are unchanged.
 Compatibility follows six gameplay groups: 5.56 rifle magazines (SAR, box-fed
 XM8/G36 variants, Ultimax Kongsi); 5.56 drums (other Ultimax variants, XM8 Automatic
 Rifle, MG36); MG4 5.56 belt boxes; P30 9 mm magazines; FN MAG 7.62 belt boxes;
-CIS 50MG 12.7 belt boxes. Extended containers fit within their group and keep
-their own capacity: a 36-round rifle magazine still holds 36 rounds in an XM8.
+CIS 50MG 12.7 belt boxes. Containers in a group are interchangeable and hold what
+the gun loading them holds: a magazine from a 36-round SAR 21 gives an XM8 30 rounds.
 
 Reloading discards rounds in the removed magazine, preserving a closed-bolt
 weapon's chambered round. A full magazine cannot be reloaded, and a usable last

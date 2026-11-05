@@ -39,7 +39,7 @@ describe('premium Ammo Refill', () => {
     expect(states[carried.find(i => i !== family)!].magazine).toBe(other);
     expect(needsAmmoRefill(state, FPS_WEAPONS[family])).toBe(false); expect(refillAmmo(state, FPS_WEAPONS[family])).toBe(false);
   });
-  it('restores a partly loaded gun with full pouches and preserves donor capacity', () => {
+  it('restores a partly loaded gun with full pouches and keeps the size of the magazine already loaded', () => {
     const state = createPooledLoadout(FPS_WEAPONS, [0, 2])[0];
     state.loadedCapacity = 20; state.magazine = 8;
     expect(refillAmmo(state, FPS_WEAPONS[0])).toBe(true); expect(state.magazine).toBe(21);

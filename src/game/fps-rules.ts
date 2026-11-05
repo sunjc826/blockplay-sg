@@ -232,8 +232,9 @@ function seatMagazine(state: WeaponState, weapon: AmmoSpec) {
   if (state.magazineInventory) {
     takeRigMagazine(state);
     if (!state.pendingMagazine) return;
-    state.loadedCapacity = state.pendingMagazine.capacity;
-    state.magazine += state.pendingMagazine.capacity;
+    // Magazines of a group are interchangeable: the gun decides what one holds.
+    state.loadedCapacity = weapon.capacity;
+    state.magazine += weapon.capacity;
     state.magazineInventory.heldSlots = state.magazineInventory.heldSlots?.filter(slot => slot !== state.reloadSlot);
     delete state.pendingMagazine;
   } else {
