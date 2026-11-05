@@ -229,6 +229,7 @@ export interface FpsExpeditionOptions {
  * cooldown was dropped, and holding was the only pull that reliably fired.
  */
 const TRIGGER_BUFFER = .18;
+const MAP_CAPTURE_GRACE_MS = 1500;
 /** How near a friendly has to fall, in metres, for the radio to say what they left. */
 const FRIENDLY_KIT_CALL_RANGE = 90;
 const randomRoundId = () => globalThis.crypto?.randomUUID?.() ?? `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -728,6 +729,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
   let prone = false;
   let mapReturnStance: { prone: boolean; crouch: boolean } | null = null;
+  /** How long play carries on without the mouse while it is being taken back after the map. */
+  let mapCaptureUntil = 0;
   const keyboardCrouch = createKeyboardCrouch();
   const crouchRequested = () => keyboardCrouch.active || keys.has('c');
   const restoreMapStance = (stance: { prone: boolean; crouch: boolean }) => {
@@ -858,6 +861,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     reloadAudio.clear();
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); hud.pilotStatus = 'Player controls'; hud.pilotGoal = null; hud.pilotContacts = 0;
     capturePending = false;
+    mapCaptureUntil = 0;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
     hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; recoveryPicker = null; hud.recoveryPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
@@ -1071,11 +1075,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) { captureFailed(); return; }
     if (!deployInitially()) return;
     capturePending = false; hud.message = ''; lastTime = performance.now(); clearInput();
+    // Coming back from the map or a menu is not the start of anything, so the Encik stays quiet.
+    const returning = !!mapReturnStance;
     if (mapReturnStance) { restoreMapStance(mapReturnStance); mapReturnStance = null; }
     canvas.focus(); initAudio();
     if (introEligible && !deploymentIntro.begun) beginDescent();
     hud.phase = deploymentIntro.active ? 'deploying' : 'playing';
-    if (hud.phase === 'playing' && !checkpoint?.continuation) radioCall('start');
+    if (hud.phase === 'playing' && !checkpoint?.continuation && !returning) radioCall('start');
     updateCameras(0, false, false); publish();
   }
   function finishDeployment() {
@@ -1183,7 +1189,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function reset() {
     weaponSwitch = null; rig.scale.set(1, 1, 1);
-    mapReturnStance = null;
+    mapReturnStance = null; mapCaptureUntil = 0;
     gunshotSpaces.clear();
     gunshots.clear(); emptyFireAudio.clear();
     impactAudio.clear(); bulletFlybys.clear();
@@ -1542,13 +1548,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       moveStick = heldStick;
     }
     if (hud.mapExpanded) {
+      mapCaptureUntil = 0; mapReturnStance = null;
       if (document.pointerLockElement === canvas) document.exitPointerLock();
-    } else if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) {
-      // Reuse the normal guarded capture flow; denial leaves a working Resume button.
-      mapReturnStance = posture;
-      pause(); start(); return;
-    } else canvas.focus({ preventScroll: true });
+    } else {
+      canvas.focus({ preventScroll: true });
+      if (!pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) recaptureAfterMap(posture);
+    }
     publish();
+  }
+  /**
+   * Closing the map is not a pause: the match never stopped, so play carries on
+   * while the mouse comes back. Denial, or no answer, leaves a working Resume button.
+   */
+  function recaptureAfterMap(posture: { prone: boolean; crouch: boolean }) {
+    mapReturnStance = posture; mapCaptureUntil = performance.now() + MAP_CAPTURE_GRACE_MS;
+    capturePromisePending = true;
+    void requestFpsPointerLock(canvas).catch(() => {
+      if (!mapCaptureUntil) return;
+      pause(); captureFailed();
+    }).finally(() => { capturePromisePending = false; });
   }
   /**
    * The laser's beam and dot and the torch, from the emitters on the weapon in
@@ -1902,8 +1920,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const lockchange = () => {
     const locked = document.pointerLockElement === canvas;
     if (locked && capturePending) enterPlay();
-    else if (locked && !['playing', 'deploying'].includes(hud.phase)) document.exitPointerLock();
-    if (!locked && !hud.mapExpanded && !hud.proxyMenu && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse' && !respawnDescent)) pause(); wasLocked = locked; publish();
+    // The map can be reopened before the mouse comes back from closing it.
+    else if (locked && (hud.mapExpanded || !['playing', 'deploying'].includes(hud.phase))) document.exitPointerLock();
+    else if (locked && mapCaptureUntil) { mapCaptureUntil = 0; mapReturnStance = null; canvas.focus({ preventScroll: true }); }
+    if (!locked && performance.now() >= mapCaptureUntil && !hud.mapExpanded && !hud.proxyMenu && !pilotEnabled && (!expedition || hud.arenaSelf?.alive !== false) && ['playing', 'deploying'].includes(hud.phase) && (wasLocked || inputMode === 'mouse' && !respawnDescent)) pause(); wasLocked = locked; publish();
   };
   const proxyKeydown = (event: KeyboardEvent) => {
     if (!hud.proxyMenu || hud.phase!=='playing' || event.altKey || event.ctrlKey || event.metaKey) return;
@@ -3905,7 +3925,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (hud.phase === 'complete' || hud.phase === 'defeated' || hud.arenaSelf?.alive === false) settleEquipmentRentals();
     // Stop controls even if a browser/VM delays or drops pointerlockchange.
-    if (['playing', 'deploying'].includes(hud.phase) && !respawnDescent && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas) pause();
+    if (['playing', 'deploying'].includes(hud.phase) && !respawnDescent && !hud.mapExpanded && !hud.proxyMenu && (!expedition || hud.arenaSelf?.alive !== false) && !pilotEnabled && inputMode === 'mouse' && document.pointerLockElement !== canvas && performance.now() >= mapCaptureUntil) pause();
 
     if (pilotEnabled && ['complete', 'defeated', 'error'].includes(hud.phase)) { pilotEnabled = false; pilot.reset(); strategicPlanner?.reset(); }
     if (hud.phase === 'deploying' || hud.phase === 'playing') briefing.advance(realDt);

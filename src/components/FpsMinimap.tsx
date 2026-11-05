@@ -7,6 +7,7 @@ import { sectorAt, zoneSectors } from '../game/zone-sectors';
 import type { FacilityState } from '../game/facilities';
 import { CONTROL_COLOR, CONTROL_LABEL, sectorFacilityControl } from '../game/expedition-objectives';
 import FpsMapMarker from './FpsMapMarker';
+import { useMapPanelMotion } from './map-panel-motion';
 import './fps-minimap.css';
 
 /** All schematic furniture, including lines and shapes without a special FPS palette. */
@@ -26,7 +27,7 @@ const SYMBOLS: { label: string; marker: MinimapMarker }[] = [
 ];
 
 /** Callers supply only permitted tactical markers. Landmarks and boundaries are static. */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [] }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded: open = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [] }: {
   facilities?: readonly FacilityState[];
   dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
   jammed?: boolean;
@@ -38,7 +39,8 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
   const clip = useId(), title = useId(), staticId = useId(), district = getRegion(zone);
   const [selection, setSelection] = useState('');
   const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (expanded) panel.current?.querySelector<HTMLButtonElement>('.fps-map-close')?.focus({ preventScroll: true }); }, [expanded]);
+  const closing = useMapPanelMotion(panel, open), expanded = open || closing;
+  useEffect(() => { if (open) panel.current?.querySelector<HTMLButtonElement>('.fps-map-close')?.focus({ preventScroll: true }); }, [open]);
   const { width, height } = VIEW[expanded ? 'expanded' : 'compact'];
   const inset = expanded ? 10 : 6, edge = expanded ? 22 : 14;
   const bounds = expanded ? district.bounds : localMinimapBounds(district.bounds, player), map = minimapProjection(bounds, width, height, expanded ? 16 : 8);
@@ -73,7 +75,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
     choose(ordered[(index + delta + ordered.length) % ordered.length].marker.id);
   };
   useEffect(() => {
-    if (!expanded) return;
+    if (!open) return;
     const key = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLElement && event.target.matches('input,textarea,select,[contenteditable=true]')) return;
       if (event.key === '[' || event.key === ']') { event.preventDefault(); step(event.key === '[' ? -1 : 1); }
@@ -88,7 +90,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded 
   const labels = minimapLabels(labelCandidates, width, height);
   const bar = expanded ? 100 : 25;
   const legend = mode !== 'practice' ? `▲ You · ● Ally · ◆ Enemy · ${contactRange}m sight` : '▲ You · ● Targets · C/H Vehicles';
-  return <div ref={panel} className={`fps-minimap ${expanded ? 'is-expanded' : ''}`} data-map-zone={zone} data-map-expanded={expanded || undefined} data-map-contact-range={mode !== 'practice' ? contactRange : undefined}
+  return <div ref={panel} className={`fps-minimap ${expanded ? 'is-expanded' : ''} ${closing ? 'is-closing' : ''}`} inert={closing} data-map-zone={zone} data-map-expanded={open || undefined} data-map-contact-range={mode !== 'practice' ? contactRange : undefined}
     aria-label={`${getWorldZone(zone).name} ${expanded ? 'district map' : 'local minimap'}`}
     onClick={!expanded ? onToggle : undefined} role={!expanded && onToggle ? 'button' : undefined} tabIndex={!expanded && onToggle ? 0 : undefined}
     onKeyDown={event => { if (!expanded && onToggle && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); event.stopPropagation(); onToggle(); } }}>
