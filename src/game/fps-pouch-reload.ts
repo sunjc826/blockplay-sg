@@ -12,7 +12,7 @@ export interface PouchReloadSource {
 export type PouchReloadPhase = 'reach' | 'grip' | 'extract' | 'carry' | 'insert' | 'return';
 const Y = new THREE.Vector3(0, 1, 0);
 const ease = (time: number, start: number, end: number) => smoothStep((time - start) / (end - start));
-function localBounds(object: THREE.Object3D) {
+export function localBounds(object: THREE.Object3D) {
   object.updateWorldMatrix(true, true);
   const result = new THREE.Box3(), inverse = object.matrixWorld.clone().invert();
   object.traverse(node => {

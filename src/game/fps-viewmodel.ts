@@ -1,8 +1,8 @@
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { boltCycleMotion, cockingHandRelease, handleSide, readyClock, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
-import { createPouchReload, type PouchReloadSource } from './fps-pouch-reload';
+import { boltCycleMotion, cockingHandRelease, handleSide, magazineThrow, readyClock, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
+import { createPouchReload, localBounds, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
@@ -73,6 +73,13 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const magazineScale = magazine?.scale.clone();
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
+  const magazineCentre = magazine ? localBounds(magazine).getCenter(new THREE.Vector3()) : new THREE.Vector3();
+  const throwLean = new THREE.Vector3(), throwSeated = new THREE.Vector3(), viewToParent = new THREE.Matrix3(), parentInverse = new THREE.Matrix4();
+  /** A view-space move as the same move in this node's parent, whatever the gun is doing. */
+  const fromView = (node: THREE.Object3D, move: readonly [number, number, number], target: THREE.Vector3) => {
+    node.parent!.updateWorldMatrix(true, false);
+    return target.set(move[0], move[1], move[2]).applyMatrix3(viewToParent.setFromMatrix4(parentInverse.copy(node.parent!.matrixWorld).invert()));
+  };
   // Animated control is decorative; gameplay ammunition remains owned by weapon rules.
   const authoredControl = index >= 3 ? model.getObjectByName(`${FPS_WEAPONS[index].id}__charging-handle`) : undefined;
   const control = authoredControl ?? box(additions, .023, .014, .025, .049, index ? .211 : .257, index ? .05 : .10, steel);
@@ -114,15 +121,29 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       bipod.update(bipodInput);
       const motionProgress = progress ?? (reload?.magazineOut ? reload.saved : 0);
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side) : readyMotion(ready, side);
+      // Belt boxes lift off rather than being thrown, and only a running reload throws.
+      const thrown = magazine && !beltReload && ready === undefined && progress !== null ? magazineThrow(motionProgress * reloadLength(empty)) : undefined;
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
         magazine.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
+        if (thrown?.active) {
+          // Spin about the magazine's own middle: authored origins are often on the gun.
+          magazine.rotation.set(magazineRotation.x + thrown.spin[0], magazineRotation.y + thrown.spin[1], magazineRotation.z + thrown.spin[2]);
+          throwSeated.copy(magazineCentre).multiply(magazine.scale);
+          throwLean.copy(throwSeated).applyEuler(magazineRotation).sub(throwSeated.applyEuler(magazine.rotation));
+          magazine.position.copy(magazineHome).add(throwLean).add(fromView(magazine, thrown.flown, throwSeated));
+          magazine.position.y -= thrown.strip;
+        }
       }
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
-      left.position.y -= motion.magazineDrop * motion.handToMagazine;
+      if (thrown?.active) {
+        left.position.add(fromView(left, thrown.hand, throwSeated).multiplyScalar(1 - thrown.handHome));
+        left.position.y -= THREE.MathUtils.lerp(thrown.strip, motion.magazineDrop, thrown.handHome);
+      } else left.position.y -= motion.magazineDrop * motion.handToMagazine;
       const leftToHandle = rightCharges ? 0 : motion.handToHandle;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + leftToHandle * grip.turn, .32 - motion.handToMagazine * .35 - leftToHandle * .3);
+      if (thrown?.active) { left.rotation.x -= thrown.open * .5; left.rotation.z += thrown.open * .5; }
       const cycle = manualBolt && progress === null && ready === undefined && ammunition?.cycle !== undefined ? boltCycleMotion(ammunition.cycle) : undefined;
       const strokeLength = index === 2 ? .035 : .075;
       const stroke = (cycle?.travel ?? motion.action) * strokeLength;
@@ -187,8 +208,12 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       // The stub ends in mid-air, which only shows once the hand lets go and hangs
       // away from the gun. Run it out of the frame for as long as that lasts.
-      const armOut = 1 + (side === 'top' ? flick.open : 0) * 3.4, arm = (rightCharges ? right : left).getObjectByName('hand-forearm-stub')!;
-      arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
+      const stretchArm = (hand: THREE.Object3D, out: number) => {
+        const arm = hand.getObjectByName('hand-forearm-stub')!, armOut = 1 + out * 3.4;
+        arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
+      };
+      const throwArm = thrown?.active ? thrown.armOut : 0;
+      stretchArm(left, Math.max(throwArm, !rightCharges && side === 'top' ? flick.open : 0));
       for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07 - (rightCharges ? flick.open * .45 : 0);
       right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0);
       if (magazine) {
@@ -208,8 +233,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       if (leftToHandle > 0 && !reaching) closed = THREE.MathUtils.lerp(closed, .95 * (1 - releaseGrip), leftToHandle);
       if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
       if (!rightCharges) closed *= 1 - flick.open;
+      if (thrown?.active) closed = THREE.MathUtils.lerp(closed, .95, thrown.clamp) * (1 - thrown.open);
       // Past straight: a palm thrown open, not just a grip relaxed.
-      const splay = rightCharges ? 0 : flick.open * .45;
+      const splay = Math.max(rightCharges ? 0 : flick.open, thrown?.active ? thrown.open : 0) * .45;
       for (let finger = 0; finger < 4; finger++) {
         const joint = left.getObjectByName(`grip-finger-${finger}`)!;
         joint.rotation.x = .12 + closed * .95 - splay; joint.rotation.z = (1.5 - finger) * .32 * splay;

@@ -1,4 +1,4 @@
-import { EMPTY_RELOAD, reloadLength, type WeaponSpec } from './fps-rules';
+import { EMPTY_RELOAD, RELOAD_POINTS, reloadLength, type WeaponSpec } from './fps-rules';
 
 export const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t); };
 
@@ -172,6 +172,45 @@ export function readyMotion(progress: number, side: HandleSide = 'right') {
   return { ...motion, x: held(pose.x), y: held(pose.y) - .55 * (1 - rise), z: held(pose.z),
     pitch: held(pose.pitch) - .45 * (1 - rise), yaw: held(pose.yaw), roll: held(pose.roll),
     magazineDrop: 0, magazineVisible: true, handToMagazine: 0, beltSeated: 1 };
+}
+// The spent magazine: gripped, stripped down the well, then slung off the side
+// of the screen. Beats are in tactical reloads, and it has to be gone by the time
+// the rules count it out, because the old magazine has no state past that point.
+export const MAGAZINE_THROW = { grip: .16, strip: .205, whip: .235, release: .265, gone: RELOAD_POINTS.out } as const;
+type Vec = readonly [x: number, y: number, z: number];
+const WHIP_REACH: Vec = [-.12, .10, -.04];
+const WHIP_SECONDS = MAGAZINE_THROW.release - MAGAZINE_THROW.whip;
+// Whip accelerates from rest, so this is its speed when the hand lets go.
+const THROW_SPEED = WHIP_REACH.map(v => 2 * v / WHIP_SECONDS) as unknown as Vec;
+const THROW_GRAVITY = 260, THROW_SPIN: Vec = [24, 9, 58];
+// The hand keeps the magazine's speed at release, then brakes over this long.
+const FOLLOW_THROUGH = .04;
+/**
+ * Everything but the pull down the well (`strip`, in gun metres) is in view
+ * space, so the throw leaves the same way on every gun. Sampled from the reload
+ * clock, not simulated, so a pause or slow frame cannot change where it lands.
+ */
+export function magazineThrow(time: number) {
+  const { grip, strip, whip, release, gone } = MAGAZINE_THROW;
+  const wound = Math.max(0, Math.min(1, (time - whip) / WHIP_SECONDS)) ** 2, flight = Math.max(0, time - release);
+  const along = (reach: number, speed: number, travelled: number) => reach * wound + speed * travelled;
+  const fall = .5 * THROW_GRAVITY * flight * flight;
+  const braked = Math.min(flight, FOLLOW_THROUGH), handTravel = braked - braked * braked / (2 * FOLLOW_THROUGH);
+  const handHome = smoothStep((time - .335) / (gone - .335));
+  return {
+    strip: .015 * smoothStep((time - grip) / (strip - grip)) + .135 * smoothStep((time - strip) / (release - strip - .005)),
+    flown: [along(WHIP_REACH[0], THROW_SPEED[0], flight), along(WHIP_REACH[1], THROW_SPEED[1], flight) - fall, along(WHIP_REACH[2], THROW_SPEED[2], flight)] as Vec,
+    hand: WHIP_REACH.map((reach, i) => along(reach, THROW_SPEED[i], handTravel)) as unknown as Vec,
+    /** How far the hand has gone back to its ordinary reload path. */
+    handHome,
+    spin: [THROW_SPIN[0] * flight, THROW_SPIN[1] * flight, THROW_SPIN[2] * flight - .35 * wound] as Vec,
+    /** The hand clamps on, then is thrown open by the release, for as long as it hangs out there. */
+    clamp: smoothStep((time - grip) / (strip - grip)) * (1 - smoothStep((time - release + .004) / .008)),
+    open: smoothStep((time - release + .004) / .012) * (1 - handHome),
+    /** The arm follows the hand up into the frame, so the forearm's cut end stays out of it. */
+    armOut: smoothStep((time - strip) / (release - strip)) * (1 - handHome),
+    active: time >= grip && time < gone,
+  };
 }
 /** Where the fresh magazine starts in: the end of the MAG OUT stage, in tactical reloads. */
 export const MAG_IN_START = .47;

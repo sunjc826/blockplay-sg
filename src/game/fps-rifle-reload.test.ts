@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
-import { beltWeaponMotion, handleSide, reloadMotion, weaponReloadMotion } from './fps-weapon-motion';
+import { beltWeaponMotion, handleSide, MAGAZINE_THROW, magazineThrow, reloadMotion, weaponReloadMotion } from './fps-weapon-motion';
+import { createWeaponHandling } from './fps-viewmodel';
+import { buildServiceWeapon } from './service-weapon-models';
 import { reloadEnergy } from './fps-reload-energy';
 import { pouchWeaponOffset } from './fps-pouch-reload';
 
@@ -50,4 +52,73 @@ it('retains pistol and machine-gun poses', () => {
         ? beltWeaponMotion(progress, empty) : reloadMotion(progress, empty, handleSide(weapon.id)));
     }
   }
+});
+
+// The SAR 21 and Ultimax are authored GLBs: boxes where their magazines sit, with
+// vertices offset from an identity mesh transform as in those files.
+function serviceOrAuthored(id: string) {
+  const built = buildServiceWeapon(id);
+  if (built) return built;
+  const drum = id === 'ultimax-inspired', geometry = drum ? new THREE.BoxGeometry(.199, .117, .117) : new THREE.BoxGeometry(.043, .18, .074);
+  geometry.translate(0, drum ? .07 : -.05, drum ? -.02 : .245);
+  const model = new THREE.Group(), magazine = new THREE.Mesh(geometry); magazine.name = `${id}__magazine`; model.add(magazine);
+  return model;
+}
+
+describe('throwing the spent magazine', () => {
+  const thrower = FPS_WEAPONS.flatMap((spec, index) => spec.feed === 'belt' ? [] : [{ spec, index }]);
+  const { strip, whip, release, gone } = MAGAZINE_THROW;
+  const speed = (axis: 0 | 1 | 2, time: number, key: 'flown' | 'hand') => (magazineThrow(time + .0005)[key][axis] - magazineThrow(time - .0005)[key][axis]) / .001;
+
+  it('sets off with the hand and at its speed, then leaves the hand behind', () => {
+    for (const key of ['flown', 'hand'] as const) for (const axis of magazineThrow(whip)[key]) expect(Math.abs(axis)).toBe(0);
+    expect(magazineThrow(release).flown).toEqual(magazineThrow(release).hand);
+    for (const axis of [0, 1, 2] as const) expect(speed(axis, release, 'hand')).toBeCloseTo(speed(axis, release, 'flown'), 0);
+    expect(magazineThrow(release + .03).flown[0]).toBeLessThan(magazineThrow(release + .03).hand[0] - .05);
+    // Across the screen in about a fifth of a second on a rifle, turning over as it goes.
+    expect(magazineThrow(gone).flown[0]).toBeLessThan(-.9);
+    expect(Math.abs(magazineThrow(gone).spin[2])).toBeGreaterThan(Math.PI * 1.8);
+  });
+
+  it('clamps the hand on, then throws it open as it lets go', () => {
+    expect(magazineThrow(strip).clamp).toBe(1);
+    expect(magazineThrow(strip).open).toBe(0);
+    expect(magazineThrow(release + .01).clamp).toBe(0);
+    expect(magazineThrow(release + .01).open).toBe(1);
+    expect(magazineThrow(gone).open).toBe(0);
+    expect(magazineThrow(gone).armOut).toBe(0);
+  });
+
+  it.each(thrower)('$spec.name: flies through the frame and is off it before it stops existing', ({ spec, index }) => {
+    const rig = new THREE.Group(), model = serviceOrAuthored(spec.id); rig.add(model);
+    const handling = createWeaponHandling(model, index), magazine = model.getObjectByName(`${spec.id}__magazine`)!;
+    const camera = new THREE.PerspectiveCamera(65, 16 / 9, .01, 20);
+    camera.updateMatrixWorld(true); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    const frame = (time: number) => {
+      const pose = weaponReloadMotion(time, false, spec), energy = reloadEnergy(time, false, spec), pouch = pouchWeaponOffset(time, false);
+      rig.position.set(.20 + pose.x + energy.x + pouch.x, -.32 + pose.y + energy.y + pouch.y, -.78 + pose.z + energy.z + pouch.z);
+      rig.rotation.set(pose.pitch + energy.pitch, pose.yaw + energy.yaw + pouch.yaw, pose.roll + energy.roll + pouch.roll);
+      rig.updateMatrixWorld(true);
+      handling.update(time, false, undefined, undefined, undefined, { rounds: spec.capacity, capacity: spec.capacity });
+      rig.updateMatrixWorld(true);
+      return new THREE.Box3().setFromObject(magazine).getCenter(new THREE.Vector3()).project(camera);
+    };
+    const inFrame = (at: THREE.Vector3) => Math.abs(at.x) < 1 && Math.abs(at.y) < 1;
+    const flight = Array.from({ length: 11 }, (_, step) => frame(release + (.355 - release) * step / 10));
+    expect(flight.some(inFrame), 'seen on the way').toBe(true);
+    // The rules take the magazine out at `gone`: its middle has to be past the edge by a clear margin.
+    const last = frame(gone - .001);
+    expect(last.y < -1.1 || last.x < -1.1, `${spec.id} at ${last.x.toFixed(2)}, ${last.y.toFixed(2)}`).toBe(true);
+    handling.dispose();
+  });
+
+  it('leaves the magazine seated when no reload is running, and a spawn rack alone', () => {
+    const spec = FPS_WEAPONS[0], model = serviceOrAuthored(spec.id), handling = createWeaponHandling(model, 0);
+    const magazine = model.getObjectByName(`${spec.id}__magazine`)!, home = magazine.position.clone();
+    handling.update(null, false);
+    expect(magazine.position.distanceTo(home)).toBe(0);
+    handling.update(null, false, undefined, .5);
+    expect(magazine.position.distanceTo(home)).toBe(0);
+    handling.dispose();
+  });
 });

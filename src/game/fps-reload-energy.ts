@@ -1,5 +1,5 @@
 import { reloadLength, type WeaponSpec } from './fps-rules';
-import { READY_BEATS, READY_SECONDS, smoothStep } from './fps-weapon-motion';
+import { MAGAZINE_THROW, READY_BEATS, READY_SECONDS, smoothStep } from './fps-weapon-motion';
 
 /** Accelerate into contact; the endpoints stay still for a clean physical handoff. */
 export const reloadDrive = (progress: number) => {
@@ -32,6 +32,8 @@ export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<Weap
   const tension = accent(time, belt ? .28 : .16, belt ? .31 : .205, belt ? .335 : .23);
   const pull = accent(time, belt ? .315 : .205, belt ? .35 : .265, .39);
   const pullRecover = accent(time, belt ? .35 : .265, belt ? .38 : .31, .43);
+  // Slinging the magazine away shoves the gun the other way, once the hand is off it.
+  const fling = belt ? 0 : accent(time, MAGAZINE_THROW.release, MAGAZINE_THROW.release + .015, MAGAZINE_THROW.gone);
   const seatTime = belt ? .64 : .74;
   const brace = accent(time, seatTime - .065, seatTime - .018, seatTime);
   const seat = accent(time, seatTime, seatTime + .014, seatTime + .075);
@@ -44,12 +46,12 @@ export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<Weap
   const shoulder = accent(time, empty ? 1.30 : .84, empty ? 1.39 : .92, reloadLength(empty));
   const turn = weapon.id === 'sar21-inspired' ? -1 : 1;
   return {
-    x: agility * (.012 * prepare - .014 * lift - .012 * tension + .033 * pull - .012 * pullRecover - .022 * seat + .010 * rebound),
-    y: agility * (-.018 * prepare + .024 * lift + .016 * tension - .045 * pull + .018 * pullRecover - .024 * brace + .060 * seat - .026 * rebound - .040 * cover - .009 * shoulder),
+    x: agility * (.012 * prepare - .014 * lift - .012 * tension + .033 * pull - .012 * pullRecover + .035 * fling - .022 * seat + .010 * rebound),
+    y: agility * (-.018 * prepare + .024 * lift + .016 * tension - .045 * pull + .018 * pullRecover - .018 * fling - .024 * brace + .060 * seat - .026 * rebound - .040 * cover - .009 * shoulder),
     z: heft * (.012 * prepare - .016 * tension + .045 * pull - .020 * pullRecover + .025 * brace - .048 * seat + .020 * rebound + .060 * rack - .022 * rackStop - .065 * release + .023 * releaseRecover - .014 * shoulder),
-    pitch: agility * (-.045 * prepare + .055 * lift + .035 * tension - .095 * pull + .040 * pullRecover - .045 * brace + .145 * seat - .065 * rebound - .130 * cover + .075 * rack - .055 * rackStop - .130 * release + .045 * releaseRecover + .025 * shoulder),
-    yaw: agility * (.025 * prepare - .035 * lift + .055 * pull + turn * (.055 * rack - .040 * rackStop - .070 * release + .025 * releaseRecover)),
-    roll: agility * (.06 * prepare - .085 * lift - .035 * tension + .120 * pull - .045 * pullRecover - .065 * brace - .115 * seat + .055 * rebound + .060 * cover + turn * (.060 * rackStop + .105 * release - .040 * releaseRecover) + .035 * shoulder),
+    pitch: agility * (-.045 * prepare + .055 * lift + .035 * tension - .095 * pull + .040 * pullRecover - .030 * fling - .045 * brace + .145 * seat - .065 * rebound - .130 * cover + .075 * rack - .055 * rackStop - .130 * release + .045 * releaseRecover + .025 * shoulder),
+    yaw: agility * (.025 * prepare - .035 * lift + .055 * pull - .040 * fling + turn * (.055 * rack - .040 * rackStop - .070 * release + .025 * releaseRecover)),
+    roll: agility * (.06 * prepare - .085 * lift - .035 * tension + .120 * pull - .045 * pullRecover + .070 * fling - .065 * brace - .115 * seat + .055 * rebound + .060 * cover + turn * (.060 * rackStop + .105 * release - .040 * releaseRecover) + .035 * shoulder),
   };
 }
 
