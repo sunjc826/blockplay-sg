@@ -47,16 +47,16 @@ remain as the fallback while the files load, or if they never do.
 Files are served from `public/audio/sfx/`, which the service worker caches at
 runtime like the Encik recordings.
 
-## Effects volume
+## Effects and voice volume
 
-The Sound effects slider in Settings scales everything except music: gunfire,
-footsteps, vehicles, ambience, the Encik's radio and the menu and store sounds. It
-defaults to 100%, which is the original mix. The AI companion's live voice is not
-included: it is a conversation the player starts, with its own microphone button.
+Settings has separate Sound effects and Voice sliders, both defaulting to 100%, the
+original mix. Voice covers the Encik's radio and the AI guide's replies, and
+Sound effects covers everything else except music: gunfire, footsteps, vehicles,
+ambience and the menu and store sounds. The Encik's in-game on/off button remains.
 
-`effectsOutput(context)` in `src/lib/effects-volume.ts` gives each `AudioContext`
-one gain node, after the combat limiter. New sounds connect there, never to
-`context.destination`, and a test fails if one connects directly. Menu and store
+Both come from `createVolumeSetting` in `src/lib/volume-setting.ts`. `effectsOutput(context)` gives each `AudioContext` one gain node, after the combat
+limiter, and `voiceOutput(context)` a second for speech. New sounds connect to one
+of them, never to `context.destination`, and a test fails if one connects directly. Menu and store
 clips are `HTMLAudioElement`s, so they multiply their own level by the setting when
 played, and skip playing at 0 because iOS Safari ignores an element's volume. iOS
 therefore only gets on or off for those clips.

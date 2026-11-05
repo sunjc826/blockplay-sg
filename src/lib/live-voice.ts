@@ -1,4 +1,5 @@
 import { randomUuid } from './random-id';
+import { getVoiceVolume } from './voice-volume';
 
 export type VoiceState = 'off' | 'connecting' | 'listening' | 'processing' | 'speaking' | 'closing';
 type Transcript = { delta: string; start_ms: number; end_ms: number };
@@ -32,7 +33,7 @@ export class LiveVoice {
   private lastOffset = -1;
   private generation = 0;
   private playbackEvent = '';
-  constructor(private audio: HTMLAudioElement, private callbacks: Callbacks) { audio.muted = true; }
+  constructor(private audio: HTMLAudioElement, private callbacks: Callbacks) { audio.muted = true; audio.volume = getVoiceVolume(); }
 
   private send(event: object) { if (this.channel?.readyState === 'open') this.channel.send(JSON.stringify(event)); }
   private fail(message: string) { if (!this.stopped) { this.callbacks.error(message); this.stop(); } }
@@ -109,7 +110,8 @@ export class LiveVoice {
       this.dispatch();
     } else if (event.type === 'session.commentary.appended' && this.playbackEvent && event.client_event_id === this.playbackEvent) {
       clearTimeout(this.turnTimer);
-      this.audio.muted = false; this.callbacks.state('speaking');
+      // Also muted at 0, as iOS Safari ignores an element's volume.
+      this.audio.muted = getVoiceVolume() === 0; this.callbacks.state('speaking');
     } else if (event.type === 'error') this.fail('GPT-Live-1 reported an error. Text is still available.');
   }
 

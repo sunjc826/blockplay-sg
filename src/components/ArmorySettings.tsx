@@ -3,6 +3,7 @@ import HudHintsToggle from './HudHintsToggle';
 import BotDifficultySettings from './BotDifficultySettings';
 import MusicSettings from './MusicSettings';
 import EffectsSettings from './EffectsSettings';
+import VoiceSettings from './VoiceSettings';
 import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
@@ -23,6 +24,7 @@ export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'pr
     <BotDifficultySettings />
     <MusicSettings />
     <EffectsSettings />
+    <VoiceSettings />
     <div className="armory-settings-group">
       <h2>PC display</h2><p>Show HUD instructions and key reminders. Turn them off to keep combat information, objectives and warnings. Touch controls stay visible.</p>
       <HudHintsToggle />
