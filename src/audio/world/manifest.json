@@ -1,0 +1,617 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono, trimmed to 1 ms before the attack or folded into a padded seamless loop, loudness set per sound, 96 kbps MP3",
+  "loopPadSeconds": 0.12,
+  "groups": {
+    "world-car-loop": [
+      {
+        "file": "world-car-loop-1-6a836283ad.mp3",
+        "seconds": 4.44
+      }
+    ],
+    "world-heli-loop": [
+      {
+        "file": "world-heli-loop-1-c3f5aed8ae.mp3",
+        "seconds": 4.44
+      }
+    ],
+    "world-boat-loop": [
+      {
+        "file": "world-boat-loop-1-adc5d68ede.mp3",
+        "seconds": 4.44
+      }
+    ],
+    "world-paddle": [
+      {
+        "file": "world-paddle-1-213101af77.mp3",
+        "seconds": 0.6
+      },
+      {
+        "file": "world-paddle-2-ed56701ea3.mp3",
+        "seconds": 0.6
+      }
+    ],
+    "world-vehicle-crash": [
+      {
+        "file": "world-vehicle-crash-1-40d0e2ab8f.mp3",
+        "seconds": 0.6
+      },
+      {
+        "file": "world-vehicle-crash-2-adaa260d3c.mp3",
+        "seconds": 0.6
+      }
+    ],
+    "world-vehicle-door": [
+      {
+        "file": "world-vehicle-door-1-dd17df1d80.mp3",
+        "seconds": 0.45
+      },
+      {
+        "file": "world-vehicle-door-2-5a374fa72d.mp3",
+        "seconds": 0.45
+      }
+    ],
+    "world-seat": [
+      {
+        "file": "world-seat-1-ccec2f94a0.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "world-rain-loop": [
+      {
+        "file": "world-rain-loop-1-6828fe6442.mp3",
+        "seconds": 5.44
+      }
+    ],
+    "world-wind-loop": [
+      {
+        "file": "world-wind-loop-1-fb53e31276.mp3",
+        "seconds": 5.44
+      }
+    ],
+    "world-city-loop": [
+      {
+        "file": "world-city-loop-1-4fd6f94c5d.mp3",
+        "seconds": 7.44
+      }
+    ],
+    "world-coast-loop": [
+      {
+        "file": "world-coast-loop-1-f862fbac01.mp3",
+        "seconds": 7.44
+      }
+    ],
+    "world-thunder": [
+      {
+        "file": "world-thunder-1-b05c4170f0.mp3",
+        "seconds": 3.999
+      },
+      {
+        "file": "world-thunder-2-7479b6dbad.mp3",
+        "seconds": 3.915
+      }
+    ],
+    "world-merlion-jet": [
+      {
+        "file": "world-merlion-jet-1-c13e2f1be8.mp3",
+        "seconds": 3.44
+      }
+    ],
+    "world-lift-motor": [
+      {
+        "file": "world-lift-motor-1-1b18959a2a.mp3",
+        "seconds": 3.44
+      }
+    ],
+    "world-lift-ding": [
+      {
+        "file": "world-lift-ding-1-315629aca8.mp3",
+        "seconds": 0.8
+      }
+    ],
+    "world-chute-open": [
+      {
+        "file": "world-chute-open-1-c62c3caf96.mp3",
+        "seconds": 1.179
+      }
+    ],
+    "world-scope-click": [
+      {
+        "file": "world-scope-click-2-60bf6e2d7e.mp3",
+        "seconds": 0.1
+      },
+      {
+        "file": "world-scope-click-3-a860319b28.mp3",
+        "seconds": 0.1
+      }
+    ],
+    "world-cloth-down": [
+      {
+        "file": "world-cloth-down-1-e6449ffb22.mp3",
+        "seconds": 0.4
+      },
+      {
+        "file": "world-cloth-down-2-6ad6496221.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "world-cloth-up": [
+      {
+        "file": "world-cloth-up-1-5199ef0617.mp3",
+        "seconds": 0.35
+      },
+      {
+        "file": "world-cloth-up-2-5c24b7a702.mp3",
+        "seconds": 0.35
+      }
+    ],
+    "world-jump": [
+      {
+        "file": "world-jump-1-39e565fc26.mp3",
+        "seconds": 0.25
+      },
+      {
+        "file": "world-jump-2-f6fc817c22.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "world-brass": [
+      {
+        "file": "world-brass-1-5101d71b5a.mp3",
+        "seconds": 0.25
+      },
+      {
+        "file": "world-brass-3-a99d5cd4fa.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "world-objective": [
+      {
+        "file": "world-objective-1-136692c680.mp3",
+        "seconds": 1.2
+      }
+    ],
+    "world-match-start": [
+      {
+        "file": "world-match-start-1-67204dda32.mp3",
+        "seconds": 0.769
+      }
+    ],
+    "world-rank-up": [
+      {
+        "file": "world-rank-up-1-d1f7cd2f96.mp3",
+        "seconds": 1.3
+      }
+    ],
+    "world-aim": [
+      {
+        "file": "world-aim-3-8d64a46c54.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "world-dragon-drum": [
+      {
+        "file": "world-dragon-drum-4-b293d5e6ef.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "world-switch-click": [
+      {
+        "file": "world-switch-click-3-a8f900bcf7.mp3",
+        "seconds": 0.1
+      }
+    ],
+    "world-streak": [
+      {
+        "file": "world-streak-2-22d5f2fa07.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "world-inspect": [
+      {
+        "file": "world-inspect-2-6e26469e00.mp3",
+        "seconds": 0.8
+      }
+    ],
+    "world-chute-wind": [
+      {
+        "file": "world-chute-wind-2-bdc998aa69.mp3",
+        "seconds": 3.44
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "world-car-loop-1",
+      "file": "world-car-loop-1-6a836283ad.mp3",
+      "sourceSha256": "3470fabe6ea5237a026bd599e53e7b6c8d0ad76729afb8bacd4f86b24046e4e3",
+      "outputSha256": "6a836283adfdfda4d16a35c188cef499cd17cff438b136d9ce754a722097e036",
+      "seconds": 4.44,
+      "loudestAtMs": 286,
+      "gain": 1.181,
+      "sourcePeak": 1.194
+    },
+    {
+      "id": "world-heli-loop-1",
+      "file": "world-heli-loop-1-c3f5aed8ae.mp3",
+      "sourceSha256": "eadcceadfe3a6f523a7dfdffb4bf85160083cd47f5b7ea05a4445be8afa3cb9a",
+      "outputSha256": "c3f5aed8ae070fa7889aa87dcf4f06b1dc9a68af3d278a0f9d78ddb7fcb6a688",
+      "seconds": 4.44,
+      "loudestAtMs": 1,
+      "gain": 0.37,
+      "sourcePeak": 1.066
+    },
+    {
+      "id": "world-boat-loop-1",
+      "file": "world-boat-loop-1-adc5d68ede.mp3",
+      "sourceSha256": "ca5a8b5a6c087ff9892f89c96d8cecc58e2290ccbd450c61de06f1aba3a9bea6",
+      "outputSha256": "adc5d68ede78ab5620a3b275d223f040db6a4473ffc8a05d202099e526db9d53",
+      "seconds": 4.44,
+      "loudestAtMs": 3423,
+      "gain": 0.724,
+      "sourcePeak": 0.965
+    },
+    {
+      "id": "world-paddle-1",
+      "file": "world-paddle-1-213101af77.mp3",
+      "sourceSha256": "e77676d2a28cc3bc666ec85658d355988574f55aa17243086d6c38ac2cb9a53f",
+      "outputSha256": "213101af77e201b8ef49b073ad2ec0a122033a075c308a099bf9d4fc38066357",
+      "seconds": 0.6,
+      "loudestAtMs": 59,
+      "gain": 1.391,
+      "sourcePeak": 0.271
+    },
+    {
+      "id": "world-paddle-2",
+      "file": "world-paddle-2-ed56701ea3.mp3",
+      "sourceSha256": "4fa7a176daa43033c78f5fcae7c1f3e962d803f1ba50d58bf26b58a5fc88cf00",
+      "outputSha256": "ed56701ea37dc748182aaf83b324032b2332cd13688534d306557fe0492fe0cb",
+      "seconds": 0.6,
+      "loudestAtMs": 1,
+      "gain": 0.921,
+      "sourcePeak": 0.234
+    },
+    {
+      "id": "world-vehicle-crash-1",
+      "file": "world-vehicle-crash-1-40d0e2ab8f.mp3",
+      "sourceSha256": "faf34fd529d5825b7abc5991019612c0b12b1cffb8fd823f94893f75b5ad1256",
+      "outputSha256": "40d0e2ab8f32097d26e9b88ff4dea5f935a47fec2b4aee71dee0d650cb312175",
+      "seconds": 0.6,
+      "loudestAtMs": 1,
+      "gain": 3.062,
+      "sourcePeak": 0.208
+    },
+    {
+      "id": "world-vehicle-crash-2",
+      "file": "world-vehicle-crash-2-adaa260d3c.mp3",
+      "sourceSha256": "a5f28d4fdfebadd2bb07b079475e1eadcc6a73fabbe20f9ad765f75c242ae6c7",
+      "outputSha256": "adaa260d3cdb1df15e044a6ee227e92a231faed91cab30fadf7e1c8cb75e982a",
+      "seconds": 0.6,
+      "loudestAtMs": 64,
+      "gain": 0.655,
+      "sourcePeak": 1.196
+    },
+    {
+      "id": "world-vehicle-door-1",
+      "file": "world-vehicle-door-1-dd17df1d80.mp3",
+      "sourceSha256": "62dd697afff1883486dafdcb2ef62172f7a6d0db349e8204283db4db72bf9bbe",
+      "outputSha256": "dd17df1d805486bfaa7b5f13029e737f8ff88f222784ab14f3ee6c8547343bf8",
+      "seconds": 0.45,
+      "loudestAtMs": 4,
+      "gain": 0.594,
+      "sourcePeak": 0.675
+    },
+    {
+      "id": "world-vehicle-door-2",
+      "file": "world-vehicle-door-2-5a374fa72d.mp3",
+      "sourceSha256": "1b20edb24fe0d5c27c98633ba909b1650ec12e26c97519e9fa302cb8d65954f2",
+      "outputSha256": "5a374fa72d1cb134301937e0281341a9ceac72fc707cc879d63ffce32c4c27a8",
+      "seconds": 0.45,
+      "loudestAtMs": 80,
+      "gain": 0.465,
+      "sourcePeak": 0.849
+    },
+    {
+      "id": "world-seat-1",
+      "file": "world-seat-1-ccec2f94a0.mp3",
+      "sourceSha256": "969df3a5ebc0413a13da6109b702925c79c4c4caaadaff94a79fd25087bdddd9",
+      "outputSha256": "ccec2f94a04d6d88e0d145de3bcbe7b386d4029fef073173d21f8dff55d5350f",
+      "seconds": 0.4,
+      "loudestAtMs": 1,
+      "gain": 1.063,
+      "sourcePeak": 1.185
+    },
+    {
+      "id": "world-rain-loop-1",
+      "file": "world-rain-loop-1-6828fe6442.mp3",
+      "sourceSha256": "4fde954cd7ad45d9f3a6a8ba5b24367142d1997d0dbbb3131ef85e248a098b39",
+      "outputSha256": "6828fe644275b5ceca1592d7601303c2263916b21efb3b5dffbc20c133b55ecf",
+      "seconds": 5.44,
+      "loudestAtMs": 1652,
+      "gain": 10.523,
+      "sourcePeak": 0.06
+    },
+    {
+      "id": "world-wind-loop-1",
+      "file": "world-wind-loop-1-fb53e31276.mp3",
+      "sourceSha256": "557e2a352ab90a46b6a95f80df77a7d945b506250298d23380716aa9a915db5d",
+      "outputSha256": "fb53e31276e1bb2eb727a329f4de0b0bb3ce84b22c865db5e18036b77cc522dc",
+      "seconds": 5.44,
+      "loudestAtMs": 2,
+      "gain": 3.969,
+      "sourcePeak": 0.071
+    },
+    {
+      "id": "world-city-loop-1",
+      "file": "world-city-loop-1-4fd6f94c5d.mp3",
+      "sourceSha256": "1bc3f18c8470120a85c7cdf1c881ae7497c8746b2b7e3ffe2166fb32c347188a",
+      "outputSha256": "4fd6f94c5db75da0a59ca44daeef8f160c24e9c70cc5a3b5a166de3fc71eb63a",
+      "seconds": 7.44,
+      "loudestAtMs": 6,
+      "gain": 2.773,
+      "sourcePeak": 0.083
+    },
+    {
+      "id": "world-coast-loop-1",
+      "file": "world-coast-loop-1-f862fbac01.mp3",
+      "sourceSha256": "d74868fde847ea6acd9d9962b757e1f0c1e98759edf7b93ff26901b2671ad726",
+      "outputSha256": "f862fbac0132474384f4bd502cd8e6fab2dca4759d66d820639d8db2550e23e3",
+      "seconds": 7.44,
+      "loudestAtMs": 7086,
+      "gain": 2.096,
+      "sourcePeak": 0.149
+    },
+    {
+      "id": "world-thunder-1",
+      "file": "world-thunder-1-b05c4170f0.mp3",
+      "sourceSha256": "8ad4f1a412d2118ee2b051f71955f8a3ad1644dbcb6ca066dede1f8a98506c2b",
+      "outputSha256": "b05c4170f03408989c15941245d2b3c275ff4b6fc8761ebf5812bee810633f81",
+      "seconds": 3.999,
+      "loudestAtMs": 1040,
+      "gain": 0.959,
+      "sourcePeak": 0.534
+    },
+    {
+      "id": "world-thunder-2",
+      "file": "world-thunder-2-7479b6dbad.mp3",
+      "sourceSha256": "5c8e565d13890f07cb3abc5beeeee3072910e1ae0c353089ca3f0b3de6395e7b",
+      "outputSha256": "7479b6dbadca00a939d54eaa4182f2b28aae51990a573359909a347aeb4108ab",
+      "seconds": 3.915,
+      "loudestAtMs": 240,
+      "gain": 0.786,
+      "sourcePeak": 0.715
+    },
+    {
+      "id": "world-merlion-jet-1",
+      "file": "world-merlion-jet-1-c13e2f1be8.mp3",
+      "sourceSha256": "49c3cf44a9d0b27a66647f2e345f86967eae2fd6264e1f2365b3c062ac17c006",
+      "outputSha256": "c13e2f1be8986dca147e57153deb55c58e7c89dd233c5ac91813d0d9122a7d85",
+      "seconds": 3.44,
+      "loudestAtMs": 340,
+      "gain": 1.511,
+      "sourcePeak": 1.114
+    },
+    {
+      "id": "world-lift-motor-1",
+      "file": "world-lift-motor-1-1b18959a2a.mp3",
+      "sourceSha256": "f2bf9010024a7d3ad4641ced6bbc34888b812ae3816132875353f99b19898e3a",
+      "outputSha256": "1b18959a2a7c18dd6626a8d4b47830c0a046493e4550e5bd53498058e2f5a242",
+      "seconds": 3.44,
+      "loudestAtMs": 1363,
+      "gain": 3.317,
+      "sourcePeak": 0.055
+    },
+    {
+      "id": "world-lift-ding-1",
+      "file": "world-lift-ding-1-315629aca8.mp3",
+      "sourceSha256": "281c5353a6c9cfbe33a46940f96937b9ccb1dff20e205766e16b8026d171cbf6",
+      "outputSha256": "315629aca8a75c1fef3e0fda8971c8c3fb98d48e51b4966ca6f7e9a5f0a3552b",
+      "seconds": 0.8,
+      "loudestAtMs": 442,
+      "gain": 1.261,
+      "sourcePeak": 0.216
+    },
+    {
+      "id": "world-chute-open-1",
+      "file": "world-chute-open-1-c62c3caf96.mp3",
+      "sourceSha256": "83be4c5886b0263628d94c7141dd717e2d1bfd686f960043a6856cd073d36554",
+      "outputSha256": "c62c3caf9653580a78f3c4e007c8dc5aa2e8e3993265ee3fd5c484b7f4d1f307",
+      "seconds": 1.179,
+      "loudestAtMs": 204,
+      "gain": 0.671,
+      "sourcePeak": 1.231
+    },
+    {
+      "id": "world-scope-click-2",
+      "file": "world-scope-click-2-60bf6e2d7e.mp3",
+      "sourceSha256": "213d4bf9b02c4733d9d0d5b05652ab8065cd39d84f9d0c2fca32baab474c5995",
+      "outputSha256": "60bf6e2d7e521cb5f2e2512cccc4f2ab3af2a940bd7ebfc8f46df136d2e7225a",
+      "seconds": 0.1,
+      "loudestAtMs": 4,
+      "gain": 1.355,
+      "sourcePeak": 0.428
+    },
+    {
+      "id": "world-cloth-down-1",
+      "file": "world-cloth-down-1-e6449ffb22.mp3",
+      "sourceSha256": "4f280286b4b2f9f244a7e59d53f7026b55ac84d2908482fb1bdbee172cc78c4f",
+      "outputSha256": "e6449ffb2252c1e94509891198a18f2d4e05e36111e057b8f815df7faa8175a0",
+      "seconds": 0.4,
+      "loudestAtMs": 5,
+      "gain": 0.474,
+      "sourcePeak": 0.464
+    },
+    {
+      "id": "world-cloth-down-2",
+      "file": "world-cloth-down-2-6ad6496221.mp3",
+      "sourceSha256": "5108566ad499f55b0a5d2785a154e7f102ab6c571e6c6297b33d402fdde22324",
+      "outputSha256": "6ad64962217850dbdd8df27d7bd2890283555d4eb6fae9e2151c5692f87a17a4",
+      "seconds": 0.4,
+      "loudestAtMs": 126,
+      "gain": 0.258,
+      "sourcePeak": 1.152
+    },
+    {
+      "id": "world-cloth-up-1",
+      "file": "world-cloth-up-1-5199ef0617.mp3",
+      "sourceSha256": "b239620f46b40017f0bab00807918981dba150cce235c7c87d1b8456d334f985",
+      "outputSha256": "5199ef0617ecb1a2816b5a890c019888193af9beead4705c164e6b00403c4a9e",
+      "seconds": 0.35,
+      "loudestAtMs": 137,
+      "gain": 0.287,
+      "sourcePeak": 1.094
+    },
+    {
+      "id": "world-cloth-up-2",
+      "file": "world-cloth-up-2-5c24b7a702.mp3",
+      "sourceSha256": "fde4ab1b185b9c8f1a0f39c4e3469214ac43c78ce3c8b8d482405745a4cc93a8",
+      "outputSha256": "5c24b7a70219ede172270883b7c49b4192be2e506bfcce68514ef2c743c1212c",
+      "seconds": 0.35,
+      "loudestAtMs": 0,
+      "gain": 0.231,
+      "sourcePeak": 1.207
+    },
+    {
+      "id": "world-jump-1",
+      "file": "world-jump-1-39e565fc26.mp3",
+      "sourceSha256": "cc3ed68ab5bd9bd6dcb705aebfe089ede027c21c7a8f5dc73d5133dbc16d92c5",
+      "outputSha256": "39e565fc26ad35fa329c4054cfdcbb3b8d64b18658de2fcadc44c27aeecec05d",
+      "seconds": 0.25,
+      "loudestAtMs": 1,
+      "gain": 1.474,
+      "sourcePeak": 0.101
+    },
+    {
+      "id": "world-jump-2",
+      "file": "world-jump-2-f6fc817c22.mp3",
+      "sourceSha256": "b8b648a267d8e7b82fad1ad24bd7c27473a9b78b6d997058f0bfd9e173973ee6",
+      "outputSha256": "f6fc817c2247b3f25ee55eaf3dac529c2f90bdf1ce5bd9c458292709b67d4fed",
+      "seconds": 0.25,
+      "loudestAtMs": 7,
+      "gain": 0.186,
+      "sourcePeak": 1.307
+    },
+    {
+      "id": "world-brass-1",
+      "file": "world-brass-1-5101d71b5a.mp3",
+      "sourceSha256": "99d7c94b60bffbc9a4e641b2f5e6b2cfd529d4189693c6152ce74099eaed7f4e",
+      "outputSha256": "5101d71b5a8e655146455c842f1aba66e5252df50e9cb10dc4e69f8e14916834",
+      "seconds": 0.25,
+      "loudestAtMs": 4,
+      "gain": 1.381,
+      "sourcePeak": 0.221
+    },
+    {
+      "id": "world-brass-3",
+      "file": "world-brass-3-a99d5cd4fa.mp3",
+      "sourceSha256": "93a27443b31b327a04e92582cfe0453612cabbe9131adf7ec83d6da81a590454",
+      "outputSha256": "a99d5cd4fab8dca7ccca3d7230e46fb947a31b2bc69f22a5df47b6cb3fc0c692",
+      "seconds": 0.25,
+      "loudestAtMs": 2,
+      "gain": 1.956,
+      "sourcePeak": 0.12
+    },
+    {
+      "id": "world-objective-1",
+      "file": "world-objective-1-136692c680.mp3",
+      "sourceSha256": "e4180d35858a626046e4e3d5bdc38909bc85d11455c18db3f478e9c02999b4a7",
+      "outputSha256": "136692c68041b78e5ea090fa0adbdce772b6061a4b5da7dc14761687a0055f7e",
+      "seconds": 1.2,
+      "loudestAtMs": 85,
+      "gain": 0.349,
+      "sourcePeak": 1.163
+    },
+    {
+      "id": "world-match-start-1",
+      "file": "world-match-start-1-67204dda32.mp3",
+      "sourceSha256": "d60453a4d65e55dd690ffb630df172f0a64d0a25b3165291d27ffe56ae3450b1",
+      "outputSha256": "67204dda32123e813655df76577e8312dad377532a7ac46cdb705878eb1784fc",
+      "seconds": 0.769,
+      "loudestAtMs": 386,
+      "gain": 0.308,
+      "sourcePeak": 1.179
+    },
+    {
+      "id": "world-rank-up-1",
+      "file": "world-rank-up-1-d1f7cd2f96.mp3",
+      "sourceSha256": "f35fe580d243620874683b2116300dfd57e619f150f9de4feceeca68a99c7773",
+      "outputSha256": "d1f7cd2f967aff757826f714783991880c8a938ad77c220b929bbdf702b4b6a5",
+      "seconds": 1.3,
+      "loudestAtMs": 57,
+      "gain": 0.81,
+      "sourcePeak": 0.596
+    },
+    {
+      "id": "world-aim-3",
+      "file": "world-aim-3-8d64a46c54.mp3",
+      "sourceSha256": "11adc8c3412981ad48477d612efa3724d47b8de60d3a8ab7239913640b35ba1f",
+      "outputSha256": "8d64a46c545fc54b58cb42ccd332669111b732ce6c8029c8652fe7e4ccbb88f2",
+      "seconds": 0.2,
+      "loudestAtMs": 66,
+      "gain": 9.32,
+      "sourcePeak": 0.024
+    },
+    {
+      "id": "world-dragon-drum-4",
+      "file": "world-dragon-drum-4-b293d5e6ef.mp3",
+      "sourceSha256": "7c24aa72f8c77ea9c329d08fafbf8185a2cdf049e5cfa8f1b52c32fdfd744d7e",
+      "outputSha256": "b293d5e6ef09998cbb9db8241a5a5c897cdfa9791d15890843d3cdff727ab32f",
+      "seconds": 0.4,
+      "loudestAtMs": 0,
+      "gain": 5.089,
+      "sourcePeak": 0.031
+    },
+    {
+      "id": "world-scope-click-3",
+      "file": "world-scope-click-3-a860319b28.mp3",
+      "sourceSha256": "5de526f1148889e0b026881913e876847a0b39936e1134a884ab93ed652e49fc",
+      "outputSha256": "a860319b28ce584668d8884d9d37409952bdff57507cd1094da70a86b37327bd",
+      "seconds": 0.1,
+      "loudestAtMs": 0,
+      "gain": 1.261,
+      "sourcePeak": 0.766
+    },
+    {
+      "id": "world-switch-click-3",
+      "file": "world-switch-click-3-a8f900bcf7.mp3",
+      "sourceSha256": "c85f6834a454da9cf233be079eebd5dddcc0417ce23848e4c4b94360738371e2",
+      "outputSha256": "a8f900bcf7f4dd4d30183a617db176c06a7b43db81937f3b6cebd4c9c9a5d902",
+      "seconds": 0.1,
+      "loudestAtMs": 2,
+      "gain": 0.8,
+      "sourcePeak": 0.254
+    },
+    {
+      "id": "world-streak-2",
+      "file": "world-streak-2-22d5f2fa07.mp3",
+      "sourceSha256": "bccddb06effca902c6fbdb6f45660578de323fd0310f83e389c62afd586f7ebd",
+      "outputSha256": "22d5f2fa0702de98880b06a126b57dd4d9a82dec1d5112d6a90f0d59f728c204",
+      "seconds": 0.4,
+      "loudestAtMs": 4,
+      "gain": 5.261,
+      "sourcePeak": 0.07
+    },
+    {
+      "id": "world-inspect-2",
+      "file": "world-inspect-2-6e26469e00.mp3",
+      "sourceSha256": "c6967a2e4aa24ff578eb024be5ff6f8860672fe0353fa6bf798bb3031b6bf6e0",
+      "outputSha256": "6e26469e008ac9264bb8d1a97c982638acbd773a4f440645bd0718e0a4e4c55b",
+      "seconds": 0.8,
+      "loudestAtMs": 0,
+      "gain": 6.305,
+      "sourcePeak": 0.014
+    },
+    {
+      "id": "world-chute-wind-2",
+      "file": "world-chute-wind-2-bdc998aa69.mp3",
+      "sourceSha256": "b2a0ea52a4e81d7f5ae8aed69d2b00fde04b49d835af29b5bedc6ade09994e03",
+      "outputSha256": "bdc998aa696835de616bf1208ec469c8f1005846b29964428b459e1b99edd3e9",
+      "seconds": 3.44,
+      "loudestAtMs": 357,
+      "gain": 2.634,
+      "sourcePeak": 0.132
+    }
+  ]
+}

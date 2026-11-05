@@ -1,6 +1,6 @@
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
@@ -28,6 +28,12 @@ import './game-menu.css';
 
 type Screen = Exclude<Route, 'debug' | 'faction-designs'>;
 
+const SOUNDING_CONTROL = 'button:not(:disabled), a[href]';
+/** The menu's sounds on screens with no sounds of their own: any control, by delegation, so new ones need no wiring. */
+const plainScreenSounds = {
+  onClickCapture: (event: ReactMouseEvent) => { if ((event.target as Element).closest?.(SOUNDING_CONTROL)) playMenuSound('click'); },
+  onPointerOver: (event: ReactPointerEvent) => { const button = (event.target as Element).closest?.(SOUNDING_CONTROL); if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget as Node | null)) playMenuSound('hover'); },
+};
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 
 // The three ways to play lead; the rest sit in a row of tiles beneath, so
@@ -118,7 +124,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store'); }} /></main></div>;
 
-  if (screen === 'multiplayer') return <MultiplayerGame armory={armory} suspended={install.updateReady} />;
+  if (screen === 'multiplayer') return <div {...plainScreenSounds} style={{ display: 'contents' }}><MultiplayerGame armory={armory} suspended={install.updateReady} /></div>;
 
   if (screen === 'training' || screen === 'world') {
     return <PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} />;
@@ -142,10 +148,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </div>;
   }
 
-  if (screen === 'inventory') return <div className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
+  if (screen === 'inventory') return <div {...plainScreenSounds} className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
 
   if (screen === 'settings') {
-    return <div className="game-screen game-screen-settings">
+    return <div {...plainScreenSounds} className="game-screen game-screen-settings">
       <header className="game-screen-bar">
         <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
         <h1>Settings</h1>

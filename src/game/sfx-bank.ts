@@ -5,18 +5,19 @@ import proxyManifest from '../audio/proxy/manifest.json';
 import handsManifest from '../audio/hands/manifest.json';
 import switchManifest from '../audio/switch/manifest.json';
 import combatManifest from '../audio/combat/manifest.json';
+import worldManifest from '../audio/world/manifest.json';
 
 /**
  * Recorded sound effects (ElevenLabs takes, see scripts/sfx-batch.mjs), decoded once per AudioContext.
  * Each group holds several takes; `pick` rotates through them so no take plays twice running.
  * Until a group has loaded, or if it never does, `pick` returns null and callers fall back to synthesis.
  */
-const groups = { ...manifest.groups, ...reloadManifest.groups, ...emptyFireManifest.groups, ...proxyManifest.groups, ...handsManifest.groups, ...switchManifest.groups, ...combatManifest.groups };
+const groups = { ...manifest.groups, ...reloadManifest.groups, ...emptyFireManifest.groups, ...proxyManifest.groups, ...handsManifest.groups, ...switchManifest.groups, ...combatManifest.groups, ...worldManifest.groups };
 export type SfxGroup = keyof typeof groups;
 export const SFX_GROUPS = Object.keys(groups) as SfxGroup[];
 
 export function sfxUrls(group: SfxGroup, base = import.meta.env.BASE_URL) {
-  return groups[group].map(clip => `${base}audio/${group in proxyManifest.groups ? 'proxy' : group.startsWith('hands-') ? 'hands' : group.startsWith('switch-') ? 'switch' : group.startsWith('combat-') ? 'combat' : group.startsWith('empty-fire-') ? 'empty-fire' : group.startsWith('reload-') ? 'reload' : 'sfx'}/${clip.file}`);
+  return groups[group].map(clip => `${base}audio/${group in proxyManifest.groups ? 'proxy' : group.startsWith('hands-') ? 'hands' : group.startsWith('switch-') ? 'switch' : group.startsWith('combat-') ? 'combat' : group.startsWith('world-') ? 'world' : group.startsWith('empty-fire-') ? 'empty-fire' : group.startsWith('reload-') ? 'reload' : 'sfx'}/${clip.file}`);
 }
 
 export function createSfxBank(fetcher: typeof fetch = fetch, random = Math.random) {

@@ -1,5 +1,6 @@
 import MerlionHud from './MerlionHud';
 import { playMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
+import { playOnce } from '../lib/menu-audio';
 import type { PlayLoadScreen } from '../game/play-load-stages';
 import { physicalWeaponFamilies, primaryWeaponFamily } from '../game/weapon-modes';
 import RespawnLoadoutSelector from './RespawnLoadoutSelector';
@@ -89,6 +90,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
+  const promoted = hud.phase === 'complete' && rank.level > startingLevel.current;
+  useEffect(() => { if (promoted && !hud.muted) playOnce('world-rank-up'); }, [promoted]); // eslint-disable-line react-hooks/exhaustive-deps
   const debug = useDebugMode();
   useEffect(() => {
     setHud({ ...initialFpsHud, inputMode: scene.checkpoint?.continuation?.inputMode ?? 'mouse' });

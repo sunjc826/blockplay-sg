@@ -54,6 +54,8 @@ import { HANDS_MIX, plateCue } from './hands-audio';
 import { WEAPON_MODE_CUE, weaponSettleCue, weaponSwitchCue } from './weapon-switch-audio';
 import { HIT_CONFIRM_GAP, createEarRing, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup, type Vitals } from './combat-feedback';
 import { createActorFootsteps } from './actor-footsteps';
+import { CRASH_SPEED_LOSS, createWorldLoops, crossedLightning, dragonBoatStroke, worldLoopTargets, type WorldSoundState } from './world-audio';
+import { playMenuSound } from '../lib/menu-audio';
 import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
@@ -160,7 +162,7 @@ import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
 import { factionIdOf, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { HEAT_CALLS } from './faction-heat';
-import { createCombatAudio } from './combat-event-audio';
+import { createCombatAudio, distanceGain } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
 import { COASTAL_SEA, type AmbientKind } from './ambient-sky';
 import { gunfireReports } from './gunfire-reports';
@@ -716,6 +718,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let lastHitConfirm = -Infinity, lastHurtSound = -Infinity, nextHeartbeat = 0, nextBreath = 0, nextStroke = 0, wasSwimming = false, loudUntil = 0;
   const actorSteps = createActorFootsteps(), grenadeMotion = new Map<number, { y: number; speed: number; rested: boolean }>(), heardClouds = new Set<number>();
   let enemyStepsHeard = 0;
+  // What the world loops and one-off world sounds compare against between frames.
+  let lastVehicle: VehicleKind | null = null, lastSeat: number | null = null, lastVehicleSpeed = 0, lastCrash = -Infinity, nextStrokeBeat = 0, wasAiming = false, lastStance = 'stand', wasOnGround = true;
+  let pendingBrass = 0, lastBrass = -Infinity, wasParachuting = false, wasInMovingLift = false, wasStarted = false, stormClock = -1, thunderAt = 0;
+  let transportNear: WorldSoundState['transport'] = null;
+  const siteOwners = new Map<string, string | null | undefined>();
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
@@ -840,6 +847,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    if (hud.phase === 'playing') playMenuSound('click');
     options.onRentalTime?.(0);
     if (resumeCrossing) {
       resumeCrossing = false; resumePilot = false; crossingKeys.clear(); crossingStick = null;
@@ -984,6 +992,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   const encikAudio = createEncikAudio(() => audio);
   const earRing = createEarRing(() => audio, () => hud.muted);
+  const worldLoops = createWorldLoops(() => audio, sfx);
   function stopVoice() { encikAudio.stop(); }
   function radioCall(event: EncikEvent) {
     if (disposed || conditions.deafened || !['playing', 'complete', 'defeated'].includes(hud.phase)) return;
@@ -1107,7 +1116,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function inspectWeapon() {
     if (weaponSwitch || pilotEnabled || hud.phase !== 'playing' || hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || supplyUse || grenadeHeld || loadout[hud.weapon].reloadRemaining > 0 || ads || touchAim || trigger || pullBuffer > 0 || wasSprinting) return;
     if (hud.inspecting) stopInspect();
-    else { inspectElapsed = 0; hud.inspecting = true; cantWanted = false; }
+    else { inspectElapsed = 0; hud.inspecting = true; cantWanted = false; handsSound('world-inspect', .08); }
     canvas.focus({ preventScroll: true }); publish();
   }
   function reload() {
@@ -1521,6 +1530,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.objectiveHints = !hud.objectiveHints; canvas.focus({ preventScroll: true }); publish();
   }
   function toggleMap() {
+    if (hud.phase === 'playing') playMenuSound('hover');
     if (hud.phase !== 'playing') return;
     hud.mapExpanded = !hud.mapExpanded;
     const posture = { prone, crouch: crouchRequested() };
@@ -1602,14 +1612,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function adjustScopeZoom(direction: number) {
     if (!canAdjustScopeZoom() || !scopeZoom.step(specs[hud.weapon], direction)) return;
+    handsSound('world-scope-click', .05);
     canvas.focus({ preventScroll: true }); publish();
   }
   function toggleRail() {
     if (hud.phase !== 'playing' || !toggleWeaponRail(weaponDevices, specs[hud.weapon].accessories)) return;
+    handsSound('world-switch-click', .1);
     publish();
   }
   function toggleDevice(device: 'laser' | 'light') {
     if (hud.phase !== 'playing' || !toggleWeaponDevice(weaponDevices, specs[hud.weapon].accessories, device)) return;
+    handsSound('world-switch-click', .1);
     publish();
   }
   function toggleKeyboardCrouch() {
@@ -1692,7 +1705,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** X: roll over onto the offset dot beside a magnified sight, and back. */
   function toggleCant() {
     if (hud.phase !== 'playing' || vehicles.active && !vehicles.canUseFirearm || !specs[hud.weapon].accessories?.offsetDot) return;
-    cantWanted = !cantWanted; publish();
+    cantWanted = !cantWanted; handsSound('world-aim', .05, .7); publish();
   }
   function toggleAim() {
     if(merlionOperating())return;
@@ -2233,6 +2246,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       updateVehicleCamera(dt); return;
     }
     const aiming = !weaponSwitch && !swimming() && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    if (aiming && !wasAiming && hud.phase === 'playing') handsSound('world-aim', .05);
+    wasAiming = aiming;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) * arenaConditionModifiers(conditions).aim : 1), dt);
@@ -2257,6 +2272,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }));
     const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     if (step && hud.phase === 'playing' && !conditions.deafened) movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
+    if (poseStance !== lastStance && hud.phase === 'playing' && !vehicles.active) handsSound(poseStance === 'stand' ? 'world-cloth-up' : 'world-cloth-down', 0);
+    lastStance = poseStance;
+    if (wasOnGround && !onGround && velocityY > .5 && hud.phase === 'playing' && !vehicles.active) handsSound('world-jump', 0);
+    wasOnGround = onGround;
     const wet = swimming();
     if (wet !== wasSwimming && hud.phase === 'playing' && !vehicles.active) handsSound(wet ? 'combat-water-enter' : 'combat-water-exit', 0, wet ? 1 : 1.2);
     wasSwimming = wet;
@@ -2555,7 +2574,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (rangeDirector && !rangeDirector.eliminate(index, target.activation, hud.elapsed)) return;
     target.alive = false; target.root.visible = drillMode !== 'classic'; hud.hits++;
     if (pendingAttack?.target === index) { pendingAttack = null; hud.incoming = false; }
-    const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
+    const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count; if (chain.count >= 2 && !hud.muted) playTake('world-streak', .7);
     hud.callout = chain.label; calloutTime = hud.callout ? 2.4 : 0; hud.earnedXp += ELIMINATION_XP; hud.earned += ELIMINATION_CREDITS;
     options.onElimination?.(`${roundId}:kill:${hud.hits}`);
     comms.add('kills', pilotEnabled ? 'AI pilot' : 'You', `Target ${index + 1} eliminated${chain.label ? ' · ' + chain.label : ''}.`);
@@ -2705,6 +2724,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     grenadeChoice = id; beltSelected = 'grenade'; grenadePicker = null; grenadeKeyAt = null; canvas.focus({ preventScroll: true }); publish();
   }
   function openGrenadePicker() {
+    playMenuSound('hover');
     if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
     const options = utilityOptions('combat', supplies); if (!options.length) { grenadeKeyAt = null; hud.message = 'No combat items carried.'; publish(); return; }
     recoveryKeyAt = null; grenadeKeyAt = null;
@@ -2852,7 +2872,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function finishRange(early: boolean) {
     if (!practiceRange || hud.phase !== 'playing' && hud.phase !== 'paused' || hud.health <= 0 || rangeDirector!.finished) return;
     rangeEndedEarly = early; rangeDirector!.finish();
-    hud.phase = 'complete'; hud.incoming = false; pendingAttack = null; clearInput(); endSupply(); radioCall('complete');
+    hud.phase = 'complete'; hud.incoming = false; pendingAttack = null; clearInput(); endSupply(); radioCall('complete'); if (!hud.muted) playTake('world-objective', .8);
     if (drillMode === 'classic' || drillMode === 'timed' && !early && hud.hits > 0) {
       const reward: ExerciseReward = { id: roundId, hits: hud.hits, shots: hud.shots, landed: Math.min(hud.landed, hud.shots), elapsed: hud.elapsed, combat: !!options.combat, drill: drillMode, targetCount: targetPositions.length };
       hud.earned += rewardAmount(reward); hud.earnedXp += completionXp(reward); options.onComplete?.(reward);
@@ -3140,6 +3160,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if ((!pilotEnabled && weapon.fireMode === 'semi' && triggerSpent) || !fireWeapon(state, hud.weapon, specs)) return;
     hud.shots++; shotSound(specs[hud.weapon]); loudUntil = performance.now() / 1000 + .45;
+    if (!vehicles.active && !pendingBrass) pendingBrass = performance.now() / 1000 + .42 + Math.random() * .12;
     const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), stance() === 'crouch');
     if (recoilDamage) {
       hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
@@ -3341,6 +3362,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     facilityVisuals.update(frame.snapshot?.facilities);
     proxyVisuals.update(frame.snapshot?.proxies);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
+    if (frame.started && !wasStarted && hud.phase === 'playing' && !hud.muted) playTake('world-match-start', .7);
+    wasStarted = frame.started;
+    for (const site of frame.snapshot?.facilities?.sites ?? []) {
+      const before = siteOwners.get(site.id);
+      if (siteOwners.has(site.id) && before !== site.owner && site.owner === frame.self?.faction && hud.phase === 'playing' && !hud.muted) playTake('world-objective', .8);
+      siteOwners.set(site.id, site.owner);
+    }
+    const parachuting = !!frame.self?.parachuting;
+    if (parachuting && !wasParachuting && !hud.muted) playTake('world-chute-open', .9);
+    wasParachuting = parachuting;
+    const myLift = frame.self?.lift ? getBuildingLifts(world.scene).find(lift => lift.id === frame.self!.lift) : undefined, liftMoving = !!myLift && frame.snapshot ? liftSample(myLift, frame.snapshot.elapsed).moving : false;
+    if (wasInMovingLift && !liftMoving && myLift && !hud.muted) playTake('world-lift-ding', .8);
+    wasInMovingLift = liftMoving;
     if (frame.self?.alive && frame.self.bailoutAt !== undefined && frame.self.bailoutAt !== previousSelf?.bailoutAt) {
       bailoutAge = Math.max(0, (frame.snapshot?.elapsed ?? frame.self.bailoutAt) - frame.self.bailoutAt);
       hud.message = 'Bailed out at speed · landing roll';
@@ -3365,7 +3399,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         // Through a wall it is heard, but muffled: the direction stays honest and it stops reading as in the open.
         occlusionRay.set(camera.position, soundPoint.set(step.x, step.y - .6, step.z).sub(camera.position).normalize()); occlusionRay.near = 0; occlusionRay.far = Math.max(0, step.distance - .6);
         const blocked = !!firstVisibleHit(occlusionRay, birdSurfaces(), true);
-        if (playTake(stepGroup(surfaceUnder(step.x, step.y - 1.75, step.z), running), step.gain * .2 * ducked * (blocked ? .6 : 1), { pan: panTo(step), cutoff: blocked ? 900 : 2400 + 9000 * step.gain })) enemyStepsHeard++;
+        if (playTake(stepGroup(surfaceUnder(step.x, step.y - 1.75, step.z), running), step.gain * .3 * ducked * (blocked ? .6 : 1), { pan: panTo(step), cutoff: blocked ? 900 : 2400 + 9000 * step.gain })) enemyStepsHeard++;
         canvas.dataset.enemySteps = String(enemyStepsHeard);
       }
     }
@@ -3468,7 +3502,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       comms.add('kills', 'Arena', event.text);
       const reward = combatFeedReward(event);
       if (event.killerId !== options.arena!.session.id || !reward) continue;
-      const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count;
+      const chain = registerElimination(killChain, hud.elapsed); killChain = chain; hud.chain = chain.count; if (chain.count >= 2 && !hud.muted) playTake('world-streak', .7);
       hud.callout = event.bounty ? `BOUNTY +${reward.credits} CR · +${reward.xp} XP` : chain.label || 'ELIMINATION'; calloutTime = 2.4; announce(hud.callout, chain.count);
       // Feed ids restart with each session, so the round id keeps a kill from matching one already paid.
       const killId = `${roundId}:kill:${event.id}`;
@@ -3535,6 +3569,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** F opens every carried recovery item; selecting never consumes it. */
   function openRecoveryPicker() {
+    playMenuSound('hover');
     if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
     const options = utilityOptions('recovery', supplies);
     if (!options.length) { recoveryKeyAt = null; hud.message = 'No recovery items carried.'; publish(); return; }
@@ -3584,6 +3619,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (fed.expired.includes('ah-ma')) comms.add('system', 'Ah Ma', 'Ah Ma has gone home. Eat properly, ok?');
   }
   function openCalloutWheel() {
+    playMenuSound('hover');
     if (hud.phase !== 'playing' || hud.health <= 0 || hud.mapExpanded || hud.proxyMenu || pilotEnabled || wheel || recoveryPicker || grenadePicker || supplyUse || grenadeHeld?.pinned) return;
     recoveryKeyAt = grenadeKeyAt = null;
     wheel = { page: wheelPage, x: 0, y: 0, slot: null }; trigger = false; pullBuffer = 0; syncWheel();
@@ -3779,7 +3815,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.combatBanner = banner;
     hud.mapJammed = jammed; hud.mapDangers = jammed ? [] : dangers; hud.cloudCover = cloud;
     blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
-    combatAudio.transport(engine.mode, engine.distance, engine.effort);
+    transportNear = engine.mode ? { mode: engine.mode, gain: distanceGain(engine.distance), effort: engine.effort } : null;
+    combatAudio.transport(worldLoops.playing('transport') ? null : engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);
   }
   /** Local grenades need their particles stepped even when there is no arena snapshot. */
@@ -4033,8 +4070,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const climb = kick.climb.toFixed(4);
     if (climb !== canvas.dataset.fxClimb) canvas.dataset.fxClimb = climb;
     if (effects.style.id !== canvas.dataset.fxStyle) canvas.dataset.fxStyle = effects.style.id;
+    const mountedSpeed = Math.abs(vehicles.mounted?.speed || 0), clockNow = performance.now() / 1000;
+    worldLoops.update(worldLoopTargets({ playing: hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false || hud.phase === 'playing' && !!hud.arenaSelf?.parachuting, deafened: !!conditions.deafened,
+      vehicle: vehicles.active ?? null, speed: mountedSpeed, rain: atmosphere.air.rain, wind: atmosphere.air.wind, sheltered: atmosphere.air.sheltered, coastal: !!COASTAL_SEA[region ?? ''],
+      merlionFiring: merlionOperating() && trigger, inMovingLift: wasInMovingLift, parachuting: wasParachuting, transport: transportNear }), hud.muted);
+    if (hud.phase === 'playing' && !hud.muted) {
+      if ((vehicles.active ?? null) !== lastVehicle && (vehicles.active || lastVehicle) && !isDragonBoat((vehicles.active ?? lastVehicle)!)) handsSound('world-vehicle-door', 0);
+      else if (vehicles.active && vehicles.seat !== lastSeat && lastSeat !== null) handsSound('world-seat', 0);
+      if (lastVehicleSpeed - mountedSpeed > CRASH_SPEED_LOSS && vehicles.active && lastVehicle === vehicles.active && clockNow - lastCrash > .6) { playTake('world-vehicle-crash', .8); lastCrash = clockNow; }
+      const stroke = dragonBoatStroke(vehicles.active ?? null, mountedSpeed);
+      if (stroke && clockNow >= nextStrokeBeat) { playTake('world-dragon-drum', .9); playTake('world-paddle', .7, { pan: Math.random() < .5 ? -.3 : .3 }); nextStrokeBeat = clockNow + stroke; }
+      if (pendingBrass && clockNow >= pendingBrass) { if (clockNow - lastBrass > .2) { playTake('world-brass', .55, { pan: .25 }); lastBrass = clockNow; } pendingBrass = 0; }
+      const stormNow = atmosphere.air.clock;
+      if (atmosphere.air.storm && stormClock >= 0 && crossedLightning(stormClock, stormNow)) thunderAt = clockNow + 1 + Math.random() * 4;
+      stormClock = stormNow;
+      if (thunderAt && clockNow >= thunderAt) { playTake('world-thunder', .9, { pan: Math.random() * .8 - .4 }); thunderAt = 0; }
+    }
+    lastVehicle = vehicles.active ?? null; lastSeat = vehicles.seat ?? null; lastVehicleSpeed = mountedSpeed;
     if (motor && motorGain && audio) {
-      const active = hud.phase === 'playing' && vehicles.mounted && !isDragonBoat(vehicles.mounted.kind) && !hud.muted;
+      const active = hud.phase === 'playing' && vehicles.mounted && !isDragonBoat(vehicles.mounted.kind) && !hud.muted && !worldLoops.playing('vehicle');
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);
       motor.frequency.setTargetAtTime(vehicles.active === 'helicopter' ? 54 + Math.sin(hud.elapsed * 24) * 8 : 35 + Math.abs(vehicles.mounted?.speed || 0) * 4, audio.currentTime, .05);
     }
@@ -4349,7 +4403,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       wetView.dispose();merlionVisuals.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); worldLoops.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       disposeCombatOutput(audio);
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();

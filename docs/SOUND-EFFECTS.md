@@ -72,7 +72,7 @@ Hover stays quieter than confirmation. This processing is offline and used no
 additional API credits; the ten original auditions cost 50 credits total.
 
 `src/lib/menu-audio.ts` preloads two local clips and reuses them across menu
-visits. Only `MainMenu` in `GameMenu.tsx` triggers them: mouse entry or visible
+visits. `MainMenu` in `GameMenu.tsx` triggers them like this (other plain screens use `plainScreenSounds`): mouse entry or visible
 keyboard focus plays hover; accepted selections play confirmation, including
 touch taps. Unloaded hovers are dropped, pointer sweeps are limited to one tick
 per 75 ms, and confirmation suppresses hover. Leaving the menu cancels hover
@@ -198,13 +198,40 @@ remains the fallback at the commit point until the recordings load. Run the scri
 with `--generate` for the cached once-only requests and `--publish` to prepare the
 clips offline. Two takes came back near silent and are listed as rejected there.
 
+## Vehicles, weather, ambience and small handling
+
+`scripts/world-sfx.mjs` holds these ElevenLabs v3 recordings, published to
+`public/audio/world/`. Loops are folded over their own tail and padded either side, so an
+MP3 decoder's start offset cannot open a gap; `createWorldLoops` loops inside the padding and
+fades each voice to a target every frame. `worldLoopTargets` decides those targets from game
+state, so all the mixing rules are in one tested function. The batch cost 940 credits on
+2026-11-05, with near-silent takes rejected as usual.
+
+| What | Group | Rule |
+| --- | --- | --- |
+| Your car or helicopter | `world-car-loop`, `world-heli-loop` | The car revs with speed. The old synth tone stays as the fallback until these load |
+| A transport nearby | Same, plus `world-boat-loop` | By its kind and distance, replacing the synth tone once loaded |
+| Doors, seats, crashes | `world-vehicle-door`, `world-seat`, `world-vehicle-crash` | A crash is 5 m/s lost in a frame |
+| Dragon boat | `world-dragon-drum`, `world-paddle` | Strokes quicken with speed |
+| Rain, wind | `world-rain-loop`, `world-wind-loop` | Follow the weather; quieter under cover or in a cab |
+| Thunder | `world-thunder` | 1 to 5 s after each lightning flash in a thunderstorm |
+| Ambience | `world-city-loop`, `world-coast-loop` | Coast in `COASTAL_SEA` districts; kept under footstep level on purpose |
+| Merlion, lifts, parachutes | `world-merlion-jet`, `world-lift-motor`, `world-lift-ding`, `world-chute-*` | While each is running |
+| Aim, scope, light and laser, cant, inspect | `world-aim`, `world-scope-click`, `world-switch-click`, `world-inspect` | |
+| Stance, jump, brass | `world-cloth-*`, `world-jump`, `world-brass` | Brass at most every 0.2 s |
+| Milestones | `world-match-start`, `world-objective`, `world-streak`, `world-rank-up` | |
+
+Inventory, Settings and multiplayer lobbies now play the menu's hover and click on any button
+by delegation (`plainScreenSounds` in `GameMenu.tsx`). In play, pausing clicks and the wheels and
+map tick. `node scripts/world-audio-smoke.mjs` drives a car through a thunderstorm in a real match.
+
 ## Combat feedback, pickups and footsteps
 
 `scripts/combat-sfx.mjs` holds these ElevenLabs v3 recordings, published to
 `public/audio/combat/`, with the usual `--generate` and `--publish` steps. Short bright
 prompts came back near silent often enough that every take should be checked for
 level before it is kept; the script lists what was rejected. The batch and its
-replacements cost about 547 credits on 2026-11-05.
+replacements cost 547 credits on 2026-11-05.
 
 | Event | Group | Rule |
 | --- | --- | --- |

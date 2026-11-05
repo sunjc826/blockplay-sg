@@ -1,5 +1,6 @@
 import manifest from '../audio/menu/manifest.json';
 import { getEffectsVolume } from './effects-volume';
+import { sfxUrls, type SfxGroup } from '../game/sfx-bank';
 
 type MenuSound = 'hover' | 'click';
 let tracks: Record<MenuSound, HTMLAudioElement> | null = null;
@@ -42,4 +43,13 @@ export function playMenuSound(sound: MenuSound) {
 /** Leaving the menu cancels hover; the short confirmation may finish over the next screen. */
 export function stopMenuHover() {
   tracks?.hover.pause();
+}
+
+/** A milestone on a screen with no engine audio, level already set in its recording. */
+export function playOnce(group: SfxGroup, level = .8) {
+  const volume = getEffectsVolume();
+  if (document.hidden || volume === 0 || typeof Audio === 'undefined') return;
+  const audio = new Audio(sfxUrls(group)[0]);
+  audio.volume = Math.min(1, level * volume);
+  void audio.play().catch(() => {});
 }

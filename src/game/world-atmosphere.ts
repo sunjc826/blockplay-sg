@@ -45,7 +45,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
   const output = { lighting, key: 1, ambient: 1, skyVisibility: 1, moonVisibility: 1, shadows: true, occlusion: true };
   /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
-  const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false };
+  const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const rainSurface = createRainSurface(obstacles, scene.userData.rainGroundHeight ?? groundHeight);
   const vehicleRain = createVehicleRain(scene, groundHeight ?? (() => 0));
@@ -164,7 +164,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       vehicleRain.update(step, exposurePoint, wetness, reduced, rainEffects.splash);
       shelterHit.height = rainSurface(sky.x, sky.z); shelterHit.object = undefined;
       const sheltered = vehicleRain.sample(sky.x, sky.z, shelterHit).height > sky.y + .15;
-      air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered;
+      air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered; air.storm = active.weather === 'thunderstorm'; air.clock = (now % 3600_000) / 1000;
       rainEffects.update(step, exposurePoint, wetness, wind, reduced);
       wetSurfaces.update(step, wetness);
       root.userData.rain = rainEffects.counts;
