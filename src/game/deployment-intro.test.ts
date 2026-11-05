@@ -89,10 +89,10 @@ it('cuts below a roof only while obscured, never descends through the ceiling', 
 
 it('racks either handle while leaving the magazine, belt and resting pose intact', () => {
   for (const side of ['top', 'right'] as const) {
-    expect(readyMotion(.48, side).action).toBe(1);
+    expect(readyMotion(.54, side).action).toBe(1);
     expect(readyMotion(.75, side).action).toBe(0);
-    expect(readyMotion(.48, side).handToHandle).toBe(1);
-    expect(readyMotion(.48, side).roll * (side === 'top' ? -1 : 1)).toBeGreaterThan(.4);
+    expect(readyMotion(.54, side).handToHandle).toBe(1);
+    if (side === 'right') expect(readyMotion(.54, side).roll).toBeGreaterThan(.4);
     for (let p = 0; p <= 1; p += .01) {
       expect(readyMotion(p, side)).toMatchObject({ magazineDrop: 0, magazineVisible: true, handToMagazine: 0, beltSeated: 1 });
     }

@@ -11,7 +11,7 @@ it.each(FPS_WEAPONS.map((spec, i) => [spec.id, i] as const))('moves the %s charg
   const charging = model.getObjectByName(FPS_WEAPONS[i].feed === 'belt' || FPS_WEAPONS[i].action === 'bolt' ? 'reload-hand-right' : 'reload-hand-left')!;
   handling.update(null, false);
   const home = charging.position.clone();
-  handling.update(null, false, undefined, .48);
+  handling.update(null, false, undefined, .54);
   expect(charging.position.distanceTo(home)).toBeGreaterThan(.04);
   expect(magazine.position.y).toBe(0); expect(magazine.visible).toBe(true); expect(cover.rotation.x).toBe(0);
   if (i >= 3) expect(handle.position.z).toBeGreaterThan(.16);

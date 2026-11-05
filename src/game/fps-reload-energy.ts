@@ -1,5 +1,5 @@
 import { reloadLength, type WeaponSpec } from './fps-rules';
-import { smoothStep } from './fps-weapon-motion';
+import { READY_BEATS, READY_SECONDS, smoothStep } from './fps-weapon-motion';
 
 /** Accelerate into contact; the endpoints stay still for a clean physical handoff. */
 export const reloadDrive = (progress: number) => {
@@ -13,16 +13,20 @@ function accent(time: number, start: number, peak: number, end: number) {
   return time < peak ? smoothStep((time - start) / (peak - start)) : 1 - smoothStep((time - peak) / (end - peak));
 }
 
+/** Light guns turn more readily; heavy ones carry more along their length. */
+function handlingWeight(weapon: Pick<WeaponSpec, 'id' | 'weightKg'>) {
+  // The integral launcher inherits the mass of the rifle that carries it.
+  const mass = weapon.id === 'ff-oicw-launcher' ? 6.8 : weapon.weightKg ?? 3.8;
+  return { agility: Math.max(.38, Math.min(1.3, Math.sqrt(3.8 / Math.max(.8, mass)))), heft: Math.max(.8, Math.min(1.4, Math.sqrt(mass / 3.8))) };
+}
+
 /** Cosmetic impulses on the weapon, never the camera or gameplay clock. Sampling
  * absolute progress keeps pause/resume, low frame rates and shop speed modifiers
  * deterministic. Mechanical contacts retain their existing animation/audio times. */
 export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'weightKg' | 'feed' | 'action'>) {
   const time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
   const belt = weapon.feed === 'belt';
-  // The integral launcher inherits the mass of the rifle that carries it.
-  const mass = weapon.id === 'ff-oicw-launcher' ? 6.8 : weapon.weightKg ?? 3.8;
-  const agility = Math.max(.38, Math.min(1.3, Math.sqrt(3.8 / Math.max(.8, mass))));
-  const heft = Math.max(.8, Math.min(1.4, Math.sqrt(mass / 3.8)));
+  const { agility, heft } = handlingWeight(weapon);
   const prepare = accent(time, 0, .035, .10);
   const lift = accent(time, .035, .12, .23);
   const tension = accent(time, belt ? .28 : .16, belt ? .31 : .205, belt ? .335 : .23);
@@ -46,5 +50,49 @@ export function reloadEnergy(progress: number, empty: boolean, weapon: Pick<Weap
     pitch: agility * (-.045 * prepare + .055 * lift + .035 * tension - .095 * pull + .040 * pullRecover - .045 * brace + .145 * seat - .065 * rebound - .130 * cover + .075 * rack - .055 * rackStop - .130 * release + .045 * releaseRecover + .025 * shoulder),
     yaw: agility * (.025 * prepare - .035 * lift + .055 * pull + turn * (.055 * rack - .040 * rackStop - .070 * release + .025 * releaseRecover)),
     roll: agility * (.06 * prepare - .085 * lift - .035 * tension + .120 * pull - .045 * pullRecover - .065 * brace - .115 * seat + .055 * rebound + .060 * cover + turn * (.060 * rackStop + .105 * release - .040 * releaseRecover) + .035 * shoulder),
+  };
+}
+
+/** The bolt reaching home: a small jolt that dies away, gone before control returns. */
+function boltJolt(seconds: number) {
+  const since = seconds - READY_BEATS.home + .02, attack = .03;
+  if (since <= 0) return 0;
+  if (since < attack) return smoothStep(since / attack);
+  const ring = since - attack;
+  return Math.exp(-ring * 12) * Math.cos(ring * 2 * Math.PI * 5) * (1 - smoothStep((seconds - (READY_SECONDS - .2)) / .2));
+}
+const readyBeats = (progress: number) => {
+  const seconds = Math.max(0, Math.min(1, progress)) * READY_SECONDS, { pull, stop, returns } = READY_BEATS;
+  return {
+    // The draw tugs the gun back a little. It stays there through the hold and
+    // only eases off as the hand starts for the grip.
+    drag: smoothStep((seconds - pull) / (stop - pull)) * (1 - smoothStep((seconds - returns) / .3)),
+    jolt: boltJolt(seconds),
+  };
+};
+/**
+ * The spawn rack's force on the weapon, on top of `readyMotion`'s poses. The
+ * hands ride the gun, so this stays small: the draw and the handle flying home
+ * are what should read, and the hand must not be carried forward as it lets go.
+ * Sampled, not simulated, so a pause or slow frame cannot change it.
+ */
+export function readyEnergy(progress: number, weapon: Pick<WeaponSpec, 'id' | 'weightKg'>) {
+  const { agility } = handlingWeight(weapon), { drag, jolt } = readyBeats(progress);
+  const turn = weapon.id === 'sar21-inspired' ? -1 : 1;
+  return {
+    x: 0,
+    y: agility * -.006 * jolt,
+    z: Math.min(1, agility) * (.02 * drag - .004 * jolt),
+    pitch: agility * .03 * drag - Math.min(1, agility) * .012 * jolt,
+    yaw: agility * turn * (.015 * drag - .012 * jolt),
+    roll: agility * turn * (-.01 * drag + .03 * jolt),
+  };
+}
+/** What the rack does to the view: a slight lean with the draw and a tap as the bolt lands. Reduced motion skips it. */
+export function readyViewKick(progress: number, weapon: Pick<WeaponSpec, 'id' | 'weightKg'>) {
+  const { agility } = handlingWeight(weapon), { drag, jolt } = readyBeats(progress);
+  return {
+    pitch: agility * (.002 * drag - .005 * jolt),
+    roll: agility * (weapon.id === 'sar21-inspired' ? -1 : 1) * .003 * jolt,
   };
 }

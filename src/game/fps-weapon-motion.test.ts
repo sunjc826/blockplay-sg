@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { EMPTY_RELOAD, RELOAD_POINTS, reloadCommit, reloadShare } from './fps-rules';
-import { beltWeaponMotion, handleSide, inspectMotion, reloadMotion, reloadStage } from './fps-weapon-motion';
+import { beltWeaponMotion, handleSide, inspectMotion, READY_BEATS, READY_SECONDS, readyClock, readyMotion, reloadMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 
 it('inspects both sides, holds each view, and returns exactly to ready', () => {
   const ready = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 };
@@ -48,7 +48,8 @@ it('racks the handle back, holds it, then lets it fly home as the round chambers
   // a top lever keeps the cant and turns the muzzle in instead.
   expect(Math.sign(at(1.1).roll)).toBe(-Math.sign(at(.4).roll));
   const top = reloadMotion(reloadShare(1.1, true), true, 'top');
-  expect(Math.sign(top.roll)).toBe(Math.sign(at(.4).roll)); expect(top.yaw).toBeGreaterThan(.3);
+  // Square to the shoulder, not turned to show its left side, with the butt dipping on the draw.
+  expect(Math.abs(top.yaw)).toBeLessThan(.1); expect(Math.abs(top.roll)).toBeLessThan(.15); expect(top.pitch).toBeGreaterThan(.06);
   expect(handleSide('sar21-inspired')).toBe('top'); expect(handleSide('mag-inspired')).toBe('right');
   // Held low while cocking, below the magazine change.
   expect(at(1.1).y).toBeLessThan(at(.6).y - .05); expect(top.y).toBeLessThan(at(.6).y - .05);
@@ -88,4 +89,41 @@ it('takes up tension before ripping the magazine free and hitting the charging s
   expect(action(1.015)).toBeCloseTo(1);
   expect(action(1.17)).toBeLessThan(.31);
   expect(action(1.19)).toBe(0);
+});
+
+it('racks with a firm draw, a short hold, and the handle home after the release', () => {
+  const { pull, stop, release, home } = READY_BEATS;
+  expect(readyClock(0)).toBeCloseTo(.80);
+  expect(readyClock(1)).toBeCloseTo(EMPTY_RELOAD.length);
+  expect(stop - pull).toBeGreaterThanOrEqual(.15);
+  expect(release - stop).toBeLessThanOrEqual(.1);
+  const action = (seconds: number) => readyMotion(seconds / READY_SECONDS, 'top').action;
+  expect(action(pull)).toBeCloseTo(.08);
+  // Still gaining speed at the rear stop.
+  expect(action(stop - .01) - action(stop - .02)).toBeGreaterThan(action(pull + .02) - action(pull + .01));
+  expect(action(stop)).toBeCloseTo(1);
+  expect(action(release)).toBeCloseTo(1);
+  expect(action(home)).toBe(0);
+  expect(readyClock(release / READY_SECONDS)).toBeCloseTo(1.16);
+  let previous = readyClock(0);
+  for (let step = 1; step <= 100; step++) { const next = readyClock(step / 100); expect(next).toBeGreaterThanOrEqual(previous); previous = next; }
+});
+
+it('holds the gun pose through the release, then goes straight to rest', () => {
+  for (const side of ['top', 'right'] as const) {
+    const { release, returns } = READY_BEATS, pose = (seconds: number) => readyMotion(seconds / READY_SECONDS, side);
+    expect(pose(returns).z).toBeCloseTo(pose(release).z, 5);
+    expect(pose(returns).roll).toBeCloseTo(pose(release).roll, 5);
+    // No forward kick past rest on the way home.
+    for (let seconds = returns; seconds <= READY_SECONDS; seconds += .01) expect(pose(seconds).z).toBeGreaterThanOrEqual(0);
+  }
+});
+
+it('throws the gun up past its mark, then catches it', () => {
+  // What the throw adds to the pose the gun is rising into.
+  const y = (seconds: number) => readyMotion(seconds / READY_SECONDS).y
+    - reloadMotion(readyClock(seconds / READY_SECONDS) / EMPTY_RELOAD.length, true).y * smoothStep(seconds / READY_BEATS.raised);
+  expect(y(0)).toBeCloseTo(-.55);
+  expect(y(READY_BEATS.raised * .8)).toBeGreaterThan(.01);
+  expect(y(READY_BEATS.raised)).toBeCloseTo(0);
 });

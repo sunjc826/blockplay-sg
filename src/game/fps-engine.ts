@@ -128,7 +128,7 @@ import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } 
 import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { pouchWeaponOffset } from './fps-pouch-reload';
-import { reloadEnergy } from './fps-reload-energy';
+import { readyEnergy, readyViewKick, reloadEnergy } from './fps-reload-energy';
 import { createWeaponHandling } from './fps-viewmodel';
 import { magazineAmmoState } from './magazine-ammo';
 import { createScopeRenderer, getWeaponSight, scopeScreenScale, setSightNightVision } from './weapon-optics';
@@ -139,7 +139,7 @@ import { createRailEffects } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
-import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
+import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, READY_BEATS, READY_SECONDS, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { createFpsComms, type CommsEntry } from './fps-comms';
@@ -2227,13 +2227,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const intro = deploymentIntro.active ? deploymentIntro.frame(vertical + visualEye, pitch, deploymentRoof) : null;
     const readyProgress = intro?.weaponVisible ? intro.ready : undefined;
     if (intro) {
-      camera.position.set(position.x + intro.x, intro.height, position.z + intro.z); camera.rotation.set(intro.pitch, yaw + intro.yaw, 0, 'YXZ'); camera.fov = intro.fov; camera.far = Math.max(800, intro.height + 400);
+      const rackKick = readyProgress === undefined || motionPreference?.matches ? null : readyViewKick(readyProgress, specs[hud.weapon]);
+      camera.position.set(position.x + intro.x, intro.height, position.z + intro.z); camera.rotation.set(intro.pitch + (rackKick?.pitch ?? 0), yaw + intro.yaw, rackKick?.roll ?? 0, 'YXZ'); camera.fov = intro.fov; camera.far = Math.max(800, intro.height + 400);
       camera.near = aerialNearPlane(intro.height, overviewHighest);
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
       rig.visible = intro.weaponVisible; playerBody.root.visible = false;
       if (hud.phase === 'deploying' && readyProgress !== undefined) {
-        if (readyProgress >= .25 && readySound < 1) { handlingSound('BOLT BACK'); readySound = 1; }
-        if (readyProgress >= .66 && readySound < 2) { handlingSound('CHAMBER'); readySound = 2; }
+        // The sounds land on the motion's own beats, the release as the bolt starts forward.
+        if (readyProgress * READY_SECONDS >= READY_BEATS.pull && readySound < 1) { handlingSound('BOLT BACK'); readySound = 1; }
+        if (readyProgress * READY_SECONDS >= READY_BEATS.release && readySound < 2) { handlingSound('CHAMBER'); readySound = 2; }
       }
     }
     canvas.dataset.deploymentIntro = hud.phase === 'deploying' ? intro?.stage ?? '' : '';
@@ -2243,11 +2245,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const motion = readyProgress === undefined
       ? weaponReloadMotion(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon])
       : readyMotion(readyProgress, handleSide(specs[hud.weapon].id));
-    if (readyProgress === undefined) {
-      const energy = reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon]);
-      const energyScale = motionPreference?.matches ? .25 : 1;
-      for (const axis of ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const) motion[axis] += energy[axis] * energyScale;
-    }
+    const energy = readyProgress === undefined
+      ? reloadEnergy(specs[hud.weapon].feed === 'belt' ? beltProgress : progress ?? 0, emptyReload[hud.weapon], specs[hud.weapon])
+      : readyEnergy(readyProgress, specs[hud.weapon]);
+    const energyScale = motionPreference?.matches ? .25 : 1;
+    for (const axis of ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const) motion[axis] += energy[axis] * energyScale;
     canvas.dataset.readyAction = readyProgress === undefined ? '' : motion.action.toFixed(3);
     // A supported gun stays low for reloads; hands, magazine and feed cover
     // still perform their complete handling animation around the planted legs.

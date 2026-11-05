@@ -1,7 +1,7 @@
-import { EMPTY_RELOAD, FPS_WEAPONS, reloadLength } from './fps-rules';
+import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { boltCycleMotion, cockingHandRelease, handleSide, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
+import { boltCycleMotion, cockingHandRelease, handleSide, readyClock, reloadMotion, readyMotion, smoothStep } from './fps-weapon-motion';
 import { createPouchReload, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
@@ -34,7 +34,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     }
     const thumb = box(group, .019, .045, .025, left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; thumb.name = 'grip-thumb';
     const stub = mesh(group, new THREE.CylinderGeometry(.034, .046, .16, 8), sleeve, 0, -.13, .028); stub.rotation.x = -.28; stub.name = 'hand-forearm-stub';
-    box(group, .073, .025, .060, 0, -.065, .005, pad);
+    box(group, .073, .025, .060, 0, -.05, .005, pad);
     return group;
   };
   const right = hand(false), left = hand(true);
@@ -66,6 +66,10 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
   const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();
   const chargeRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -1.4, .02));
+  // Released from a top handle: fingers up and out, palm to the camera, forearm
+  // dropping away off the gun. On the gun, whose pose at that moment this allows for.
+  const flickTopHandle = new THREE.Vector3(-.07, .055, .13);
+  const topHandleOpenPalm = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.198, -0.364, -0.631));
   const magazineScale = magazine?.scale.clone();
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
@@ -123,7 +127,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const strokeLength = index === 2 ? .035 : .075;
       const stroke = (cycle?.travel ?? motion.action) * strokeLength;
       const cockTime = ready === undefined ? (empty && progress !== null ? motionProgress * reloadLength(empty) : 0)
-        : .80 + (EMPTY_RELOAD.length - .80) * ready;
+        : readyClock(ready);
       const flick = cockingHandRelease(releaseFlick ? cockTime : 0);
       const releaseGrip = ready === undefined && empty && progress !== null ? smoothStep((motionProgress * reloadLength(empty) - 1.15) / .03) : 0;
       // Let the action fly forward independently of the hand that released it.
@@ -158,9 +162,11 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         const homeRotation = rightCharges ? rightRotation : supportRotation;
         const outward = pistol || side === 'top' ? -1 : 1;
         flickStart.set(control.position.x + grip.x, control.position.y + grip.y, controlZ + .01 + strokeLength);
-        // Stay behind the rear stop as the fingers open; no forward escort of
-        // the handle. The lateral/upward clearance makes the release readable.
-        flickOut.copy(flickStart).add(new THREE.Vector3(outward * (pistol ? .15 : .105), .045, .045));
+        // Jerk back from the rear stop as the fingers open; no forward escort of
+        // the handle. The lateral/upward clearance keeps the hand off the gun.
+        // A side handle's forearm points at the camera, so it stays out to the side.
+        if (side === 'top') flickOut.copy(flickStart).add(flickTopHandle);
+        else flickOut.copy(flickStart).add(new THREE.Vector3(outward * (pistol ? .15 : .105), .045, .045));
         if (flick.returnToGrip === 0) hand.position.copy(flickStart).lerp(flickOut, flick.clear);
         else {
           // Keep the wrist outside the receiver while moving toward its grip.
@@ -172,11 +178,18 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         if (pistol) flickRotation.copy(pistolGripRotation);
         else if (rightCharges) flickRotation.copy(chargeRotation);
         else flickRotation.setFromEuler(new THREE.Euler(-.15, -.2 + grip.turn, .02));
-        flickTurn.setFromEuler(new THREE.Euler(-.25, outward * .35, outward * .7));
-        flickTurn.premultiply(flickRotation);
+        if (side === 'top') flickTurn.copy(topHandleOpenPalm);
+        else {
+          flickTurn.setFromEuler(new THREE.Euler(-.25, outward * .35, outward * .7));
+          flickTurn.premultiply(flickRotation);
+        }
         hand.quaternion.copy(flickRotation).slerp(flickTurn, flick.clear).slerp(homeRotation, flick.returnToGrip);
       }
-      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07;
+      // The stub ends in mid-air, which only shows once the hand lets go and hangs
+      // away from the gun. Run it out of the frame for as long as that lasts.
+      const armOut = 1 + (side === 'top' ? flick.open : 0) * 3.4, arm = (rightCharges ? right : left).getObjectByName('hand-forearm-stub')!;
+      arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
+      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07 - (rightCharges ? flick.open * .45 : 0);
       right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0);
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
@@ -195,9 +208,14 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       if (leftToHandle > 0 && !reaching) closed = THREE.MathUtils.lerp(closed, .95 * (1 - releaseGrip), leftToHandle);
       if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
       if (!rightCharges) closed *= 1 - flick.open;
-      for (let finger = 0; finger < 4; finger++) left.getObjectByName(`grip-finger-${finger}`)!.rotation.x = .12 + closed * .95;
+      // Past straight: a palm thrown open, not just a grip relaxed.
+      const splay = rightCharges ? 0 : flick.open * .45;
+      for (let finger = 0; finger < 4; finger++) {
+        const joint = left.getObjectByName(`grip-finger-${finger}`)!;
+        joint.rotation.x = .12 + closed * .95 - splay; joint.rotation.z = (1.5 - finger) * .32 * splay;
+      }
       const thumb = left.getObjectByName('grip-thumb')!;
-      thumb.rotation.z = -.55 - closed * .35;
+      thumb.rotation.z = -.55 - closed * .35 + splay;
       if (pistol) {
         const clasp = leftToHandle * (1 - flick.clear);
         for (let finger = 0; finger < 4; finger++) {

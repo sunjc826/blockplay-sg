@@ -1,6 +1,7 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
-import { reloadDrive, reloadEnergy } from './fps-reload-energy';
+import { readyEnergy, readyViewKick, reloadDrive, reloadEnergy } from './fps-reload-energy';
+import { READY_BEATS, READY_SECONDS } from './fps-weapon-motion';
 
 const axes = ['x', 'y', 'z', 'pitch', 'yaw', 'roll'] as const;
 const rest = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0 };
@@ -62,4 +63,37 @@ it('accelerates the final insertion without overshooting physical endpoints', ()
     expect(current).toBeGreaterThanOrEqual(previous); expect(current).toBeLessThanOrEqual(1);
     previous = current;
   }
+});
+
+describe('spawn rack', () => {
+  const at = (seconds: number) => seconds / READY_SECONDS;
+  it('rests at both ends and stays continuous for every weapon', () => {
+    for (const weapon of FPS_WEAPONS) {
+      for (const end of [0, 1]) {
+        // The SAR's mirrored turn makes some of these -0.
+        for (const axis of axes) expect(Math.abs(readyEnergy(end, weapon)[axis])).toBe(0);
+        const kick = readyViewKick(end, weapon);
+        expect(Math.abs(kick.pitch) + Math.abs(kick.roll)).toBe(0);
+      }
+      let previous = readyEnergy(0, weapon);
+      for (let step = 1; step <= 1400; step++) {
+        const pose = readyEnergy(step / 1400, weapon);
+        for (const axis of axes) expect(Math.abs(pose[axis] - previous[axis])).toBeLessThan(.015);
+        previous = pose;
+      }
+    }
+  });
+  it('tugs the gun back on the draw and keeps the bolt jolt small', () => {
+    const sar = FPS_WEAPONS.find(weapon => weapon.id === 'sar21-inspired')!, { pull, stop, release, home } = READY_BEATS;
+    expect(readyEnergy(at(pull), sar).z).toBe(0);
+    expect(readyEnergy(at(stop), sar).z).toBeCloseTo(.02);
+    expect(readyEnergy(at(release), sar).z).toBeCloseTo(.02);
+    expect(readyEnergy(at(home + .01), sar).z).toBeGreaterThan(0);
+    for (let step = 0; step <= 1400; step++) expect(Math.abs(readyEnergy(step / 1400, sar).z)).toBeLessThan(.025);
+  });
+  it('gives the heavy guns less movement than the rifle', () => {
+    const peak = (id: string) => readyEnergy(at(READY_BEATS.stop), FPS_WEAPONS.find(weapon => weapon.id === id)!);
+    expect(peak('cis50-inspired').pitch).toBeLessThan(peak('sar21-inspired').pitch * .5);
+    expect(peak('mag-inspired').z).toBeLessThan(peak('sar21-inspired').z * .7);
+  });
 });

@@ -19,7 +19,7 @@ const points=()=>evaluate('[...document.querySelectorAll("[data-deployment-id]")
 async function screenshot(name){const s=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await fs.writeFile(new URL(name+'.png',output),Buffer.from(s.data,'base64'));}
 try {
  await send('Runtime.enable'); await send('Page.enable'); await send('Page.bringToFront');
- // A software renderer's slow frames can spend most of the 3.8s descent before anything reads it.
+ // A software renderer's slow frames can spend most of the 3.55s descent before anything reads it.
  const pace=Number(process.env.DEPLOYMENT_SMOKE_PACE||1);
  if(pace!==1)await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const real=performance.now.bind(performance),raf=window.requestAnimationFrame.bind(window);performance.now=()=>real()/${pace};window.requestAnimationFrame=f=>raf(()=>f(performance.now()));})()`});
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
@@ -49,7 +49,9 @@ try {
  assert.equal(overlap.weapon,'true'); assert.ok(overlap.camera.pitch<=0 && overlap.camera.ready>.1,JSON.stringify(overlap));
  assert.match(overlap.text,/LOCATION.*QUEENSTOWN, SINGAPORE.*TIME.*13:00 SGT.*WEATHER.*SUNNY & HUMID/s);
  await screenshot('overlap');
- await wait(`Number(document.querySelector('canvas').dataset.readyAction)>.8`);
+ // The handle is back for about an eighth of a second, shorter than this script's polling: latch it per frame.
+ await evaluate(`(()=>{window.__rack=0;const read=()=>{window.__rack=Math.max(window.__rack,Number(document.querySelector('canvas').dataset.readyAction)||0);requestAnimationFrame(read);};read();})()`);
+ await wait(`window.__rack>.8`);
  await screenshot('weapon-rack');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
  await wait(`${game}.dataset.phase==='playing'`);

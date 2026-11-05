@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- The spawn rack through the viewmodel camera, cut straight from the real motion, for judging by eye.
+     ?weapon=sar21-inspired &sheet=1 (contact sheet, otherwise Play and a scrubber). window.fixture.draw(seconds) poses one frame. -->
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Spawn rack review</title><style>
+body{margin:0;background:#18222a;color:#e4ebed;font:14px system-ui;overflow:hidden}canvas{display:block}
+header{position:absolute;inset:12px 16px auto;display:flex;gap:12px;align-items:center;background:#18222ae8;padding:10px;border-radius:8px}
+input[type=range]{width:300px}button,select{font:inherit}
+</style></head><body><header><select id="weapon"></select><button id="play">Play</button><select id="speed"><option value="1">Full speed</option><option value=".25">Quarter speed</option></select><input id="time" type="range" min="0" step=".001"><span id="state"></span></header><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
+import { createWeaponHandling } from '/src/game/fps-viewmodel.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
+import { readyMotion } from '/src/game/fps-weapon-motion.ts';
+import * as energies from '/src/game/fps-reload-energy.ts';
+import { DEPLOYMENT_READY } from '/src/game/deployment-intro.ts';
+const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
+const sheet=params.get('sheet')==='1',chooseId=params.get('weapon')||FPS_WEAPONS[0].id;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.autoClear=false;document.body.prepend(renderer.domElement);
+// The world behind is only a horizon and a floor grid: enough to see the camera move.
+const world=new THREE.Scene();world.background=new THREE.Color('#8fa7b3');world.add(new THREE.GridHelper(200,100,'#44524f','#5c6b67'));
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshBasicMaterial({color:'#6e7c70'}));floor.rotation.x=-Math.PI/2;floor.position.y=-.01;world.add(floor);
+const worldCamera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,500);worldCamera.rotation.order='YXZ';worldCamera.position.y=1.75;
+const view=new THREE.Scene();view.add(new THREE.HemisphereLight('#e8efff','#535f49',2.8));
+const light=new THREE.DirectionalLight('#ffefd6',3);light.position.set(-1,2,2);view.add(light);
+const rig=new THREE.Group();view.add(rig);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,20);
+const loader=new GLTFLoader(),build=async spec=>buildServiceWeapon(spec.id)??(await loader.loadAsync(`/models/field-kit/${spec.id}.glb`)).scene;
+let model,handling,spec,clock=0,playing=false,last=performance.now();
+async function select(id){
+  handling?.dispose();model?.removeFromParent();
+  const index=Math.max(0,FPS_WEAPONS.findIndex(w=>w.id===id));spec=FPS_WEAPONS[index];model=await build(spec);rig.add(model);handling=createWeaponHandling(model,index);$('weapon').value=spec.id;
+}
+function pose(seconds){
+  const p=Math.max(0,Math.min(1,seconds/DEPLOYMENT_READY)),motion=readyMotion(p,spec.id==='sar21-inspired'?'top':'right');
+  const energy=energies.readyEnergy?.(p,spec);
+  if(energy)for(const axis of['x','y','z','pitch','yaw','roll'])motion[axis]+=energy[axis];
+  rig.position.set(.20+motion.x,-.32+motion.y,-.78+motion.z);rig.rotation.set(motion.pitch,motion.yaw,motion.roll);
+  const kick=energies.readyViewKick?.(p,spec)??{pitch:0,roll:0};worldCamera.rotation.set(kick.pitch,0,kick.roll);
+  handling.update(null,false,undefined,p,undefined,{rounds:spec.capacity,capacity:spec.capacity});
+  // Where the working hand and the handle are in view space, for measuring the stroke.
+  rig.updateMatrixWorld(true);const place=name=>model.getObjectByName(name)?.getWorldPosition(new THREE.Vector3()).toArray();
+  return {p,action:motion.action,kick,rig:{z:motion.z,pitch:motion.pitch},hand:place(spec.feed==='belt'||spec.action==='bolt'?'reload-hand-right':'reload-hand-left'),handle:place(`${spec.id}__charging-handle`)};
+}
+function draw(seconds){
+  clock=seconds;const state=pose(seconds);
+  renderer.setViewport(0,0,innerWidth,innerHeight);renderer.setScissorTest(false);renderer.clear();renderer.render(world,worldCamera);renderer.clearDepth();renderer.render(view,camera);
+  $('time').value=String(seconds);$('state').textContent=`${seconds.toFixed(3)} s of ${DEPLOYMENT_READY} s · handle ${state.action.toFixed(2)}`;
+  return state;
+}
+FPS_WEAPONS.forEach(w=>$('weapon').add(new Option(w.name,w.id)));$('time').max=String(DEPLOYMENT_READY);
+await select(chooseId);
+$('weapon').onchange=async e=>{await select(e.target.value);draw(clock);};
+$('time').oninput=e=>{playing=false;draw(Number(e.target.value));};
+$('play').onclick=()=>{playing=true;clock=0;};
+function contactSheet(){
+  document.querySelector('header').remove();
+  const times=params.get('times')?.split(',').map(Number)??Array.from({length:24},(_,i)=>i*DEPLOYMENT_READY/23),cols=Number(params.get('cols')||6),rows=Math.ceil(times.length/cols),w=innerWidth/cols,h=innerHeight/rows;
+  worldCamera.aspect=camera.aspect=w/h;worldCamera.updateProjectionMatrix();camera.updateProjectionMatrix();renderer.setScissorTest(true);renderer.clear();
+  times.forEach((time,i)=>{pose(time);const x=(i%cols)*w,y=(rows-1-Math.floor(i/cols))*h;renderer.setViewport(x,y,w,h);renderer.setScissor(x,y,w-2,h-2);renderer.render(world,worldCamera);renderer.clearDepth();renderer.render(view,camera);
+    const tag=document.createElement('div');tag.textContent=`${time.toFixed(2)} s`;tag.style.cssText=`position:absolute;left:${x+6}px;top:${Math.floor(i/cols)*h+4}px;font:12px monospace;color:#fff;text-shadow:0 0 2px #000`;document.body.append(tag);});
+}
+window.fixture={draw,seconds:DEPLOYMENT_READY};
+if(sheet)contactSheet();else{draw(0);const tick=now=>{const dt=Math.min(.05,(now-last)/1000);last=now;if(playing){const next=clock+dt*Number($('speed').value);if(next>=DEPLOYMENT_READY){playing=false;draw(DEPLOYMENT_READY);}else draw(next);}requestAnimationFrame(tick);};requestAnimationFrame(tick);}
+window.ready=true;
+</script></body></html>

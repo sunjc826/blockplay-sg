@@ -1,7 +1,7 @@
-import { smoothStep } from './fps-weapon-motion';
+import { READY_SECONDS, smoothStep } from './fps-weapon-motion';
 
 export const DEPLOYMENT_DESCENT = 3;
-export const DEPLOYMENT_READY = 1.65;
+export const DEPLOYMENT_READY = READY_SECONDS;
 /** The weapon starts rising during the last part of the camera's approach. */
 export const DEPLOYMENT_OVERLAP = .85;
 /** From the first frame of the descent to full control of the weapon. */
