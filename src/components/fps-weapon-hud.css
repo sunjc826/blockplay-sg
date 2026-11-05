@@ -119,7 +119,6 @@
 .fps-belt-next span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
 @media(max-width:520px) {
   .fps-game[data-touch=on] .fps-belt:not(.is-docked) { max-width:200px; justify-items:end; }
-  .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-slots { display:grid; grid-template-columns:repeat(3,40px); justify-content:end; }
   .fps-game[data-touch=on] .fps-belt:not(.is-docked) .fps-belt-next { max-width:200px; }
 }
 
@@ -144,3 +143,11 @@
 .fps-game[data-touch=on] .fps-quick-choose{min-height:44px}
 .fps-game[data-touch=on] .fps-belt .fps-belt-slots{display:flex;flex-wrap:nowrap;max-width:none;gap:5px}
 @media(max-width:720px),(max-height:560px){.fps-belt .fps-quick-slot{width:60px;height:56px}.fps-quick-slot small{font-size:7px}}
+/* Touch: one low row, each item beside its chooser, both still thumb-sized. The label only earns its room when the slot is empty. */
+.fps-game[data-touch=on] .fps-quick-utility{flex-direction:row;gap:0}
+.fps-game[data-touch=on] .fps-belt .fps-quick-slot{width:46px;height:44px;padding:3px;border-radius:6px 0 0 6px}
+.fps-game[data-touch=on] .fps-belt-slot.fps-quick-slot b{right:3px;top:2px;font-size:11px}
+.fps-game[data-touch=on] .fps-quick-slot small{display:none}
+.fps-game[data-touch=on] .fps-quick-slot[data-depleted] small{display:block;bottom:2px;background:none;font-size:6px;letter-spacing:0}
+.fps-game[data-touch=on] .fps-quick-choose{width:26px;border-left:0;border-radius:0 6px 6px 0}
+.fps-game[data-touch=on] .fps-quick-choose>span{display:none}

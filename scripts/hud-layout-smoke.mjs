@@ -70,6 +70,9 @@ try {
    assert(!overlaps(layout['.fps-chatter'],layout['.fps-radio-message']),name+': speech lines overlap');
    for(const s of ['.fps-radio-message','.fps-chatter','.fps-comms'])for(const combat of ['.fps-ammo','.fps-vitals','.fps-belt'])assert(!overlaps(layout[s],layout[combat]),name+': '+s+' covers '+combat+' '+JSON.stringify(layout));
    for(const selector of ['.fps-minimap','.fps-radio-message','.fps-chatter']) {const b=layout[selector];if(selector==='.fps-chatter'&&touch&&!b)continue;assert(b&&b.width>0&&b.height>0&&b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1,name+' '+selector+' is outside the screen '+JSON.stringify(layout));}
+   if(touch){const sizes=await evaluate(`[...document.querySelectorAll('.fps-belt-slots,.fps-quick-slot,.fps-quick-choose')].map(e=>{const r=e.getBoundingClientRect();return [e.className,r.width,r.height]})`);
+    for(const [kind,w,h] of sizes){if(kind.includes('fps-belt-slots'))assert(h<=46,name+': the item row should stay one low row '+JSON.stringify(sizes));else assert(w>=24&&h>=44,name+': item control too small for a thumb '+JSON.stringify(sizes));}
+    for(const other of ['.touch-move','.touch-fire','.fps-ammo','.fps-vitals'])assert(!overlaps(layout['.fps-belt'],layout[other]),name+': the item row covers '+other+' '+JSON.stringify(layout));}
    const crosshair={x:width/2-16,right:width/2+16,y:height/2-16,bottom:height/2+16};
    for(const s of ['.fps-radio-message','.fps-chatter','.fps-kill-callout'])assert(!overlaps(layout[s],crosshair),name+' '+mode+': '+s+' covers the crosshair '+JSON.stringify(layout));
    if(touch)assert(!overlaps(layout['.fps-kill-callout'],layout['.fps-radio-message']),name+': kill callout covers the radio '+JSON.stringify(layout));
