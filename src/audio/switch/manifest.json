@@ -1,0 +1,440 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono, trimmed to 1 ms before the attack, loudness set per sound, 96 kbps MP3",
+  "groups": {
+    "switch-stow-holster": [
+      {
+        "file": "switch-stow-holster-1-6681209ae4.mp3",
+        "seconds": 0.221
+      },
+      {
+        "file": "switch-stow-holster-2-473b749fc9.mp3",
+        "seconds": 0.163
+      }
+    ],
+    "switch-draw-holster": [
+      {
+        "file": "switch-draw-holster-1-31130ecaa1.mp3",
+        "seconds": 0.26
+      },
+      {
+        "file": "switch-draw-holster-2-2fb1d8c986.mp3",
+        "seconds": 0.247
+      }
+    ],
+    "switch-stow-rifle-sling": [
+      {
+        "file": "switch-stow-rifle-sling-1-0197bee10c.mp3",
+        "seconds": 0.22
+      },
+      {
+        "file": "switch-stow-rifle-sling-2-2d983dee22.mp3",
+        "seconds": 0.182
+      }
+    ],
+    "switch-draw-rifle-sling": [
+      {
+        "file": "switch-draw-rifle-sling-1-4485a535cc.mp3",
+        "seconds": 0.34
+      },
+      {
+        "file": "switch-draw-rifle-sling-2-86ff356b07.mp3",
+        "seconds": 0.34
+      }
+    ],
+    "switch-stow-support-sling": [
+      {
+        "file": "switch-stow-support-sling-1-3481143978.mp3",
+        "seconds": 0.56
+      },
+      {
+        "file": "switch-stow-support-sling-2-035cb08637.mp3",
+        "seconds": 0.56
+      }
+    ],
+    "switch-draw-support-sling": [
+      {
+        "file": "switch-draw-support-sling-1-939d1fc461.mp3",
+        "seconds": 0.44
+      },
+      {
+        "file": "switch-draw-support-sling-2-b05d9b56e6.mp3",
+        "seconds": 0.353
+      }
+    ],
+    "switch-stow-back-sling": [
+      {
+        "file": "switch-stow-back-sling-1-9f164ef142.mp3",
+        "seconds": 0.26
+      },
+      {
+        "file": "switch-stow-back-sling-3-a05dda2a24.mp3",
+        "seconds": 0.479
+      }
+    ],
+    "switch-draw-back-sling": [
+      {
+        "file": "switch-draw-back-sling-2-b7c29f3077.mp3",
+        "seconds": 0.137
+      },
+      {
+        "file": "switch-draw-back-sling-3-2694b263a3.mp3",
+        "seconds": 0.235
+      }
+    ],
+    "switch-settle-pistol": [
+      {
+        "file": "switch-settle-pistol-1-1ebc477ff3.mp3",
+        "seconds": 0.107
+      }
+    ],
+    "switch-settle-rifle": [
+      {
+        "file": "switch-settle-rifle-1-c8ffe4287a.mp3",
+        "seconds": 0.181
+      }
+    ],
+    "switch-settle-drum": [
+      {
+        "file": "switch-settle-drum-1-91ec975d14.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-settle-light-belt": [
+      {
+        "file": "switch-settle-light-belt-1-68c8a9482b.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-settle-belt": [
+      {
+        "file": "switch-settle-belt-1-8600d0d635.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-settle-intervention": [
+      {
+        "file": "switch-settle-intervention-1-90395dbb20.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-mode": [
+      {
+        "file": "switch-mode-1-3b17a43cbb.mp3",
+        "seconds": 0.1
+      },
+      {
+        "file": "switch-mode-2-579297d338.mp3",
+        "seconds": 0.16
+      }
+    ],
+    "switch-settle-bullpup": [
+      {
+        "file": "switch-settle-bullpup-3-645985dfca.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-settle-carbine": [
+      {
+        "file": "switch-settle-carbine-2-bb59548863.mp3",
+        "seconds": 0.121
+      }
+    ],
+    "switch-settle-heavy-belt": [
+      {
+        "file": "switch-settle-heavy-belt-2-ba3aeca5f8.mp3",
+        "seconds": 0.25
+      }
+    ],
+    "switch-settle-oicw": [
+      {
+        "file": "switch-settle-oicw-2-497c01a5ef.mp3",
+        "seconds": 0.156
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "switch-stow-holster-1",
+      "file": "switch-stow-holster-1-6681209ae4.mp3",
+      "sourceSha256": "d5771908de073382fc5af63fcff40d4091f77faa9adf8629e1276659f07c7293",
+      "outputSha256": "6681209ae43e3e045f8211f2fc14d16a2a628c5b4af3c9bc7093c96f5bce0033",
+      "seconds": 0.221,
+      "loudestAtMs": 41,
+      "gain": 0.617,
+      "sourcePeak": 1.107
+    },
+    {
+      "id": "switch-stow-holster-2",
+      "file": "switch-stow-holster-2-473b749fc9.mp3",
+      "sourceSha256": "b921914106f0c1a2cfa5e4e5a7093face6e98e5b8ff6415a612b5ba74e72fc75",
+      "outputSha256": "473b749fc9f52d871dccf93275c71cd909aa58e55e1272591bfef22d2f324d2b",
+      "seconds": 0.163,
+      "loudestAtMs": 39,
+      "gain": 0.89,
+      "sourcePeak": 0.819
+    },
+    {
+      "id": "switch-draw-holster-1",
+      "file": "switch-draw-holster-1-31130ecaa1.mp3",
+      "sourceSha256": "8af536b38ae89af62f34457810a9c8d04ae7db70d56d689d4f55890166252a96",
+      "outputSha256": "31130ecaa1bc1a31b5a9833fa3c171b63cf0fa2073a23de2fdddea4aef8eb805",
+      "seconds": 0.26,
+      "loudestAtMs": 47,
+      "gain": 0.906,
+      "sourcePeak": 0.904
+    },
+    {
+      "id": "switch-draw-holster-2",
+      "file": "switch-draw-holster-2-2fb1d8c986.mp3",
+      "sourceSha256": "aaec5c9b604417e6a22af01c7998fe5a31291373bdfe6d8e1280daa4f5820e30",
+      "outputSha256": "2fb1d8c98624e21fae94b583dfd510cc451eb7d2a52c022de67ae528f200a00a",
+      "seconds": 0.247,
+      "loudestAtMs": 2,
+      "gain": 0.472,
+      "sourcePeak": 1.177
+    },
+    {
+      "id": "switch-stow-rifle-sling-1",
+      "file": "switch-stow-rifle-sling-1-0197bee10c.mp3",
+      "sourceSha256": "b1177b342dbc6219a17ce7b99b77cfd4d3e74e3de91a6dad75333a39775bf540",
+      "outputSha256": "0197bee10c11167013fac482df06acb2c6fb0a6dabb75800a5085d800af124c5",
+      "seconds": 0.22,
+      "loudestAtMs": 11,
+      "gain": 1.777,
+      "sourcePeak": 0.288
+    },
+    {
+      "id": "switch-stow-rifle-sling-2",
+      "file": "switch-stow-rifle-sling-2-2d983dee22.mp3",
+      "sourceSha256": "3e511ff79072de05b872aa7eb4452c34383124df8184141c516fa507f5b6a5e3",
+      "outputSha256": "2d983dee22b6d83e6a9a2e9a1a0cd04a257f29f784d6e1c3a54a50b80402d093",
+      "seconds": 0.182,
+      "loudestAtMs": 24,
+      "gain": 0.477,
+      "sourcePeak": 1.132
+    },
+    {
+      "id": "switch-draw-rifle-sling-1",
+      "file": "switch-draw-rifle-sling-1-4485a535cc.mp3",
+      "sourceSha256": "c80026a1359c1a473be54e920bd0f8fd407cbfff372b60acc746895d2c0b5706",
+      "outputSha256": "4485a535cc9048a877c5a32f7b31addad43a78f8ad1abd871ad5a3411b1aa7aa",
+      "seconds": 0.34,
+      "loudestAtMs": 101,
+      "gain": 1.326,
+      "sourcePeak": 0.427
+    },
+    {
+      "id": "switch-draw-rifle-sling-2",
+      "file": "switch-draw-rifle-sling-2-86ff356b07.mp3",
+      "sourceSha256": "b8b2de2aead7a6841d114e574e948465731c417f52b9814331635999189558cc",
+      "outputSha256": "86ff356b0773920f8ba1071dc391e33e6197ec8e92bf56562e8d3eadf58f54d7",
+      "seconds": 0.34,
+      "loudestAtMs": 70,
+      "gain": 3.501,
+      "sourcePeak": 0.131
+    },
+    {
+      "id": "switch-stow-support-sling-1",
+      "file": "switch-stow-support-sling-1-3481143978.mp3",
+      "sourceSha256": "5f7eca202a2263dd58033c4734f26b9d00143883e52d3939eecb2dd3a69b9d8f",
+      "outputSha256": "3481143978622c53c4c9c762c6d1a841d38f036aad2b4b05c607c4628b63993e",
+      "seconds": 0.56,
+      "loudestAtMs": 26,
+      "gain": 1.108,
+      "sourcePeak": 0.578
+    },
+    {
+      "id": "switch-stow-support-sling-2",
+      "file": "switch-stow-support-sling-2-035cb08637.mp3",
+      "sourceSha256": "23348ea92d8925fc82a9d3f9f2ad1ddc91a453fe50bfbf246d77e6b09fb4809a",
+      "outputSha256": "035cb08637883bbc85d89eeb2efa09351257d9ed39fa38c9bc42cf2bc40c8e4b",
+      "seconds": 0.56,
+      "loudestAtMs": 64,
+      "gain": 0.978,
+      "sourcePeak": 0.822
+    },
+    {
+      "id": "switch-draw-support-sling-1",
+      "file": "switch-draw-support-sling-1-939d1fc461.mp3",
+      "sourceSha256": "6abd7b3064644ac490f0f247d3ad4d557dbf61334f1203b62b748629a6baaf2b",
+      "outputSha256": "939d1fc461361c32917c163e4ae48b91537d4ca9bf856adba7ab60826dc8ae7e",
+      "seconds": 0.44,
+      "loudestAtMs": 176,
+      "gain": 0.376,
+      "sourcePeak": 1.16
+    },
+    {
+      "id": "switch-draw-support-sling-2",
+      "file": "switch-draw-support-sling-2-b05d9b56e6.mp3",
+      "sourceSha256": "0075088f604646849901730f57716239c8d607a4a9fc46c77a326e51fb2f4ae2",
+      "outputSha256": "b05d9b56e65234852b881f38b3b77710b64786f84cea5041b4cdc16ce2741c5c",
+      "seconds": 0.353,
+      "loudestAtMs": 64,
+      "gain": 0.489,
+      "sourcePeak": 0.961
+    },
+    {
+      "id": "switch-stow-back-sling-1",
+      "file": "switch-stow-back-sling-1-9f164ef142.mp3",
+      "sourceSha256": "261f16b405b1f747ae95e3fd002c1cb5c1db2f47ffebe11d27e61d69c87bc0b5",
+      "outputSha256": "9f164ef142b8338c963797e28983dfa08f0f41c7b0b7e9396e04e64da457c226",
+      "seconds": 0.26,
+      "loudestAtMs": 71,
+      "gain": 0.877,
+      "sourcePeak": 1.026
+    },
+    {
+      "id": "switch-draw-back-sling-2",
+      "file": "switch-draw-back-sling-2-b7c29f3077.mp3",
+      "sourceSha256": "f72da0ed9f0a8dbb785c53b9bb1294ca3790d61be4c896bfee71f8b408b9bd33",
+      "outputSha256": "b7c29f3077b9beff0c72c71e45a72fb026eb40c022cb819577fede21e7a5ef0f",
+      "seconds": 0.137,
+      "loudestAtMs": 5,
+      "gain": 2.152,
+      "sourcePeak": 0.223
+    },
+    {
+      "id": "switch-settle-pistol-1",
+      "file": "switch-settle-pistol-1-1ebc477ff3.mp3",
+      "sourceSha256": "ced066c1592d22e9def79bd04ced304fb387debf62697a91e5f9be227bc3f309",
+      "outputSha256": "1ebc477ff37d6fe1d50a9a8992fbfa3e990b786589475c2bd570dc1fbb060c01",
+      "seconds": 0.107,
+      "loudestAtMs": 0,
+      "gain": 0.75,
+      "sourcePeak": 1.2
+    },
+    {
+      "id": "switch-settle-rifle-1",
+      "file": "switch-settle-rifle-1-c8ffe4287a.mp3",
+      "sourceSha256": "e18e24dded015e5044b253eeb6845922089e5b3e8d0f051b699badb58c74e530",
+      "outputSha256": "c8ffe4287a77c263dbab00d22a46880083062fb4bdf643e80a22bdb58ef7a970",
+      "seconds": 0.181,
+      "loudestAtMs": 28,
+      "gain": 0.834,
+      "sourcePeak": 1.079
+    },
+    {
+      "id": "switch-settle-drum-1",
+      "file": "switch-settle-drum-1-91ec975d14.mp3",
+      "sourceSha256": "a0d5b0c717528114cc6b41d2f51c9b72ae2675def84b735e29da9fc38eb85e10",
+      "outputSha256": "91ec975d145710e768c00ce595897570c37bf234a31c8b0668de4fd24b052c85",
+      "seconds": 0.25,
+      "loudestAtMs": 1,
+      "gain": 0.747,
+      "sourcePeak": 1.205
+    },
+    {
+      "id": "switch-settle-light-belt-1",
+      "file": "switch-settle-light-belt-1-68c8a9482b.mp3",
+      "sourceSha256": "30db67056951ad6c2f512334a3ce756190598621f28e3aa6b5d33ea00342d9d0",
+      "outputSha256": "68c8a9482bcb5489d92c16b0a3ea84a7c85147b2e94c6a9921754474da2fbcd2",
+      "seconds": 0.25,
+      "loudestAtMs": 0,
+      "gain": 7.953,
+      "sourcePeak": 0.086
+    },
+    {
+      "id": "switch-settle-belt-1",
+      "file": "switch-settle-belt-1-8600d0d635.mp3",
+      "sourceSha256": "18c4a216efe4bad48629eb52d6d9b62fa3569fe55d66899f48dfecbc0ed361c7",
+      "outputSha256": "8600d0d6351992dcb31b9fe6af2295abdeb18a018ebd4205e5cb34004f90cb86",
+      "seconds": 0.25,
+      "loudestAtMs": 4,
+      "gain": 5.373,
+      "sourcePeak": 0.138
+    },
+    {
+      "id": "switch-settle-intervention-1",
+      "file": "switch-settle-intervention-1-90395dbb20.mp3",
+      "sourceSha256": "e5941baaa7cecbd7bfc17eadcdbee56f7ec0ff431fc86a842ee16cc1007604a9",
+      "outputSha256": "90395dbb2072055d6ec5682e59b24292c81966069793a23036b79d24999aff53",
+      "seconds": 0.25,
+      "loudestAtMs": 39,
+      "gain": 2.069,
+      "sourcePeak": 0.666
+    },
+    {
+      "id": "switch-mode-1",
+      "file": "switch-mode-1-3b17a43cbb.mp3",
+      "sourceSha256": "f2b1b6f3b2d255b259cd58b13c85f024a0b5db55ab0de4c2a16c3cbdf5fa1598",
+      "outputSha256": "3b17a43cbb4ff654658d091b7a5945b109ccc17fda2379695832e1b417a2d11f",
+      "seconds": 0.1,
+      "loudestAtMs": 11,
+      "gain": 0.536,
+      "sourcePeak": 1.1
+    },
+    {
+      "id": "switch-mode-2",
+      "file": "switch-mode-2-579297d338.mp3",
+      "sourceSha256": "c930c48f8303e86205a40c59af0adb152d6acf52fac862206d43b2325684df11",
+      "outputSha256": "579297d3388bc542aeba01d1fe66a85b8f42131acd5fcb12660aaa8b6eb24e80",
+      "seconds": 0.16,
+      "loudestAtMs": 6,
+      "gain": 0.929,
+      "sourcePeak": 0.766
+    },
+    {
+      "id": "switch-settle-bullpup-3",
+      "file": "switch-settle-bullpup-3-645985dfca.mp3",
+      "sourceSha256": "e0dfa4038a76655ac76dcdf2705e48667964db3224dffc4b8111f5d41e9f5620",
+      "outputSha256": "645985dfca4dc6c812cdb11dff98b2efe5f16450abe3c86b6f205cf31a2788bf",
+      "seconds": 0.25,
+      "loudestAtMs": 8,
+      "gain": 0.699,
+      "sourcePeak": 1.204
+    },
+    {
+      "id": "switch-settle-carbine-2",
+      "file": "switch-settle-carbine-2-bb59548863.mp3",
+      "sourceSha256": "22e455ece0b316d47f72a451e35d63ec1438603c322e651dd23b3770fec7ab69",
+      "outputSha256": "bb59548863972cfc635c2749c59631ad7b28289d332e992997ab2d80819b7c7b",
+      "seconds": 0.121,
+      "loudestAtMs": 2,
+      "gain": 0.764,
+      "sourcePeak": 1.132
+    },
+    {
+      "id": "switch-settle-heavy-belt-2",
+      "file": "switch-settle-heavy-belt-2-ba3aeca5f8.mp3",
+      "sourceSha256": "62b3b69b0046727a1d0012515358b2aa5e0e5224cda139bde979e4536ca69bbd",
+      "outputSha256": "ba3aeca5f87b76eff276960e64eeaf853031c4fff35ceff3abc208c30974ab54",
+      "seconds": 0.25,
+      "loudestAtMs": 3,
+      "gain": 0.802,
+      "sourcePeak": 1.304
+    },
+    {
+      "id": "switch-settle-oicw-2",
+      "file": "switch-settle-oicw-2-497c01a5ef.mp3",
+      "sourceSha256": "c00840055749f882ea48b618eb676cb05432c3f3cff47487bd5da4d23c4dac92",
+      "outputSha256": "497c01a5eff14adac50be999073cc87dd95c975c0c9279a85f610b06d5c670f6",
+      "seconds": 0.156,
+      "loudestAtMs": 4,
+      "gain": 0.715,
+      "sourcePeak": 1.097
+    },
+    {
+      "id": "switch-stow-back-sling-3",
+      "file": "switch-stow-back-sling-3-a05dda2a24.mp3",
+      "sourceSha256": "31468a3f3ee3d19c5af7054e0674515875e6e0a9acd6148a33271c0f97341bb3",
+      "outputSha256": "a05dda2a24b3f03eb340cf6b1bfcbb5d232c0144752368b3e7fcc04f70cddf25",
+      "seconds": 0.479,
+      "loudestAtMs": 70,
+      "gain": 0.373,
+      "sourcePeak": 1.08
+    },
+    {
+      "id": "switch-draw-back-sling-3",
+      "file": "switch-draw-back-sling-3-2694b263a3.mp3",
+      "sourceSha256": "affc81d5bc7f55b53c23b64f996703ee3e989713c466b2628c5a4fafa1330ab2",
+      "outputSha256": "2694b263a3e6f5272bc3639315f8406bcd252dd5918881c8017060426d5fa0cc",
+      "seconds": 0.235,
+      "loudestAtMs": 20,
+      "gain": 0.63,
+      "sourcePeak": 1.019
+    }
+  ]
+}

@@ -198,6 +198,27 @@ remains the fallback at the commit point until the recordings load. Run the scri
 with `--generate` for the cached once-only requests and `--publish` to prepare the
 clips offline. Two takes came back near silent and are listed as rejected there.
 
+## Weapon switch
+
+`scripts/weapon-switch-sfx.mjs` holds a bounded batch of ElevenLabs v3 recordings,
+published to `public/audio/switch/`, with the same `--generate` and `--publish` steps
+as the hands batch. `weapon-switch-audio.ts` times them to `weaponSwitchFrame`, and
+each plays at natural speed through the hands mix and the effects slider.
+
+| Beat | Group | Moment |
+| --- | --- | --- |
+| Old gun goes away | `switch-stow-<carry class>` | Start of the switch, on the side it is carried |
+| New gun comes up | `switch-draw-<carry class>` | Start of the draw, on the side it is carried |
+| Hand lands on it | `switch-settle-<mechanism>` | 80% of the draw, centred |
+| Rifle to launcher mode | `switch-mode` | At once; there is no stow or draw |
+
+Switching in a vehicle seat has no animation, so it plays only the settle. A launcher
+mode shares its rifle's settle, as it is the same gun. Seven takes were rejected as near
+silent or unusable, and the launcher settle was dropped; the script lists them. Together
+the batches cost 219 credits on 2026-11-05 (7,414 to 7,633).
+
+`node scripts/weapon-switch-audio-smoke.mjs` checks them in the real engine.
+
 ## Generating and publishing
 
 - `pnpm sfx:batch` prints every take without sending requests.

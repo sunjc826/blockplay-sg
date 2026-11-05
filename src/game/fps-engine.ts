@@ -51,6 +51,7 @@ import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWea
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
 import { HANDS_MIX, plateCue } from './hands-audio';
+import { WEAPON_MODE_CUE, weaponSettleCue, weaponSwitchCue } from './weapon-switch-audio';
 import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
@@ -1104,6 +1105,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const previous = hud.weapon;
     weaponSwitch = hud.phase === 'playing' && !vehicles.active && !swimming() && weapons[previous] && equipment.carriedFamilies.includes(previous)
       ? beginWeaponSwitch(previous, index, specs) : null;
+    // No stow or draw to hear: a thumb on a rifle's selector, or a hand landing on the gun in a vehicle seat.
+    if (!weaponSwitch && hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false && !swimming() && (!vehicles.active || vehicles.canUseFirearm)) {
+      const cue = primaryWeaponFamily(previous) === primaryWeaponFamily(index) ? WEAPON_MODE_CUE : weaponSettleCue(specs[index]);
+      handsSound(cue.group, cue.pan, cue.level);
+    }
     switchStart.position.copy(rig.position); switchStart.quaternion.copy(rig.quaternion); switchStart.scale.copy(rig.scale);
     hud.weapon = index; weapons.forEach((w, i) => w.visible = i === (weaponSwitch ? previous : index));
     if (hud.phase === 'playing') canvas.focus({ preventScroll: true });
@@ -2108,7 +2114,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
     if (weaponSwitch && (hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || swimming() || hud.phase !== 'playing' && hud.phase !== 'paused')) weaponSwitch = null;
     if (weaponSwitch && hud.phase === 'playing') {
+      const was = weaponSwitch.elapsed;
       weaponSwitch.elapsed += Math.max(0, dt);
+      const cue = weaponSwitchCue(weaponSwitch, specs, was, weaponSwitch.elapsed);
+      if (cue) handsSound(cue.group, cue.pan, cue.level);
       if (weaponSwitchFrame(weaponSwitch).done) weaponSwitch = null;
     }
     const switching = weaponSwitch ? weaponSwitchFrame(weaponSwitch) : null;
