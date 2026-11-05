@@ -12,6 +12,25 @@ function VitalGauge({ fraction }: { fraction: number }) {
   </>;
 }
 
+/** Touch's readout, shrinking towards the middle: one line, with the number over it. Replaces the chips wherever it is drawn. */
+export function FpsHealthLine({ hud }: { hud: FpsHud }) {
+  const health = fillFraction(hud.health, hud.maxHealth), band = healthBand(hud.health, hud.maxHealth);
+  const armor = Math.ceil(hud.armor), points = Math.ceil(hud.health);
+  const warning = hud.health <= 0 ? 'OPERATOR DOWN' : band === 'critical' ? 'CRITICAL · FIND COVER' : '';
+  return <div className="fps-health-line" role="group" aria-label={`Health ${points} of ${hud.maxHealth}, armor ${armor}`} data-health-band={band} data-hurt={hud.hurt || undefined}>
+    <div className="fps-health-track" aria-hidden="true">
+      <i className="fps-health-ghost" style={{ transform: `scaleX(${health})` }} />
+      <i className="fps-health-fill" style={{ transform: `scaleX(${health})` }} />
+      <b>{points}</b>
+    </div>
+    {armor > 0 && <div className="fps-armor-track" aria-hidden="true">
+      <i style={{ transform: `scaleX(${fillFraction(hud.armor, Math.max(hud.maxArmor, hud.armor))})` }} />
+      <small>+{armor}</small>
+    </div>}
+    <span className="fps-health-warning" role="status">{warning}</span>
+  </div>;
+}
+
 /** Shared by infantry and mounted weapons. */
 export default function FpsVitals({ hud }: { hud: FpsHud }) {
   const health = fillFraction(hud.health, hud.maxHealth);

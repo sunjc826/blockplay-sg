@@ -41,3 +41,8 @@
  .fps-minimap.is-expanded .fps-map-control-legend{display:none}.fps-minimap.is-expanded .fps-minimap-legend{font-size:9px;margin-top:0}
  .fps-map-symbol-guide[open]>div{max-height:56px;overflow-y:auto}.fps-map-symbol-guide p{display:none}
 }
+/* Touch: where you are comes first, now that the map panel is the only place that says so. */
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded){display:flex;flex-direction:column}
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-map-location{order:-1;margin:0 0 2px;color:#fff3d8;font:700 11px/1.25 system-ui}
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading{font-size:8px}
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading strong{overflow:hidden;font-weight:500;color:var(--hud-dim);white-space:nowrap;text-overflow:ellipsis}

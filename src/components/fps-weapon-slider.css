@@ -4,26 +4,38 @@
   padding:3px;background:#0c151bb8;border:1px solid #ffffff2b;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
 .fps-weapon-slider-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:66px;border-radius:2px;background:#e0bb7226;box-shadow:inset 0 -2px 0 var(--hud-gold);
   transform:translateX(calc(var(--slot) * 100%));transition:transform .16s ease-out;pointer-events:none}
-.fps-weapon-slider button{position:relative;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;background:none;border:0;
+.fps-weapon-slider .fps-weapon-slot{position:relative;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;background:none;border:0;
   color:var(--hud-dim);font:9px monospace;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap;touch-action:none}
-.fps-weapon-slider button span{overflow:hidden;text-overflow:ellipsis}
-.fps-weapon-slider button[aria-pressed=true]{color:var(--hud-ink)}
+.fps-weapon-slot span{overflow:hidden;text-overflow:ellipsis}
+.fps-weapon-slot[aria-pressed=true]{color:var(--hud-ink)}
 .fps-weapon-slider kbd{min-width:0;padding:0 3px;font:7px monospace;line-height:11px;color:inherit;background:#ffffff14;border:0;border-radius:2px}
 .fps-game .fps-weapon-slider button:disabled{opacity:1}
 /* Mouse play reads it but switches with the keys; it must not catch a stray click. */
 .fps-game:not([data-touch=on]) .fps-weapon-slider{pointer-events:none}
-/* A thumb has no number keys, and the arrows say the strip slides. */
-.fps-game[data-touch=on] .fps-weapon-slider kbd{display:none}
-.fps-game[data-touch=on] .fps-weapon-slider::before,.fps-game[data-touch=on] .fps-weapon-slider::after{position:absolute;top:50%;transform:translateY(-50%);font:9px monospace;color:var(--hud-dim);pointer-events:none}
-.fps-game[data-touch=on] .fps-weapon-slider::before{content:'‹';left:-9px}
-.fps-game[data-touch=on] .fps-weapon-slider::after{content:'›';right:-9px}
+/* Touch: only the weapon in hand, its outline and name between two arrows. */
+.fps-weapon-current{display:none}
+.fps-game[data-touch=on] .fps-weapon-slider{display:block;width:140px;padding:0}
+.fps-game[data-touch=on] .fps-weapon-slider-thumb,.fps-game[data-touch=on] .fps-weapon-slot{display:none}
+.fps-game[data-touch=on] .fps-weapon-current{display:grid;grid-template-columns:26px minmax(0,1fr) 26px;height:44px}
+.fps-weapon-step{display:grid;place-items:center;padding:0;border:0;background:none;color:var(--hud-gold-soft);cursor:pointer;touch-action:none}
+.fps-weapon-step:active{background:#ffffff1a}
+.fps-game .fps-weapon-step:disabled{opacity:.4}
+.fps-weapon-now{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:0;pointer-events:none;animation:fps-weapon-now .14s ease-out}
+.fps-weapon-now img{width:auto;max-width:100%;height:28px;object-fit:contain;filter:drop-shadow(0 0 1px #000a)}
+.fps-weapon-now span{max-width:100%;overflow:hidden;font:8px/1.1 monospace;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis;color:var(--hud-ink)}
+@keyframes fps-weapon-now{from{opacity:0}}
+@media(prefers-reduced-motion:reduce){.fps-weapon-now{animation:none}}
+@media(max-width:700px){
+  .fps-game[data-touch=on] .fps-weapon-slider{width:124px}
+  .fps-game[data-touch=on] .fps-weapon-current{grid-template-columns:22px minmax(0,1fr) 22px}
+}
 /* What used to own this corner moves down under the strip. */
 .fps-game:has(.fps-weapon-slider) .fps-vehicle-locator{top:110px}
 .fps-game:has(.fps-weapon-slider) .expedition-route-hud{top:112px}
 @media(max-width:700px){
   .fps-weapon-slider{top:52px;right:12px;grid-template-columns:repeat(var(--slots),58px)}
   .fps-weapon-slider-thumb{width:58px}
-  .fps-weapon-slider button{height:34px;font-size:8.5px;letter-spacing:.3px}
+  .fps-weapon-slider .fps-weapon-slot{height:34px;font-size:8.5px;letter-spacing:.3px}
   .fps-game:has(.fps-weapon-slider) .fps-vehicle-locator{top:98px}
   .fps-game:has(.fps-weapon-slider) .expedition-route-hud{top:98px}
 }
@@ -33,8 +45,6 @@
    already, and the route list keeps to the nearest crossing. */
 @media(max-height:560px){
   .fps-game[data-touch=on] .fps-weapon-slider{top:54px}
-  .fps-game[data-touch=on]:has(.fps-weapon-slider) .fps-vehicle-locator{display:none}
-  .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud{top:96px}
   .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud strong,
   .fps-game[data-touch=on]:has(.fps-weapon-slider) .expedition-route-hud span:nth-of-type(n+2){display:none}
 }

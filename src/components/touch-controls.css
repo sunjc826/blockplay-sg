@@ -45,6 +45,9 @@
   width:38px;height:38px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
   backdrop-filter:blur(3px)}
 .fps-game:has(.touch-chip) .fps-top{left:calc(var(--chip-room,58px))}
+/* The map panel names the district and sector, so the row keeps only what it alone shows. */
+.fps-game[data-touch=on] .fps-badge{display:none}
+.fps-game[data-touch=on] .fps-top{justify-content:flex-end}
 @media(max-height:560px){.fps-game:has(.touch-chip) .fps-top{--chip-room:54px}}
 @media(max-width:720px){.fps-game:has(.touch-chip) .fps-top{--chip-room:56px}}
 
@@ -188,7 +191,6 @@
 .fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-ammo-detail,
 .fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-inspect-button,
 .fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-magazine-bar{display:none}
-@media(max-height:560px){.fps-game[data-touch=on] .fps-weapon-hud[data-sight=scope][data-aiming=true] .fps-combat-hud{right:calc(max(12px,env(safe-area-inset-right)) + 52px)}}
 /* In portrait the lens fills the width, so the map and the log would sit on it. */
 @media(max-width:520px){
   .fps-game[data-touch=on]:has(.fps-weapon-hud[data-sight=scope][data-aiming=true]) .fps-minimap:not(.is-expanded),

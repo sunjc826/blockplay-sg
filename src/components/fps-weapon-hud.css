@@ -151,3 +151,37 @@
 .fps-game[data-touch=on] .fps-quick-slot[data-depleted] small{display:block;bottom:2px;background:none;font-size:6px;letter-spacing:0}
 .fps-game[data-touch=on] .fps-quick-choose{width:26px;border-left:0;border-radius:0 6px 6px 0}
 .fps-game[data-touch=on] .fps-quick-choose>span{display:none}
+
+/* Touch: the ammo count hangs straight under the weapon switcher, as one panel.
+   The switcher names the weapon, so the panel starts at the count. The tutorial
+   lays out its own lesson card here, so it keeps the separate panel. */
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud{--under-switcher:107px;top:var(--under-switcher);right:16px;bottom:auto;gap:6px}
+.fps-game[data-touch=on]:not(.tutorial-game):not(:has(.fps-weapon-slider)) .fps-weapon-hud .fps-combat-hud{top:60px}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-combat-readouts{gap:0}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud>.fps-belt{order:2}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo{width:140px;min-width:0;padding:1px 8px 5px;background:#0c151bb8;border:1px solid #ffffff2b;border-top:0;border-radius:0 0 4px 4px;text-align:center;text-shadow:none}
+.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .fps-weapon-slider{border-radius:4px 4px 0 0;border-bottom:0}
+.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .fps-weapon-hud .fps-ammo>span{display:none}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo strong{font-size:20px;line-height:1.1;letter-spacing:-.5px}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo strong small{font-size:9px}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo strong .fps-chamber{margin:0 3px 0 1px;font-size:10px}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-magazine-bar,.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-reload-track{height:2px;margin-top:3px}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo.is-empty{border-color:var(--hud-alert)}
+/* The panel is narrow: inspecting keeps its button, as an icon. */
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-inspect-button{width:100%;min-height:26px;margin-top:2px;padding:0;justify-content:center;background:none;border:0}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-inspect-button>span{display:none}
+.fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-mode-select{width:100%;margin-top:4px;padding:6px 4px;font-size:9px}
+@media(max-width:700px){
+  .fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud{--under-switcher:97px;right:12px}
+  .fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo{width:124px;padding:1px 5px 5px}
+  .fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo strong{font-size:18px}
+  .fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud .fps-ammo strong small{font-size:8px}
+}
+@media(max-height:560px){
+  .fps-game[data-touch=on]:not(.tutorial-game) .fps-weapon-hud .fps-combat-hud{--under-switcher:99px;gap:4px}
+}
+/* What sat under the switcher goes under the panel; the map already marks the vehicles. */
+.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .fps-vehicle-locator{display:none}
+.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:154px;right:12px}
+@media(max-width:520px){.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:234px}}
+@media(min-width:521px) and (min-height:561px){.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:252px}}

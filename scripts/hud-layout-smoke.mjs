@@ -10,7 +10,7 @@ await fs.writeFile(new URL('preview.html', output), `<!doctype html><meta name="
 import React from 'react'; import {createRoot} from 'react-dom/client';
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
-await import('/src/styles.css');await import('/src/components/expedition.css');await import('/src/components/fps-hints.css');
+await import('/src/styles.css');await import('/src/components/expedition.css');await import('/src/components/fps-hints.css');await import('/src/components/game-menu.css');
 const {default:Layout}=await import('/src/components/FpsHudLayout.tsx');
 const {default:Map}=await import('/src/components/FpsMinimap.tsx');
 const {default:Weapon}=await import('/src/components/FpsWeaponHud.tsx');
@@ -22,7 +22,7 @@ const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
 const h=React.createElement,equipment=resolveLoadout(createProfile());
 function Preview(){
  const [config,set]=React.useState({mode:'expedition',touch:false,expanded:false,hints:true,radio:true});window.setHudLayoutTest=set;
- const hud={...initialFpsHud,phase:'playing',magazine:30,reserve:120,
+ const hud={...initialFpsHud,phase:'playing',magazine:30,reserve:120,health:config.health??100,maxHealth:100,armor:35,maxArmor:100,
   belt:['food','bandage','first-aid','plates','ammo','grenade'].map((kind,id)=>({kind,label:kind,key:String(id+4),count:0})),
   lootCard:config.card==='armor'?{id:'a',name:'Elite ceramic inserts',tier:'Elite',kind:'armor',type:'Armor inserts',description:'Full rig plates.',stats:[{label:'ARMOR',value:'100',trend:'up'},{label:'WEIGHT',value:'3.2',trend:'down'}],note:'Comparing with Soft inserts',action:'Collect',detail:'',blocked:'Armor full',swap:{stats:[{label:'ARMOR',value:'35',trend:'down'},{label:'WEIGHT',value:'1.1',trend:'up'}],note:'Drops the inserts you wear',detail:'Keeps your armor at 35'}}:config.card?{id:'w',name:'Strong Objection No. 496',tier:'Mythic',kind:'weapon',type:'Bullpup rifle',description:'A rifle.',stats:[{label:'DMG',value:'38',trend:'up'},{label:'RPM',value:'650',trend:'down'},{label:'MAG',value:'30'}],note:'Unsupported 5.8 mm cargo',action:'Swap',detail:'Puts down SAR 21'}:null,
   // With a card up, the longest recorded line; without, one longer than any.
@@ -31,11 +31,12 @@ function Preview(){
   comms:Array.from({length:16},(_,id)=>({id,at:1000+id*1000,channel:id%2?'chatter':'radio',source:'Section leader',text:'Hold this position and watch the approach to the command post.'}))};
  return h('div',{className:'fps-game is-immersive '+(config.mode==='expedition'?'expedition-game':''),'data-phase':'playing','data-touch':config.touch?'on':undefined,'data-hud-hints':config.hints?'on':'off'},
   h('div',{className:'viewport fps-viewport'},
-   h('div',{className:'fps-top'},h('span',{className:'fps-badge'},'MARINA BAY / '+config.mode.toUpperCase()),h('span',{className:'fps-score'},'0 K / 0 D')),
+   h('div',{className:'fps-top'},h('span',{className:'fps-badge'},'MARINA BAY / '+config.mode.toUpperCase()),config.mode==='expedition'?h(React.Fragment,null,h('span',{className:'expedition-wallet'},'12,450 CR · 128 TK'),h('span',{className:'expedition-risk'},'MODERATE THREAT')):h('span',{className:'fps-score'},'0 K / 0 D')),
    h(Layout,{hud,history:true},config.mode==='expedition'&&h('div',{className:'expedition-sector'},h('span',null,'LOCATION'),h('strong',null,'Waterfront command post'),h('div',{className:'expedition-heat'},h('div',null,h('small',null,'ENEMY'),h('i',{style:{width:'80%',background:'#e89b80'}})),h('div',null,h('small',null,'ALLIES'),h('i',{style:{width:'40%',background:'#8fd1e8'}})))),
     h(Map,{zone:'marina-bay',player:hud,mode:config.mode,expanded:config.expanded,onToggle:config.touch?()=>set({...config,expanded:!config.expanded}):undefined})),
    h(LootCard,{hud,touch:config.touch,actions:config.touch?{take:()=>{},swap:()=>{}}:undefined}),
    h('div',{className:'fps-kill-callout'},h('span',null,'ELIMINATION CHAIN ×2'),h('strong',null,'DOUBLE KILL'),h('small',null,'+200 CR')),
+   config.mode==='expedition'&&h('div',{className:'expedition-route-hud'},h('strong',null,'ROUTE TO RAFFLES PLACE'),h('span',null,'Bayfront gate 120m')),
    h(Slider,{hud,names:equipment.weapons.map(w=>w.name),canSwitch:true,onSwitch:()=>{}}),
    h(Weapon,{hud,weapon:equipment.weapons[0],canFight:true,touch:config.touch,onUtility:()=>{},onInspect:()=>{}}),
    config.touch&&h(Touch,{hud,engine:null,mode:'range',onMenu:()=>{}})));
@@ -55,7 +56,7 @@ ws.onmessage = event => {
 function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++sequence, timer = setTimeout(() => reject(Error(method + ' timed out')), 30000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params })); }); }
 async function evaluate(expression) { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text); return result.result.value; }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-minimap','.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-loot-card','.touch-combat','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.fps-ammo','.fps-vitals','.fps-belt','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
+const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-health-line','.fps-health-line small','.fps-badge','.fps-score','.expedition-wallet','.expedition-risk','.fps-weapon-slider','.expedition-route-hud','.touch-chip','.touch-callout','.fps-minimap','.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-loot-card','.touch-combat','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.fps-ammo','.fps-vitals','.fps-belt','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
 const overlaps = (a,b) => a && b && a.x < b.right-1 && a.right > b.x+1 && a.y < b.bottom-1 && a.bottom > b.y+1;
 const results = [];
 async function screenshot(name) { const result = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(result.data, 'base64')); }
@@ -74,6 +75,24 @@ try {
    assert(!overlaps(layout['.fps-chatter'],layout['.fps-radio-message']),name+': speech lines overlap');
    for(const s of ['.fps-radio-message','.fps-chatter','.fps-comms'])for(const combat of ['.fps-ammo','.fps-vitals','.fps-belt'])assert(!overlaps(layout[s],layout[combat]),name+': '+s+' covers '+combat+' '+JSON.stringify(layout));
    for(const selector of ['.fps-minimap','.fps-radio-message','.fps-chatter']) {const b=layout[selector];if(selector==='.fps-chatter'&&touch&&!b)continue;assert(b&&b.width>0&&b.height>0&&b.x>=0&&b.y>=0&&b.right<=width+1&&b.bottom<=height+1,name+' '+selector+' is outside the screen '+JSON.stringify(layout));}
+   if(touch){
+    await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true,health:18})+')');await delay(150);
+    const top=await evaluate(boxes),bar=top['.fps-health-line'],armorTag=top['.fps-health-line small'];
+    assert(bar&&bar.x>=0&&bar.y>=0&&bar.right<=width+1,name+': the health line leaves the screen '+JSON.stringify(bar));
+    assert.equal(await evaluate(`[...document.querySelectorAll('.fps-vitals')].filter(e=>e.getClientRects().length).length`),0,name+': the health chips are drawn beside the line');
+    assert.equal(top['.fps-badge'],null,name+': the district label is still drawn');
+    for(const other of ['.fps-score','.expedition-wallet','.expedition-risk','.fps-weapon-slider','.touch-chip','.touch-callout','.fps-minimap','.fps-radio-message','.fps-chatter','.fps-ammo'])for(const piece of [bar,armorTag])assert(!overlaps(piece,top[other]),name+' '+mode+': the health line covers '+other+' '+JSON.stringify({piece,other:top[other]}));
+    assert(!overlaps(bar,{x:width/2-16,right:width/2+16,y:height/2-16,bottom:height/2+16}),name+': the health line covers the crosshair');
+    const switcher=await evaluate(`(()=>{const s=document.querySelector('.fps-weapon-slider').getBoundingClientRect();return {h:s.height,right:s.right,shown:[...document.querySelectorAll('.fps-weapon-slot')].filter(e=>e.getClientRects().length).length,names:document.querySelectorAll('.fps-weapon-now span').length,arrows:[...document.querySelectorAll('.fps-weapon-step')].map(e=>{const r=e.getBoundingClientRect();return [r.width,r.height]})}})()`);
+    assert(switcher.h<=46&&switcher.right<=width+1&&switcher.shown===0&&switcher.names===1&&switcher.arrows.length===2&&switcher.arrows.every(([w,h])=>w>=22&&h>=44),name+': the weapon switcher should show one weapon between two thumb-sized arrows '+JSON.stringify(switcher));
+    const ammoBox=top['.fps-ammo'],switchBox=top['.fps-weapon-slider'];
+    assert(ammoBox&&Math.abs(ammoBox.y-switchBox.bottom)<=2&&Math.abs(ammoBox.x-switchBox.x)<=1&&Math.abs(ammoBox.right-switchBox.right)<=1,name+': the ammo count should hang straight under the weapon '+JSON.stringify({ammoBox,switchBox}));
+    assert(ammoBox.height<=76,name+': the ammo panel should stay low '+JSON.stringify(ammoBox));
+    assert.equal(await evaluate(`[...document.querySelectorAll('.fps-ammo>span')].filter(e=>e.getClientRects().length).length`),0,name+': the weapon is named twice');
+    for(const other of ['.fps-ammo','.fps-weapon-slider','.fps-belt','.fps-minimap','.touch-combat'])assert(!overlaps(top['.expedition-route-hud'],top[other]),name+': the route list covers '+other+' '+JSON.stringify({route:top['.expedition-route-hud'],other:top[other]}));
+    if(mode==='expedition')await screenshot(name+'-critical');
+    await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true})+')');await delay(150);
+   }
    if(touch){const sizes=await evaluate(`[...document.querySelectorAll('.fps-belt-slots,.fps-quick-slot,.fps-quick-choose')].map(e=>{const r=e.getBoundingClientRect();return [e.className,r.width,r.height]})`);
     for(const [kind,w,h] of sizes){if(kind.includes('fps-belt-slots'))assert(h<=46,name+': the item row should stay one low row '+JSON.stringify(sizes));else assert(w>=24&&h>=44,name+': item control too small for a thumb '+JSON.stringify(sizes));}
     for(const other of ['.touch-move','.touch-fire','.fps-ammo','.fps-vitals'])assert(!overlaps(layout['.fps-belt'],layout[other]),name+': the item row covers '+other+' '+JSON.stringify(layout));}
