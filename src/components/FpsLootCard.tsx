@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react';
+import { PackageOpen, Repeat2 } from 'lucide-react';
 import type { FpsHud } from '../game/fps-engine';
 import { LOOT_TIER_COLORS, type LootStat } from '../game/loot-focus';
+import { tapProps } from './touch-tap';
 
 const statsList = (stats: LootStat[]) => <dl>{stats.map(stat => <div key={stat.label} data-trend={stat.trend}>
   <dt>{stat.label}</dt><dd>{stat.value}{stat.trend && <span aria-label={stat.trend === 'up' ? 'better' : 'worse'}>{stat.trend === 'up' ? '▲' : '▼'}</span>}</dd>
@@ -9,9 +11,10 @@ const statsList = (stats: LootStat[]) => <dl>{stats.map(stat => <div key={stat.l
 /**
  * The card beside the crosshair for the item being looked at: what it is, how
  * it compares with what is carried, and what E does with it. Keyed by item, so
- * looking from one crate to the next plays the entrance again.
+ * looking from one crate to the next plays the entrance again. With no E key on
+ * a touch screen, `actions` turns those lines into the buttons themselves.
  */
-export default function FpsLootCard({ hud, touch }: { hud: FpsHud; touch: boolean }) {
+export default function FpsLootCard({ hud, touch, actions }: { hud: FpsHud; touch: boolean; actions?: { take: () => void; swap?: () => void } }) {
   const card = hud.lootCard;
   if (!card) return null;
   const style = { '--tier': LOOT_TIER_COLORS[card.tier] ?? LOOT_TIER_COLORS.Issued } as CSSProperties;
@@ -25,6 +28,7 @@ export default function FpsLootCard({ hud, touch }: { hud: FpsHud; touch: boolea
     {card.note && <small className="fps-loot-note">{card.note}</small>}
     <footer>
       {card.blocked ? <span className="fps-loot-blocked">{card.blocked}</span>
+        : actions ? <button type="button" className="fps-loot-button" data-touch-action="loot" aria-label={`${card.action} ${card.name}`} {...tapProps(actions.take)}><PackageOpen size={15} aria-hidden="true" />{card.action}</button>
         : <span className="fps-loot-action">{!touch && <kbd>E</kbd>}{card.action}</span>}
       {card.detail && <small>{card.detail}</small>}
     </footer>
@@ -33,7 +37,8 @@ export default function FpsLootCard({ hud, touch }: { hud: FpsHud; touch: boolea
       {statsList(card.swap.stats)}
       <small className="fps-loot-note">{card.swap.note}</small>
       <footer>
-        <span className="fps-loot-action">{!touch && <kbd>I</kbd>}Swap inserts</span>
+        {actions?.swap ? <button type="button" className="fps-loot-button" data-touch-action="armor-swap" {...tapProps(actions.swap)}><Repeat2 size={15} aria-hidden="true" />Swap inserts</button>
+          : <span className="fps-loot-action">{!touch && <kbd>I</kbd>}Swap inserts</span>}
         <small>{card.swap.detail}</small>
       </footer>
     </section>}

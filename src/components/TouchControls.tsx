@@ -120,13 +120,10 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     if (hud.rail) pad.push(act('rail', `${hud.rail.kind === 'light' ? 'Weapon light' : hud.rail.kind === 'laser' ? 'Laser' : 'Laser-light'} ${hud.rail.on ? 'on' : 'off'}`, <Flashlight size={17} />, { onClick: () => engine?.toggleRail(), 'aria-pressed': hud.rail.on, 'data-on': hud.rail.on || undefined }));
     // Weapons are drawn from the slider in the top-right corner, not the pad.
     if (mode === 'expedition') {
-      // Supplies are tapped on the utility belt itself, which a thumb can reach.
-      if (hud.lootPrompt) prompts.push(act('loot', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.interactLoot(), disabled: !!hud.lootCard?.blocked }));
-      if (hud.lootCard?.swap) prompts.push(act('armor-swap', 'Swap inserts', <Repeat2 size={16} />, { onClick: () => engine?.interactLoot('swap') }));
+      // Supplies are tapped on the utility belt itself, and field items on their own card (FpsLootCard).
       if (hud.npcPrompt) prompts.push(act('npc', promptLabel(hud.npcPrompt), <MessageCircle size={16} />, { onClick: () => engine?.interactNpc() }));
       if (hud.travelPrompt.startsWith('T · ')) prompts.push(act('travel', promptLabel(hud.travelPrompt), <Move3d size={16} />, { onClick: () => engine?.travelZone() }));
     }
-    if (mode === 'range' && hud.lootCard) prompts.push(act('armory', promptLabel(hud.lootPrompt), <PackageOpen size={16} />, { onClick: () => engine?.takeRangeWeapon() }));
     if (hud.rangeSupplyPrompt) prompts.push(act('resupply', 'Resupply', <PackageOpen size={16} />, { onClick: () => engine?.resupplyRange() }));
     if (hud.interact) {
       prompts.push(act('vehicle', promptLabel(hud.interact), <Move3d size={16} />, { onClick: () => engine?.interactVehicle() }));

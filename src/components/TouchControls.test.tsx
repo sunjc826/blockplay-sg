@@ -36,14 +36,12 @@ it('lays the right thumb\'s actions out as a shooter\'s pad, each in a fixed pla
 
 it('offers the expedition its checkpoints, and the range its vehicles', () => {
   const expedition = layer(playing({ quickItem: 'Field dressing', quickCount: 2, lootPrompt: 'E · rare Combat stim', npcPrompt: 'E · Buy Kaya toast · 140 CR', travelPrompt: 'T · Travel to Raffles Place' }), 'expedition');
-  expect(expedition).toContain('data-touch-action="loot"');
   expect(expedition).toContain('data-touch-action="travel"');
   // Supplies are tapped on the utility belt, not the pad.
   expect(expedition).not.toContain('data-touch-action="supply"');
   expect(expedition).toContain('data-touch-action="npc"');
   expect(expedition).not.toContain('data-touch-action="vehicle"');
   // The prompt says what it does; the keyboard hint is no use to a thumb.
-  expect(expedition).toContain('>rare Combat stim<');
   expect(expedition).not.toContain('E · rare Combat stim');
   expect(expedition).toContain('>Buy Kaya toast · 140 CR<');
   expect(layer(playing({ npcPrompt: 'E · Talk to Community volunteer' }), 'expedition')).toContain('>Talk to Community volunteer<');
@@ -56,7 +54,6 @@ it('offers the expedition its checkpoints, and the range its vehicles', () => {
   // No nearby vehicle means no entry prompt even in a shared arena.
   const arena = layer(playing({ arenaSelf: { id: 'self', name: 'You', role: 'player', faction: 'armed-forces', bot: false, alive: true, kills: 0, deaths: 0, health: 100, armor: 0, respawnIn: 0, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, shots: 0 } }), 'arena');
   expect(arena).not.toContain('data-touch-action="vehicle"');
-  expect(arena).not.toContain('data-touch-action="loot"');
 });
 
 it('shows a contextual action only while it can be pressed', () => {
@@ -65,7 +62,6 @@ it('shows a contextual action only while it can be pressed', () => {
   // slots, and the pad keeps the same buttons whatever you are standing next to.
   expect(layer(playing())).not.toContain('data-touch-action="vehicle"');
   expect(layer(playing({ interact: 'E · Enter Utility 01' }))).toContain('data-touch-action="vehicle"');
-  expect(layer(playing({ lootPrompt: '' }), 'expedition')).not.toContain('data-touch-action="loot"');
 });
 
 it('offers driver controls, seat switching and mounted fire only to authorized seats', () => {
@@ -138,9 +134,16 @@ it('offers prone deployment and a way to stand again in every combat mode', () =
   }
 });
 
+it('leaves picking up and swapping to the item card', () => {
+  const lootCard = { id: 'g36k', name: 'G36K', tier: 'Elite', kind: 'weapon', type: 'Rifle', description: '', stats: [], action: 'Swap', detail: '', swap: { stats: [], note: '', detail: '' } } as unknown as FpsHud['lootCard'];
+  for (const mode of ['range', 'expedition'] as const) {
+    const html = layer(playing({ lootPrompt: 'E · Swap G36K', lootCard }), mode);
+    expect(html).not.toContain('Swap G36K');
+    expect(html).not.toContain('Swap inserts');
+  }
+});
+
 it('offers the same contextual range resupply action on touch', () => {
-  const rack = layer(playing({ lootPrompt: 'E · Swap G36K', lootCard: { id: 'g36k', name: 'G36K', tier: 'Elite', kind: 'weapon', type: 'Rifle', description: '', stats: [], action: 'Swap', detail: '' } }));
-  expect(control(rack, 'armory')).toBeTruthy();
   const html = layer(playing({ rangeSupplyPrompt: 'E · Resupply ammo, grenades & utilities' }));
   expect(control(html, 'resupply')).toBeTruthy();
   expect(layer(playing())).not.toContain('data-touch-action="resupply"');

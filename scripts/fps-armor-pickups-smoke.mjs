@@ -21,7 +21,7 @@ import {createProfile} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
 const root=ReactDOM.createRoot(document.querySelector('#hud'));
 window.touch=false;
-window.renderHud=()=>{document.querySelector('.fps-game').dataset.touch=window.touch?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsLootCard,{hud:window.hud,touch:window.touch}),window.touch&&React.createElement(TouchControls,{hud:window.hud,engine:window.engine,mode:'expedition',onMenu:()=>{}})));};
+window.renderHud=()=>{document.querySelector('.fps-game').dataset.touch=window.touch?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsLootCard,{hud:window.hud,touch:window.touch,actions:window.touch?{take:()=>window.engine.interactLoot(),swap:window.hud.lootCard?.swap?()=>window.engine.interactLoot('swap'):undefined}:undefined}),window.touch&&React.createElement(TouchControls,{hud:window.hud,engine:window.engine,mode:'expedition',onMenu:()=>{}})));};
 window.mountFixture=(worn='plate-elite',armor=20,count=4)=>{
  window.engine?.dispose();window.changes=[];
  const profile=createProfile();profile.plate=worn;profile.owned.push(worn);window.fieldProfile=profile;
@@ -111,14 +111,16 @@ try {
   console.log('PASS keyboard: collect adds 35, caps at 100, preserves inserts and full pickups; I deliberately swaps to 35.');
 
   await evaluate(`touch=true;mountFixture('plate-elite',100,1)`); await enter();
-  await wait(`document.querySelector('[data-touch-action="loot"]')?.disabled===true && !!document.querySelector('[data-touch-action="armor-swap"]')`);
+  await wait(`!document.querySelector('[data-touch-action="loot"]') && document.querySelector('.fps-loot-blocked')?.textContent==='Armor full' && !!document.querySelector('.fps-loot-card [data-touch-action="armor-swap"]')`);
   await send('Emulation.setDeviceMetricsOverride', { width: 844, height: 600, deviceScaleFactor: 1, mobile: false });
   await delay(250);
-  assert(await evaluate(`(()=>{const a=document.querySelector('.fps-loot-card').getBoundingClientRect(),b=document.querySelector('[data-touch-action=armor-swap]').getBoundingClientRect();return b.right<=a.left;})()`),'touch swap stays clear of the comparison card');
   await screenshot('touch-swap-available');
-  await evaluate(`document.querySelector('[data-touch-action="armor-swap"]').click()`);
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  const swapAt = await evaluate(`(()=>{const r=document.querySelector('[data-touch-action="armor-swap"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [swapAt] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await wait(`hud.armor===35 && fieldProfile.plate==='plate-soft'`);
-  console.log('PASS touch: full armor disables collect while the separate swap button works.');
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  console.log('PASS touch: full armor names why it cannot collect while the card\'s swap button works.');
 
   await evaluate(`touch=false;mountFixture('plate-none',0,1)`); await enter();
   assert.equal(await evaluate('hud.lootCard.action'),'Equip');

@@ -55,8 +55,8 @@
   .fps-game[data-touch=on] .fps-kill-callout>small{margin-top:1px;font-size:10px}
 }
 /* With the browser's bars showing there is room for the kill's name only. */
-@container fps-hud (max-height:350px){
-  .fps-game[data-touch=on] .fps-combat-banner,.fps-game[data-touch=on] .fps-kill-callout{top:116px}
+@container fps-hud (max-height:370px){
+  .fps-game[data-touch=on] .fps-combat-banner,.fps-game[data-touch=on] .fps-kill-callout{top:calc(50% - 46px)}
   .fps-game[data-touch=on] .fps-kill-callout>span,.fps-game[data-touch=on] .fps-kill-callout>small{display:none}
 }
 @container fps-hud (min-width:521px) and (min-height:561px) and (max-height:830px){
