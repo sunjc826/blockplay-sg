@@ -1,0 +1,902 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v3",
+  "processing": "44100 Hz mono, trimmed to 1 ms before the attack, footsteps sliced, loudness set per sound, 96 kbps MP3",
+  "groups": {
+    "combat-hit": [
+      {
+        "file": "combat-hit-1-a989a48125.mp3",
+        "seconds": 0.09
+      },
+      {
+        "file": "combat-hit-2-408df7816c.mp3",
+        "seconds": 0.09
+      },
+      {
+        "file": "combat-hit-3-9e2a16b3ba.mp3",
+        "seconds": 0.09
+      }
+    ],
+    "combat-hurt-armor": [
+      {
+        "file": "combat-hurt-armor-2-3129ba1b43.mp3",
+        "seconds": 0.3
+      }
+    ],
+    "combat-hurt-break": [
+      {
+        "file": "combat-hurt-break-1-a7b6996a73.mp3",
+        "seconds": 0.5
+      },
+      {
+        "file": "combat-hurt-break-2-aef5d71908.mp3",
+        "seconds": 0.5
+      }
+    ],
+    "combat-hurt-body": [
+      {
+        "file": "combat-hurt-body-1-5e53b931ff.mp3",
+        "seconds": 0.26
+      },
+      {
+        "file": "combat-hurt-body-2-7266a3e9c1.mp3",
+        "seconds": 0.26
+      },
+      {
+        "file": "combat-hurt-body-3-e8fdc12db6.mp3",
+        "seconds": 0.26
+      }
+    ],
+    "combat-hurt-heavy": [
+      {
+        "file": "combat-hurt-heavy-1-b43fe4b5d2.mp3",
+        "seconds": 0.4
+      },
+      {
+        "file": "combat-hurt-heavy-2-8228bf0bae.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "combat-hurt-deflect": [
+      {
+        "file": "combat-hurt-deflect-1-87f453b148.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-hurt-deflect-2-370901a732.mp3",
+        "seconds": 0.3
+      }
+    ],
+    "combat-heartbeat": [
+      {
+        "file": "combat-heartbeat-1-798d7a06bc.mp3",
+        "seconds": 0.7
+      }
+    ],
+    "combat-breath": [
+      {
+        "file": "combat-breath-1-587e5bb45c.mp3",
+        "seconds": 1.6
+      },
+      {
+        "file": "combat-breath-2-c66b5e172a.mp3",
+        "seconds": 1.6
+      }
+    ],
+    "combat-grenade-bounce": [
+      {
+        "file": "combat-grenade-bounce-2-7ac8539729.mp3",
+        "seconds": 0.2
+      },
+      {
+        "file": "combat-grenade-bounce-4-a1de189d3c.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "combat-smoke-hiss": [
+      {
+        "file": "combat-smoke-hiss-1-c578ac0302.mp3",
+        "seconds": 2.89
+      }
+    ],
+    "combat-pickup-ammo": [
+      {
+        "file": "combat-pickup-ammo-1-11656717d4.mp3",
+        "seconds": 0.364
+      },
+      {
+        "file": "combat-pickup-ammo-2-5db113c2ad.mp3",
+        "seconds": 0.2
+      }
+    ],
+    "combat-pickup-item": [
+      {
+        "file": "combat-pickup-item-1-1f2b133517.mp3",
+        "seconds": 0.4
+      },
+      {
+        "file": "combat-pickup-item-2-26e49ea99e.mp3",
+        "seconds": 0.267
+      }
+    ],
+    "combat-pickup-armor": [
+      {
+        "file": "combat-pickup-armor-1-b7ae6de3cf.mp3",
+        "seconds": 0.075
+      }
+    ],
+    "combat-pickup-weapon": [
+      {
+        "file": "combat-pickup-weapon-1-45dc9b6324.mp3",
+        "seconds": 0.127
+      }
+    ],
+    "combat-pickup-food": [
+      {
+        "file": "combat-pickup-food-1-42e8c610c1.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "combat-pickup-crate": [
+      {
+        "file": "combat-pickup-crate-1-55f19dc368.mp3",
+        "seconds": 0.954
+      }
+    ],
+    "combat-pickup-buy": [
+      {
+        "file": "combat-pickup-buy-1-320536b76c.mp3",
+        "seconds": 0.4
+      }
+    ],
+    "combat-denied": [
+      {
+        "file": "combat-denied-1-c95e8bf30e.mp3",
+        "seconds": 0.15
+      }
+    ],
+    "combat-step-metal": [
+      {
+        "file": "combat-step-metal-1-1-40ddc49fb3.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-metal-1-2-54512efa6e.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-metal-1-3-91a8c1adad.mp3",
+        "seconds": 0.113
+      },
+      {
+        "file": "combat-step-metal-1-4-c55f4be602.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-metal-1-5-9ce16507e2.mp3",
+        "seconds": 0.143
+      },
+      {
+        "file": "combat-step-metal-1-6-5003722b1b.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-metal-1-7-baba13bc7e.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-metal-1-8-8b973db90e.mp3",
+        "seconds": 0.3
+      }
+    ],
+    "combat-step-wood": [
+      {
+        "file": "combat-step-wood-1-1-41a75dec3e.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-wood-1-2-20db4cb145.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-wood-1-3-64399db9e8.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-wood-1-4-187d0218a5.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-wood-1-5-0431369495.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-wood-1-6-b7b2f9e845.mp3",
+        "seconds": 0.3
+      }
+    ],
+    "combat-step-dirt": [
+      {
+        "file": "combat-step-dirt-1-1-6946613942.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-2-a1685463b1.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-3-38276f9f08.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-4-ca4ec33b4a.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-5-8666a518fc.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-6-fa3c82b01f.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-7-9adf085f3d.mp3",
+        "seconds": 0.3
+      },
+      {
+        "file": "combat-step-dirt-1-8-e99e2456c8.mp3",
+        "seconds": 0.3
+      }
+    ],
+    "combat-swim-stroke": [
+      {
+        "file": "combat-swim-stroke-1-317c2b5dd8.mp3",
+        "seconds": 1.1
+      },
+      {
+        "file": "combat-swim-stroke-2-3043f6de78.mp3",
+        "seconds": 1.1
+      }
+    ],
+    "combat-water-enter": [
+      {
+        "file": "combat-water-enter-1-a3b0ea0380.mp3",
+        "seconds": 0.8
+      },
+      {
+        "file": "combat-water-enter-2-3c1094e3f5.mp3",
+        "seconds": 0.8
+      }
+    ],
+    "combat-water-exit": [
+      {
+        "file": "combat-water-exit-1-48cd3fb5b9.mp3",
+        "seconds": 0.7
+      }
+    ],
+    "combat-headshot": [
+      {
+        "file": "combat-headshot-3-20a794c622.mp3",
+        "seconds": 0.168
+      },
+      {
+        "file": "combat-headshot-4-68febdcbbd.mp3",
+        "seconds": 0.22
+      }
+    ],
+    "combat-kill": [
+      {
+        "file": "combat-kill-3-1b2842d154.mp3",
+        "seconds": 0.28
+      },
+      {
+        "file": "combat-kill-4-3bb6a223e8.mp3",
+        "seconds": 0.28
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "combat-hit-1",
+      "file": "combat-hit-1-a989a48125.mp3",
+      "sourceSha256": "eacd0db775f332c2a362977fcc195600cbd5def2cffb1b54201331676847748d",
+      "outputSha256": "a989a481257dd17e0f1b9fbad84b697168592a1de5f8c7f70a191fca92a46cba",
+      "seconds": 0.09,
+      "loudestAtMs": 5,
+      "gain": 1.282,
+      "sourcePeak": 0.35
+    },
+    {
+      "id": "combat-hit-2",
+      "file": "combat-hit-2-408df7816c.mp3",
+      "sourceSha256": "5f3f93af9fdcb3bd593f343bf6aea3e10acd40b86256ff48b50bc6524ef48681",
+      "outputSha256": "408df7816cdaeb76c529e1da0cabafcc30b877c792cd282f466816680cf9fbbf",
+      "seconds": 0.09,
+      "loudestAtMs": 9,
+      "gain": 1.25,
+      "sourcePeak": 0.543
+    },
+    {
+      "id": "combat-hit-3",
+      "file": "combat-hit-3-9e2a16b3ba.mp3",
+      "sourceSha256": "65f00dbaa24cb1a46d7462ea29b44a843464eefed23660f9b4cf187f7c843bbf",
+      "outputSha256": "9e2a16b3ba45195cb1b695650ff5ceb4324bd19162ccd769610769339161dfb6",
+      "seconds": 0.09,
+      "loudestAtMs": 4,
+      "gain": 0.916,
+      "sourcePeak": 0.668
+    },
+    {
+      "id": "combat-hurt-armor-2",
+      "file": "combat-hurt-armor-2-3129ba1b43.mp3",
+      "sourceSha256": "f043fd29e68079ccf63b9f6a03c7144b3669f0e4752cbef3bb37b259af39fbff",
+      "outputSha256": "3129ba1b43032f6780bec536ff67bbd6de404e63db4bb180974b846d3eee863f",
+      "seconds": 0.3,
+      "loudestAtMs": 0,
+      "gain": 0.377,
+      "sourcePeak": 1.083
+    },
+    {
+      "id": "combat-hurt-break-1",
+      "file": "combat-hurt-break-1-a7b6996a73.mp3",
+      "sourceSha256": "ab86edb33060f0b602d20a95e580a04f295aa594b4727584a8202a888a194b2e",
+      "outputSha256": "a7b6996a73cf63e5487731dd8a6ee7a002b56c773464871e145305444f3767bf",
+      "seconds": 0.5,
+      "loudestAtMs": 18,
+      "gain": 0.776,
+      "sourcePeak": 1.16
+    },
+    {
+      "id": "combat-hurt-break-2",
+      "file": "combat-hurt-break-2-aef5d71908.mp3",
+      "sourceSha256": "b0d620d1db4b647634c77c425df688476df073b36df23fe4d4792ac9131e662b",
+      "outputSha256": "aef5d7190824e24dd1aa3291fc763f0002e60ed8b82b17179d636b3e8b07f463",
+      "seconds": 0.5,
+      "loudestAtMs": 2,
+      "gain": 0.844,
+      "sourcePeak": 1.066
+    },
+    {
+      "id": "combat-hurt-body-1",
+      "file": "combat-hurt-body-1-5e53b931ff.mp3",
+      "sourceSha256": "8a8aaca4dd9970685faaba139e75492a9b60822742a854c4a02840eb92cda48c",
+      "outputSha256": "5e53b931ffb5f7fe3833bdd557b0f506412c03b776ac3cc59f1604f954ec902e",
+      "seconds": 0.26,
+      "loudestAtMs": 4,
+      "gain": 5.814,
+      "sourcePeak": 0.058
+    },
+    {
+      "id": "combat-hurt-body-2",
+      "file": "combat-hurt-body-2-7266a3e9c1.mp3",
+      "sourceSha256": "c79ecb8a5437f6c76b2c3e5cdf8742893d379971b81a9b66bc31fd59638cc2cd",
+      "outputSha256": "7266a3e9c1400a833e3efe05cac95cccc9692885bf6519b4f583cc00254213f8",
+      "seconds": 0.26,
+      "loudestAtMs": 4,
+      "gain": 0.956,
+      "sourcePeak": 0.334
+    },
+    {
+      "id": "combat-hurt-body-3",
+      "file": "combat-hurt-body-3-e8fdc12db6.mp3",
+      "sourceSha256": "6e8bdf351466b96842762db495826c1a2866ea2d08fcf9b4eeacf59295ceb582",
+      "outputSha256": "e8fdc12db67b4545829a90521815d455e1d643e634d5751cca124766685dd1fd",
+      "seconds": 0.26,
+      "loudestAtMs": 5,
+      "gain": 1.996,
+      "sourcePeak": 0.121
+    },
+    {
+      "id": "combat-hurt-heavy-1",
+      "file": "combat-hurt-heavy-1-b43fe4b5d2.mp3",
+      "sourceSha256": "f1c2ca43f7ba74e54dfed13d5aa3da1decdcb2b4f54c18998752fce9f68a9e8b",
+      "outputSha256": "b43fe4b5d2c5eebf0b11995a03b4e6c7dc704f85d7aa9e8fa7593f30f39c3c1c",
+      "seconds": 0.4,
+      "loudestAtMs": 5,
+      "gain": 0.344,
+      "sourcePeak": 1.212
+    },
+    {
+      "id": "combat-hurt-heavy-2",
+      "file": "combat-hurt-heavy-2-8228bf0bae.mp3",
+      "sourceSha256": "fc3c68ddc81bc77997eabda9261d99ad4e1bea1a220309e0f8ec41595b123614",
+      "outputSha256": "8228bf0baecd27873e7697132d7ac9b6a824eea53820080262ba5f011af6ae28",
+      "seconds": 0.4,
+      "loudestAtMs": 97,
+      "gain": 0.434,
+      "sourcePeak": 1.122
+    },
+    {
+      "id": "combat-hurt-deflect-1",
+      "file": "combat-hurt-deflect-1-87f453b148.mp3",
+      "sourceSha256": "9b8275e2fd781085cc03d0f3e6ff3b060f05402188384d3bb6bed30a89f8006a",
+      "outputSha256": "87f453b1481d02b13881bbf846a06db24d57c717e122cb480aeac2f2ea349d33",
+      "seconds": 0.3,
+      "loudestAtMs": 1,
+      "gain": 2.333,
+      "sourcePeak": 0.258
+    },
+    {
+      "id": "combat-hurt-deflect-2",
+      "file": "combat-hurt-deflect-2-370901a732.mp3",
+      "sourceSha256": "26e164abe70f40e238f6c3ee626901185c86ab4b44cd5568095e674ef046157f",
+      "outputSha256": "370901a732ec1f252d0b7afbbe7abc6047a60ee30af2d016d525fd58f430e4d8",
+      "seconds": 0.3,
+      "loudestAtMs": 0,
+      "gain": 7.502,
+      "sourcePeak": 0.06
+    },
+    {
+      "id": "combat-heartbeat-1",
+      "file": "combat-heartbeat-1-798d7a06bc.mp3",
+      "sourceSha256": "948f0b05beeab7968bb1e12a5de295a9cb8536004dccca5b779732a8185c139b",
+      "outputSha256": "798d7a06bc4745b9ab3d7581583886a1c4e78ebece2fe875e8da6328538a5b04",
+      "seconds": 0.7,
+      "loudestAtMs": 17,
+      "gain": 0.351,
+      "sourcePeak": 0.845
+    },
+    {
+      "id": "combat-breath-1",
+      "file": "combat-breath-1-587e5bb45c.mp3",
+      "sourceSha256": "7ff5c0fc7431f0745a15895d739d10e5ef5dc67a79618165fedcb5903d8a8ba0",
+      "outputSha256": "587e5bb45c1d09b57f6973d00bb93642bfb1197c21b1e8d2b444292f623a4659",
+      "seconds": 1.6,
+      "loudestAtMs": 1279,
+      "gain": 7.348,
+      "sourcePeak": 0.046
+    },
+    {
+      "id": "combat-breath-2",
+      "file": "combat-breath-2-c66b5e172a.mp3",
+      "sourceSha256": "403e0df9cb30ef11035837651149a48b1a2f598c56913cf5c8595ff2e5748cc0",
+      "outputSha256": "c66b5e172a997146a470aea38ed04b5898e2f4f34f775688e438949a21cab4d3",
+      "seconds": 1.6,
+      "loudestAtMs": 1333,
+      "gain": 9.783,
+      "sourcePeak": 0.033
+    },
+    {
+      "id": "combat-grenade-bounce-2",
+      "file": "combat-grenade-bounce-2-7ac8539729.mp3",
+      "sourceSha256": "aee20aa8ca60a2df92e4de83eb868e3f9d8a56d60209f3480467768f14665034",
+      "outputSha256": "7ac853972922f8bcb042d3cfc4d812d53a99ba0f5c92cd92a2c35e2df4317807",
+      "seconds": 0.2,
+      "loudestAtMs": 23,
+      "gain": 1.695,
+      "sourcePeak": 0.321
+    },
+    {
+      "id": "combat-smoke-hiss-1",
+      "file": "combat-smoke-hiss-1-c578ac0302.mp3",
+      "sourceSha256": "b3d38c1b63518ebad6d0edc5a291eeb35a5dbb0d7d54da5bb1d010e90e65853f",
+      "outputSha256": "c578ac0302de8cd9325468836141072879d90f11bf7c3396ed396ec447a76203",
+      "seconds": 2.89,
+      "loudestAtMs": 5,
+      "gain": 0.368,
+      "sourcePeak": 0.85
+    },
+    {
+      "id": "combat-pickup-ammo-1",
+      "file": "combat-pickup-ammo-1-11656717d4.mp3",
+      "sourceSha256": "bd4d5337496c40848503099987901d05ecf8e8d30a8a98f6583eccacc50ed500",
+      "outputSha256": "11656717d4f3c55ce4f34328bf6af0dc18e700cf300fe173f92dcb5b04e44c31",
+      "seconds": 0.364,
+      "loudestAtMs": 218,
+      "gain": 1.085,
+      "sourcePeak": 0.807
+    },
+    {
+      "id": "combat-pickup-ammo-2",
+      "file": "combat-pickup-ammo-2-5db113c2ad.mp3",
+      "sourceSha256": "d87135d9714e9e81bdba0e55a88ba42ef0679c238ff0e98623168c1a8fae14aa",
+      "outputSha256": "5db113c2ad32581d770f2fde2c2b3519c8eccc05e38251c3b6c3a7440fd311b1",
+      "seconds": 0.2,
+      "loudestAtMs": 18,
+      "gain": 0.534,
+      "sourcePeak": 1.067
+    },
+    {
+      "id": "combat-pickup-item-1",
+      "file": "combat-pickup-item-1-1f2b133517.mp3",
+      "sourceSha256": "a67b087777c8ce75adcb1abcf0c3822ba23b99700e30e033f295c766b6c7c31d",
+      "outputSha256": "1f2b13351743cc1ad5d211b7195b75cb6f8895d2f9378e82c26c2e1771281e2b",
+      "seconds": 0.4,
+      "loudestAtMs": 93,
+      "gain": 0.909,
+      "sourcePeak": 0.363
+    },
+    {
+      "id": "combat-pickup-item-2",
+      "file": "combat-pickup-item-2-26e49ea99e.mp3",
+      "sourceSha256": "33a7e7f74ca3434eb6041543d3101f23f9a5f0b1eccf0394d5bbffbd0cbc9544",
+      "outputSha256": "26e49ea99e08f633c26c1bafc51efcdf19ed36c1037a379dac7b5f7b79bfba63",
+      "seconds": 0.267,
+      "loudestAtMs": 97,
+      "gain": 0.582,
+      "sourcePeak": 0.748
+    },
+    {
+      "id": "combat-pickup-armor-1",
+      "file": "combat-pickup-armor-1-b7ae6de3cf.mp3",
+      "sourceSha256": "f97413fdb3b60b17316db50a2128d843e22952a5c20a96933afe632f0fe2d90c",
+      "outputSha256": "b7ae6de3cfe6081f3fc8df1173c7517e5dfb52539c3442aeeb351e0df3273412",
+      "seconds": 0.075,
+      "loudestAtMs": 4,
+      "gain": 0.346,
+      "sourcePeak": 1.301
+    },
+    {
+      "id": "combat-pickup-weapon-1",
+      "file": "combat-pickup-weapon-1-45dc9b6324.mp3",
+      "sourceSha256": "87e0f00ccd8736753e66f3c9393c1bc362c02c15c1702b3b5dcddeaa6f6cd0af",
+      "outputSha256": "45dc9b6324e5a4d8c5c482a63275ca5b25fe01f2cfc4ccb5b38ce5175191d2cc",
+      "seconds": 0.127,
+      "loudestAtMs": 6,
+      "gain": 0.623,
+      "sourcePeak": 0.68
+    },
+    {
+      "id": "combat-pickup-food-1",
+      "file": "combat-pickup-food-1-42e8c610c1.mp3",
+      "sourceSha256": "713fc13072874dd1f134fc04c350b44c01e43efedfd0a166332868d5020841f5",
+      "outputSha256": "42e8c610c1d0982553b9c66a52301d2c1ad719729d7d8dbc48f62fdaf7b60e33",
+      "seconds": 0.4,
+      "loudestAtMs": 54,
+      "gain": 7.03,
+      "sourcePeak": 0.128
+    },
+    {
+      "id": "combat-pickup-crate-1",
+      "file": "combat-pickup-crate-1-55f19dc368.mp3",
+      "sourceSha256": "152981215eba15424b9bcf50f6bf6a667698ac2dce4b38e927fc4c2c85775b57",
+      "outputSha256": "55f19dc368a3d950331aca2f2620254bd86b13d40f95fdc1c7f685cedc90165f",
+      "seconds": 0.954,
+      "loudestAtMs": 162,
+      "gain": 0.472,
+      "sourcePeak": 1.222
+    },
+    {
+      "id": "combat-pickup-buy-1",
+      "file": "combat-pickup-buy-1-320536b76c.mp3",
+      "sourceSha256": "a1718cbf4725cda2d90b97f4f289d3f51a9514fa415d08f1eb18608218360ccc",
+      "outputSha256": "320536b76c62afefc45d76761cbf4f0477f7278c429424391660bf49437e36c7",
+      "seconds": 0.4,
+      "loudestAtMs": 4,
+      "gain": 0.565,
+      "sourcePeak": 0.859
+    },
+    {
+      "id": "combat-denied-1",
+      "file": "combat-denied-1-c95e8bf30e.mp3",
+      "sourceSha256": "6e0765fbbdc40c9950d6fd9fac2f6227efd1faaf635a266ca5c751b0d7f2bc21",
+      "outputSha256": "c95e8bf30ea1b1a35b10f4618cbf215d12f77b995876d09150d2ec9a1d46199d",
+      "seconds": 0.15,
+      "loudestAtMs": 2,
+      "gain": 0.766,
+      "sourcePeak": 0.486
+    },
+    {
+      "id": "combat-step-metal-1-1",
+      "file": "combat-step-metal-1-1-40ddc49fb3.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "40ddc49fb397142f1d80c38886074afeb8aaef6c49c96a0d2a7cce8a89a254a6",
+      "seconds": 0.3,
+      "loudestAtMs": 4,
+      "gain": 1.978,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-2",
+      "file": "combat-step-metal-1-2-54512efa6e.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "54512efa6e2c07d71b8150e5abf95de8e31bb23119fe7589393fbddccc5853ec",
+      "seconds": 0.3,
+      "loudestAtMs": 7,
+      "gain": 3.155,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-3",
+      "file": "combat-step-metal-1-3-91a8c1adad.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "91a8c1adadb17ca53550f0f42dded4a725fcd3ecbcde98379bbfe2f08d81fcba",
+      "seconds": 0.113,
+      "loudestAtMs": 6,
+      "gain": 3.372,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-4",
+      "file": "combat-step-metal-1-4-c55f4be602.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "c55f4be602602950b698f8eeda5ed0301586eab21b687e7dd2d01e97a88f855c",
+      "seconds": 0.3,
+      "loudestAtMs": 5,
+      "gain": 7.719,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-5",
+      "file": "combat-step-metal-1-5-9ce16507e2.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "9ce16507e242945735e84c62f2fed7df75ee7d4c2559869587b7961ee6c1d4ad",
+      "seconds": 0.143,
+      "loudestAtMs": 12,
+      "gain": 4.748,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-6",
+      "file": "combat-step-metal-1-6-5003722b1b.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "5003722b1b4a0f05b7066a7ce94e624818f954fbd6d6bf04d110829b07a8246b",
+      "seconds": 0.3,
+      "loudestAtMs": 7,
+      "gain": 8.55,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-7",
+      "file": "combat-step-metal-1-7-baba13bc7e.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "baba13bc7e3c197742bf873ad2745a8895a75be4b5f213282218e33a8b5b059b",
+      "seconds": 0.3,
+      "loudestAtMs": 9,
+      "gain": 3.821,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-metal-1-8",
+      "file": "combat-step-metal-1-8-8b973db90e.mp3",
+      "sourceSha256": "f198c29ac7d64954cccc04564f29a6ccc25b8cf44a50141fa4683d8fbb71414e",
+      "outputSha256": "8b973db90e9385e10c57d05346f21174b4638f282530457d5843d3934c77731a",
+      "seconds": 0.3,
+      "loudestAtMs": 14,
+      "gain": 4.527,
+      "sourcePeak": 0.179
+    },
+    {
+      "id": "combat-step-wood-1-1",
+      "file": "combat-step-wood-1-1-41a75dec3e.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "41a75dec3e838469b3c6ee26ce250689355265e3f2b2fe91c94b6b9af165194e",
+      "seconds": 0.3,
+      "loudestAtMs": 10,
+      "gain": 0.746,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-wood-1-2",
+      "file": "combat-step-wood-1-2-20db4cb145.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "20db4cb1451ed0fbb5b0ee2b935f857ea9c075cdf00cf10a4bda00de72d07172",
+      "seconds": 0.3,
+      "loudestAtMs": 6,
+      "gain": 0.599,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-wood-1-3",
+      "file": "combat-step-wood-1-3-64399db9e8.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "64399db9e845ba9dcb74e8025e87b4def88c756893e77ca9f57f056f3027e81c",
+      "seconds": 0.3,
+      "loudestAtMs": 12,
+      "gain": 1.074,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-wood-1-4",
+      "file": "combat-step-wood-1-4-187d0218a5.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "187d0218a52e05d5bb3244ab9c126116aa7dac760dc99b8ef446873ebe5283c8",
+      "seconds": 0.3,
+      "loudestAtMs": 9,
+      "gain": 0.818,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-wood-1-5",
+      "file": "combat-step-wood-1-5-0431369495.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "043136949501b9e96ad3e3167e0c3ee57f6d5e37d7d6581da07a1bda713d007f",
+      "seconds": 0.3,
+      "loudestAtMs": 12,
+      "gain": 1.765,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-wood-1-6",
+      "file": "combat-step-wood-1-6-b7b2f9e845.mp3",
+      "sourceSha256": "d6ef018d9ed691d9ec5ffc497a5078193878822d402ec80309e8626e7bffec1e",
+      "outputSha256": "b7b2f9e845210807a745fe33535943f76c84074d7f888c3bee179576a9298d6e",
+      "seconds": 0.3,
+      "loudestAtMs": 13,
+      "gain": 1.639,
+      "sourcePeak": 0.649
+    },
+    {
+      "id": "combat-step-dirt-1-1",
+      "file": "combat-step-dirt-1-1-6946613942.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "694661394247a815179498f138ef29a6e0d13ce2a17a981ba84d1dac64c0720e",
+      "seconds": 0.3,
+      "loudestAtMs": 10,
+      "gain": 3.814,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-2",
+      "file": "combat-step-dirt-1-2-a1685463b1.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "a1685463b174a06811891bb783e93067419c5c3c9cc1bd8c84d72d4e692f6e21",
+      "seconds": 0.3,
+      "loudestAtMs": 12,
+      "gain": 3.011,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-3",
+      "file": "combat-step-dirt-1-3-38276f9f08.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "38276f9f08c7919b1a0b8db2fad4954a84ac0051a3d28d4c688aae887339b42b",
+      "seconds": 0.3,
+      "loudestAtMs": 17,
+      "gain": 3.81,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-4",
+      "file": "combat-step-dirt-1-4-ca4ec33b4a.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "ca4ec33b4a40248952061c0132e12f4d257d7fbd2983ab408890547c6b66c19e",
+      "seconds": 0.3,
+      "loudestAtMs": 12,
+      "gain": 3.647,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-5",
+      "file": "combat-step-dirt-1-5-8666a518fc.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "8666a518fccbd157a2eb25e042eef145d65afe7edc2c03251a6cf47a40a8ca2a",
+      "seconds": 0.3,
+      "loudestAtMs": 19,
+      "gain": 2.029,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-6",
+      "file": "combat-step-dirt-1-6-fa3c82b01f.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "fa3c82b01f612b60a907cc8e22309318b6969a53a55c96c85ca05d79e417cd9d",
+      "seconds": 0.3,
+      "loudestAtMs": 0,
+      "gain": 5.768,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-7",
+      "file": "combat-step-dirt-1-7-9adf085f3d.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "9adf085f3df9eff0861d88cb234773d4b45a7296fc995b766877b982430c8658",
+      "seconds": 0.3,
+      "loudestAtMs": 21,
+      "gain": 4.42,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-step-dirt-1-8",
+      "file": "combat-step-dirt-1-8-e99e2456c8.mp3",
+      "sourceSha256": "2105a7898ee569579d3aaac34c4e760b12397cbed62eb98d81d4c4697274d893",
+      "outputSha256": "e99e2456c820921184c062ad6237db6619a8e1c9e215ac7b860287924a7cacaf",
+      "seconds": 0.3,
+      "loudestAtMs": 7,
+      "gain": 1.731,
+      "sourcePeak": 0.243
+    },
+    {
+      "id": "combat-swim-stroke-1",
+      "file": "combat-swim-stroke-1-317c2b5dd8.mp3",
+      "sourceSha256": "4aa69bf4f9033632779f245677a51bb2adb468962164f6f78e220badcb8458b4",
+      "outputSha256": "317c2b5dd8b2c06e40c1904ccda630556b3145a09368d2c1329ec4ecd9fb38d5",
+      "seconds": 1.1,
+      "loudestAtMs": 376,
+      "gain": 0.427,
+      "sourcePeak": 0.846
+    },
+    {
+      "id": "combat-swim-stroke-2",
+      "file": "combat-swim-stroke-2-3043f6de78.mp3",
+      "sourceSha256": "db1a06ffa87fbb530db44222d894afdf9dd5a9bd43df6b94f60328de74e7f8b3",
+      "outputSha256": "3043f6de781ffb4c68dd17e228dce6de4d9efc33985165f24f05a75be5285236",
+      "seconds": 1.1,
+      "loudestAtMs": 446,
+      "gain": 0.524,
+      "sourcePeak": 0.688
+    },
+    {
+      "id": "combat-water-enter-1",
+      "file": "combat-water-enter-1-a3b0ea0380.mp3",
+      "sourceSha256": "50fb10068a4bb62b3f21232bcea8d6cb6e8bf0398fae8ef770b6313a118dfb10",
+      "outputSha256": "a3b0ea03800d6db7e8202962f425cf2a4d8ffae6091d4e5fc637268016192d1f",
+      "seconds": 0.8,
+      "loudestAtMs": 0,
+      "gain": 1.435,
+      "sourcePeak": 0.229
+    },
+    {
+      "id": "combat-water-enter-2",
+      "file": "combat-water-enter-2-3c1094e3f5.mp3",
+      "sourceSha256": "c1e677db748cffc6108ad853443566985b2f535aa12d70906807a25dd22a5217",
+      "outputSha256": "3c1094e3f5092792f81fd7b40a3540f0afdd4015390353fadabcb2eb2d1f2eec",
+      "seconds": 0.8,
+      "loudestAtMs": 0,
+      "gain": 1.743,
+      "sourcePeak": 0.165
+    },
+    {
+      "id": "combat-water-exit-1",
+      "file": "combat-water-exit-1-48cd3fb5b9.mp3",
+      "sourceSha256": "710b43a5650bd5b267428938ba8f96beb730f2bd10d0cd53bd375c52c245c102",
+      "outputSha256": "48cd3fb5b99f1844ec7751afee4f29d3caebd10d038dc14ebda74d083997fd20",
+      "seconds": 0.7,
+      "loudestAtMs": 212,
+      "gain": 1.487,
+      "sourcePeak": 0.514
+    },
+    {
+      "id": "combat-headshot-3",
+      "file": "combat-headshot-3-20a794c622.mp3",
+      "sourceSha256": "8418d0f8feba7de2468a0e22a9e0c7b4def2dcbbb6c2d0d375def5ade9d63743",
+      "outputSha256": "20a794c6227656def1361e10803cd815d4edc206a704f662212f73c8406c8682",
+      "seconds": 0.168,
+      "loudestAtMs": 1,
+      "gain": 0.603,
+      "sourcePeak": 1.087
+    },
+    {
+      "id": "combat-headshot-4",
+      "file": "combat-headshot-4-68febdcbbd.mp3",
+      "sourceSha256": "11e104807b26bbe8ae0ffbfd618cd15d00e26a99fe1f48b568aa2e38f8d3241d",
+      "outputSha256": "68febdcbbdce8f3882b819fc3a879eb09652f27a1d06c1e161f195195326f9d2",
+      "seconds": 0.22,
+      "loudestAtMs": 1,
+      "gain": 6.777,
+      "sourcePeak": 0.083
+    },
+    {
+      "id": "combat-kill-3",
+      "file": "combat-kill-3-1b2842d154.mp3",
+      "sourceSha256": "f5323bfeb2f7d01d012bdbcabf974659a70b9003f1a7de0d99e8062f3800cd53",
+      "outputSha256": "1b2842d15480cde9c627aaf43a8e9f18ab00ded8ca0b5f41c0d4648b7fa0ad1f",
+      "seconds": 0.28,
+      "loudestAtMs": 4,
+      "gain": 1.811,
+      "sourcePeak": 0.368
+    },
+    {
+      "id": "combat-kill-4",
+      "file": "combat-kill-4-3bb6a223e8.mp3",
+      "sourceSha256": "5cc3d4de9dc591f08e2984bc6fb43c30b19b1a8c9199aa8f3f28a1d9884dc86c",
+      "outputSha256": "3bb6a223e8d90208a81e9ed9dd2cb245187fa7bd743e1c08814f068309dd2c90",
+      "seconds": 0.28,
+      "loudestAtMs": 3,
+      "gain": 0.91,
+      "sourcePeak": 0.763
+    },
+    {
+      "id": "combat-grenade-bounce-4",
+      "file": "combat-grenade-bounce-4-a1de189d3c.mp3",
+      "sourceSha256": "c7d9db549ffc56c7d9e5a4bf1c89d7dde9c04c6cf60be9eba0c4915c767da106",
+      "outputSha256": "a1de189d3c07edbe42d9835e6600b832cc512a261d0561e0d5136e9ac21c823c",
+      "seconds": 0.2,
+      "loudestAtMs": 0,
+      "gain": 0.966,
+      "sourcePeak": 0.588
+    }
+  ]
+}

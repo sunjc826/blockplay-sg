@@ -95,6 +95,19 @@ describe('travelling rounds', () => {
     expect(mergeHits([{ hitId: null, killed: false, damage: 0 }])).toBeNull();
     expect(mergeHits([{ hitId: 'a', killed: true, damage: 60 }, { hitId: 'b', killed: false, damage: 30 }])).toEqual({ hitId: 'b', killed: true, damage: 90 });
   });
+  it('tell the shooter when a travelling round went through the head', () => {
+    const fire = (drop: number) => {
+      const arena = createArena([], 0, 'mixed', field([{ x: 1000, z: 1000 }, { x: 1000, z: 985 }]));
+      arena.addPlayer('one', 'Alpha'); arena.addPlayer('two', 'Bravo');
+      const one = find(arena, 'one'), two = find(arena, 'two'), x = two.x - one.x, y = two.y - drop - one.y, z = two.z - one.z, l = Math.hypot(x, y, z);
+      arena.shoot('one', one, { x: x / l, y: y / l, z: z / l }, one.weapon);
+      for (let i = 0; i < 20; i++) arena.step(.02);
+      return mergeHits(arena.takeHits('one'));
+    };
+    expect(fire(.06)).toMatchObject({ hitId: 'two', headshot: true });
+    const body = fire(.65); expect(body?.hitId).toBe('two'); expect(body?.headshot).toBeUndefined();
+    expect(mergeHits([{ hitId: 'a', killed: false, damage: 30, headshot: true }, { hitId: 'b', killed: false, damage: 30 }])?.headshot).toBe(true);
+  });
   it('have bots lead further the higher their rank', () => {
     expect(BOT_RANKS.map(rank => rank.lead)).toEqual([...BOT_RANKS.map(rank => rank.lead)].sort((a, b) => a - b));
     expect(BOT_RANKS[0].lead).toBeGreaterThan(0); expect(BOT_RANKS[2].lead).toBeLessThan(1);

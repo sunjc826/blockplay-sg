@@ -301,7 +301,7 @@ const noRaycast = () => {};
 export function mergeHits(hits: readonly ArenaShot[]): ArenaShot | null {
   const struck = hits.filter(hit => hit.hitId && hit.damage > 0);
   if (!struck.length) return null;
-  return { hitId: struck[struck.length - 1].hitId, killed: struck.some(hit => hit.killed), damage: Math.min(200, struck.reduce((sum, hit) => sum + hit.damage, 0)) };
+  return { hitId: struck[struck.length - 1].hitId, killed: struck.some(hit => hit.killed), damage: Math.min(200, struck.reduce((sum, hit) => sum + hit.damage, 0)), ...(struck.some(hit => hit.headshot) ? { headshot: true } : {}) };
 }
 /** The 256×48 tag over a figure's head: its name, after one chevron per grade for a ranked bot. */
 export function paintNameLabel(context: CanvasRenderingContext2D, actor: Pick<ArenaActor, 'name' | 'bot' | 'rank'>, color: string) {

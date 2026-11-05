@@ -52,6 +52,8 @@ import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type Grenade
 import { createGrenadeViewmodel } from './grenade-models';
 import { HANDS_MIX, plateCue } from './hands-audio';
 import { WEAPON_MODE_CUE, weaponSettleCue, weaponSwitchCue } from './weapon-switch-audio';
+import { HIT_CONFIRM_GAP, createEarRing, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup, type Vitals } from './combat-feedback';
+import { createActorFootsteps } from './actor-footsteps';
 import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
 import { createGrenadeVisuals } from './grenade-visuals';
 import { grenadeDangerRadius, grenadeWhistleLine } from './grenade-catalog';
@@ -710,6 +712,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Reused so translating a stick into vehicle keys allocates nothing per frame.
   const mountedKeys = new Set<string>();
   let motor: OscillatorNode | null = null, motorGain: GainNode | null = null;
+  const soundPoint = new THREE.Vector3(), stepRay = new THREE.Raycaster(), occlusionRay = new THREE.Raycaster(), DOWN = new THREE.Vector3(0, -1, 0);
+  let lastHitConfirm = -Infinity, lastHurtSound = -Infinity, nextHeartbeat = 0, nextBreath = 0, nextStroke = 0, wasSwimming = false, loudUntil = 0;
+  const actorSteps = createActorFootsteps(), grenadeMotion = new Map<number, { y: number; speed: number; rested: boolean }>(), heardClouds = new Set<number>();
+  let enemyStepsHeard = 0;
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
   const ray = new THREE.Raycaster(); ray.far = 250;
   const center = new THREE.Vector2(), muzzlePoint = new THREE.Vector3();
@@ -879,6 +885,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function otherShot(at: { x: number; y: number; z: number }, calibre: number, power: number, after = 0, muzzle?: MuzzleDevice, emitter?: string) {
     const distance = camera.position.distanceTo(new THREE.Vector3(at.x, at.y, at.z));
     if (distance <= 80) pilotGunfireUntil = Math.max(pilotGunfireUntil, performance.now() / 1000 + Math.max(0, after) + .25);
+    if (distance <= 45) loudUntil = Math.max(loudUntil, performance.now() / 1000 + Math.max(0, after) + .45);
     const key = emitter ?? `world:${Math.round(at.x)}:${Math.round(at.y)}:${Math.round(at.z)}`;
     const tone = gunshotTone(calibre, power, distance, false, muzzle);
     tone.acoustics = !hud.muted && audio?.state === 'running' && tone.level >= .002 ? gunshotSpaces.at(key, at) : OPEN_GUNSHOT_ACOUSTICS;
@@ -913,6 +920,37 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!audio || hud.muted || audio.state !== 'running') return false;
     return playTake(group, level * HANDS_MIX, { pan });
   }
+  /** Something happening at a place in the world: panned, darker and quieter with distance, silent past `range`. */
+  function worldSound(group: SfxGroup, at: { x: number; y: number; z: number }, level: number, range: number) {
+    if (!audio || hud.muted || audio.state !== 'running' || conditions.deafened) return false;
+    const distance = camera.position.distanceTo(soundPoint.set(at.x, at.y, at.z)); if (distance >= range) return false;
+    const near = 1 - distance / range;
+    return playTake(group, level * near * near, { pan: panTo(at), cutoff: 2600 + 13000 * near });
+  }
+  /** The surface under someone's feet, read the way a round landing there would read it. Concrete if nothing is found. */
+  function surfaceUnder(x: number, feet: number, z: number) {
+    stepRay.set(soundPoint.set(x, feet + .6, z), DOWN); stepRay.near = 0; stepRay.far = 1.6;
+    const hit = firstVisibleHit(stepRay, birdSurfaces(), true);
+    return hit ? hitSurface(hit, hit.face?.normal.y ?? 1) : 'concrete';
+  }
+  /** A marker you can trust with your eyes shut: a tick for a hit, a ting for the head, a thunk for a kill. */
+  function confirmHit(kind: 'hit' | 'kill', head = false) {
+    if (!audio || hud.muted || audio.state !== 'running') return;
+    const now = audio.currentTime;
+    if (kind === 'hit' && !head && now - lastHitConfirm < HIT_CONFIRM_GAP) return;
+    lastHitConfirm = now;
+    for (const group of hitConfirmGroups(kind, head)) playTake(group, group === 'combat-hit' ? .55 : .62);
+  }
+  /** Taking a hit, from the side it came from when that is known. */
+  function hurtSound(before: Vitals, after: Vitals, from?: { x: number; z: number }) {
+    if (!audio || hud.muted || audio.state !== 'running' || audio.currentTime - lastHurtSound < .12) return;
+    const cues = damageCues(before, after, hud.maxHealth); if (!cues.length) return;
+    lastHurtSound = audio.currentTime;
+    const pan = from ? panTo({ x: from.x, y: camera.position.y, z: from.z }) * .5 : 0;
+    for (const cue of cues) playTake(cue.group, cue.level * .8, { pan });
+  }
+  /** The kit going where it goes. Blocked pickups get a small knock so the key press was heard. */
+  function pickupSound(group: SfxGroup) { handsSound(group, .12, 1.2); }
   function handlingSound(stage: string) {
     reloadAudio.play(specs[hud.weapon], stage);
   }
@@ -936,7 +974,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
     // Recorded boots on concrete, alternating feet. Quiet steps lose their heel strike; a landing is a lower, heavier step.
     stepSide = -stepSide;
-    if (playTake(!landing && strength > .5 ? 'run' : 'walk', strength * (landing ? .4 : .24), { rate: landing ? .8 : 1, cutoff: landing ? 1800 : 1500 + strength * 9000, pan: landing ? 0 : stepSide * .1 })) return;
+    if (playTake(stepGroup(surfaceUnder(position.x, vertical, position.z), !landing && strength > .5), strength * (landing ? .4 : .24), { rate: landing ? .8 : 1, cutoff: landing ? 1800 : 1500 + strength * 9000, pan: landing ? 0 : stepSide * .1 })) return;
     const source = audio.createBufferSource(), filter = audio.createBiquadFilter(), gain = audio.createGain();
     source.buffer = soundBuffer; source.playbackRate.value = landing ? .32 : .5;
     filter.type = 'lowpass'; filter.frequency.value = landing ? 240 : 420;
@@ -945,6 +983,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
   }
   const encikAudio = createEncikAudio(() => audio);
+  const earRing = createEarRing(() => audio, () => hud.muted);
   function stopVoice() { encikAudio.stop(); }
   function radioCall(event: EncikEvent) {
     if (disposed || conditions.deafened || !['playing', 'complete', 'defeated'].includes(hud.phase)) return;
@@ -1294,13 +1333,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (action === 'swap' && target.kind !== 'armor') return;
     if (target.kind === 'weapon' && item?.family !== undefined && equipment.carriedFamilies.includes(item.family) && fieldProfile.guns[item.family].variant === item.id && !reserveRoom(loadout[item.family])) { hud.lootNotice = 'Rig pouches full. Magazine stays here.'; lootNoticeTime = 3; publish(); return; }
     const armorResult = target.kind === 'armor' && item ? armorPickup(hud.armor, itemById(fieldProfile.plate), item, action) : null;
-    if (armorResult?.blocked) { hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
+    if (armorResult?.blocked) { pickupSound('combat-denied'); hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
     // Loose rounds go into the calibre pool shared by matching carried guns.
     if (target.kind === 'ammo') {
       const gun = ammoTarget(target.caliberMm, carriedGuns(), hud.weapon);
-      if (!gun) { hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
+      if (!gun) { pickupSound('combat-denied'); hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
-      const added = addReserveRounds(loadout[gun.family], taken.amount);
+      const added = addReserveRounds(loadout[gun.family], taken.amount); pickupSound('combat-pickup-ammo');
       hud.lootNotice = `+${added / specs[gun.family].capacity} compatible magazines · ${specs[gun.family].caliberMm} mm · ${spareMagazines(loadout[gun.family])} spare`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
       markers?.remove(taken.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 3;
@@ -1311,9 +1350,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (target.kind === 'medical') {
       if (item?.category !== 'consumable') return;
       const slot = utilitySlot(utilityKind(item) ?? ''), room = beltRoom(supplies, item.id);
-      if (!room) { hud.lootNotice = `${slot?.label ?? 'Belt'} slot is full. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
+      if (!room) { pickupSound('combat-denied'); hud.lootNotice = `${slot?.label ?? 'Belt'} slot is full. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
       supplies[item.id] = (supplies[item.id] ?? 0) + 1; if (item.grenade) arenaRuntime?.setGrenadeSupplies(supplies); looted[item.id] = (looted[item.id] ?? 0) + 1;
+      pickupSound(item.supplyType === 'food' ? 'combat-pickup-food' : 'combat-pickup-item');
       if (slot && !pickUtility(beltSelected, supplies)) beltSelected = slot.kind;
       hud.lootNotice = `+1 ${item.name} · ${item.grenade ? 'G combat' : item.effect?.reserve ? 'Automatic ammo reserve' : 'F recovery'} (${supplies[item.id]})`;
       comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
@@ -1323,6 +1363,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const collected = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!collected) return;
     if (collected.kind === 'weapon' && item && validWeaponIndex(item.family)) {
+      pickupSound('combat-pickup-weapon');
       const family = item.family, changed = fieldProfile.guns[family].variant !== item.id, wasCarried = equipment.carriedFamilies.includes(family);
       const previousSpecs = specs, previousCarry = equipment.carriedFamilies;
       const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.guns[family].variant = item.id;
@@ -1338,6 +1379,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
       hud.lootNotice = !changed && wasCarried ? `+${specs[family].capacity} rounds for ${specs[family].name}.` : `${item.name} equipped for this expedition.`;
     } else if (collected.kind === 'armor' && item && armorResult) {
+      pickupSound('combat-pickup-armor');
       if (armorResult.equip) {
         const next = copyProfile(fieldProfile); next.owned = [...new Set([...next.owned, item.id])]; next.plate = item.id;
         fieldProfile = next; equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
@@ -1375,6 +1417,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.credits = fieldProfile.credits; hud.tokens = fieldProfile.tokens;
       expedition.onEquipment(copyProfile(fieldProfile));
     }
+    if (result.purchased) pickupSound('combat-pickup-buy');
     hud.lootNotice = result.message; lootNoticeTime = 4; markers?.react(npc.id, result.purchased ? 'offer' : 'talk', 2.4);
     comms.add('system', npc.name, result.message);
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
@@ -2214,6 +2257,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }));
     const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     if (step && hud.phase === 'playing' && !conditions.deafened) movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
+    const wet = swimming();
+    if (wet !== wasSwimming && hud.phase === 'playing' && !vehicles.active) handsSound(wet ? 'combat-water-enter' : 'combat-water-exit', 0, wet ? 1 : 1.2);
+    wasSwimming = wet;
+    if (wet && speed > .2 && hud.phase === 'playing' && hud.elapsed >= nextStroke) { handsSound('combat-swim-stroke', stepSide = -stepSide, .9); nextStroke = hud.elapsed + 1.25; }
     const motionScale = motionPreference?.matches ? 0 : 1;
     const gait = bodyMotion.gait, gaitWeight = bodyMotion.gaitWeight * motionScale;
     const headBob = Math.sin(gait * 2) * (poseStance === 'prone' ? .008 : .012) * gaitWeight * (1 - aim * .85);
@@ -2503,7 +2550,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // is its whole arc rather than the length of its final segment.
     const damage = Math.max(1, Math.round((rawDamage ?? hitDamage(specs[weapon], range, zone)) * scale * damageDealtScale(foodEffects)));
     hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
-    target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit';
+    target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit'; confirmHit(hud.hitKind, zone === 'head');
     if (target.health > 0) return;
     if (rangeDirector && !rangeDirector.eliminate(index, target.activation, hud.elapsed)) return;
     target.alive = false; target.root.visible = drillMode !== 'classic'; hud.hits++;
@@ -2530,7 +2577,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         struckVehicles.add(kind);
         const damage = Math.min(vehicles.states[kind].health, hitDamage(specs[weapon], rangeAt(hit)) * scale);
         vehicles.damage(kind, damage);
-        if (damage > 0) { hud.lastDamage = Math.round(damage); hitTime = .2; hud.hitKind = 'hit'; }
+        if (damage > 0) { hud.lastDamage = Math.round(damage); hitTime = .2; hud.hitKind = 'hit'; confirmHit('hit'); }
       }
       if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, weapon, rangeAt(hit), hit.object.userData.fpsZone, scale);
       scale *= decay;
@@ -2688,6 +2735,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (grenadeHeld.cooked >= itemById(grenadeHeld.id)!.grenade!.fuse || grenadeHeld.swingAt !== null && grenadeHeld.cooked >= grenadeHeld.swingAt + GRENADE_SWING_SECONDS) releaseGrenade(); } }
     const snapshotTime = hud.arena?.elapsed ?? 0, now = arenaRuntime ? Math.max(snapshotTime, eventClock) : localGrenades.clock;
     grenadeVisuals.update(activeGrenades(), activeGrenadeEvents(), now, arenaRuntime ? snapshotTime : now);
+    for (const bounce of grenadeBounces(activeGrenades(), grenadeMotion)) worldSound('combat-grenade-bounce', bounce.position, .5 + .5 * bounce.strength, 28);
+    for (const event of activeGrenadeEvents()) {
+      if (heardClouds.has(event.serial)) continue;
+      heardClouds.add(event.serial);
+      if (now - event.start < 1 && itemById(event.id)?.grenade?.effects.some(effect => effect.kind === 'cloud')) worldSound('combat-smoke-hiss', event.point, .9, 34);
+    }
     hud.grenadeWarnings = activeGrenades().filter(g => { const d = Math.hypot(g.position.x - position.x, g.position.y - vertical - eyeHeight(), g.position.z - position.z); return !conditions.deafened && d <= grenadeDangerRadius(itemById(g.id)!.grenade!) + 2; }).map(g => ({ serial: g.serial, angle: Math.atan2(g.position.x - position.x, -(g.position.z - position.z)) + yaw, remaining: g.remaining }));
     for (const event of activeGrenadeEvents()) {
       const age = now - event.start;
@@ -2828,6 +2881,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!canResupply()) return;
     stopInspect(); endSupply();
     const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock);
+    if (refill.rounds || refill.items) pickupSound('combat-pickup-ammo');
     hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig magazines · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
     comms.add('system', 'Range', hud.message); publish(); canvas.focus({ preventScroll: true });
   }
@@ -2874,6 +2928,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     } else switchWeapon(family);
     rangeArmory.setCarried(carriedVariants(equipment));
     options.onLoadout?.(equipment);
+    pickupSound('combat-pickup-weapon');
     hud.message = previous === item.name ? `${item.name} taken from the rack.` : `${item.name} taken from the rack. ${previous} is back in its place.`;
     comms.add('system', 'Range', hud.message); canvas.focus({ preventScroll: true }); publish();
   }
@@ -2981,8 +3036,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function hurtPlayer(amount: number, caliberMm?: number, piercing = false, shred = 0) {
     if (hud.health <= 0 || amount <= 0) return;
     const damage = piercing ? { health: Math.max(0, hud.health - amount * damageTakenScale(foodEffects)), armor: hud.armor, deflected: false } : applyArmorDamage(hud.health, hud.armor, amount * (1 - shred) * damageTakenScale(foodEffects), equipment.absorption, { insert: equipment.insert, caliberMm, roll: caliberMm === undefined ? undefined : Math.random() });
-    if (damage.deflected) { comms.add('system', 'Inserts', DEFLECT_LINE); return; }
+    if (damage.deflected) { playTake('combat-hurt-deflect', .7); comms.add('system', 'Inserts', DEFLECT_LINE); return; }
     const ahMa = survivesWithAhMa(foodEffects, Math.max(0, damage.health - amount * shred * damageTakenScale(foodEffects)));
+    hurtSound({ health: hud.health, armor: hud.armor }, { health: ahMa.health, armor: damage.armor });
     hud.health = ahMa.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
     if (ahMa.saved) { hud.message = ahMaLine(hud.health); comms.add('system', 'Ah Ma', hud.message); arenaRuntime?.setVitals({ health: hud.health }); }
     if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
@@ -3083,12 +3139,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return;
     }
     if ((!pilotEnabled && weapon.fireMode === 'semi' && triggerSpent) || !fireWeapon(state, hud.weapon, specs)) return;
-    hud.shots++; shotSound(specs[hud.weapon]);
+    hud.shots++; shotSound(specs[hud.weapon]); loudUntil = performance.now() / 1000 + .45;
     const recoilDamage = unsupportedRecoilDamage(specs[hud.weapon], prone, grounded(), stance() === 'crouch');
     if (recoilDamage) {
       hud.message = `Unsupported .50 recoil: ${recoilDamage} damage before armor. Z / Prone to deploy the mount.`;
       if (!arenaRuntime) {
         const damage = applyArmorDamage(hud.health, hud.armor, recoilDamage, equipment.absorption);
+        hurtSound({ health: hud.health, armor: hud.armor }, damage);
         hud.health = damage.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
         if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
       }
@@ -3301,6 +3358,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       adopted.forEach(hearCaughtUpRound); rounds.push(...adopted);
     }
     if (options.arena && frame.snapshot) for (const shot of gunfireReports(frame.snapshot.actors, heardShots, options.arena.session.id, camera.position)) otherShot(shot.from, shot.calibre, shot.power, shot.after, shot.muzzle, shot.emitter);
+    if (frame.snapshot && frame.self?.alive && hud.phase === 'playing' && !conditions.deafened && !vehicles.active) {
+      const clock = performance.now() / 1000;
+      for (const step of actorSteps.advance(frame.snapshot.actors, frame.self, { x: position.x, y: frame.self.y, z: position.z }, frame.snapshot.elapsed)) {
+        const running = step.speed >= 5, ducked = clock < loudUntil ? .4 : 1;
+        // Through a wall it is heard, but muffled: the direction stays honest and it stops reading as in the open.
+        occlusionRay.set(camera.position, soundPoint.set(step.x, step.y - .6, step.z).sub(camera.position).normalize()); occlusionRay.near = 0; occlusionRay.far = Math.max(0, step.distance - .6);
+        const blocked = !!firstVisibleHit(occlusionRay, birdSurfaces(), true);
+        if (playTake(stepGroup(surfaceUnder(step.x, step.y - 1.75, step.z), running), step.gain * .2 * ducked * (blocked ? .6 : 1), { pan: panTo(step), cutoff: blocked ? 900 : 2400 + 9000 * step.gain })) enemyStepsHeard++;
+        canvas.dataset.enemySteps = String(enemyStepsHeard);
+      }
+    }
     if (frame.snapshot) hud.elapsed = frame.snapshot.elapsed;
     if (frame.snapshot) dropFallenKit(frame.snapshot.actors, frame.feed);
     const deathFrame = { elapsed: frame.snapshot?.elapsed ?? hud.elapsed, earned: hud.earned, actors: frame.snapshot?.actors ?? [], hit: frame.hit, feed: frame.feed };
@@ -3310,11 +3378,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.hits = frame.self.kills; hud.health = frame.self.health; hud.armor = frame.self.armor;
       if (previousSelf && frame.self.health < previousSelf.health) { hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY; }
       const struck = frame.self.hurtFrom;
+      if (previousSelf?.alive) hurtSound(previousSelf, frame.self, struck && struck.serial !== hurtSerial ? struck : undefined);
       if (struck && struck.serial !== hurtSerial) {
         const lost = previousSelf ? previousSelf.health + previousSelf.armor - frame.self.health - frame.self.armor : 0;
         if (hurtSerial >= 0 && lost > 0) hitDirections.add(viewer(), struck, hitStrength(lost, hud.maxHealth), struck.blast ? 'blast' : 'shot');
         // Struck for nothing: the host glanced the round off a lucky insert.
-        else if (hurtSerial >= 0 && !struck.blast && equipment.insert.deflect > 0) comms.add('system', 'Inserts', DEFLECT_LINE);
+        else if (hurtSerial >= 0 && !struck.blast && equipment.insert.deflect > 0) { playTake('combat-hurt-deflect', .7, { pan: panTo({ x: struck.x, y: camera.position.y, z: struck.z }) * .5 }); comms.add('system', 'Inserts', DEFLECT_LINE); }
         hurtSerial = struck.serial;
       } else if (!struck) hurtSerial = 0;
       if (expedition && !frame.self.alive && document.pointerLockElement === canvas) document.exitPointerLock();
@@ -3392,7 +3461,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       impactSound(point, 'flesh', 1, publishedStyles.get(style)?.impact);
       bloodSpatter(point, direction, 1);
     }
-    if (frame.hit?.hitId && frame.hit.damage > 0) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; }
+    if (frame.hit?.hitId && frame.hit.damage > 0) { hud.landed++; hud.lastDamage = frame.hit.damage; hitTime = .2; hud.hitKind = frame.hit.killed ? 'kill' : 'hit'; confirmHit(hud.hitKind, frame.hit.headshot); }
     for (const said of frame.barks) if (frame.snapshot) hearBark(said, frame.snapshot.actors);
     if (wheel) hud.orderStatus = orderStatus();
     for (const event of frame.feed) {
@@ -3733,6 +3802,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A supply crate this player reached first: field loot round it on an expedition, a top-up anywhere else. */
   function openSupply(event: CombatEventDescriptor) {
+    pickupSound('combat-pickup-crate');
     if (expedition && markers) {
       const items = expedition.loot.supply(expedition.zone, event.id, { x: event.target.x, z: event.target.z, y: vertical }, lootGround);
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
@@ -3967,6 +4037,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const active = hud.phase === 'playing' && vehicles.mounted && !isDragonBoat(vehicles.mounted.kind) && !hud.muted;
       motorGain.gain.setTargetAtTime(active ? .035 : 0, audio.currentTime, .08);
       motor.frequency.setTargetAtTime(vehicles.active === 'helicopter' ? 54 + Math.sin(hud.elapsed * 24) * 8 : 35 + Math.abs(vehicles.mounted?.speed || 0) * 4, audio.currentTime, .05);
+    }
+    earRing.update(hud.phase === 'playing' ? conditions.deafened : undefined);
+    if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false) {
+      const pulse = lowHealthPulse(hud.health, hud.maxHealth), clock = audio?.currentTime ?? 0;
+      if (!pulse) nextHeartbeat = nextBreath = 0;
+      else if (audio?.state === 'running' && !hud.muted) {
+        if (clock >= nextHeartbeat) { playTake('combat-heartbeat', pulse.level * .75); nextHeartbeat = clock + pulse.beat; }
+        if (pulse.breath && clock >= nextBreath) { if (nextBreath) playTake('combat-breath', .6); nextBreath = clock + pulse.breath; }
+      }
     }
     if (hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false) {
       if (hud.health < hud.maxHealth * .3) radioCall('medical');
@@ -4270,7 +4349,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       wetView.dispose();merlionVisuals.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       disposeCombatOutput(audio);
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();

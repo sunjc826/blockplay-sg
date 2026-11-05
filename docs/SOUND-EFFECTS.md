@@ -198,6 +198,54 @@ remains the fallback at the commit point until the recordings load. Run the scri
 with `--generate` for the cached once-only requests and `--publish` to prepare the
 clips offline. Two takes came back near silent and are listed as rejected there.
 
+## Combat feedback, pickups and footsteps
+
+`scripts/combat-sfx.mjs` holds these ElevenLabs v3 recordings, published to
+`public/audio/combat/`, with the usual `--generate` and `--publish` steps. Short bright
+prompts came back near silent often enough that every take should be checked for
+level before it is kept; the script lists what was rejected. The batch and its
+replacements cost about 547 credits on 2026-11-05.
+
+| Event | Group | Rule |
+| --- | --- | --- |
+| Your hit lands | `combat-hit` | A tick at most every 55 ms, so automatic fire stays readable |
+| Through the head | `combat-headshot` | Replaces the tick; heard on top of a kill |
+| Your kill | `combat-kill` | Always plays |
+| Hit with plates up | `combat-hurt-armor` | Not the body behind it |
+| The blow that breaks them | `combat-hurt-break` | |
+| Hit with no plates | `combat-hurt-body` | |
+| Hit at 30% health or less | `combat-hurt-heavy` | On top of a plate hit if plates remain |
+| Round glances off an insert | `combat-hurt-deflect` | |
+| Low health | `combat-heartbeat` | Follows the HUD's health bands: slower when low, faster and louder when critical |
+| Critical health | `combat-breath` | About every 3 s |
+| Grenade bounces | `combat-grenade-bounce` | Read from its velocity flipping; 28 m |
+| Smoke or gas cloud starts | `combat-smoke-hiss` | One 3 s clip, 34 m; it does not last the whole cloud |
+| Deafened | Synthesised | Two close tones beating, fading as it passes |
+| Pickups | `combat-pickup-*` | Ammo, item, food, armor, weapon, supply drop, vendor |
+| Pickup refused | `combat-denied` | |
+| In and out of water | `combat-water-*`, `combat-swim-stroke` | |
+
+Blows under 2 points are skipped, so gas and fire do not thump every frame, and hits
+pan toward where they came from when the host says. Hits carry a `headshot` flag from
+`arena-rules.ts` through `mergeHits`.
+
+Footsteps follow the surface under them (`stepGroup`): the original boots on concrete,
+recorded sequences sliced into single steps for metal, wood and earth.
+
+### Other people's footsteps
+
+`actor-footsteps.ts` is tuned so 32 bots stay information rather than patter. Only hostile
+soldiers on foot are heard, and only the three nearest moving ones, with at least 0.13 s
+between any two steps. Range grows with pace, from 15 m to 26 m, which is about 18 m for a
+rifleman, and level fades to nothing at the edge. Allies, riders, parachutes, swimmers,
+anyone prone and anyone over 4.5 m above or below are silent. A human crouching or aiming on
+the move (2.6 m/s or less) is silent too, so sneaking works; a bot's pace is its role, so a
+slow gunner still sounds. A step behind a wall is quieter and muffled, and all of them duck
+for 0.45 s around gunfire within 45 m.
+
+`node scripts/combat-audio-smoke.mjs` measures this in real 32-bot matches, and hits, kills
+and being shot on the range. To change the tuning, change `ACTOR_STEPS` and rerun it.
+
 ## Weapon switch
 
 `scripts/weapon-switch-sfx.mjs` holds a bounded batch of ElevenLabs v3 recordings,

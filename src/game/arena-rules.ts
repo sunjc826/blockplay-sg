@@ -190,7 +190,7 @@ export interface ArenaInput {
 }
 export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalRemainingMs?: number };
 export interface ArenaPoint { x: number; y: number; z: number }
-export interface ArenaShot { hitId: string | null; killed: boolean; damage: number }
+export interface ArenaShot { hitId: string | null; killed: boolean; damage: number; /** The round went through the head, for the shooter's hit sound. */ headshot?: boolean }
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
   /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
@@ -1007,7 +1007,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
           : strayShot(from, ray, reach, round.damage, round.cause ?? 'Gunfire', round.calibre);
         if (shot.stopped) {
           flying.splice(i, 1);
-          if (shot.hitId && round.shooter && !round.shooter.actor.bot) { const list = landed.get(round.shooter.actor.id) ?? []; list.push({ hitId: shot.hitId, killed: shot.killed, damage: shot.damage }); landed.set(round.shooter.actor.id, list); }
+          if (shot.hitId && round.shooter && !round.shooter.actor.bot) { const list = landed.get(round.shooter.actor.id) ?? []; list.push({ hitId: shot.hitId, killed: shot.killed, damage: shot.damage, ...(shot.headshot ? { headshot: true } : {}) }); landed.set(round.shooter.actor.id, list); }
           continue;
         }
       }
@@ -1177,7 +1177,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       nearBullet(chestOf(other.actor), origin, ray, nearest)) underFire(other, entry, source);
     if (victim) underFire(victim, entry, source);
     if (flown !== undefined && !raider && !hull && !victim && !equipment && !transport) return { ...EMPTY_SHOT, stopped: wallStops };
-    if (spec) damage = hitDamage(spec, (flown ?? 0) + nearest, victim && headHit(origin, ray, victim.actor, nearest) ? 'head' : undefined);
+    const headshot = !!victim && headHit(origin, ray, victim.actor, nearest);
+    if (spec) damage = hitDamage(spec, (flown ?? 0) + nearest, headshot ? 'head' : undefined);
     if (equipment) {
       const taken = damageFacility(equipment, damage, entry.actor.faction);
       return { hitId: taken ? `facility-${equipment.id}` : null, damage: taken, killed: taken > 0 && equipment.health === 0, stopped: true };
@@ -1188,7 +1189,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     // A round that finds one of the shooter's own side stops there and does no harm.
     if (victim && !hostile(entry.actor, victim.actor) && !(!entry.actor.bot && isProxyFaction(victim.actor.faction))) return { ...EMPTY_SHOT, stopped: true };
     if (victim && entry.actor.bot && !victim.actor.bot && elapsed < (victim.shieldUntil ?? 0)) return { hitId: victim.actor.id, killed: false, damage: 0, stopped: true };
-    return victim ? { ...wound(victim, origin, ray, nearest, damage, entry, undefined, ignore ? origin : undefined, calibre), stopped: true } : { ...EMPTY_SHOT, stopped: true };
+    return victim ? { ...wound(victim, origin, ray, nearest, damage, entry, undefined, ignore ? origin : undefined, calibre), headshot, stopped: true } : { ...EMPTY_SHOT, stopped: true };
   }
   function releaseSeat(id: string, switching = false) {
     const mounted = seatOf(vehicles, id);
