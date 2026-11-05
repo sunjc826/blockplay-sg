@@ -110,11 +110,14 @@ function handleTravel(t: number, style: ReloadStyle) {
   const run = (t - CHARGE.release) / (CHARGE.home - CHARGE.release);
   return (1 - run) ** 3;
 }
-export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right', style: ReloadStyle = 'improved') {
-  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side !== 'top' ? rightKeys : style === 'original' ? originalTopKeys : topKeys;
+function samplePose(keys: readonly Key[], t: number) {
   const index = Math.min(keys.length - 2, Math.max(0, keys.findIndex((_, i) => i < keys.length - 1 && t <= keys[i + 1][0])));
   const a = keys[index], b = keys[index + 1], s = smoothStep((t - a[0]) / (b[0] - a[0]));
-  const v = a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);
+  return a.slice(1).map((value, i) => value + (b[i + 1] - value) * s);
+}
+export function reloadMotion(progress: number, empty = false, side: HandleSide = 'right', style: ReloadStyle = 'improved') {
+  const p = Math.max(0, Math.min(1, progress)), t = p * reloadLength(empty), keys = !empty ? tacticalKeys : side !== 'top' ? rightKeys : style === 'original' ? originalTopKeys : topKeys;
+  const v = samplePose(keys, t);
   return { x: v[0], y: v[1], z: v[2], pitch: v[3], yaw: v[4], roll: v[5], magazineDrop: t >= .16 && t <= .34
       ? (t < .205 ? .015 * smoothStep((t - .16) / .045) : t < .275 ? .015 + .315 * smoothStep((t - .205) / .07) : .33 - .03 * smoothStep((t - .275) / .065)) : v[6],
     magazineVisible: t < .38 || t > MAG_IN_START,
@@ -144,8 +147,12 @@ export function beltWeaponMotion(progress: number, empty = false, style: ReloadS
 export function weaponReloadMotion(progress: number, empty: boolean, weapon: Pick<WeaponSpec, 'id' | 'feed'>, style: ReloadStyle = 'improved') {
   if (weapon.feed === 'belt') return beltWeaponMotion(progress, empty, style);
   const motion = reloadMotion(progress, empty, handleSide(weapon.id), style);
-  if (weapon.id === 'p30-inspired' || weapon.feed === 'drum') return motion;
   const time = Math.max(0, Math.min(1, progress)) * reloadLength(empty);
+  if (weapon.id === 'p30-inspired' && style === 'improved' && time < PISTOL_FLICK_POSE[PISTOL_FLICK_POSE.length - 1][0]) {
+    const [x, y, z, pitch, yaw, roll] = samplePose(PISTOL_FLICK_POSE, time);
+    return { ...motion, x, y, z, pitch, yaw, roll };
+  }
+  if (weapon.id === 'p30-inspired' || weapon.feed === 'drum') return motion;
   const shoulder = smoothStep(time / .16) * (1 - smoothStep((time - (empty ? 1.24 : .80)) / (empty ? .26 : .20)));
   return { ...motion, x: motion.x * .6, y: motion.y * .22,
     pitch: .38 * shoulder + motion.pitch * .3, yaw: motion.yaw * .55, roll: motion.roll * .8 };
@@ -227,6 +234,45 @@ export function magazineThrow(time: number) {
     active: time >= grip && time < gone,
   };
 }
+// The pistol's spent magazine goes with one hand: the support hand drops away, the
+// thumb works the catch, and a snap of the wrist slings the magazine off the lower
+// right. Beats are in tactical reloads, as with the rifle's throw.
+export const PISTOL_FLICK = { press: .14, snap: .175, slide: .185, whip: .215, release: .24, stop: .24, gone: RELOAD_POINTS.out } as const;
+const FLICK_SLIDE = .115, FLICK_GRAVITY = 24, FLICK_SPIN: Vec = [7, 4, -24];
+const FLICK_SPEED: Vec = [3, -1.2, 0];
+const FLICK_REACH = FLICK_SPEED.map(v => v * (PISTOL_FLICK.release - PISTOL_FLICK.whip) / 2) as unknown as Vec;
+const FLICK_HAND_AWAY: Vec = [-.2, -.46, .02];
+/** Sampled from the reload clock, like the rifle's throw. `slide` runs in gun metres along the well, the rest in view space. */
+export function pistolMagazineFlick(time: number) {
+  const { press, snap, slide, whip, release, gone } = PISTOL_FLICK;
+  const wound = Math.max(0, Math.min(1, (time - whip) / (release - whip))) ** 2, flight = Math.max(0, time - release);
+  const along = (axis: 0 | 1 | 2) => FLICK_REACH[axis] * wound + FLICK_SPEED[axis] * flight;
+  const away = smoothStep((time - .02) / .13) * (1 - smoothStep((time - RELOAD_POINTS.out) / .09));
+  return {
+    strip: FLICK_SLIDE * smoothStep((time - slide) / (release - slide)),
+    flown: [along(0), along(1) - .5 * FLICK_GRAVITY * flight * flight, along(2)] as Vec,
+    spin: [FLICK_SPIN[0] * flight, FLICK_SPIN[1] * flight, FLICK_SPIN[2] * flight] as Vec,
+    /** The firing thumb on the catch, off it as soon as the wrist has gone. */
+    press: smoothStep((time - press) / (snap - press)) * (1 - smoothStep((time - snap) / .05)),
+    /** The support hand, clear of the gun for as long as the wrist needs the room. */
+    handAway: [FLICK_HAND_AWAY[0] * away, FLICK_HAND_AWAY[1] * away, FLICK_HAND_AWAY[2] * away] as Vec,
+    handOut: away,
+    /** How much of the ordinary reload's magazine path the hand has come back to. */
+    handFollow: smoothStep((time - .30) / .08),
+    active: time >= slide && time < gone,
+  };
+}
+// The wrist winds up with the butt to the left, so the snap has room to throw it
+// right. It stops dead, hangs a moment, then turns the well to the hand bringing
+// the fresh magazine, joining the common magazine pose.
+const PISTOL_FLICK_POSE: readonly Key[] = [
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  [.12, -.045, .11, -.03, -.04, .16, -.26, 0],
+  [PISTOL_FLICK.snap, -.05, .12, -.03, -.03, .18, -.34, 0],
+  [PISTOL_FLICK.stop, .025, .085, -.02, .05, -.10, .30, 0],
+  [.30, .02, .09, -.03, .06, -.08, .22, 0],
+  magazineChange[3],
+];
 /** Where the fresh magazine starts in: the end of the MAG OUT stage, in tactical reloads. */
 export const MAG_IN_START = .47;
 export function reloadStage(remaining: number, empty = false) {

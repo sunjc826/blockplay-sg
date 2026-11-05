@@ -48,6 +48,8 @@ it('retains pistol and machine-gun poses', () => {
   for (const weapon of FPS_WEAPONS.filter(w => !rifles.includes(w))) for (const empty of [false, true]) {
     for (let step = 0; step <= 100; step++) {
       const progress = step / 100;
+      // The P30's own wrist pose ends where the common magazine pose picks up, at .48.
+      if (weapon.id === 'p30-inspired' && progress * reloadLength(empty) < .48) continue;
       expect(weaponReloadMotion(progress, empty, weapon)).toEqual(weapon.feed === 'belt'
         ? beltWeaponMotion(progress, empty) : reloadMotion(progress, empty, handleSide(weapon.id)));
     }

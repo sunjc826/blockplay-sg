@@ -1,7 +1,7 @@
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { boltCycleMotion, cockingHandRelease, handleSide, magazineThrow, readyClock, reloadMotion, readyMotion, smoothStep, type ReloadStyle } from './fps-weapon-motion';
+import { boltCycleMotion, cockingHandRelease, handleSide, magazineThrow, pistolMagazineFlick, readyClock, reloadMotion, readyMotion, smoothStep, type ReloadStyle } from './fps-weapon-motion';
 import { createPouchReload, localBounds, type PouchReloadSource } from './fps-pouch-reload';
 import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
@@ -74,6 +74,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const magazineHome = magazine?.position.clone() ?? new THREE.Vector3();
   const magazineRotation = magazine?.rotation.clone() ?? new THREE.Euler();
   const magazineCentre = magazine ? localBounds(magazine).getCenter(new THREE.Vector3()) : new THREE.Vector3();
+  // A pistol magazine leaves along its own raked well; a rifle's is pulled straight down.
+  const stripAxis = new THREE.Vector3(0, 1, 0); if (pistol) stripAxis.applyEuler(magazineRotation);
+  const rightThumbHome = right.getObjectByName('grip-thumb')!.position.clone();
   const throwLean = new THREE.Vector3(), throwSeated = new THREE.Vector3(), viewToParent = new THREE.Matrix3(), parentInverse = new THREE.Matrix4();
   /** A view-space move as the same move in this node's parent, whatever the gun is doing. */
   const fromView = (node: THREE.Object3D, move: readonly [number, number, number], target: THREE.Vector3) => {
@@ -124,24 +127,30 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       const style = ready === undefined ? reloadStyle : 'improved', improved = style === 'improved';
       const motion = ready === undefined ? reloadMotion(motionProgress, empty, side, style) : readyMotion(ready, side);
       // Belt boxes lift off rather than being thrown, and only a running reload throws.
-      const thrown = improved && magazine && !beltReload && ready === undefined && progress !== null ? magazineThrow(motionProgress * reloadLength(empty)) : undefined;
+      const running = improved && magazine && !beltReload && ready === undefined && progress !== null;
+      const thrown = running && !pistol ? magazineThrow(motionProgress * reloadLength(empty)) : undefined;
+      const flicked = running && pistol ? pistolMagazineFlick(motionProgress * reloadLength(empty)) : undefined;
+      const flying = flicked ?? thrown;
       if (magazine) {
         magazine.position.copy(magazineHome); magazine.position.y -= motion.magazineDrop;
         magazine.rotation.copy(magazineRotation); magazine.rotation.z += motion.magazineDrop * -.35;
         magazine.visible = reload?.magazineOut && !reload.pending ? false : motion.magazineVisible;
-        if (thrown?.active) {
+        if (flying?.active) {
           // Spin about the magazine's own middle: authored origins are often on the gun.
-          magazine.rotation.set(magazineRotation.x + thrown.spin[0], magazineRotation.y + thrown.spin[1], magazineRotation.z + thrown.spin[2]);
+          magazine.rotation.set(magazineRotation.x + flying.spin[0], magazineRotation.y + flying.spin[1], magazineRotation.z + flying.spin[2]);
           throwSeated.copy(magazineCentre).multiply(magazine.scale);
           throwLean.copy(throwSeated).applyEuler(magazineRotation).sub(throwSeated.applyEuler(magazine.rotation));
-          magazine.position.copy(magazineHome).add(throwLean).add(fromView(magazine, thrown.flown, throwSeated));
-          magazine.position.y -= thrown.strip;
+          magazine.position.copy(magazineHome).add(throwLean).add(fromView(magazine, flying.flown, throwSeated));
+          magazine.position.addScaledVector(stripAxis, -flying.strip);
         }
       }
       left.position.copy(support).lerp(magazineGrip, motion.handToMagazine);
       if (thrown?.active) {
         left.position.add(fromView(left, thrown.hand, throwSeated).multiplyScalar(1 - thrown.handHome));
         left.position.y -= THREE.MathUtils.lerp(thrown.strip, motion.magazineDrop, thrown.handHome);
+      } else if (flicked) {
+        left.position.add(fromView(left, flicked.handAway, throwSeated));
+        left.position.y -= motion.magazineDrop * motion.handToMagazine * flicked.handFollow;
       } else left.position.y -= motion.magazineDrop * motion.handToMagazine;
       const leftToHandle = rightCharges ? 0 : motion.handToHandle;
       left.rotation.set(-.15 + motion.handToMagazine * .3, -.2 + leftToHandle * grip.turn, .32 - motion.handToMagazine * .35 - leftToHandle * .3);
@@ -214,10 +223,14 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         const arm = hand.getObjectByName('hand-forearm-stub')!, armOut = 1 + out * 3.4;
         arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
       };
-      const throwArm = thrown?.active ? thrown.armOut : 0;
+      const throwArm = thrown?.active ? thrown.armOut : flicked?.handOut ?? 0;
       stretchArm(left, Math.max(throwArm, topFlick ? flick.open : 0));
+      // The pistol is held up on one arm for this reload, with nothing in front of the stub's cut end.
+      if (pistol) stretchArm(right, improved && ready === undefined && progress !== null ? smoothStep(motion.y / .08) : 0);
       for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07 - (rightCharges ? flung * .45 : 0);
-      right.getObjectByName('grip-thumb')!.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0);
+      const rightThumb = right.getObjectByName('grip-thumb')!, catchPress = flicked?.press ?? 0;
+      rightThumb.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0) - catchPress * .45;
+      rightThumb.position.x = rightThumbHome.x + catchPress * .012;
       if (magazine) {
         magazine.userData.loadedCapacity = reload?.capacity ?? FPS_WEAPONS[index].capacity;
         if (reload && magazineScale) magazine.scale.y = magazineScale.y * Math.max(.75, Math.min(1.4, reload.capacity / (reload.baseCapacity ?? FPS_WEAPONS[index].capacity)));

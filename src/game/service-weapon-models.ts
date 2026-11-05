@@ -34,7 +34,9 @@ export function buildServiceWeapon(id: string): THREE.Group | undefined {
     box('hammer', .021, .025, .024, 0, .205, .099, dark).rotation.x = -.3;
     box('backstrap', .047, .085, .018, 0, .105, .098, polymer).rotation.x = -.19;
     for (let i = 0; i < 3; i++) box('grip-groove', .046, .014, .013, 0, .08 + i * .025, .035, dark);
-    box('magazine', .041, .012, .057, 0, .05, .077, dark);
+    // Base plate and a steel body hidden up the grip, on the grip's rake, so what leaves the well is a whole magazine.
+    const magazine = box('magazine', .041, .012, .057, 0, .05, .077, dark); magazine.rotation.x = -.19;
+    const magazineBody = box('magazine-body', .03, .104, .044, 0, .058, 0); magazine.add(magazineBody);
     box('guard-bottom', .035, .01, .064, 0, .115, .01, polymer);
     box('guard-front', .035, .038, .01, 0, .137, -.023, polymer);
     box('trigger', .012, .026, .01, 0, .14, .017, dark).rotation.x = -.25;
