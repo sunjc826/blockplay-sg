@@ -40,6 +40,30 @@
   .fps-game[data-touch=on] .fps-hud-layout{grid-template-columns:112px minmax(0,1fr) 190px;padding-top:66px;padding-bottom:140px}
   .fps-hud-navigation>.expedition-sector{display:none}
 }
+/* Speech stays off the crosshair. On a touch screen held sideways, the thumb
+   controls leave no room below it, so the line goes above it, one at a time, and
+   the banners that use that space step down under the line. */
+@container fps-hud (max-height:560px){
+  /* Just under the range's location strip. */
+  .fps-game[data-touch=on] .fps-subtitles{align-self:start;margin-top:12px}
+  .fps-game[data-touch=on] .fps-subtitles:has(.fps-radio-message)>.fps-chatter{display:none}
+  .fps-game[data-touch=on] .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
+  .fps-game[data-touch=on] .fps-combat-banner{top:126px}
+  .fps-game[data-touch=on] .fps-kill-callout{top:126px}
+  .fps-game[data-touch=on] .fps-kill-callout>span{margin-bottom:2px;font-size:7px;letter-spacing:2px}
+  .fps-game[data-touch=on] .fps-kill-callout>strong{font-size:20px;line-height:1.1}
+  .fps-game[data-touch=on] .fps-kill-callout>small{margin-top:1px;font-size:10px}
+}
+/* With the browser's bars showing there is room for the kill's name only. */
+@container fps-hud (max-height:350px){
+  .fps-game[data-touch=on] .fps-combat-banner,.fps-game[data-touch=on] .fps-kill-callout{top:116px}
+  .fps-game[data-touch=on] .fps-kill-callout>span,.fps-game[data-touch=on] .fps-kill-callout>small{display:none}
+}
+@container fps-hud (min-width:521px) and (min-height:561px) and (max-height:830px){
+  .fps-game[data-touch=on] .fps-subtitles{grid-column:1;grid-row:1;align-self:start}
+  .fps-game[data-touch=on] .fps-subtitles:has(.fps-radio-message)>.fps-chatter{display:none}
+  .fps-game[data-touch=on] .fps-combat-banner,.fps-game[data-touch=on] .fps-kill-callout{top:190px}
+}
 @container fps-hud (max-width:520px) and (min-height:561px){
   .fps-game[data-touch=on] .fps-hud-layout{padding-bottom:calc(66px + var(--touch-inset))}
   .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
@@ -55,6 +79,9 @@
   .fps-hud-navigation>.fps-comms,.fps-hud-navigation>.expedition-sector{display:none}
   .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
   .fps-subtitles{width:calc(50% - 24px);justify-self:start}
+  .fps-subtitles .fps-radio-message{text-align:left}
+}
+@container fps-hud (max-width:520px) and (max-height:820px){
   .fps-subtitles:has(.fps-radio-message)>.fps-chatter{display:none}
 }
 @container fps-hud (max-width:520px) and (max-height:560px){

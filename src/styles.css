@@ -32,7 +32,7 @@
   --hud-value:600 16px/1 'Manrope',sans-serif;
 }
 /* The panel base. Anything over the scene that is a chip or a card takes it;
-   `.fps-radio-message` and the kill feed keep their own accent edge on top. */
+   the kill feed keeps its own accent edge on top. */
 .fps-badge,.fps-score,.fps-vital,.fps-capture-state,.fps-minimap,.fps-objective,
 .fps-vehicle-locator,.fps-interact-prompt,.fps-screen-notice,.fps-incoming {
   background:var(--hud-bg); border:1px solid var(--hud-line);

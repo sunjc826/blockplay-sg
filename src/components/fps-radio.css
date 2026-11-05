@@ -1,7 +1,8 @@
 .fps-radio{position:absolute;left:50%;bottom:155px;transform:translateX(-50%);width:min(470px,calc(100% - 32px));z-index:5;pointer-events:none}
-.fps-radio-message{padding:10px 14px;border-left:3px solid var(--hud-gold);border-radius:var(--hud-radius);background:var(--hud-bg-solid);color:#fff3d8;box-shadow:0 5px 18px #0003}
-.fps-radio-message>span{display:flex;align-items:center;gap:7px;color:var(--hud-gold);font:700 9px system-ui;letter-spacing:1.8px}
-.fps-radio-message>p{margin:6px 0 0;font:600 13px/1.5 system-ui;text-wrap:pretty}
+/* Only the words: no panel, so the line hides as little of the scene as it can. The shadow keeps it readable over a bright sky. */
+.fps-radio-message{color:#fff3d8;text-align:center;text-shadow:0 1px 2px #000,0 0 6px #000c}
+.fps-radio-message>p{margin:0;font:600 13px/1.4 system-ui;text-wrap:pretty}
+.fps-radio-message b{margin-right:2px;color:var(--hud-gold);font-weight:700}
 .fps-radio-voice{white-space:nowrap}
 .fps-start-card>.fps-radio-voice{margin:9px 0;background:#263e32;color:#e8efda;border-color:#5c755d}
-@media(max-width:720px){.fps-radio{bottom:153px;width:calc(100% - 24px)}.fps-radio-message{padding:8px 10px}.fps-radio-message>p{font-size:11px}}
+@media(max-width:720px){.fps-radio{bottom:153px;width:calc(100% - 24px)}.fps-radio-message>p{font-size:12px}}

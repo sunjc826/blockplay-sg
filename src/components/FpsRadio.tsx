@@ -1,4 +1,4 @@
-import { Radio, Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import './fps-radio.css';
 
@@ -6,8 +6,7 @@ export default function FpsRadio({ hud }: { hud: FpsHud }) {
   const line = hud.encikCallout;
   return <div className="fps-radio" role="status" aria-live="polite" aria-atomic="true">
     {line && ['playing', 'complete', 'defeated'].includes(hud.phase) && <div key={line.id} className="fps-radio-message" data-callout={line.event}>
-      <span><Radio size={13} aria-hidden="true" /> ENCIK · SECTION NET</span>
-      <p>{line.text}</p>
+      <p><b>Encik</b> {line.text}</p>
     </div>}
   </div>;
 }
