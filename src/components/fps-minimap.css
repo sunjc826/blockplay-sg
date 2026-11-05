@@ -45,4 +45,6 @@
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded){display:flex;flex-direction:column}
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-map-location{order:-1;margin:0 0 2px;color:#fff3d8;font:700 11px/1.25 system-ui}
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading{font-size:8px}
+/* The map is always north-up and tapping it opens it, so neither the arrow nor the M key says anything. */
+.fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading>span{display:none}
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading strong{overflow:hidden;font-weight:500;color:var(--hud-dim);white-space:nowrap;text-overflow:ellipsis}

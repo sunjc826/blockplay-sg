@@ -45,8 +45,8 @@
   width:38px;height:38px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
   backdrop-filter:blur(3px)}
 .fps-game:has(.touch-chip) .fps-top{left:calc(var(--chip-room,58px))}
-/* The map panel names the district and sector, so the row keeps only what it alone shows. */
-.fps-game[data-touch=on] .fps-badge{display:none}
+/* The map panel names the district and sector, so neither the label nor the fixed setting line adds anything. */
+.fps-game[data-touch=on] .fps-badge,.fps-game[data-touch=on] .fps-compass{display:none}
 .fps-game[data-touch=on] .fps-top{justify-content:flex-end}
 @media(max-height:560px){.fps-game:has(.touch-chip) .fps-top{--chip-room:54px}}
 @media(max-width:720px){.fps-game:has(.touch-chip) .fps-top{--chip-room:56px}}
@@ -213,9 +213,5 @@
    its pad already spend it. The readouts move to the top-right column
    instead, and the briefing line steps aside — the pause card still carries it. */
 @media(max-width:520px){
-  /* The vitals row reaches past the middle of a 390px screen, so the centred
-     setting line was printed straight through it. The minimap under it already
-     carries the heading, which is the part you steer by. */
-  .fps-game[data-touch=on] .fps-compass{display:none}
   .fps-game[data-touch=on] .fps-ammo,.fps-game[data-touch=on] .fps-vehicle-hud{top:128px;bottom:auto;right:12px}
 }

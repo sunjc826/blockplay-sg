@@ -44,8 +44,7 @@
    controls leave no room below it, so the line goes above it, one at a time, and
    the banners that use that space step down under the line. */
 @container fps-hud (max-height:560px){
-  /* Just under the range's location strip. */
-  .fps-game[data-touch=on] .fps-subtitles{align-self:start;margin-top:12px}
+  .fps-game[data-touch=on] .fps-subtitles{align-self:start}
   .fps-game[data-touch=on] .fps-subtitles:has(.fps-radio-message)>.fps-chatter{display:none}
   .fps-game[data-touch=on] .fps-subtitles .fps-chatter p:nth-last-child(n+2){display:none}
   .fps-game[data-touch=on] .fps-combat-banner{top:126px}
