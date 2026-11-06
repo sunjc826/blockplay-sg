@@ -95,8 +95,10 @@ export const VISION_MOUNT_SECONDS = .86;
 
 export interface VisionState {
   on: boolean;
-  /** Index into the spec's palettes. */
+  /** Which view J has selected: a thermal core's palette, or on a tube with a reader, 0 tube + IFF and 1 IFF only. */
   palette: number;
+  /** How much of a tube's picture is up, 0–1: a tube with a reader crossfades to the naked eye for IFF only. */
+  tube: number;
   /** 0 just switched on, 1 a full picture. Kept after switching off, for the picture that is dying. */
   warm: number;
   /** How far the device is lowered: 0 up on the helmet, 1 in front of the eyes. */
@@ -106,8 +108,15 @@ export interface VisionState {
   /** Seconds until the next calibration freeze, and what is left of the current one. */
   untilCalibration: number; calibrating: number;
 }
-export const createVisionState = (on = false): VisionState => ({ on, palette: 0, warm: on ? 1 : 0, mount: on ? 1 : 0, fading: 0, untilCalibration: 0, calibrating: 0 });
+export const createVisionState = (on = false): VisionState => ({ on, palette: 0, tube: 1, warm: on ? 1 : 0, mount: on ? 1 : 0, fading: 0, untilCalibration: 0, calibrating: 0 });
 
+/** How many views J steps through: a core's palettes, a tube with a reader's two modes, otherwise one. */
+export const visionViews = (spec: VisionSpec | undefined) =>
+  !spec ? 0 : spec.kind === 'thermal' ? spec.palettes.length : spec.kind === 'nvg' && spec.iff ? 2 : 1;
+/** A tube with a reader set to IFF only: the tube is off and the view is the naked eye with boxes. */
+export const iffOnly = (spec: VisionSpec | undefined, state: Pick<VisionState, 'palette'>) => spec?.kind === 'nvg' && !!spec.iff && state.palette % 2 === 1;
+/** Whether the selected view wants a tube picture up. */
+const tubeWanted = (spec: VisionSpec | undefined, state: VisionState) => spec?.kind === 'nvg' && !iffOnly(spec, state) ? 1 : 0;
 /**
  * Switches the device; returns whether it is now on. A device always comes up
  * from cold, and a picture that was up dies away before the device swings off
@@ -116,16 +125,17 @@ export const createVisionState = (on = false): VisionState => ({ on, palette: 0,
 export function toggleVision(state: VisionState, spec: VisionSpec | undefined) {
   const was = state.on;
   state.on = !!spec && !state.on;
-  state.fading = was && !state.on && state.mount >= 1 && state.warm > 0 ? 1 : 0;
-  if (state.on) state.warm = 0;
+  state.fading = was && !state.on && state.mount >= 1 && state.warm > 0 && (spec?.kind !== 'nvg' || state.tube > 0) ? 1 : 0;
+  if (state.on) { state.warm = 0; state.tube = tubeWanted(spec, state); }
   state.calibrating = 0;
   state.untilCalibration = spec?.calibration?.every ?? 0;
   return state.on;
 }
-/** Next palette on a core that has more than one; returns whether it changed. */
+/** Next view (J): a core's next palette, or a tube with a reader between tube + IFF and IFF only. Returns whether it changed. */
 export function cycleVisionPalette(state: VisionState, spec: VisionSpec | undefined) {
-  if (!spec || !state.on || spec.palettes.length < 2) return false;
-  state.palette = (state.palette + 1) % spec.palettes.length;
+  const views = visionViews(spec);
+  if (!spec || !state.on || views < 2) return false;
+  state.palette = (state.palette + 1) % views;
   return true;
 }
 /**
@@ -135,7 +145,7 @@ export function cycleVisionPalette(state: VisionState, spec: VisionSpec | undefi
 export function stepVisionButton(state: VisionState, spec: VisionSpec | undefined) {
   if (!spec) return false;
   if (!state.on) { state.palette = 0; return toggleVision(state, spec); }
-  if (state.palette + 1 < spec.palettes.length) return cycleVisionPalette(state, spec);
+  if (state.palette + 1 < visionViews(spec)) return cycleVisionPalette(state, spec);
   state.palette = 0; return toggleVision(state, spec);
 }
 /**
@@ -152,6 +162,11 @@ export function advanceVision(state: VisionState, spec: VisionSpec | undefined, 
     return;
   }
   state.fading = 0;
+  // A tube with a reader crossfades between its picture and the naked eye: up over its warm-up, down over its shutdown.
+  const tube = tubeWanted(spec, state);
+  if (spec.kind !== 'nvg' || instant) state.tube = tube;
+  else if (state.tube < tube) state.tube = Math.min(tube, state.tube + dt / Math.max(.05, spec.warmup));
+  else if (state.tube > tube) state.tube = Math.max(tube, state.tube - dt / Math.max(.05, spec.shutdown));
   if (state.mount < 1) {
     // The rest of the frame after the device arrives goes to the tube.
     const needed = instant ? 0 : (1 - state.mount) * VISION_MOUNT_SECONDS;
@@ -185,11 +200,11 @@ export const visionStrain = (spec: VisionSpec | undefined, gain: number) =>
   spec?.kind === 'nvg' && spec.gain > 1 ? Math.max(0, Math.min(1, (gain - 1) / (spec.gain - 1))) : spec?.kind === 'thermal' ? .5 : 0;
 /** NV-compatible aiming response starts only once an intensifier is over the eyes. */
 export const nvgAimingActive = (spec: VisionSpec | undefined, state: VisionState) =>
-  spec?.kind === 'nvg' && state.on && state.mount >= 1;
+  spec?.kind === 'nvg' && state.on && state.mount >= 1 && state.tube >= .5;
 /** How much of a smoke or gas cloud the view shows, 0–.9: a thermal core sees through most of it. */
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */
-export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'iff' ? 'IFF goggles' : spec.kind === 'nvg' ? spec.iff ? 'Night vision + IFF' : 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
+export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'iff' ? 'IFF goggles' : spec.kind === 'nvg' ? spec.iff ? 'Night vision + IFF · J IFF only' : 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
 /** Radius in the post pass's units (half the longer side). Every device crops its circular rim at the shorter edges. */
 export function visionAperture(spec: VisionSpec) {
   return spec.aperture;

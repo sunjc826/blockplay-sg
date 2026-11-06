@@ -190,7 +190,7 @@ import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
 import { createLensEffects } from './fps-lens';
-import { activePalette, advanceVision, iffActive, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, VISION_MOUNT_SECONDS, type ThermalPalette, type VisionKind, type VisionSpec } from './vision-devices';
+import { activePalette, advanceVision, iffActive, iffOnly, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, VISION_MOUNT_SECONDS, visionViews, type ThermalPalette, type VisionKind, type VisionSpec } from './vision-devices';
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
@@ -328,7 +328,7 @@ export interface FpsHud {
   mapExpanded: boolean;
   objectiveHints: boolean; objectiveMarkers: ObjectiveHint[];
   /** The worn night-vision or thermal device, if any, and what it is doing. */
-  vision: { name: string; kind: VisionKind; generation: number; iff: boolean; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
+  vision: { name: string; kind: VisionKind; generation: number; iff: boolean; iffOnly: boolean; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
   /** Selected variable-scope power; fixed optics have no adjustment controls. */
   scopeZoom: ScopeZoom | null;
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
@@ -1642,8 +1642,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function visionHud(): FpsHud['vision'] {
     const worn = equipment.vision; if (!worn) return null;
-    return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, iff: !!worn.spec.iff, on: visionState.on, palette: activePalette(visionState, worn.spec),
-      palettes: worn.spec.palettes.length, warm: visionState.warm, calibrating: visionState.calibrating > 0 };
+    return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, iff: !!worn.spec.iff, iffOnly: iffOnly(worn.spec, visionState), on: visionState.on, palette: activePalette(visionState, worn.spec),
+      palettes: visionViews(worn.spec), warm: visionState.warm, calibrating: visionState.calibrating > 0 };
   }
   /** N: the worn device on or off. J: the next thermal palette. The touch button walks both (see vision-devices). */
   function useVision(step: 'toggle' | 'palette' | 'button') {
@@ -4303,7 +4303,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       vision.end(visionSpec, visionState, now / 1000, iffBoxes);
       const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
       if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
-      const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
+      const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || (iffOnly(visionSpec, visionState) ? 'iff-only' : 'tube')}:${vision.swapped}` : '';
       if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
     }));
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }

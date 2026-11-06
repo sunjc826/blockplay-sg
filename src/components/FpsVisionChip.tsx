@@ -15,6 +15,7 @@ export function visionStatus(vision: NonNullable<FpsHud['vision']>, short = fals
   if (!vision.on) return 'OFF';
   if (vision.calibrating) return short ? 'NUC' : 'NUC · CALIBRATING';
   if (vision.warm < 1) return `${short ? '' : vision.kind === 'nvg' ? 'TUBE ' : vision.kind === 'iff' ? 'IFF ' : 'CORE '}${Math.round(vision.warm * 100)}%`;
+  if (vision.iffOnly) return short ? 'IFF' : 'IFF ONLY';
   return vision.palette ? PALETTE_LABELS[vision.palette] : 'ON';
 }
 /**

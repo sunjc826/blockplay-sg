@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig } from './character-rig';
 import { characterBounds, characterPoints, createIffTracker, IFF_COLOURS, IFF_SCAN_SECONDS, projectBox, type IffSubject } from './fps-iff';
-import { advanceVision, createVisionState, iffActive, toggleVision, visionGain, visionHasPicture, visionModelKey, VISION_DEVICES } from './vision-devices';
+import { advanceVision, createVisionState, cycleVisionPalette, iffActive, iffOnly, nvgAimingActive, stepVisionButton, toggleVision, visionGain, visionHasPicture, visionModelKey, visionViews, VISION_DEVICES } from './vision-devices';
 
 const camera = () => {
   const c = new THREE.PerspectiveCamera(70, 16 / 9, .05, 500); c.position.set(0, 1.6, 0); c.lookAt(0, 1.6, -1);
@@ -36,6 +36,32 @@ describe('IFF devices', () => {
     expect(iffActive(spec, state)).toBe(true);
     expect(iffActive(VISION_DEVICES['nvg-gen3'], { ...state })).toBe(false);
     toggleVision(state, spec); expect(iffActive(spec, state)).toBe(false);
+  });
+  it('switches the NV-3X between tube + IFF and IFF only with J, crossfading the tube', () => {
+    const spec = VISION_DEVICES['nvg-iff'], state = createVisionState();
+    expect(visionViews(spec)).toBe(2); expect(visionViews(VISION_DEVICES['nvg-gen3'])).toBe(1); expect(visionViews(VISION_DEVICES['iff-1'])).toBe(1);
+    expect(cycleVisionPalette(state, spec)).toBe(false);
+    toggleVision(state, spec); advanceVision(state, spec, 5);
+    expect(state.tube).toBe(1); expect(nvgAimingActive(spec, state)).toBe(true);
+    expect(cycleVisionPalette(state, spec)).toBe(true); expect(iffOnly(spec, state)).toBe(true);
+    // Fades over the tube's shutdown, the boxes staying up throughout.
+    advanceVision(state, spec, spec.shutdown / 2);
+    expect(state.tube).toBeCloseTo(.5); expect(iffActive(spec, state)).toBe(true);
+    advanceVision(state, spec, spec.shutdown);
+    expect(state.tube).toBe(0); expect(nvgAimingActive(spec, state)).toBe(false); expect(iffActive(spec, state)).toBe(true);
+    // Back on: the picture comes up over the warm-up, without the device restarting.
+    cycleVisionPalette(state, spec); advanceVision(state, spec, spec.warmup / 2);
+    expect(state.tube).toBeCloseTo(.5); expect(state.warm).toBe(1);
+    // Switched off from IFF only, there is no tube picture left to die.
+    cycleVisionPalette(state, spec); advanceVision(state, spec, 5); toggleVision(state, spec);
+    expect(state.fading).toBe(0);
+    // N back on keeps the mode the wearer left it in.
+    toggleVision(state, spec); expect(iffOnly(spec, state)).toBe(true); expect(state.tube).toBe(0);
+  });
+  it('walks the touch button off, tube + IFF, IFF only, off', () => {
+    const spec = VISION_DEVICES['nvg-iff'], state = createVisionState(), seen: string[] = [];
+    for (let i = 0; i < 4; i++) { stepVisionButton(state, spec); seen.push(!state.on ? 'off' : iffOnly(spec, state) ? 'iff' : 'tube'); }
+    expect(seen).toEqual(['tube', 'iff', 'off', 'tube']);
   });
 });
 

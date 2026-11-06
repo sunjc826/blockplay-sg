@@ -132,7 +132,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     }
   }
   // The worn device, on foot or mounted: one button walks off, on and each thermal palette.
-  if (hud.vision) pad.push(act('vision', hud.vision.on ? `${visionAction(hud.vision)} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : visionAction(hud.vision),
+  if (hud.vision) pad.push(act('vision', hud.vision.on ? hud.vision.iffOnly ? 'IFF only on, switch off' : `${visionAction(hud.vision)} on${hud.vision.palettes > 1 ? hud.vision.kind === 'nvg' ? ', IFF only' : ', next palette' : ''}` : visionAction(hud.vision),
     <><Eye size={17} />{hud.vision.on && <small className="touch-badge" aria-hidden="true">{visionStatus(hud.vision, true)}</small>}</>, { onClick: () => engine?.pressVision(), 'aria-pressed': hud.vision.on, 'data-on': hud.vision.on || undefined }));
 
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined}>

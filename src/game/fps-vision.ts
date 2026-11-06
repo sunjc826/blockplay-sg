@@ -37,7 +37,8 @@ import { createIffOverlay, type IffBox } from './fps-iff';
  *
  * An IFF reader has no picture of its own: once it is up, its friend-or-foe
  * boxes (fps-iff) go over everything, inside the tube's circle when it rides
- * on one.
+ * on one. Set to IFF only (J), that tube crossfades to the naked eye and its
+ * gain falls away, while the boxes stay and fill the screen.
  */
 
 const THERMAL_VERTEX = /* glsl */`
@@ -401,7 +402,8 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
       u.uOff.value = state.on ? 0 : 1 - state.fading;
       // The physical eyecup meets the eye before the sensor takes over. The
       // reverse blend reveals the same housing after the last picture dies.
-      u.uCover.value = visionMountPose(state.mount).cover;
+      // A tube with a reader set to IFF only crossfades its picture away to the naked eye.
+      u.uCover.value = visionMountPose(state.mount).cover * (thermalPass ? 1 : state.tube);
       if (thermalPass) {
         u.uRows.value = spec.rows || size.y; u.uDetail.value = spec.detail;
         u.uPalette.value = PALETTE_INDEX[activePalette(state, spec) || 'white-hot'];
@@ -448,7 +450,7 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
         return 1;
       }
       day = 1 - frame.lighting.shift;
-      gain = spec && lowered ? visionGain(spec, frame.lighting.shift, frame.blackout) : 1;
+      gain = spec && lowered ? 1 + (visionGain(spec, frame.lighting.shift, frame.blackout) - 1) * (spec.kind === 'nvg' ? state.tube : 1) : 1;
       return frame.exposure * gain;
     },
     /** `boxes` are the IFF reader's, already projected; drawn only while the reader is up. */
@@ -461,8 +463,8 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
       renderer.getDrawingBufferSize(viewport);
       mount.update(spec, state, viewport.x / viewport.y); mount.render(renderer);
       // Off, the canvas has gone back to the naked eye; the dying picture is the last one the device drew.
-      if (spec && visionHasPicture(spec) && visionMountPose(state.mount).cover > 0) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
-      if (spec && iffActive(spec, state)) iff.draw(renderer, boxes, spec.kind === 'nvg' ? visionAperture(spec) : 9, 1);
+      if (spec && visionHasPicture(spec) && visionMountPose(state.mount).cover > 0 && (spec.kind !== 'nvg' || state.tube > 0)) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
+      if (spec && iffActive(spec, state)) iff.draw(renderer, boxes, spec.kind === 'nvg' && state.tube >= .5 ? visionAperture(spec) : 9, 1);
     },
     dispose() { materials.dispose(); post.dispose(); mount.dispose(); iff.dispose(); },
   };

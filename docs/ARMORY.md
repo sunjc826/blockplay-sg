@@ -1116,7 +1116,7 @@ reduced motion the swing and the dying are skipped. The canvas records
 | TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 68% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
 | TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 92% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
 | IFF-1 · Kawan or Lawan | Field, LV 5, 2,200 CR | — | 100% | — | Clear visor, no light gain; boxes people in sight within 80 m |
-| NV-3X · Confirm Kawan | Ultra, LV 10, 520 TK | 7.5× | 92% | 13% | The NV-3 tube plus the IFF reader, 120 m, boxes inside the circle; 0.45 s |
+| NV-3X · Confirm Kawan | Ultra, LV 10, 520 TK | 7.5× | 92% | 13% | The NV-3 tube plus the IFF reader, 120 m, boxes inside the circle; J for IFF only; 0.45 s |
 
 Gen 1 should reveal nearby obstacles and people in shade well enough to justify
 wearing it. It keeps the smallest view, softer optics, more grain and bloom, and
@@ -1173,7 +1173,13 @@ hide people from it as from the eye. The box comes from a figure's joints, so it
 follows a crouch, prone or a fall, and leaves out the name tag over its head. A
 far figure's box is never smaller than about 2% of the screen height. The IFF-1
 is clear glass, so it changes nothing else about the picture; on the NV-3X the
-boxes are drawn after the phosphor and clipped to its image circle. The boxes
+boxes are drawn after the phosphor and clipped to its image circle. **J** on
+the NV-3X switches between tube + IFF and IFF only (`visionViews`, `iffOnly`):
+the tube's picture and gain crossfade away to the naked eye over its shutdown
+(0.35 s) and come back over its warm-up (0.45 s), the reader staying up
+throughout, and the boxes then fill the screen as on the IFF-1. NV aiming
+response is off in IFF only. N keeps the chosen mode; the touch button walks
+off → tube + IFF → IFF only → off. The boxes
 come up once the device is lowered and warm, with a two-tone chirp; the canvas
 records `data-iff` as side:id for each box shown.
 
