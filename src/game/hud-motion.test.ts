@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { fillFraction, magazineDisplay } from './hud-motion';
+import { HIT_PULSE_GAP_MS, fillFraction, hitTracker, magazineDisplay, nextHitPulse } from './hud-motion';
 
 it('shows the engine magazine whenever a reload is not running', () => {
   expect(magazineDisplay(17, 30, 120, 0)).toBe(17);
@@ -39,4 +39,39 @@ it('clamps the bar fraction rather than scaling past the track', () => {
   expect(fillFraction(-5, 30)).toBe(0);
   // A weapon or a player with no maximum must not scale by NaN.
   expect(fillFraction(10, 0)).toBe(0);
+});
+
+it('plays a hit on each loss, weighted by its share of full health', () => {
+  let t = hitTracker(100, 50);
+  const first = nextHitPulse(t, 100, 30, 100, 0);
+  expect(first.pulse).toEqual({ weight: 'heavy', health: false, armor: true });
+  const second = nextHitPulse(first.tracker, 92, 30, 100, 50);
+  expect(second.pulse).toEqual({ weight: 'hard', health: true, armor: false });
+  // A burst replays at once rather than waiting for the last pulse to end.
+  expect(nextHitPulse(second.tracker, 84, 30, 100, 90).pulse?.weight).toBe('hard');
+  t = nextHitPulse(second.tracker, 84, 30, 100, 90).tracker;
+  expect(nextHitPulse(t, 84, 30, 100, 2000).pulse).toBeNull();
+});
+
+it('adds a steady drain up into spaced light pulses', () => {
+  let t = hitTracker(100, 0), pulses = 0;
+  // Tear gas: 7 a second, a fraction per frame.
+  for (let frame = 1; frame <= 120; frame++) {
+    const next = nextHitPulse(t, 100 - 7 * frame / 60, 0, 100, frame * 1000 / 60);
+    t = next.tracker;
+    if (next.pulse) { pulses++; expect(next.pulse.weight).toBe('light'); }
+  }
+  expect(pulses).toBeGreaterThanOrEqual(Math.floor(2000 / HIT_PULSE_GAP_MS) - 1);
+  expect(pulses).toBeLessThanOrEqual(Math.ceil(2000 / HIT_PULSE_GAP_MS) + 1);
+});
+
+it('never plays healing, regeneration or a respawn', () => {
+  let t = nextHitPulse(hitTracker(100, 0), 40, 0, 100, 0).tracker;
+  for (const health of [41, 60, 100]) {
+    const next = nextHitPulse(t, health, 0, 100, 1000 + health);
+    expect(next.pulse).toBeNull();
+    t = next.tracker;
+  }
+  // Regeneration since the hit is not banked as a later loss.
+  expect(nextHitPulse(t, 99.5, 0, 100, 5000).pulse).toBeNull();
 });

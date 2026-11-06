@@ -149,10 +149,10 @@
 .fps-vital-ghost,.fps-vital-fill { transform-origin:left; }
 .fps-vital-ghost { background:#e9826573; transition:transform .5s ease-out .15s; }
 .fps-vital-fill { background:var(--vital-fill); transition-property:transform; }
-/* A hit flashes the chip itself; re-adding the attribute on the next hit is
-   what replays it, so a burst reads as a burst rather than one long smear. */
-.fps-vitals .is-health[data-hurt] { animation:fps-vital-hit .3s ease-out; }
-@keyframes fps-vital-hit { from { background:#c0402ea6; border-color:#ffb9a2; color:#fff; } }
+/* A hit flashes this layer up and shakes the chip (vitals-hit.ts): each hit
+   replays from the top, so a burst reads as a burst rather than one smear. */
+.fps-vital-flash { position:absolute; inset:0; z-index:-1; opacity:0; pointer-events:none; background:#c0402ec0; box-shadow:inset 0 0 0 1px #ffb9a2,inset 0 0 16px #ff6a4d; }
+.fps-vital.is-armor .fps-vital-flash { background:#3f97d0b0; box-shadow:inset 0 0 0 1px #d6f0ff,inset 0 0 16px #8fd0f2; }
 @media(prefers-reduced-motion:reduce) { .fps-vitals .is-health { animation:none; }.fps-vital-ghost-clip,.fps-vital-ghost,.fps-vital-fill { transition:none; } }
 .fps-damage-overlay { position:absolute; inset:0; box-shadow:inset 0 0 100px #c3403080; pointer-events:none; }.fps-incoming { position:absolute; top:111px; left:24px; padding:6px 9px; font-size:10px; letter-spacing:1px; background:var(--hud-alert-bg); border-color:var(--hud-alert); color:var(--hud-alert-ink); }.fps-drill-choice { display:flex; justify-content:center; gap:8px; margin:14px 0; }.fps-drill-choice button { border:1px solid #ffffff40; background:#ffffff0c; color:#e5e4d6; padding:9px 12px; border-radius:4px; font:inherit; font-size:11px; cursor:pointer; }.fps-drill-choice button[aria-pressed=true] { background:#b5c692; color:#213124; border-color:#b5c692; }.fps-shop-link { background:none; border:0; color:#e1d0a4; padding:13px; font:inherit; font-size:12px; cursor:pointer; }.fps-reward { color:#d5e9ac; font-weight:600; margin:12px 0; }.fps-start-card .fps-armor-note { color:#b9c7ad; font-size:11px; margin:8px 0 16px; }.fps-health-summary { font-size:10px; color:#6b7b67; padding:0 4px 8px; }
 @media(max-width:1100px) { .armory-body { grid-template-columns:minmax(0,1fr) 215px; padding:17px; gap:16px; }.armory-details { padding-left:15px; }.armory-preview { height:215px; }.armory-section-heading { flex-wrap:wrap; }.armory-footer { padding:16px; gap:12px; } }

@@ -88,6 +88,8 @@
 .fps-health-track::before,.fps-health-track::after{content:'';position:absolute;top:-3px;bottom:-3px;width:1px;background:#eef0e0b0;box-shadow:0 0 1px #000}
 .fps-health-track::before{left:-1px}.fps-health-track::after{right:-1px}
 .fps-health-fill,.fps-health-ghost,.fps-armor-track i{position:absolute;inset:0;transform-origin:center}
+/* Glows round the line on a hit (vitals-hit.ts), along with the line swelling and the number kicking. */
+.fps-health-flash{position:absolute;inset:-6px -8px;opacity:0;border-radius:8px;background:radial-gradient(closest-side,#ff4a32a0,#ff4a3200);box-shadow:0 0 12px #ff4a3255}
 .fps-health-fill{background:var(--line);box-shadow:0 0 0 .5px #0006;transition:transform .14s ease-out,background-color .2s}
 .fps-health-ghost{background:#e98265;transition:transform .5s ease-out .15s}
 .fps-health-track b{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:700;line-height:1;letter-spacing:.3px;color:var(--line-number);text-shadow:0 0 3px #000,0 1px 2px #000c}
