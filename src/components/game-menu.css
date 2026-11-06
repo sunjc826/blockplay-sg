@@ -86,6 +86,29 @@
 .game-debug-link:hover { color:var(--menu-ink); border-color:#ffffff40; }
 .game-menu-hint kbd { border-color:#ffffff30; background:#ffffff0a; color:var(--menu-ink); margin-right:3px; }
 .game-menu-edition { display:flex; align-items:center; gap:14px; letter-spacing:1px; font-size:9px; }
+/* The install offer: under the menu, in the accent so it is the one thing on
+   the screen that is not a way to play. */
+.game-install-card { position:relative; display:flex; align-items:center; gap:14px; padding:clamp(9px,1.6vh,14px) 10px clamp(9px,1.6vh,14px) 16px; border:1px solid #ee794b8c; border-radius:10px;
+  background:linear-gradient(100deg,#ee794b30,#ee794b10 60%,#0d1813b3); backdrop-filter:blur(6px); box-shadow:0 8px 30px #ee794b1f;
+  animation:game-menu-in .5s cubic-bezier(.2,.8,.2,1) backwards; animation-delay:calc(var(--i,0) * 55ms + 140ms); }
+.game-install-icon { display:grid; place-items:center; flex-shrink:0; width:clamp(34px,5vh,42px); height:clamp(34px,5vh,42px); border-radius:9px; background:var(--menu-accent); color:#1a0f08; }
+.game-install-copy { flex:1; min-width:0; }
+.game-install-copy strong { display:block; font:700 clamp(15px,2.2vh,17px)/1.2 'Manrope',sans-serif; letter-spacing:-.4px; }
+.game-install-copy small { display:block; margin-top:3px; font-size:12px; line-height:1.4; color:var(--menu-dim); }
+.game-install-copy small svg { vertical-align:-2px; color:var(--menu-ink); }
+.game-install-copy small b { color:var(--menu-ink); font-weight:600; }
+.game-install-card.is-showing-steps .game-install-copy small { color:var(--menu-ink); }
+.game-install-go { flex-shrink:0; min-height:40px; padding:0 18px; border:0; border-radius:7px; background:var(--menu-accent); color:#1a0f08; font:700 14px 'Manrope',sans-serif; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation; transition:background .16s,transform .12s; }
+.game-install-go:hover { background:#f48d63; }
+.game-install-go:active { transform:scale(.96); }
+.game-install-go:focus-visible, .game-install-hide:focus-visible { outline:2px solid var(--menu-gold); outline-offset:2px; }
+.game-install-hide { flex-shrink:0; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--menu-dim); cursor:pointer; }
+.game-install-hide:hover { color:var(--menu-ink); background:#ffffff12; }
+.game-menu.is-arriving .game-install-card, .game-menu.is-title-shown .game-install-card { animation:none; }
+@media (prefers-reduced-motion:reduce) { .game-install-card { animation:none; } }
+/* A phone's width goes to the words; the orange button carries the card. */
+@media (max-width:440px) { .game-install-icon { display:none; } }
 .game-install { display:flex; align-items:center; gap:6px; border:1px solid var(--menu-line); background:transparent; color:var(--menu-ink); border-radius:5px; padding:6px 10px; font-size:10px; }
 
 /* Title screen: a gesture for the browser to allow sound. The menu waits behind it and enters as the logo slides home. */
@@ -189,12 +212,27 @@
 
 /* Short screens drop the small print first, then the headline. */
 @media (max-height:640px) {
-  .game-menu-title > span, .game-menu-modes .game-menu-copy small { display:none; }
+  .game-menu-title > span, .game-menu-modes .game-menu-copy small, .game-install-card:not(.is-showing-steps) .game-install-copy small { display:none; }
   .game-menu-title h1 { margin:0; }
 }
 @media (max-height:480px) {
   .game-menu-title, .game-menu-foot { display:none; }
+  /* A phone on its side: the install offer shrinks to one slim line. */
+  .game-install-card { padding-top:5px; padding-bottom:5px; }
+  .game-install-icon { display:none; }
+  .game-install-copy strong { font-size:14px; }
+  .game-install-go { min-height:32px; font-size:13px; }
+  .game-install-card.is-showing-steps .game-install-copy strong { display:none; }
+  .game-install-card.is-showing-steps .game-install-copy small { margin:0; }
   .game-menu-main { padding-bottom:max(12px,env(safe-area-inset-bottom,0px)); }
+}
+/* The shortest: with the offer showing, the tiles set icon beside name to make room. */
+@media (max-height:400px) {
+  .game-menu-list:has(.game-install-card) .game-menu-item.is-tile { flex-direction:row; align-items:center; gap:8px; padding-top:9px; padding-bottom:9px; }
+  .game-menu-list:has(.game-install-card) .game-menu-item.is-tile .game-menu-copy small { display:none; }
+}
+@media (max-height:340px) {
+  .game-menu-list:has(.game-install-card) .game-menu-item:not(.is-tile) { padding-top:7px; padding-bottom:7px; }
 }
 /* A phone on its side: headline beside the list rather than above it. */
 @media (max-height:560px) and (min-width:600px) and (orientation:landscape) {
@@ -213,6 +251,9 @@
   .game-menu-index { display:none; }
   .game-menu-item.is-tile { padding:clamp(9px,1.5vh,12px) 12px; }
   .game-menu-item.is-tile .game-menu-copy small { display:none; }
+  .game-install-card { gap:10px; padding-left:14px; padding-right:6px; }
+  .game-install-go { padding:0 14px; }
+  .game-install-copy small { font-size:11px; }
   .game-screen-bar { flex-wrap:wrap; gap:10px; }
   .game-screen-bar h1 { font-size:15px; }
   .store-nav { gap:6px; }

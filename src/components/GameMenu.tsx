@@ -1,7 +1,7 @@
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, ShoppingBag, Users, Wrench } from 'lucide-react';
+import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -20,7 +20,7 @@ import { locations } from '../data/locations';
 import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
 import { transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
-import { pwa, usePwa } from '../lib/pwa';
+import { pwa, usePwa, type PwaState } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
 import { hasMenuTheme, setMusicCue } from '../lib/music';
 import { markTitleScreenSeen, needsTitleScreen, startsFromTitleScreen, titleLogoPlacement } from '../lib/title-screen';
@@ -161,13 +161,49 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </div>;
   }
 
-  return <MainMenu profile={profile} install={install.canInstall} />;
+  return <MainMenu profile={profile} install={install} />;
+}
+
+const INSTALL_HIDDEN_KEY = 'blockplay.menu.install-hidden';
+
+/**
+ * The install offer, as a card under the menu. Hidden by hand it folds down to
+ * the footer's small Install button, so the way to install is never lost.
+ */
+function useInstallCard() {
+  const [hidden, setHidden] = useState(() => {
+    try { return localStorage.getItem(INSTALL_HIDDEN_KEY) === '1'; } catch { return false; }
+  });
+  const hide = () => { setHidden(true); try { localStorage.setItem(INSTALL_HIDDEN_KEY, '1'); } catch { /* private window */ } };
+  return [hidden, hide] as const;
+}
+
+function InstallCard({ install, onHide, sounds }: { install: PwaState; onHide: () => void; sounds: { onPointerEnter: (event: React.PointerEvent<HTMLElement>) => void; onFocus: (event: React.FocusEvent<HTMLElement>) => void } }) {
+  const [steps, setSteps] = useState(false);
+  const manual = !install.canInstall;
+  return <section className={`game-install-card${steps ? ' is-showing-steps' : ''}`} aria-label="Install the app" style={{ '--i': ENTRIES.length } as React.CSSProperties}>
+    <span className="game-install-icon" aria-hidden="true"><Download size={22} /></span>
+    <span className="game-install-copy" aria-live="polite">
+      <strong>Install blockplaySG</strong>
+      {steps
+        ? <small>Tap <Share size={13} aria-label="Share" /> Share, then <SquarePlus size={13} aria-hidden="true" /> <b>Add to Home Screen</b>.</small>
+        : <small>Full screen from your home screen. Districts you have opened play offline.</small>}
+    </span>
+    <button type="button" className="game-install-go" {...sounds} aria-expanded={manual ? steps : undefined} onClick={() => {
+      playMenuSound('click');
+      if (manual) setSteps(open => !open);
+      else void pwa.install();
+    }}>{manual && steps ? 'Got it' : 'Install'}</button>
+    <button type="button" className="game-install-hide" {...sounds} aria-label="Hide install offer" title="Hide" onClick={() => { playMenuSound('click'); onHide(); }}><X size={16} /></button>
+  </section>;
 }
 
 /** Matches the logo's slide in game-menu.css. */
 const TITLE_LEAVE_MS = 900;
 
-function MainMenu({ profile, install }: { profile: React.ReactNode; install: boolean }) {
+function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
+  const [installHidden, hideInstall] = useInstallCard();
+  const installable = install.canInstall || install.manualInstall;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
   // Back from another screen the whole menu shifts in, so its entries do not rise in as well.
@@ -288,6 +324,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
       <nav className="game-menu-list" aria-label="Main menu">
         <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
         <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
+        {installable && !installHidden && <InstallCard install={install} onHide={hideInstall} sounds={{ onPointerEnter: hover, onFocus: focus }} />}
       </nav>
     </main>
 
@@ -298,7 +335,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: boo
       }}><Wrench size={13} /> Debug</a>
       <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
       <span className="game-menu-edition">
-        {install && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
+        {install.canInstall && installHidden && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
         <span>SG / 2026 — PROTOTYPE 01</span>
       </span>
     </footer>

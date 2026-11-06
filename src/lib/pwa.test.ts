@@ -2,13 +2,14 @@ import { expect, it, vi } from 'vitest';
 import { createPwaStore, type PwaHost } from './pwa';
 
 /** A window stand-in that records listeners so tests can fire browser events. */
-function fakeWindow(standalone = false) {
+function fakeWindow(standalone = false, manualInstall = false) {
   const listeners = new Map<string, ((event: Event) => void)[]>();
   const host: PwaHost = {
     addEventListener: (type, listener) => {
       listeners.set(type, [...(listeners.get(type) || []), listener]);
     },
     standalone: () => standalone,
+    manualInstall: () => manualInstall,
   };
   return { host, fire: (type: string, event: object) => listeners.get(type)?.forEach(listener => listener(event as Event)) };
 }
@@ -31,7 +32,7 @@ it('offers an install once the browser says the app qualifies', () => {
 
   expect(store.snapshot().canInstall).toBe(true);
   expect(changes).toHaveBeenCalledOnce();
-  // The header button is the offer; the browser's own banner is suppressed.
+  // The menu's card is the offer; the browser's own banner is suppressed.
   expect(event.preventDefault).toHaveBeenCalled();
 });
 
@@ -86,4 +87,11 @@ it('stops notifying a component that has unsubscribed', () => {
   store.subscribe(changes)();
   fire('beforeinstallprompt', installPrompt('accepted'));
   expect(changes).not.toHaveBeenCalled();
+});
+
+it('offers Share → Add to Home Screen where there is no install event', () => {
+  expect(createPwaStore(fakeWindow(false, true).host).snapshot()).toMatchObject({ manualInstall: true, canInstall: false });
+  // Opened from the home screen, there is nothing left to offer.
+  expect(createPwaStore(fakeWindow(true, true).host).snapshot().manualInstall).toBe(false);
+  expect(createPwaStore(fakeWindow().host).snapshot().manualInstall).toBe(false);
 });

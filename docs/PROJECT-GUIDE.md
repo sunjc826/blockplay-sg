@@ -401,8 +401,9 @@ FPS modes share a lightweight local minimap using regional road data: practice s
 
 ## Install it
 
-blockplaySG is an installable app. Use **Install** in the header on Chromium
-browsers, or Share → Add to Home Screen on iOS. An installed copy keeps the
+blockplaySG is an installable app. Use **Install** on the main menu's install
+card on Chromium browsers, or Share → Add to Home Screen on iOS (the card's
+Install shows those steps there). An installed copy keeps the
 build on the device: districts you have already opened play with no network,
 since each district's geometry is built in the browser. The optional companion,
 live Street View and LAN rooms still need one. See [installable app and offline

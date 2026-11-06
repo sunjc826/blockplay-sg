@@ -10,15 +10,26 @@ worker that keeps the build on the device.
 
 | Platform | How |
 | --- | --- |
-| Chrome, Edge, Brave (desktop and Android) | The **Install** button in the header, or the browser's own install control. |
-| Safari on iOS/iPadOS | Share → **Add to Home Screen**. Safari has no install event, so the header button does not appear. |
+| Chrome, Edge, Brave (desktop and Android) | **Install** on the main menu's install card, or the browser's own install control. |
+| Safari on iOS/iPadOS | Share → **Add to Home Screen**. Safari has no install event, so the card's **Install** shows those two steps instead. |
 | Firefox (Android) | Menu → **Install**. |
 
-The header button only exists while the browser is offering an install: it
-appears on the `beforeinstallprompt` event, disappears once the prompt is spent
-or the app is installed, and is absent when the app is already running
-standalone. `src/lib/pwa.ts` holds that state in a small store created at import
-time, because the browser fires the event before React has mounted.
+The main menu shows an install card, in the accent colour under the menu
+entries, while the browser is offering an install: it appears on the
+`beforeinstallprompt` event, disappears once the prompt is spent or the app is
+installed, and is absent when the app is already running standalone. On iOS and
+iPadOS (detected by `navigator.standalone`, which only WebKit there has) it shows
+whenever the game is open in a browser tab, because no event says whether the app
+is already on the home screen. Its × hides it for good in that browser
+(`blockplay.menu.install-hidden` in local storage); where the browser can still
+prompt, the footer's small **Install** button takes over. The debug shell keeps
+its header **Install** button. `src/lib/pwa.ts` holds that state in a small store
+created at import time, because the browser fires the event before React has
+mounted.
+
+A page cannot open the installed app itself. Chromium shows its own "Open in
+app" control in the address bar once the app is installed, and the card does not
+appear there because the browser stops offering the install.
 
 The installed window is `standalone` with the dark `#17231e` title bar the site
 already declared as its theme colour. In-game fullscreen (F, or the fullscreen

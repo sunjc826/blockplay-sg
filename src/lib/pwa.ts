@@ -12,6 +12,11 @@ export interface PwaState {
   canInstall: boolean;
   /** Already running from the home screen or an app window. */
   installed: boolean;
+  /**
+   * No install event will come, but the browser can still add the game to the
+   * home screen by hand: Safari on iOS and iPadOS, through Share.
+   */
+  manualInstall: boolean;
   /** A newer build finished caching and is waiting for a reload. */
   updateReady: boolean;
 }
@@ -26,12 +31,15 @@ export interface PwaHost {
   addEventListener(type: string, listener: (event: Event) => void): void;
   /** Whether the app is being displayed as an installed app right now. */
   standalone(): boolean;
+  /** Whether this browser adds to the home screen from its own menu only. */
+  manualInstall?(): boolean;
 }
 
 export type PwaStore = ReturnType<typeof createPwaStore>;
 
 export function createPwaStore(host: PwaHost) {
-  let state: PwaState = { canInstall: false, installed: host.standalone(), updateReady: false };
+  const installed = host.standalone();
+  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), updateReady: false };
   let prompt: InstallPromptEvent | null = null;
   let activate: (() => void) | null = null;
   const listeners = new Set<() => void>();
@@ -41,15 +49,15 @@ export function createPwaStore(host: PwaHost) {
   };
 
   host.addEventListener('beforeinstallprompt', event => {
-    // Suppress the browser's own banner: the header button is the offer, and it
-    // does not cover the game.
+    // Suppress the browser's own banner: the menu's install card is the offer,
+    // and it does not cover the game.
     event.preventDefault();
     prompt = event as InstallPromptEvent;
     set({ canInstall: true });
   });
   host.addEventListener('appinstalled', () => {
     prompt = null;
-    set({ canInstall: false, installed: true });
+    set({ canInstall: false, installed: true, manualInstall: false });
   });
 
   return {
@@ -87,6 +95,9 @@ const browserHost: PwaHost = typeof window === 'undefined'
     addEventListener: (type, listener) => window.addEventListener(type, listener),
     standalone: () => window.matchMedia?.('(display-mode: standalone)').matches
       || (window.navigator as { standalone?: boolean }).standalone === true,
+    // `navigator.standalone` exists only in iOS and iPadOS WebKit, where every
+    // browser adds to the home screen through Share and none fires the event.
+    manualInstall: () => 'standalone' in window.navigator,
   };
 
 export const pwa = createPwaStore(browserHost);
