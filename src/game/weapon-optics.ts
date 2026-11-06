@@ -322,6 +322,8 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   }
   return {
     prepare,
+    /** The camera the lens's picture was last drawn with: lens UV (0–1) is this camera's NDC halved and moved to the centre. */
+    camera,
     render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1) {
       if (!sight) return false;
       // Powered reflex dots are gated by the optical aperture and eye alignment,

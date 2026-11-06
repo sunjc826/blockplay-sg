@@ -3,7 +3,7 @@ import type { LightingState } from './world-lighting';
 import { isWaterObject } from './water';
 import { createVisionMount, visionMountPose } from './fps-vision-mount';
 import { activePalette, HEAT_SOURCES, iffActive, isHeatSource, visionAperture, visionGain, visionHasPicture, visionStrain, type VisionSpec, type VisionState } from './vision-devices';
-import { createIffOverlay, type IffBox } from './fps-iff';
+import { createIffOverlay, EMPTY_IFF_FRAME, type IffFrame } from './fps-iff';
 
 /**
  * Draws what a worn vision device sees (vision-devices holds the devices).
@@ -453,8 +453,8 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
       gain = spec && lowered ? 1 + (visionGain(spec, frame.lighting.shift, frame.blackout) - 1) * (spec.kind === 'nvg' ? state.tube : 1) : 1;
       return frame.exposure * gain;
     },
-    /** `boxes` are the IFF reader's, already projected; drawn only while the reader is up. */
-    end(spec: VisionSpec | undefined, state: VisionState, time: number, boxes: readonly IffBox[] = []) {
+    /** `iffFrame` is the IFF reader's boxes, already projected; drawn only while the reader is up. */
+    end(spec: VisionSpec | undefined, state: VisionState, time: number, iffFrame: IffFrame = EMPTY_IFF_FRAME) {
       if (saved) {
         if (saved.background && scenes.world.background instanceof THREE.Color) scenes.world.background.copy(saved.background);
         if (saved.fog && scenes.world.fog) scenes.world.fog.color.copy(saved.fog);
@@ -464,7 +464,7 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
       mount.update(spec, state, viewport.x / viewport.y); mount.render(renderer);
       // Off, the canvas has gone back to the naked eye; the dying picture is the last one the device drew.
       if (spec && visionHasPicture(spec) && visionMountPose(state.mount).cover > 0 && (spec.kind !== 'nvg' || state.tube > 0)) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
-      if (spec && iffActive(spec, state)) iff.draw(renderer, boxes, spec.kind === 'nvg' && state.tube >= .5 ? visionAperture(spec) : 9, 1);
+      if (spec && iffActive(spec, state)) iff.draw(renderer, iffFrame, spec.kind === 'nvg' && state.tube >= .5 ? visionAperture(spec) : 9, 1);
     },
     dispose() { materials.dispose(); post.dispose(); mount.dispose(); iff.dispose(); },
   };

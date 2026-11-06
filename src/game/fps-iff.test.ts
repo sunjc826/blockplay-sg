@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig } from './character-rig';
-import { characterBounds, characterPoints, createIffTracker, IFF_COLOURS, IFF_SCAN_SECONDS, projectBox, type IffSubject } from './fps-iff';
+import { characterBounds, characterPoints, createIffTracker, IFF_COLOURS, IFF_SCAN_SECONDS, projectBox, zoomedBox, type IffScope, type IffSubject } from './fps-iff';
+import { scopeFov } from './weapon-optics';
 import { advanceVision, createVisionState, cycleVisionPalette, iffActive, iffOnly, nvgAimingActive, stepVisionButton, toggleVision, visionGain, visionHasPicture, visionModelKey, visionViews, VISION_DEVICES } from './vision-devices';
 
 const camera = () => {
@@ -90,15 +91,51 @@ describe('IFF boxes', () => {
     // Rebuilt each frame in the engine, so the aim points are where the bodies are.
     const subjects = () => [subject('enemy', 'enemy', enemy), subject('ally', 'ally', ally), subject('hidden', 'neutral', hidden), subject('far', 'enemy', far)];
     const tracker = createIffTracker();
-    const boxes = tracker.update(0, c, scene, subjects(), 80);
+    const boxes = tracker.update(0, c, scene, subjects(), 80).boxes;
     expect(boxes.map(b => `${b.side}:${b.id}`).sort()).toEqual(['ally:ally', 'enemy:enemy']);
     const before = boxes.find(b => b.id === 'enemy')!;
     // Between scans the box moves with the body without a new sight check.
     enemy.position.x -= 1; scene.updateMatrixWorld(true);
-    const moved = tracker.update(IFF_SCAN_SECONDS / 4, c, scene, subjects(), 80).find(b => b.id === 'enemy')!;
+    const moved = tracker.update(IFF_SCAN_SECONDS / 4, c, scene, subjects(), 80).boxes.find(b => b.id === 'enemy')!;
     expect(moved.x0).toBeLessThan(before.x0);
     // A longer reader reaches the far figure; switching off forgets everyone.
     tracker.reset();
-    expect(tracker.update(0, c, scene, subjects(), 120).map(b => b.id).sort()).toEqual(['ally', 'enemy', 'far']);
+    expect(tracker.update(0, c, scene, subjects(), 120).boxes.map(b => b.id).sort()).toEqual(['ally', 'enemy', 'far']);
+  });
+
+  /** A 4x scope held centred, as at full aim: its lens 0.2 m ahead of a view camera, a quarter of the view's height across. */
+  const scoped = (main: THREE.PerspectiveCamera, magnification = 4, roll = 0): IffScope => {
+    const viewCamera = new THREE.PerspectiveCamera(main.fov, main.aspect, .01, 10); viewCamera.updateMatrixWorld(true);
+    const radius = .2 * Math.tan(THREE.MathUtils.degToRad(main.fov / 2)) * .25;
+    const lens = new THREE.Object3D(); lens.position.set(0, 0, -.2); lens.rotation.z = roll; lens.updateMatrixWorld(true);
+    const camera = main.clone(); camera.aspect = 1; camera.fov = scopeFov(main.fov, .25, magnification); camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+    return { camera, lens, radius, viewCamera, visibility: 1 };
+  };
+  it('draws a zoomed box on the lens where the magnified body is, and reads who the reticle is on', () => {
+    const scene = new THREE.Scene(), c = camera(), scope = scoped(c);
+    const ahead = soldier(scene, 0, -60), aside = soldier(scene, 1.4, -60);
+    const flat = projectBox(characterBounds(ahead, new THREE.Box3()), c, 0)!;
+    const zoomed = zoomedBox(characterBounds(ahead, new THREE.Box3()), scope)!;
+    // About four times the unmagnified box, centred on the lens like the body on the reticle.
+    expect((zoomed.y1 - zoomed.y0) / (flat.y1 - flat.y0)).toBeCloseTo(4, 0);
+    expect(zoomed.onReticle).toBe(true);
+    const side = zoomedBox(characterBounds(aside, new THREE.Box3()), scope)!;
+    expect(side.onReticle).toBe(false); expect(side.x0).toBeGreaterThan(zoomed.x1);
+    const tracker = createIffTracker();
+    const frame = tracker.update(0, c, scene, [subject('ahead', 'ally', ahead), subject('aside', 'enemy', aside)], 80, scope);
+    expect(frame.boxes.filter(b => b.zoomed).map(b => b.id).sort()).toEqual(['ahead', 'aside']);
+    expect(frame.boxes.filter(b => !b.zoomed)).toHaveLength(2);
+    expect(frame.aim).toBe('ally');
+    expect(frame.lens).toMatchObject({ x: expect.closeTo(0, 5), y: expect.closeTo(0, 5), visibility: 1 });
+    // Not looking through it: no lens, no zoomed boxes.
+    expect(tracker.update(0, c, scene, [subject('ahead', 'ally', ahead)], 80, { ...scope, visibility: 0 })).toMatchObject({ lens: null, aim: null });
+  });
+  it('follows a rolled lens', () => {
+    const scene = new THREE.Scene(), c = camera(), body = soldier(scene, 1.4, -60);
+    const upright = zoomedBox(characterBounds(body, new THREE.Box3()), scoped(c))!, rolled = zoomedBox(characterBounds(body, new THREE.Box3()), scoped(c, 4, Math.PI / 2))!;
+    // A quarter turn carries the box from the right of the reticle to above it, lying on its side.
+    expect(upright.x0).toBeGreaterThan(0); expect(rolled.y0).toBeGreaterThan(0);
+    expect((rolled.x1 - rolled.x0) * c.aspect).toBeCloseTo(upright.y1 - upright.y0, 2);
+    expect(rolled.y1 - rolled.y0).toBeCloseTo((upright.x1 - upright.x0) * c.aspect, 2);
   });
 });

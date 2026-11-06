@@ -1179,7 +1179,18 @@ the tube's picture and gain crossfade away to the naked eye over its shutdown
 (0.35 s) and come back over its warm-up (0.45 s), the reader staying up
 throughout, and the boxes then fill the screen as on the IFF-1. NV aiming
 response is off in IFF only. N keeps the chosen mode; the touch button walks
-off → tube + IFF → IFF only → off. The boxes
+off → tube + IFF → IFF only → off.
+
+Through a magnified scope the reader is linked to the sight, on both devices.
+Each box is also drawn in the scope's picture where the magnified body is:
+projected through the camera the lens's picture is drawn with
+(`createScopeRenderer().camera`), carried onto the lens on screen (following a
+rolled lens) and clipped to its picture, while the unmagnified boxes keep off
+the lens. Both cross over with the raise, as the scope picture comes up. A bar
+under the reticle takes the colour of the nearest boxed body the reticle is
+on, since at high power one person can fill the lens. Range and line of sight
+stay the reader's own, so a scope does not identify anyone further away.
+`data-iff` marks a scope's boxes `side:id:zoom` and ends with `|aim:side`. The boxes
 come up once the device is lowered and warm, with a two-tone chirp; the canvas
 records `data-iff` as side:id for each box shown.
 

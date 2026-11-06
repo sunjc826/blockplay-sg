@@ -162,7 +162,7 @@ import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getComba
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
 import { factionIdOf, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
-import { characterBounds, characterPoints, createIffTracker, type IffBox, type IffSubject } from './fps-iff';
+import { characterBounds, characterPoints, createIffTracker, EMPTY_IFF_FRAME, type IffFrame, type IffSubject } from './fps-iff';
 import { createRangeFigures } from './range-figures';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio, distanceGain } from './combat-event-audio';
@@ -4295,12 +4295,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
       const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
       if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
-      let iffBoxes: IffBox[] = [];
-      if (iffActive(visionSpec, visionState) && visionSpec?.iff) iffBoxes = iffTracker.update(realDt, camera, world.scene, iffSubjects(), visionSpec.iff.range);
-      else iffTracker.reset();
-      const iffTag = iffBoxes.map(b => `${b.side[0]}:${b.id}`).join(',');
+      let iffFrame: IffFrame = EMPTY_IFF_FRAME;
+      if (iffActive(visionSpec, visionState) && visionSpec?.iff) {
+        // Linked to a magnified sight being looked through, the reader also boxes what the scope's picture shows.
+        const scope = scopeActive && sight ? { camera: scopeRenderer.camera, lens: sight.lens, radius: sight.radius, viewCamera, visibility: sight.visibility.value } : undefined;
+        iffFrame = iffTracker.update(realDt, camera, world.scene, iffSubjects(), visionSpec.iff.range, scope);
+      } else iffTracker.reset();
+      // Unmagnified boxes as side:id, then a scope's as side:id:zoom, and the reticle's side.
+      const iffTag = iffFrame.boxes.map(b => `${b.side[0]}:${b.id}${b.zoomed ? ':zoom' : ''}`).join(',') + (iffFrame.aim ? `|aim:${iffFrame.aim}` : '');
       if (iffTag !== (canvas.dataset.iff ?? '')) canvas.dataset.iff = iffTag;
-      vision.end(visionSpec, visionState, now / 1000, iffBoxes);
+      vision.end(visionSpec, visionState, now / 1000, iffFrame);
       const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
       if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
       const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || (iffOnly(visionSpec, visionState) ? 'iff-only' : 'tube')}:${vision.swapped}` : '';
