@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { createPwaStore, type PwaHost } from './pwa';
 
 /** A window stand-in that records listeners so tests can fire browser events. */
-function fakeWindow(standalone = false, manualInstall = false) {
+function fakeWindow(standalone = false, manualInstall = false, installedApps?: () => Promise<unknown[]>) {
   const listeners = new Map<string, ((event: Event) => void)[]>();
   const host: PwaHost = {
     addEventListener: (type, listener) => {
@@ -10,6 +10,7 @@ function fakeWindow(standalone = false, manualInstall = false) {
     },
     standalone: () => standalone,
     manualInstall: () => manualInstall,
+    installedApps,
   };
   return { host, fire: (type: string, event: object) => listeners.get(type)?.forEach(listener => listener(event as Event)) };
 }
@@ -64,7 +65,8 @@ it('drops the install offer once the app is installed', () => {
   const store = createPwaStore(host);
   fire('beforeinstallprompt', installPrompt('accepted'));
   fire('appinstalled', {});
-  expect(store.snapshot()).toMatchObject({ canInstall: false, installed: true });
+  // This tab is still a tab: the app opened in a window of its own.
+  expect(store.snapshot()).toMatchObject({ canInstall: false, installed: false, openInApp: true });
 });
 
 it('waits for the player to accept an update instead of swapping the build', () => {
@@ -94,4 +96,23 @@ it('offers Share → Add to Home Screen where there is no install event', () => 
   // Opened from the home screen, there is nothing left to offer.
   expect(createPwaStore(fakeWindow(true, true).host).snapshot().manualInstall).toBe(false);
   expect(createPwaStore(fakeWindow().host).snapshot().manualInstall).toBe(false);
+});
+
+it('points to the installed app when the browser says it is on this device', async () => {
+  const lookup = vi.fn(async () => [{ platform: 'webapp' }]);
+  const store = createPwaStore(fakeWindow(false, true, lookup).host);
+  await vi.waitFor(() => expect(store.snapshot()).toMatchObject({ openInApp: true, manualInstall: false, canInstall: false }));
+
+  // Running as the app, there is nothing to point to and no need to ask.
+  const asApp = vi.fn(async () => [{ platform: 'webapp' }]);
+  expect(createPwaStore(fakeWindow(true, false, asApp).host).snapshot().openInApp).toBe(false);
+  expect(asApp).not.toHaveBeenCalled();
+});
+
+it('keeps offering an install when the app is not found or the lookup fails', async () => {
+  const none = createPwaStore(fakeWindow(false, false, async () => []).host);
+  const failed = createPwaStore(fakeWindow(false, false, async () => { throw new Error('insecure'); }).host);
+  await new Promise(resolve => setTimeout(resolve));
+  expect(none.snapshot().openInApp).toBe(false);
+  expect(failed.snapshot().openInApp).toBe(false);
 });

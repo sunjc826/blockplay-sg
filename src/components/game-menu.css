@@ -105,6 +105,9 @@
 .game-install-go:focus-visible, .game-install-hide:focus-visible { outline:2px solid var(--menu-gold); outline-offset:2px; }
 .game-install-hide { flex-shrink:0; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:6px; background:transparent; color:var(--menu-dim); cursor:pointer; }
 .game-install-hide:hover { color:var(--menu-ink); background:#ffffff12; }
+/* Already installed: a pointer, not an offer, so it steps back from the accent. */
+.game-install-card.is-open-app { border-color:var(--menu-line); background:#0d1813b3; box-shadow:none; }
+.game-install-card.is-open-app .game-install-icon { background:#ffffff12; color:var(--menu-gold); }
 .game-menu.is-arriving .game-install-card, .game-menu.is-title-shown .game-install-card { animation:none; }
 @media (prefers-reduced-motion:reduce) { .game-install-card { animation:none; } }
 /* A phone's width goes to the words; the orange button carries the card. */
@@ -212,7 +215,7 @@
 
 /* Short screens drop the small print first, then the headline. */
 @media (max-height:640px) {
-  .game-menu-title > span, .game-menu-modes .game-menu-copy small, .game-install-card:not(.is-showing-steps) .game-install-copy small { display:none; }
+  .game-menu-title > span, .game-menu-modes .game-menu-copy small, .game-install-card:not(.is-showing-steps, .is-open-app) .game-install-copy small { display:none; }
   .game-menu-title h1 { margin:0; }
 }
 @media (max-height:480px) {
@@ -222,8 +225,9 @@
   .game-install-icon { display:none; }
   .game-install-copy strong { font-size:14px; }
   .game-install-go { min-height:32px; font-size:13px; }
-  .game-install-card.is-showing-steps .game-install-copy strong { display:none; }
-  .game-install-card.is-showing-steps .game-install-copy small { margin:0; }
+  .game-install-card:is(.is-showing-steps, .is-open-app) .game-install-copy strong { display:none; }
+  .game-install-card:is(.is-showing-steps, .is-open-app) .game-install-copy small { margin:0; }
+  .game-install-card.is-open-app { min-height:44px; }
   .game-menu-main { padding-bottom:max(12px,env(safe-area-inset-bottom,0px)); }
 }
 /* The shortest: with the offer showing, the tiles set icon beside name to make room. */

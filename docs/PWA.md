@@ -27,9 +27,18 @@ its header **Install** button. `src/lib/pwa.ts` holds that state in a small stor
 created at import time, because the browser fires the event before React has
 mounted.
 
-A page cannot open the installed app itself. Chromium shows its own "Open in
-app" control in the address bar once the app is installed, and the card does not
-appear there because the browser stops offering the install.
+A page cannot open the installed app itself, so when the app is already
+installed and the game is open in a browser tab, the card becomes a quieter note
+that points the way: **Open in app** in the address bar on desktop, the home
+screen on Android. Chromium knows through `navigator.getInstalledRelatedApps()`
+(Chrome and Edge 140+ on desktop, Chrome 84+ on Android), which needs the app to
+list itself under `related_applications` in `public/manifest.webmanifest`. On
+desktop that entry needs the app's full id, so it names `https://blockplaysg.fun/`
+and the note only appears on that domain; elsewhere, such as a `workers.dev` URL,
+the lookup finds nothing and the menu behaves as before. The note also shows in
+the tab an install was started from, since the app opens in a window of its own.
+Safari and Firefox cannot tell, so on iOS the install card still shows to players
+who already have the app; its × is the way out.
 
 The installed window is `standalone` with the dark `#17231e` title bar the site
 already declared as its theme colour. In-game fullscreen (F, or the fullscreen

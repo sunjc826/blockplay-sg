@@ -12,6 +12,9 @@
   "lang": "en-SG",
   "dir": "ltr",
   "categories": ["games", "education", "travel"],
+  "related_applications": [
+    { "platform": "webapp", "url": "/manifest.webmanifest", "id": "https://blockplaysg.fun/" }
+  ],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

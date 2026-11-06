@@ -1,7 +1,7 @@
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
+import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -178,10 +178,23 @@ function useInstallCard() {
   return [hidden, hide] as const;
 }
 
+/** Where an installed app is opened from, as far as a page can tell. */
+const OPEN_APP_HINT = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
+  ? <>Open it from your home screen for full screen and offline play.</>
+  : <>Use <b>Open in app</b> in the address bar, or open it from your apps.</>;
+
 function InstallCard({ install, onHide, sounds }: { install: PwaState; onHide: () => void; sounds: { onPointerEnter: (event: React.PointerEvent<HTMLElement>) => void; onFocus: (event: React.FocusEvent<HTMLElement>) => void } }) {
   const [steps, setSteps] = useState(false);
+  const hide = <button type="button" className="game-install-hide" {...sounds} aria-label="Hide install offer" title="Hide" onClick={() => { playMenuSound('click'); onHide(); }}><X size={16} /></button>;
+  const style = { '--i': ENTRIES.length } as React.CSSProperties;
+  // A page cannot open the app it belongs to, so this one only points the way.
+  if (install.openInApp) return <section className="game-install-card is-open-app" aria-label="The app is installed" style={style}>
+    <span className="game-install-icon" aria-hidden="true"><AppWindow size={22} /></span>
+    <span className="game-install-copy"><strong>blockplaySG is installed</strong><small>{OPEN_APP_HINT}</small></span>
+    {hide}
+  </section>;
   const manual = !install.canInstall;
-  return <section className={`game-install-card${steps ? ' is-showing-steps' : ''}`} aria-label="Install the app" style={{ '--i': ENTRIES.length } as React.CSSProperties}>
+  return <section className={`game-install-card${steps ? ' is-showing-steps' : ''}`} aria-label="Install the app" style={style}>
     <span className="game-install-icon" aria-hidden="true"><Download size={22} /></span>
     <span className="game-install-copy" aria-live="polite">
       <strong>Install blockplaySG</strong>
@@ -194,7 +207,7 @@ function InstallCard({ install, onHide, sounds }: { install: PwaState; onHide: (
       if (manual) setSteps(open => !open);
       else void pwa.install();
     }}>{manual && steps ? 'Got it' : 'Install'}</button>
-    <button type="button" className="game-install-hide" {...sounds} aria-label="Hide install offer" title="Hide" onClick={() => { playMenuSound('click'); onHide(); }}><X size={16} /></button>
+    {hide}
   </section>;
 }
 
@@ -203,7 +216,7 @@ const TITLE_LEAVE_MS = 900;
 
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
   const [installHidden, hideInstall] = useInstallCard();
-  const installable = install.canInstall || install.manualInstall;
+  const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
   // Back from another screen the whole menu shifts in, so its entries do not rise in as well.

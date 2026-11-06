@@ -17,6 +17,11 @@ export interface PwaState {
    * home screen by hand: Safari on iOS and iPadOS, through Share.
    */
   manualInstall: boolean;
+  /**
+   * Installed on this device, but this copy is open in a browser tab. A page
+   * cannot open the app itself, so this can only point the way.
+   */
+  openInApp: boolean;
   /** A newer build finished caching and is waiting for a reload. */
   updateReady: boolean;
 }
@@ -33,13 +38,15 @@ export interface PwaHost {
   standalone(): boolean;
   /** Whether this browser adds to the home screen from its own menu only. */
   manualInstall?(): boolean;
+  /** The browser's list of this site's apps installed on the device, where it can tell. */
+  installedApps?(): Promise<unknown[]>;
 }
 
 export type PwaStore = ReturnType<typeof createPwaStore>;
 
 export function createPwaStore(host: PwaHost) {
   const installed = host.standalone();
-  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), updateReady: false };
+  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), openInApp: false, updateReady: false };
   let prompt: InstallPromptEvent | null = null;
   let activate: (() => void) | null = null;
   const listeners = new Set<() => void>();
@@ -57,8 +64,17 @@ export function createPwaStore(host: PwaHost) {
   });
   host.addEventListener('appinstalled', () => {
     prompt = null;
-    set({ canInstall: false, installed: true, manualInstall: false });
+    // The new app window opens on its own, but this tab stays open behind it.
+    set({ canInstall: false, manualInstall: false, openInApp: !installed });
   });
+  // Chromium 140+ on desktop and Chrome on Android answer this from inside the
+  // app's scope, using `related_applications` in the manifest; other browsers
+  // have no way to know, and keep offering what they can.
+  if (!installed) {
+    void host.installedApps?.().then(apps => {
+      if (apps.length && !state.canInstall) set({ manualInstall: false, openInApp: true });
+    }, () => { /* not allowed here, e.g. outside a secure context */ });
+  }
 
   return {
     subscribe(listener: () => void) {
@@ -98,6 +114,10 @@ const browserHost: PwaHost = typeof window === 'undefined'
     // `navigator.standalone` exists only in iOS and iPadOS WebKit, where every
     // browser adds to the home screen through Share and none fires the event.
     manualInstall: () => 'standalone' in window.navigator,
+    installedApps: async () => {
+      const lookup = (window.navigator as { getInstalledRelatedApps?: () => Promise<unknown[]> }).getInstalledRelatedApps;
+      return lookup ? lookup.call(window.navigator) : [];
+    },
   };
 
 export const pwa = createPwaStore(browserHost);
