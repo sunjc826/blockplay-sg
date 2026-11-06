@@ -66,7 +66,7 @@ it('says how far a short wallet is from the next level rather than offering it',
 
 it('offers every registered insignia set, previewed at the level you are', () => {
   const veteran = { ...createProfile(), xp: xpForLevel(12), rankSet: 'military' };
-  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(veteran)} />);
+  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(veteran)} tab="profile" />);
   for (const set of rankSets()) expect(html).toContain(`data-set="${set.id}"`);
   // The strip wears the chosen set, and each choice previews this same level.
   expect(html).toContain('Corporal III');
@@ -86,14 +86,14 @@ it('says what each part puts on the model, and labels the same hardware on the p
 
 it('lets a high rank keep the recorded shouting, and samples both tones in their own words', () => {
   const legend = { ...createProfile(), xp: xpForLevel(35), rankSet: 'military' };
-  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(legend)} />);
+  const html = renderToStaticMarkup(<ArmorySettings store={storeFor(legend)} tab="profile" />);
   expect(html).toContain('data-tone="rank"'); expect(html).toContain('data-tone="recruit"');
   // The deferential sample is in this player's own rank, and the recruit
   // sample is the line the recorded pack actually says.
   expect(html).toContain('Textbook, Captain.');
   expect(html).toContain('One down. Good shot, carry on!');
   expect(html).toContain('Not voiced yet, so he subtitles.');
-  const rude = renderToStaticMarkup(<ArmorySettings store={storeFor({ ...legend, encikTone: 'recruit' })} />);
+  const rude = renderToStaticMarkup(<ArmorySettings store={storeFor({ ...legend, encikTone: 'recruit' })} tab="profile" />);
   expect(rude).toContain('Recorded pack, every level.');
   expect(rude).not.toContain('Not voiced yet');
 });
@@ -156,4 +156,18 @@ it('shows rental expiry and renewal alongside equipping, without calling a renta
   expect(html).toContain('Equip on SAR');
   expect(html).toContain('Remaining play time');
   expect(html).not.toContain('PERMANENT UNLOCK');
+});
+
+it('sorts settings into gameplay, video, audio and profile tabs', () => {
+  const store = storeFor(createProfile());
+  const panel = (tab: 'gameplay' | 'video' | 'audio' | 'profile') => renderToStaticMarkup(<ArmorySettings store={store} tab={tab} />);
+  const gameplay = panel('gameplay');
+  expect(gameplay).toContain('aria-selected="true" aria-controls="settings-panel-gameplay"');
+  for (const heading of ['Touch aim assist', 'HUD hints', 'Reload animation']) expect(gameplay).toContain(heading);
+  expect(gameplay).not.toContain('<h2>Graphics</h2>');
+  expect(panel('video')).toContain('<h2>Graphics</h2>');
+  const audio = panel('audio');
+  for (const heading of ['Sound effects', 'Voice']) expect(audio).toContain(heading);
+  expect(audio).not.toContain('Rank insignia');
+  expect(panel('profile')).toContain('Rank insignia');
 });
