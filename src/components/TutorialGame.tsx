@@ -71,7 +71,7 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         {hud.phase === 'paused' && !complete && <button className="tutorial-secondary" onClick={skip}>Skip this lesson <ArrowRight size={14} /></button>}
         <button className="tutorial-secondary" onClick={toStore}>{complete ? <Check size={14} /> : null} {complete ? 'Continue to equipment' : 'Go straight to the store tour'}</button>
         {(hud.phase === 'paused' || complete) && <button className="tutorial-secondary" onClick={restart}><RotateCcw size={14} /> Restart course</button>}
-        <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />
+        <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />
       </div></div>}
     </div>
   </div>;

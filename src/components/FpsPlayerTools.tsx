@@ -1,31 +1,21 @@
-import { useSyncExternalStore, type ReactNode } from 'react';
-import { Crosshair, Maximize, Minimize, Volume2, VolumeX } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Maximize, Minimize, Volume2, VolumeX } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
-import { getAimAssist, setAimAssist, subscribeAimAssist } from '../game/aim-assist-setting';
 import { FpsRadioVoice } from './FpsRadio';
-import HudHintsToggle from './HudHintsToggle';
-import ReloadStyleToggle from './ReloadStyleToggle';
+import { SettingsButton } from './SettingsOverlay';
 import './fps-hints.css';
 
-/** The start card's settings for players: the toggles they reach for, nothing more. */
-export function FpsPlayerTools({ hud, engine, immersive, touch, onFullscreen }: { hud: FpsHud; engine: FpsEngine | null; immersive: boolean; touch: boolean; onFullscreen: () => void }) {
+/**
+ * The start and pause card's quick actions. Saved preferences live on the full
+ * Settings page, which the Settings button opens over the paused game.
+ */
+export function FpsPlayerTools({ hud, engine, immersive, onFullscreen }: { hud: FpsHud; engine: FpsEngine | null; immersive: boolean; onFullscreen: () => void }) {
   return <div className="fps-player-tools">
     <button className="session-button" aria-pressed={!hud.muted} onClick={() => engine?.toggleSound()}>{hud.muted ? <VolumeX size={14} /> : <Volume2 size={14} />} Sound {hud.muted ? 'off' : 'on'}</button>
     <FpsRadioVoice hud={hud} engine={engine} />
-    {touch && <AimAssistToggle />}
-    {!touch && <HudHintsToggle />}
-    <ReloadStyleToggle />
     <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'}</button>
+    <SettingsButton />
   </div>;
-}
-
-/**
- * The thumb's aim assist. Only offered on touch, because only a drag is ever
- * assisted: a mouse plays the same with it on or off.
- */
-export function AimAssistToggle() {
-  const enabled = useSyncExternalStore(subscribeAimAssist, getAimAssist);
-  return <button className="session-button" aria-pressed={enabled} title="Slows the sights over a visible target and nudges a drag towards it. Recoil still has to be pulled down." onClick={() => setAimAssist(!enabled)}><Crosshair size={14} /> Aim assist {enabled ? 'on' : 'off'}</button>;
 }
 
 /** The key list, open in the debug shell and folded away for players. */

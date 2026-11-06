@@ -4,6 +4,8 @@ import BotDifficultySettings from './BotDifficultySettings';
 import MusicSettings from './MusicSettings';
 import EffectsSettings from './EffectsSettings';
 import VoiceSettings from './VoiceSettings';
+import GraphicsSettings from './GraphicsSettings';
+import AimAssistToggle from './AimAssistToggle';
 import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
@@ -25,9 +27,14 @@ export default function ArmorySettings({ store }: { store: Pick<ArmoryStore, 'pr
     <MusicSettings />
     <EffectsSettings />
     <VoiceSettings />
+    <GraphicsSettings />
     <div className="armory-settings-group">
       <h2>PC display</h2><p>Show HUD instructions and key reminders. Turn them off to keep combat information, objectives and warnings. Touch controls stay visible.</p>
       <HudHintsToggle />
+    </div>
+    <div className="armory-settings-group">
+      <h2>Touch aim assist</h2><p>On touchscreens, slows the sights over a visible target and nudges a drag towards it. A mouse plays the same either way.</p>
+      <AimAssistToggle />
     </div>
     <div className="armory-settings-group">
       <h2>Reload animation</h2><p>How your hands change a magazine. Only the look differs: every gun reloads in the same time either way.</p>

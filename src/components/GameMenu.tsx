@@ -7,6 +7,7 @@ import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import ArmoryShop from './ArmoryShop';
 import ArmorySettings from './ArmorySettings';
+import { SettingsStoreContext } from './SettingsOverlay';
 import RankBadge from './RankBadge';
 import PlayLoading, { Skyline } from './PlayLoading';
 import StartingPointPicker from './StartingPointPicker';
@@ -122,12 +123,12 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  if (screen === 'tutorial') return <div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store'); }} /></main></div>;
+  if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store'); }} /></main></div></SettingsStoreContext.Provider>;
 
-  if (screen === 'multiplayer') return <div {...plainScreenSounds} style={{ display: 'contents' }}><MultiplayerGame armory={armory} suspended={install.updateReady} /></div>;
+  if (screen === 'multiplayer') return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}><MultiplayerGame armory={armory} suspended={install.updateReady} /></div></SettingsStoreContext.Provider>;
 
   if (screen === 'training' || screen === 'world') {
-    return <PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} />;
+    return <SettingsStoreContext.Provider value={armory}><PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} /></SettingsStoreContext.Provider>;
   }
 
   if (screen === 'store') {

@@ -209,8 +209,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <>
           {hud.phase === 'ready' && touch && <p className="arena-touch-brief">Left thumb to move · Drag to look · Hold FIRE to shoot</p>}
           {hud.arena && <details className="arena-menu-section" open={hud.phase === 'paused'}><summary>Players &amp; scores <span>{hud.arena.actors.length}</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
-          <details className="arena-menu-section"><summary>Sound &amp; display</summary>
-            <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />
+          <details className="arena-menu-section"><summary>Sound, display &amp; settings</summary>
+            <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />
             <EnvironmentControls multiplayer={arenaOptions.session.role !== 'solo'} />
           </details>
           <details className="arena-menu-section"><summary>Your loadout</summary><button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{guest ? 'Your equipped Armory gear is ready.' : `${arenaOptions.botCount} bots · ${arenaOptions.composition} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match · open armory →</button></details>
@@ -234,7 +234,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           <FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div>
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
-        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} touch={touch} onFullscreen={() => { void fullscreen.toggle(); }} />}
+        </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
         {hud.phase === 'ready' && engine.current?.rangeArmoryState() && <p className="fps-armor-note">Gallery wall nearby, marked on the map: try issued, captured and your own weapons. Swaps last for this session.</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
