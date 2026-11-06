@@ -33,3 +33,6 @@
 
 .expedition-deployment button:disabled{cursor:default}
 .expedition-deployment button:not(.deployment-pin):disabled{opacity:.4}
+.deployment-settings-panel>.deployment-settings-head{position:sticky;top:-16px;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-16px -16px 4px;padding:10px 10px 10px 16px;background:#132530;border-bottom:1px solid #73949d55}
+.deployment-settings-head strong{font-size:13px;color:#eef4ed}
+.expedition-deployment .deployment-settings-close{display:grid;place-items:center;width:36px;min-height:36px;padding:0;flex:none}

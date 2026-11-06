@@ -20,7 +20,7 @@ import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Compass, Maximize, Minimize, Pause, Play, X } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsCheckpoint, type FpsEngine } from '../game/fps-engine';
 import { createFpsSurface, type FpsSurface } from '../game/fps-surface';
 import { resolveLoadout, type ArmoryProfile, type VendorPurchaseResult } from '../game/armory-state';
@@ -119,6 +119,15 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
   const mounted = hud.vehicle !== 'on-foot';
   const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
   const planning = hud.deployment?.canChoose === true;
+  // The landing-zone screen's briefing panel. It closes back to the map; leaving the run is the dock's own Leave button.
+  const [briefingOpen, setBriefingOpen] = useState(false);
+  useEffect(() => {
+    if (!briefingOpen || !planning) return;
+    // Bubble phase, so the Settings overlay (capture phase) takes Escape first and closes alone.
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setBriefingOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [briefingOpen, planning]);
   const deploying = hud.phase === 'deploying';
   const playing = hud.phase === 'playing', alive = hud.arenaSelf?.alive !== false, canFight = playing && alive;
   // Before landing the deployment has the spawn track, then a cue timed so its impact meets the ground.
@@ -222,7 +231,9 @@ export default function ExpeditionGame({ profile, nav, onExit, onVendorPurchase,
       </DeploymentOverlay>}
       {planning && <ExpeditionDeployment zone={scene.zone} deployment={hud.deployment} disabled={suspended} onChoose={id => engine.current?.chooseDeployment(id)} onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}>
         <button className="primary-button" disabled={suspended} onClick={() => { if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />Enter district<ArrowRight size={16} /></button>
-        <details className="deployment-settings"><summary>Briefing &amp; settings</summary><div className="deployment-settings-panel">{nav}<p>{zone.description}</p><p>Capture enemy equipment intact, destroy it, or rebuild ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles.</p><EnvironmentControls />
+        <details className="deployment-settings" open={briefingOpen} onToggle={event => setBriefingOpen(event.currentTarget.open)}><summary>Briefing &amp; settings</summary><div className="deployment-settings-panel" role="dialog" aria-label="Briefing and settings">
+          <header className="deployment-settings-head"><strong>Briefing &amp; settings</strong><button type="button" className="deployment-settings-close" aria-label="Close briefing and settings" title="Close (Esc)" onClick={() => setBriefingOpen(false)}><X size={16} /></button></header>
+          <p>{zone.description}</p><p>Capture enemy equipment intact, destroy it, or rebuild ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles.</p><EnvironmentControls />
           {debug ? <><FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         </div></details>
         <button className="deployment-leave" onClick={onExit}>Leave</button>
