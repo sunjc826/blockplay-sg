@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { firstVisibleHit } from './fps-raycast';
 import { createSceneRayIndex } from './scene-ray-index';
+import { matrixEpoch } from './matrix-epoch';
 
 /** Shared rendered cover for authority, sight, blasts and map audits. Movement
  * guard volumes deliberately do not participate: rays can pass between bars. */
@@ -8,7 +9,8 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
   const ray = new THREE.Raycaster(), index = createSceneRayIndex();
   const origin = new THREE.Vector3(), direction = new THREE.Vector3();
   const surfaces: THREE.Mesh[] = [];
-  let refreshedAt = -Infinity;
+  let refreshedAt = -Infinity, validated = false, validatedEpoch = -1;
+  const expire = () => { validated = false; };
   /** Physical trace includes glazing; bullet and sight distances below omit it. */
   function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false, includeGlass = true) {
     direction.set(heading.x, heading.y, heading.z);
@@ -25,11 +27,18 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
         node.children.forEach(collect);
       };
       scene.children.forEach(collect);
-      index.setObjects(surfaces);
+      index.setObjects(surfaces); validated = false;
+    }
+    // Validating every mesh is the expensive part of a query. A world matrix only changes in
+    // three's matrix updates, which move the epoch, so validate after one of those, and at least
+    // once per run of code (a simulation step, a frame) for geometry or instance edits.
+    if (!validated || validatedEpoch !== matrixEpoch()) {
+      index.refresh(); validatedEpoch = matrixEpoch();
+      if (!validated) { validated = true; queueMicrotask(expire); }
     }
     ray.set(origin.set(from.x, from.y, from.z), direction.normalize()); ray.near = 0; ray.far = range;
     // Detached meshes can remain in the short-lived cache; never let them block.
-    return firstVisibleHit(ray, index.candidates(ray).filter(mesh => {
+    return firstVisibleHit(ray, index.query(ray).filter(mesh => {
       for (let node: THREE.Object3D | null = mesh; node; node = node.parent) {
         if (!node.visible) return false;
         if (node === scene) return true;

@@ -56,3 +56,20 @@ it('checks dropped flight segments against cover absent along the initial aim ra
   expect(arena.snapshot().actors.find(a => a.id === 'two')!.health).toBe(100);
   geometry.dispose(); material.dispose();
 });
+
+it('validates its meshes once for many rays in one run, and again after any matrix update', async () => {
+  const scene = new THREE.Scene(), geometry = new THREE.BoxGeometry(1, 2, 1), material = new THREE.MeshBasicMaterial();
+  const walls = Array.from({ length: 40 }, (_, i) => { const m = new THREE.Mesh(geometry, material); m.position.set(i * 3, 0, -5); scene.add(m); return m; });
+  const cover = createSceneCover(scene), from = { x: 0, y: 0, z: 0 }, ahead = { x: 0, y: 0, z: -1 };
+  expect(cover.distance(from, ahead, 20)).toBe(4.5);
+  await Promise.resolve(); // a new run
+  const checks = vi.spyOn(THREE.Matrix4.prototype, 'equals');
+  try {
+    for (let i = 0; i < 50; i++) cover.distance({ x: (i % 40) * 3, y: 0, z: 0 }, ahead, 20);
+    expect(checks.mock.calls.length).toBe(walls.length);
+    // Moved mid-run, and its matrices updated: the next ray sees it.
+    walls[0].position.z = -2; walls[0].updateMatrixWorld();
+    expect(cover.distance(from, ahead, 20)).toBe(1.5);
+    expect(checks.mock.calls.length).toBe(walls.length * 2);
+  } finally { checks.mockRestore(); }
+});
