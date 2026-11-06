@@ -23,7 +23,7 @@ function indexable(mesh: THREE.Mesh) {
  */
 export function createSceneRayIndex() {
   let entries: Entry[] = [], tree = createRayBoundsTree<Entry>([]);
-  const selected: Entry[] = [], result: THREE.Mesh[] = [];
+  const selected: Entry[] = [], always: Entry[] = [], changed: Entry[] = [], result: THREE.Object3D[] = [];
   const instanceMatrix = new THREE.Matrix4(), instanceBox = new THREE.Box3();
   const bounds = (entry: Entry) => {
     const { mesh } = entry, position = mesh.geometry.getAttribute('position');
@@ -44,43 +44,60 @@ export function createSceneRayIndex() {
     entry.matrix.copy(mesh.matrixWorld);
     padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix));
   };
+  /** Re-checks every entry: eligibility, geometry, instances and world matrix. */
+  function refresh() {
+    always.length = 0; changed.length = 0;
+    for (const entry of entries) {
+      const { mesh } = entry;
+      if (!entry.indexed) { always.push(entry); continue; }
+      const position = mesh.geometry.getAttribute('position'), instanced = mesh as THREE.InstancedMesh;
+      const geometryChanged = entry.geometry !== mesh.geometry || entry.position !== position || entry.positionVersion !== version(position);
+      // Immutable geometry/raycast eligibility was established when inserted.
+      // Revalidate custom accelerators only when their source or callback changes.
+      if (!position || mesh.children.length || mesh.morphTargetInfluences?.length || mesh.geometry.morphAttributes.position?.length
+        || usage(position) !== THREE.StaticDrawUsage || ((geometryChanged || entry.raycast !== mesh.raycast) && !indexable(mesh))) {
+        entry.indexed = false; entry.box.makeEmpty(); changed.push(entry); always.push(entry); continue;
+      }
+      if (geometryChanged || entry.instances !== (instanced.isInstancedMesh ? instanced.instanceMatrix : undefined)
+        || entry.instanceVersion !== entry.instances?.version || entry.count !== (instanced.isInstancedMesh ? instanced.count : undefined)) {
+        bounds(entry); changed.push(entry);
+      } else if (!entry.matrix.equals(mesh.matrixWorld)) {
+        entry.matrix.copy(mesh.matrixWorld);
+        padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix)); changed.push(entry);
+      }
+      entry.raycast = mesh.raycast;
+    }
+    tree.refitMany(changed);
+  }
+  function query(ray: THREE.Raycaster) {
+    selected.length = 0; result.length = 0;
+    for (const entry of always) selected.push(entry);
+    tree.query(ray.ray, selected, ray.far);
+    selected.sort((a, b) => a.order - b.order);
+    for (const entry of selected) result.push(entry.mesh);
+    return result;
+  }
   return {
-    setObjects(objects: readonly THREE.Mesh[]) {
+    /** Objects that cannot raycast outside their own geometry may be pruned;
+     * anything else (a Points, Line or custom raycast) is always returned. */
+    setObjects(objects: readonly THREE.Object3D[]) {
       if (objects.length === entries.length && objects.every((mesh, i) => mesh === entries[i].mesh)) return;
-      entries = objects.map((mesh, order) => {
-        const entry: Entry = { mesh, order, box: new THREE.Box3(), local: new THREE.Box3(), matrix: new THREE.Matrix4(), geometry: mesh.geometry, position: mesh.geometry.getAttribute('position'), positionVersion: -1, indexed: !!indexable(mesh), raycast: mesh.raycast };
+      entries = objects.map((object, order) => {
+        const mesh = object as THREE.Mesh, isMesh = (object as THREE.Mesh).isMesh === true;
+        const entry: Entry = { mesh, order, box: new THREE.Box3(), local: new THREE.Box3(), matrix: new THREE.Matrix4(), geometry: mesh.geometry, position: isMesh ? mesh.geometry.getAttribute('position') : undefined!, positionVersion: -1, indexed: isMesh && !!indexable(mesh), raycast: mesh.raycast };
         if (entry.indexed) bounds(entry);
         return entry;
       });
       tree = createRayBoundsTree(entries.filter(entry => entry.indexed));
+      always.length = 0; for (const entry of entries) if (!entry.indexed) always.push(entry);
     },
+    /** Validates every entry, then queries. Reuses the result array; consume it before the next query. */
+    candidates(ray: THREE.Raycaster) { refresh(); return query(ray); },
+    /** For many rays against an unchanged scene: call `refresh` once after the
+     * scene's world matrices are current, then `query` per ray. A query never
+     * notices changes made after the last refresh. */
+    refresh,
     /** Reuses the result array; consume it before the next query. */
-    candidates(ray: THREE.Raycaster) {
-      selected.length = 0; result.length = 0;
-      for (const entry of entries) {
-        const { mesh } = entry;
-        if (!entry.indexed) { selected.push(entry); continue; }
-        const position = mesh.geometry.getAttribute('position'), instanced = mesh as THREE.InstancedMesh;
-        const geometryChanged = entry.geometry !== mesh.geometry || entry.position !== position || entry.positionVersion !== version(position);
-        // Immutable geometry/raycast eligibility was established when inserted.
-        // Revalidate custom accelerators only when their source or callback changes.
-        if (!position || mesh.children.length || mesh.morphTargetInfluences?.length || mesh.geometry.morphAttributes.position?.length
-          || usage(position) !== THREE.StaticDrawUsage || ((geometryChanged || entry.raycast !== mesh.raycast) && !indexable(mesh))) {
-          entry.indexed = false; entry.box.makeEmpty(); tree.refit(entry); selected.push(entry); continue;
-        }
-        if (geometryChanged || entry.instances !== (instanced.isInstancedMesh ? instanced.instanceMatrix : undefined)
-          || entry.instanceVersion !== entry.instances?.version || entry.count !== (instanced.isInstancedMesh ? instanced.count : undefined)) {
-          bounds(entry); tree.refit(entry);
-        } else if (!entry.matrix.equals(mesh.matrixWorld)) {
-          entry.matrix.copy(mesh.matrixWorld);
-          padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix)); tree.refit(entry);
-        }
-        entry.raycast = mesh.raycast;
-      }
-      tree.query(ray.ray, selected, ray.far);
-      selected.sort((a, b) => a.order - b.order);
-      for (const entry of selected) result.push(entry.mesh);
-      return result;
-    },
+    query,
   };
 }

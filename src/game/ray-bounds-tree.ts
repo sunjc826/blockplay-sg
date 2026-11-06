@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 
 export interface RayBoundsEntry { box: THREE.Box3; order: number }
-interface Node<T> { box: THREE.Box3; parent?: Node<T>; items?: T[]; left?: Node<T>; right?: Node<T> }
+interface Node<T> { box: THREE.Box3; depth: number; mark: number; parent?: Node<T>; items?: T[]; left?: Node<T>; right?: Node<T> }
 
 /** Broadphase only: callers retain their exact raycasts and original hit order. */
 export function createRayBoundsTree<T extends RayBoundsEntry>(entries: readonly T[], leafSize = 8) {
-  const leaves = new Map<T, Node<T>>(), point = new THREE.Vector3();
+  const leaves = new Map<T, Node<T>>(), point = new THREE.Vector3(), dirty: Node<T>[] = [];
+  let mark = 0;
   const build = (items: T[], parent?: Node<T>): Node<T> => {
-    const node: Node<T> = { box: new THREE.Box3(), parent };
+    const node: Node<T> = { box: new THREE.Box3(), depth: parent ? parent.depth + 1 : 0, mark: 0, parent };
     for (const entry of items) node.box.union(entry.box);
     if (items.length <= leafSize) {
       node.items = items;
@@ -22,15 +23,23 @@ export function createRayBoundsTree<T extends RayBoundsEntry>(entries: readonly 
     return node;
   };
   const root = build([...entries]);
+  const fit = (node: Node<T>) => {
+    node.box.makeEmpty();
+    if (node.items) for (const item of node.items) node.box.union(item.box);
+    else node.box.union(node.left!.box).union(node.right!.box);
+  };
   return {
     refit(entry: T) {
-      let node = leaves.get(entry);
-      while (node) {
-        node.box.makeEmpty();
-        if (node.items) for (const item of node.items) node.box.union(item.box);
-        else node.box.union(node.left!.box).union(node.right!.box);
-        node = node.parent;
-      }
+      for (let node = leaves.get(entry); node; node = node.parent) fit(node);
+    },
+    /** As `refit` for each entry, but every shared ancestor is refitted once, after its children. */
+    refitMany(changed: readonly T[]) {
+      if (!changed.length) return;
+      mark++; dirty.length = 0;
+      for (const entry of changed) { const leaf = leaves.get(entry); if (leaf && leaf.mark !== mark) { leaf.mark = mark; dirty.push(leaf); } }
+      for (let i = 0; i < dirty.length; i++) { const parent = dirty[i].parent; if (parent && parent.mark !== mark) { parent.mark = mark; dirty.push(parent); } }
+      dirty.sort((a, b) => b.depth - a.depth);
+      for (const node of dirty) fit(node);
     },
     /** Appends candidates; callers may add fallback objects before sorting. */
     query(ray: THREE.Ray, output: T[], far = Infinity) {

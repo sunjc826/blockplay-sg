@@ -34,6 +34,7 @@ import type { PlayerRespawnView } from './player-respawn';
 import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeathRecapTracker, type DeathRecap, type DeathRecapView } from './death-recap';
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
+import { createGameplayRayIndex } from './gameplay-ray-index';
 import { NAVAL as NAVAL_LANDING } from './naval-landings';
 import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
@@ -2591,10 +2592,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.sunShadows = String(sunShadows.enabled); canvas.dataset.shadowCasters = String(sunShadows.casters); canvas.dataset.timeOfDay = lighting.elevation.toFixed(1);
     canvas.dataset.nightLights = `${nightLights.level.toFixed(2)}:${nightLights.lamps.length}`;
   }
+  // Effects and the viewmodel never obstruct a gameplay ray.
+  const gameplayRoot = (o: THREE.Object3D) => !o.userData.fpsEffect;
   function gameplayCandidates() {
-    // Effects and the viewmodel never obstruct a gameplay ray.
-    return world.scene.children.filter(o => !o.userData.fpsEffect);
+    return world.scene.children.filter(gameplayRoot);
   }
+  /** Rounds in flight, many rays a frame: refreshed once per frame in advanceRounds. */
+  const roundIndex = createGameplayRayIndex(world.scene, gameplayRoot);
   const surface = new THREE.Vector3();
   /**
    * The world-space normal of whatever a ray struck, for orienting an impact.
@@ -3112,7 +3116,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
     world.scene.updateMatrixWorld(true);
-    const candidates = gameplayCandidates();
+    roundIndex.refresh();
     let struck = false;
     for (let i = rounds.length - 1; i >= 0; i--) {
       const round = rounds[i], step = advanceRound(round, dt, round.range ?? weaponRange(specs[round.weapon]));
@@ -3121,16 +3125,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         roundRay.set(roundOrigin.set(step.from.x, step.from.y, step.from.z), roundDirection);
         roundRay.near = 0; roundRay.far = step.distance;
         // A round never strikes whoever fired it: their own figure or their own vehicle.
-        const from = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : round.skipActor ? candidates.filter(o => o.userData.arenaActorId !== round.skipActor) : candidates;
+        // The vehicle list is a handful of roots searched recursively; otherwise
+        // the frame's index gives a flat list of just what lies near the ray.
+        const recursive = !!round.skipVehicle, skipActor = round.skipActor;
+        const from = round.skipVehicle ? vehicleCandidates(round.skipVehicle) : roundIndex.query(roundRay, skipActor ? root => root.userData.arenaActorId === skipActor : undefined);
         if (round.vehicleDamage !== undefined) {
-          const hit = firstVisibleHit(roundRay, from);
+          const hit = firstVisibleHit(roundRay, from, false, false, recursive);
           hearRoundPass(round, step.from, hit?.point ?? step.to);
           effects.smokeTrail(step.from, hit?.point ?? step.to, round.travelled - step.distance + (hit?.distance ?? step.distance));
           if (hit) { vehicleImpact(hit, roundDirection, round.skipVehicle ?? 'car', round.vehicleDamage); rounds.splice(i, 1); struck = true; continue; }
           if (step.expired) rounds.splice(i, 1);
           continue;
         }
-        const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced));
+        const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced, false, false, recursive));
         const lastHit = segmentHits[segmentHits.length - 1];
         const stopped = segmentHits.length > round.pierced || isWaterHit(lastHit);
         const stop = round.cosmetic ? segmentHits[0] : stopped ? lastHit : undefined;
