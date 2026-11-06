@@ -97,6 +97,7 @@ import { isWaterObject, rippleWater } from './water';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { assistCone, assistLook, assistTrack, ASSIST_RANGE } from './aim-assist';
 import { getAimAssist } from './aim-assist-setting';
+import { getHitmarkerSound } from './hitmarker-sound-setting';
 import { getReloadStyle } from './reload-style-setting';
 import { advanceRecoil, compensateRecoil, createRecoil, recoilPose, recoilView, recordRecoilShot, resetRecoil, takeAimPush } from './fps-recoil';
 import { effectStyleForWeapon, resolveEffectStyle, type EffectStyle } from './fps-effect-styles';
@@ -965,7 +966,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A marker you can trust with your eyes shut: a tick for a hit, a ting for the head, a thunk for a kill. */
   function confirmHit(kind: 'hit' | 'kill', head = false) {
-    if (!audio || hud.muted || audio.state !== 'running') return;
+    if (!audio || hud.muted || !getHitmarkerSound() || audio.state !== 'running') return;
     const now = audio.currentTime;
     if (kind === 'hit' && !head && now - lastHitConfirm < HIT_CONFIRM_GAP) return;
     lastHitConfirm = now;

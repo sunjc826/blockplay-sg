@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { setEffectsVolume, useEffectsVolume } from '../lib/effects-volume';
 import { playMenuSound } from '../lib/menu-audio';
 import VolumeSlider from './VolumeSlider';
+import HitmarkerSoundToggle from './HitmarkerSoundToggle';
 
 const PREVIEW_DELAY_MS = 120;
 
@@ -16,5 +17,6 @@ export default function EffectsSettings() {
       clearTimeout(preview.current);
       preview.current = setTimeout(() => playMenuSound('click'), PREVIEW_DELAY_MS);
     }} />
+    <HitmarkerSoundToggle />
   </div>;
 }
