@@ -75,6 +75,8 @@ export interface CharacterRig {
   weapon: THREE.Group | null;
   muzzle: THREE.Object3D | null;
   joints: Readonly<Record<JointName, THREE.Group>>;
+  /** The body's skinned mesh when built with `skinned`, otherwise null. */
+  skinned: THREE.SkinnedMesh | null;
   resources: { dispose(): void }[];
   update(dt: number, drive: CharacterDrive): void;
   fire(): void;
@@ -183,6 +185,68 @@ vec3 camoColor(vec3 base) {
   material.customProgramCacheKey = () => `character-camo-${pattern.style}`;
 }
 
+interface SkinnedPiece { joint: THREE.Object3D; index: number; geometry: THREE.BufferGeometry }
+
+/**
+ * Bounds in the figure root's frame for every pose `update` makes: standing,
+ * crouched, seated, swimming, rolling, prone (laid out ahead along +z) and
+ * fallen (laid back along -z). Fixed, because a skinned mesh's own bounds are
+ * taken from whatever pose it had when first culled. Checked in the tests.
+ */
+export const SKINNED_FIGURE_BOUNDS = new THREE.Sphere(new THREE.Vector3(0, .75, .35), 2.1);
+const IDENTITY = new THREE.Matrix4();
+const rayProxy = new THREE.Mesh(), rayHits: THREE.Intersection[] = [], raySphere = new THREE.Sphere();
+const figureInverse = new THREE.Matrix4(), jointToFigure = new THREE.Matrix4();
+
+/**
+ * One skinned mesh for every joint's piece. Vertices stay in their joint's own
+ * frame and every bind matrix is the identity, so the GPU draws each one at
+ * joint.matrixWorld × position: exactly where a mesh parented to that joint
+ * would be, and the camouflage, keyed to that local position, is unchanged.
+ */
+function createSkinnedFigure(pieces: SkinnedPiece[], joints: THREE.Object3D[], material: THREE.Material, resources: { dispose(): void }[]) {
+  const tagged = pieces.map(({ index, geometry }) => {
+    const copy = geometry.clone(), count = copy.getAttribute('position').count;
+    const bones = new Uint16Array(count * 4), weights = new Float32Array(count * 4);
+    for (let i = 0; i < count; i++) { bones[i * 4] = index; weights[i * 4] = 1; }
+    copy.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(bones, 4));
+    copy.setAttribute('skinWeight', new THREE.Float32BufferAttribute(weights, 4));
+    return copy;
+  });
+  const merged = mergeGeometries(tagged, false)!;
+  tagged.forEach(geometry => geometry.dispose());
+  resources.push(merged);
+  const mesh = new THREE.SkinnedMesh(merged, material);
+  // The joints are plain groups; a skeleton only reads their world matrices.
+  const skeleton = new THREE.Skeleton(joints as THREE.Bone[], joints.map(() => new THREE.Matrix4()));
+  mesh.bind(skeleton, IDENTITY);
+  resources.push(skeleton);
+  mesh.boundingSphere = SKINNED_FIGURE_BOUNDS.clone();
+  // Raycasting a skinned mesh poses every vertex on the CPU. Instead, test each
+  // joint's own triangles in that joint's frame, as the per-joint meshes were,
+  // and report the hits against this mesh with normals in its frame.
+  mesh.raycast = function (this: THREE.SkinnedMesh, raycaster: THREE.Raycaster, intersects: THREE.Intersection[]) {
+    raySphere.copy(this.boundingSphere!).applyMatrix4(this.matrixWorld);
+    if (!raycaster.ray.intersectsSphere(raySphere)) return;
+    figureInverse.copy(this.matrixWorld).invert();
+    rayProxy.material = this.material;
+    for (const { joint, geometry } of pieces) {
+      rayProxy.geometry = geometry; rayProxy.matrixWorld.copy(joint.matrixWorld);
+      rayHits.length = 0;
+      THREE.Mesh.prototype.raycast.call(rayProxy, raycaster, rayHits);
+      if (!rayHits.length) continue;
+      jointToFigure.multiplyMatrices(figureInverse, joint.matrixWorld);
+      for (const hit of rayHits) {
+        hit.object = this;
+        hit.face?.normal.transformDirection(jointToFigure);
+        hit.normal?.transformDirection(jointToFigure);
+        intersects.push(hit);
+      }
+    }
+  };
+  return mesh;
+}
+
 /** Deterministic, so a named local looks the same on every visit. */
 export function hashString(text: string) {
   let hash = 2166136261;
@@ -190,7 +254,18 @@ export function hashString(text: string) {
   return hash >>> 0;
 }
 
-export function createCharacterRig(look: CharacterLook, name = 'character'): CharacterRig {
+export interface CharacterRigOptions {
+  /**
+   * Draw the body as one skinned mesh (plus one for eyewear) whose bones are
+   * the joints, instead of a mesh per joint: about two draw calls a figure
+   * rather than twenty. Joints still animate and still carry the aim points,
+   * the weapon and the dressing, but hiding a joint no longer hides its part
+   * of the body, so the first-person body keeps the per-joint meshes.
+   */
+  skinned?: boolean;
+}
+
+export function createCharacterRig(look: CharacterLook, name = 'character', options: CharacterRigOptions = {}): CharacterRig {
   const build = look.build ?? 1;
   const resources: { dispose(): void }[] = [];
   const skinMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .82, metalness: 0 });
@@ -528,20 +603,37 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
     muzzle = new THREE.Object3D(); muzzle.name = 'rig-muzzle'; muzzle.position.set(0, .05, spec.muzzle); weapon.add(muzzle);
   }
 
-  for (const [bones, material] of [[parts, skinMaterial], [gear, gearMaterial]] as const) for (const [bone, list] of bones) {
-    const colored = list.map(({ geometry, color, fabric }) => {
-      const tint = new THREE.Color(color), count = geometry.getAttribute('position').count, colors = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) colors.set([tint.r, tint.g, tint.b], i * 3);
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      // Merging needs every part to carry the same attributes, so a camouflaged figure marks all of them.
-      if (look.camo && material === skinMaterial) geometry.setAttribute('fabric', new THREE.BufferAttribute(new Float32Array(count).fill(fabric ? 1 : 0), 1));
-      return geometry;
-    });
-    const merged = mergeGeometries(colored, false);
-    colored.forEach(geometry => geometry.dispose());
-    if (!merged) continue;
-    resources.push(merged);
-    const mesh = new THREE.Mesh(merged, material); mesh.name = `${bone.name}-mesh`; bone.add(mesh);
+  const jointList = Object.values(joints);
+  let skinned: THREE.SkinnedMesh | null = null;
+  for (const [bones, material] of [[parts, skinMaterial], [gear, gearMaterial]] as const) {
+    const pieces: SkinnedPiece[] = [];
+    for (const [bone, list] of bones) {
+      const colored = list.map(({ geometry, color, fabric }) => {
+        const tint = new THREE.Color(color), count = geometry.getAttribute('position').count, colors = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) colors.set([tint.r, tint.g, tint.b], i * 3);
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        // Merging needs every part to carry the same attributes, so a camouflaged figure marks all of them.
+        if (look.camo && material === skinMaterial) geometry.setAttribute('fabric', new THREE.BufferAttribute(new Float32Array(count).fill(fabric ? 1 : 0), 1));
+        return geometry;
+      });
+      const merged = mergeGeometries(colored, false);
+      colored.forEach(geometry => geometry.dispose());
+      if (!merged) continue;
+      resources.push(merged);
+      // The weapon is shown and hidden on its own, so it always keeps its own mesh.
+      const index = options.skinned ? jointList.indexOf(bone as THREE.Group) : -1;
+      if (index >= 0) { pieces.push({ joint: bone, index, geometry: merged }); continue; }
+      const mesh = new THREE.Mesh(merged, material); mesh.name = `${bone.name}-mesh`; bone.add(mesh);
+    }
+    if (pieces.length) {
+      // A material drawn by both a skinned and a plain mesh (the gear on the weapon) costs a
+      // shader program switch on every draw, so skinned eyewear gets its own copy.
+      const own = material === gearMaterial ? gearMaterial.clone() : material;
+      if (own !== material) resources.push(own);
+      const mesh = createSkinnedFigure(pieces, jointList, own, resources);
+      mesh.name = `${name}-${material === skinMaterial ? 'body' : 'gear'}`; root.add(mesh);
+      if (material === skinMaterial) skinned = mesh;
+    }
   }
   // A roll of field dressing in the left hand, shown only while it is being applied.
   let dressing: THREE.Mesh | null = null;
@@ -774,7 +866,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character'): Cha
   }
 
   const rig: CharacterRig = {
-    root, body, weapon, muzzle, joints, resources,
+    root, body, weapon, muzzle, joints, skinned, resources,
     update,
     fire() { kick = 1; aim = Math.max(aim, .8); },
     flinch() { flinch = 1; flinchSide = Math.random() < .5 ? -1 : 1; },

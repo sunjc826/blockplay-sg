@@ -315,7 +315,8 @@ export function paintNameLabel(context: CanvasRenderingContext2D, actor: Pick<Ar
   for (let i = 0; i < chevrons; i++) { const x = left + i * 14; context.beginPath(); context.moveTo(x, 31); context.lineTo(x + 6, 19); context.lineTo(x + 12, 31); context.stroke(); }
 }
 function createAvatar(actor: ArenaActor): Avatar {
-  const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`);
+  // One skinned mesh per body: a fight puts twenty-odd figures in view, and per-joint meshes made them half the frame's draw calls.
+  const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`, { skinned: true });
   const root = rig.root; root.userData.arenaActorId = actor.id;
   // A friendly squad's uniform is plain to see, so the AI pilot may read it off the figure.
   root.userData.arenaFriendly = actor.bot && actor.faction === PLAYER_FACTION;
