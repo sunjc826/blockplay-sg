@@ -195,19 +195,23 @@ describe('faction heat in the arena', () => {
     arena.addPlayer('one', 'Alpha', 0, 0, undefined, undefined, true);
     arena.setPlayerHealthMultiplier('one', 10);
     let friendlyRide: CombatEventDescriptor | undefined;
-    advance(arena, 160, () => { friendlyRide ??= arena.snapshot().events?.find(e => e.faction === 'armed-forces'); });
+    // Whether the squad outlives its fight with the contractors is the fight's
+    // business, so the friendly-fire check is made by the first one on the ground.
+    let shot: ReturnType<typeof shootDead> | undefined, friendly = false;
+    advance(arena, 160, () => {
+      friendlyRide ??= arena.snapshot().events?.find(e => e.faction === 'armed-forces');
+      const friend = shot ? undefined : arena.snapshot().actors.find(a => a.bot && !a.transport && a.alive && a.faction === 'armed-forces');
+      // Inspect only this shooter's result: other contractors can still fire
+      // while a friendly round travels, so total player health is not isolated.
+      if (friend) { friendly = !hostile(friend, actor(arena, 'one')); shot = shootDead(arena, friend.id, actor(arena, 'one')); }
+    });
     expect(friendlyRide?.kind).toMatch(/^transport/);
     const friends = arena.snapshot().actors.filter(a => a.bot && !a.transport && a.faction === 'armed-forces');
     expect(friends.length).toBeGreaterThan(0);
     expect(friends.length).toBeLessThanOrEqual(FACTION_SCALE['armed-forces'].troops[1]);
     expect(friends.every(f => /^(Pte|Cpl|Sgt) /.test(f.name) && f.variant === undefined)).toBe(true);
-    // Inspect only this shooter's result: other contractors can still fire
-    // while a friendly round travels, so total player health is not isolated.
-    const friend = friends.find(f => f.alive)!;
-    expect(friend).toBeDefined();
-    expect(hostile(friend, actor(arena, 'one'))).toBe(false);
-    const shot = shootDead(arena, friend.id, actor(arena, 'one'));
-    expect(shot.damage).toBe(0);
+    expect(friendly).toBe(true);
+    expect(shot?.damage).toBe(0);
     expect(validArenaSnapshot(checkable(arena), hot())).toBe(true);
     expect(arena.snapshot().heat?.find(h => h.sector === 'east')?.mercenaries).toBeGreaterThanOrEqual(.7);
   });

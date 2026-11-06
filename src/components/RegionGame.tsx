@@ -16,6 +16,7 @@ import { lookDelta, REGION_LOOK_SCALE, resolveMovement, type StickVector } from 
 import { useTouchControls } from '../game/use-touch-controls';
 import WorldTouchControls from './WorldTouchControls';
 import type { GuideRegion } from '../game/adventure';
+import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 /** Schematic furniture is authored in world metres; the map transform places it. */
 export function RegionMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
@@ -48,7 +49,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
   useEffect(() => {
     const container = host.current!;
     let renderer: THREE.WebGLRenderer;
-    try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+    try { renderer = new THREE.WebGLRenderer({ antialias: getGraphicsSettings().antialias }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = region.build();
     const atmosphere = createWorldAtmosphere(world.scene, region.stamps, world.obstacles, false, renderer, false, region.bounds.groundHeight);
@@ -56,7 +57,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const drivingObstacles = [...world.obstacles, ...verticalVehicleObstacles({ bounds: region.bounds, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) })];
     const ground=(x:number,z:number)=>region.bounds.groundHeight?.(x,z)??0;
     let feetY = ground(region.spawn.x,region.spawn.z), velocityY = 0;
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    renderer.setPixelRatio(renderPixelRatio(1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;

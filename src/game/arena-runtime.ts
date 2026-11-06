@@ -233,7 +233,7 @@ interface Avatar {
   parachute: THREE.Group;
   reveal: THREE.Mesh;
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
-  alive: boolean; lastHealth: number; yaw: number; fireTimer: number; ground: number; groundTimer: number;
+  alive: boolean; lastHealth: number; yaw: number; pitch: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
   /** What the figure and label were built from; a respawn with a new rank or name rebuilds them. */
   key: string;
@@ -352,7 +352,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
   return { key: avatarKey(actor), parachute: parachute.root, reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
-    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
+    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, pitch: actor.pitch, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
 }
 /**
  * Stands one figure of each kind at `at`, for building their shaders before the
@@ -607,6 +607,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const turnStep = wrapAngle(actor.yaw - avatar.yaw) * (respawned || !authority ? 1 : 1 - Math.exp(-14 * dt));
     avatar.yaw = wrapAngle(avatar.yaw + turnStep);
     root.rotation.set(0, avatar.yaw, 0);
+    // Pitch eases as yaw does, so a correction between snapshots is a nod, not a jerk.
+    avatar.pitch += (actor.pitch - avatar.pitch) * (respawned || !authority ? 1 : 1 - Math.exp(-14 * dt));
     const cos = Math.cos(avatar.yaw), sin = Math.sin(avatar.yaw);
     local.x = avatar.velocity.x * cos - avatar.velocity.z * sin; local.z = avatar.velocity.x * sin + avatar.velocity.z * cos;
     if (actor.shots > avatar.shots) { avatar.flash = 0.085; avatar.fireTimer = 1.6; rig.fire(); }
@@ -627,7 +629,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
     if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot' && (!actor.swimming || actor.weapon===2 && speed<.12);
     rig.update(dt, {
-      velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: actor.pitch,
+      velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: avatar.pitch,
       swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
       crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
       aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,

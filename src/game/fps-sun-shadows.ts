@@ -4,7 +4,7 @@ import { isWaterObject } from './water';
 /**
  * Sun shadows for the first-person view. A district's sun was authored with a
  * frustum over the whole map, which at FPS distances is a few texels per
- * metre; here one 2048² map covers a square about 130 metres across
+ * metre; here one 2048² map (1024² on low detail) covers a square about 130 metres across
  * that follows the camera, so a lamp post, a railing or a soldier throws a
  * shadow you can read. The frustum is snapped to whole shadow texels in the
  * light's own frame, so walking does not make every edge crawl.
@@ -14,6 +14,8 @@ import { isWaterObject } from './water';
  */
 export const SHADOW_SPAN = 64;
 const SHADOW_MAP = 2048;
+/** Smallest and largest shadow texture size the detail setting may ask for. */
+const MIN_MAP = 512;
 const RESCAN_SECONDS = 1;
 
 export function softwareRenderer(renderer: THREE.WebGLRenderer) {
@@ -48,9 +50,9 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   // instanced and plain casters rebuilds its shader key several times a frame.
   // Instanced casters get their own, split by whether they carry colours.
   const instancedDepth = [false, true].map(() => new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }));
-  let enabled = false, rescan = 0, casters = 0;
+  let enabled = false, rescan = 0, casters = 0, mapSize = SHADOW_MAP;
   const forward = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.Vector3(), toward = new THREE.Vector3(), center = new THREE.Vector3();
-  const worldUp = new THREE.Vector3(0, 1, 0), texel = SHADOW_SPAN * 2 / SHADOW_MAP;
+  const worldUp = new THREE.Vector3(0, 1, 0);
   function scan() {
     scene.traverse(object => {
       if (flagged.has(object)) return;
@@ -70,8 +72,15 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
      * camera. `direction` points towards the light. Call once a frame, before
      * anything renders the scene.
      */
-    update(want: boolean, camera: THREE.Camera, direction: { x: number; y: number; z: number }, dt: number) {
+    get mapSize() { return mapSize; },
+    update(want: boolean, camera: THREE.Camera, direction: { x: number; y: number; z: number }, dt: number, size = SHADOW_MAP) {
       const on = supported && want && !!light;
+      size = Math.max(MIN_MAP, Math.min(SHADOW_MAP, size));
+      if (light && size !== mapSize) {
+        // three.js allocates the map at its first shadow render; dropping it makes the next render allocate at the new size.
+        mapSize = size; light.shadow.mapSize.set(size, size);
+        light.shadow.map?.dispose(); light.shadow.map = null;
+      }
       if (on !== enabled) {
         enabled = on; renderer.shadowMap.enabled = on;
         if (light) light.castShadow = on;
@@ -88,6 +97,7 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
       camera.getWorldDirection(center); center.y = 0;
       if (center.lengthSq() > 1e-6) center.normalize();
       center.multiplyScalar(SHADOW_SPAN * .35).add(camera.getWorldPosition(new THREE.Vector3()));
+      const texel = SHADOW_SPAN * 2 / mapSize;
       const along = center.dot(forward), x = Math.round(center.dot(right) / texel) * texel, y = Math.round(center.dot(up) / texel) * texel;
       light.target.position.copy(right.multiplyScalar(x)).addScaledVector(up, y).addScaledVector(forward, along);
       light.target.updateMatrixWorld();

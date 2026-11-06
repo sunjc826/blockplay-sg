@@ -63,6 +63,45 @@ export const BOT_AIM = {
   shooterHold: .5,
 } as const;
 
+/**
+ * How fast a bot's head and gun can come round. The server used to set a bot's
+ * yaw and pitch to the wanted bearing every tick, so it could reverse in one
+ * tick, and a bearing to a point it was standing on spun it and pitched it at
+ * its own boots. A bot now turns at most this fast and fires only once its
+ * muzzle is within `aligned` of the shot.
+ */
+export const BOT_TURN = {
+  /** Radians per second about the vertical (about 515°/s): a quick shoulder check, not a snap. */
+  yaw: 9,
+  /** Radians per second up and down. */
+  pitch: 5,
+  /** Radians off the shot, in either axis, within which a bot may fire. */
+  aligned: .2,
+  /** Metres from an unseen walk goal (patrol point, last known contact) at which a bot stops and stops staring at it. */
+  arrive: 1.5,
+  /** Seconds a patrol stands on a reached point before it picks the next one. */
+  linger: 1.2,
+} as const;
+
+const wrapBearing = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+/** The angle `wanted` minus `current`, the short way round. */
+export const bearingError = (current: number, wanted: number) => wrapBearing(wanted - current);
+/** One tick of turning from `from` toward `to`, the short way round, capped by BOT_TURN. */
+export function botTurn(from: { yaw: number; pitch: number }, to: { yaw: number; pitch: number }, dt: number) {
+  const step = Math.max(0, Number.isFinite(dt) ? dt : 0);
+  const current = { yaw: Number.isFinite(from.yaw) ? from.yaw : 0, pitch: Number.isFinite(from.pitch) ? from.pitch : 0 };
+  const yawError = Number.isFinite(to.yaw) ? bearingError(current.yaw, to.yaw) : 0;
+  const pitchError = Number.isFinite(to.pitch) ? to.pitch - current.pitch : 0;
+  const yawStep = BOT_TURN.yaw * step, pitchStep = BOT_TURN.pitch * step;
+  return {
+    yaw: wrapBearing(current.yaw + Math.max(-yawStep, Math.min(yawStep, yawError))),
+    pitch: Math.max(-1.5, Math.min(1.5, current.pitch + Math.max(-pitchStep, Math.min(pitchStep, pitchError)))),
+  };
+}
+/** Whether a bot facing `facing` is close enough to `wanted` to fire. */
+export const botAligned = (facing: { yaw: number; pitch: number }, wanted: { yaw: number; pitch: number }) =>
+  Math.abs(bearingError(facing.yaw, wanted.yaw)) <= BOT_TURN.aligned && Math.abs(wanted.pitch - facing.pitch) <= BOT_TURN.aligned;
+
 /** Absolute multipliers of role spread: rough opening, tracking, then fine aim. */
 export function botAimScale(focus: number, transverseSpeed: number, ownStride: number, range = 35, difficulty: BotDifficulty = 'normal') {
   const profile = BOT_DIFFICULTIES[difficulty], time = Math.max(0, focus);

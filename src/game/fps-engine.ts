@@ -129,7 +129,8 @@ import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
 import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, WORLD_GATEWAYS, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
-import { createFpsSurface, type FpsSurface } from './fps-surface';
+import { createFpsSurface, FPS_PIXEL_RATIO_CAP, type FpsSurface } from './fps-surface';
+import { createFrameLimiter, getGraphicsSettings, renderPixelRatio, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
@@ -2567,7 +2568,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const { lighting, key, ambient, shadows } = atmosphere.light;
     // A blackout takes the city's glow with it, which only shows at night.
     renderer.toneMappingExposure = lighting.exposure * (1 - .5 * blackout * lighting.shift);
-    sunShadows.update(shadows, camera, lighting.key, dt);
+    sunShadows.update(shadows, camera, lighting.key, dt, SHADOW_MAP_SIZE[getGraphicsSettings().shadowDetail]);
     nightLights.update(lighting, blackout, dt, camera, renderer);
     // The viewmodel lives in camera-local space. Rotate the shared sky with the
     // world camera so highlights stay fixed in the world when the player turns.
@@ -4010,9 +4011,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     renderer.setSize(width, height); occlusion.setSize(); camera.aspect = viewCamera.aspect = width / height;
     camera.updateProjectionMatrix(); viewCamera.updateProjectionMatrix();
   };
+  // Render scale applies at once: a surface kept from the last district may predate a change.
+  let pixelScale = getGraphicsSettings().scale;
+  renderer.setPixelRatio(renderPixelRatio(FPS_PIXEL_RATIO_CAP));
+  const unsubscribeGraphics = subscribeGraphics(() => {
+    if (disposed || getGraphicsSettings().scale === pixelScale) return;
+    pixelScale = getGraphicsSettings().scale; renderer.setPixelRatio(renderPixelRatio(FPS_PIXEL_RATIO_CAP)); resize();
+  });
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
+  // A frame skipped under the cap runs nothing; the next one takes the whole time step.
+  const frameLimiter = createFrameLimiter();
   const animate = (now: number) => {
     if (disposed) return;
+    if (!frameLimiter(now, getGraphicsSettings().frameCap)) { frame = requestAnimationFrame(animate); return; }
     const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
     if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !document.hidden) {
       const spent = Math.min(realDt, .25) * 1000;
@@ -4298,7 +4309,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
       canvas.dataset.cant = cant.toFixed(2);
       const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
-      const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive, now / 1000);
+      // With reflections off the glass keeps its tint and coating but shows no captured scenery.
+      const reflectionsOn = getGraphicsSettings().reflections;
+      if (!reflectionsOn && sight?.reflection) sight.reflection.uniforms.reflectionReady.value = 0;
+      const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive && reflectionsOn, now / 1000);
       canvas.dataset.scopeActive = String(scopeActive);
       canvas.dataset.reflexPowered = String(!!sight && sight.magnification <= 1.01 && sight.lens.visible);
       canvas.dataset.opticReflection = String(!!sight?.reflection?.uniforms.reflectionReady.value && opticActive);
@@ -4310,11 +4324,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
       renderer.clearDepth(); renderer.render(viewScene, viewCamera);
       const { lighting } = atmosphere.light, air = atmosphere.air;
-      lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
+      if (getGraphicsSettings().lensEffects) lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
         sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
         sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
-      const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
+      const lensTag = getGraphicsSettings().lensEffects ? `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}` : 'off';
       if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
       let iffFrame: IffFrame = EMPTY_IFF_FRAME;
       if (iffActive(visionSpec, visionState) && visionSpec?.iff) {
@@ -4542,7 +4556,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals.dispose(); objectiveBeacons?.dispose();
-      disposed = true; rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); clearInput();
+      disposed = true; rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);

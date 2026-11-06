@@ -35,7 +35,7 @@ import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { fittedVariantSpec } from './armory-state';
-import { BOT_AIM, BOT_FLINCH, BOT_HEAL, addBotFlinch, advanceBotAimFocus, botAimScale, botBurstLimit, botFireCadence, botFlinchSpread, botFlinchStrength, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus, type BotFlinch } from './arena-bot-combat';
+import { BOT_AIM, BOT_FLINCH, BOT_HEAL, BOT_TURN, addBotFlinch, advanceBotAimFocus, botAimScale, botAligned, botTurn, botBurstLimit, botFireCadence, botFlinchSpread, botFlinchStrength, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus, type BotFlinch } from './arena-bot-combat';
 import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, transportPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload, type TransportPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
@@ -3381,7 +3381,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
       const home = entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
-      entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = 3 + random() * 3; entry.strafe *= -1;
+      entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = 3 + random() * 3;
+      // `strafe` is also the dodge direction: a new patrol point must not reverse a dodge under way.
+      if (!(threat && elapsed < threat.evadeUntil)) entry.strafe *= -1;
     }
     const searching = threat?.point ?? spotting.lastKnown(elapsed);
     const target: ArenaPoint = aircraft?.point ?? enemy?.actor ?? (searching ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
@@ -3426,6 +3428,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       !entry.mission && !entry.order && !threat && !wounded) { approach = 0; strafe = 0; }
     // Brace against aircraft instead of trying to navigate to a point in the sky.
     if (aircraft && !wounded) { approach = 0; strafe = 0; }
+    // An unseen walk goal (patrol point, last known contact) is somewhere to stand,
+    // not something to circle: full-stride steps used to overshoot it every tick.
+    if (!visible && horizontal < BOT_TURN.arrive) {
+      approach = 0; strafe = 0;
+      // A quiet patrol that has reached its point looks about briefly, then walks on to the
+      // next. Not under fire: a new point flips `strafe`, which is also its dodge direction.
+      if (!searching && !threat && !entry.mission && entry.patrolTime > BOT_TURN.linger) entry.patrolTime = BOT_TURN.linger;
+    }
     const normal = Math.max(1, Math.hypot(approach, strafe));
     let dxStep = (direction.x * approach - direction.z * strafe) / normal * role.speed * dt;
     let dzStep = (direction.z * approach + direction.x * strafe) / normal * role.speed * dt;
@@ -3507,15 +3517,24 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       entry.navigation.stuck=intended>.02 && actual<intended*.2 ? (entry.navigation.stuck??0)+dt : 0;
       if (entry.navigation.stuck>1.5) {entry.navigation.path=[];entry.navigation.retry=0;}
     }
-    actor.yaw = escaping && !exit ? Math.atan2(-dxStep, -dzStep) : Math.atan2(-dx, -dz); actor.pitch = Math.atan2(line.y, horizontal);
-    const stride = entry.anchor ? 0 : Math.hypot(dxStep, dzStep) / Math.max(1e-6, role.speed * dt);
+    const stride = entry.anchor || riding ? 0 : Math.hypot(dxStep, dzStep) / Math.max(1e-6, role.speed * dt);
+    // Eyes on a contact, or on a last known position worth walking toward; otherwise
+    // the way it is going, level, and held still when standing. Never the point it
+    // is standing on, whose bearing is noise and whose pitch is its own boots.
+    const bearing = { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(line.y, Math.max(horizontal, .75)) };
+    const wanted = escaping && !exit ? { yaw: stride > .25 ? Math.atan2(-dxStep, -dzStep) : actor.yaw, pitch: 0 }
+      : visible || searching && horizontal >= BOT_TURN.arrive ? bearing
+      : { yaw: stride > .25 ? Math.atan2(-dxStep, -dzStep) : actor.yaw, pitch: 0 };
+    Object.assign(actor, botTurn(actor, wanted, dt));
+    const aligned = botAligned(actor, bearing);
     // An event's crew may not open fire before the event has been announced; a bot waiting its turn on a player holds fire.
     const reaction = Math.max(.1, role.reaction + (entry.rank?.reaction ?? 0));
     if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || (!aircraft && (!enemy || !takeTurn(entry, enemy)))) { entry.aimFocus = advanceBotAimFocus(entry.aimFocus, undefined, dt); entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
-    entry.aimFocus = advanceBotAimFocus(entry.aimFocus, focusKey, dt);
+    // Aim only settles while the muzzle is on the target: a long swing costs time, not just a turn.
+    entry.aimFocus = advanceBotAimFocus(entry.aimFocus, focusKey, aligned ? dt : 0);
     if (entry.target !== targetId) { entry.target = targetId!; entry.reaction = reaction + random() * 0.3; entry.burst = 0; }
     entry.reaction -= dt;
-    if (entry.reaction <= 0) {
+    if (entry.reaction <= 0 && aligned) {
       // Bursts at the weapon's own cycle, then a pause the role decides.
       if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = Math.min(botBurstLimit(role.id, horizontal), low + Math.floor(random() * (high - low + 1))); entry.burstFired = 0; }
       // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.

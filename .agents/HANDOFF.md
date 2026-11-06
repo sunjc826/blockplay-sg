@@ -6884,3 +6884,14 @@ Open: the pause card's "← Menu" still quits the run with no confirmation; the 
 
 ## 2026-11-06: Quit button with confirmation on the play card
 Owner's choice: the "← Menu" link at the top of the Training and Open World start/pause card (`PlayNav` in GameMenu.tsx) is now a **Quit** button, and it asks "Quit to the main menu? This ends the current run." with Keep playing / Quit. The district button beside it also ended the run (back to the district map), so it asks too. Escape or Keep playing cancels. The picker's and loading screen's "← Menu" stay links, as no run exists yet. Checked in the desktop browser pane on the Marina Bay range: both questions, Keep playing, Escape, and Quit to `/`. tsc, full vitest (3,404). Not run on touch or a phone width.
+
+## 2026-11-06: more graphics settings, for toning a phone down
+On request. Settings › Graphics now has four presets (High, the default; Balanced; Low; Battery saver) and per-item controls, all saved per browser so a phone keeps its own mix. New store `graphics-settings.ts` (`blockplay-sg-graphics-v1`); sun shadows on/off, ambient occlusion and reduced effects stay in the environment store, and the presets set both. A preset is shown pressed only while every value matches; otherwise "Custom mix".
+- **Resolution** 100/85/70/50% of each view's usual pixel ratio (`renderPixelRatio`; FPS cap is still 1.35, `FPS_PIXEL_RATIO_CAP`). Live in the FPS engine (subscription, then `resize()`); the passes already size from the drawing buffer. Region, Marina, World and MarinaWorld views take it at creation.
+- **Frame rate limit** off/60/30 (`createFrameLimiter`, 1.5 ms early tolerance). A skipped rAF tick runs nothing, so the next frame takes the whole step.
+- **Sun shadows** Off/Low/High: Low is a 1024² map instead of 2048² (`fps-sun-shadows` `update(..., size)` drops and reallocates the map; texel snapping follows).
+- **Lens effects** (flare, haze dust, lens raindrops) skip `lens.present`; `data-lens` reads `off`.
+- **Scenery reflected in sight glass** off skips `opticReflections.render` and zeroes `reflectionReady`.
+- **Antialiasing** is read when a canvas is made, so it applies the next time a game starts (the FPS surface survives district changes).
+Validation: tsc, full vitest, new `graphics-settings.test.ts` (sanitising, presets, limiter cadence at 60/120 Hz, storage). Settings page at 375 px in the browser pane: presets set both stores. Metal headless Chrome on the Marina range (1280x800 @2x): 60 fps uncapped, 30 with the cap, 60 at 60; buffer 1728x1080 → 1209x756 at 70% mid-game; lens tag to `off`; Battery saver at load gave 691x518 for a 1024x768 canvas at DPR 2; no page errors.
+Not covered: not run on a real phone, so the savings are unmeasured there. Low shadow detail and reflections off were switched mid-game without errors but not compared by eye. View distance was not added (it changes what you can see, so it is a gameplay choice).

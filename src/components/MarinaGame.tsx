@@ -18,6 +18,7 @@ import WorldTouchControls from './WorldTouchControls';
 import { createAdventure, destinationId } from '../game/adventure';
 import AdventureCompanion from './AdventureCompanion';
 import { createObjectiveHighlight } from '../game/objective-highlight';
+import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 const initialHud = { distance: 0, speed: 0, x: MARINA_SPAWN.x as number, z: MARINA_SPAWN.z as number, collected: [] as number[] };
 const map = minimapProjection(MARINA_BOUNDS);
@@ -41,7 +42,7 @@ export default function MarinaGame() {
   useEffect(() => {
     const container = host.current!;
     let renderer: THREE.WebGLRenderer;
-    try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+    try { renderer = new THREE.WebGLRenderer({ antialias: getGraphicsSettings().antialias }); }
     catch { setError('WebGL could not start. Try a browser with hardware acceleration enabled.'); return; }
     const world = withGroundCover(buildMarinaScene(), MARINA_BOUNDS);
     const atmosphere = createWorldAtmosphere(world.scene, MARINA_STAMPS, world.obstacles, false, renderer);
@@ -51,7 +52,7 @@ export default function MarinaGame() {
     const objectiveHighlight = createObjectiveHighlight(world.scene);
     const selectHighlight = (id: string | null) => objectiveHighlight.select(world.stamps[destinations.findIndex(d => d.id === id)]);
     selectHighlight(adventure.read().activeId);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+    renderer.setPixelRatio(renderPixelRatio(1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.9;

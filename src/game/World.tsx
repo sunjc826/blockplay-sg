@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Location, Mode } from '../data/locations';
 import { advanceSpeed, CHECKPOINTS, checkpointCount } from './physics';
+import { getGraphicsSettings, renderPixelRatio } from './graphics-settings';
 
 export interface GameStats { speed: number; distance: number; score: number; elapsed: number }
 interface Props {
@@ -22,9 +23,9 @@ export default function World({ location, mode, running, controls, onStats, onFi
   useEffect(() => {
     const container = host.current!;
     let renderer: THREE.WebGLRenderer;
-    try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+    try { renderer = new THREE.WebGLRenderer({ antialias: getGraphicsSettings().antialias }); }
     catch { setError('This browser could not start 3D graphics. Try a browser with WebGL enabled, or switch to Street View.'); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(renderPixelRatio(2));
     renderer.setClearColor('#c4d7d4');
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);

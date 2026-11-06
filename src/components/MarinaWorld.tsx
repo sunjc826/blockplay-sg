@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CarFront, Footprints, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 interface SceneManifest {
   version: number; cameraHeight: number; explorationRadius: number; copyright?: string; captureDate?: string;
@@ -65,8 +66,8 @@ export default function MarinaWorld() {
         const boundaryGeometry = new THREE.RingGeometry(manifest.explorationRadius - 0.06, manifest.explorationRadius, 96); geometry.push(boundaryGeometry);
         const boundaryMaterial = new THREE.MeshBasicMaterial({ color: '#eac77e', transparent: true, opacity: 0.65, side: THREE.DoubleSide }); materials.push(boundaryMaterial);
         const boundary = new THREE.Mesh(boundaryGeometry, boundaryMaterial); boundary.rotation.x = -Math.PI / 2; boundary.position.y = 0.02; scene.add(boundary);
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer = new THREE.WebGLRenderer({ antialias: getGraphicsSettings().antialias });
+        renderer.setPixelRatio(renderPixelRatio(2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
         const canvas = renderer.domElement; container.appendChild(canvas); canvas.tabIndex = 0;
         canvas.setAttribute('aria-label', 'Marina Bay reconstructed 3D scene. Drag to look and use WASD to move.');
         const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 300);

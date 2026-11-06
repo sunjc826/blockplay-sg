@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_AIM, BOT_FLINCH, BOT_HEAL, addBotFlinch, advanceBotAimFocus, botAimScale, botBurstLimit, botFlinchSpread, botFlinchStrength, botTransverseSpeed, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { BOT_AIM, BOT_FLINCH, BOT_HEAL, BOT_TURN, addBotFlinch, bearingError, botAligned, botTurn, advanceBotAimFocus, botAimScale, botBurstLimit, botFlinchSpread, botFlinchStrength, botTransverseSpeed, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
 import { createArena, SPAWN_SHIELD_SECONDS, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
@@ -106,7 +106,8 @@ describe('bots in the arena', () => {
       const you = find(arena, 'you');
       if (you.health < before - .01) {
         const spec = variantSpec(itemById(shooter.variant!)!)!, range = Math.hypot(shooter.x - you.x, shooter.y - you.y, shooter.z - you.z);
-        expect([hitDamage(spec, range), hitDamage(spec, range, 'head')]).toContain(Math.round(before - you.health));
+        // A lethal hit takes only what health is left.
+        expect([hitDamage(spec, range), hitDamage(spec, range, 'head')].map(d => Math.min(d, Math.round(before)))).toContain(Math.round(before - you.health));
         expect(you.hurtFrom).toMatchObject({ x: expect.closeTo(shooter.x, 0), z: expect.closeTo(shooter.z, 0) });
         checked++;
       }
@@ -244,5 +245,39 @@ describe('bot flinch', () => {
     expect(second.at).toBe(.05);
     expect(addBotFlinch(second, 1, .1)!.strength).toBe(1);
     expect(addBotFlinch(second, 0, .1)).toBe(second);
+  });
+});
+
+describe('bot turning', () => {
+  it('turns the short way round, no faster than its cap', () => {
+    const turned = botTurn({ yaw: 3, pitch: 0 }, { yaw: -2, pitch: 0 }, .05); // 1.28 rad the short way, across ±π
+    expect(bearingError(3, turned.yaw)).toBeCloseTo(BOT_TURN.yaw * .05, 6);
+    const small = botTurn({ yaw: 0, pitch: 0 }, { yaw: .01, pitch: -.01 }, .05);
+    expect(small.yaw).toBeCloseTo(.01, 9); expect(small.pitch).toBeCloseTo(-.01, 9);
+    expect(botTurn({ yaw: 0, pitch: 0 }, { yaw: 0, pitch: -1.5 }, .05).pitch).toBeCloseTo(-BOT_TURN.pitch * .05, 6);
+    expect(botTurn({ yaw: 0, pitch: 0 }, { yaw: NaN, pitch: NaN }, .05)).toEqual({ yaw: 0, pitch: 0 });
+  });
+  it('fires only with the muzzle on the shot', () => {
+    expect(botAligned({ yaw: 3.1, pitch: 0 }, { yaw: -3.1, pitch: .1 })).toBe(true);
+    expect(botAligned({ yaw: 0, pitch: 0 }, { yaw: .5, pitch: 0 })).toBe(false);
+    expect(botAligned({ yaw: 0, pitch: 0 }, { yaw: 0, pitch: -.5 })).toBe(false);
+  });
+  it('keeps patrolling bots off their boots and out of a spin', () => {
+    const arena = createArena([], 6, 'mixed'), dt = 1 / 20;
+    const last = new Map<string, number>();
+    let ticks = 0, downcast = 0, fastest = 0;
+    for (let t = 0; t < 60; t += dt) {
+      arena.step(dt);
+      for (const a of arena.snapshot().actors) {
+        if (!a.bot || !a.alive) continue;
+        ticks++; if (a.pitch < -.7) downcast++;
+        const before = last.get(a.id);
+        if (before !== undefined) fastest = Math.max(fastest, Math.abs(bearingError(before, a.yaw)) / dt);
+        last.set(a.id, a.yaw);
+      }
+    }
+    expect(ticks).toBeGreaterThan(1000);
+    expect(downcast).toBe(0);
+    expect(fastest).toBeLessThanOrEqual(BOT_TURN.yaw + 1e-6);
   });
 });
