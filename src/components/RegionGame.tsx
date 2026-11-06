@@ -16,6 +16,7 @@ import { lookDelta, REGION_LOOK_SCALE, resolveMovement, type StickVector } from 
 import { useTouchControls } from '../game/use-touch-controls';
 import WorldTouchControls from './WorldTouchControls';
 import type { GuideRegion } from '../game/adventure';
+import { beginProfiledFrame, endProfiledFrame } from '../game/perf-overlay';
 import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 /** Schematic furniture is authored in world metres; the map transform places it. */
@@ -105,6 +106,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
     const observer = new ResizeObserver(resize); observer.observe(container); resize();
     let frame = 0, last = performance.now(), lastReport = 0;
     const animate = (now: number) => {
+      beginProfiledFrame(now, renderer);
       const dt = Math.min((now - last) / 1000, 0.05); last = now;
       const held = keys.current;
       // One intent from the keys and the thumb stick; a pushed stick wins, and
@@ -159,7 +161,7 @@ export default function RegionGame({ region: regionId }: { region: Exclude<Regio
       });
       world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; occlusion.render(atmosphere.light.occlusion);
       if (now - lastReport > 150) { report(); lastReport = now; }
-      frame = requestAnimationFrame(animate);
+      endProfiledFrame(renderer); frame = requestAnimationFrame(animate);
     };
     frame = requestAnimationFrame(animate);
     return () => {

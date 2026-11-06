@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CarFront, Footprints, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { beginProfiledFrame, endProfiledFrame } from '../game/perf-overlay';
 import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 interface SceneManifest {
@@ -97,6 +98,7 @@ export default function MarinaWorld() {
         observer = new ResizeObserver(() => { const { width, height } = container.getBoundingClientRect(); renderer!.setSize(width, height); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); }); observer.observe(container);
         let previous = performance.now(), lastReport = 0;
         const animate = (now: number) => {
+          beginProfiledFrame(now, renderer);
           const dt = Math.min((now - previous) / 1000, 0.05); previous = now;
           const held = keys.current;
           const forward = Number(held.has('w') || held.has('arrowup')) - Number(held.has('s') || held.has('arrowdown'));
@@ -118,7 +120,7 @@ export default function MarinaWorld() {
           camera.position.y = THREE.MathUtils.lerp(camera.position.y, travelRef.current === 'walk' ? manifest.cameraHeight : 1.5, Math.min(1, dt * 6));
           camera.rotation.set(pitch, yaw, 0, 'YXZ'); renderer!.render(scene, camera);
           if (now - lastReport > 200) { setDistance(moved); lastReport = now; }
-          frame = requestAnimationFrame(animate);
+          endProfiledFrame(renderer); frame = requestAnimationFrame(animate);
         };
         setStatus(''); frame = requestAnimationFrame(animate);
       } catch (error) {

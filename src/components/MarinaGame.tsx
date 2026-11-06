@@ -18,6 +18,7 @@ import WorldTouchControls from './WorldTouchControls';
 import { createAdventure, destinationId } from '../game/adventure';
 import AdventureCompanion from './AdventureCompanion';
 import { createObjectiveHighlight } from '../game/objective-highlight';
+import { beginProfiledFrame, endProfiledFrame } from '../game/perf-overlay';
 import { getGraphicsSettings, renderPixelRatio } from '../game/graphics-settings';
 
 const initialHud = { distance: 0, speed: 0, x: MARINA_SPAWN.x as number, z: MARINA_SPAWN.z as number, collected: [] as number[] };
@@ -100,6 +101,7 @@ export default function MarinaGame() {
     const observer = new ResizeObserver(resize); observer.observe(container); resize();
     let frame = 0, last = performance.now(), lastReport = 0;
     const animate = (now: number) => {
+      beginProfiledFrame(now, renderer);
       const dt = Math.min((now - last) / 1000, 0.05); last = now;
       const held = keys.current;
       // One intent from the keys and the thumb stick; a pushed stick wins, and
@@ -151,7 +153,7 @@ export default function MarinaGame() {
       });
       world.animate(now / 1000); atmosphere.update(dt, camera); renderer.toneMappingExposure = atmosphere.light.lighting.exposure; objectiveHighlight.update(now / 1000); occlusion.render(atmosphere.light.occlusion);
       if (now - lastReport > 150) { report(); lastReport = now; }
-      frame = requestAnimationFrame(animate);
+      endProfiledFrame(renderer); frame = requestAnimationFrame(animate);
     };
     frame = requestAnimationFrame(animate);
     return () => {

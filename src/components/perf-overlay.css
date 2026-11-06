@@ -1,0 +1,10 @@
+.perf-overlay { position:fixed; top:calc(env(safe-area-inset-top, 0px) + 58px); left:calc(env(safe-area-inset-left, 0px) + 12px); z-index:2147483000; padding:4px 7px; border-radius:4px; background:#000000a8; color:#e9efe6; font:500 11px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums; pointer-events:none; user-select:none; }
+.perf-overlay .perf-fps strong { font-size:13px; font-weight:700; }
+.perf-overlay [data-rate=good] strong, .perf-overlay dd[data-rate=good] { color:#7fd08a; }
+.perf-overlay [data-rate=fair] strong, .perf-overlay dd[data-rate=fair] { color:#e8c35a; }
+.perf-overlay [data-rate=poor] strong, .perf-overlay dd[data-rate=poor] { color:#ef6f5c; }
+.perf-overlay dl { display:grid; grid-template-columns:auto auto; gap:0 10px; margin:3px 0 4px; }
+.perf-overlay dt { color:#a9b5a6; }
+.perf-overlay dd { margin:0; text-align:right; }
+.perf-overlay dd small { color:#a9b5a6; font-size:10px; }
+.perf-overlay .perf-graph { display:block; }

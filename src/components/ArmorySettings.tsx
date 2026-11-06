@@ -8,6 +8,7 @@ import EffectsSettings from './EffectsSettings';
 import VoiceSettings from './VoiceSettings';
 import GraphicsSettings from './GraphicsSettings';
 import AimAssistToggle from './AimAssistToggle';
+import PerfOverlaySettings from './PerfOverlaySettings';
 import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
@@ -74,7 +75,10 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
           <div role="group" aria-label="Reload animation">{RELOAD_STYLES.map(style => <button key={style.id} data-reload-style={style.id} aria-pressed={reloadStyle === style.id} onClick={() => setReloadStyle(style.id)}><span><strong>{style.name}{style.id === 'improved' ? ' · Default' : ''}</strong><small>{style.description}</small></span></button>)}</div>
         </div>
       </>}
-      {tab === 'video' && <GraphicsSettings />}
+      {tab === 'video' && <>
+        <GraphicsSettings />
+        <PerfOverlaySettings />
+      </>}
       {tab === 'audio' && <>
         <MusicSettings />
         <EffectsSettings />

@@ -130,6 +130,7 @@ import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
 import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, WORLD_GATEWAYS, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
 import { createFpsSurface, FPS_PIXEL_RATIO_CAP, type FpsSurface } from './fps-surface';
+import { beginProfiledFrame, endProfiledFrame } from './perf-overlay';
 import { createFrameLimiter, getGraphicsSettings, renderPixelRatio, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
@@ -4024,6 +4025,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const animate = (now: number) => {
     if (disposed) return;
     if (!frameLimiter(now, getGraphicsSettings().frameCap)) { frame = requestAnimationFrame(animate); return; }
+    beginProfiledFrame(now, renderer);
     const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
     if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !document.hidden) {
       const spent = Math.min(realDt, .25) * 1000;
@@ -4347,6 +4349,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }));
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
     if (now - lastReport > 100) { publish(); lastReport = now; }
+    endProfiledFrame(renderer);
     frame = requestAnimationFrame(animate);
   };
   frame = requestAnimationFrame(animate);

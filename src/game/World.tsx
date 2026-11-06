@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import type { Location, Mode } from '../data/locations';
 import { advanceSpeed, CHECKPOINTS, checkpointCount } from './physics';
+import { beginProfiledFrame, endProfiledFrame } from './perf-overlay';
 import { getGraphicsSettings, renderPixelRatio } from './graphics-settings';
 
 export interface GameStats { speed: number; distance: number; score: number; elapsed: number }
@@ -168,6 +169,7 @@ export default function World({ location, mode, running, controls, onStats, onFi
     const observer = new ResizeObserver(resize); observer.observe(container); resize();
     let frame = 0; let last = performance.now(); let lastReport = 0;
     const animate = (now: number) => {
+      beginProfiledFrame(now, renderer);
       const dt = Math.min((now - last) / 1000, 0.05); last = now;
       if (active.current && !finished) {
         elapsed += dt;
@@ -184,7 +186,7 @@ export default function World({ location, mode, running, controls, onStats, onFi
         }
         if (now - lastReport > 100) { onStats({ speed, distance, score, elapsed }); lastReport = now; }
       }
-      renderer.render(scene, camera); frame = requestAnimationFrame(animate);
+      renderer.render(scene, camera); endProfiledFrame(renderer); frame = requestAnimationFrame(animate);
     };
     frame = requestAnimationFrame(animate);
     return () => {
