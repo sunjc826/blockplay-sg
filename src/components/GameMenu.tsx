@@ -1,7 +1,7 @@
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
+import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -73,11 +73,30 @@ function link(route: Route, plain = false) {
 /**
  * The way out and the district choice for a play screen. It sits at the top of
  * the game's own start and pause card, so the game can have the whole screen.
+ * Both end the run, so each asks first: Quit is a button, never a back link.
  */
 function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void }) {
+  const [asking, setAsking] = useState<'quit' | 'district' | null>(null);
+  useEffect(() => {
+    if (!asking) return;
+    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setAsking(null); };
+    window.addEventListener('keydown', cancel);
+    return () => window.removeEventListener('keydown', cancel);
+  }, [asking]);
+  if (asking) {
+    const quit = asking === 'quit';
+    return <nav className="play-nav play-nav-asking" aria-label="Game">
+      <div className="play-nav-question" role="alertdialog" aria-labelledby="play-nav-question" aria-describedby="play-nav-detail">
+        <strong id="play-nav-question">{quit ? 'Quit to the main menu?' : 'Change starting district?'}</strong>
+        <small id="play-nav-detail">{quit ? 'This ends the current run.' : 'This ends the current run and returns to the district map.'}</small>
+      </div>
+      <button type="button" className="play-nav-keep" autoFocus onClick={() => setAsking(null)}>Keep playing</button>
+      <button type="button" className="play-nav-confirm" onClick={() => { setAsking(null); if (quit) transitionTo('menu'); else onChoose(); }}>{quit ? <><LogOut size={15} /> Quit</> : 'Change district'}</button>
+    </nav>;
+  }
   return <nav className="play-nav" aria-label="Game">
-    <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
-    <button className="play-nav-district" onClick={onChoose} aria-label="Change starting district"><MapPin size={14} aria-hidden="true" /><span>{locationName(value)}</span><MapIcon size={14} aria-hidden="true" /></button>
+    <button type="button" className="play-nav-back" onClick={() => setAsking('quit')}><LogOut size={15} /><span>Quit</span></button>
+    <button type="button" className="play-nav-district" onClick={() => setAsking('district')} aria-label="Change starting district"><MapPin size={14} aria-hidden="true" /><span>{locationName(value)}</span><MapIcon size={14} aria-hidden="true" /></button>
   </nav>;
 }
 

@@ -169,6 +169,16 @@
 .play-nav-district { flex:0 1 auto; min-width:0; margin-left:auto; display:flex; align-items:center; gap:8px; padding:0 10px; font:600 12px 'Manrope',sans-serif; cursor:pointer; }
 .play-nav-district svg { flex-shrink:0; color:var(--menu-gold); }
 .play-nav-district span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.play-nav button.play-nav-back { cursor:pointer; }
+.play-nav-asking { flex-wrap:wrap; }
+.play-nav-question { display:grid; gap:2px; flex:1 1 100%; min-width:0; }
+.play-nav-question strong { font:700 13px 'Manrope',sans-serif; color:#f0eedf; }
+.play-nav-question small { font-size:11px; color:#aab4a6; }
+.play-nav-keep, .play-nav-confirm { min-height:38px; padding:0 14px; border-radius:6px; font:600 12px 'Manrope',sans-serif; cursor:pointer; }
+.play-nav-keep { margin-left:auto; border:1px solid #adbb9255; background:#ffffff14; color:#f0eedf; }
+.play-nav-keep:hover { background:#ffffff22; }
+.play-nav-confirm { display:inline-flex; align-items:center; gap:6px; border:1px solid #d9655f99; background:#5a1f1f; color:#ffe3dc; }
+.play-nav-confirm:hover { background:#73272a; }
 
 /* Loading screen over a play screen (PlayLoading): the menu's own sky and
    skyline, so leaving the menu reads as one move. The bar slides by transform
