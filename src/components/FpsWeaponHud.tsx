@@ -64,7 +64,7 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickR
     {canFight && hud.aimProgress > .02 && <div className="fps-scope fps-sight-vignette" aria-hidden="true" />}
     {/* The lens owns the ADS reticle. Unmount the hip crosshair before the
         lens fades in; legacy global ADS styles must not resurrect its bars. */}
-    {canFight && !hud.aiming && hud.aimProgress <= .12 && <div className="fps-crosshair fps-tactical-crosshair" aria-hidden="true"><i /><i /><i /><i /><b /></div>}
+    {canFight && !hud.aiming && hud.aimProgress <= .12 && <div className={`fps-crosshair fps-tactical-crosshair${hud.aimAssistLocked ? ' assist' : ''}`} aria-hidden="true"><i /><i /><i /><i /><b /></div>}
     {canFight && grenade && <div className="fps-grenade-cook" role="progressbar" aria-label="Grenade fuse" aria-valuemin={0} aria-valuemax={grenade.fuse} aria-valuenow={grenade.cooked} style={{ '--cook': `${grenade.cooked / grenade.fuse * 100}%` } as CSSProperties}><span>{grenade.pinned ? `${Math.max(0, grenade.fuse - grenade.cooked).toFixed(1)}s` : '9'}</span></div>}
     {canFight && hud.grenadeWarnings.map(g => <div key={g.serial} className="fps-grenade-warning" style={{ transform: `rotate(${g.angle}rad)` }} aria-label="Live grenade nearby"><b>▼</b></div>)}
     {canFight && hud.conditions.some(c => c.kind === 'at-attention') && <div className="fps-attention-overlay" role="alert">STAND BY</div>}

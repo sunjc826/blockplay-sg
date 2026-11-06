@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ASSIST_CONE_MAX, ASSIST_CONE_MIN, ASSIST_PULL, ASSIST_SLOWDOWN, assistCone, assistLook, assistStrength } from './aim-assist';
+import { ASSIST_CONE_MAX, ASSIST_CONE_MIN, ASSIST_PULL, ASSIST_SLOWDOWN, ASSIST_TRACK, ASSIST_TRACK_JUMP, assistCone, assistLook, assistStrength, assistTrack } from './aim-assist';
 
 // A torso about 20 m out: ~0.86° across, so a ~2.1° cone.
 const torso = (yawError = 0, pitchError = 0) => ({ yawError, pitchError, angularRadius: Math.atan(.3 / 20) });
@@ -19,7 +19,7 @@ describe('aim assist', () => {
   it('scales the cone with the target and keeps it narrow', () => {
     expect(assistCone(0)).toBe(ASSIST_CONE_MIN);
     expect(assistCone(1)).toBe(ASSIST_CONE_MAX);
-    expect(ASSIST_CONE_MAX).toBeLessThan(5.1 * Math.PI / 180);
+    expect(ASSIST_CONE_MAX).toBeLessThan(6.1 * Math.PI / 180);
   });
 
   it('slows a drag off the target by at most the slowdown share', () => {
@@ -55,5 +55,27 @@ describe('aim assist', () => {
     const bent = assistLook(step, 0, Math.PI / 3, right, false);
     expect(bent.yaw).toBeLessThan(step);
     expect(bent.yaw * Math.cos(Math.PI / 3)).toBeGreaterThanOrEqual(right.yawError);
+  });
+
+  it('follows part of a strafing target, fading out across the cone', () => {
+    const step = { yaw: .005, pitch: -.001 };
+    const centre = assistTrack({ yaw: 1, pitch: 0 }, { yaw: 1 + step.yaw, pitch: step.pitch }, torso());
+    expect(centre.yaw).toBeCloseTo(step.yaw * ASSIST_TRACK, 12);
+    expect(centre.pitch).toBeCloseTo(step.pitch * ASSIST_TRACK, 12);
+    const edge = assistTrack({ yaw: 1, pitch: 0 }, { yaw: 1 + step.yaw, pitch: 0 }, torso(assistCone(torso().angularRadius) * .8, 0));
+    expect(Math.abs(edge.yaw)).toBeGreaterThan(0);
+    expect(Math.abs(edge.yaw)).toBeLessThan(Math.abs(centre.yaw));
+    expect(assistTrack({ yaw: 1, pitch: 0 }, { yaw: 1.005, pitch: 0 }, null)).toEqual({ yaw: 0, pitch: 0 });
+  });
+
+  it('wraps yaw across ±π and ignores jumps', () => {
+    const across = assistTrack({ yaw: Math.PI - .002, pitch: 0 }, { yaw: -Math.PI + .002, pitch: 0 }, torso());
+    expect(across.yaw).toBeCloseTo(.004 * ASSIST_TRACK, 9);
+    expect(assistTrack({ yaw: 0, pitch: 0 }, { yaw: ASSIST_TRACK_JUMP * 1.5, pitch: 0 }, torso())).toEqual({ yaw: 0, pitch: 0 });
+  });
+
+  it('follows a bearing, never the aim, so a climb is left alone', () => {
+    // Recoil moves the aim, not the target's bearing: nothing to follow.
+    expect(assistTrack({ yaw: .3, pitch: .1 }, { yaw: .3, pitch: .1 }, torso(0, -.01))).toEqual({ yaw: 0, pitch: 0 });
   });
 });

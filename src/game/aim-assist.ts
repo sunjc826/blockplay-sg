@@ -20,9 +20,16 @@
  *   held: dragging the sights back down against a climb is entirely the
  *   player's work, which is what the recoil model is asking of them.
  *
- * Both fade from full strength on the target to nothing at the cone's edge, so
- * there is no ledge to feel, and the cone scales with the target's size on
- * screen — a distant figure gets a narrow cone rather than a free hit.
+ * - **Tracking.** While a thumb is on the look surface or the fire button, the
+ *   sights follow part of the target's own movement across the screen — its
+ *   strafing, or the player's. It follows the target's *bearing*, which the
+ *   player's own aim does not change, so recoil climb is never cancelled: the
+ *   sights still rise off a strafing target and have to be pulled down onto it.
+ *   This is the part a thumb actually feels; the other two only reshape a drag.
+ *
+ * All three fade from full strength on the target to nothing at the cone's
+ * edge, so there is no ledge to feel, and the cone scales with the target's
+ * size on screen — a distant figure gets a narrow cone rather than a free hit.
  *
  * All angles are radians in screen space: x is right, y is up.
  */
@@ -36,15 +43,19 @@ export interface AssistContact {
 }
 
 /** How many of the target's own radii the cone reaches out to. */
-export const ASSIST_CONE_RADII = 2.5;
+export const ASSIST_CONE_RADII = 3;
 /** The cone never shrinks below this, so a distant figure is still helped a little. */
-export const ASSIST_CONE_MIN = 0.021; // ~1.2°
+export const ASSIST_CONE_MIN = 0.03; // ~1.7°
 /** Nor grows past this, so a figure at arm's length does not grab the whole screen. */
-export const ASSIST_CONE_MAX = 0.087; // ~5°
+export const ASSIST_CONE_MAX = 0.105; // ~6°
 /** Share of away-and-across travel removed at the centre of the cone. */
-export const ASSIST_SLOWDOWN = 0.3;
+export const ASSIST_SLOWDOWN = 0.45;
 /** Share of towards travel added at the centre of the cone, off the trigger only. */
-export const ASSIST_PULL = 0.2;
+export const ASSIST_PULL = 0.3;
+/** Share of the target's bearing change the sights follow at the centre of the cone. */
+export const ASSIST_TRACK = 0.6;
+/** A bearing jump bigger than this in one frame is a respawn, a teleport or a new aim point, not movement. */
+export const ASSIST_TRACK_JUMP = 0.03;
 /** Past this the assist ignores a target outright. */
 export const ASSIST_RANGE = 90;
 
@@ -87,4 +98,20 @@ export function assistLook(dYaw: number, dPitch: number, pitch: number, contact:
     nx = ux * toward + acrossX * damp; ny = uy * toward + acrossY * damp;
   }
   return { yaw: -nx / cos, pitch: ny };
+}
+
+/** Yaw difference wrapped into (-π, π]. */
+const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
+
+/**
+ * How far to turn the sights after the target's bearing moved from `before` to
+ * `after` (world yaw/pitch from the eye to the target, so the player's own aim
+ * and recoil play no part). `contact` is where the target sits relative to the
+ * aim now, which sets the strength.
+ */
+export function assistTrack(before: { yaw: number; pitch: number }, after: { yaw: number; pitch: number }, contact: AssistContact | null | undefined) {
+  const strength = assistStrength(contact);
+  const dYaw = wrap(after.yaw - before.yaw), dPitch = after.pitch - before.pitch;
+  if (strength === 0 || !Number.isFinite(dYaw) || !Number.isFinite(dPitch) || Math.hypot(dYaw, dPitch) > ASSIST_TRACK_JUMP) return { yaw: 0, pitch: 0 };
+  return { yaw: dYaw * ASSIST_TRACK * strength, pitch: dPitch * ASSIST_TRACK * strength };
 }

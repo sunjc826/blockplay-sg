@@ -6854,3 +6854,20 @@ Validation: tsc, full vitest, new unit tests (crossfade timing, mode kept across
 ## 2026-11-06: IFF boxes through a magnified scope
 Follow-up, owner's choice of zoomed boxes on both IFF devices. Before, boxes sat at their unmagnified place on top of the scope's picture. `createScopeRenderer` now exposes its `camera`; `fps-iff` projects each seen body through it (`zoomedBox`) and maps the result onto the lens via its world matrix, so roll is followed. The overlay has a zone per vertex: scope boxes only inside the lens picture (0.98 of its radius), unmagnified ones fade off the lens, both by `sight.visibility` through the raise. A bar a fifth of the lens radius under the reticle shows the side of the nearest boxed body under the reticle (`IffFrame.aim`). Reader range and line of sight unchanged. `data-iff` gains `:zoom` entries and `|aim:side`.
 Validation: tsc, full vitest, new tests (4x box about four times the size and centred, reticle side, nothing when not raised, quarter-turn roll). Metal headless Chrome, Marina range in the afternoon with SAR 21 · Two Eyes (4x): a full turn in IFF only gave the reticle cue on enemy, ally and neutral with boxes on the magnified bodies, and again with the tube on inside its circle; no page errors. Not checked: higher powers or adjustable zoom, the raise animation frame by frame, the offset dot while canted (1x, so unaffected by design), touch.
+
+## 2026-11-06: aim assist you can feel on a phone
+
+The owner could not feel the October assist on a phone: it only reshaped a
+drag, so a resting thumb got nothing. Added **tracking** (`assistTrack` in
+`aim-assist.ts`, `trackAimAssist` in the engine loop): while a touch session
+has a thumb on the look surface or the fire button, the sights follow 60% of
+the locked target's world bearing change per frame (strafing target or
+strafing player), fading over the cone. It follows the eye-to-target bearing,
+not the aim, so recoil is never paid off and `compensateRecoil` is not told.
+Bearing jumps over 0.03 rad/frame (respawn, new aim point) are ignored.
+Also stronger: slowdown 0.3→0.45, pull 0.2→0.3, cone 3 radii clamped
+1.7°–6°. `hud.aimAssistLocked` tints the hip crosshair orange while locked,
+so a phone shows whether the assist is engaged at all.
+Validation: vitest, typecheck; headless Chrome with CDP touch on the Marina
+range: locked a target, strafing with a thumb resting turned 0.066 rad to
+follow, without a thumb 0. Not yet tried on a real phone.
