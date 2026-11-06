@@ -35,6 +35,7 @@ import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeat
 import { districtDeploymentPoints, deploymentOrder, type DeploymentView } from './expedition-deployment';
 import { createSceneCover } from './scene-cover';
 import { createGameplayRayIndex } from './gameplay-ray-index';
+import { skipHiddenMatrixUpdates } from './visible-matrices';
 import { NAVAL as NAVAL_LANDING } from './naval-landings';
 import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
@@ -382,6 +383,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + ' range'}. WASD to move, mouse to look, click to fire.`);
   const zoneWorld = options.tutorial ? buildTutorialWorld() : buildDistrictWorld(region, expedition?.spawn);
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
+  // A third of the scene is hidden at any time (pooled effects, figures' spare parts); the renderer's
+  // every-frame matrix pass skips it. Explicit forced updates still reach everything.
+  skipHiddenMatrixUpdates(world.scene);
   // Before night lights and shadows patch the materials: see instanced-materials.
   separateInstancedMaterials(world.scene);
   const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer, options.tutorial, world.bounds.groundHeight);
@@ -490,6 +494,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const camera = new THREE.PerspectiveCamera(65, 1, WORLD_CAMERA_NEAR, 800); camera.rotation.order = 'YXZ';
   const occlusion = createWorldOcclusion(renderer, world.scene, camera);
   const viewScene = new THREE.Scene(), viewCamera = new THREE.PerspectiveCamera(65, 1, 0.01, 3);
+  // Every carried gun, the grenade and supply hands live here; nearly all of it is hidden. Reads of
+  // weapon parts go through getWorldPosition/updateWorldMatrix, which refresh their own chain.
+  skipHiddenMatrixUpdates(viewScene, { forcedToo: true });
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
   const wetView = createWetSurfaces(viewScene, true);
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
@@ -3115,7 +3122,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Steps every round still in the air and resolves whatever it reaches first. */
   function advanceRounds(dt: number) {
     if (!rounds.length) return;
-    world.scene.updateMatrixWorld(true);
+    // Rounds only ever strike visible objects, so hidden ones can keep their matrices.
+    world.scene.updateMatrixWorld();
     roundIndex.refresh();
     let struck = false;
     for (let i = rounds.length - 1; i >= 0; i--) {
