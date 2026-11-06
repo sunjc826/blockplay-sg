@@ -19,7 +19,7 @@ import { validGrenadeConditions } from './grenade-effects';
 import { MAX_GRENADES, MAX_GRENADE_EVENTS, validLiveGrenade, validGrenadeEvent, validThrowGrenade, type ThrowGrenade } from './grenade-system';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
-import { createCharacterRig, type CharacterRig } from './character-rig';
+import { createCharacterRig, type CharacterDrive, type CharacterRig } from './character-rig';
 import { arenaCharacterLook, arenaRoleColor } from './character-looks';
 import { getArenaFaction, isProxyFaction, PLAYER_FACTION } from './arena-factions';
 import { MARINA_BOUNDS } from './marina-collision';
@@ -54,10 +54,20 @@ export interface ArenaRuntimeFrame {
 export interface ArenaRuntimeOptions {
   /** New figures stood in the scene this frame, before they are first drawn. */
   onFiguresAdded?: () => void;
+  /**
+   * How often to pose the figure standing at this point: `FIGURE_POSE.full`
+   * every frame, `half` every other frame, `none` not at all (its clocks still
+   * run). Without it, every figure is posed every frame.
+   */
+  figureDetail?: (at: THREE.Vector3) => FigurePose;
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
   profile?: ArmoryProfile; botCount: number; composition?: string;
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
 }
+export const FIGURE_POSE = { none: 0, half: 1, full: 2 } as const;
+export type FigurePose = typeof FIGURE_POSE[keyof typeof FIGURE_POSE];
+/** After this long unposed, a figure is posed a few extra times on its first frame back, so it doesn't drift in from its old pose. */
+const FIGURE_SETTLE_AFTER = .25;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const RAIDER_STATES: readonly ArenaRaiderState[] = ['landing', 'landed', 'inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -235,6 +245,8 @@ interface Avatar {
   shots: number; flash: number; maxHealth: number; resources: { dispose(): void }[];
   alive: boolean; lastHealth: number; yaw: number; pitch: number; fireTimer: number; ground: number; groundTimer: number;
   previous: THREE.Vector3; velocity: THREE.Vector3;
+  /** Seconds since the rig was last posed, and which frames it takes at half rate. */
+  unposed: number; poseSlot: number;
   /** What the figure and label were built from; a respawn with a new rank or name rebuilds them. */
   key: string;
   /** What they last said, over their head until `until` (performance.now ms); painted on first use. */
@@ -314,6 +326,8 @@ export function paintNameLabel(context: CanvasRenderingContext2D, actor: Pick<Ar
   context.strokeStyle = color; context.lineWidth = 3; context.lineJoin = 'miter';
   for (let i = 0; i < chevrons; i++) { const x = left + i * 14; context.beginPath(); context.moveTo(x, 31); context.lineTo(x + 6, 19); context.lineTo(x + 12, 31); context.stroke(); }
 }
+/** Alternates figures between the two half-rate frames. */
+let avatarSlot = 0;
 function createAvatar(actor: ArenaActor): Avatar {
   // One skinned mesh per body: a fight puts twenty-odd figures in view, and per-joint meshes made them half the frame's draw calls.
   const rig = createCharacterRig(arenaCharacterLook(actor), `arena-${actor.id}`, { skinned: true });
@@ -353,7 +367,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
   return { key: avatarKey(actor), parachute: parachute.root, reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
-    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, pitch: actor.pitch, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), bubble: null };
+    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, pitch: actor.pitch, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), unposed: 0, poseSlot: avatarSlot++ & 1, bubble: null };
 }
 /**
  * Stands one figure of each kind at `at`, for building their shaders before the
@@ -575,6 +589,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     return footing.supportHeight(x, z, eye - .5, .35, .6) ?? 0;
   }
   const destination = new THREE.Vector3(), local = { x: 0, z: 0 };
+  let frameParity = 0;
   function animateAvatar(avatar: Avatar, actor: ArenaActor, dt: number) {
     const { rig, root } = avatar;
     avatar.parachute.visible = actor.alive && actor.parachuting === true;
@@ -629,14 +644,24 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       } else avatar.halo.time = 0;
     }
     if (rig.weapon) rig.weapon.visible = actor.aircrew !== 'pilot' && (!actor.swimming || actor.weapon===2 && speed<.12);
-    rig.update(dt, {
-      velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: avatar.pitch,
-      swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
-      crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
-      aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
-      ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
-      bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),
-    });
+    // Off screen, or far enough to be a few pixels tall, the pose is skipped or halved. The root still moves every frame.
+    const detail = options.figureDetail?.(root.position) ?? FIGURE_POSE.full;
+    avatar.unposed += dt;
+    if (detail === FIGURE_POSE.none || detail === FIGURE_POSE.half && ((frameParity ^ avatar.poseSlot) & 1) === 1 && avatar.unposed < .1) rig.age(dt);
+    else {
+      const drive: CharacterDrive = {
+        velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: avatar.pitch,
+        swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
+        crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
+        aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
+        ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
+        bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),
+      };
+      // Back in view after a while: the smoothed pose catches up now, not over the next few frames.
+      if (avatar.unposed - dt >= FIGURE_SETTLE_AFTER) { rig.update(.1, drive); rig.update(.1, drive); rig.update(dt, drive); }
+      else rig.update(avatar.unposed, drive);
+      avatar.unposed = 0;
+    }
     avatar.health.scale.x = Math.max(0.01, 0.75 * actor.health / avatar.maxHealth);
     if (avatar.muzzle) avatar.muzzle.visible = avatar.flash > 0 && actor.alive && !!rig.weapon?.visible;
     if (avatar.glint) {
@@ -661,7 +686,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (simulation) simulation.setInput(session.id, input);
       else if (self && connected && inputTime >= 1 / 20) { inputTime %= 1 / 20; sendInput(input); }
     }
-    const activeIds = new Set<string>();
+    const activeIds = new Set<string>(); frameParity ^= 1;
     // The player has no figure of their own, except the body the death camera looks at. Loading in dead has none.
     ownCorpse = !!self && !self.alive && (ownCorpse || selfWasAlive); selfWasAlive = !!self?.alive;
     if (!ownCorpse) ownCorpseShown = false;

@@ -1,4 +1,5 @@
 import { FPS_WEAPONS, reloadLength } from './fps-rules';
+import { namedObject } from './named-object';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { boltCycleMotion, cockingHandRelease, handleSide, magazineThrow, pistolMagazineFlick, readyClock, reloadMotion, readyMotion, smoothStep, type ReloadStyle } from './fps-weapon-motion';
@@ -220,15 +221,15 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       // The stub ends in mid-air, which only shows once the hand lets go and hangs
       // away from the gun. Run it out of the frame for as long as that lasts.
       const stretchArm = (hand: THREE.Object3D, out: number) => {
-        const arm = hand.getObjectByName('hand-forearm-stub')!, armOut = 1 + out * 3.4;
+        const arm = namedObject(hand, 'hand-forearm-stub')!, armOut = 1 + out * 3.4;
         arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
       };
       const throwArm = thrown?.active ? thrown.armOut : flicked?.handOut ?? 0;
       stretchArm(left, Math.max(throwArm, topFlick ? flick.open : 0));
       // The pistol is held up on one arm for this reload, with nothing in front of the stub's cut end.
       if (pistol) stretchArm(right, improved && ready === undefined && progress !== null ? smoothStep(motion.y / .08) : 0);
-      for (let finger = 0; finger < 4; finger++) right.getObjectByName(`grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07 - (rightCharges ? flung * .45 : 0);
-      const rightThumb = right.getObjectByName('grip-thumb')!, catchPress = flicked?.press ?? 0;
+      for (let finger = 0; finger < 4; finger++) namedObject(right, `grip-finger-${finger}`)!.rotation.x = rightToHandle * (1 - Math.max(releaseGrip, rightCharges ? flick.open : 0)) * 1.07 - (rightCharges ? flung * .45 : 0);
+      const rightThumb = namedObject(right, 'grip-thumb')!, catchPress = flicked?.press ?? 0;
       rightThumb.rotation.z = .55 + rightToHandle * .35 - (rightCharges ? flick.open * .35 : 0) - catchPress * .45;
       rightThumb.position.x = rightThumbHome.x + catchPress * .012;
       if (magazine) {
@@ -243,7 +244,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         reload?.pending === true, reload?.source, beltReload ? { mountMatrix: beltReload.mountMatrix, deferArm: true } : undefined);
       beltReload?.update(pouchReload);
       const connected = beltReload && beltActive ? pouchReload.updateArm(reload?.source, true) : reaching;
-      const stub = left.getObjectByName('hand-forearm-stub'); if (stub) stub.visible = !connected;
+      const stub = namedObject(left, 'hand-forearm-stub'); if (stub) stub.visible = !connected;
       let closed = beltReload && beltActive ? beltReload.grip : reaching ? smoothStep((time - .425) / .045) * (1 - smoothStep((time - .76) / .08)) : .35;
       if (leftToHandle > 0 && !reaching) closed = THREE.MathUtils.lerp(closed, .95 * (1 - releaseGrip), leftToHandle);
       if (reaching && !beltReload && time >= .70) closed *= 1 - smoothStep((time - .70) / .02) * (1 - smoothStep((time - .78) / .06));
@@ -252,15 +253,15 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       // Past straight: a palm thrown open, not just a grip relaxed.
       const splay = Math.max(rightCharges ? 0 : flung, thrown?.active ? thrown.open : 0) * .45;
       for (let finger = 0; finger < 4; finger++) {
-        const joint = left.getObjectByName(`grip-finger-${finger}`)!;
+        const joint = namedObject(left, `grip-finger-${finger}`)!;
         joint.rotation.x = .12 + closed * .95 - splay; joint.rotation.z = (1.5 - finger) * .32 * splay;
       }
-      const thumb = left.getObjectByName('grip-thumb')!;
+      const thumb = namedObject(left, 'grip-thumb')!;
       thumb.rotation.z = -.55 - closed * .35 + splay;
       if (pistol) {
         const clasp = leftToHandle * (1 - flick.clear);
         for (let finger = 0; finger < 4; finger++) {
-          const joint = left.getObjectByName(`grip-finger-${finger}`)!;
+          const joint = namedObject(left, `grip-finger-${finger}`)!;
           joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, -1.1, clasp);
         }
         thumb.position.copy(pistolThumbHome).lerp(new THREE.Vector3(.02, -.058, -.025), clasp);

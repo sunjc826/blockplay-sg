@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { createGunshotAcoustics, createSceneGunshotAcoustics, MAX_ACOUSTIC_CACHE, MAX_REMOTE_ACOUSTIC_PROBES, OPEN_GUNSHOT_ACOUSTICS, sampleGunshotAcoustics } from './gunshot-acoustics';
+import { ACOUSTIC_PLACE, createGunshotAcoustics, createSceneGunshotAcoustics, MAX_ACOUSTIC_PLACES, MAX_REMOTE_ACOUSTIC_PROBES, OPEN_GUNSHOT_ACOUSTICS, sampleGunshotAcoustics } from './gunshot-acoustics';
 import { buildQueenstownScene } from './queenstown-scene';
 import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing-layout';
 import { queenstownTerrainHeight } from './queenstown-terrain';
@@ -69,13 +69,23 @@ describe('bounded acoustic probing', () => {
     now = 400; cache.at('own', { ...ear, y: ear.y + 2.8 }, true); expect(trace).toHaveBeenCalledTimes(reads * 3);
     cache.clear(); cache.at('own', ear, true); expect(trace).toHaveBeenCalledTimes(reads * 4);
   });
-  it('bounds snapshot probes while prioritizing the local gun, and bounds long-lived emitter history', () => {
+  it('bounds snapshot probes while prioritizing the local gun, and bounds long-lived place history', () => {
     let now = 0; const trace = vi.fn(() => undefined), cache = createGunshotAcoustics(trace, () => now);
-    for (let i = 0; i < 20; i++) cache.at(`remote:${i}`, ear);
+    for (let i = 0; i < 20; i++) cache.at(`remote:${i}`, { ...ear, x: ear.x + i * ACOUSTIC_PLACE.size });
     expect(trace).toHaveBeenCalledTimes(MAX_REMOTE_ACOUSTIC_PROBES * 13);
     cache.at('own', ear, true); expect(trace).toHaveBeenCalledTimes((MAX_REMOTE_ACOUSTIC_PROBES + 1) * 13);
-    for (let i = 0; i <= MAX_ACOUSTIC_CACHE; i++) { now += 101; cache.at(`new:${i}`, ear); }
+    for (let i = 0; i <= MAX_ACOUSTIC_PLACES; i++) { now += 101; cache.at(`new:${i}`, { ...ear, z: ear.z + (i + 1) * ACOUSTIC_PLACE.size }); }
+    // The first place probed has been pushed out, so it is probed again.
     const before = trace.mock.calls.length; cache.at('remote:0', ear); expect(trace.mock.calls.length).toBe(before + 13);
+  });
+  it('shares a remote space between shooters in the same place until it expires', () => {
+    let now = 0; const trace = vi.fn(() => undefined), cache = createGunshotAcoustics(trace, () => now);
+    const spot = { x: 10.2, y: 1.7, z: -4.1 };
+    cache.at('a', spot); cache.at('b', { ...spot, x: spot.x + .3 }); now += 500; cache.at('a', { ...spot, z: spot.z + .2 });
+    expect(trace).toHaveBeenCalledTimes(13);
+    cache.at('a', { ...spot, y: spot.y + ACOUSTIC_PLACE.storey }); expect(trace).toHaveBeenCalledTimes(26);
+    now += ACOUSTIC_PLACE.seconds * 1000; cache.at('c', spot); expect(trace).toHaveBeenCalledTimes(39);
+    expect(cache.at('d', { ...spot, x: NaN })).toBe(OPEN_GUNSHOT_ACOUSTICS); expect(trace).toHaveBeenCalledTimes(39);
   });
   it('ignores invalid origins and invalid trace ranges without scheduling an unbounded response', () => {
     const trace = vi.fn(() => ({ distance: Infinity, surface: 'concrete' as const }));

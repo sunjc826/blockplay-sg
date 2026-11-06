@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { PilotContact } from './fps-pilot';
+import { updateVisibleMatrixWorld } from './visible-matrices';
 
 /** Trusted sensor adapter. Private geometry ends here; controllers receive angles only. */
 export interface PilotSubject { id: string; root: THREE.Object3D; points: THREE.Vector3[]; radius: number }
@@ -15,7 +16,8 @@ export function visiblePilotContacts(camera: THREE.PerspectiveCamera, scene: THR
     if (node instanceof THREE.Mesh) surfaces.push(node);
     node.children.forEach(collect);
   };
-  scene.updateMatrixWorld(true); camera.updateMatrixWorld(true); collect(scene);
+  // Only shown surfaces are tested, so only their matrices need be current.
+  updateVisibleMatrixWorld(scene, true); camera.updateMatrixWorld(true); collect(scene);
   const contacts: PilotContact[] = [];
   for (const subject of subjects) {
     for (const point of subject.points) {

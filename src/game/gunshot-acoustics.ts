@@ -71,26 +71,45 @@ export function sampleGunshotAcoustics(from: BallisticPoint, trace: AcousticTrac
   };
 }
 
-/** Cached per emitter, refreshed on movement, storey changes or a short TTL.
- * A snapshot's repeated shots reuse one probe. Busy remote firefights have a
- * strict per-100 ms budget; the local player's gun always gets a fresh space.
+/** Remote shots share what was heard from the same small patch of ground and storey, for this long. */
+export const ACOUSTIC_PLACE = { size: 2.5, storey: 2.8, seconds: 10 } as const;
+export const MAX_ACOUSTIC_PLACES = 256;
+const placeKey = (from: BallisticPoint) => `${Math.floor(from.x / ACOUSTIC_PLACE.size)}:${Math.floor(from.y / ACOUSTIC_PLACE.storey)}:${Math.floor(from.z / ACOUSTIC_PLACE.size)}`;
+
+/** The local gun's space is cached per emitter, refreshed on movement, storey
+ * changes or a short TTL. Everyone else's is cached per place (see
+ * ACOUSTIC_PLACE): the scenery that shapes an echo stays put, so a firefight
+ * mostly reuses what was already probed where it is happening. Busy remote
+ * firefights have a strict per-100 ms budget; the local player's gun always
+ * gets a fresh space.
  */
 export function createGunshotAcoustics(trace: AcousticTrace, clock = () => performance.now()) {
   const cache = new Map<string, { from: BallisticPoint; at: number; value: GunshotAcoustics }>();
+  const places = new Map<string, { at: number; value: GunshotAcoustics }>();
   let windowAt = -Infinity, probes = 0;
   return {
     at(key: string, from: BallisticPoint, own = false) {
-      const now = clock(), previous = cache.get(key);
-      if (previous && now - previous.at < (own ? 350 : 800)
+      const now = clock();
+      if (!own) {
+        if (![from.x, from.y, from.z].every(Number.isFinite)) return OPEN_GUNSHOT_ACOUSTICS;
+        const place = placeKey(from), known = places.get(place);
+        if (known && now - known.at < ACOUSTIC_PLACE.seconds * 1000) return known.value;
+        if (now - windowAt >= 100) { windowAt = now; probes = 0; }
+        if (probes >= MAX_REMOTE_ACOUSTIC_PROBES) return OPEN_GUNSHOT_ACOUSTICS;
+        probes++;
+        const value = sampleGunshotAcoustics(from, trace);
+        places.delete(place);
+        if (places.size >= MAX_ACOUSTIC_PLACES) places.delete(places.keys().next().value!);
+        places.set(place, { at: now, value }); return value;
+      }
+      const previous = cache.get(key);
+      if (previous && now - previous.at < 350
         && Math.hypot(from.x - previous.from.x, from.y - previous.from.y, from.z - previous.from.z) < .75) return previous.value;
-      if (now - windowAt >= 100) { windowAt = now; probes = 0; }
-      if (!own && probes >= MAX_REMOTE_ACOUSTIC_PROBES) return OPEN_GUNSHOT_ACOUSTICS;
-      if (!own) probes++;
       const value = sampleGunshotAcoustics(from, trace);
       if (!cache.has(key) && cache.size >= MAX_ACOUSTIC_CACHE) cache.delete(cache.keys().next().value!);
       cache.set(key, { from: { ...from }, at: now, value }); return value;
     },
-    clear() { cache.clear(); windowAt = -Infinity; probes = 0; },
+    clear() { cache.clear(); places.clear(); windowAt = -Infinity; probes = 0; },
   };
 }
 

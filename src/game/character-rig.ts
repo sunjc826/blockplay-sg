@@ -79,6 +79,12 @@ export interface CharacterRig {
   skinned: THREE.SkinnedMesh | null;
   resources: { dispose(): void }[];
   update(dt: number, drive: CharacterDrive): void;
+  /**
+   * Lets `dt` pass without posing anything: the clocks (breathing, time since
+   * going down) advance, the pose stays as it was. For figures nobody can see.
+   * The next update() spanning that time does not advance the clocks again.
+   */
+  age(dt: number): void;
   fire(): void;
   flinch(): void;
   setDown(down: boolean): void;
@@ -696,9 +702,12 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     foot.quaternion.copy(tmpQuat2.multiply(footLevel));
   }
 
+  let aged = 0;
   function update(dt: number, drive: CharacterDrive) {
     dt = Number.isFinite(dt) ? Math.max(0, Math.min(dt, .1)) : 0;
-    time += dt;
+    // Time already passed by age() is not counted twice.
+    const clock = Math.max(0, dt - aged); aged = 0;
+    time += clock;
     const velocity = drive.velocity ?? { x: 0, z: 0 };
     const turnSpeed = Math.abs(drive.turn ?? 0) * .3;
     const linear = Math.hypot(velocity.x, velocity.z);
@@ -716,8 +725,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     const healing = drive.healing !== undefined && !down;
     heal = smooth(heal, healing ? 1 : 0, 8, dt); healTime = healing ? healTime + dt : 0;
     if (dressing) { dressing.visible = heal > .35; dressing.scale.setScalar(.6 + clamp01(drive.healing ?? 0) * .6); }
-    kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5);
-    if (down) downTime += dt;
+    kick = Math.max(0, kick - clock * 9); flinch = Math.max(0, flinch - clock * 5);
+    if (down) downTime += clock;
     // A released gesture fades back to rest before it is forgotten.
     const requested = drive.gesture ?? 'idle';
     if (requested !== 'idle' && requested !== gesture) { gesture = requested; gestureTime = 0; }
@@ -868,6 +877,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   const rig: CharacterRig = {
     root, body, weapon, muzzle, joints, skinned, resources,
     update,
+    age(dt: number) { if (!Number.isFinite(dt) || dt <= 0) return; aged += dt; time += dt; if (down) downTime += dt; kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5); },
     fire() { kick = 1; aim = Math.max(aim, .8); },
     flinch() { flinch = 1; flinchSide = Math.random() < .5 ? -1 : 1; },
     setDown(next: boolean) { if (next === down) return; down = next; downTime = 0; if (!next) { crouch = 0; prone = 0; } },

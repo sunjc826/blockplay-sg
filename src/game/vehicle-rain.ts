@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { namedObject } from './named-object';
 import type { RainSplashOptions } from './rain-effects';
 
 export interface VehicleRainHit { height: number; object?: THREE.Object3D; normal: THREE.Vector3 }
@@ -49,7 +50,7 @@ export function createVehicleRain(scene: THREE.Scene, ground: (x: number, z: num
         v.root.updateWorldMatrix(true, false); v.root.getWorldPosition(point);
         if (point.distanceToSquared(eye) > 55 ** 2 || !v.root.visible) {
           v.bounds.makeEmpty(); v.previous.copy(point); v.spray = 0;
-          v.rotor = v.root.getObjectByName('main-rotor')?.rotation.y ?? 0; continue;
+          v.rotor = namedObject(v.root, 'main-rotor')?.rotation.y ?? 0; continue;
         }
         v.root.updateWorldMatrix(false, true);
         if (step > 0) v.velocity.copy(point).sub(v.previous).divideScalar(step); else v.velocity.set(0, 0, 0);
@@ -58,7 +59,7 @@ export function createVehicleRain(scene: THREE.Scene, ground: (x: number, z: num
           if (!receiver.mesh.geometry.boundingBox) receiver.mesh.geometry.computeBoundingBox();
           receiver.bounds.copy(receiver.mesh.geometry.boundingBox!).applyMatrix4(receiver.mesh.matrixWorld); v.bounds.union(receiver.bounds);
         }
-        const rotor = v.root.getObjectByName('main-rotor'), angle = rotor?.rotation.y ?? 0;
+        const rotor = namedObject(v.root, 'main-rotor'), angle = rotor?.rotation.y ?? 0;
         const spinning = step > 0 && Math.abs(angle - v.rotor) / step > 4; v.rotor = angle;
         const speed = Math.hypot(v.velocity.x, v.velocity.z), helicopter = v.root.userData.vehicleKind === 'helicopter';
         const altitude = point.y - ground(point.x, point.z);

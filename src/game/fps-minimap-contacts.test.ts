@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { afterEach, expect, it } from 'vitest';
-import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts';
+import { combatMinimapMarkers, minimapMarkers, minimapSightings, type MinimapCloud } from './fps-minimap-contacts';
 import type { ArenaActor } from './arena-rules';
 import type { PilotSubject } from './fps-pilot-perception';
 import { minimapContactRange } from './minimap';
@@ -109,4 +109,13 @@ it('labels unprovoked proxies neutral and switches only the targeted player to h
   expect(read()[0]).toMatchObject({kind:'npc',side:'neutral'});
   proxy.proxyTargets=['another-player'];expect(read()[0].kind).toBe('npc');
   proxy.proxyTargets=[self.id];expect(read()[0].kind).toBe('enemy');
+});
+
+it('places contacts seen at the last sight check where they stand now', () => {
+  const enemy = actor('enemy', { x: 4 }), seen = minimapSightings(camera(), scene, self, [enemy], [subject(enemy)]);
+  expect([...seen]).toEqual(['enemy']);
+  const moved = { ...enemy, x: 7, z: -24 };
+  expect(minimapMarkers(self, [moved], seen).map(m => [m.x, m.z])).toEqual([[7, -24]]);
+  expect(minimapMarkers(self, [{ ...moved, alive: false }], seen)).toEqual([]);
+  expect(minimapMarkers({ ...self, alive: false }, [moved], seen)).toEqual([]);
 });

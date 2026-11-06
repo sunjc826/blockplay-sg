@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SPEED_OF_SOUND } from './combat-event-audio';
-import { gunshotSample, gunshotTone, playGunshot } from './gunshot-audio';
+import { createGunshotAudio, gunshotSample, gunshotTone, MAX_REMOTE_GUNSHOTS, playGunshot } from './gunshot-audio';
 import type { GunshotAcoustics } from './gunshot-acoustics';
 
 const rifle = (distance = 0, own = false) => gunshotTone(5.56, 36, distance, own);
@@ -101,4 +101,30 @@ it('reuses the room impulse across shots and releases the convolution tail on bu
   firstClock.onended!(); first.stop(); second.stop(); second.stop();
   expect(firstEnd).toHaveBeenCalledOnce(); expect(secondEnd).toHaveBeenCalledOnce();
   expect(nodes.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
+});
+
+it('keeps only the loudest few of other people\'s shots sounding at once, never at the cost of our own', () => {
+  const param = () => ({ value: 0, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn(), exponentialRampToValueAtTime: vi.fn() });
+  const node = () => {
+    const n = { gain: param(), pan: param(), frequency: param(), Q: param(), playbackRate: param(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param(),
+      type: '', buffer: null, curve: null, oversample: '', loop: false, connect: vi.fn(), disconnect: vi.fn(), start: vi.fn(), stop: vi.fn(), onended: null as (() => void) | null };
+    n.connect.mockImplementation(() => n); return n;
+  };
+  const sources: ReturnType<typeof node>[] = [];
+  const context = { state: 'running', currentTime: 0, sampleRate: 8000, createBuffer: (_c: number, frames: number) => ({ getChannelData: () => new Float32Array(frames) }),
+    createGain: node, createStereoPanner: node, createBiquadFilter: node, createWaveShaper: node, createDynamicsCompressor: node, createConvolver: node, createOscillator: node,
+    createBufferSource() { const n = node(); sources.push(n); return n; } } as unknown as AudioContext;
+  const sample = { duration: .2 } as AudioBuffer;
+  const audio = createGunshotAudio(() => context, () => false, { get: () => sample }, () => node() as unknown as AudioNode);
+  for (let i = 0; i < MAX_REMOTE_GUNSHOTS; i++) audio.fire(gunshotTone(5.56, 36, 120), 0, 0, `bot:${i}`);
+  const playing = sources.length;
+  audio.fire(gunshotTone(5.56, 36, 300), 0, 0, 'bot:far');
+  expect(sources).toHaveLength(playing);
+  audio.fire(gunshotTone(5.56, 36, 20), 0, 0, 'bot:near');
+  expect(sources.length).toBeGreaterThan(playing);
+  // The quietest was faded to make room.
+  expect(sources.some(s => s.stop.mock.calls.some(([at]) => at === .065 + 120 / SPEED_OF_SOUND))).toBe(true);
+  const before = sources.length;
+  audio.fire(gunshotTone(5.56, 36, 0, true));
+  expect(sources.length).toBeGreaterThan(before);
 });

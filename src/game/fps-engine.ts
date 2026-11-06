@@ -1,4 +1,5 @@
 import { effectsOutput } from '../lib/effects-volume';
+import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
@@ -112,11 +113,11 @@ import type { VehicleCrewTransfer } from './arena-rules';
 import type { VehicleState } from './vehicle-rules';
 import { createFpsVehicles } from './fps-vehicles';
 import { minimapContactRange, MINIMAP_CONTACT_RANGE, type MinimapMarker } from './minimap';
-import { combatMinimapMarkers, type MinimapCloud } from './fps-minimap-contacts';
+import { MINIMAP_SIGHT_SECONDS, minimapMarkers, minimapSightings, type MinimapCloud } from './fps-minimap-contacts';
 import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
 import { dressWeapon } from './armory-visuals';
-import { createArenaRuntime, standInFigures } from './arena-runtime';
+import { createArenaRuntime, FIGURE_POSE, standInFigures, type FigurePose } from './arena-runtime';
 import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
 import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
 import { BARK_RANGE } from './npc-barks';
@@ -359,6 +360,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
+  /**
+   * The per-frame JSON state on the canvas (movement, magazines, shake, rain...)
+   * exists for the browser smokes, which run on the dev server. A production
+   * build skips it; so does dev with `globalThis.blockplayProfileLikeProduction`, for profiling.
+   */
+  const debugDatasets = import.meta.env.DEV && !(globalThis as { blockplayProfileLikeProduction?: boolean }).blockplayProfileLikeProduction;
   const rangeTravel = !expedition && !options.arena && !options.tutorial ? options.rangeTravel : undefined;
   const checkpoint = expedition?.checkpoint ?? rangeTravel?.checkpoint;
   const region = expedition?.zone ?? options.region ?? 'marina-bay';
@@ -822,8 +829,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (practiceRange) {
       canvas.dataset.rangeDrill = drillMode; canvas.dataset.rangeActive = String(hud.rangeDrill?.active ?? 0);
       canvas.dataset.rangeSpawned = String(hud.rangeDrill?.spawned ?? 0);
-      canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health })));
-      canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
+      if (debugDatasets) canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health })));
+      if (debugDatasets) canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
     }
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
@@ -853,8 +860,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     });
   };
   /** Share the scene's visibility checks, including allies, at HUD update cadence. */
+  let minimapSeen: ReadonlySet<string> = new Set(), minimapSeenAt = -Infinity, minimapSeenRange = 0;
   const contactMarkers = (range: number): MinimapMarker[] => {
     if (!options.arena || !hud.arenaSelf) return [];
+    // Sight lines are checked a few times a second; who is drawn, and where, every publish.
+    const now = performance.now() / 1000;
+    if (now - minimapSeenAt < MINIMAP_SIGHT_SECONDS && now >= minimapSeenAt && range === minimapSeenRange) return minimapMarkers(hud.arenaSelf, hud.arena?.actors ?? [], minimapSeen);
+    minimapSeenAt = now; minimapSeenRange = range;
     const clouds: MinimapCloud[] = [];
     const time = Math.max(hud.arena?.elapsed ?? 0, eventClock);
     for (const event of hud.arena?.events ?? []) {
@@ -864,7 +876,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
-    return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
+    minimapSeen = minimapSightings(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
+    return minimapMarkers(hud.arenaSelf, hud.arena?.actors ?? [], minimapSeen);
   };
   const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
@@ -2036,7 +2049,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Read rendered avatars here, never hand the authoritative actor list to a policy.
       // Articulated avatars publish their chest and face; a falling body is not a target.
       for (const root of world.scene.children) if (root.visible && typeof root.userData.arenaActorId === 'string' && !root.userData.arenaDown && (includeAllies || !root.userData.arenaFriendly)) {
-        const named = ['avatar-aim-chest', 'avatar-aim-head'].map(name => root.getObjectByName(name)?.getWorldPosition(new THREE.Vector3()));
+        const named = ['avatar-aim-chest', 'avatar-aim-head'].map(name => namedObject(root, name)?.getWorldPosition(new THREE.Vector3()));
         subjects.push({ id: root.userData.arenaActorId, root, radius: .3, points: named.every(Boolean) ? named as THREE.Vector3[] : [1.15, 1.62].map(y => root.localToWorld(new THREE.Vector3(0, y, 0))) });
       }
     } else for (let i = 0; i < targets.length; i++) if (targets[i].alive) {
@@ -2385,9 +2398,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       bailoutAge,
       visible: rig.visible && hud.health > 0 && !vehicles.active && !landingRoll.active && !swimming(),
     });
-    canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
+    if (debugDatasets) canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
       slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
-    canvas.dataset.carriedWeapons = JSON.stringify(physicalWeaponFamilies(equipment.carriedFamilies).flatMap(family => {
+    if (debugDatasets) canvas.dataset.carriedWeapons = JSON.stringify(physicalWeaponFamilies(equipment.carriedFamilies).flatMap(family => {
       const mount = playerBody.weaponMount(family);
       return mount ? [{ family, kind: mount.userData.carryClass, visible: mount.children[0].visible }] : [];
     }));
@@ -2506,12 +2519,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const magazine = weapons[heldFamily].getObjectByName(`${FPS_WEAPONS[heldFamily].id}__magazine`);
       if (magazine) magazine.visible = false;
     }
-    canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
-    canvas.dataset.beltAmmo = JSON.stringify(handling[hud.weapon]?.beltAmmo ?? null);
-    canvas.dataset.boltCycle = JSON.stringify(handling[hud.weapon]?.boltCycle ?? null);
-    canvas.dataset.beltReload = JSON.stringify(handling[hud.weapon]?.beltReload ?? null);
-    canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
-    canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
+    if (debugDatasets) canvas.dataset.magazineAmmo = JSON.stringify(weapons[hud.weapon] ? magazineAmmoState(weapons[hud.weapon]) : []);
+    if (debugDatasets) canvas.dataset.beltAmmo = JSON.stringify(handling[hud.weapon]?.beltAmmo ?? null);
+    if (debugDatasets) canvas.dataset.boltCycle = JSON.stringify(handling[hud.weapon]?.boltCycle ?? null);
+    if (debugDatasets) canvas.dataset.beltReload = JSON.stringify(handling[hud.weapon]?.beltReload ?? null);
+    if (debugDatasets) canvas.dataset.reloadReach = JSON.stringify(handling[hud.weapon]?.reloadReach ?? null);
+    if (debugDatasets) canvas.dataset.magazineInventory = JSON.stringify({ slots: state.magazineInventory?.slots, reloadSlot: state.reloadSlot, pending: state.pendingMagazine ?? null, capacity: magazineCapacity(state, specs[hud.weapon]), spares: spareMagazines(state) });
     // A supply in the hands takes the weapon down and out of view while it is used.
     if (grenadeHeld) grenadeInHands = grenadeHeld.id;
     else if (grenadeInHands) { grenadeAfter ??= { id: grenadeInHands, elapsed: 0, thrown: false, under: 0 }; grenadeInHands = null; }
@@ -2568,7 +2581,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage;
     canvas.dataset.weaponVisible = String(rig.visible);
-    canvas.dataset.movement = JSON.stringify({ speed: +speed.toFixed(3), eye: +bodyMotion.eye.toFixed(3),
+    if (debugDatasets) canvas.dataset.movement = JSON.stringify({ speed: +speed.toFixed(3), eye: +bodyMotion.eye.toFixed(3),
       feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4), slide: slide.active, spread: +spreadAngle.toFixed(5) });
     viewScene.updateMatrixWorld(true);
   }
@@ -3430,8 +3443,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       fire: (trigger || pullBuffer > 0) && hud.phase === 'playing' && vehicles.canFire,
       aim: { x: vehicleAimPoint.x, y: vehicleAimPoint.y, z: vehicleAimPoint.z } };
   }
+  /** Figures nearer than this (divided by the sight's magnification) are posed every frame; further, every other frame. */
+  const FIGURE_FULL_POSE_DISTANCE = 50;
+  /** Generous enough that a figure's limbs and shadow are posed before they reach the edge of the view. */
+  const FIGURE_VIEW_MARGIN = 2.5;
+  const figureFrustum = new THREE.Frustum(), figureView = new THREE.Matrix4(), figureSphere = new THREE.Sphere(new THREE.Vector3(), FIGURE_VIEW_MARGIN);
+  let figureFullPose = FIGURE_FULL_POSE_DISTANCE ** 2;
+  /** Reads the camera as last drawn: the margin covers a frame's turn. */
+  function aimFigureDetail() {
+    figureFrustum.setFromProjectionMatrix(figureView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    const sight = weapons[hud.weapon] && cant <= .5 ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    const zoom = 1 + Math.max(0, (sight?.magnification ?? 1) - 1) * aimProgress;
+    figureFullPose = (FIGURE_FULL_POSE_DISTANCE / zoom) ** 2;
+  }
+  function figureDetail(at: THREE.Vector3): FigurePose {
+    figureSphere.center.set(at.x, at.y + 1, at.z);
+    if (!figureFrustum.intersectsSphere(figureSphere)) return FIGURE_POSE.none;
+    return camera.position.distanceToSquared(figureSphere.center) > figureFullPose ? FIGURE_POSE.half : FIGURE_POSE.full;
+  }
   function updateArena(dt: number) {
     if (!arenaRuntime) return;
+    aimFigureDetail();
     const oldLiftTime=hud.elapsed;
     let localLift=liftPassenger(getBuildingLifts(world.scene),{...position,y:vertical},oldLiftTime);
     const relativeFeet=localLift?vertical-liftSample(localLift,oldLiftTime).y:0;
@@ -4283,7 +4315,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Shadows move the sun's target first; the atmosphere then places the sun from it.
     lightView(realDt);
     atmosphere.update(dt, camera);
-    canvas.dataset.rain = JSON.stringify(atmosphere.root.userData.rain);
+    if (debugDatasets) canvas.dataset.rain = JSON.stringify(atmosphere.root.userData.rain);
     // The overview's altitude must not turn a ground-level weather preset into
     // an opaque sheet. Restore the exact world fog after this presentation pass.
     const aerialFog = (overviewActive() || deploymentIntro.active) && world.scene.fog instanceof THREE.Fog ? world.scene.fog : null;
@@ -4306,11 +4338,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const firingShake = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
     const flinchView = flinch.sample(sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
     const firingVibration = addPoses(firingShake, flinchView);
-    canvas.dataset.firearmShake = JSON.stringify(firingShake);
-    canvas.dataset.flinch = JSON.stringify(flinchView);
+    if (debugDatasets) canvas.dataset.firearmShake = JSON.stringify(firingShake);
+    if (debugDatasets) canvas.dataset.flinch = JSON.stringify(flinchView);
     const shoulderPose = shoulderMotion.sample(aimProgress, sightMagnification, handling[hud.weapon]?.bipodDeployment ?? 0,
       !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null || weaponSwitch !== null);
-    canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);
+    if (debugDatasets) canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);
     if (drawWorld) shoulderMotion.render(rig, shoulderPose, () => firearmShake.render(camera, viewCamera, firingVibration, () => {
       // Before anything draws the world: the tube's gain goes into exposure, or the scene turns to temperature.
       const visionSpec = equipment.vision?.spec;
@@ -4475,7 +4507,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);

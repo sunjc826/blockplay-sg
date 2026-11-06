@@ -250,11 +250,15 @@ export function playGunshot(context: BaseAudioContext, bus: AudioNode, noise: Au
   return voice(longest[1] + .021);
 }
 
+/** Other people's shots sounding at once; past this, the quietest gives way to a louder one, and a quieter one is not played. */
+export const MAX_REMOTE_GUNSHOTS = 12;
 /** Shots for one engine, with independent echo handoffs for each shooter. */
 export function createGunshotAudio(getContext: () => AudioContext | null, muted: () => boolean, samples?: Pick<SfxBank, 'get'>, destination?: (context: BaseAudioContext) => AudioNode) {
   let bus: ReturnType<typeof createGunBus> | null = null, noise: AudioBuffer | null = null, owner: AudioContext | null = null;
   const active = new Set<GunshotVoice>(), streams = new Map<string, Set<GunshotVoice>>();
-  function clear() { for (const voice of [...active]) voice.stop(); active.clear(); streams.clear(); }
+  /** Other people's shots still sounding, with their loudness; a faded-out one leaves this at once. */
+  const remote = new Map<GunshotVoice, number>();
+  function clear() { for (const voice of [...active]) voice.stop(); active.clear(); streams.clear(); remote.clear(); }
   return {
     /** A shot `after` seconds from now, plus its own travel time. */
     fire(tone: GunshotTone, pan = 0, after = 0, emitter = 'own') {
@@ -263,10 +267,17 @@ export function createGunshotAudio(getContext: () => AudioContext | null, muted:
       if (tone.level < .002) return;
       // Bound busy firefights, retaining the player's immediate feedback.
       if (active.size >= 48) { if (emitter !== 'own') return; active.values().next().value?.stop(); }
+      if (emitter !== 'own' && remote.size >= MAX_REMOTE_GUNSHOTS) {
+        // A distant crackle under a dozen nearer shots is not heard; building its voice costs a frame on a phone.
+        let quietest: GunshotVoice | undefined, low = Infinity;
+        for (const [voice, level] of remote) if (level < low) { low = level; quietest = voice; }
+        if (!quietest || tone.level <= low) return;
+        quietest.fade(context.currentTime); remote.delete(quietest);
+      }
       let shot: GunshotVoice | undefined;
       shot = playGunshot(context, bus!.input, noise!, tone, context.currentTime + Math.max(0, after), pan, samples, () => {
         if (shot) {
-          active.delete(shot);
+          active.delete(shot); remote.delete(shot);
           const stream = streams.get(emitter); stream?.delete(shot);
           if (!stream?.size) streams.delete(emitter);
         }
@@ -279,6 +290,7 @@ export function createGunshotAudio(getContext: () => AudioContext | null, muted:
         const next = ordered.find(v => v.start > shot!.start);
         previous?.fade(shot.start); if (next) shot.fade(next.start);
         stream.add(shot); streams.set(emitter, stream); active.add(shot);
+        if (emitter !== 'own') remote.set(shot, tone.level);
       }
     },
     clear,

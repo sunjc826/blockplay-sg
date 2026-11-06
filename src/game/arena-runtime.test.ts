@@ -1,7 +1,7 @@
 import { MAX_WEAPON_RANGE } from './weapon-range';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createArenaRuntime, validArenaInput, validArenaSnapshot } from './arena-runtime';
+import { createArenaRuntime, FIGURE_POSE, validArenaInput, validArenaSnapshot, type FigurePose } from './arena-runtime';
 import { createArena, type ArenaInput } from './arena-rules';
 import { createProfile, purchase } from './armory-state';
 import { selectedRespawnLoadout } from './respawn-loadout';
@@ -254,6 +254,34 @@ describe('bot fire against rendered cover', () => {
     const frame = run(true);
     expect(frame.self).toMatchObject({ health: 100, deaths: 0 });
   });
+});
+
+it('poses figures only as often as figureDetail asks, while they still move every frame', () => {
+  vi.useFakeTimers();
+  let detail: FigurePose = FIGURE_POSE.none;
+  const asked: THREE.Vector3[] = [], scene = new THREE.Scene(), session = createSoloSession('Explorer');
+  const runtime = createArenaRuntime({ scene, session, obstacles: [], botCount: 2, composition: 'assault', figureDetail: at => { asked.push(at); return detail; },
+    environment: { bounds: MARINA_BOUNDS, move: moveInMarina, spawns: [{ x: -44, z: 68 }, { x: 4, z: 74 }], endless: true, playerSpawn: { x: -20, z: 70 } } });
+  try {
+    runtime.update(.02, input(-20, 70)); runtime.update(.02, input(-20, 70, true));
+    const figures = () => scene.children.filter(o => typeof o.userData.arenaActorId === 'string' && o.visible);
+    const pose = () => figures().map(f => ['rig-thighL', 'rig-upperArmR', 'rig-chest'].map(n => f.getObjectByName(n)!.quaternion.toArray().map(v => v.toFixed(6)).join()).join('|'));
+    const places = () => figures().map(f => f.position.toArray().map(v => v.toFixed(4)).join());
+    const step = () => { vi.advanceTimersByTime(50); runtime.update(.05, input(-20, 70, true)); };
+    for (let i = 0; i < 20; i++) step();
+    expect(figures().length).toBeGreaterThan(0);
+    expect(asked.length).toBeGreaterThan(0); expect(asked.every(at => scene.children.some(f => f.position === at))).toBe(true);
+    let frozen = pose(), moved = places();
+    for (let i = 0; i < 20; i++) step();
+    expect(pose()).toEqual(frozen); expect(places()).not.toEqual(moved);
+    detail = FIGURE_POSE.half; frozen = pose();
+    const changes: boolean[] = [];
+    for (let i = 0; i < 8; i++) { const before = pose(); step(); changes.push(pose() !== before); }
+    // Every figure is posed on its first frame back, then every other frame.
+    expect(changes.filter(Boolean).length).toBeGreaterThanOrEqual(4);
+    detail = FIGURE_POSE.full;
+    for (let i = 0; i < 4; i++) { const before = pose(); step(); expect(pose()).not.toEqual(before); }
+  } finally { runtime.dispose(); }
 });
 
 it('reports a lost public relay even for the authoritative host', () => {

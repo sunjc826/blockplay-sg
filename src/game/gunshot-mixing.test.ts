@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGunshotAudio, gunshotTone } from './gunshot-audio';
+import { createGunshotAudio, gunshotTone, MAX_REMOTE_GUNSHOTS } from './gunshot-audio';
 import type { SfxGroup } from './sfx-bank';
 
 function parameter() {
@@ -59,10 +59,17 @@ describe('automatic gunshot mixing', () => {
     expect(reset.sources[0].disconnect).toHaveBeenCalledOnce();
   });
   it('bounds simultaneous reports and gives a new player shot a voice', () => {
+    // Other people's equally loud reports: only the first few get a voice, and ours still does.
     const f = fixture();
     for (let i = 0; i < 55; i++) f.audio.fire(rifle, 0, 0, `actor:${i}`);
-    expect(f.sources).toHaveLength(48); f.audio.fire(rifle);
-    expect(f.sources).toHaveLength(49); expect(f.sources[0].disconnect).toHaveBeenCalledOnce();
+    expect(f.sources).toHaveLength(MAX_REMOTE_GUNSHOTS); f.audio.fire(rifle);
+    expect(f.sources).toHaveLength(MAX_REMOTE_GUNSHOTS + 1);
     f.audio.dispose(); expect(f.sources.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
+    // Past 48 voices in all, a new shot of ours takes the oldest one's.
+    const g = fixture();
+    for (let i = 0; i < 48; i++) g.audio.fire(rifle);
+    expect(g.sources).toHaveLength(48); g.audio.fire(rifle);
+    expect(g.sources).toHaveLength(49); expect(g.sources[0].disconnect).toHaveBeenCalledOnce();
+    g.audio.dispose(); expect(g.sources.every(n => n.disconnect.mock.calls.length === 1)).toBe(true);
   });
 });

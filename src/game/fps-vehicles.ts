@@ -1,4 +1,5 @@
 import { animateDragonBoat } from './dragon-boat-model';
+import { namedObject } from './named-object';
 import { isDragonBoat } from './marina-water';
 import { createVehicleImpactMotion, createEmptyImpactPose } from './vehicle-impact';
 import { WORLD_VEHICLES } from './world-vehicles';
@@ -147,8 +148,8 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       model.visible = !states[kind].despawned;
       if(labels[kind]) {labels[kind].position.set(v.x, v.y + (isDragonBoat(kind) ? 2.5 : kind === 'car' ? 3.3 : 4.4), v.z); labels[kind].visible = !states[kind].despawned && active !== kind && v.health > 0;}
       damageVisuals[kind](vehicleDamageStage(states[kind]));
-      if (shared) { const gun = v as SharedVehicle; model.getObjectByName('vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
-      model.getObjectByName('vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
+      if (shared) { const gun = v as SharedVehicle; namedObject(model, 'vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
+      namedObject(model, 'vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
       if(isDragonBoat(kind)) animateDragonBoat(model,v.speed,dt,options.reducedMotion?.());
       else if (kind === 'car') {
         const tilt=terrainVehicleTilt(bounds.groundHeight??(()=>0),v.x,v.z,v.yaw);model.rotation.set(tilt.pitch + jolt.pitch + (wreck?.pitch ?? 0),v.yaw,tilt.roll + jolt.roll + (wreck?.roll ?? 0),'YXZ');
@@ -159,7 +160,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         helicopterPitch = THREE.MathUtils.damp(helicopterPitch, active === kind ? -v.speed * .007 : 0, 3, dt);
         model.rotation.set(helicopterPitch + jolt.pitch + (wreck?.pitch ?? 0), v.yaw, jolt.roll + (wreck?.roll ?? 0), 'YXZ');
         updateHelicopterDashboard(model, states.helicopter);
-        const rotor = model.getObjectByName('main-rotor')!, tail = model.getObjectByName('tail-rotor')!;
+        const rotor = namedObject(model, 'main-rotor')!, tail = namedObject(model, 'tail-rotor')!;
         rotorSpinning = active === kind || !!shared?.find(v => v.kind === kind)?.occupants[0];
         if (rotorSpinning) { rotor.rotation.y += dt * 34; tail.rotation.x += dt * 51; }
         else if (wreck?.rotorRate) { rotor.rotation.y += dt * wreck.rotorRate; tail.rotation.x += dt * wreck.rotorRate * 1.5; }
