@@ -1084,9 +1084,9 @@ The optional counter-fire drill uses surviving targets with line of sight within
 
 Real-world naming reference: [CMPB's issued-equipment page](https://www.cmpb.gov.sg/life-in-ns/saf/items-issued/) describes the iLBV's modular load carrying and support for armor inserts. [MINDEF's enhanced-equipment factsheet](https://www.mindef.gov.sg/news-and-events/latest-releases/02dec20_fs/) describes the LBS carrying system. Geometry is an original simplified interpretation. All damage, armor, mobility and capacity values here are fictional game statistics, with no real protection-rating claim.
 
-## Night vision and thermal
+## Night vision, thermal and IFF
 
-The **Night vision** tab sells head-mounted devices, after the tiers of
+The **Vision** tab sells head-mounted devices, after the tiers of
 S.T.A.L.K.E.R.'s suit night vision. One is worn at a time (`profile.vision`,
 default `vision-none`); it uses the same active-play rental terms as other equipment and its weight counts with the
 rig and inserts. **N** switches it on, **J** cycles a thermal core's palettes,
@@ -1115,6 +1115,8 @@ reduced motion the swing and the dying are skipped. The canvas records
 | NV-3 · Confirm Plus Chop | Elite, LV 6, 280 TK | 7.5× | 92% | 13% | White phosphor, sharp, 0.35 s |
 | TI-1 · Cheap and Good | Field, LV 5, 2,600 CR | — | 68% | 30% | 160 lines, white-hot only, freezes 0.4 s every 26 s to recalibrate |
 | TI-2 · Kiasu Fusion | Elite, LV 8, 420 TK | — | 92% | 10% | 360 lines, edge enhancement, white-hot / black-hot / ironbow |
+| IFF-1 · Kawan or Lawan | Field, LV 5, 2,200 CR | — | 100% | — | Clear visor, no light gain; boxes people in sight within 80 m |
+| NV-3X · Confirm Kawan | Ultra, LV 10, 520 TK | 7.5× | 92% | 13% | The NV-3 tube plus the IFF reader, 120 m, boxes inside the circle; 0.45 s |
 
 Gen 1 should reveal nearby obstacles and people in shade well enough to justify
 wearing it. It keeps the smallest view, softer optics, more grain and bloom, and
@@ -1160,13 +1162,36 @@ most of a smoke or gas cloud (`cloudOpacity`). Because the swap is on the meshes
 the PiP scope and optic reflections show the same picture. Ambient occlusion is
 off while thermal is on.
 
+IFF (identification friend or foe) devices box whoever the reader can see:
+red for hostile, green for friendly, white for neutral (`fps-iff.ts`). Sides
+follow the minimap's rule (`hostile` in arena-factions): in an arena or
+expedition, enemies are red, your squad green, and proxies not after you
+white; an expedition's townsfolk are white; the range's targets red. The
+reader needs line of sight (`visiblePilotContacts`, checked every 0.2 s, the
+boxes following the bodies every frame), so walls, vehicles and grenade smoke
+hide people from it as from the eye. The box comes from a figure's joints, so it
+follows a crouch, prone or a fall, and leaves out the name tag over its head. A
+far figure's box is never smaller than about 2% of the screen height. The IFF-1
+is clear glass, so it changes nothing else about the picture; on the NV-3X the
+boxes are drawn after the phosphor and clipped to its image circle. The boxes
+come up once the device is lowered and warm, with a two-tone chirp; the canvas
+records `data-iff` as side:id for each box shown.
+
+So the reader has something to tell apart at a practice range, every district's
+range has people who are not targets (`range-figures.ts`): two of your section
+standing just behind and beside the firing point, facing downrange, and three
+members of the public about 7 m behind the line, watching. They are green and
+white to the reader, against the red targets. They stand where there is room
+(each has fallback spots, and one with nowhere to stand is left out), glance at
+a shooter who comes within 7 m, block movement, and are ignored by the drill.
+
 Clear direct moonlight supports unaided navigation, while sheltered detail
 remains difficult without NVG or a weapon light. Geometry controls sky/moon
 visibility instead of dimming every location alike; see [night visibility](NIGHT-VISIBILITY.md).
 
 Code: `vision-devices.ts` (specs, state, gain), `fps-vision.ts` (the thermal
 material swap and both post passes, which read the finished canvas back),
-`FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
+`fps-iff.ts` (friend-or-foe boxes), `FpsVisionChip.tsx` (desktop HUD chip), `visionModel` in `armory-visuals.ts`
 (shop preview). Tests in `vision-devices.test.ts`; `pnpm test:fps:lens` watches
 both kinds switch in a browser. `node scripts/fps-night-vision-smoke.mjs` checks
 the rendered circles and peripheral refraction at four viewport sizes, and

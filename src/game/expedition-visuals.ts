@@ -217,6 +217,8 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, l
         rig.update(dt, { turn: dt > 0 ? step / dt : 0, lookAt: near ? viewerLocal : null, gesture: local.react > 0 ? local.gesture : npcIdleGesture(npc, clock) });
       }
     },
+    /** The people standing in the zone, for anything that has to find them on screen (IFF goggles). */
+    figures: locals.map(({ npc, rig }) => ({ id: npc.id, root: rig.root })),
     /** A visible response to the player's interaction. */
     react(id: string, gesture: CharacterGesture, seconds = 2.6) {
       const local = locals.find(candidate => candidate.npc.id === id); if (!local) return;

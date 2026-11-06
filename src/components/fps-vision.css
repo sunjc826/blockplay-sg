@@ -9,3 +9,7 @@
 .fps-vision-chip kbd { font-size:7px; min-width:0; padding:1px 4px; background:transparent; border-color:#ffffff40; color:#dfe6d6 }
 /* On a touchscreen the eye button carries the device's state. */
 .touch-button .touch-badge { position:absolute; left:50%; bottom:-7px; transform:translateX(-50%); padding:1px 3px; border-radius:2px; background:#0b120ee6; color:#e8f0df; font:7px monospace; letter-spacing:.5px; white-space:nowrap; pointer-events:none }
+/* An IFF reader: white for the reader alone, with the red-green of its boxes in the light. */
+.fps-vision-chip[data-vision=iff][data-on] { border-color:#ffffff66 }
+.fps-vision-chip[data-vision=iff][data-on] i { background:#fff; box-shadow:0 0 6px #fff }
+.fps-vision-chip[data-iff][data-on] i { background:linear-gradient(90deg,#ff3b30 50%,#3dff6e 50%); box-shadow:0 0 6px #ffffff88 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Flashlight, Footprints, Menu, MessageCircle, Minus, Move3d, PackageOpen, Plus, RefreshCw, Rocket, Repeat2, RotateCcw } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { padSlot, promptLabel, type StickVector } from '../game/touch-controls';
-import { visionStatus } from './FpsVisionChip';
+import { visionAction, visionStatus } from './FpsVisionChip';
 import './fps-vision.css';
 import TouchStick from './TouchStick';
 import { tapProps } from './touch-tap';
@@ -132,7 +132,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     }
   }
   // The worn device, on foot or mounted: one button walks off, on and each thermal palette.
-  if (hud.vision) pad.push(act('vision', hud.vision.on ? `${hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal'} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : hud.vision.kind === 'nvg' ? 'Night vision' : 'Thermal',
+  if (hud.vision) pad.push(act('vision', hud.vision.on ? `${visionAction(hud.vision)} on${hud.vision.palettes > 1 ? ', next palette' : ''}` : visionAction(hud.vision),
     <><Eye size={17} />{hud.vision.on && <small className="touch-badge" aria-hidden="true">{visionStatus(hud.vision, true)}</small>}</>, { onClick: () => engine?.pressVision(), 'aria-pressed': hud.vision.on, 'data-on': hud.vision.on || undefined }));
 
   return <div className="touch-layer" data-touch-layer={mode} data-mounted={mounted || undefined}>

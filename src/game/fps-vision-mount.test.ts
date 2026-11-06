@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createVisionMount, visionMountPose } from './fps-vision-mount';
-import { advanceVision, createVisionState, toggleVision, VISION_DEVICES, VISION_MOUNT_SECONDS } from './vision-devices';
+import { advanceVision, createVisionState, toggleVision, VISION_DEVICES, VISION_MOUNT_SECONDS, visionModelKey } from './vision-devices';
 
 describe('physical vision mount', () => {
   it('grasps before rotating and seats the eyecup before covering the view', () => {
@@ -27,16 +27,16 @@ describe('physical vision mount', () => {
     expect(visionMountPose(state.mount)).toEqual(before);
   });
 
-  it('selects all five equipped models and clears them when equipment is removed', () => {
+  it('selects every equipped model and clears them when equipment is removed', () => {
     const mount = createVisionMount(), state = { ...createVisionState(), mount: .5 };
     const visibleModels = () => {
       const out: string[] = [];
-      mount.scene.traverse(o => { if (/^(nvg|thermal)-\d$/.test(o.name) && o.visible) out.push(o.name); });
+      mount.scene.traverse(o => { if (/^(nvg|thermal|iff)-\d(-iff)?$/.test(o.name) && o.visible) out.push(o.name); });
       return out;
     };
     for (const spec of Object.values(VISION_DEVICES)) {
       mount.update(spec, state, 16 / 9);
-      expect(visibleModels()).toEqual([`${spec.kind}-${spec.generation}`]);
+      expect(visibleModels()).toEqual([visionModelKey(spec)]);
       // Camera framing and transforms stay finite on portrait screens too.
       mount.update(spec, state, 9 / 16);
       mount.scene.traverse(o => expect(o.position.toArray().every(Number.isFinite)).toBe(true));

@@ -76,7 +76,7 @@ export function disposeModel(root: THREE.Object3D) {
 }
 /** Visual game interpretation of a carrying rig and removable insert, not a protection specification. */
 export function armorModel(item: ShopItem) {
-  const group = new THREE.Group(), elite = item.tier === 'Elite';
+  const group = new THREE.Group(), elite = item.tier === 'Elite' || item.tier === 'Ultra';
   const cloth = document.createElement('canvas'); cloth.width = cloth.height = 64;
   const ctx = cloth.getContext('2d')!; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 64, 64);
   for (let i = 0; i < 64; i += 4) { ctx.fillStyle = '#9a9a9a'; ctx.fillRect(i, 0, 1, 64); ctx.fillStyle = '#666666'; ctx.fillRect(0, i, 64, 1); }
@@ -106,14 +106,17 @@ export function armorModel(item: ShopItem) {
 /**
  * Helmet-mounted vision devices for the shop preview: one tube, then a
  * binocular, then a four-tube panoramic; a thermal monocular with its dark
- * germanium window, and a fused thermal-and-tube housing. Built facing +Z.
+ * germanium window, and a fused thermal-and-tube housing; a clear IFF visor,
+ * and the panoramic with an IFF reader on top. Built facing +Z.
  */
 export function visionModel(item: ShopItem) {
-  const group = new THREE.Group(), elite = item.tier === 'Elite';
+  const group = new THREE.Group(), elite = item.tier === 'Elite' || item.tier === 'Ultra';
   const polymer = new THREE.MeshStandardMaterial({ color: '#2a2f2c', roughness: .72, metalness: .08 });
   const anodised = new THREE.MeshStandardMaterial({ color: elite ? '#6f6650' : '#3b4033', roughness: .45, metalness: .55 });
-  const tubeGlass = new THREE.MeshPhysicalMaterial({ color: item.id === 'nvg-gen3' ? '#38404f' : '#1d4a3b', roughness: .08, metalness: .2, clearcoat: 1 });
+  const tubeGlass = new THREE.MeshPhysicalMaterial({ color: item.id === 'nvg-gen3' || item.id === 'nvg-iff' ? '#38404f' : '#1d4a3b', roughness: .08, metalness: .2, clearcoat: 1 });
   const germanium = new THREE.MeshPhysicalMaterial({ color: '#2c2735', roughness: .15, metalness: .85, clearcoat: .6, iridescence: .6 });
+  const combiner = new THREE.MeshPhysicalMaterial({ color: '#a9d8e6', roughness: .04, metalness: .1, transmission: .6, transparent: true, opacity: .45, clearcoat: 1 });
+  const signal = new THREE.MeshStandardMaterial({ color: '#5a1d1a', emissive: '#ff4a3a', emissiveIntensity: .8 });
   const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0) => {
     // Yaw after pitch, so a tube laid along +Z can then fan out sideways.
     const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, 0, 'YXZ'); group.add(mesh); return mesh;
@@ -126,12 +129,28 @@ export function visionModel(item: ShopItem) {
     add(new THREE.CylinderGeometry(radius * .82, radius * .82, .006, 24), tubeGlass, x + side * (length + .002), y, (length + .002) * forward, Math.PI / 2, yaw);
     add(new THREE.TorusGeometry(radius * .92, .003, 6, 24), polymer, x + side * length, y, length * forward, 0, yaw);
   };
+  /** An IFF reader: a small camera block with a status light, looking forward. */
+  const iffReader = (y: number, z: number) => {
+    box(.044, .022, .04, 0, y, z, polymer);
+    add(new THREE.CylinderGeometry(.009, .009, .012, 20), anodised, 0, y, z + .026, Math.PI / 2);
+    add(new THREE.CylinderGeometry(.0065, .0065, .003, 20), tubeGlass, 0, y, z + .033, Math.PI / 2);
+    box(.007, .004, .004, .015, y + .005, z + .02, signal);
+  };
   // The helmet shroud and arm every device hangs from; with no device, it is all there is.
   box(.07, .045, .016, 0, .07, -.03); box(.03, .055, .02, 0, .035, -.02, anodised);
   if (item.id === 'vision-none') return group;
   if (item.id === 'nvg-gen1') { box(.05, .04, .05, 0, 0, .0); tube(0, 0, 0, .026, .12); box(.03, .028, .06, .045, .005, .01); }
   else if (item.id === 'nvg-gen2') { box(.1, .03, .04, 0, .005, 0); tube(-.033, 0); tube(.033, 0); }
   else if (item.id === 'nvg-gen3') { box(.13, .032, .045, 0, .005, 0); tube(-.022, 0, 0, .017, .1); tube(.022, 0, 0, .017, .1); tube(-.058, -.002, -.32, .016, .09); tube(.058, -.002, .32, .016, .09); box(.035, .03, .05, 0, .01, -.05, anodised); }
+  else if (item.id === 'nvg-iff') {
+    box(.13, .032, .045, 0, .005, 0); tube(-.022, 0, 0, .017, .1); tube(.022, 0, 0, .017, .1); tube(-.058, -.002, -.32, .016, .09); tube(.058, -.002, .32, .016, .09); box(.035, .03, .05, 0, .01, -.05, anodised);
+    iffReader(.04, .03);
+  } else if (item.id === 'iff-1') {
+    // A slim frame round a clear combiner, the reader on its brow.
+    box(.13, .01, .018, 0, .036, .04); box(.13, .007, .014, 0, -.036, .042); box(.008, .08, .016, -.065, 0, .041); box(.008, .08, .016, .065, 0, .041);
+    add(new THREE.BoxGeometry(.122, .066, .003), combiner, 0, 0, .044);
+    iffReader(.052, .03);
+  }
   else if (item.id === 'thermal-t1') { box(.06, .055, .1, 0, -.005, .04); add(new THREE.CylinderGeometry(.024, .024, .008, 24), germanium, 0, -.005, .094, Math.PI / 2); box(.022, .012, .03, .025, .028, .02, anodised); }
   else { box(.11, .06, .095, 0, -.005, .04); add(new THREE.CylinderGeometry(.026, .026, .008, 24), germanium, -.025, -.005, .09, Math.PI / 2); tube(.03, -.005, 0, .016, .1); box(.05, .014, .03, 0, .03, .0, anodised); }
   return group;

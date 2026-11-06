@@ -161,7 +161,9 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { bannerOf, threatens } from './combat-event-catalog';
-import { factionIdOf, getArenaFaction, hostile, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { factionIdOf, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
+import { characterBounds, characterPoints, createIffTracker, type IffBox, type IffSubject } from './fps-iff';
+import { createRangeFigures } from './range-figures';
 import { HEAT_CALLS } from './faction-heat';
 import { createCombatAudio, distanceGain } from './combat-event-audio';
 import { createAmbientSky } from './ambient-sky-visuals';
@@ -188,7 +190,7 @@ import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
 import { createLensEffects } from './fps-lens';
-import { activePalette, advanceVision, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, type ThermalPalette, type VisionKind } from './vision-devices';
+import { activePalette, advanceVision, iffActive, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, VISION_MOUNT_SECONDS, type ThermalPalette, type VisionKind, type VisionSpec } from './vision-devices';
 
 export interface FpsArenaOptions { session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
 export interface FpsCheckpoint { health: number; armor: number; weapon: number; ammunition: WeaponState[]; pilot?: boolean; pilotStrategy?: 'local' | 'llm'; encikVoice?: boolean; comms?: readonly CommsEntry[];
@@ -326,7 +328,7 @@ export interface FpsHud {
   mapExpanded: boolean;
   objectiveHints: boolean; objectiveMarkers: ObjectiveHint[];
   /** The worn night-vision or thermal device, if any, and what it is doing. */
-  vision: { name: string; kind: VisionKind; generation: number; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
+  vision: { name: string; kind: VisionKind; generation: number; iff: boolean; on: boolean; palette: ThermalPalette | ''; palettes: number; warm: number; calibrating: boolean } | null;
   /** Selected variable-scope power; fixed optics have no adjustment controls. */
   scopeZoom: ScopeZoom | null;
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
@@ -488,6 +490,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const wetView = createWetSurfaces(viewScene, true);
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!checkpoint?.vision && !!equipment.vision);
+  const iffTracker = createIffTracker();
   // Sun flare, haze dust and rain on the lens, over the world and weapon and under any vision device.
   const lens = createLensEffects(renderer);
   const deploymentBlur = createDeploymentBlur(renderer);
@@ -528,6 +531,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
   const targets: { root: THREE.Group; hitZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
   const decorations = new THREE.Group(); world.scene.add(decorations);
+  /** Your section and some onlookers at a practice range: friendlies and neutrals for an IFF reader. */
+  let rangeFigures: ReturnType<typeof createRangeFigures> | null = null;
   const targetGeometry = new THREE.CircleGeometry(0.265, 32);
   const headGeometry = new THREE.CircleGeometry(0.115, 20);
   const targetMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
@@ -979,14 +984,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function handlingSound(stage: string) {
     reloadAudio.play(specs[hud.weapon], stage);
   }
-  /** A switch click, and on a tube the rising whine of its power supply. */
-  function visionSound(step: 'on' | 'off' | 'palette', kind: VisionKind) {
+  /** A switch click, on a tube the rising whine of its power supply, and an IFF reader's two-tone chirp once it is up. */
+  function visionSound(step: 'on' | 'off' | 'palette', spec: VisionSpec) {
+    const kind = spec.kind;
     if (!audio || !soundBuffer || hud.muted || audio.state !== 'running') return;
     const context = audio, source = context.createBufferSource(), filter = context.createBiquadFilter(), gain = context.createGain();
     source.buffer = soundBuffer; source.playbackRate.value = step === 'palette' ? 2.4 : 1.9;
     filter.type = 'highpass'; filter.frequency.value = 2400; gain.gain.value = step === 'off' ? .05 : .07;
     source.connect(filter).connect(gain).connect(effectsOutput(context)); source.start();
     source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
+    if (step === 'on' && spec.iff) {
+      // Reached at full warm-up, after the tube if there is one.
+      const ready = context.currentTime + VISION_MOUNT_SECONDS + spec.warmup;
+      [[1760, 0], [2350, .085]].forEach(([pitch, delay]) => {
+        const chirp = context.createOscillator(), level = context.createGain(), at = ready + delay;
+        chirp.type = 'sine'; chirp.frequency.value = pitch;
+        level.gain.setValueAtTime(.0001, at); level.gain.exponentialRampToValueAtTime(.018, at + .008); level.gain.exponentialRampToValueAtTime(.0001, at + .07);
+        chirp.connect(level).connect(effectsOutput(context)); chirp.start(at); chirp.stop(at + .08);
+        chirp.onended = () => { chirp.disconnect(); level.disconnect(); };
+      });
+    }
     if (step !== 'on' || kind !== 'nvg') return;
     const whine = context.createOscillator(), level = context.createGain(), at = context.currentTime;
     whine.type = 'sine'; whine.frequency.setValueAtTime(5200, at); whine.frequency.exponentialRampToValueAtTime(11500, at + .9);
@@ -1625,7 +1642,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function visionHud(): FpsHud['vision'] {
     const worn = equipment.vision; if (!worn) return null;
-    return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, on: visionState.on, palette: activePalette(visionState, worn.spec),
+    return { name: worn.name, kind: worn.spec.kind, generation: worn.spec.generation, iff: !!worn.spec.iff, on: visionState.on, palette: activePalette(visionState, worn.spec),
       palettes: worn.spec.palettes.length, warm: visionState.warm, calibrating: visionState.calibrating > 0 };
   }
   /** N: the worn device on or off. J: the next thermal palette. The touch button walks both (see vision-devices). */
@@ -1635,7 +1652,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const was = visionState.on;
     const changed = step === 'toggle' ? (toggleVision(visionState, spec), true) : step === 'palette' ? cycleVisionPalette(visionState, spec) : stepVisionButton(visionState, spec) || was !== visionState.on;
     if (!changed) return;
-    visionSound(visionState.on && !was ? 'on' : !visionState.on ? 'off' : 'palette', spec.kind);
+    visionSound(visionState.on && !was ? 'on' : !visionState.on ? 'off' : 'palette', spec);
     publish();
   }
   /** The touch control switches fitted devices together; PC B/L switches each emitter. */
@@ -2016,6 +2033,35 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     const now = arenaRuntime ? hud.arena?.elapsed ?? 0 : localGrenades.clock;
     return subjects.map(subject => ({ ...subject, points: subject.points.filter(p => !grenadeSmokeBetween(activeGrenadeEvents(), now, camera.position, p)) })).filter(subject => subject.points.length > 0);
+  }
+  /**
+   * Everyone an IFF reader could box, and which side they are on for the
+   * player: arena figures by the same hostility the minimap uses, proxies not
+   * after you and the zone's townsfolk as neutral, range targets as hostile,
+   * and the range's own section and onlookers as friendly and neutral.
+   */
+  const iffHeadTop = new THREE.Vector3();
+  function iffSubjects(): IffSubject[] {
+    const subjects: IffSubject[] = [];
+    const self = hud.arenaSelf, actors = new Map((hud.arena?.actors ?? []).map(actor => [actor.id, actor]));
+    if (options.arena && self) for (const root of world.scene.children) {
+      const id = root.userData.arenaActorId;
+      if (typeof id !== 'string' || id === self.id || !root.visible || root.userData.arenaDown) continue;
+      const actor = actors.get(id); if (!actor?.alive) continue;
+      const side = hostile(self, actor) ? 'enemy' : isProxyFaction(actor.faction) ? 'neutral' : 'ally';
+      subjects.push({ id, side, root, points: characterPoints(root), bounds: out => characterBounds(root, out) });
+    }
+    for (const figure of rangeFigures?.figures ?? [])
+      subjects.push({ id: `range-${figure.id}`, side: figure.side, root: figure.root, points: characterPoints(figure.root), bounds: out => characterBounds(figure.root, out) });
+    for (const figure of markers?.figures ?? []) if (figure.root.visible)
+      subjects.push({ id: `npc-${figure.id}`, side: 'neutral', root: figure.root, points: characterPoints(figure.root), bounds: out => characterBounds(figure.root, out) });
+    if (!options.arena) targets.forEach((target, i) => {
+      if (!target.alive || !target.root.visible) return;
+      subjects.push({ id: `target-${i}-${target.activation}`, side: 'enemy', root: target.root, points: [target.hitZone.getWorldPosition(new THREE.Vector3())], bounds: out => out.setFromObject(target.hitZone).expandByPoint(target.root.localToWorld(iffHeadTop.set(0, 1.86, .026))) });
+    });
+    const now = arenaRuntime ? hud.arena?.elapsed ?? 0 : localGrenades.clock;
+    // Smoke hides a figure from the reader as it does from the eye.
+    return subjects.map(subject => ({ ...subject, points: subject.points.filter(p => !grenadeSmokeBetween(activeGrenadeEvents(), now, camera.position, p)) }));
   }
   function observePilot(time: number): PilotObservation {
     const subjects = combatSubjects();
@@ -4184,6 +4230,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);
     world.animate(hud.elapsed);
     markers?.update(realDt, camera.position);
+    rangeFigures?.update(realDt, camera.position);
     // Shadows move the sun's target first; the atmosphere then places the sun from it.
     lightView(realDt);
     atmosphere.update(dt, camera);
@@ -4248,7 +4295,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
       const lensTag = `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}`;
       if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
-      vision.end(visionSpec, visionState, now / 1000);
+      let iffBoxes: IffBox[] = [];
+      if (iffActive(visionSpec, visionState) && visionSpec?.iff) iffBoxes = iffTracker.update(realDt, camera, world.scene, iffSubjects(), visionSpec.iff.range);
+      else iffTracker.reset();
+      const iffTag = iffBoxes.map(b => `${b.side[0]}:${b.id}`).join(',');
+      if (iffTag !== (canvas.dataset.iff ?? '')) canvas.dataset.iff = iffTag;
+      vision.end(visionSpec, visionState, now / 1000, iffBoxes);
       const visionMotion = `${visionState.mount.toFixed(2)}:${visionState.fading.toFixed(2)}`;
       if (visionMotion !== canvas.dataset.visionMotion) canvas.dataset.visionMotion = visionMotion;
       const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || 'tube'}:${vision.swapped}` : '';
@@ -4346,6 +4398,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       world.obstacles.push(collider);
     });
     updateRangeTargets();
+    if (practiceRange) {
+      const floorAt = (x: number, z: number) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x, z) ?? 0) + 1.5, .1, .1) ?? world.bounds.groundHeight?.(x, z) ?? 0;
+      rangeFigures = createRangeFigures(world.scene, { spawn, targets: targetPositions, ground: floorAt,
+        canStand: (x, z) => footMovement.canOccupy(x, floorAt(x, z), z, .35, 1.8) && !world.obstacles.some(o => x > o.minX - .35 && x < o.maxX + .35 && z > o.minZ - .35 && z < o.maxZ + .35) });
+      world.obstacles.push(...rangeFigures.obstacles);
+    }
     if (!expedition) for (const [asset, x, z, width, depth] of district.props) {
       const floor = world.bounds.groundHeight?.(x,z) ?? 0;
       const prop = loaded[asset].clone(true); prop.position.set(x, floor + .14, z); decorations.add(prop);
@@ -4459,7 +4517,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals.dispose(); objectiveBeacons?.dispose();
-      disposed = true; pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); clearInput();
+      disposed = true; rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);

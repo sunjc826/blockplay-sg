@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
 import { isWaterObject } from './water';
 import { createVisionMount, visionMountPose } from './fps-vision-mount';
-import { activePalette, HEAT_SOURCES, isHeatSource, visionAperture, visionGain, visionStrain, type VisionSpec, type VisionState } from './vision-devices';
+import { activePalette, HEAT_SOURCES, iffActive, isHeatSource, visionAperture, visionGain, visionHasPicture, visionStrain, type VisionSpec, type VisionState } from './vision-devices';
+import { createIffOverlay, type IffBox } from './fps-iff';
 
 /**
  * Draws what a worn vision device sees (vision-devices holds the devices).
@@ -33,6 +34,10 @@ import { activePalette, HEAT_SOURCES, isHeatSource, visionAperture, visionGain, 
  * tube's phosphor fades on the last picture it drew, brightest parts last,
  * and a thermal display folds to a line, then a point; then the device swings
  * back up.
+ *
+ * An IFF reader has no picture of its own: once it is up, its friend-or-foe
+ * boxes (fps-iff) go over everything, inside the tube's circle when it rides
+ * on one.
  */
 
 const THERMAL_VERTEX = /* glsl */`
@@ -414,7 +419,7 @@ function createVisionPost(renderer: THREE.WebGLRenderer) {
  * `end` runs once the weapon is on the canvas.
  */
 export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { world: THREE.Scene; view: THREE.Scene }) {
-  const materials = createThermalMaterials(), post = createVisionPost(renderer), mount = createVisionMount();
+  const materials = createThermalMaterials(), post = createVisionPost(renderer), mount = createVisionMount(), iff = createIffOverlay();
   const viewport = new THREE.Vector2();
   const background = new THREE.Color(), fog = new THREE.Color(), COLD_SKY = new THREE.Color(.004, .004, .005);
   let thermalOn = false, rescan = 0, saved: { background: THREE.Color | null; fog: THREE.Color | null } | null = null;
@@ -423,7 +428,7 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
     /** Whether the scene is drawing temperature this frame; ambient occlusion has no meaning then. */
     get thermal() { return thermalOn; },
     get swapped() { return materials.swappedCount; },
-    warm() { return mount.warm(renderer); },
+    warm() { return Promise.all([mount.warm(renderer), iff.warm(renderer)]); },
     begin(spec: VisionSpec | undefined, state: VisionState, frame: { dt: number; lighting: LightingState; blackout: number; exposure: number }) {
       // Nothing changes the world's picture until the device is in front of the eyes.
       const lowered = state.on && state.mount >= 1;
@@ -446,7 +451,8 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
       gain = spec && lowered ? visionGain(spec, frame.lighting.shift, frame.blackout) : 1;
       return frame.exposure * gain;
     },
-    end(spec: VisionSpec | undefined, state: VisionState, time: number) {
+    /** `boxes` are the IFF reader's, already projected; drawn only while the reader is up. */
+    end(spec: VisionSpec | undefined, state: VisionState, time: number, boxes: readonly IffBox[] = []) {
       if (saved) {
         if (saved.background && scenes.world.background instanceof THREE.Color) scenes.world.background.copy(saved.background);
         if (saved.fog && scenes.world.fog) scenes.world.fog.color.copy(saved.fog);
@@ -455,8 +461,9 @@ export function createVisionSystem(renderer: THREE.WebGLRenderer, scenes: { worl
       renderer.getDrawingBufferSize(viewport);
       mount.update(spec, state, viewport.x / viewport.y); mount.render(renderer);
       // Off, the canvas has gone back to the naked eye; the dying picture is the last one the device drew.
-      if (spec && visionMountPose(state.mount).cover > 0) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
+      if (spec && visionHasPicture(spec) && visionMountPose(state.mount).cover > 0) post.present(spec, state, { gain, day, time, hold: state.calibrating > 0 || !state.on });
+      if (spec && iffActive(spec, state)) iff.draw(renderer, boxes, spec.kind === 'nvg' ? visionAperture(spec) : 9, 1);
     },
-    dispose() { materials.dispose(); post.dispose(); mount.dispose(); },
+    dispose() { materials.dispose(); post.dispose(); mount.dispose(); iff.dispose(); },
   };
 }

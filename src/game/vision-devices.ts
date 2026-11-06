@@ -11,9 +11,16 @@
  * midnight and finds people in shadow, but it cannot read a sign, does not see
  * through glass, and a cheap core is coarse and freezes to recalibrate.
  *
- * Everything here is data and bookkeeping; `fps-vision` draws it.
+ * IFF (identification friend or foe) goggles change no light at all: a clear
+ * combiner over the eye, fed by a camera that reads uniforms and coded IR
+ * patches, boxes whoever it can see: red for hostile, green for friendly,
+ * white for neutral. It needs line of sight, so walls and smoke still hide
+ * people. The top tube carries the same reader over its white phosphor.
+ *
+ * Everything here is data and bookkeeping; `fps-vision` draws it, and
+ * `fps-iff` the boxes.
  */
-export type VisionKind = 'nvg' | 'thermal';
+export type VisionKind = 'nvg' | 'thermal' | 'iff';
 export type ThermalPalette = 'white-hot' | 'black-hot' | 'ironbow';
 
 export interface VisionSpec {
@@ -46,6 +53,8 @@ export interface VisionSpec {
   shutdown: number;
   /** Thermal only: a non-uniformity correction that freezes the picture every `every` seconds for `hold`. */
   calibration?: { every: number; hold: number };
+  /** Boxes friend, foe and neutral within this many metres in line of sight. */
+  iff?: { range: number };
 }
 
 export const PALETTE_LABELS: Record<ThermalPalette, string> = { 'white-hot': 'WHT', 'black-hot': 'BLK', ironbow: 'IRON' };
@@ -58,10 +67,19 @@ export const VISION_DEVICES: Readonly<Record<string, VisionSpec>> = {
   'nvg-gen1': { kind: 'nvg', generation: 1, gain: 4.4, noise: .42, aperture: .76, blur: .42, halo: .78, phosphor: '#7dff6e', distortion: .38, rows: 0, detail: 0, palettes: [], warmup: 1.4, shutdown: .9 },
   'nvg-gen2': { kind: 'nvg', generation: 2, gain: 5.2, noise: .32, aperture: .88, blur: .28, halo: .6, phosphor: '#8dff9a', distortion: .2, rows: 0, detail: 0, palettes: [], warmup: .8, shutdown: .6 },
   'nvg-gen3': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: .98, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .35, shutdown: .35 },
+  'nvg-iff': { kind: 'nvg', generation: 3, gain: 7.5, noise: .13, aperture: .98, blur: .06, halo: .32, phosphor: '#e2f1ff', distortion: .05, rows: 0, detail: 0, palettes: [], warmup: .45, shutdown: .35, iff: { range: 120 } },
+  'iff-1': { kind: 'iff', generation: 1, gain: 1, noise: 0, aperture: 9, blur: 0, halo: 0, phosphor: '#ffffff', distortion: 0, rows: 0, detail: 0, palettes: [], warmup: .5, shutdown: .2, iff: { range: 80 } },
   'thermal-t1': { kind: 'thermal', generation: 1, gain: 1, noise: .3, aperture: .76, blur: .3, halo: .55, phosphor: '#e3eadf', distortion: .12, rows: 160, detail: .25, palettes: ['white-hot'], warmup: 1.8, shutdown: .55, calibration: { every: 26, hold: .4 } },
   'thermal-t2': { kind: 'thermal', generation: 2, gain: 1, noise: .1, aperture: .98, blur: .08, halo: .3, phosphor: '#ffffff', distortion: 0, rows: 360, detail: .7, palettes: ['white-hot', 'black-hot', 'ironbow'], warmup: .9, shutdown: .45 },
 };
 export const visionSpec = (id: string | undefined): VisionSpec | undefined => id ? VISION_DEVICES[id] : undefined;
+/** Which helmet hardware a device swings down: one model per distinct housing. */
+export const visionModelKey = (spec: Pick<VisionSpec, 'kind' | 'generation' | 'iff'>) => `${spec.kind}-${spec.generation}${spec.iff && spec.kind !== 'iff' ? '-iff' : ''}`;
+/** Whether the device draws a picture over the world (a tube or a core), rather than only an overlay. */
+export const visionHasPicture = (spec: VisionSpec | undefined) => spec?.kind === 'nvg' || spec?.kind === 'thermal';
+/** Friend-or-foe boxes are up: the reader is over the eyes, switched on and through its start. */
+export const iffActive = (spec: VisionSpec | undefined, state: VisionState) =>
+  !!spec?.iff && state.on && state.mount >= 1 && state.warm >= 1;
 
 /**
  * Heat a tagged object adds over the ground it stands on, in the thermal
@@ -171,7 +189,7 @@ export const nvgAimingActive = (spec: VisionSpec | undefined, state: VisionState
 /** How much of a smoke or gas cloud the view shows, 0–.9: a thermal core sees through most of it. */
 export const cloudOpacity = (amount: number, thermal: boolean) => Math.min(.9, .25 + amount * .7) * (thermal ? .3 : 1);
 /** The control-guide name for a worn device's key. */
-export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'nvg' ? 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
+export const visionKeyLabel = (spec: VisionSpec) => spec.kind === 'iff' ? 'IFF goggles' : spec.kind === 'nvg' ? spec.iff ? 'Night vision + IFF' : 'Night vision' : spec.palettes.length > 1 ? 'Thermal · J palette' : 'Thermal';
 /** Radius in the post pass's units (half the longer side). Every device crops its circular rim at the shorter edges. */
 export function visionAperture(spec: VisionSpec) {
   return spec.aperture;
@@ -192,5 +210,5 @@ export function visibleShare(aperture: number, aspect = 16 / 9) {
 export function visionFigures(spec: VisionSpec | undefined) {
   return { gain: spec?.kind === 'nvg' ? spec.gain : 1, view: Math.round(visibleShare(spec ? visionAperture(spec) : 9) * 100), grain: Math.round((spec?.noise ?? 0) * 100),
     sharpness: Math.round((1 - (spec?.blur ?? 0)) * 100), halo: Math.round((spec?.kind === 'nvg' ? spec.halo : 0) * 100),
-    lines: spec?.kind === 'thermal' ? spec.rows : 0, palettes: spec?.palettes.length ?? 0, warmup: spec?.warmup ?? 0 };
+    lines: spec?.kind === 'thermal' ? spec.rows : 0, palettes: spec?.palettes.length ?? 0, warmup: spec?.warmup ?? 0, iffRange: spec?.iff?.range ?? 0 };
 }

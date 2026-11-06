@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import type { VisionSpec, VisionState } from './vision-devices';
+import { visionModelKey, type VisionKind, type VisionSpec, type VisionState } from './vision-devices';
 
 const smooth = (a: number, b: number, t: number) => THREE.MathUtils.smoothstep(t, a, b);
 
@@ -21,7 +21,7 @@ export function visionMountPose(mount: number) {
 
 /** Camera-space hardware, drawn in natural colour before the eyepiece pass.
  * Kept out of the world/view scenes so thermal swaps and optic captures cannot
- * turn the device itself into part of its sensor image. All five models are
+ * turn the device itself into part of its sensor image. Every housing is
  * built once; switching equipment only selects a model. */
 export function createVisionMount() {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(65, 1, .008, 3);
@@ -35,6 +35,9 @@ export function createVisionMount() {
   const olive = material('#515842'), tan = material('#7f8060'), graphite = material('#30383b'), rubber = material('#151b1c');
   const steel = material('#7d8989', .35, .7), glove = material('#474b39'), pad = material('#242b25'), sleeve = material('#626a50');
   const glass = material('#1b4b51', .16, .65);
+  // The IFF combiner: a pane you see the world through, faintly tinted, with the reader's camera above it.
+  const combiner = new THREE.MeshStandardMaterial({ color: '#9fd2e0', roughness: .05, metalness: .3, transparent: true, opacity: .28, depthWrite: false }); materials.add(combiner);
+  const signal = material('#5a1d1a', .3, .2); signal.emissive.set('#ff4a3a'); signal.emissiveIntensity = .6;
   const mesh = (parent: THREE.Object3D, geometry: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => {
     geometries.add(geometry); const object = new THREE.Mesh(geometry, m); object.position.set(x, y, z); parent.add(object); return object;
   };
@@ -44,8 +47,29 @@ export function createVisionMount() {
     const tube = mesh(parent, new THREE.CylinderGeometry(r, r, length, 24), m, x, y, z); tube.rotation.x = Math.PI / 2; return tube;
   };
   const models = new Map<string, THREE.Group>();
-  for (const [kind, generation] of [['nvg', 1], ['nvg', 2], ['nvg', 3], ['thermal', 1], ['thermal', 2]] as const) {
-    const model = new THREE.Group(); model.name = `${kind}-${generation}`; model.position.y = -.19; hinge.add(model); models.set(model.name, model);
+  const housings: readonly (readonly [VisionKind, number, boolean])[] = [['nvg', 1, false], ['nvg', 2, false], ['nvg', 3, false], ['nvg', 3, true], ['thermal', 1, false], ['thermal', 2, false], ['iff', 1, true]];
+  /** The reader's camera and its status light, on top of whatever it rides on. */
+  const reader = (model: THREE.Group, y: number, z: number) => {
+    box(model, .05, .026, .05, graphite, 0, y, z);
+    cylinder(model, .011, .014, rubber, 0, y, z - .031);
+    cylinder(model, .008, .003, glass, 0, y, z - .039);
+    box(model, .008, .005, .003, signal, .017, y + .006, z + .026);
+  };
+  for (const [kind, generation, iff] of housings) {
+    const model = new THREE.Group(); model.name = visionModelKey({ kind, generation, iff: iff ? { range: 0 } : undefined }); model.position.y = -.19; hinge.add(model); models.set(model.name, model);
+    if (kind === 'iff') {
+      // A light visor: the arm, a slim frame round a clear combiner, and the reader on the brow.
+      box(model, .036, .14, .028, steel, 0, .115, -.025);
+      box(model, .078, .033, .055, rubber, 0, .182, -.025);
+      const axle = cylinder(model, .021, .085, steel, 0, .19, -.025); axle.rotation.set(0, 0, Math.PI / 2);
+      box(model, .15, .012, .03, graphite, 0, .043, .03);
+      box(model, .15, .008, .02, graphite, 0, -.047, .035);
+      for (const x of [-.075, .075]) box(model, .009, .098, .02, graphite, x, -.002, .035);
+      box(model, .142, .088, .003, combiner, 0, -.002, .04);
+      reader(model, .062, .0);
+      model.visible = false;
+      continue;
+    }
     const body = kind === 'thermal' ? graphite : generation === 3 ? tan : olive;
     const dual = kind === 'nvg' && generation === 3;
     const radius = kind === 'nvg' && generation === 1 ? .055 : .043;
@@ -82,6 +106,7 @@ export function createVisionMount() {
     box(model, .035, .017, .003, rubber, .045, .028, .047);
     for (let i = 0; i < generation; i++) box(model, .005, .009, .002, steel, .035 + i * .009, .028, .05);
     for (const x of [-.044, .044]) cylinder(model, .003, .003, steel, x, .035, .052);
+    if (iff) reader(model, .06, -.03);
     model.visible = false;
   }
   const hand = new THREE.Group(); hand.name = 'vision-left-hand'; root.add(hand);
@@ -107,7 +132,7 @@ export function createVisionMount() {
     update(spec: VisionSpec | undefined, state: VisionState, aspect: number) {
       const pose = visionMountPose(state.mount);
       selected && (selected.visible = false);
-      selected = spec ? models.get(`${spec.kind}-${spec.generation}`) : undefined;
+      selected = spec ? models.get(visionModelKey(spec)) : undefined;
       root.visible = !!selected && pose.visible;
       if (!root.visible || !selected) return pose;
       selected.visible = true;
