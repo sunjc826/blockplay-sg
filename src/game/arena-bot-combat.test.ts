@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOT_AIM, BOT_HEAL, advanceBotAimFocus, botAimScale, botBurstLimit, botTransverseSpeed, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
+import { BOT_AIM, BOT_FLINCH, BOT_HEAL, addBotFlinch, advanceBotAimFocus, botAimScale, botBurstLimit, botFlinchSpread, botFlinchStrength, botTransverseSpeed, botFireCadence, botShotSpread, botWantsHeal } from './arena-bot-combat';
 import { createArena, SPAWN_SHIELD_SECONDS, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { itemById } from './armory-catalog';
 import { variantSpec } from './armory-state';
@@ -223,5 +223,26 @@ describe('actual distant bot fire', () => {
     };
     expect(mean('easy')).toBeGreaterThan(mean('normal'));
     expect(mean('normal')).toBeGreaterThan(mean('hard'));
+  });
+});
+
+describe('bot flinch', () => {
+  it('throws a hit bot’s aim wide straight after, and lets it settle back', () => {
+    expect(botFlinchStrength(2, 100)).toBe(0);
+    expect(botFlinchStrength(25, 100)).toBeCloseTo(.5);
+    expect(botFlinchStrength(5, 100, true)).toBe(1);
+    const hit = addBotFlinch(undefined, 1, 10);
+    expect(botFlinchSpread(hit, 10)).toBeCloseTo(1 + BOT_FLINCH.spread);
+    expect(botFlinchSpread(hit, 10 + BOT_FLINCH.seconds / 2)).toBeGreaterThan(1);
+    expect(botFlinchSpread(hit, 10 + BOT_FLINCH.seconds)).toBe(1);
+    expect(botFlinchSpread(undefined, 10)).toBe(1);
+  });
+  it('refreshes on another hit rather than stacking past full', () => {
+    const first = addBotFlinch(undefined, .6, 0)!;
+    const second = addBotFlinch(first, .6, .05)!;
+    expect(second.strength).toBeCloseTo(.6);
+    expect(second.at).toBe(.05);
+    expect(addBotFlinch(second, 1, .1)!.strength).toBe(1);
+    expect(addBotFlinch(second, 0, .1)).toBe(second);
   });
 });

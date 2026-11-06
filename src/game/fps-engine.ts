@@ -176,7 +176,8 @@ import { createBulletFlybyAudio } from './bullet-flyby-audio';
 import { createReloadAudio } from './reload-audio';
 import { createSfxBank, type SfxGroup } from './sfx-bank';
 import { getEnvironmentSettings } from './environment-settings';
-import { createHitDirectionOverlay, createHitDirections, hitStrength } from './fps-hit-direction';
+import { createHitDirectionOverlay, createHitDirections, hitBearing, hitStrength } from './fps-hit-direction';
+import { addPoses, createFlinch, flinchStrength } from './fps-flinch';
 import { advanceSupplyUse, startSupplyUse, supplyProfile, supplyProgress, SUPPLY_MOVE_SCALE, type SupplyProfile, type SupplyStyle, type SupplyUse } from './fps-healing';
 import { createSupplyViewmodel } from './fps-supply-viewmodel';
 import { heldSupplies, pickUtility, utilityBelt, utilityKind, utilitySlot, UTILITY_SLOTS, type UtilityKind, type UtilitySlotView } from './utility-belt';
@@ -643,6 +644,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // scale the old scalar did, so a burst costs the aim it always did.
   const kick = createRecoil();
   const firearmShake = createFirearmCameraShake();
+  // Being shot throws the view and a little of the aim: see fps-flinch.
+  const flinch = createFlinch();
+  function flinchFrom(lost: number, from?: { x: number; z: number }, blast = false) {
+    if (vehicles.active || hud.health <= 0 || hud.phase !== 'playing') return;
+    flinch.hit(flinchStrength(lost, hud.maxHealth, blast), from ? hitBearing(viewer(), from) : undefined);
+  }
   const shoulderMotion = createWeaponShoulderMotion();
   function resetWeaponRecoil() { resetRecoil(kick); firearmShake.reset(); shoulderMotion.reset(); }
   // The shooter's own ground speed, so walking fire throws brass along with them.
@@ -843,7 +850,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of activeGrenadeEvents()) for (const p of grenadePayloads(e)) if (p.type === 'cloud' && time - e.start <= p.until && itemById(e.id)?.grenade?.effects.some(effect => effect.kind === 'cloud' && effect.blocksSight !== false)) clouds.push({ x: e.point.x, z: e.point.z, radius: p.radius, ground: e.point.y });
     return combatMinimapMarkers(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
   };
-  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -2124,6 +2131,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * still owns `pitch` and `yaw`; the recoil only says how far to move them.
    */
   function applyAimPush() {
+    // A flinch's aim is the player's for good, so it is never owed back like recoil's.
+    const nudge = flinch.takeAim();
+    if (nudge.pitch || nudge.yaw) { yaw += nudge.yaw; pitch = clampFpsPitch(pitch + nudge.pitch); }
     const push = takeAimPush(kick);
     if (!push.pitch && !push.yaw) return;
     yaw += push.yaw;
@@ -2699,7 +2709,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const bodies = targets.flatMap((t, i) => t.alive ? [{ item: i, point: t.hitZone.getWorldPosition(new THREE.Vector3()) }] : []);
       bodies.push({ item: -1, point: new THREE.Vector3(position.x, vertical + eyeHeight() * .6, position.z) });
       for (const hit of resolveBlast(b.point, b.blast, bodies, grenadeClear)) {
-        if (hit.item === -1) hurtPlayer(hit.damage, undefined, false, b.shred);
+        if (hit.item === -1) hurtPlayer(hit.damage, undefined, false, b.shred, b.point, true);
         else damageTarget(hit.item, hud.weapon, 0, undefined, 1 / damageDealtScale(foodEffects), hit.damage);
       }
       for (const kind of VEHICLE_KINDS) { const v = vehicles.states[kind], point = { x: v.x, y: v.y + 1, z: v.z };
@@ -3091,13 +3101,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (struck) { resolveVehicleDestruction(); checkCompletion(); publish(); }
   }
   /** `caliberMm` when a round did it, which the inserts' rating and luck answer to (armor-inserts). */
-  function hurtPlayer(amount: number, caliberMm?: number, piercing = false, shred = 0) {
+  /** `from` is where it came from, for the flinch's direction; piercing damage (gas, a bailout) does not flinch. */
+  function hurtPlayer(amount: number, caliberMm?: number, piercing = false, shred = 0, from?: { x: number; z: number }, blast = false) {
     if (hud.health <= 0 || amount <= 0) return;
     const damage = piercing ? { health: Math.max(0, hud.health - amount * damageTakenScale(foodEffects)), armor: hud.armor, deflected: false } : applyArmorDamage(hud.health, hud.armor, amount * (1 - shred) * damageTakenScale(foodEffects), equipment.absorption, { insert: equipment.insert, caliberMm, roll: caliberMm === undefined ? undefined : Math.random() });
     if (damage.deflected) { playTake('combat-hurt-deflect', .7); comms.add('system', 'Inserts', DEFLECT_LINE); return; }
     const ahMa = survivesWithAhMa(foodEffects, Math.max(0, damage.health - amount * shred * damageTakenScale(foodEffects)));
     hurtSound({ health: hud.health, armor: hud.armor }, { health: ahMa.health, armor: damage.armor });
+    const lost = hud.health + hud.armor - ahMa.health - damage.armor;
     hud.health = ahMa.health; hud.armor = damage.armor; hurtTime = .4; recoveryDelay = FPS_REGEN_DELAY;
+    if (!piercing) flinchFrom(lost, from, blast);
     if (ahMa.saved) { hud.message = ahMaLine(hud.health); comms.add('system', 'Ah Ma', hud.message); arenaRuntime?.setVitals({ health: hud.health }); }
     if (!hud.health) { hud.phase = 'defeated'; clearInput(); radioCall('death'); if (document.pointerLockElement === canvas) document.exitPointerLock(); }
   }
@@ -3167,7 +3180,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         else {
           const point = playerPoint(), amount = vehicleBlastDamage(event.kind, point.distanceTo(event.point));
           if (amount > 0 && clearBlast(point)) {
-            if (vehicles.active) vehicles.damage(vehicles.active, amount); else hurtPlayer(amount);
+            if (vehicles.active) vehicles.damage(vehicles.active, amount); else hurtPlayer(amount, undefined, false, 0, event.point, true);
           }
         }
         for (const kind of VEHICLE_KINDS) {
@@ -3311,7 +3324,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         if (sees && playerPoint().distanceTo(attack.aim) < .75) {
           if (vehicles.active) vehicles.damage(vehicles.active, 36);
-          else { hurtPlayer(18, 5.56); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
+          else { hurtPlayer(18, 5.56, false, 0, attackOrigin); hitDirections.add(viewer(), attackOrigin, hitStrength(18, hud.maxHealth)); }
           resolveVehicleDestruction();
           publish();
         }
@@ -3453,7 +3466,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (previousSelf?.alive) hurtSound(previousSelf, frame.self, struck && struck.serial !== hurtSerial ? struck : undefined);
       if (struck && struck.serial !== hurtSerial) {
         const lost = previousSelf ? previousSelf.health + previousSelf.armor - frame.self.health - frame.self.armor : 0;
-        if (hurtSerial >= 0 && lost > 0) hitDirections.add(viewer(), struck, hitStrength(lost, hud.maxHealth), struck.blast ? 'blast' : 'shot');
+        if (hurtSerial >= 0 && lost > 0) { hitDirections.add(viewer(), struck, hitStrength(lost, hud.maxHealth), struck.blast ? 'blast' : 'shot'); if (frame.self.alive) flinchFrom(lost, struck, struck.blast); }
         // Struck for nothing: the host glanced the round off a lucky insert.
         else if (hurtSerial >= 0 && !struck.blast && equipment.insert.deflect > 0) { playTake('combat-hurt-deflect', .7, { pan: panTo({ x: struck.x, y: camera.position.y, z: struck.z }) * .5 }); comms.add('system', 'Inserts', DEFLECT_LINE); }
         hurtSerial = struck.serial;
@@ -4067,7 +4080,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // cooldowns already do: on a renderer slow enough that `dt` is clamped,
       // rounds still leave at their real rate, so anything the shot throws off
       // has to settle at its real rate too or it piles up.
-      firearmShake.advance(realDt); shoulderMotion.advance(realDt);
+      firearmShake.advance(realDt); flinch.advance(realDt); shoulderMotion.advance(realDt);
       advanceRecoil(kick, realDt); applyAimPush();
       updateCameras(dt, moving, sprinting);
       refreshAimAssist(realDt);
@@ -4194,8 +4207,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     canvas.dataset.scopeMagnification = String(primarySight?.magnification ?? 1);
     const sightMagnification = cant > .5 || !weapons[hud.weapon] ? 1 : getWeaponSight(weapons[hud.weapon])?.magnification ?? 1;
-    const firingVibration = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
-    canvas.dataset.firearmShake = JSON.stringify(firingVibration);
+    const firingShake = firearmShake.sample(aimProgress, sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
+    const flinchView = flinch.sample(sightMagnification, !!motionPreference?.matches || hud.phase !== 'playing');
+    const firingVibration = addPoses(firingShake, flinchView);
+    canvas.dataset.firearmShake = JSON.stringify(firingShake);
+    canvas.dataset.flinch = JSON.stringify(flinchView);
     const shoulderPose = shoulderMotion.sample(aimProgress, sightMagnification, handling[hud.weapon]?.bipodDeployment ?? 0,
       !!motionPreference?.matches || hud.phase !== 'playing' || !rig.visible || loadout[hud.weapon].reloadRemaining > 0 || inspectElapsed !== null || weaponSwitch !== null);
     canvas.dataset.shoulderMotion = JSON.stringify(shoulderPose);

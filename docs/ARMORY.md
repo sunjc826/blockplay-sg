@@ -772,7 +772,9 @@ cycle plus a little trigger slack (`botFireCadence`), then the role's
 already fired opens it by the weapon's recoil, and a magnified sight tightens
 the opening round (`botShotSpread`). So an MG4 gunner lays down long, loosening
 bursts, a G36 rifleman places short accurate ones, and a sharpshooter's single
-round can land a 2.1× head hit.
+round can land a 2.1× head hit. A bot that has just been hit flinches: its
+spread is up to 3.4× wider, easing back over 0.45 s, and its next round waits
+at least 0.12 s (`BOT_FLINCH`). Gas and crashes do not flinch it.
 
 **Bots patch up.** Each spawn carries the role's `medkits` (assault and sniper
 1, tank 2). Below half health a bot out of sight for a moment kneels, slings

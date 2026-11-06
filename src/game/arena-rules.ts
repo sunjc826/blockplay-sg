@@ -35,7 +35,7 @@ import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
 import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { fittedVariantSpec } from './armory-state';
-import { BOT_AIM, BOT_HEAL, advanceBotAimFocus, botAimScale, botBurstLimit, botFireCadence, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus } from './arena-bot-combat';
+import { BOT_AIM, BOT_FLINCH, BOT_HEAL, addBotFlinch, advanceBotAimFocus, botAimScale, botBurstLimit, botFireCadence, botFlinchSpread, botFlinchStrength, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus, type BotFlinch } from './arena-bot-combat';
 import { DRONE, DRONE_BLAST, MORTAR, OVERWATCH, RAID, SUPPLY } from './combat-event-catalog';
 import { combatPhase, combatTimeline, getCombatEvent, orbitPose, transportPose, MAX_COMBAT_EVENTS, MAX_TROOPS, type CloudPayload, type CombatEventDescriptor, type CombatOutcome, type CombatPlane, type CratePayload, type MunitionPayload, type OrbitPayload, type TransportPayload } from './combat-events';
 import { createCombatDirector, planTransport, type CombatRisk } from './combat-director';
@@ -371,6 +371,8 @@ interface InternalActor {
   shotFlash?: { at: number; flare: number };
   /** Exposure to the same target life, with short-lived aim memory after losing sight. */
   aimFocus?: BotAimFocus;
+  /** Bots: the last hit's flinch, which throws the aim for a moment (BOT_FLINCH). */
+  flinch?: BotFlinch;
   /** A bot's turn to fire on a player, held while it keeps a shot; see BOT_AIM.shooters. */
   turn?: { target: string; until: number };
   /** A bot's rank this life, and the name it goes by after its rank's title. */
@@ -650,7 +652,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     expirePlayerRentals(entry);
     entry.ammo = entry.weapons.map(hostAmmo);
-    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
+    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; entry.flinch = undefined; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
     // A respawn starts hungry.
     entry.meals = undefined; delete entry.actor.food; delete entry.actor.conditions; delete entry.actor.markedBy;
     entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
@@ -1077,6 +1079,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker) * HEAT_TUNING.contact * Math.min(1, damage / 100));
     }
     if (!killed && victim.actor.bot && attacker !== victim) { victim.lastFight = elapsed; if (damage - blocked > 0) bark(victim, blasted ? 'incoming' : 'hurt'); }
+    // A round or blast throws a bot's aim, plates or not; gas and crashes (piercing) do not.
+    if (!killed && victim.actor.bot && attacker !== victim && !piercing) {
+      const strength = botFlinchStrength(damage, victim.healthMax, blasted);
+      if (strength > 0) { victim.flinch = addBotFlinch(victim.flinch, strength, elapsed); victim.reaction = Math.max(victim.reaction, BOT_FLINCH.delay * strength); }
+    }
     return { hitId: victim.actor.id, killed, damage: damage - blocked };
   }
   function wound(victim: InternalActor, origin: ArenaPoint, ray: ArenaPoint, distance: number, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, calibre = 5.56) {
@@ -3513,7 +3520,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = Math.min(botBurstLimit(role.id, horizontal), low + Math.floor(random() * (high - low + 1))); entry.burstFired = 0; }
       // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.
       const base = (Number.isFinite(intent.spread) ? clamp(intent.spread, 0.005, 0.2) : 0.05) * (entry.rank?.aim ?? 1) * botAimScale(entry.aimFocus?.exposure ?? 0, botTransverseSpeed(direction, aircraft?.velocity ?? enemy?.velocity), stride, horizontal, actor.faction === PLAYER_FACTION ? 'normal' : difficulty());
-      const spread = entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base;
+      const spread = (entry.spec ? botShotSpread(base, entry.spec, entry.burstFired) : base) * botFlinchSpread(entry.flinch, elapsed);
       const chest = { x: line.x + actor.x, y: line.y + actor.y, z: line.z + actor.z };
       const aim = aircraft ? leadPoint(entry, actor, chest, aircraft.velocity) : leadRay(entry, actor, enemy!, chest);
       shoot(actor.id, actor, { x: aim.x + (random() - 0.5) * spread, y: aim.y + (random() - 0.5) * spread, z: aim.z + (random() - 0.5) * spread }, actor.weapon);
@@ -3909,7 +3916,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (m.reportTo === transfer.playerId) m.reportTo = id;
       m.actor.squad = `${v.faction ?? m.actor.faction}-travelling-crew`;
       m.patrol = { x: v.x, z: v.z }; m.patrolTime = 0; m.lastAt = undefined;
-      m.lastHurt += elapsed - transfer.elapsed;
+      m.lastHurt += elapsed - transfer.elapsed; m.flinch = undefined;
       if (m.heal) m.heal.started += elapsed - transfer.elapsed;
       m.vehicleBoardAfter = elapsed + WORLD_VEHICLES.boardCooldown;
       members.set(m.actor.id, m);

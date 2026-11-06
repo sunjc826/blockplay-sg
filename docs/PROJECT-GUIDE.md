@@ -187,6 +187,17 @@ reduce it; reduced motion disables it. It is applied only while drawing the worl
 actual aim, recoil/recovery ratings, shot direction and spread stay unchanged.
 Dry-fire clicks and other soldiers' shots do not trigger it.
 
+**Flinch** (`fps-flinch.ts`). Being shot snaps the view up and away from the
+side the round came from, peaking at 45 ms and settling by 0.4 s, and moves the
+player's real aim with it, which is not handed back. A rifle round of about 20
+damage moves the aim roughly half a degree; half a health bar or any blast
+moves it about 1.2 degrees, most of it upward. Gas, falls and hits under 3
+damage do not flinch. The view part is smaller through a magnified sight and
+off under reduced motion; the aim part is not. Nothing flinches in a vehicle.
+Bots flinch too (`BOT_FLINCH` in `arena-bot-combat.ts`): a hit widens their
+next rounds' spread by up to 3.4x, easing back over 0.45 s, and holds their
+next shot at least 0.12 s, so whoever lands first has the better of a duel.
+
 A separate visual shoulder spring gives the gun and attached hands a sharp
 backward punch, a small forward return overshoot and a faster receiver shudder.
 Weapon weight changes the recovery feel. Stance support scales the impulse;

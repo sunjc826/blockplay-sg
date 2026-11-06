@@ -98,3 +98,40 @@ export function botTransverseSpeed(direction: { x: number; z: number }, velocity
 export function botBurstLimit(role: string, range: number) {
   return range < BOT_AIM.controlledRange ? 12 : role === 'heavy' ? 8 : role === 'tank' ? 4 : 2;
 }
+
+/**
+ * A bot that takes a hit flinches, as the player does (fps-flinch): its next
+ * rounds go wide and its next shot comes a moment late, so winning the first
+ * hit of a duel is worth something against a bot too. The body's flinch is
+ * the character rig's; this is what it does to the aim.
+ */
+export const BOT_FLINCH = {
+  /** Spread multiplier added at full strength, straight after the hit. */
+  spread: 2.4,
+  /** Seconds for the aim to come back. */
+  seconds: .45,
+  /** Seconds the next shot waits at full strength. Floors the wait rather than stacking, so fire never stops. */
+  delay: .12,
+  /** Hits for less than this, before armor, do not flinch (gas, a graze). */
+  minimumDamage: 3,
+} as const;
+
+export interface BotFlinch { at: number; strength: number }
+/** Strength of a hit for `damage` before armor: full at half a health bar, or for any blast. */
+export function botFlinchStrength(damage: number, healthMax: number, blast = false) {
+  if (!Number.isFinite(damage) || damage < BOT_FLINCH.minimumDamage) return 0;
+  return blast ? 1 : Math.max(.2, Math.min(1, damage / Math.max(1, healthMax) * 2));
+}
+/** A new hit refreshes the flinch rather than stacking it. */
+export function addBotFlinch(previous: BotFlinch | undefined, strength: number, now: number): BotFlinch | undefined {
+  if (!(strength > 0)) return previous;
+  return { at: now, strength: Math.max(Math.min(1, strength), botFlinchLeft(previous, now)) };
+}
+/** How much flinch is left `now`, 0 to 1, easing out over BOT_FLINCH.seconds. */
+export function botFlinchLeft(flinch: BotFlinch | undefined, now: number) {
+  if (!flinch) return 0;
+  const t = (now - flinch.at) / BOT_FLINCH.seconds;
+  return t < 0 || t >= 1 ? 0 : flinch.strength * (1 - t) ** 2;
+}
+/** Multiplier on a bot's shot spread while it flinches. */
+export const botFlinchSpread = (flinch: BotFlinch | undefined, now: number) => 1 + BOT_FLINCH.spread * botFlinchLeft(flinch, now);
