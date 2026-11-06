@@ -2913,13 +2913,23 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function newBoatSortie(v:SharedVehicle,pilot:InternalActor,route:BoatRoute,crew:string[]):BoatSortie {
     return{pilot:pilot.actor.id,route,index:0,boarded:false,returning:!route.berth.island,started:elapsed,phaseAt:elapsed,phase:'boarding',progressAt:elapsed,last:{x:v.x,z:v.z,yaw:v.yaw},retryAt:elapsed,crew};
   }
+  // A boat's dry exit depends only on where it lies and the map, not on who asks: every bot
+  // asks every step, so work it out once per boat per step (it tries dozens of deck points).
+  const boatLandings=new Map<SharedVehicle,{tick:number;x:number;z:number;yaw:number;speed:number;despawned:boolean;landing:ReturnType<typeof vehicleExit>}>();
+  function boatLanding(v:SharedVehicle){
+    const speed=vehicleSpeed(v),despawned=!!v.despawned,known=boatLandings.get(v);
+    if(!known||known.tick!==tick||known.x!==v.x||known.z!==v.z||known.yaw!==v.yaw||known.speed!==speed||known.despawned!==despawned)
+      boatLandings.set(v,{tick,x:v.x,z:v.z,yaw:v.yaw,speed,despawned,landing:vehicleExit(v,obstacles,bounds,exitFloor)});
+    const landing=boatLandings.get(v)!.landing;
+    return landing&&{...landing};
+  }
   /** Approach a real dry exit, never the hull's centre across water. Reservations expire without inventing crew. */
   function tryBoardDragonBoat(entry:InternalActor,dt:number) {
     if(!merlion||entry.actor.vehicle||entry.actor.transport||entry.actor.swimming||entry.actor.parachuting||merlion.state.operator===entry.actor.id)return false;
     const boats=vehicles.filter(v=>isDragonBoat(v.kind)&&!v.despawned&&v.health>VEHICLE_COMBAT[v.kind].health*.35&&vehicleSpeed(v)<1&&v.occupants.includes(null))
       .sort((a,b)=>distance(entry.actor,a)-distance(entry.actor,b));
     for(const v of boats){
-      const landing=vehicleExit(v,obstacles,bounds,exitFloor);if(!landing||onMerlionIsland(entry.actor)!==onMerlionIsland(landing)||Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>BOAT_AI.boardRange)continue;
+      const landing=boatLanding(v);if(!landing||onMerlionIsland(entry.actor)!==onMerlionIsland(landing)||Math.hypot(entry.actor.x-landing.x,entry.actor.z-landing.z)>BOAT_AI.boardRange)continue;
       const driver=v.occupants[0]?members.get(v.occupants[0]):undefined,life=lifeOf(v);
       if(v.occupants.some(id=>id&&members.get(id)?.actor.faction!==entry.actor.faction)||life.unload)continue;
       if(driver&&!driver.actor.bot){
