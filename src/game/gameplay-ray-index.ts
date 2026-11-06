@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createSceneRayIndex } from './scene-ray-index';
+import { graphVersion } from './scene-graph-version';
 
 const noRaycast = THREE.Object3D.prototype.raycast;
 
@@ -15,20 +16,39 @@ const noRaycast = THREE.Object3D.prototype.raycast;
  */
 export function createGameplayRayIndex(scene: THREE.Object3D, include: (root: THREE.Object3D) => boolean) {
   const index = createSceneRayIndex();
-  let objects: THREE.Object3D[] = [], next: THREE.Object3D[] = [];
+  let objects: THREE.Object3D[] = [];
   const rootOf = new Map<THREE.Object3D, THREE.Object3D>();
   const filtered: THREE.Object3D[] = [];
-  const collect = (object: THREE.Object3D) => { if (object.raycast !== noRaycast) next.push(object); };
+  /** Each included root's raycastable objects, in traversal order, as of its graph version. */
+  const walked = new Map<THREE.Object3D, { version: number; objects: THREE.Object3D[] }>();
+  let roots: THREE.Object3D[] = [], nextRoots: THREE.Object3D[] = [], refreshes = 0;
+  const sameList = (a: readonly THREE.Object3D[], b: readonly THREE.Object3D[]) => a.length === b.length && a.every((object, i) => object === b[i]);
   return {
     refresh() {
-      next.length = 0;
-      // Same order as three's recursive intersect: a node, then its children.
-      for (const root of scene.children) if (include(root)) root.traverse(collect);
-      const changed = next.length !== objects.length || next.some((object, i) => object !== objects[i]);
-      [objects, next] = [next, objects];
+      // A root is walked again only once something was added or removed beneath it,
+      // and every root every 60 refreshes, for a raycast swapped in after insertion.
+      const sweep = ++refreshes % 60 === 0;
+      let changed = false;
+      nextRoots.length = 0;
+      for (const root of scene.children) {
+        if (!include(root)) continue;
+        nextRoots.push(root);
+        const version = graphVersion(root), known = walked.get(root);
+        if (known && known.version === version && !sweep) continue;
+        const found: THREE.Object3D[] = [];
+        root.traverse(object => { if (object.raycast !== noRaycast) found.push(object); });
+        if (!known || !sameList(found, known.objects)) changed = true;
+        walked.set(root, { version, objects: found });
+      }
+      if (!sameList(nextRoots, roots)) {
+        changed = true;
+        for (const root of walked.keys()) if (!nextRoots.includes(root)) walked.delete(root);
+      }
+      [roots, nextRoots] = [nextRoots, roots];
       if (changed) {
-        rootOf.clear();
-        for (const root of scene.children) if (include(root)) root.traverse(object => { if (object.raycast !== noRaycast) rootOf.set(object, root); });
+        // Same order as three's recursive intersect: a node, then its children.
+        objects = []; rootOf.clear();
+        for (const root of roots) for (const object of walked.get(root)!.objects) { objects.push(object); rootOf.set(object, root); }
         index.setObjects(objects);
       }
       index.refresh();

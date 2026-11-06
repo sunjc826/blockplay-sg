@@ -100,3 +100,29 @@ it('refits many moved entries to the same boxes as refitting each one', async ()
   }
   expect(total).toBeGreaterThan(20);
 });
+
+it('walks a root again only after something beneath it was added or removed, and stays exact', () => {
+  const { scene, scenery, figure } = district(), index = createGameplayRayIndex(scene, include); index.refresh();
+  const walks = vi.spyOn(THREE.Object3D.prototype, 'traverse');
+  // Roots walked: traverse recurses, so its calls on children are left out.
+  const walked = () => (walks.mock.contexts as THREE.Object3D[]).filter(o => o.parent === scene);
+  try {
+    figure.position.x = 2; scene.updateMatrixWorld(true); index.refresh();
+    expect(walks).not.toHaveBeenCalled(); expectSame(scene, index);
+    // Deep inside a nested group: only that root is walked.
+    const wing = scenery.children.find(o => o.children.length)!; wing.children[0].add(box(0, 1, 0));
+    scene.updateMatrixWorld(true); index.refresh();
+    expect(walked()).toEqual([scenery]); expectSame(scene, index);
+    walks.mockClear(); wing.children[0].children[0].removeFromParent(); scene.updateMatrixWorld(true); index.refresh();
+    expect(walked()).toEqual([scenery]); expectSame(scene, index);
+  } finally { walks.mockRestore(); }
+});
+
+it('picks up a raycast given to an object after it was added within 60 refreshes', () => {
+  const { scene, scenery } = district(), index = createGameplayRayIndex(scene, include); index.refresh();
+  const late = box(0, 0, -3, 3); late.raycast = THREE.Object3D.prototype.raycast; scenery.add(late);
+  scene.updateMatrixWorld(true); index.refresh();
+  late.raycast = THREE.Mesh.prototype.raycast;
+  for (let i = 0; i < 60; i++) index.refresh();
+  expectSame(scene, index);
+});

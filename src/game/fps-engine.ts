@@ -3132,11 +3132,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (stop) break;
     }
   }
-  /** Steps every round still in the air and resolves whatever it reaches first. */
-  function advanceRounds(dt: number) {
+  /**
+   * Steps every round still in the air and resolves whatever it reaches first.
+   * `drawn`: called straight after the world was drawn, whose own matrix pass
+   * left every shown object's matrix current, so rounds meet the scene as it is
+   * on screen without paying for a second pass.
+   */
+  function advanceRounds(dt: number, drawn = false) {
     if (!rounds.length) return;
     // Rounds only ever strike visible objects, so hidden ones can keep their matrices.
-    world.scene.updateMatrixWorld();
+    if (!drawn) world.scene.updateMatrixWorld();
     roundIndex.refresh();
     let struck = false;
     for (let i = rounds.length - 1; i >= 0; i--) {
@@ -4239,8 +4244,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hitDirections.advance(realDt);
     hitOverlay.render(viewer(), hitDirections.list, hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false);
     hitTime = Math.max(0, hitTime - dt);
-    advanceRounds(realDt);
-    resolveVehicleDestruction();
+    // Drawn, the rounds fly once the frame is on screen (below); what they strike shows next frame.
+    const roundsAfterDraw = drawWorld;
+    if (!roundsAfterDraw) { advanceRounds(realDt); resolveVehicleDestruction(); }
     floorCheck -= realDt;
     if (floorCheck <= 0 && hud.phase === 'playing' && !vehicles.mounted) {
       floorCheck = .75;
@@ -4395,6 +4401,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
     }));
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
+    if (roundsAfterDraw) { advanceRounds(realDt, true); resolveVehicleDestruction(); }
     if (now - lastReport > 100) { publish(); lastReport = now; }
     endProfiledFrame(renderer);
     frame = requestAnimationFrame(animate);
