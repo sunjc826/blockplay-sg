@@ -1,4 +1,4 @@
-import { RANGE_ARMOR_TIERS, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter, type RangeDamageView } from './range-damage';
+import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter, type RangeDamageView } from './range-damage';
 import { createRangeDamageLabel } from './range-damage-label';
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
@@ -825,8 +825,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     hud.facilityPrompt = canWork && nearby ? `E · ${facilityPrompt(nearby)}` : '';
     hud.rangeDrill = practiceRange ? rangeDirector!.view(hud.elapsed, rangeEndedEarly) : null;
+    // Refresh changing DPS at the HUD cadence, not once per render frame.
+    if (practiceRange) targets.forEach(target => {
+      if (target.root.visible && target.meter.firstHitAt !== null) target.label?.update(target.meter, hud.elapsed);
+    });
     const damagedTarget = lastDamagedTarget === null ? null : targets[lastDamagedTarget];
-    hud.rangeDamage = practiceRange && damagedTarget ? { ...damagedTarget.meter, target: lastDamagedTarget! + 1, tier: damagedTarget.tier.label, health: damagedTarget.health, armor: damagedTarget.armor } : null;
+    hud.rangeDamage = practiceRange && damagedTarget ? { ...damagedTarget.meter, dps: rangeDamageDps(damagedTarget.meter, hud.elapsed), target: lastDamagedTarget! + 1, tier: damagedTarget.tier.label, health: damagedTarget.health, armor: damagedTarget.armor } : null;
     updateRackFocus();
     hud.rangeSupplyPrompt = !focusedRack && canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
     if (rangeTravel) {

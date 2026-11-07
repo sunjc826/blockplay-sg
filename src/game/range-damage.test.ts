@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyArmorDamage } from './armory-state';
 import { getArenaRole } from './arena-roles';
 import { insertTraits } from './armor-inserts';
-import { RANGE_ARMOR_TIERS, createRangeDamageMeter, damageRangeDummy, expireRangeDamage } from './range-damage';
+import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage } from './range-damage';
 
 describe('training dummy damage', () => {
   it('uses current enemy role equipment and the same caliber-aware armor rules', () => {
@@ -56,4 +56,35 @@ describe('training dummy damage', () => {
     const hit = damageRangeDummy(meter, tier, 50, 0, 10, 14, 5.56);
     expect(hit.health).toBe(40); expect(hit.armor).toBe(0); expect(meter.total).toBe(10);
   });
+  it('averages health DPS over time with a stable first second, including simultaneous hits', () => {
+    const meter = createRangeDamageMeter(), tier = RANGE_ARMOR_TIERS[0];
+    expect(rangeDamageDps(meter, 0)).toBe(0);
+    damageRangeDummy(meter, tier, 100, 0, 20, 0);
+    damageRangeDummy(meter, tier, 80, 0, 10, 0);
+    expect(rangeDamageDps(meter, 0)).toBe(30);
+    expect(rangeDamageDps(meter, .5)).toBe(30);
+    damageRangeDummy(meter, tier, 70, 0, 30, 2);
+    expect(meter.firstHitAt).toBe(0);
+    expect(rangeDamageDps(meter, 2)).toBe(30);
+    expect(rangeDamageDps(meter, 4)).toBe(15);
+    // A paused drill supplies the same elapsed time, so DPS stays fixed.
+    expect(rangeDamageDps(meter, 4)).toBe(15);
+  });
+  it('uses actual health loss, keeps each dummy separate and restarts DPS after idle expiry', () => {
+    const a = createRangeDamageMeter(), b = createRangeDamageMeter(), tier = RANGE_ARMOR_TIERS[2];
+    damageRangeDummy(a, tier, 100, 25, 60, 1, 5.56);
+    damageRangeDummy(b, tier, 100, 25, 20, 3, 5.56);
+    expect(rangeDamageDps(a, 3)).toBe(19.5);
+    expect(rangeDamageDps(b, 3)).toBe(13);
+    expect(rangeDamageDps(a, 9)).toBe(0);
+    expect(expireRangeDamage(a, 9)).toBe(true);
+    expect(a.firstHitAt).toBe(null); expect(a.total).toBe(0);
+    expect(rangeDamageDps(b, 9)).toBeCloseTo(13 / 6);
+    damageRangeDummy(a, tier, 10, 0, 100, 10);
+    expect(a.firstHitAt).toBe(10); expect(rangeDamageDps(a, 10)).toBe(10);
+    // A hit can itself expire the old burst before the frame update runs.
+    damageRangeDummy(a, tier, 100, 0, 20, 18);
+    expect(a.firstHitAt).toBe(18); expect(rangeDamageDps(a, 18)).toBe(20);
+  });
+
 });

@@ -377,7 +377,8 @@ a.text-button { text-decoration:none; }
 .range-damage-panel { position: absolute; left: 50%; top: calc(50% - 160px); transform: translateX(-50%); width: 270px; padding: 9px 12px; border: 1px solid #8fc8dd55; border-radius: 8px; background: #101c27e8; color: #e8f4fa; pointer-events: none; text-align: center; font-variant-numeric: tabular-nums; }
 .range-damage-panel > strong { display: block; color: #a9d9ed; font-size: 11px; }
 .range-damage-panel > div { display: flex; justify-content: space-around; gap: 12px; margin: 5px 0; font-size: 12px; }
-.range-damage-panel b { margin-left: 4px; font-size: 22px; }
+.range-damage-panel > div > span { display: flex; flex-direction: column; gap: 2px; }
+.range-damage-panel b { font-size: 22px; }
 .range-damage-panel small { display: block; font-size: 10px; line-height: 1.5; color: #aec3cf; }
 .range-damage-panel ~ .fps-kill-callout { top: calc(50% + 55px); }
 @media (max-height: 500px) {
