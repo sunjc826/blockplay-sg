@@ -23,7 +23,7 @@ window.show=(view='outside',moving=true,reduced=false)=>{
     atmosphere.update(1/60,camera,Date.parse('2026-10-31T05:00:00Z')+(tick++)*17);
   }
   renderer.render(scene,camera);
-  const paint=car.getObjectByName('cab-roof-front').material;
+  let paint;car.traverse(o=>{if(o.isMesh&&o.material.name==='Vehicle paint')paint=o.material;});
   return {view,moving,reduced,sheltered:atmosphere.air.sheltered,counts:atmosphere.root.userData.rain,roughness:paint.roughness,draws:renderer.info.render.calls};
 };
 window.show();window.ready=true;

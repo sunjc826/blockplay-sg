@@ -11,7 +11,8 @@ afterEach(() => vi.unstubAllGlobals());
 const stubCanvas = () => vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
 
 it('keeps the helicopter glare shield in the bottom quarter of the normal forward view', () => {
-  stubCanvas(); const model = buildVehicleModel('helicopter'); model.updateMatrixWorld(true);
+  // Authored-part names/bounds; merged geometry is covered by vehicle-batches parity tests.
+  stubCanvas(); const model = buildVehicleModel('helicopter', 'paint-issued', { batchParts: false }); model.updateMatrixWorld(true);
   const v = createVehicle('helicopter', { x: 0, z: 0, yaw: 0 }); v.y = 0;
   const coaming = model.getObjectByName('dashboard-coaming') as THREE.Mesh;
   coaming.geometry.computeBoundingBox();
@@ -81,7 +82,7 @@ it.each([-.9, .9])('keeps pilot forward tilt free of bank after a %s radian side
 
 it('gives both side seats clear outward views and a solid floor and rear bulkhead inside', () => {
   stubCanvas();
-  const model = buildVehicleModel('helicopter'); model.updateMatrixWorld(true);
+  const model = buildVehicleModel('helicopter', 'paint-issued', { batchParts: false }); model.updateMatrixWorld(true);
   try {
     for (const seat of [2, 3]) {
       const eye = seatLocalPoint('helicopter', seat), from = new THREE.Vector3(eye.x, eye.y, eye.z);
@@ -120,7 +121,7 @@ it('keeps the Humvee driver behind the dashboard and passengers inside the movin
 });
 
 it('gives Humvee occupants a clear windscreen/windows, solid seats/roof and an open gun hatch', () => {
-  stubCanvas(); const model = buildVehicleModel('car'); model.updateMatrixWorld(true);
+  stubCanvas(); const model = buildVehicleModel('car', 'paint-issued', { batchParts: false }); model.updateMatrixWorld(true);
   const cast = (seat: number, direction: THREE.Vector3) => {
     const eye = seatLocalPoint('car', seat);
     return new THREE.Raycaster(new THREE.Vector3(eye.x, eye.y, eye.z), direction, .08, 5).intersectObject(model, true);

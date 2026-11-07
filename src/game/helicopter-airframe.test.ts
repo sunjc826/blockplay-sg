@@ -7,7 +7,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 it('keeps the curved nose and tapered tail closed to exterior rays and ready for vehicle paint/rain', () => {
   vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
-  const model = buildVehicleModel('helicopter', 'paint-jungle'); model.updateMatrixWorld(true);
+  // Inspect authored parts; vehicle-batches tests compare the shipped merged surfaces.
+  const model = buildVehicleModel('helicopter', 'paint-jungle', { batchParts: false }); model.updateMatrixWorld(true);
   try {
     const nose = model.getObjectByName('nose-fairing') as THREE.Mesh;
     for (const x of [-.65, 0, .65]) {

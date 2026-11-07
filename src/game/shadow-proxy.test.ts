@@ -64,7 +64,7 @@ describe('shadow proxies', () => {
   it('gives a vehicle one caster per moving piece instead of one per part', () => {
     vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {}, fillStyle: '' }) }) });
     for (const kind of ['car', 'helicopter'] as const) {
-      const root = buildVehicleModel(kind);
+      const root = buildVehicleModel(kind, 'paint-issued', { batchParts: false });
       let casters = 0, proxies = 0, parts = 0;
       root.traverse(o => {
         if (!(o as THREE.Mesh).isMesh) return;

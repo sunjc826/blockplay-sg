@@ -93,11 +93,12 @@ it('protects the real driver/pilot seats, receives rain on sloped glass, and kee
     if (kind === 'helicopter') {
       const glass = rain.sample(.4, -2, query()); expect(glass.object?.name).toBe('cockpit-glazing'); expect(glass.normal.y).toBeGreaterThan(.1); expect(glass.normal.y).toBeLessThan(.9);
     }
-    const interior = model.getObjectByName(kind === 'car' ? 'cab-seat-back' : 'pilot-seat-back') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+    const seatRay = new THREE.Raycaster(new THREE.Vector3(-.49, kind === 'car' ? 1.72 : 2.08, kind === 'car' ? -.4 : -1), new THREE.Vector3(0, -1, 0));
+    const interior = seatRay.intersectObject(model, true)[0].object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
     const rough = interior.material.roughness;
     for (let n = 0; n < 60; n++) wet.update(.1, 1);
     expect(interior.material.roughness).toBe(rough);
-    const paint = model.getObjectByName(kind === 'car' ? 'cab-roof-front' : 'cabin-roof') as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+    const paint = seat.object as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
     expect(paint.material.roughness).toBeLessThan(.5); wet.dispose(); rain.dispose();
   }
 });

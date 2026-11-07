@@ -8,6 +8,7 @@ import { buildHumveeCabin } from './humvee-cabin';
 import { buildDragonBoatModel } from './dragon-boat-model';
 import { isDragonBoat } from './marina-water';
 import { addShadowProxies } from './shadow-proxy';
+import { batchVehicleParts } from './vehicle-batches';
 
 export function vehiclePaint(id: string) {
   const item = itemById(id), canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -22,7 +23,7 @@ export function vehiclePaint(id: string) {
 export const VEHICLE_MOVING_PARTS: ReadonlySet<string> = new Set(['vehicle-wheel', 'main-rotor', 'tail-rotor', 'vehicle-turret', 'vehicle-muzzle-flash',
   'humvee-steering-wheel', 'humvee-speed-needle', 'humvee-engine-needle']);
 /** Original utility vehicle silhouettes; no copied game logos or liveries. Forward is local -Z. */
-export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
+export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued', options: { batchParts?: boolean } = {}) {
   if (isDragonBoat(kind)) return buildDragonBoatModel(kind === 'dragon-boat-gold');
   const root = new THREE.Group(), paint = vehiclePaint(skin);
   // A running engine reads warm through thermal sights (fps-vision).
@@ -125,6 +126,8 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   tagRainReceivers(root);
   // One sun-shadow caster per rigid piece instead of one per part (about 120 a vehicle).
   addShadowProxies(root, VEHICLE_MOVING_PARTS);
+  // The unbatched option supports authored-part tests and like-for-like benchmarks.
+  if (options.batchParts !== false) batchVehicleParts(root, VEHICLE_MOVING_PARTS);
   root.userData.vehicleKind = kind;
   return root;
 }
