@@ -12,13 +12,13 @@ export default function RouteShift({ route }: { route: Route }) {
   const shown = useRef(route);
   useEffect(() => { shown.current = route; }, [route]);
   useEffect(() => {
-    const onPopState = (event: PopStateEvent) => {
-      // Mobile browsers animate their own swipe back; a second animation would fight it.
-      if ((event as PopStateEvent & { hasUAVisualTransition?: boolean }).hasUAVisualTransition) return;
+    const onPopState = (event: Event) => {
+      // Only accepted history changes arrive here. Preserve native swipe animations.
+      if ((event as CustomEvent<{ nativeTransition: boolean }>).detail?.nativeTransition) return;
       shiftAfterHistory(shown.current);
     };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    window.addEventListener('blockplay:history', onPopState);
+    return () => window.removeEventListener('blockplay:history', onPopState);
   }, []);
   if (!shift) return null;
   return <i key={shift.id} className={`route-shift-line is-${shift.direction}`} aria-hidden="true" />;

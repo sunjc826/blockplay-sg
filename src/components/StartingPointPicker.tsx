@@ -68,6 +68,9 @@ type Props = {
 
 export default function StartingPointPicker({ mode, initial, options, back, onDeploy }: Props) {
   const [selected, setSelected] = useState(initial);
+  const [view, setView] = useState<'map' | 'list'>(() => window.matchMedia('(max-width: 760px)').matches ? 'list' : 'map');
+  const [query, setQuery] = useState('');
+  const matches = options.filter(option => `${option.name} ${option.district}`.toLowerCase().includes(query.toLowerCase().trim()));
   const clip = useId();
   const viewport = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLElement>(null);
@@ -129,11 +132,12 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   return <div className={`game-screen starting-picker${deploying ? ' is-deploying' : ''}`} data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
     <header className="starting-header">{back}<span>{training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> SELECT DISTRICT</span><span className="starting-step">01 — STARTING POINT</span></header>
     <main className="starting-main" ref={main}>
-      <div className="starting-title"><span className="starting-eyebrow">THE ISLAND IS YOURS</span><h1>Where do we start?</h1><p>Pick a region on the map. {training ? 'Set up your range in a familiar neighbourhood.' : 'Choose where your open world journey begins.'}</p></div>
+      <div className="starting-title"><span className="starting-eyebrow">THE ISLAND IS YOURS</span><h1>Where do we start?</h1><p>Choose a district from the map or list. {training ? 'Set up your range in a familiar neighbourhood.' : 'Choose where your open world journey begins.'}</p></div>
       <div className="starting-layout">
         <section className="starting-map" aria-label="Starting district map">
-          <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} DISTRICTS</b></span><span>↑ N</span></div>
-          <div className="starting-map-viewport" ref={viewport}>
+          <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} DISTRICTS</b></span><div className="starting-view" role="group" aria-label="District view"><button aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button><button aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div></div>
+          {view === 'list' && <div className="starting-list"><label>Find a district<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name" /></label><div className="starting-list-items" aria-label="Districts">{matches.map(option => <button key={option.id} aria-pressed={selected === option.id} onClick={() => setSelected(option.id)}><span>{option.name}{option.id === initial && <small>Last selected</small>}</span><small>{training ? option.district : `${getWorldZone(option.id).risk} threat`}</small></button>)}{!matches.length && <p role="status">No districts match. Try another name.</p>}</div></div>}
+          <div className="starting-map-viewport" ref={viewport} hidden={view !== 'map'}>
             <svg viewBox="45 65 940 540" role="group" aria-label="Singapore regions. Choose a district with Enter or Space; use arrow keys to browse.">
               <defs><clipPath id={clip}><path d={COAST} /></clipPath><pattern id={`${clip}-grid`} width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeWidth=".5" /></pattern></defs>
               <rect width="1000" height="620" fill={`url(#${clip}-grid)`} className="starting-grid" />
@@ -165,10 +169,10 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
           <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{place.district}</span><h2>{place.name}</h2><p className="starting-subtitle">{place.subtitle}</p></div>
           <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
           <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>
-          <div className="starting-launch"><p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p><button className="starting-deploy" onClick={deploy}>{training ? 'Start training' : 'Deploy here'}<ArrowRight size={18} /></button></div>
+          <div className="starting-launch"><p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p><button className="starting-deploy" onClick={deploy}>{training ? 'Continue to training' : 'Choose landing zone'}<ArrowRight size={18} /></button></div>
         </aside>
       </div>
-      <footer className="starting-foot"><span><ArrowLeft size={13} /> <ArrowRight size={13} /> Browse regions <kbd>Enter</kbd> Select</span><span>CHOOSE A DISTRICT · THEN DEPLOY</span></footer>
+      <footer className="starting-foot"><span><ArrowLeft size={13} /> <ArrowRight size={13} /> Browse regions <kbd>Enter</kbd> Select</span><span>{training ? 'DISTRICT → RANGE SETUP → START' : 'DISTRICT → LANDING ZONE → DEPLOY'}</span></footer>
     </main>
   </div>;
 }

@@ -1,0 +1,102 @@
+/* Shared navigation sizes and predictable return controls. */
+[hidden]{display:none!important}
+.game-back,.store-nav .game-back,.store-tour-trigger,.play-nav-back,.play-nav-district,.settings-overlay-back{min-height:44px;box-sizing:border-box;font-size:12px}
+.game-back{background:transparent;cursor:pointer;font-family:inherit}
+.store-nav{flex-wrap:wrap;flex-shrink:1;min-width:0;gap:8px}
+.store-nav .context-back>span{display:inline}
+.store-nav .store-settings{width:44px;justify-content:center}
+.context-back{max-width:100%}
+.game-back:focus-visible,.play-nav button:focus-visible{outline:2px solid #e0bb72;outline-offset:3px}
+.game-screen-settings .game-screen-bar{position:sticky;top:0;z-index:10}
+.lobby-navigation{padding:12px 24px;border-bottom:1px solid #ffffff1a}
+.lobby-navigation .game-back{width:fit-content;color:#e9eddf}
+
+/* Account details are secondary to finding equipment. */
+.armory-sticky{position:sticky;top:0;z-index:15;background:#131f1a;box-shadow:0 5px 12px #0003}
+.armory-header{flex-wrap:wrap;padding:10px 16px;gap:10px 16px}
+.armory-header .armory-wallet{margin-left:auto;flex-wrap:wrap;min-width:0}
+.armory-account{position:relative;flex-shrink:0;font-size:12px}
+.armory-account>summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer;color:#cbd5bd;padding:8px;border:1px solid #ffffff25;border-radius:5px}
+.armory-account>summary::after{content:'▾'}
+.armory-account-panel{position:absolute;right:0;top:calc(100% + 6px);width:min(370px,calc(100vw - 40px));padding:16px;background:#192b21;border:1px solid #71866a;border-radius:8px;box-shadow:0 12px 30px #0008;max-height:60dvh;overflow:auto;z-index:2}
+.armory-account-panel .armory-progression{display:flex;flex-wrap:wrap;min-width:0;gap:12px}
+.armory-account-panel .armory-xp{flex:1;min-width:170px}
+.armory-account-panel .armory-xp>small{display:block;white-space:normal;line-height:1.5}
+.armory-demo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.armory-demo-actions .armory-demo{min-height:44px}
+.armory-navigation{padding:0 16px;background:#131f1a}
+.armory-navigation [role=tablist]{overflow-x:auto;gap:20px;scrollbar-width:thin}
+.armory-navigation button{min-height:44px;padding:12px 2px;flex-shrink:0;font-size:13px}
+.armory-loadout-toggle{margin:16px;border:1px solid #ffffff25;border-radius:6px;color:#dce4df;scroll-margin-top:140px}
+.armory-loadout-toggle>summary{padding:12px 14px;min-height:48px;font-size:13px;cursor:pointer;line-height:1.6}
+.armory-loadout-toggle>summary>span{font-size:11px;color:#aebfa7;margin-left:12px}
+.armory-loadout-toggle .armory-carry{margin:0;border:0}
+.shop:not(.is-inspecting) .armory-body{grid-template-columns:minmax(0,1fr)}
+.shop:not(.is-inspecting) .armory-showcase,.shop:not(.is-inspecting) .armory-details,.shop:not(.is-inspecting) .armory-inspect-back{display:none}
+.shop .armory-main{min-width:0}
+.shop:not(.is-inspecting) .armory-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.armory-inspect-back{min-height:44px;margin:0 0 10px;padding:8px 14px;border:1px solid #b8c9a666;border-radius:5px;background:#203a2a;color:#edf0e5;font-size:13px}
+.armory-showcase,.armory-details,.armory-item{scroll-margin-top:165px}
+.armory-family{gap:3px}
+.armory-family button{min-height:44px;padding:8px 12px;font-size:12px}
+.armory-dock-item>button,.armory-deploy>button{min-height:44px}
+.inventory-header{position:sticky;top:0;z-index:15;background:#18271e;gap:12px;flex-wrap:wrap}
+.inventory-navigation{overflow-x:auto;scrollbar-width:thin}
+.inventory-clock{font-size:12px}
+@media(max-width:1100px){
+ .armory-header .store-nav{flex-basis:100%}
+ .armory-header .armory-wallet{margin-left:0}
+ .armory-account{margin-left:auto}
+ .armory-showcase,.armory-details,.armory-item{scroll-margin-top:205px}
+}
+@media(max-width:700px){
+ .armory-header{padding:8px 12px;gap:6px 10px}
+ .store-nav{gap:6px}
+ .store-nav h1{font-size:16px}
+ .store-nav .game-back{padding:7px 9px}
+ .armory-account>summary{font-size:11px}
+ .armory-header .armory-wallet{gap:8px}
+ .armory-loadout-toggle{margin:12px}
+ .armory-loadout-toggle>summary>span{display:block;margin:4px 0 0 16px}
+ .shop:not(.is-inspecting) .armory-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .shop .armory-body{padding:12px;gap:12px}
+ .shop .armory-item{padding:10px;min-width:0}
+ .shop .armory-item-top,.shop .armory-item-bottom{flex-wrap:wrap;gap:6px}
+ .shop .armory-item-preview{height:90px;object-fit:contain}
+ .shop.is-inspecting .armory-grid{display:none}
+ .shop .armory-section-heading{flex-wrap:wrap;gap:8px}
+ .shop .armory-family{width:100%;flex-wrap:nowrap;overflow-x:auto}
+ .shop .armory-family button{flex-shrink:0}
+ .inventory-header{padding:10px 12px;flex-direction:row}
+ .inventory-header>div{display:none}
+ .armory-preview{height:210px}
+}
+@media(max-height:480px) and (orientation:landscape){
+ .armory-header{padding:6px 12px;gap:6px}
+ .armory-header .store-nav{flex-basis:auto;flex:1}
+ .armory-dock>div[role=status]{display:none}
+ .armory-dock{padding:8px 12px;gap:8px}
+ .armory-showcase,.armory-details,.armory-item{scroll-margin-top:112px}
+}
+/* A pause screen leads with continuation; setup stays on the start screen. */
+.is-paused-menu .pause-resume{margin:0 0 20px;width:100%}
+.is-paused-menu>.eyebrow,.is-paused-menu>.fps-armor-note{display:none}
+.game-screen-training .is-paused-menu>p:not([role=alert]){display:none}
+.is-paused-menu .play-nav{margin-bottom:12px}
+.is-paused-menu h2{font-size:22px}
+.game-menu-welcome:empty{display:none}
+.game-menu-welcome a{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border-radius:6px;border:1px solid #e0bb7266;color:#eee2be;background:#263727;text-decoration:none;font-size:13px}
+.game-menu-welcome a svg:last-child{margin-left:auto}
+.game-menu-welcome a:focus-visible{outline:2px solid #e0bb72;outline-offset:3px}
+.game-install-card{border-color:#ffffff25;background:#15231cb3}
+.game-install-go{background:#304637;color:#e4eadb;border:1px solid #80966a}
+@media(max-height:600px){.game-menu-welcome a{min-height:36px;font-size:12px;padding:5px 10px}.game-menu-title{margin:0}.game-menu-main{gap:12px}.game-menu-list{gap:6px}.game-install-card{padding-top:6px;padding-bottom:6px}}
+main[tabindex="-1"]:focus,h1[tabindex="-1"]:focus,h2[tabindex="-1"]:focus{outline:none}
+.shop.is-touring .armory-sticky{position:relative}
+.shop.is-touring .armory-grid{display:grid}
+@media(max-height:480px) and (orientation:landscape){.shop .armory-body{padding-top:8px}.shop .armory-section-heading{margin-bottom:8px}.armory-loadout-toggle{margin:8px 12px}.armory-loadout-toggle>summary{padding:8px 12px;min-height:44px}}
+.tutorial-card.is-paused-menu{display:flex;flex-direction:column;align-items:stretch}.tutorial-card.is-paused-menu>.primary-button{order:-1;margin:0 0 16px}.tutorial-card.is-paused-menu>.tutorial-eyebrow,.tutorial-card.is-paused-menu>small{display:none}
+
+@media(max-height:480px) and (orientation:landscape){.armory-header .store-nav{gap:6px}.armory-header .game-back{padding:6px 8px}.armory-account>summary{font-size:11px;padding:6px}.armory-header .armory-wallet{gap:6px}}
+.armory-navigation{display:flex;align-items:center;gap:8px}.armory-navigation>[role=tablist]{flex:1;min-width:0}.armory-navigation>.armory-inspect-back{flex-shrink:0;margin:0;padding:8px 10px}
+@media(max-width:360px){.game-menu-item.is-tile{padding-left:4px;padding-right:4px}.game-menu-item.is-tile .game-menu-copy strong{font-size:12px}}

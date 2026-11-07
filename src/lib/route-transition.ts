@@ -1,3 +1,4 @@
+import { requestLeave } from './navigation-guard';
 import { useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { navigate, routeFromPath, type Route } from './routes';
@@ -38,24 +39,21 @@ export function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
 
-// A tall screen leaves the page scrolled; the next starts at its top.
-const toTop = () => window.scrollTo(0, 0);
-
 function settle(id: number) {
   window.setTimeout(() => { if (current?.id === id) set(null); }, ENTER_MS);
 }
 
 /** Goes to a route with a shift; returns false if the screen is already on its way out. */
-export function transitionTo(route: Route) {
+export function transitionTo(route: Route, approved = false): boolean {
   if (current?.phase === 'leaving') return false;
-  if (reducedMotion()) { navigate(route); toTop(); return true; }
+  if (!approved) return requestLeave(() => { transitionTo(route, true); });
+  if (reducedMotion()) { navigate(route, true); return true; }
   const id = ++serial, direction = directionBetween(routeFromPath(window.location.pathname), route);
   set({ id, phase: 'leaving', direction });
   window.setTimeout(() => {
     if (current?.id !== id) return;
     // Committed before the browser paints again, so the old screen never shows the new one's entrance.
-    flushSync(() => { set({ id, phase: 'entering', direction }); navigate(route); });
-    toTop();
+    flushSync(() => { set({ id, phase: 'entering', direction }); navigate(route, true); });
     settle(id);
   }, LEAVE_MS);
   return true;

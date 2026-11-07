@@ -1,3 +1,4 @@
+import { requestLeave } from '../lib/navigation-guard';
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
@@ -18,7 +19,7 @@ import { rankInsignia } from '../game/rank-insignia';
 import { REGIONS } from '../game/regions';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
-import { navigate, ROUTE_PATHS, type Route } from '../lib/routes';
+import { navigate, ROUTE_PATHS, getBackRoute, goBack, routeLabel, type Route } from '../lib/routes';
 import { transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa, type PwaState } from '../lib/pwa';
@@ -73,31 +74,23 @@ function link(route: Route, plain = false) {
 /**
  * The way out and the district choice for a play screen. It sits at the top of
  * the game's own start and pause card, so the game can have the whole screen.
- * Both end the run, so each asks first: Quit is a button, never a back link.
+ * The active engine guards both exits once a run has meaningful progress.
  */
 function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void }) {
-  const [asking, setAsking] = useState<'quit' | 'district' | null>(null);
-  useEffect(() => {
-    if (!asking) return;
-    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setAsking(null); };
-    window.addEventListener('keydown', cancel);
-    return () => window.removeEventListener('keydown', cancel);
-  }, [asking]);
-  if (asking) {
-    const quit = asking === 'quit';
-    return <nav className="play-nav play-nav-asking" aria-label="Game">
-      <div className="play-nav-question" role="alertdialog" aria-labelledby="play-nav-question" aria-describedby="play-nav-detail">
-        <strong id="play-nav-question">{quit ? 'Quit to the main menu?' : 'Change starting district?'}</strong>
-        <small id="play-nav-detail">{quit ? 'This ends the current run.' : 'This ends the current run and returns to the district map.'}</small>
-      </div>
-      <button type="button" className="play-nav-keep" autoFocus onClick={() => setAsking(null)}>Keep playing</button>
-      <button type="button" className="play-nav-confirm" onClick={() => { setAsking(null); if (quit) transitionTo('menu'); else onChoose(); }}>{quit ? <><LogOut size={15} /> Quit</> : 'Change district'}</button>
-    </nav>;
-  }
   return <nav className="play-nav" aria-label="Game">
-    <button type="button" className="play-nav-back" onClick={() => setAsking('quit')}><LogOut size={15} /><span>Quit</span></button>
-    <button type="button" className="play-nav-district" onClick={() => setAsking('district')} aria-label="Change starting district"><MapPin size={14} aria-hidden="true" /><span>{locationName(value)}</span><MapIcon size={14} aria-hidden="true" /></button>
+    <button type="button" className="play-nav-back" onClick={() => transitionTo('menu')}><LogOut size={15} /><span>Quit to main menu</span></button>
+    <button type="button" className="play-nav-district" onClick={() => requestLeave(onChoose)} aria-label={`Back to districts. Current district: ${locationName(value)}`}><MapPin size={14} aria-hidden="true" /><span>Districts</span><MapIcon size={14} aria-hidden="true" /></button>
   </nav>;
+}
+
+function ReturnLink() {
+  const destination = getBackRoute();
+  // A finished game cannot be resumed by returning to its URL.
+  const game = ['training', 'world', 'tutorial', 'multiplayer'].includes(destination);
+  return <a className="game-back context-back" href={ROUTE_PATHS[game ? 'menu' : destination]} onClick={event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault(); if (game) transitionTo('menu'); else goBack();
+  }}><ArrowLeft size={16} /><span>{game || destination === 'menu' ? 'Main menu' : `Back to ${routeLabel(destination)}`}</span></a>;
 }
 
 /** A fresh route visit always starts at the map, including direct URLs and Store. */
@@ -107,7 +100,7 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
   useEffect(() => () => setMusicCue(null), []);
-  const back = <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>;
+  const back = <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Main menu</span></a>;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
@@ -115,7 +108,7 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
       <PlayLoading mode={mode} district={locationName(start)} back={back}>
         {(onLoaded, loadScreen) => mode === 'training'
           ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store')} />
-          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu')} />}
+          : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu')} onBackToDistricts={() => setStart(null)} />}
       </PlayLoading>
     </DebugMode.Provider></main>
   </div>;
@@ -125,6 +118,18 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const armory = useArmory();
   const [storeTour, setStoreTour] = useState(false);
   const install = usePwa();
+  useEffect(() => {
+    if (!['store', 'inventory', 'settings'].includes(screen)) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || (event.target instanceof Element && event.target.matches('input, select, textarea'))) return;
+      const open = document.querySelector<HTMLDetailsElement>('details[open]');
+      event.preventDefault();
+      if (open) { open.open = false; open.querySelector('summary')?.focus(); return; }
+      if (['training', 'world', 'tutorial', 'multiplayer'].includes(getBackRoute())) transitionTo('menu'); else goBack();
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [screen]);
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
   const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
@@ -142,7 +147,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => { setStoreTour(true); transitionTo('store'); }} /></main></div></SettingsStoreContext.Provider>;
+  if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => requestLeave(() => { setStoreTour(true); transitionTo('store', true); })} /></main></div></SettingsStoreContext.Provider>;
 
   if (screen === 'multiplayer') return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}><MultiplayerGame armory={armory} suspended={install.updateReady} /></div></SettingsStoreContext.Provider>;
 
@@ -155,10 +160,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
-          <a className="game-back" {...link('menu')} aria-label="Menu"><ArrowLeft size={16} /><span>Menu</span></a>
+          <ReturnLink />
           <h1>Store</h1>
           <a className="game-back" {...link('inventory')}>Inventory</a>
-          <button className="store-tour-trigger" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour store</button>
+          <button className="store-tour-trigger" aria-label="Tour store" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour</button>
           <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} deployments={[
           { id: 'training', label: 'Training', detail: 'Choose starting point', onDeploy: () => transitionTo('training') },
@@ -168,12 +173,12 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </div>;
   }
 
-  if (screen === 'inventory') return <div {...plainScreenSounds} className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><a className="game-back" {...link('menu')}><ArrowLeft size={16} /> Menu</a><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
+  if (screen === 'inventory') return <div {...plainScreenSounds} className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><ReturnLink /><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
 
   if (screen === 'settings') {
     return <div {...plainScreenSounds} className="game-screen game-screen-settings">
       <header className="game-screen-bar">
-        <a className="game-back" {...link('menu')}><ArrowLeft size={16} /><span>Menu</span></a>
+        <ReturnLink />
         <h1>Settings</h1>
         {profile}
       </header>
@@ -236,6 +241,7 @@ const TITLE_LEAVE_MS = 900;
 
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
   const [installHidden, hideInstall] = useInstallCard();
+  const [newPlayer] = useState(() => { try { return localStorage.getItem('blockplay.tutorial-complete') !== '1'; } catch { return true; } });
   const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -355,6 +361,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     <main className="game-menu-main">
       <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
       <nav className="game-menu-list" aria-label="Main menu">
+        <div className="game-menu-welcome">{newPlayer && <a {...link('tutorial')}><GraduationCap size={18} /> New here? Start tutorial <ChevronRight size={16} /></a>}</div>
         <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
         <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
         {installable && !installHidden && <InstallCard install={install} onHide={hideInstall} sounds={{ onPointerEnter: hover, onFocus: focus }} />}

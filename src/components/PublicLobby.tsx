@@ -1,3 +1,4 @@
+import { requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Copy, LoaderCircle, LockKeyhole, RefreshCw, Share2, Users } from 'lucide-react';
 import { createPublicRoom, joinPublicRoom, listPublicRooms, ROOM_BUILD, type PublicRoom } from '../game/room-peer';
@@ -15,6 +16,7 @@ export default function PublicLobby({ onLaunch, onBack }: { onLaunch: (session: 
   const [bots, setBots] = useState(3), [squad, setSquad] = useState<Squad>('mixed');
   const [session, setSession] = useState<LanSession | null>(null), [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
   const [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  useNavigationGuard(!!session, { title: 'Leave this room?', detail: session?.role === 'host' ? 'You are hosting. Leaving closes this room for everyone.' : 'You will disconnect from this room. You can rejoin with its code while it remains open.' });
   const owned = useRef<LanSession | null>(null), controller = useRef<AbortController | null>(null), alive = useRef(true), refreshId = useRef(0);
   const refresh = async () => {
     const id = ++refreshId.current;
@@ -60,6 +62,7 @@ export default function PublicLobby({ onLaunch, onBack }: { onLaunch: (session: 
     <div className="lan-squad-control"><label htmlFor="public-squad">Bot squad</label><select id="public-squad" value={squad} onChange={event => setSquad(event.target.value as Squad)} disabled={!bots}><option value="mixed">Mixed squad</option><option value="assault">Assault squad</option><option value="tank">Tank squad</option><option value="heavy">Heavy MG squad</option><option value="sniper">Sniper squad</option></select></div>
   </details>;
   return <section className={`lan-lobby public-lobby ${session ? 'has-room' : ''}`} aria-label="Public multiplayer lobby">
+    <nav className="lobby-navigation" aria-label="Multiplayer"><button className="game-back" onClick={onBack}><ArrowLeft size={16} /> Main menu</button></nav>
     <header className="lan-header"><div><span className="lan-kicker">BLOCKPLAY</span><h2>{session ? 'Your room is ready.' : 'Multiplayer'}</h2><p>Marina Bay <span>·</span> Free for all <span>·</span> Up to 4 players</p></div><span className="lan-network-badge"><span className="status-dot" /> Online</span></header>
     <div className="lan-layout"><main className="lan-main">
       {!session && <div className="lan-mode-picker" aria-label="Room options">{(['browse', 'create', 'join'] as const).map(option => <button key={option} disabled={busy} aria-pressed={mode === option} onClick={() => choose(option)}><strong>{option === 'browse' ? 'Browse rooms' : option === 'create' ? 'Create room' : 'Join by code'}</strong></button>)}</div>}
@@ -90,9 +93,9 @@ export default function PublicLobby({ onLaunch, onBack }: { onLaunch: (session: 
           {session.role === 'host' && matchSettings}
         </>}
         {error && <p className="lan-error" role="alert">{error}</p>}{notice && <p className="lan-notice" role="status">{notice}</p>}
-        <div className="public-actions">{session ? <><button className="lan-deploy" disabled={!connected} onClick={launch}>Enter multiplayer match <ArrowRight size={18} /></button>{!connected && <p className="lan-error" role="status">Room closed. Leave this room and reconnect.</p>}<button className="lan-cancel" onClick={disconnect}>Leave room</button></> : <><button className="lan-deploy" disabled={busy || !name.trim() || !HAS_PUBLIC_ROOMS || (mode === 'join' && !/^[A-F0-9]{6}$/.test(code))} onClick={() => void connect()}>{busy ? <><LoaderCircle size={18} className="lan-spinner" /> Connecting…</> : <>{mode === 'create' ? 'Create public room' : 'Join room'} <ArrowRight size={18} /></>}</button>{busy && <button className="lan-cancel" onClick={disconnect}>Cancel connection</button>}</>}</div>
+        <div className="public-actions">{session ? <><button className="lan-deploy" disabled={!connected} onClick={launch}>Enter multiplayer match <ArrowRight size={18} /></button>{!connected && <p className="lan-error" role="status">Room closed. Leave this room and reconnect.</p>}<button className="lan-cancel" onClick={() => requestLeave(disconnect)}>Leave room</button></> : <><button className="lan-deploy" disabled={busy || !name.trim() || !HAS_PUBLIC_ROOMS || (mode === 'join' && !/^[A-F0-9]{6}$/.test(code))} onClick={() => void connect()}>{busy ? <><LoaderCircle size={18} className="lan-spinner" /> Connecting…</> : <>{mode === 'create' ? 'Create public room' : 'Join room'} <ArrowRight size={18} /></>}</button>{busy && <button className="lan-cancel" onClick={disconnect}>Cancel connection</button>}</>}</div>
       </>}
     </main>{session && <aside className="lan-sidebar"><div className="lan-roster"><div className="lan-roster-heading"><h3>Players <span>{1 + peers.length}/4</span></h3><Users size={18} /></div><ul><li><span className="public-player-avatar">{name.slice(0, 1).toUpperCase()}</span><div><strong>{name} <small>YOU</small></strong><span>{session.role === 'host' ? 'Host' : 'Ready to play'}</span></div><Check size={17} /></li>{peers.map(peer => <li key={peer.id}><span className="public-player-avatar">{peer.name.slice(0, 1).toUpperCase()}</span><div><strong>{peer.name}</strong><span>Ready to play</span></div><Check size={17} /></li>)}</ul>{!peers.length && <p>Waiting for friends. You can start now; they can join during the match.</p>}</div></aside>}</div>
-    <footer className="lan-footer"><button onClick={() => { disconnect(); onBack(); }}><ArrowLeft size={16} /> Back to menu</button><details className="public-room-help"><summary>How rooms work</summary><p>The host runs the match. Switching apps holds your room for up to five minutes; return to reconnect. Share room passwords separately from invite links.</p></details></footer>
+    <footer className="lan-footer"><details className="public-room-help"><summary>How rooms work</summary><p>The host runs the match. Switching apps holds your room for up to five minutes; return to reconnect. Share room passwords separately from invite links.</p></details></footer>
   </section>;
 }

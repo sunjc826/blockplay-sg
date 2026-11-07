@@ -1,3 +1,4 @@
+import { confirmAction, useNavigationGuard } from '../lib/navigation-guard';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Menu, Play, RotateCcw } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine, type FpsHud } from '../game/fps-engine';
@@ -35,6 +36,8 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const complete = step >= COURSE_STEPS.length, lesson = COURSE_STEPS[step];
   const playing = hud.phase === 'playing';
+  useNavigationGuard(!complete && (playing || hud.phase === 'paused'), { title: 'Leave this lesson?', detail: 'Your course progress will reset. Credits and equipment stay saved.', onRequest: () => engine.current?.pause() });
+  useEffect(() => { if (complete) { try { localStorage.setItem('blockplay.tutorial-complete', '1'); } catch { /* private browsing */ } } }, [complete]);
   useEffect(() => { if (complete) engine.current?.pause(); }, [complete]);
   const skip = () => { progress.current = { ...progress.current, step: step + 1, weapon: hud.weapon }; setStep(step + 1); engine.current?.setTutorialStep(step + 1, true); };
   const restart = () => setEpoch(n => n + 1);
@@ -59,8 +62,8 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         {lesson.id === 'map' && <button className="tutorial-map" aria-pressed={hud.mapExpanded} onClick={() => engine.current?.toggleMap()}>Map <kbd>M</kbd></button>}
         {touch && <TouchControls hud={hud} engine={engine.current} mode="range" onMenu={() => engine.current?.pause()} />}
       </>}
-      {(!playing || complete) && <div className="fps-overlay"><div className="fps-start-card tutorial-card">
-        <button className="tutorial-back" onClick={() => transitionTo('menu')}><ArrowLeft size={15} /> Menu</button>
+      {(!playing || complete) && <div className="fps-overlay"><div className={`fps-start-card tutorial-card${hud.phase === 'paused' ? ' is-paused-menu' : ''}`}>
+        <button className="tutorial-back" onClick={() => transitionTo('menu')}><ArrowLeft size={15} /> Main menu</button>
         <span className="tutorial-eyebrow">RECRUIT / FIELD SCHOOL</span>
         <h2>{complete ? 'Ready for your first deployment.' : hud.phase === 'loading' ? 'Setting up the yard…' : hud.phase === 'error' ? 'Course unavailable.' : hud.phase === 'paused' ? 'Take your time.' : 'Learn by doing.'}</h2>
         <p>{complete ? 'You’ve reached the end of the control lessons. Next, find your way around the store and prepare a loadout.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? `Next: ${lesson.title}. Your progress is saved while this course stays open.` : 'A short obstacle course, then a guided visit to the store. Move, sprint, jump, crouch and practise with your weapon at your own pace.'}</p>
@@ -70,7 +73,7 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         {complete ? <button className="primary-button" onClick={toStore}>Tour the store <ArrowRight size={17} /></button> : <button className="primary-button" disabled={hud.phase === 'loading' || suspended} onClick={hud.phase === 'error' ? restart : begin}><Play size={16} /> {hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry course' : hud.phase === 'paused' ? 'Resume course' : 'Start course'} <ArrowRight size={17} /></button>}
         {hud.phase === 'paused' && !complete && <button className="tutorial-secondary" onClick={skip}>Skip this lesson <ArrowRight size={14} /></button>}
         <button className="tutorial-secondary" onClick={toStore}>{complete ? <Check size={14} /> : null} {complete ? 'Continue to equipment' : 'Go straight to the store tour'}</button>
-        {(hud.phase === 'paused' || complete) && <button className="tutorial-secondary" onClick={restart}><RotateCcw size={14} /> Restart course</button>}
+        {(hud.phase === 'paused' || complete) && <button className="tutorial-secondary" onClick={() => confirmAction({ title: 'Restart the course?', detail: 'You will return to the first lesson. Credits and equipment stay saved.', confirmLabel: 'Restart course', action: restart })}><RotateCcw size={14} /> Restart course</button>}
         <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />
       </div></div>}
     </div>

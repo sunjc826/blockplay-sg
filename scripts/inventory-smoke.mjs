@@ -28,7 +28,7 @@ const wallet = `JSON.parse(localStorage.getItem('blockplay.armory.v1'))`;
 const action = `document.querySelector('[data-testid="shop-action"]')`;
 const results=[];
 try {
- await send('Runtime.enable');await send('Network.enable');await send('Page.enable');
+ await send('Runtime.enable');await send('Network.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
  await wait(`!!document.querySelector('.inventory')`);
  // A legacy save contains a permanent rifle, unrelated owned gear, supplies and an old calendar rental.
@@ -51,6 +51,7 @@ try {
  assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));await screenshot('inventory-mobile');
  results.push('Inventory weapons/gear/supplies tabs, equip action and 390px layout pass');
  await click(`document.querySelector('.inventory-header a[href="/store"]')`);await wait(`!!${action}`);
+ await click(`document.querySelector('[data-item="sar-vanguard"]')`);
  assert.equal(await evaluate(`!!document.querySelector('[data-rental-term="permanent"]')`),false);
  const term=id=>`document.querySelector('[data-rental-term="${id}"]')`;
  assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-rental-term]')].map(e=>e.dataset.rentalTerm)`),['1h','2h','4h']);
@@ -93,6 +94,7 @@ try {
    await screenshot(`rental-${category}-${item}`);
    await click(discard);await click(confirm);await wait(`!${wallet}.rentals['${item}']`);
  }
+ await click(`document.querySelector('.armory-loadout-toggle>summary')`);
  const extra=`document.querySelector('.armory-carry button')`;
  await click(extra);await wait(`${wallet}.rentals['slot-extra']===3600000`);
  assert.equal(await evaluate(`${wallet}.owned.includes('slot-extra')`),false);
