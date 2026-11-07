@@ -1,7 +1,8 @@
 # Physical structures and expedition adapter
 
 The physical layer is independent of facility rules. Expedition is its first
-production consumer; no additional game mode or mode selector is introduced.
+production consumer. [Team Deathmatch](TEAM-DEATHMATCH.md) now uses a separate
+terrain/match adapter without expedition structures or facilities.
 
 ## Responsibilities
 

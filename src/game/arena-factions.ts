@@ -75,10 +75,11 @@ export type SquadFaction = typeof SQUAD_FACTIONS[number];
 /** An explicit faction wins; otherwise players are the forces and bots the default. */
 export const factionIdOf = (actor: { bot: boolean; faction?: string }) => actor.faction ?? (actor.bot ? DEFAULT_BOT_FACTION : PLAYER_FACTION);
 const sideOf = (actor: { bot: boolean; faction?: string }) => getArenaFaction(factionIdOf(actor))?.side ?? (actor.bot ? 'opposition' : 'forces');
-export interface FactionActor { id?: string; bot: boolean; faction?: string; proxyTargets?: readonly string[] }
+export interface FactionActor { team?: import("./arena-match").ArenaTeam; id?: string; bot: boolean; faction?: string; proxyTargets?: readonly string[] }
 export const isProxyFaction = (id: string | undefined) => id === 'freedom-force' || id === 'collective-cops';
 /** Proxy hostility is symmetric, personal and bounded by the current operation. */
 export function hostile(a: FactionActor, b: FactionActor) {
+  if (a.team && b.team) return a.team !== b.team;
   if (isProxyFaction(a.faction) || isProxyFaction(b.faction)) {
     if (a.faction === b.faction) return false;
     return !!(b.id && a.proxyTargets?.includes(b.id) || a.id && b.proxyTargets?.includes(a.id));

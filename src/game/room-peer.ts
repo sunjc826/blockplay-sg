@@ -1,3 +1,4 @@
+import { DEFAULT_ARENA_MATCH, type ArenaMatch } from './arena-match';
 import { cleanLanName, cleanRoomCode, type LanPeer, type LanSession } from './lan-peer';
 
 export interface PublicRoom {
@@ -138,8 +139,8 @@ export function connectRoom(ticket: Ticket, name: string, signal?: AbortSignal):
     open();
   });
 }
-export async function createPublicRoom(name: string, title: string, password = '', signal?: AbortSignal) {
-  const ticket = await roomApi<Ticket>('', { name: cleanLanName(name), title, password, protocol: PROTOCOL, build: ROOM_BUILD });
+export async function createPublicRoom(name: string, title: string, password = '', signal?: AbortSignal, match: ArenaMatch = DEFAULT_ARENA_MATCH) {
+  const ticket = await roomApi<Ticket>('', { name: cleanLanName(name), title, password, match, protocol: PROTOCOL, build: ROOM_BUILD });
   return { session: await connectRoom(ticket, name, signal), roomCode: ticket.code };
 }
 export async function joinPublicRoom(name: string, code: string, password = '', signal?: AbortSignal) {

@@ -1,3 +1,4 @@
+import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
 import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
 import { refillAmmo } from './ammo-refill';
 import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
@@ -69,6 +70,7 @@ import { DEFAULT_RESPAWN_ZONE, type PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
+  team?: ArenaTeam;
   /** Host-carried passenger in an authored building lift. */
   lift?: string;
   /** Match time of a surviving moving bailout, for a synchronized landing roll. */
@@ -158,6 +160,7 @@ export interface ArenaBark {
 /** Barks a snapshot carries; screens keep the ones they have not shown yet. */
 export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
+  teamDeathmatch?: { area: string; scores: Record<ArenaTeam, number> };
   merlion?: MerlionState;
   proxies?: ProxySnapshot;
   facilities?: FacilitySnapshot;
@@ -193,6 +196,7 @@ export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number; /** The round went through the head, for the shooter's hit sound. */ headshot?: boolean }
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
+  teamDeathmatch?: TeamDeathmatchArea;
   /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
   proxies?: ProxyCampaign;
   battlefield?: { size: BattlefieldSize };
@@ -468,6 +472,9 @@ export function arenaNavigationAnchors(obstacles: readonly Obstacle[], environme
 export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance, difficulty: () => BotDifficulty = () => environment?.botDifficulty?.() ?? 'normal') {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
+  const tdm = environment?.teamDeathmatch;
+  const teamScores: Record<ArenaTeam, number> = {alpha:0,bravo:0};
+  const duration = tdm ? TDM_RULES.duration : ARENA_DURATION;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
   const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
   const traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
@@ -615,6 +622,19 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const safety = (p: { x: number; z: number }) => Math.min(1000, ...others.map(m => Math.hypot(m.actor.x - p.x, m.actor.z - p.z)));
       return safety(b) - safety(a);
     });
+    if (tdm && entry.actor.team) {
+      const enemies=others.filter(m=>hostile(entry.actor,m.actor));
+      const candidates=(entry.actor.deaths===0 && elapsed===0 ? tdm.spawns[entry.actor.team] : validSpawns).filter(p=>clearSpawn(p) && others.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>2) && enemies.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>12));
+      const score=(p:{x:number;z:number})=> {
+        const origin={...p,y:patrolGround(p.x,p.z)+1.75};
+        const nearest=Math.min(120,...enemies.map(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)));
+        const exposed=enemies.filter(m=>{const d=Math.hypot(m.actor.x-p.x,m.actor.y-origin.y,m.actor.z-p.z);return worldWallDistance(origin,{x:(m.actor.x-p.x)/d,y:(m.actor.y-origin.y)/d,z:(m.actor.z-p.z)/d},d)>=d-.5;}).length;
+        return nearest-exposed*80;
+      };
+      candidates.sort((a,b)=>score(b)-score(a));
+      if (!candidates.length) { entry.actor.alive=false; entry.actor.health=0; entry.actor.respawnIn=.5; return; }
+      destination={...candidates[0],y:patrolGround(candidates[0].x,candidates[0].z),yaw:Math.atan2(candidates[0].x-(bounds.minX+bounds.maxX)/2,candidates[0].z-(bounds.minZ+bounds.maxZ)/2)};
+    }
     const preferred = entry.usePlayerSpawn && environment?.playerSpawn && clearSpawn(environment.playerSpawn) ? environment.playerSpawn : undefined;
     const post = facilities?.sites.find(s => s.kind === 'command' && facilityOperational(s, entry.actor.faction));
     const postPoints = post ? deploymentPoints(post) : [];
@@ -631,7 +651,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     delete entry.actor.bailoutAt;
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
-    if (entry.role && entry.actor.faction === PLAYER_FACTION) {
+    if (entry.role && entry.actor.faction === PLAYER_FACTION && !tdm) {
       // Heavy gunners carry the issued FN MAG; other support troops use the Ultimax.
       entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant;
       entry.spec = entry.role.id === 'heavy' ? FPS_WEAPONS[entry.actor.weapon] : undefined;
@@ -652,11 +672,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     expirePlayerRentals(entry);
     entry.ammo = entry.weapons.map(hostAmmo);
-    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; entry.flinch = undefined; delete entry.actor.healing; entry.shieldUntil = elapsed + SPAWN_SHIELD_SECONDS;
+    entry.burst = 0; entry.burstFired = 0; entry.heal = undefined; entry.lastHurt = -Infinity; entry.flinch = undefined; delete entry.actor.healing; entry.shieldUntil = elapsed + (tdm ? TDM_RULES.shieldSeconds : SPAWN_SHIELD_SECONDS);
     // A respawn starts hungry.
     entry.meals = undefined; delete entry.actor.food; delete entry.actor.conditions; delete entry.actor.markedBy;
     entry.grenadeSupplies ??= {}; entry.lastContact = undefined;
-    if (entry.actor.bot && entry.actor.faction === 'mercenaries' && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
+    if (entry.actor.bot && (tdm || entry.actor.faction === 'mercenaries') && ['assault', 'tank'].includes(entry.role?.id ?? '')) { entry.actor.grenade = entry.role?.id === 'tank' ? 'grenade-smoke' : 'grenade-frag'; entry.grenadeSupplies[entry.actor.grenade] = 1; } else delete entry.actor.grenade;
     entry.velocity = undefined; entry.speed = 0; entry.lastAt = undefined; entry.aimFocus = undefined; entry.turn = undefined;
     entry.spotting = undefined; entry.shotFlash = undefined;
     entry.parachute = undefined; delete entry.actor.parachuting; delete entry.actor.lift; entry.navigation = undefined; entry.assignment = undefined; entry.guardPatrol = undefined; entry.investigation = undefined; sectorPatrols?.release(entry.actor.id); entry.mission = undefined; delete entry.actor.objective; delete entry.actor.duty; delete entry.actor.patrolSector; entry.navalTransit = undefined; delete entry.actor.ground; entry.evacuating = undefined; entry.vehicleBoardAfter = undefined; entry.boatIslandUntil=undefined; entry.boatGuard=undefined; entry.velocityY = 0; entry.waiting = undefined; entry.ride = undefined; entry.reserve = false;
@@ -681,21 +701,27 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return indexes.length ? indexes : [0];
   };
   function addPlayer(id: string, name: string, armor = 0, absorption = 0, weapons: readonly ArenaWeapon[] = FPS_WEAPONS, initialVitals?: Partial<ArenaVitals>, usePlayerSpawn = false, allowed?: readonly number[], insert?: Partial<InsertTraits>) {
-    const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed, insert); if (!entry) return;
+    if (tdm && !members.has(id) && [...members.values()].filter(m=>!m.actor.bot).length>=4) return;
+    const team=tdm ? ARENA_TEAMS.reduce((best,t)=>[...members.values()].filter(m=>!m.actor.bot&&m.actor.team===t).length < [...members.values()].filter(m=>!m.actor.bot&&m.actor.team===best).length?t:best) : undefined;
+    // Replace a bot before spawning the human so its occupied point is available.
+    if (team && !members.has(id)) { const bot=[...members.values()].find(m=>m.actor.bot&&m.actor.team===team); if(bot) {grenadeSystem.removeCaller(bot.actor.id);members.delete(bot.actor.id);} }
+    const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed, insert, team); if (!entry) return;
+    if(tdm) fillTeams();
     if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
   }
   /** A new member, spawned, with nothing said in the feed. */
-  function addMember(id: string, name: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], usePlayerSpawn: boolean, allowed?: readonly number[], insert?: Partial<InsertTraits>) {
+  function addMember(id: string, name: string, armor: number, absorption: number, weapons: readonly ArenaWeapon[], usePlayerSpawn: boolean, allowed?: readonly number[], insert?: Partial<InsertTraits>, team?: ArenaTeam) {
     if (!id || id.length > 100 || members.has(id) || members.size >= MAX_ARENA_ACTORS) return null;
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
-        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: PLAYER_FACTION },
+        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: team ? teamFaction(team) : PLAYER_FACTION, ...(team?{team}:{}) },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
       insert: insertTraits(insert), weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
       burst: 0, burstFired: 0, medkits: 0, lastHurt: -Infinity,
     };
+    if(tdm && team) Object.assign(entry.actor,tdm.spawns[team][0]);
     wearInsert(entry, entry.insert); members.set(id, entry); spawn(entry); return entry;
   }
   function wearInsert(entry: InternalActor, insert: InsertTraits) {
@@ -744,7 +770,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (elapsed - (entry.lastGrenadeAt ?? -Infinity) < .9 || (entry.grenadeSupplies?.[input.id] ?? 0) <= 0) return false;
     if (input.id === 'grenade-red-smoke' && elapsed - (entry.lastMissionAt ?? -Infinity) < 60) return false;
     if (!grenadeSystem.throwGrenade(id, input)) return false;
-    entry.grenadeSupplies![input.id]--; entry.lastGrenadeAt = elapsed;
+    entry.grenadeSupplies![input.id]--; entry.lastGrenadeAt = elapsed; if(tdm) entry.shieldUntil=0;
     if (entry.actor.bot) delete entry.actor.grenade;
     if (input.id === 'grenade-red-smoke') entry.lastMissionAt = elapsed;
     return true;
@@ -851,7 +877,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
-    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`);
+    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`); if(tdm) fillTeams();
   }
   function setInput(id: string, input: ArenaInput) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished || !input || !finitePoint(input)) return;
@@ -1029,6 +1055,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * A round's `calibre` is held to the victim's insert rating (armor-inserts).
    */
   function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number, shred = 0) {
+    if (tdm && (finished || !victim.actor.alive || attacker && attacker!==victim && !hostile(attacker.actor,victim.actor) || attacker!==victim && elapsed<(victim.shieldUntil??0))) return {hitId:victim.actor.id,killed:false,damage:0};
     if (attacker && damage > 0 && isProxyFaction(victim.actor.faction) && !isProxyFaction(attacker.actor.faction)) {
       proxies?.provoke(victim.actor.faction as ProxyId, proxyParticipant(attacker)); syncProxyTargets();
     }
@@ -1073,7 +1100,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       }
       victim.order = undefined; victim.focus = undefined;
       warm(victim.actor, 4);
-      if (attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
+      if (tdm && attacker && attacker!==victim && attacker.actor.team && hostile(attacker.actor,victim.actor)) {
+        teamScores[attacker.actor.team]++;
+        if(teamScores[attacker.actor.team]>=TDM_RULES.scoreLimit) {finished=true;winner=teamWinner(teamScores);announce(`${winner} wins · score limit`);}
+      }
+      if (!tdm && attacker && !environment?.endless && attacker.actor.kills >= ARENA_KILL_LIMIT) { finished = true; winner = attacker.actor.name; }
     } else if (!killed && factionHeat && isSquad(victim.actor.faction) && attacker !== victim && damage > 0) {
       // Taking fire heats a side a little before anyone falls.
       factionHeat.casualty(victim.actor.faction, factionHeat.sectorAt(victim.actor.x, victim.actor.z)?.id ?? null, heatShare(victim, attacker) * HEAT_TUNING.contact * Math.min(1, damage / 100));
@@ -1964,6 +1995,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * are waiting (or nobody, when none are).
    */
   function triggerEvent(kind: string, target?: CombatPlane, heading = random() * Math.PI * 2) {
+    if(tdm) return null;
     if (kind === 'paratroopers') return dispatchParatroopers('mercenaries', true);
     if (kind === 'transport-sea') return dispatchNavalLanding('mercenaries', true);
     if (kind === 'transport-land' || kind === 'transport-air') return dispatchReinforcements(kind === 'transport-land' ? 'land' : 'air');
@@ -3390,8 +3422,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const focusKey = aircraft?.id ?? (enemy ? `${enemy.actor.id}:${enemy.actor.deaths}` : undefined);
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
-      const home = entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
-      entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = 3 + random() * 3;
+      const home = tdm ? tdm.patrols : entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
+      entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = tdm ? 10 + random()*6 : 3 + random() * 3;
       // `strafe` is also the dodge direction: a new patrol point must not reverse a dodge under way.
       if (!(threat && elapsed < threat.evadeUntil)) entry.strafe *= -1;
     }
@@ -3583,7 +3615,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const shieldOf = (m: InternalActor) => {
     // A respawn descent holds it for longer, but it only starts to count down on landing.
     const shield = Math.round(Math.min(SPAWN_SHIELD_SECONDS, Math.max(0, (m.shieldUntil ?? 0) - elapsed)) * 100) / 100;
-    return !m.actor.bot && m.actor.alive && shield > 0 ? { shield } : {};
+    return (tdm || !m.actor.bot) && m.actor.alive && shield > 0 ? { shield } : {};
   };
   /**
    * Whether a bot may fire on `enemy`: always on a bot, and on a player only
@@ -3756,7 +3788,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       for (const weapon of [...entry.weapons, ...(entry.nextWeapons?.weapons ?? [])]) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = Math.max(0, weapon.rentalRemainingMs - dt * 1000);
       for (const id of Object.keys(entry.equipmentRentals ?? {})) entry.equipmentRentals![id] = Math.max(0, entry.equipmentRentals![id] - dt * 1000);
     }
-     elapsed = environment?.endless ? elapsed + dt : Math.min(ARENA_DURATION, elapsed + dt); tick++;
+     elapsed = environment?.endless ? elapsed + dt : Math.min(duration, elapsed + dt); tick++;
     stepFacilities(dt); stepSquads(dt);
     // Wreck cleanup is independent of nearby players, facility supply and replacement safety.
     for (const v of vehicles) {
@@ -3828,16 +3860,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     stepNavigation();
     stepBarks(dt);
-    if (!environment?.endless && elapsed >= ARENA_DURATION && !finished) {
+    if (!environment?.endless && elapsed >= duration && !finished) {
       finished = true;
       const leaders = [...members.values()].map(m => m.actor).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths);
-      winner = leaders.length > 1 && leaders[0].kills === leaders[1].kills && leaders[0].deaths === leaders[1].deaths ? 'Draw' : leaders[0]?.name ?? 'Draw';
+      winner = tdm ? teamWinner(teamScores) : leaders.length > 1 && leaders[0].kills === leaders[1].kills && leaders[0].deaths === leaders[1].deaths ? 'Draw' : leaders[0]?.name ?? 'Draw';
       announce(`${winner === 'Draw' ? 'Draw' : `${winner} wins`} · time limit`);
     }
   }
   function snapshot(): ArenaSnapshot {
     const reinforcementClocks: ReinforcementClocks = { airborne: { mercenaries: Math.max(0, airborneAt.mercenaries - elapsed), 'armed-forces': Math.max(0, airborneAt['armed-forces'] - elapsed) }, naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
-    return { type: 'arena-snapshot', tick, elapsed, ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, ...(tdm?{teamDeathmatch:{area:tdm.id,scores:{...teamScores}}}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
@@ -3846,6 +3878,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
+    teamScores.alpha=teamScores.bravo=0;
     merlion?.reset();boatSorties.clear();boatDecisionAt.clear();
     if (proxies?.current()) { proxies.current()!.phase='complete'; proxies.current()!.cargo='resolved'; proxies.current()!.targets={'freedom-force':[],'collective-cops':[]}; }
     grenadeSystem.reset();
@@ -3861,10 +3894,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     enlisted = Math.max(count, ...[...members.keys()].map(id => Number(/^bot-(\d+)$/.exec(id)?.[1] ?? 0))); factionHeat?.reset(); clock = dispatchClock();
     vehicles = vehicleOptions ? VEHICLE_KINDS.filter(kind=>vehicleOptions.spawns[kind]).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind]!)) : [];
     if (facilities) for (const v of vehicles) { if(isDragonBoat(v.kind)) continue; const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
+    if(tdm) for(const entry of members.values())entry.actor.alive=false;
     for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; delete entry.actor.merlionSupply; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
     announce('New arena match');
   }
-  const count = environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
+  const count = tdm ? 0 : environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
   const fixedPopulation = environment?.reinforcements && Number.isFinite(environment.population) ? Math.floor(clamp(environment.population!, count, regularLimit)) : count;
   let enlisted = 0, friendly = 0;
   /** Friendly soldiers carry issued rifles, Ultimax support weapons or FN MAGs, and drop nothing. */
@@ -3880,16 +3914,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * held in reserve, dead and waiting, until the transport that booked it
    * sets it down.
    */
-  function enlist(recruit = false, faction: SquadFaction = 'mercenaries') {
+  function enlist(recruit = false, faction: SquadFaction = 'mercenaries', team?: ArenaTeam) {
     const i = enlisted++, id = `bot-${i + 1}`;
     const roleId = recruit && factionHeat && (composition === 'mixed' || faction === PLAYER_FACTION) ? heatedRole(faction)
-      : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
+      : tdm ? 'assault' : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
     const role = getArenaRole(roleId) ?? getArenaRole('assault')!;
-    const armed = faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
+    const armed = !tdm && faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
     // Each spawn puts their rank's title before this.
     const name = faction === PLAYER_FACTION ? FORCES_NAMES[friendly++ % FORCES_NAMES.length] : CALLSIGNS[i % CALLSIGNS.length];
     // Recruits arrive unannounced: the transport's banner is their entrance.
-    if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false, undefined, role); else addPlayer(id, name, role.armor, role.absorption, weapons, undefined, false, undefined, role);
+    if (team) addMember(id, name, role.armor, role.absorption, weapons, false, undefined, role, team); else if (recruit) addMember(id, name, role.armor, role.absorption, weapons, false, undefined, role); else addPlayer(id, name, role.armor, role.absorption, weapons, undefined, false, undefined, role);
     const entry = members.get(id)!; entry.role = role; entry.healthMax = role.health; entry.callsign = name;
     Object.assign(entry.actor, { bot: true, role: role.id, faction });
     if (facilities || sectorPatrols?.areas.length) { const sameSide = [...members.values()].filter(m => m !== entry && m.actor.bot && !m.temporary && m.actor.faction === faction).length; entry.actor.squad = `${faction}-${Math.floor(sameSide / 4) + 1}`; }
@@ -3898,6 +3932,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }
     return entry;
   }
+  function fillTeams() {
+    if(!tdm) return;
+    for(const team of ARENA_TEAMS) while([...members.values()].filter(m=>m.actor.team===team).length<TDM_RULES.teamSize) enlist(false,teamFaction(team),team);
+  }
+  fillTeams();
   for (let i = 0; i < count; i++) enlist();
   if (facilities) for (let i = 0; i < (environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size][PLAYER_FACTION] : 4); i++) enlist(false, PLAYER_FACTION);
   for (const id of environment?.departedCrew ?? []) members.delete(id);

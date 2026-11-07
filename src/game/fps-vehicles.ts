@@ -20,10 +20,10 @@ import { VEHICLE_KINDS, vehicleName, paddleVehicle, createVehicle, vehicleSpeed,
 import { MARINA_BOUNDS, type Obstacle } from './marina-collision';
 import { sceneFlightObstacles } from './flight-obstacles';
 
-export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<MotorVehicleKind, string>, options: { spawns?: VehicleSpawns; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean; exitFloor?: VehicleExitFloor; reducedMotion?: () => boolean } = {}) {
+export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], skins: Record<MotorVehicleKind, string>, options: { enabled?: boolean; spawns?: VehicleSpawns; bounds?: VehicleWorldBounds; deriveFlightObstacles?: boolean; exitFloor?: VehicleExitFloor; reducedMotion?: () => boolean } = {}) {
   const spawns: VehicleSpawns = options.spawns ?? { car: VEHICLE_SPAWNS.car, helicopter: VEHICLE_SPAWNS.helicopter };
   const keyed = <T>(make: (kind: VehicleKind) => T) => Object.fromEntries(VEHICLE_KINDS.map(kind=>[kind,make(kind)])) as Record<VehicleKind,T>;
-  const freshState = (kind: VehicleKind): VehicleState => ({ ...createVehicle(kind,spawns[kind]), despawned: !spawns[kind] });
+  const freshState = (kind: VehicleKind): VehicleState => ({ ...createVehicle(kind,spawns[kind]), despawned: options.enabled === false || !spawns[kind] });
   const bounds: VehicleWorldBounds = options.bounds ?? MARINA_BOUNDS;
   const drivingObstacles = verticalVehicleObstacles({ bounds, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
   const sceneObstacles = options.deriveFlightObstacles ? sceneFlightObstacles(scene) : null;

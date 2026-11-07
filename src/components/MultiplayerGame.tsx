@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import PublicLobby from './PublicLobby';
-import FpsGame from './FpsGame';
+import ArenaMatchGame from './ArenaMatchGame';
+import type { ArenaMatch } from '../game/arena-match';
 import type { ArmoryStore } from '../game/use-armory';
 import type { LanSession } from '../game/lan-peer';
 import { transitionTo } from '../lib/route-transition';
@@ -9,11 +10,11 @@ import { setMusicCue } from '../lib/music';
 
 export default function MultiplayerGame({ armory, suspended = false }: { armory: ArmoryStore; suspended?: boolean }) {
   const owned = useRef<LanSession | null>(null);
-  const [arena, setArena] = useState<{ session: LanSession; botCount: number; composition: string }>();
+  const [arena, setArena] = useState<{ session: LanSession; botCount: number; composition: string; match?: ArenaMatch }>();
   useEffect(() => () => { owned.current?.close(); }, []);
   useEffect(() => setMusicCue(arena ? null : 'menu'), [arena]);
   const leave = () => { owned.current?.close(); owned.current = null; setArena(undefined); };
   return <div className={`game-screen game-screen-multiplayer ${arena ? 'has-match' : 'has-lobby'}`}><main className="game-screen-body"><DebugMode.Provider value={false}>
-    {arena ? <FpsGame suspended={suspended} key={arena.session.id} region="marina-bay" arena={arena} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store')} onLeaveArena={leave} /> : <PublicLobby onBack={() => transitionTo('menu')} onLaunch={(session, bots, squad) => { owned.current = session; setArena({ session, botCount: bots, composition: squad }); }} />}
+    {arena ? <ArenaMatchGame suspended={suspended} key={arena.session.id} region="marina-bay" arena={arena} profile={armory.profile} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store')} onLeaveArena={leave} /> : <PublicLobby onBack={() => transitionTo('menu')} onLaunch={(session, bots, squad, match) => { owned.current = session; setArena({ session, botCount: bots, composition: squad, match }); }} />}
   </DebugMode.Provider></main></div>;
 }

@@ -34,7 +34,8 @@ try {
   assert.equal((await api('', profile, { Origin: 'https://evil.invalid' })).status, 403);
   assert.equal((await api('', { ...profile, password: 'abc' })).status, 400);
   assert.equal((await api('', { ...profile, title: 'x'.repeat(5000) })).status, 413);
-  const hostTicket = await reserve('', { title: '<Public test>', name: 'Host\nName', password: 'room-secret' });
+  assert.equal((await api('', {...profile,match:{mode:'team-deathmatch',area:'unknown'}})).status,400);
+  const hostTicket = await reserve('', { title: '<Public test>', name: 'Host\nName', password: 'room-secret', match:{mode:'team-deathmatch',area:'dragon-courtyard'} });
   assert.equal(await deniedSocket(hostTicket, 'https://evil.invalid'), 403);
   assert.equal(await deniedSocket({ ...hostTicket, token: '0'.repeat(64) }), 403);
   let host = await connect(hostTicket);
@@ -45,7 +46,7 @@ try {
   const listing = await api();
   const room = listing.body.rooms.find(room => room.code === hostTicket.code);
   assert.equal(room.locked, true); assert.equal(room.players, 1); assert.equal(room.host, 'HostName');
-  assert.equal(room.title, '<Public test>');
+  assert.equal(room.title, '<Public test>');assert.equal(room.mode,'Team Deathmatch');assert.equal(room.map,'Toa Payoh · Dragon courtyard');
   assert(!JSON.stringify(listing.body).includes('room-secret')); assert(!JSON.stringify(listing.body).includes(hostTicket.token));
   assert.equal(listing.headers.get('Cache-Control'), 'no-store');
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'wrong' })).status, 403);
@@ -85,7 +86,7 @@ try {
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'room-secret' })).status, 404);
   const openTicket = await reserve('', { title: 'Open room' }); const open = await connect(openTicket);
   const openGuest = await reserve(`/${openTicket.code}/join`, { name: 'No password' }); await connect(openGuest);
-  assert.equal((await api()).body.rooms.find(room => room.code === openTicket.code).locked, false);
+  const openListing=(await api()).body.rooms.find(room=>room.code===openTicket.code);assert.equal(openListing.locked,false);assert.equal(openListing.mode,'Free for all');assert.equal(openListing.map,'Marina Bay');
   open.socket.close(1000, 'Left room.');
   console.log('PASS public rooms: global list, password enforcement, private credentials, version checks, authenticated relay, sender identity, guest isolation, atomic capacity, same-seat host/guest reconnection, explicit leave cleanup and unlocked rooms.');
 } finally {

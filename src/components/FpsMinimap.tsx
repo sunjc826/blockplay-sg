@@ -1,3 +1,4 @@
+import type { RegionBounds } from '../game/region-collision';
 import { useEffect, useId, useRef, useState } from 'react';
 import { getRegion, type RegionMapShape } from '../game/regions';
 import { localMinimapBounds, minimapHeading, minimapProjection, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '../game/minimap';
@@ -27,7 +28,8 @@ const SYMBOLS: { label: string; marker: MinimapMarker }[] = [
 ];
 
 /** Callers supply only permitted tactical markers. Landmarks and boundaries are static. */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded: open = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [] }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded: open = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [], matchBounds }: {
+  matchBounds?: RegionBounds;
   facilities?: readonly FacilityState[];
   dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
   jammed?: boolean;
@@ -43,7 +45,8 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
   useEffect(() => { if (open) panel.current?.querySelector<HTMLButtonElement>('.fps-map-close')?.focus({ preventScroll: true }); }, [open]);
   const { width, height } = VIEW[expanded ? 'expanded' : 'compact'];
   const inset = expanded ? 10 : 6, edge = expanded ? 22 : 14;
-  const bounds = expanded ? district.bounds : localMinimapBounds(district.bounds, player), map = minimapProjection(bounds, width, height, expanded ? 16 : 8);
+  const areaBounds=matchBounds??district.bounds;
+  const bounds = expanded ? areaBounds : localMinimapBounds(areaBounds, player), map = minimapProjection(bounds, width, height, expanded ? 16 : 8);
   const unit = 1 / map.scale;
   const decor = (layer: 'under' | 'over') => district.decor.filter(shape => (shape.fpsLayer ?? shape.layer ?? 'over') === layer);
   const sectors = zoneSectors(zone), here = sectorAt(zone, player.x, player.z);
@@ -106,6 +109,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
           <FpsMapShapes shapes={decor('under')} />
           {district.mapRoads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth={expanded ? Math.max(6, 3 * unit) : 12} />)}
           <FpsMapShapes shapes={decor('over')} />
+          {matchBounds && <rect data-match-boundary x={matchBounds.minX} y={matchBounds.minZ} width={matchBounds.maxX-matchBounds.minX} height={matchBounds.maxZ-matchBounds.minZ} fill="none" stroke="#ffc56e" strokeWidth={2*unit}><title>Team Deathmatch boundary</title></rect>}
           {!jammed && mode === 'expedition' && sectors.map(sector => {
             const control = controls.get(sector.id)!;
             return <rect key={sector.id} data-sector-control={control} data-control-sector={sector.id} x={sector.bounds.minX} y={sector.bounds.minZ} width={sector.bounds.maxX - sector.bounds.minX} height={sector.bounds.maxZ - sector.bounds.minZ}
