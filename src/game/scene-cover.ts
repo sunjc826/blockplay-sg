@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { firstVisibleHit } from './fps-raycast';
+import { isVisibleHit } from './fps-raycast';
 import { createSceneRayIndex } from './scene-ray-index';
 import { matrixEpoch } from './matrix-epoch';
 
@@ -11,6 +11,14 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
   const surfaces: THREE.Mesh[] = [];
   let refreshedAt = -Infinity, validated = false, validatedEpoch = -1;
   const expire = () => { validated = false; };
+  // Detached meshes can remain in the short-lived cache; never let them block.
+  const attachedAndVisible = (mesh: THREE.Object3D) => {
+    for (let node: THREE.Object3D | null = mesh; node; node = node.parent) {
+      if (!node.visible) return false;
+      if (node === scene) return true;
+    }
+    return false;
+  };
   /** Physical trace includes glazing; bullet and sight distances below omit it. */
   function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false, includeGlass = true) {
     direction.set(heading.x, heading.y, heading.z);
@@ -37,14 +45,7 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
       if (!validated) { validated = true; queueMicrotask(expire); }
     }
     ray.set(origin.set(from.x, from.y, from.z), direction.normalize()); ray.near = 0; ray.far = range;
-    // Detached meshes can remain in the short-lived cache; never let them block.
-    return firstVisibleHit(ray, index.query(ray).filter(mesh => {
-      for (let node: THREE.Object3D | null = mesh; node; node = node.parent) {
-        if (!node.visible) return false;
-        if (node === scene) return true;
-      }
-      return false;
-    }), includeFoliage, includeGlass);
+    return index.nearestHit(ray, hit => isVisibleHit(hit, includeFoliage, includeGlass), attachedAndVisible);
   }
   return { trace,
     distance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, false, false)?.distance ?? range,

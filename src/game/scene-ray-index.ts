@@ -77,6 +77,32 @@ export function createSceneRayIndex() {
     for (const entry of selected) result.push(entry.mesh);
     return result;
   }
+  /** Exact nearest eligible intersection, with the same scene-order ties as
+   * intersectObjects(query(ray), true). Refresh ownership is unchanged.
+   * Never shorten the caller's ray: custom/recursive raycasts retain their
+   * original inputs, and only trusted spatial bounds may prune candidates. */
+  function nearestHit(ray: THREE.Raycaster, acceptHit: (hit: THREE.Intersection) => boolean, includeObject?: (object: THREE.Object3D) => boolean) {
+    let best: THREE.Intersection | undefined, bestOrder = Infinity;
+    const hits: THREE.Intersection[] = [];
+    const visit = (entry: Entry) => {
+      if (!includeObject || includeObject(entry.mesh)) {
+        hits.length = 0;
+        ray.intersectObject(entry.mesh, true, hits);
+        for (const hit of hits) {
+          if (!acceptHit(hit)) continue;
+          if (!best || hit.distance < best.distance || (hit.distance === best.distance && entry.order < bestOrder)) {
+            best = hit; bestOrder = entry.order;
+          }
+          break;
+        }
+      }
+      return best?.distance ?? ray.far;
+    };
+    // Unknown/custom/deformed objects cannot be discarded using geometry bounds.
+    for (const entry of always) visit(entry);
+    tree.visitNearest(ray.ray, visit, Math.min(ray.far, best?.distance ?? ray.far));
+    return best;
+  }
   return {
     /** Objects that cannot raycast outside their own geometry may be pruned;
      * anything else (a Points, Line or custom raycast) is always returned. */
@@ -99,5 +125,6 @@ export function createSceneRayIndex() {
     refresh,
     /** Reuses the result array; consume it before the next query. */
     query,
+    nearestHit,
   };
 }

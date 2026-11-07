@@ -52,6 +52,26 @@ export function createRayBoundsTree<T extends RayBoundsEntry>(entries: readonly 
       };
       visit(root);
     },
+    /** Visit nearer branches first. The exact-hit visitor returns the remaining
+     * distance limit; equal-distance bounds stay eligible for stable hit ties. */
+    visitNearest(ray: THREE.Ray, visitor: (entry: T) => number, far = Infinity) {
+      const distance = (box: THREE.Box3) => box.isEmpty() ? Infinity : box.containsPoint(ray.origin) ? 0
+        : ray.intersectBox(box, point) ? point.distanceTo(ray.origin) : Infinity;
+      const visit = (node: Node<T>, entryDistance: number) => {
+        if (entryDistance === Infinity || entryDistance > far) return;
+        if (node.items) {
+          for (const item of node.items) {
+            const d = distance(item.box);
+            if (d !== Infinity && d <= far) far = Math.min(far, visitor(item));
+          }
+        } else {
+          const left = distance(node.left!.box), right = distance(node.right!.box);
+          if (left <= right) { visit(node.left!, left); visit(node.right!, right); }
+          else { visit(node.right!, right); visit(node.left!, left); }
+        }
+      };
+      visit(root, distance(root.box));
+    },
   };
 }
 

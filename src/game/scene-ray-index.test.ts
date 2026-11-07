@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import { expect, it, vi } from 'vitest';
 import { createSceneRayIndex } from './scene-ray-index';
-import { firstVisibleHit } from './fps-raycast';
+import { firstVisibleHit, isVisibleHit } from './fps-raycast';
 import { createSceneCover } from './scene-cover';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { accelerateMeshRaycast } from './mesh-raycast';
 
 const box = (x = 0, z = -5) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial()); m.position.set(x, 0, z); m.updateMatrixWorld(true); return m; };
 const ray = (x = 0, far = 100) => new THREE.Raycaster(new THREE.Vector3(x, 0, 0), new THREE.Vector3(0, 0, -1), 0, far);
-const hit = (h?: THREE.Intersection) => h ? { object: h.object.id, distance: h.distance, face: h.faceIndex, instance: h.instanceId, point: h.point.toArray() } : null;
+const hit = (h?: THREE.Intersection) => h ? { object: h.object.id, distance: h.distance, face: h.faceIndex, instance: h.instanceId, point: h.point.toArray(), normal: h.normal?.toArray(), uv: h.uv?.toArray(), faceNormal: h.face?.normal.toArray(), material: h.face?.materialIndex } : null;
 const compare = (index: ReturnType<typeof createSceneRayIndex>, objects: THREE.Mesh[], r = ray(), foliage = false, glass = false) => {
   const expected = firstVisibleHit(r, objects, foliage, glass);
   expect(hit(firstVisibleHit(r, index.candidates(r), foliage, glass))).toEqual(hit(expected));
+  expect(hit(index.nearestHit(r, h => isVisibleHit(h, foliage, glass)))).toEqual(hit(expected));
   return expected;
 };
 
@@ -82,4 +83,58 @@ it('keeps foliage, glass, visibility, detachment and scene membership refresh se
     const added = box(0, -3); scene.add(added); expect(cover.distance(from, direction, 20)).toBe(20);
     vi.mocked(performance.now).mockReturnValue(251); expect(cover.distance(from, direction, 20)).toBe(2.5);
   } finally { vi.restoreAllMocks(); vi.useRealTimers(); }
+});
+
+it('prunes surfaces behind the closest eligible hit without clipping the native ray', () => {
+  const objects = Array.from({ length: 160 }, (_, i) => box(0, -2 - i * 2)).reverse();
+  const index = createSceneRayIndex(); index.setObjects(objects); index.refresh();
+  const r = ray(0, 400), expected = firstVisibleHit(r, objects);
+  const spy = vi.spyOn(THREE.Mesh.prototype, 'raycast');
+  try {
+    expect(hit(index.nearestHit(r, h => isVisibleHit(h)))).toEqual(hit(expected));
+    expect(spy.mock.calls.length).toBeLessThan(10);
+    expect(r.far).toBe(400); expect(r.near).toBe(0);
+    // An ignored close surface is never allowed to tighten the search distance.
+    for (const mesh of objects.slice(-12)) mesh.userData.visualCover = true;
+    expect(hit(index.nearestHit(r, h => isVisibleHit(h)))).toEqual(hit(firstVisibleHit(r, objects)));
+    expect(hit(index.nearestHit(r, h => isVisibleHit(h, true)))).toEqual(hit(firstVisibleHit(r, objects, true)));
+  } finally { spy.mockRestore(); }
+});
+
+it('keeps equal-distance scene order across tree branches and unbounded fallbacks', () => {
+  const native = box(), custom = box(100), farther = box(0, -40);
+  custom.raycast = (r, hits) => {
+    expect(r.far).toBe(100);
+    hits.push({ distance: 4.5, point: r.ray.at(4.5, new THREE.Vector3()), object: custom, faceIndex: 17 });
+  };
+  for (const first of [native, custom]) {
+    const objects = [first, ...Array.from({ length: 40 }, (_, i) => box((i % 2 ? 1 : -1) * 20, -i * 2)), first === native ? custom : native, farther];
+    const index = createSceneRayIndex(); index.setObjects(objects); index.refresh();
+    expect(compare(index, objects)?.object).toBe(first);
+    const skipped = (object: THREE.Object3D) => object !== first;
+    expect(hit(index.nearestHit(ray(), h => isVisibleHit(h), skipped))).toEqual(hit(firstVisibleHit(ray(), objects.filter(skipped))));
+  }
+});
+
+it('matches native nearest hits across seeded rays, geometry changes and ray policies', () => {
+  let seed = 17; const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  const objects = Array.from({ length: 100 }, (_, i) => {
+    const mesh = box((random() - .5) * 50, (random() - .5) * 50);
+    mesh.position.y = (random() - .5) * 8; mesh.rotation.set(random(), random(), random()); mesh.scale.set(.5 + random() * 5, .5 + random() * 5, .5 + random() * 5);
+    mesh.material.side = THREE.DoubleSide;
+    if (i % 5 === 0) mesh.userData.visualCover = true;
+    if (i % 7 === 0) mesh.material.userData.bulletGlass = true;
+    if (i % 11 === 0) mesh.visible = false;
+    if (i % 13 === 0) mesh.layers.set(1);
+    mesh.updateMatrixWorld(true); return mesh;
+  });
+  const index = createSceneRayIndex(); index.setObjects(objects);
+  for (let frame = 0; frame < 3; frame++) {
+    for (const m of objects) { m.position.x += (random() - .5) * 2; m.updateMatrixWorld(true); }
+    for (let i = 0; i < 250; i++) {
+      const r = new THREE.Raycaster(new THREE.Vector3((random() - .5) * 50, (random() - .5) * 6, (random() - .5) * 50), new THREE.Vector3(random() - .5, (random() - .5) * .3, random() - .5).normalize(), i % 3 ? 0 : 2, i % 4 ? 100 : 8);
+      if (i % 5 === 0) r.layers.set(1);
+      compare(index, objects, r, i % 2 === 0, i % 3 === 0);
+    }
+  }
 });
