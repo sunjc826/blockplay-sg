@@ -521,7 +521,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const VIEW_SKY = new THREE.Color('#e4efff'), VIEW_GROUND = new THREE.Color('#576350'), VIEW_KEY = new THREE.Color('#fff4dd');
   const viewTint = new THREE.Color(), viewQuaternion = new THREE.Quaternion();
   const scopeRenderer = createScopeRenderer(renderer);
-  const opticReflections = createOpticReflectionRenderer(renderer);
+  // Ultra only (Settings › Video), so it can afford a sharper picture: a larger
+  // capture, smaller scenery and a longer reach than the renderer's defaults.
+  const opticReflections = createOpticReflectionRenderer(renderer, { far: 250, minSize: 1, minTarget: 512 });
   const rig = new THREE.Group(); viewScene.add(rig);
   const playerBody = createFpsBody(world.scene);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
@@ -4364,8 +4366,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
       canvas.dataset.cant = cant.toFixed(2);
       const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
-      // With reflections off the glass keeps its tint and coating but shows no captured scenery.
-      const reflectionsOn = getGraphicsSettings().reflections;
+      // Without live capture the glass keeps its tint, coating and clearcoat highlights but shows no scenery.
+      const reflectionsOn = getGraphicsSettings().sightReflections;
       if (!reflectionsOn && sight?.reflection) sight.reflection.uniforms.reflectionReady.value = 0;
       const reflectionCaptured = opticReflections.render(world.scene, camera, viewCamera, sight?.reflection, opticActive && reflectionsOn, now / 1000);
       canvas.dataset.scopeActive = String(scopeActive);

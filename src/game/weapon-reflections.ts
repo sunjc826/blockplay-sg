@@ -15,6 +15,8 @@ export interface OpticReflectionOptions {
    * props, characters, vehicles, debris, and long thin rails, kerbs and poles.
    */
   minSize?: number;
+  /** Smallest capture texture side, in pixels; the lens's on-screen size can raise it to 1024. */
+  minTarget?: number;
 }
 
 /**
@@ -24,8 +26,8 @@ export interface OpticReflectionOptions {
  * The pass pays for itself by drawing only nearby, large scenery: a tinted
  * lens shows the skyline behind the player, not the bollards and passers-by.
  */
-export function createOpticReflectionRenderer(renderer: THREE.WebGLRenderer, { far = 150, minSize = 2 }: OpticReflectionOptions = {}) {
-  const target = new THREE.WebGLRenderTarget(256, 256, { type: THREE.HalfFloatType, depthBuffer: true, stencilBuffer: false });
+export function createOpticReflectionRenderer(renderer: THREE.WebGLRenderer, { far = 150, minSize = 2, minTarget = 256 }: OpticReflectionOptions = {}) {
+  const target = new THREE.WebGLRenderTarget(minTarget, minTarget, { type: THREE.HalfFloatType, depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera(110, 1, .06, far);
   camera.layers.set(REFLECTED_LAYER);
   const lens = new THREE.Vector3(), normal = new THREE.Vector3(), reflected = new THREE.Vector3(), projected = new THREE.Vector3();
@@ -107,7 +109,7 @@ export function createOpticReflectionRenderer(renderer: THREE.WebGLRenderer, { f
       if (!geometry.boundingSphere) geometry.computeBoundingSphere();
       const radius = geometry.boundingSphere!.radius * scale.setFromMatrixScale(glass.surface.matrixWorld).x;
       const screenFraction = radius / (-lens.z * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
-      const size = THREE.MathUtils.clamp(Math.ceil(screenFraction * renderer.getDrawingBufferSize(buffer).y * 1.25 / 128) * 128, 256, 1024);
+      const size = THREE.MathUtils.clamp(Math.ceil(screenFraction * renderer.getDrawingBufferSize(buffer).y * 1.25 / 128) * 128, minTarget, 1024);
       if (target.width !== size) target.setSize(size, size);
 
       // three.js draws a pending shadow map with whichever render comes first and

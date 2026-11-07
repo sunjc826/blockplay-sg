@@ -6,8 +6,17 @@ describe('graphics settings', () => {
   it('falls back to the defaults for anything unknown', () => {
     expect(sanitizeGraphics(null)).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'ultra', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
-    expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, reflections: false, antialias: false }))
-      .toEqual({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, reflections: false, antialias: false });
+    expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false }))
+      .toEqual({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false });
+  });
+
+  it('turns live sight reflections off for settings saved before they became Ultra-only', () => {
+    expect(DEFAULT_GRAPHICS.sightReflections).toBe(false);
+    expect(sanitizeGraphics({ scale: .85, reflections: true }).sightReflections).toBe(false);
+    const on = GRAPHICS_PRESETS.filter(p => p.values.sightReflections).map(p => p.id);
+    expect(on).toEqual(['ultra']);
+    // A High player with the old setting saved still reads as High.
+    expect(matchingPreset(sanitizeGraphics({ ...DEFAULT_GRAPHICS, reflections: true }), DEFAULT_ENVIRONMENT)).toBe('high');
   });
 
   it('scales the view’s own resolution cap', () => {

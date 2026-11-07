@@ -39,7 +39,7 @@ export default function GraphicsSettings() {
     </div>
     <label><input type="checkbox" checked={environment.occlusion} onChange={e => setEnvironmentSettings({ occlusion: e.target.checked })} /> Ambient occlusion (darker corners and gaps)</label>
     <label><input type="checkbox" checked={graphics.lensEffects} onChange={e => setGraphicsSettings({ lensEffects: e.target.checked })} /> Lens effects (sun flare, haze dust, raindrops on the lens)</label>
-    <label><input type="checkbox" checked={graphics.reflections} onChange={e => setGraphicsSettings({ reflections: e.target.checked })} /> Scenery reflected in sight glass</label>
+    <label><input type="checkbox" checked={graphics.sightReflections} onChange={e => setGraphicsSettings({ sightReflections: e.target.checked })} /> Live reflections in sight glass (redraws the world a second time each frame; off, the glass still catches sun and sky highlights)</label>
     <label><input type="checkbox" checked={environment.reducedEffects} onChange={e => setEnvironmentSettings({ reducedEffects: e.target.checked })} /> Reduce particles &amp; disable lightning/fireworks</label>
     <label><input type="checkbox" checked={graphics.antialias} onChange={e => setGraphicsSettings({ antialias: e.target.checked })} /> Antialiasing (smoother edges; takes effect next time a game starts)</label>
   </div>;

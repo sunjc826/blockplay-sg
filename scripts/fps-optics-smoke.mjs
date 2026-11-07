@@ -30,7 +30,8 @@ try {
   await send('Runtime.enable'); await send('Log.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
-  await evaluate(`localStorage.removeItem('blockplay.armory.v1');location.reload()`); await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
+  // Live sight reflections are Ultra-only; this smoke checks them.
+  await evaluate(`localStorage.removeItem('blockplay.armory.v1');localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({sightReflections:true}));location.reload()`); await wait(`!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await click(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
   await wait(phase('ready')); await click(button('Enter range')); await wait(phase('playing'));
   await screenshot('sar-integrated-hip');

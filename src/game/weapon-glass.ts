@@ -90,10 +90,13 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       float etched = scopeReticle(p, max(fwidth(p.x), fwidth(p.y)));` : 'float etched = 0.0;'}
       diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - etched * 0.8);
       ` : holo ? '// Keep the aiming area clear; reflections reveal the rim and oblique pane.\n      diffuseColor.a = 0.018 + rim * 0.065 + grazing * 0.30;' : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
+      // Live capture (Ultra) shows more of the glass where it reflects scenery,
+      // keeping a scope's centre and a holographic window's aiming area clear.
+      diffuseColor.a = min(1.0, diffuseColor.a + reflectionReady * inCapture * ${scope ? '0.12 * rim * (1.0 - etched * 0.8)' : holo ? '(0.015 + 0.12 * grazing)' : '0.14'});
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v5-${reticle ?? 'plain'}${window ? '-window' : ''}`;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v6-${reticle ?? 'plain'}${window ? '-window' : ''}`;
   const geometry = window ? windowPane(window) : new THREE.RingGeometry(0, radius, 48, 8);
   const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
