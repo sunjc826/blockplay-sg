@@ -60,7 +60,8 @@ export function createRangeFigures(scene: THREE.Scene, setup: RangeFigureSetup) 
     const look = spot.side === 'ally'
       ? arenaCharacterLook({ bot: true, role: 'rifle', id: `range-${spot.id}`, faction: PLAYER_FACTION })
       : npcCharacterLook({ id: `range-${spot.id}`, role: 'Visitor', interaction: { kind: 'dialogue' } });
-    const rig = createCharacterRig(look, `range-${spot.id}`);
+    // One skinned mesh a figure, as arena soldiers: nothing here hides a joint.
+    const rig = createCharacterRig(look, `range-${spot.id}`, { skinned: true });
     const floor = setup.ground(spot.x, spot.z);
     rig.root.position.set(spot.x, floor, spot.z); rig.root.rotation.y = spot.yaw;
     rig.root.userData.rangeFigure = spot.side;

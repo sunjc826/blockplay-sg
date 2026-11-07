@@ -7,6 +7,7 @@ import { buildHelicopterCabin } from './helicopter-cabin';
 import { buildHumveeCabin } from './humvee-cabin';
 import { buildDragonBoatModel } from './dragon-boat-model';
 import { isDragonBoat } from './marina-water';
+import { addShadowProxies } from './shadow-proxy';
 
 export function vehiclePaint(id: string) {
   const item = itemById(id), canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -17,6 +18,9 @@ export function vehiclePaint(id: string) {
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return new THREE.MeshStandardMaterial({ name: 'Vehicle paint', map: texture, roughness: .64, metalness: .25 });
 }
+/** Parts that turn, spin or hide on their own (fps-vehicles, cabin instruments); each keeps its own shadow. */
+export const VEHICLE_MOVING_PARTS: ReadonlySet<string> = new Set(['vehicle-wheel', 'main-rotor', 'tail-rotor', 'vehicle-turret', 'vehicle-muzzle-flash',
+  'humvee-steering-wheel', 'humvee-speed-needle', 'humvee-engine-needle']);
 /** Original utility vehicle silhouettes; no copied game logos or liveries. Forward is local -Z. */
 export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   if (isDragonBoat(kind)) return buildDragonBoatModel(kind === 'dragon-boat-gold');
@@ -119,6 +123,8 @@ export function buildVehicleModel(kind: VehicleKind, skin = 'paint-issued') {
   flash.name = 'vehicle-muzzle-flash'; flash.rotation.x = -Math.PI / 2; flash.position.z = -1.9; flash.visible = false;
   flash.raycast = () => {}; turret.add(flash);
   tagRainReceivers(root);
+  // One sun-shadow caster per rigid piece instead of one per part (about 120 a vehicle).
+  addShadowProxies(root, VEHICLE_MOVING_PARTS);
   root.userData.vehicleKind = kind;
   return root;
 }
