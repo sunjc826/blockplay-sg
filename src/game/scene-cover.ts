@@ -30,7 +30,8 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
       // Retain hidden static meshes too; visibility can change between cache
       // refreshes and is checked at query time.
       const collect = (node: THREE.Object3D) => {
-        if (node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.facilityId || ignore?.(node)) return;
+        if (node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.facilityId ||
+          node.userData.structureCover === 'external' || node.userData.structureCover === 'none' || ignore?.(node)) return;
         if (node instanceof THREE.Mesh) surfaces.push(node);
         node.children.forEach(collect);
       };

@@ -1,22 +1,12 @@
-import type { FacilitySite } from './facilities';
-import type { Obstacle } from './region-collision';
-import type { TraversalObstacle } from './vertical-routes';
+import { STRUCTURE_PROP_SIZE as CAMP_PROP_SIZE, structurePropBounds as campPropBounds } from './structure-layout';
+import type { StructurePoint as CampPoint, StructureProp as CampProp, StructurePropKind as CampPropKind } from './structure-types';
+export { STRUCTURE_PROP_SIZE as CAMP_PROP_SIZE, structurePropBounds as campPropBounds } from './structure-layout';
+export type { StructurePoint as CampPoint, StructureProp as CampProp, StructurePropKind as CampPropKind } from './structure-types';
+// Existing expedition callers retain these names; the physical implementation is shared.
+export { facilityCoreBounds, facilityObstacles, facilityCeilings, facilityNavigationAnchors } from './expedition-structures';
 
-export interface CampPoint { x: number; y: number; z: number }
-export type CampPropKind = 'canopy' | 'shelter' | 'stores' | 'barricade';
-export interface CampProp extends CampPoint { kind: CampPropKind; yaw: number }
 export interface CommandCamp { props: CampProp[]; patrol: CampPoint[] }
-export const CAMP_PROP_SIZE: Record<CampPropKind, { w: number; d: number; h: number }> = {
-  canopy: { w: 5.6, d: 5, h: 3.2 }, shelter: { w: 4.4, d: 3.6, h: 2.8 },
-  stores: { w: 2.6, d: 1.8, h: 1.25 }, barricade: { w: 4.2, d: 1, h: 1.1 },
-};
 const horizontal = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x-b.x,a.z-b.z);
-export function campPropBounds(prop: CampProp): Obstacle {
-  const size=CAMP_PROP_SIZE[prop.kind], turned=Math.abs(Math.sin(prop.yaw))>.5;
-  const w=turned?size.d:size.w,d=turned?size.w:size.d;
-  return {minX:prop.x-w/2,maxX:prop.x+w/2,minZ:prop.z-d/2,maxZ:prop.z+d/2,minY:prop.y,maxY:prop.y+size.h,
-    supportsTop:prop.kind==='stores'||prop.kind==='barricade'};
-}
 
 /** Each component is checked independently; narrow streets keep a smaller camp.
  * Samples cover the whole footprint, including terrain slope and existing props.
@@ -54,35 +44,6 @@ export function commandPatrolStops(center: CampPoint, clear:(x:number,z:number)=
     }
   }
   return patrol;
-}
-
-/** Match the damageable radio/map console and the physical cover footprints. */
-export function facilityCoreBounds(site: Pick<FacilitySite,'kind'|'x'|'y'|'z'>): Obstacle {
-  const w=site.kind==='command'?1.2:.85,d=site.kind==='command'?.8:.65,h=site.kind==='command'?1.55:1.8;
-  return {minX:site.x-w,maxX:site.x+w,minZ:site.z-d,maxZ:site.z+d,minY:site.y,maxY:site.y+h};
-}
-export function facilityObstacles(site: FacilitySite): Obstacle[] {
-  const result=[facilityCoreBounds(site)];
-  for(const prop of site.camp?.props??[]) {
-    const b=campPropBounds(prop);
-    if(prop.kind==='canopy'||prop.kind==='shelter') {
-      // Open shelters have four posts and an overhead roof, never a solid box.
-      for(const x of [b.minX+.12,b.maxX-.12])for(const z of [b.minZ+.12,b.maxZ-.12])
-        result.push({minX:x-.07,maxX:x+.07,minZ:z-.07,maxZ:z+.07,minY:prop.y,maxY:prop.y+2.5});
-      result.push({...b,minY:prop.y+2.5});
-      if(prop.kind==='shelter')result.push({minX:prop.x-1,maxX:prop.x+1,minZ:prop.z-1.25,maxZ:prop.z-.55,minY:prop.y,maxY:prop.y+.62});
-    } else result.push(b);
-  }
-  return result;
-}
-export function facilityNavigationAnchors(site: FacilitySite) {
-  return [...(site.camp?.patrol??[]),...facilityObstacles(site).flatMap(b=>
-    [b.minX-.8,b.maxX+.8].flatMap(x=>[b.minZ-.8,b.maxZ+.8].map(z=>({x,z}))))];
-}
-/** Overhead panels also enter the vertical kernel's jump/ceiling checks. */
-export function facilityCeilings(site: FacilitySite): TraversalObstacle[] {
-  return (site.camp?.props??[]).filter(p=>p.kind==='canopy'||p.kind==='shelter').map(p=>
-    ({...campPropBounds(p),minY:p.y+2.5,maxY:p.y+CAMP_PROP_SIZE[p.kind].h}));
 }
 
 export interface GuardPatrol { site: string; index: number; until: number; slot: number; pauseUntil?: number }

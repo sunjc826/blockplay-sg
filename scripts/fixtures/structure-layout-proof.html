@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Independent structure layout proof</title>
+<style>body{margin:0;background:#18232a;color:white;font:16px system-ui}canvas{display:block}#status{position:absolute;top:16px;left:16px;padding:14px;background:#18232add;max-width:440px}</style></head><body><div id="status">Loading layout proof</div><script type="module">
+// Test fixture only: a real district, standalone cover and an independent zone.
+// No new playable mode, facility rules or expedition environment are installed.
+import * as THREE from 'three';
+import { getRegion } from '/src/game/regions.ts';
+import { getWorldZone } from '/src/game/world-zones.ts';
+import { createVerticalMovement } from '/src/game/vertical-movement.ts';
+import { getPhysicalWalkSurfaces, getTraversalObstacles } from '/src/game/vertical-routes.ts';
+import { installStructureLayout } from '/src/game/structure-layout.ts';
+import { createStructureVisuals } from '/src/game/structure-visuals.ts';
+import { createSceneCover } from '/src/game/scene-cover.ts';
+import { createArena } from '/src/game/arena-rules.ts';
+const region=getRegion('toa-payoh'), world=region.build();
+const terrain=()=>({bounds:region.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)});
+const base=createVerticalMovement(terrain()), spawn=getWorldZone('toa-payoh').spawn;
+const clear=(x,z)=>base.canOccupy(x,0,z,.5,1.8)&&Math.abs(base.supportHeight(x,z,.1,.4,1.8)??100)<.05;
+let position;
+for(let radius=0;radius<=180&&!position;radius+=6)for(let i=0;i<24&&!position;i++){
+ const x=spawn.x+Math.sin(i*Math.PI/12)*radius,z=spawn.z+Math.cos(i*Math.PI/12)*radius;
+ if([-2.6,0,2.6].every(dx=>[-1,0,1].every(dz=>clear(x+dx,z+dz)))&&[-3,0,3].every(dx=>[-3,0,3].every(dz=>clear(x+7+dx,z+4+dz))))position={x,y:0,z};
+}
+if(!position)throw Error('No clear proof layout');
+const layout={id:'alternative-proof',structures:[{id:'standalone-cover',name:'Standalone sandbags',...position,props:[{kind:'barricade',...position,yaw:0}]}]};
+const zone={x:position.x+7,z:position.z+4,radius:3};
+const ring=new THREE.Mesh(new THREE.RingGeometry(2.9,3,48),new THREE.MeshBasicMaterial({color:'#ffdf80',side:THREE.DoubleSide}));
+ring.rotation.x=-Math.PI/2;ring.position.set(zone.x,.06,zone.z);ring.userData.fpsEffect=true;world.scene.add(ring);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1100,720);renderer.setPixelRatio(1);document.body.appendChild(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(55,1100/720,.1,500);camera.position.set(position.x+11,10,position.z+17);camera.lookAt(position.x+3,0,position.z+2);
+const light=new THREE.HemisphereLight('#e4efff','#71746e',2);world.scene.add(light);
+let installed,visuals,arena;
+const originalObstacles=world.obstacles.length;
+window.mountProof=(empty=false)=>{
+ visuals?.dispose();installed?.dispose();
+ const selected=empty?{id:'empty',structures:[]}:layout;
+ installed=installStructureLayout(world,selected);visuals=createStructureVisuals(world.scene,selected);
+ const cover=createSceneCover(world.scene);
+ arena=createArena(world.obstacles,0,'mixed',{bounds:region.bounds,move:region.move,spawns:[zone],playerSpawn:zone,navigationAnchors:installed.navigationAnchors},undefined,terrain(),cover.distance,undefined,cover.sightDistance);
+ arena.addPlayer('p','Proof player');
+ const movement=createVerticalMovement(terrain()),blocked=!movement.canOccupy(position.x,0,position.z,.4,1.8);
+ const hit=cover.distance({x:position.x,y:.5,z:position.z-3},{x:0,y:0,z:1},6);
+ const before=arena.snapshot();arena.setPlayerVitals('p',{health:0});const down=arena.snapshot().actors[0].alive===false;
+ for(let i=0;i<80;i++)arena.step(.05);
+ const after=arena.snapshot();arena.reset();
+ const summary={empty,blocked,rayBlocked:hit<3,addedObstacles:world.obstacles.length-originalObstacles,
+  structures:world.scene.children.filter(o=>o.userData.structureId).length,
+  facilities:after.facilities??null,reinforcements:after.reinforcementClocks??null,actors:after.actors.length,
+  facilityAction:arena.facilityAction('p','standalone-cover'),zoneOccupied:Math.hypot(before.actors[0].x-zone.x,before.actors[0].z-zone.z)<=zone.radius,
+  zoneWalkable:movement.canOccupy(zone.x,0,zone.z,.4,1.8),respawned:down&&after.actors[0].alive,
+  resetHasFacilities:arena.snapshot().facilities!==undefined};
+ document.getElementById('status').textContent=empty?'Empty layout · district scenery and zone remain':'Alternative layout proof · standalone sandbags + independent zone · no facilities or logistics';
+ renderer.render(world.scene,camera);window.proofResult=summary;return summary;
+};
+window.disposeProof=()=>{visuals.dispose();installed.dispose();return {obstacles:world.obstacles.length-originalObstacles,structures:world.scene.children.filter(o=>o.userData.structureId).length}};
+window.mountProof();window.ready=true;
+</script></body></html>

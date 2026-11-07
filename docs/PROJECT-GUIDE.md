@@ -2,6 +2,8 @@
 
 [Back to README](../README.md) · [Play the public demo](https://blockplaysg.fun/)
 
+Physical structure architecture and expedition compatibility: [Structures](STRUCTURES.md).
+
 ## Game modes and controls
 
 ### Recruit tutorial

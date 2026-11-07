@@ -44,8 +44,8 @@ import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
 import { captureObjectives } from './expedition-objectives';
-import { createFacilityVisuals } from './facility-visuals';
-import { facilityCeilings, facilityNavigationAnchors, facilityObstacles } from './command-camp';
+import { createExpeditionStructureVisuals } from './expedition-structure-visuals';
+import { installStructureLayout } from './structure-layout';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
 import { TUTORIAL_DISTRICT, tutorialCheckpoint, COURSE_STEPS } from './tutorial-course';
@@ -409,6 +409,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const infrastructure = expedition ? districtInfrastructure(world, npcs) : undefined;
   const fleetSpawns: VehicleSpawns = infrastructure?.fleetSpawns ?? { ...district.vehicles, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
   const facilitySites = infrastructure?.facilitySites ?? [];
+  const structureLayout = infrastructure?.structures ?? { id: 'empty', structures: [] };
+  const installedStructures = installStructureLayout(world, structureLayout);
   const navigationBake = expedition ? loadNavigationBake(region) : Promise.resolve(undefined);
   if (expedition && options.arena?.environment) {
     if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
@@ -419,9 +421,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     options.arena.environment.savedReinforcementClocks = saved?.reinforcementClocks;
     options.arena.environment.savedMerlion = saved?.merlion;
     options.arena.environment.facilities = { sites: facilitySites, saved: saved?.facilities, savedVehicles: saved?.vehicles };
-    world.obstacles.push(...facilitySites.flatMap(facilityObstacles));
-    world.scene.userData.traversalObstacles=[...getTraversalObstacles(world.scene),...facilitySites.flatMap(facilityCeilings)];
-    options.arena.environment.navigationAnchors=[...(options.arena.environment.navigationAnchors??[]),...facilitySites.flatMap(facilityNavigationAnchors)];
+    options.arena.environment.navigationAnchors=[...(options.arena.environment.navigationAnchors??[]),...installedStructures.navigationAnchors];
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   }
@@ -455,7 +455,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let focusedRack: RangeArmoryEntry | null = null, rackCardKey = '', rackCard: LootCard | null = null;
   const rackLook = new THREE.Vector3();
   const proxyVisuals = createProxyOperationVisuals(world.scene);
-  const facilityVisuals = createFacilityVisuals(world.scene, facilitySites);
+  const facilityVisuals = createExpeditionStructureVisuals(world.scene, structureLayout);
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment && (options.arena.environment.paratroopers || options.arena.environment.proxies)) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
@@ -4633,7 +4633,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       options.onRentalTime?.(0);
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
-      facilityVisuals.dispose(); objectiveBeacons?.dispose();
+      facilityVisuals.dispose(); installedStructures.dispose(); objectiveBeacons?.dispose();
       disposed = true; rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);

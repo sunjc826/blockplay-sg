@@ -8,6 +8,7 @@ import { sceneFlightObstacles } from './flight-obstacles';
 import { worldVehicleSpawns } from './world-vehicles';
 import { districtFacilitySites } from './facility-sites';
 import { DRAGON_BOAT_SPAWNS } from './marina-water';
+import { expeditionStructureLayout } from './expedition-structures';
 
 /** The bake and the live expedition must place camps and staging points identically. */
 export function districtInfrastructure(world: ReturnType<typeof buildDistrictWorld>, npcs: readonly ExpeditionNpc[]) {
@@ -19,5 +20,5 @@ export function districtInfrastructure(world: ReturnType<typeof buildDistrictWor
   const ground = (x: number, z: number) => world.bounds.groundHeight?.(x, z) ?? 0;
   const facilitySites = districtFacilitySites(id, fleetSpawns, (x, z) => movement.canOccupy(x, ground(x, z), z, 1.1, 2) &&
     Math.abs((movement.supportHeight(x, z, ground(x, z) + .1, .4, 1.8) ?? 100) - ground(x, z)) < .05, npcs, world.bounds.groundHeight);
-  return { fleetSpawns, facilitySites };
+  return { fleetSpawns, facilitySites, structures: expeditionStructureLayout(facilitySites, `expedition:${id}`) };
 }

@@ -11,7 +11,8 @@ export interface FacilitySite extends FacilityPoint {
   initiallyBuilt?: boolean;
   /** An authored local battle: concentrate squads before expanding to other posts. */
   combatFocus?: 'primary' | 'secondary';
-  /** Authored-space camp furnishings and individual rear-guard patrol stops. */
+  /** Expedition's compatible layout/save data. expedition-structures resolves the
+   * physical props; rear-guard patrol stops remain expedition AI configuration. */
   camp?: CommandCamp;
 }
 export interface FacilityState extends FacilitySite {
