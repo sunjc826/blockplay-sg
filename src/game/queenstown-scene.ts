@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
 import { onQueenstownDeck } from './queenstown-housing-layout';
@@ -295,6 +296,7 @@ export function buildQueenstownScene() {
       for (let dx = -4; dx <= 4; dx += 2) box(x + dx, 10.25, 22 + side * 1.65, 1.3, 1, .06, glass, train);
     }
   }
+  batchRigidMeshes(train, { trackGeometry: geo });
   // Low-rise neighbourhood shops and market canopy, not tourist landmarks.
   box(73, 3, -13, 65, 6, 13, cream, scene, true); solid(73, -13, 65, 13);
   const shopNames = ['KOPI', 'PROVISIONS', 'BAKERY', 'MARKET'];

@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import * as THREE from 'three';
 
 /** Original shallow-draft utility craft, forward -Z; its stern helm stays exposed. */
@@ -25,5 +26,6 @@ export function buildLandingCraft() {
   for (const side of [-1, 1]) {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(.5, 9), foam); strip.rotation.x = -Math.PI / 2; strip.rotation.z = side * .15; strip.position.set(side * 2, .03, 4); wake.add(strip);
   }
+  batchRigidMeshes(root); batchRigidMeshes(ramp);
   return root;
 }

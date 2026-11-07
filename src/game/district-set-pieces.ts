@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState, railTimetable } from './rail-routes';
 export { travel } from './rail-routes';
 import { MARINA_LAYOUT_SCALE } from './marina-layout';
@@ -126,6 +127,9 @@ function punggol(kit: Kit): SetPiece {
     kit.box(train, 0, .1, dz, 1.6, .3, 9, dark);
   }
   for (const end of [-1, 1]) kit.box(train, 0, 1.75, end * 11.75, 2.2, 1.1, .1, glass);
+  // The body and stripe have coplanar ends: retain their original transforms
+  // and draw ordering to preserve the existing depth behaviour.
+  batchRigidMeshes(train, { candidates: train.children.filter(p => p instanceof THREE.Mesh && p.material !== white && p.material !== band), trackGeometry: kit.keep, raycast: noRaycast });
   train.position.set(PUNGGOL_LRT.x, PUNGGOL_LRT.deck, PUNGGOL_LRT.station);
   return {
     animate(time) { train.position.z = punggolTrain(time).z; },
@@ -267,6 +271,11 @@ function woodlands(kit: Kit): SetPiece {
     for (const side of [-1, 1]) kit.box(train, side * 1.52, 2.7, z, .06, 1, 15, glass);
     kit.box(train, 0, .35, z, 2, .5, 15, dark);
   }
+  // Keep the coplanar body/stripe ends unchanged, as on the LRT above.
+  // Two-car chunks keep this 74-metre train's culling bounds local.
+  const parts = [...train.children];
+  for (let i = 0; i < parts.length; i += 10)
+    batchRigidMeshes(train, { candidates: parts.slice(i, i + 10).filter(p => p instanceof THREE.Mesh && p.material !== white && p.material !== blue), trackGeometry: kit.keep, raycast: noRaycast });
   train.name = 'woodlands-train';
   train.position.set(WOODLANDS_SHUTTLE.x, WOODLANDS_SHUTTLE.rail, WOODLANDS_SHUTTLE.stop);
   const { legs, period } = railTimetable(RAIL_ROUTES.woodlands);

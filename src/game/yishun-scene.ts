@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
@@ -82,6 +83,7 @@ export function buildYishunScene() {
     }
   }
 
+  batchRigidMeshes(train, { trackGeometry: kit.geo });
   train.position.z = railState(railRoute, 0).position;
 
   // Chong Pang-inspired market: two banks of stalls, a clear centre aisle and

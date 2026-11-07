@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import { helicopterGunPoint } from './helicopter-crew';
 import { buildLandingCraft } from './landing-craft-model';
 import type { ArenaTransport } from './combat-transports';
@@ -41,7 +42,7 @@ function radial(size: number, edge: number) {
   const texture = new THREE.DataTexture(data, size, size); texture.needsUpdate = true; return texture;
 }
 /** An original troop truck: cab, flatbed and canvas canopy on six wheels. Forward is local -Z. */
-function buildTruck() {
+export function buildTruck() {
   const root = new THREE.Group(), olive = new THREE.MeshStandardMaterial({ color: '#4a5236', roughness: .8 }),
     canvas = new THREE.MeshStandardMaterial({ color: '#5d6045', roughness: .95 }), dark = new THREE.MeshStandardMaterial({ color: '#1d2120', roughness: .85 }),
     glass = new THREE.MeshStandardMaterial({ color: '#809fa0', roughness: .2, metalness: .1, transparent: true, opacity: .22, depthWrite: false });
@@ -61,6 +62,7 @@ function buildTruck() {
   for (const z of [-2.3, .6, 2.1]) for (const x of [-1.15, 1.15]) {
     const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.52, .52, .4, 12), dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, .52, z); root.add(wheel);
   }
+  batchRigidMeshes(root);
   return root;
 }
 

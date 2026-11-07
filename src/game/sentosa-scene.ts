@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
@@ -213,6 +214,7 @@ export function buildSentosaScene() {
       box((car - 1) * 13, 18.2, 0, 12.2, 2, 5.2, glass, train);
       box((car - 1) * 13, 15.2, 0, 9, 1.6, 3, dark, train);
     }
+    batchRigidMeshes(train, { trackGeometry: geo });
     train.position.set(railState(RAIL_ROUTES.sentosa, 0).position, 0, z); scene.add(train);
     scene.userData.railRoute = RAIL_ROUTES.sentosa;
     addRailTerminals({ box, sign }, RAIL_ROUTES.sentosa, { platform: pale, roof: steel, warning: cloth[2], dark }, ['WEST TERMINAL', 'EAST TERMINAL']);

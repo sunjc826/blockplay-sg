@@ -1,3 +1,4 @@
+import { batchRigidMeshes } from './rigid-batches';
 import * as THREE from 'three';
 import type { SceneKit } from './scene-kit';
 
@@ -15,6 +16,8 @@ export function bumboat(kit: SceneKit, x: number, z: number, yaw = 0) {
   kit.box(0, 3.1, .4, 4.2, .3, 9, roof, root);
   for (const side of [-1, 1]) for (const dz of [-2, 1, 4]) kit.box(side * 1.7, 2.1, dz, .14, 1.9, .14, wood, root);
   for (const dz of [-.5, 1.5, 3.5]) kit.box(0, 1.45, dz, 3.1, .22, .65, wood, root);
-  root.traverse(child => { child.raycast = () => {}; });
+  const noRaycast = () => {};
+  root.traverse(child => { child.raycast = noRaycast; });
+  batchRigidMeshes(root, { trackGeometry: kit.geo, raycast: noRaycast });
   return { root, animate(time: number) { root.position.y = Math.sin(time * 1.4) * .06; root.rotation.z = Math.sin(time * .9) * .015; } };
 }
