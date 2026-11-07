@@ -223,6 +223,22 @@
    ammo panel's small print. */
 .fps-game[data-touch=on] .fps-controls-fold, .fps-game[data-touch=on] .fps-player-tools kbd, .fps-game[data-touch=on] .fps-ammo-detail { display:none; }
 
+/* Give a paused phone session the screen, including the space normally kept
+   for fullscreen controls. Keep the card itself scrollable on short screens. */
+@media (max-width:1024px), (max-height:600px) {
+  .fps-game[data-touch=on][data-phase=paused] .fps-overlay {
+    /* The play/fullscreen shell already clears the device's safe area. */
+    padding:12px; z-index:5;
+    grid-template-rows:minmax(0,1fr);
+    grid-template-columns:minmax(0,1fr);
+  }
+  .fps-game[data-touch=on][data-phase=paused] .fps-start-card {
+    width:100%; max-width:none; height:100%; min-height:0;
+    overflow:auto; overscroll-behavior:contain;
+    padding:clamp(18px,3vw,28px);
+  }
+}
+
 /* Short screens drop the small print first, then the headline. */
 @media (max-height:640px) {
   .game-menu-title > span, .game-menu-modes .game-menu-copy small, .game-install-card:not(.is-showing-steps, .is-open-app) .game-install-copy small { display:none; }
