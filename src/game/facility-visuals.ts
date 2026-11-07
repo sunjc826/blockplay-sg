@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PLAYER_FACTION } from './arena-factions';
 import type { FacilitySite, FacilitySnapshot } from './facilities';
 import { createCommandCampVisuals } from './command-camp-visuals';
 
 /** Field camps surround command consoles; other facilities retain their cabinets. */
-export function createFacilityVisuals(scene: THREE.Scene, sites: readonly FacilitySite[]) {
+export function createFacilityVisuals(scene: THREE.Scene, sites: readonly FacilitySite[], options: { batchParts?: boolean } = {}) {
   const resources: (THREE.BufferGeometry | THREE.Material)[] = [];
   const roots = sites.map(site => {
     const root = new THREE.Group(); root.userData.facilityId = site.id;
@@ -36,6 +37,26 @@ export function createFacilityVisuals(scene: THREE.Scene, sites: readonly Facili
     box(.08, .6, .08, .3, 3.3, -.3);
     box(.08, .6, .08, 1, 3.3, -.3);
     const bar = box(1.7, .12, .1, 0, 2.1, .7, accent);
+    // Only these authored, fixed boxes share a draw. Each console retains its
+    // own materials; the mast and progress bar still change independently.
+    if (options.batchParts !== false) for (const material of [metal, accent]) {
+      const parts = root.children.filter((o): o is THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial> =>
+        o instanceof THREE.Mesh && o !== mast && o !== bar && o.material === material);
+      if (parts.length < 2) continue;
+      const flightBounds = parts.map(part => {
+        part.updateMatrix(); part.geometry.computeBoundingBox();
+        return part.geometry.boundingBox!.clone().applyMatrix4(part.matrix);
+      });
+      const geometry = mergeGeometries(parts.map(part => part.geometry.applyMatrix4(part.matrix)), false)!;
+      geometry.computeBoundingBox(); geometry.computeBoundingSphere(); resources.push(geometry);
+      const mesh = new THREE.Mesh(geometry, material); mesh.name = 'Facility fixed parts';
+      // Preserve the gaps between parts for helicopter collision extraction.
+      mesh.userData.flightBounds = flightBounds;
+      for (const part of parts) {
+        root.remove(part); resources.splice(resources.indexOf(part.geometry), 1); part.geometry.dispose();
+      }
+      root.add(mesh);
+    }
     const ringGeo = new THREE.RingGeometry(2.3, 2.45, 32); resources.push(ringGeo);
     const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: '#70cfff', side: THREE.DoubleSide, transparent: true, opacity: .7, depthWrite: false }));
     resources.push(ring.material); ring.rotation.x = -Math.PI / 2; ring.position.y = .04; root.add(ring);
