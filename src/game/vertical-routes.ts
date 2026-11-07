@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { RegionWorld } from './regions';
 import { insideFootprint, type Obstacle, type Position2D } from './region-collision';
+import { instanceStaticMeshes } from './static-instances';
 
 export interface WalkSurface {
   /** Service endpoint used by navigation; live movement uses the moving car slab. */
@@ -63,12 +64,13 @@ export function surfaceHeight(surface: WalkSurface, x: number, z: number) {
  * separate from the old flat vehicle obstacle list: cars remain at street level.
  * Routes have open ends, rails along their sides, and pillars under raised decks.
  */
-export function withVerticalRoutes<T extends RegionWorld>(world: T, routes: readonly VerticalRoute[]): T {
+export function withVerticalRoutes<T extends RegionWorld>(world: T, routes: readonly VerticalRoute[], options: { batchParts?: boolean } = {}): T {
   const surfaces: WalkSurface[] = [...getWalkSurfaces(world.scene)];
   const obstacles: TraversalObstacle[] = [...getTraversalObstacles(world.scene)];
   const group = new THREE.Group(); group.name = 'Walkable elevated routes';
   const geometries: THREE.BufferGeometry[] = [];
   const materials: THREE.Material[] = [];
+  const instances: THREE.InstancedMesh[] = [];
   const unit = new THREE.BoxGeometry(1, 1, 1); geometries.push(unit);
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, solid = true) => {
     const mesh = new THREE.Mesh(unit, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d);
@@ -85,6 +87,7 @@ export function withVerticalRoutes<T extends RegionWorld>(world: T, routes: read
     const rail = new THREE.MeshStandardMaterial({ color: route.railColor ?? '#50676a', roughness: .6, metalness: .25 });
     materials.push(deck, rail);
     for (let i = 1; i < route.points.length; i++) {
+      const firstPart = group.children.length;
       const a = route.points[i - 1], b = route.points[i];
       const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
       if (![a.x, a.y, a.z, b.x, b.y, b.z].every(Number.isFinite) || a.y < 0 || b.y < 0 || !length || (dx !== 0 && dz !== 0) || Math.abs(b.y - a.y) / length > .5 + 1e-8) throw new Error(`Invalid ramp ${route.id}/${i}`);
@@ -136,6 +139,9 @@ export function withVerticalRoutes<T extends RegionWorld>(world: T, routes: read
           if (route.foundation !== 'solid' && a.y === b.y && a.y >= 2 && n % 4 === 0) box(p.x,(p.y-railHeight-.22)/2,p.z,.25,p.y-railHeight-.22,.25,deck);
         }
       }
+      // Per-segment bounds keep a long route from becoming one always-visible batch.
+      // Movement volumes above and exact per-instance projectile/flight bounds stay intact.
+      if (options.batchParts !== false) instances.push(...instanceStaticMeshes(group, group.children.slice(firstPart)));
     }
   }
   world.scene.add(group);
@@ -146,7 +152,7 @@ export function withVerticalRoutes<T extends RegionWorld>(world: T, routes: read
   let disposed = false;
   world.dispose = () => {
     if (disposed) return; disposed = true;
-    group.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); disposeOriginal();
+    group.removeFromParent(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); disposeOriginal();
   };
   return world;
 }

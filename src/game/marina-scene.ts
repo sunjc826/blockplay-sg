@@ -4,6 +4,7 @@ import { withBuildingLifts } from './building-lift-scene';
 import { MARINA_LANDMARK_PLACES, MARINA_LIFTS } from './marina-landmarks';
 import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
+import { instanceStaticMeshes } from './static-instances';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { MARINA_STAMPS } from '../data/region-stamps.ts';
@@ -80,7 +81,7 @@ export const MARINA_VERTICAL_PLACES: VerticalPlace[] = AUTHORED_PLACES.map(p => 
   fixtures:p.fixtures?.map(f => ({ ...marinaPoint(f), y:f.y*S, width:f.width*S, height:f.height*S, depth:f.depth*S })),
 }));
 
-export function buildMarinaScene() {
+export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#a8cde8');
   scene.fog = new THREE.Fog('#b8cfdf', 290, 850);
   scene.add(new THREE.HemisphereLight('#e4efff', '#71746e', 1.65));
@@ -90,6 +91,7 @@ export function buildMarinaScene() {
   Object.assign(sun.shadow.camera, { left: -405, right: 405, top: 370, bottom: -370, near: 1, far: 850 });
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.3; scene.add(sun);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
+  const instances: THREE.InstancedMesh[] = [];
   const qualityDetails = { esplanadeSunshades: 0, wheelCapsules: 0, conservatoryGlazingSegments: 0, sandsMullions: 0 };
   const obstacles: Obstacle[] = [{ minX: -80, maxX: 80, minZ: -90, maxZ: 50, maxY: 2 }];
   const geo = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
@@ -567,9 +569,10 @@ export function buildMarinaScene() {
   // The turning part is one group about the axle; each capsule hangs on its
   // own pivot so it can be counter-turned to stay level (district-set-pieces).
   const flyer = new THREE.Group(); flyer.name = 'marina-flyer-wheel'; flyer.position.set(258, 30, -267); scene.add(flyer);
+  const rimGeo = geo(new THREE.TorusGeometry(25, 0.4, 5, 40));
   for (const z of [-270, -264]) {
     const local = z + 267;
-    const rim = new THREE.Mesh(geo(new THREE.TorusGeometry(25, 0.4, 5, 40)), pale); rim.position.set(0, 0, local); flyer.add(rim);
+    const rim = new THREE.Mesh(rimGeo, pale); rim.position.set(0, 0, local); flyer.add(rim);
     for (let i = 0; i < 16; i++) {
       const angle = i / 16 * Math.PI * 2;
       beam(new THREE.Vector3(0, 0, local), new THREE.Vector3(Math.cos(angle) * 25, Math.sin(angle) * 25, local), 0.12, steel, flyer);
@@ -583,6 +586,9 @@ export function buildMarinaScene() {
     }
     for (const x of [245, 271]) { beam(new THREE.Vector3(x, 0, z + (z === -270 ? -6 : 6)), new THREE.Vector3(258, 30, z), 1, pale); collider(x, z + (z === -270 ? -6 : 6), 2, 2); }
   }
+  // Keep each capsule's counter-rotation pivot; only fixed siblings share a draw.
+  if (options.batchFlyer !== false) for (const parent of [flyer, ...flyer.children.filter(c => c.name === 'marina-flyer-capsule')])
+    instances.push(...instanceStaticMeshes(parent));
   // Southern civic promenade with arcaded retail, loading bays and planted
   // central reservations. Keep the north/south connector at x=0 unobstructed.
   box(33, 0.015, 227, 480, 0.12, 18, sand);
@@ -770,7 +776,7 @@ export function buildMarinaScene() {
     const material = child.material as THREE.Material, key = `${child.geometry.uuid}:${material.uuid}:${child.castShadow}`;
     const batch = batches.get(key) || []; batch.push(child); batches.set(key, batch);
   }
-  const instances: THREE.InstancedMesh[] = [pavers];
+  instances.push(pavers);
   for (const batch of batches.values()) {
     if (batch.length < 2) continue;
     const mesh = new THREE.InstancedMesh(batch[0].geometry, batch[0].material, batch.length);
