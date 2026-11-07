@@ -1,3 +1,5 @@
+import { RANGE_ARMOR_TIERS, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter, type RangeDamageView } from './range-damage';
+import { createRangeDamageLabel } from './range-damage-label';
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
@@ -289,7 +291,7 @@ export interface FpsHud {
   carriedWeapons: number[]; carriedKg: number; movementScale: number;
   spareMagazines?: number; magazineCapacity?: number; reloadCapacity?: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
-  rangeDrill: RangeDrillView | null; rangeSupplyPrompt: string;
+  rangeDamage: RangeDamageView | null; rangeDrill: RangeDrillView | null; rangeSupplyPrompt: string;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicleView: 'first-person' | 'third-person'; vehiclePersonalWeapon: boolean; vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
@@ -340,7 +342,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { rangeDamage: null, scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -549,7 +551,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const bloom = specs.map(() => createWeaponBloom());
   let spreadAngle = .005;
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
-  const targets: { root: THREE.Group; hitZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
+  let lastDamagedTarget: number | null = null;
+  const targets: { tier: RangeArmorTier; armor: number; meter: RangeDamageMeter; label?: ReturnType<typeof createRangeDamageLabel>; root: THREE.Group; hitZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
   const decorations = new THREE.Group(); world.scene.add(decorations);
   /** Your section and some onlookers at a practice range: friendlies and neutrals for an IFF reader. */
   let rangeFigures: ReturnType<typeof createRangeFigures> | null = null;
@@ -822,6 +825,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     hud.facilityPrompt = canWork && nearby ? `E · ${facilityPrompt(nearby)}` : '';
     hud.rangeDrill = practiceRange ? rangeDirector!.view(hud.elapsed, rangeEndedEarly) : null;
+    const damagedTarget = lastDamagedTarget === null ? null : targets[lastDamagedTarget];
+    hud.rangeDamage = practiceRange && damagedTarget ? { ...damagedTarget.meter, target: lastDamagedTarget! + 1, tier: damagedTarget.tier.label, health: damagedTarget.health, armor: damagedTarget.armor } : null;
     updateRackFocus();
     hud.rangeSupplyPrompt = !focusedRack && canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
     if (rangeTravel) {
@@ -831,7 +836,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (practiceRange) {
       canvas.dataset.rangeDrill = drillMode; canvas.dataset.rangeActive = String(hud.rangeDrill?.active ?? 0);
       canvas.dataset.rangeSpawned = String(hud.rangeDrill?.spawned ?? 0);
-      if (debugDatasets) canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health })));
+      if (debugDatasets) canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({ id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z, alive: t.alive, health: t.health, armor: t.armor, tier: t.tier.label, damage: t.meter })));
       if (debugDatasets) canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
     }
     const proxy = hud.arena?.proxies?.operation;
@@ -1272,7 +1277,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     vertical = velocityY = hitTime = 0; resetWeaponRecoil(); carry.set(0, 0, 0); clearInput();
     rounds.length = 0; effects.reset();
     aimProgress = 0; bloom.forEach(state => { state.amount = 0; state.delay = 0; });
-    targets.forEach(t => { t.health = t.maxHealth; t.bar.scale.x = 1; t.activation = 0; });
+    lastDamagedTarget = null; hud.rangeDamage = null;
+    targets.forEach(t => { t.health = t.maxHealth; t.armor = t.tier.armor; Object.assign(t.meter, createRangeDamageMeter()); t.label?.update(t.meter); t.bar.scale.x = 1; t.activation = 0; });
     updateRangeTargets();
     updateCameras(0, false, false); publish();
   }
@@ -2705,13 +2711,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       heading = meetWater(hit, skipDirection, energy, weapon); at = hit.point.clone(); travelled = range;
     }
   }
-  function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1, rawDamage?: number) {
+  function damageTarget(index: number, weapon: number, range: number, zone: string | undefined, scale = 1, rawDamage?: number, blast = false, shred = 0) {
     const target = targets[index];
     if (!target?.alive || scale <= 0 || practiceRange && (hud.phase !== 'playing' || rangeDirector?.finished)) return;
     // Falloff reads how far the round actually travelled, which for one in flight
     // is its whole arc rather than the length of its final segment.
     const damage = Math.max(1, Math.round((rawDamage ?? hitDamage(specs[weapon], range, zone)) * scale * damageDealtScale(foodEffects)));
-    hud.landed++; hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage);
+    hud.landed++;
+    if (practiceRange) {
+      const result = damageRangeDummy(target.meter, target.tier, target.health, target.armor, damage, hud.elapsed, rawDamage === undefined && !blast ? specs[weapon].caliberMm : undefined, shred);
+      target.health = result.health; target.armor = result.armor; hud.lastDamage = Number(target.meter.last.toFixed(1)); lastDamagedTarget = index;
+      target.label?.update(target.meter);
+    } else { hud.lastDamage = Math.min(target.health, damage); target.health = Math.max(0, target.health - damage); }
     target.bar.scale.x = target.health / target.maxHealth; hitTime = .20; hud.hitKind = target.health === 0 ? 'kill' : 'hit'; confirmHit(hud.hitKind, zone === 'head');
     if (target.health > 0) return;
     if (rangeDirector && !rangeDirector.eliminate(index, target.activation, hud.elapsed)) return;
@@ -2761,7 +2772,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!target.alive || index === direct) return;
       target.hitZone.getWorldPosition(splashPoint);
       const share = splashScale(splashPoint.distanceTo(point), splash.radius, splash.minScale);
-      if (share > 0) damageTarget(index, weapon, range, undefined, scale * share);
+      if (share > 0) damageTarget(index, weapon, range, undefined, scale * share, undefined, true);
     });
   }
   /** Raises a supply: the weapon goes down and `apply` runs at the commit point, unless the use is stopped first. */
@@ -2805,7 +2816,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       bodies.push({ item: -1, point: new THREE.Vector3(position.x, vertical + eyeHeight() * .6, position.z) });
       for (const hit of resolveBlast(b.point, b.blast, bodies, grenadeClear)) {
         if (hit.item === -1) hurtPlayer(hit.damage, undefined, false, b.shred, b.point, true);
-        else damageTarget(hit.item, hud.weapon, 0, undefined, 1 / damageDealtScale(foodEffects), hit.damage);
+        else damageTarget(hit.item, hud.weapon, 0, undefined, 1 / damageDealtScale(foodEffects), hit.damage, true, b.shred);
       }
       for (const kind of VEHICLE_KINDS) { const v = vehicles.states[kind], point = { x: v.x, y: v.y + 1, z: v.z };
         for (const h of resolveBlast(b.point, b.blast, [{ item: kind, point, vehicle: true }], grenadeClear)) vehicles.damage(h.item, h.damage); }
@@ -3000,9 +3011,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!director) return;
     if (hud.phase === 'playing') director.step(hud.elapsed, targetPositions.flatMap((p, i) => Math.hypot(p.x - position.x, p.z - position.z) >= 4 ? [i] : []));
     targets.forEach((target, i) => {
+      if (expireRangeDamage(target.meter, hud.elapsed)) target.label?.update(target.meter);
       const slot = director.slots[i];
       if (target.activation !== slot.activation) {
-        target.activation = slot.activation; target.health = target.maxHealth; target.bar.scale.x = 1;
+        target.activation = slot.activation; target.health = target.maxHealth; target.armor = target.tier.armor; target.bar.scale.x = 1;
         if (drillMode !== 'classic') target.root.rotation.y = Math.atan2(position.x - target.root.position.x, position.z - target.root.position.z);
       }
       target.alive = slot.phase === 'active' && !director.finished;
@@ -4489,10 +4501,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // zone, so the nearest-surface rule picks exactly one of the two.
       const headZone = new THREE.Mesh(headGeometry, targetMaterial); headZone.position.set(0, 1.72, 0.026);
       headZone.userData.fpsTarget = i; headZone.userData.fpsZone = 'head'; root.add(headZone);
-      const maxHealth = i % 2 ? 115 : 100;
+      const tier = practiceRange ? RANGE_ARMOR_TIERS[i % RANGE_ARMOR_TIERS.length] : { ...RANGE_ARMOR_TIERS[0], health: i % 2 ? 115 : 100 };
+      const maxHealth = tier.health, meter = createRangeDamageMeter();
+      const label = practiceRange ? createRangeDamageLabel(i + 1, tier) : undefined;
+      if (label) { label.update(meter); root.add(label.sprite); }
       const bar = new THREE.Mesh(healthGeometry, healthMaterial); bar.position.set(0, 1.91, .04); root.add(bar);
       const collider = { minX: p.x - .42, maxX: p.x + .42, minZ: p.z - .42, maxZ: p.z + .42, maxY: 2.08 };
-      world.scene.add(root); targets.push({ root, hitZone, alive: true, activation: 0, health: maxHealth, maxHealth, bar, collider });
+      world.scene.add(root); targets.push({ tier, armor: tier.armor, meter, label, root, hitZone, alive: true, activation: 0, health: maxHealth, maxHealth, bar, collider });
       world.obstacles.push(collider);
     });
     updateRangeTargets();
@@ -4637,6 +4652,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       proxyVisuals.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); slideScrape.dispose(); worldLoops.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       disposeCombatOutput(audio);
+      targets.forEach(target => target.label?.dispose());
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();
       scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();

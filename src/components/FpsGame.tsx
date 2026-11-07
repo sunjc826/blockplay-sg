@@ -1,3 +1,4 @@
+import { RANGE_DAMAGE_IDLE_SECONDS, rangeDamageNumber } from '../game/range-damage';
 import { confirmAction, requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 import MerlionHud from './MerlionHud';
 import { playMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
@@ -189,6 +190,12 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
+        {!isArena && hud.rangeDamage && <div className="range-damage-panel" aria-label="Dummy damage">
+          <strong>Dummy {hud.rangeDamage.target} · {hud.rangeDamage.tier}</strong>
+          <div><span>Last hit <b>{rangeDamageNumber(hud.rangeDamage.last)}</b></span><span>Total <b>{rangeDamageNumber(hud.rangeDamage.total)}</b></span></div>
+          <small>Health damage · armor {rangeDamageNumber(hud.rangeDamage.lastArmor)} last / {rangeDamageNumber(hud.rangeDamage.totalArmor)} total</small>
+          <small>Resets after {RANGE_DAMAGE_IDLE_SECONDS}s without damage</small>
+        </div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
@@ -246,6 +253,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
         {hud.phase !== 'loading' && hud.phase !== 'error' && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>}
+        {!isArena && hud.phase === 'ready' && <p className="fps-armor-note">Dummies span armor tiers 0–4, from unarmored to commander. Labels show health damage and armor damage separately; each dummy’s totals reset after {RANGE_DAMAGE_IDLE_SECONDS}s without a hit. Continuous mode brings cleared dummies back.</p>}
         {hud.phase === 'ready' && engine.current?.rangeArmoryState() && <p className="fps-armor-note">Gallery wall nearby, marked on the map: try issued, captured and your own weapons. Swaps last for this session.</p>}
         {hud.phase === 'complete' && <div className="fps-reward">+{hud.earned} CR · +{hud.earnedXp} XP earned{rank.level > startingLevel.current && <strong className="fps-level-up">{insignia.promoted ? 'PROMOTED' : 'LEVEL UP'} · LV {rank.level} {insignia.label.toUpperCase()}</strong>}{hud.callout && <span className="fps-final-callout">{hud.callout}</span>}</div>}
         <button className="primary-button" hidden={hud.phase === 'paused'} disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete' || hud.phase === 'defeated') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>
