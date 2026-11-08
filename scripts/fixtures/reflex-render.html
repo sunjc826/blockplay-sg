@@ -25,7 +25,7 @@ const camera=new THREE.PerspectiveCamera(65,1.5,.08,800);camera.position.y=1.6;c
 // The rear boxes are miniature stand-ins for buildings; keep them despite the scenery size cutoff.
 const reflections=createOpticReflectionRenderer(renderer,{minSize:0}),scope=createScopeRenderer(renderer);let time=0;
 function pixels(){const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);const data=ctx.getImageData(350,250,500,300).data;let red=0, sumX=0, sumY=0;for(let i=0;i<data.length;i+=4)if(data[i]>170&&data[i+1]<115&&data[i+2]<95){red++;sumX+=350+(i/4)%500;sumY+=250+Math.floor(i/4/500);}return {redPixels:red,x:red?sumX/red:null,y:red?sumY/red:null};}
-window.show=(mode)=>{time++;camera.rotation.y=mode==='turn'?.5:0;model.rotation.set(0,0,0);model.position.set(0,-sight.aimHeight,sight.aimDepth);let aim=1;
+window.show=(mode,rearScenery=true)=>{time++;camera.rotation.y=mode==='turn'?.5:0;model.rotation.set(0,0,0);model.position.set(0,-sight.aimHeight,sight.aimDepth);let aim=1;
 if(mode==='aligned-hip'){model.position.z=-.78;aim=0;}
 if(mode==='partial'){model.position.set(.03,-.3455,-.5165);aim=.85;}
 if(mode==='hip'){model.position.set(.2,-.32,-.78);aim=0;}
@@ -33,7 +33,7 @@ if(mode==='offset'){model.position.x=.024;aim=0;}
 if(mode==='beyond-aperture'){model.position.x=.085;aim=0;}
 // The engine's own raise from the hip, as a fraction of the ADS animation.
 if(mode.startsWith('raise:')){const t=Number(mode.slice(6)),s=t*t*(3-2*t);model.position.set(THREE.MathUtils.lerp(.2,0,s),THREE.MathUtils.lerp(-.32,-sight.aimHeight,s),THREE.MathUtils.lerp(-.78,sight.aimDepth,s));aim=t;}
-for(const b of buildings)b.visible=mode!=='no-buildings';
+for(const b of buildings)b.visible=rearScenery&&mode!=='no-buildings';
 viewScene.updateMatrixWorld(true);const pip=scope.render(world,camera,viewCamera,sight,true,aim);reflections.render(world,camera,viewCamera,sight.reflection,true,time);
 renderer.setRenderTarget(null);renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);
 return {pip,magnification:sight.magnification,coatingVisible:sight.reflection.surface.visible,...pixels(),powered:sight.lens.visible,brightness:sight.visibility.value};};window.verifyReflections=()=>{
@@ -44,6 +44,21 @@ for(let i=0;i<a.length;i+=4){const difference=Math.abs(a[i]-b[i])+Math.abs(a[i+1
 // The darkest pixel near the aim point: the SAR's ring has a clear centre, so the exact centre pixel may be glass.
 let centre=[255,255,255];for(let y=388;y<=412;y++)for(let x=588;x<=612;x++){const i=(y*1200+x)*4;if(a[i]+a[i+1]+a[i+2]<centre[0]+centre[1]+centre[2])centre=Array.from(a.slice(i,i+3));}
 return {inside,outside,centre};};
+window.verifyScopeCoating=()=>{
+const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
+const sample=()=>{ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
+const result={};
+for(const mode of ['ads','hip']){
+window.show(mode);const a=sample();window.show(mode,false);const b=sample();
+const surface=sight.reflection.surface,centre=surface.localToWorld(new THREE.Vector3()).project(viewCamera),edge=surface.localToWorld(new THREE.Vector3(sight.radius,0,0)).project(viewCamera);
+const cx=(centre.x+1)*600,cy=(1-centre.y)*400,radius=Math.abs(edge.x-centre.x)*600;
+let centralMax=0,rimMax=0,changed=0,outside=0;
+for(let i=0;i<a.length;i+=4){const delta=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]),r=Math.hypot((i/4)%1200-cx,Math.floor(i/4/1200)-cy)/radius;
+if(r<.7)centralMax=Math.max(centralMax,delta);if(r>.8&&r<.98)rimMax=Math.max(rimMax,delta);if(delta>2)changed++;if(r>1.1&&delta>2)outside++;}
+result[mode]={centralMax,rimMax,changed,outside};
+}
+window.show('ads');return result;
+};
 window.verifyBloom=()=>{
 const bloom=model.getObjectByName('fps-reflex-bloom');
 const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});

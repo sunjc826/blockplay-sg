@@ -329,6 +329,7 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       // Powered reflex dots are gated by the optical aperture and eye alignment,
       // never by the aim button. Only magnified scopes fade with the ADS animation.
       sight.visibility.value = sight.magnification <= 1.01 ? 1 : THREE.MathUtils.smoothstep(aimProgress, .12, .92);
+      if (sight.reflection) sight.reflection.uniforms.aiming.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       sight.lens.visible = active && sight.visibility.value > 0;
       if (!sight.lens.visible || sight.magnification <= 1.01) return false;
       sight.lens.getWorldPosition(lensPosition);

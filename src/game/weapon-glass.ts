@@ -9,6 +9,7 @@ export interface OpticGlass {
     reflectionViewToCapture: { value: THREE.Matrix3 };
     reflectionReady: { value: number };
     reflectionTanHalfFov: { value: number };
+    aiming: { value: number };
   };
 }
 
@@ -56,6 +57,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
   const uniforms: OpticGlass['uniforms'] = {
     reflectionMap: { value: null }, reflectionViewToCapture: { value: new THREE.Matrix3() },
     reflectionReady: { value: 0 }, reflectionTanHalfFov: { value: Math.tan(THREE.MathUtils.degToRad(55)) },
+    aiming: { value: 0 },
   };
   const material = new THREE.MeshPhysicalMaterial({ color: scope ? '#91bed0' : holo ? '#e6eeee' : '#80c7c0', roughness: holo ? .06 : .12, metalness: holo ? 0 : .05,
     clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .09, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
@@ -68,6 +70,7 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       uniform mat3 reflectionViewToCapture;
       uniform float reflectionReady;
       uniform float reflectionTanHalfFov;
+      uniform float aiming;
     ` + (scope && reticle ? scopeReticleGlsl(reticle) : '') + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       vec3 eye = normalize(vViewPosition);
@@ -85,18 +88,21 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
       outgoingLight = mix(outgoingLight, scenery * coating + outgoingLight * 0.18, reflectionReady * inCapture);
       ${scope ? `
       // The scope image and etched reticle sit underneath this coating.
-      // Keep them legible; let the rim carry the stronger reflection.
+      // Raised glass leaves the aiming picture clear, with only a faint outer
+      // border. Lowered glass has a strong coating so the recessed lens reads.
       ${reticle ? `vec2 p = coatingUv - 0.5;
       float etched = scopeReticle(p, max(fwidth(p.x), fwidth(p.y)));` : 'float etched = 0.0;'}
-      diffuseColor.a = (0.035 + rim * 0.23 + grazing * 0.30) * (1.0 - etched * 0.8);
+      float aimRim = smoothstep(0.39, 0.50, ${window ? 'max(edgeDistance.x, edgeDistance.y)' : 'length(coatingUv - 0.5)'});
+      float hipCoating = 0.24 + rim * 0.24 + grazing * 0.20 + reflectionReady * inCapture * 0.25;
+      diffuseColor.a = mix(hipCoating, aimRim * 0.055, aiming) * (1.0 - etched * 0.8);
       ` : holo ? '// Keep the aiming area clear; reflections reveal the rim and oblique pane.\n      diffuseColor.a = 0.018 + rim * 0.065 + grazing * 0.30;' : 'diffuseColor.a = 0.10 + rim * 0.19 + grazing * 0.25;'}
       // Live capture (Ultra) shows more of the glass where it reflects scenery,
       // keeping a scope's centre and a holographic window's aiming area clear.
-      diffuseColor.a = min(1.0, diffuseColor.a + reflectionReady * inCapture * ${scope ? '0.12 * rim * (1.0 - etched * 0.8)' : holo ? '(0.015 + 0.12 * grazing)' : '0.14'});
+      ${scope ? '' : `diffuseColor.a = min(1.0, diffuseColor.a + reflectionReady * inCapture * ${holo ? '(0.015 + 0.12 * grazing)' : '0.14'});`}
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey = () => `${profile}-scenery-glass-v6-${reticle ?? 'plain'}${window ? '-window' : ''}`;
+  material.customProgramCacheKey = () => `${profile}-scenery-glass-v7-${reticle ?? 'plain'}${window ? '-window' : ''}`;
   const geometry = window ? windowPane(window) : new THREE.RingGeometry(0, radius, 48, 8);
   const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {

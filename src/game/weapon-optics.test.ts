@@ -84,10 +84,16 @@ it.each([1.5, 1.75])('keeps SAR %s× glass visible at hip and layers it over PiP
   const camera = new THREE.PerspectiveCamera(65, 1, .01, 800), world = new THREE.Scene();
   root.position.set(0, -sight.aimHeight, sight.aimDepth); root.updateMatrixWorld(true);
   expect(scope.render(world, camera, camera, sight, true, 0)).toBe(false);
+  expect(sight.reflection!.uniforms.aiming.value).toBe(0);
   expect(coating.visible).toBe(true); expect(sight.lens.visible).toBe(false);
+  scope.render(world, camera, camera, sight, true, .52);
+  expect(sight.reflection!.uniforms.aiming.value).toBeCloseTo(.5);
   expect(scope.render(world, camera, camera, sight, true, 1)).toBe(true);
+  expect(sight.reflection!.uniforms.aiming.value).toBe(1);
   expect(sight.magnification).toBeCloseTo(magnification);
   expect(coating.renderOrder).toBeGreaterThan(sight.lens.renderOrder);
+  scope.render(world, camera, camera, sight, true, 0);
+  expect(sight.reflection!.uniforms.aiming.value).toBe(0);
   const disposeGeometry = vi.spyOn(coating.geometry, 'dispose');
   const disposeMaterial = vi.spyOn(coating.material as THREE.Material, 'dispose');
   remove(); scope.dispose();

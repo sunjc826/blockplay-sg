@@ -53,9 +53,15 @@ try {
       await fs.writeFile(new URL(optic+'-'+mode+'.png',output),Buffer.from(shot.data,'base64'));
     }
     const reflected=await evaluate('window.verifyReflections()');
-    assert(reflected.inside>200,`${optic}: rear scenery reflects in the scope`);
     assert.equal(reflected.outside,0,'Reflection stays inside glass');
     assert(reflected.centre.every(channel=>channel<100),'Etched reticle at the aim point stays dark through the coating');
+    const coating=await evaluate('window.verifyScopeCoating()');
+    console.log(optic,coating);
+    assert.equal(coating.ads.centralMax,0,'ADS centre is unaffected by reflected scenery');
+    assert(coating.ads.rimMax>0&&coating.ads.rimMax<35,'ADS keeps only a faint reflected border');
+    assert(coating.hip.centralMax>coating.ads.rimMax*3,'Lowered lens has a much stronger reflection');
+    assert(coating.hip.changed>20,'Lowered lens visibly reflects scenery');
+    assert.equal(coating.ads.outside+coating.hip.outside,0,'Both reflections stay within the lens');
   }
   assert.deepEqual(errors,[]);
   console.log('PASS: SAR 1.5x and 1.75x PiP, hip coating, actual scenery reflections and clear etched crosshairs');
