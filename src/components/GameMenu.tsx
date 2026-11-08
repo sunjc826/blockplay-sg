@@ -114,7 +114,7 @@ function ActivityMenu({ screen }: { screen: ActivityScreen }) {
   const parent = nextGen && (screen === 'single-player' || screen === 'multiplayer-menu') ? 'menu' : back;
   return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <main className="activity-main">
-      <div className="activity-navigation"><BackLink to={parent} />{nextGen && <><span className="next-gen-wordmark">blockplaySG<span>.</span></span><a className="play-nav-back" {...link('settings')}><Settings size={16} /> Settings</a></>}</div>
+      <div className="activity-navigation"><BackLink to={parent} />{nextGen && <><span className="next-gen-mode-title" aria-hidden="true">{title}</span><a className="play-nav-back next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} /></a></>}</div>
       <header><span className="starting-eyebrow">{nextGen ? 'SINGAPORE / OPERATIONS' : 'PLAY'}</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}{nextGen && screen === 'play' && <p>Your city. Your rules. Choose your next move.</p>}</header>
       <nav className={`activity-grid${nextGen ? ' next-gen-panels' : ''}`} aria-label={title} onKeyDown={nextGen ? panelKeys : undefined}>
         {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
@@ -124,7 +124,6 @@ function ActivityMenu({ screen }: { screen: ActivityScreen }) {
           <ChevronRight size={17} aria-hidden="true" />
         </a>)}
       </nav>
-      {nextGen && <footer className="next-gen-footer"><span>BLOCKPLAY / SG</span><span className="next-gen-key-hint">ARROW KEYS TO BROWSE · ENTER TO SELECT</span><span>{String(activities.length).padStart(2, '0')} WAYS IN</span></footer>}
     </main>
   </div>;
 }

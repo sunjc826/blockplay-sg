@@ -52,6 +52,7 @@ async function panoramaFits() {
   await evaluate(`(async()=>{const stacked=getComputedStyle(document.querySelector('.next-gen-home-panels')).display==='grid';const name=stacked?'operations-hub-portrait.jpg':'operations-hub.jpg';const background=getComputedStyle(document.querySelector('.next-gen-panorama')).backgroundImage;if(!background.includes(name))throw Error('Wrong panorama for layout');const image=new Image();image.src='/images/menu/'+name;await image.decode()})()`);
 }
 async function modeArtworkFits() {
+  await modeLayoutFits();
   const expected = {
     '/play/single-player':'open-world', '/play/multiplayer':'find-room',
     '/play/training':'training', '/world':'open-world', '/multiplayer':'find-room',
@@ -67,6 +68,32 @@ async function modeArtworkFits() {
   }
   assert.equal(new Set(cards.map(card=>card.image)).size,cards.length,'Every card on this selector has distinct artwork');
   await evaluate(`Promise.all([...document.querySelectorAll('.next-gen-image')].map(async e=>{const url=getComputedStyle(e).backgroundImage.match(/url\\(["']?(.*?)["']?\\)/)[1];const image=new Image();image.src=url;await image.decode();if(image.naturalWidth<768||image.naturalHeight<1024)throw Error('Mode artwork resolution too small')}))`);
+}
+async function modeLayoutFits() {
+  const layout = await evaluate(`(()=>{
+    const cards=[...document.querySelectorAll('.activity-card')].map(e=>e.getBoundingClientRect());
+    const controls=[...document.querySelectorAll('.activity-navigation a')];
+    return {
+      fullHeight:cards.every(r=>Math.abs(r.top)<1&&Math.abs(r.bottom-innerHeight)<1),
+      gaps:cards.slice(1).every((r,i)=>Math.abs(r.left-cards[i].right-(innerWidth<=900?8:12))<1),
+      controls:controls.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),
+      noVerticalScroll:document.documentElement.scrollHeight<=innerHeight+1,
+      noFooter:!document.querySelector('.next-gen-footer'),
+    };
+  })()`);
+  assert.deepEqual(layout,{fullHeight:true,gaps:true,controls:true,noVerticalScroll:true,noFooter:true});
+}
+async function modeExpansionWorks() {
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:60,y:40});
+  await evaluate('document.activeElement.blur()'); await delay(600);
+  const before=await evaluate(`document.querySelector('.activity-card').getBoundingClientRect().width`);
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:before/2,y:200}); await delay(600);
+  assert(await evaluate(`document.querySelector('.activity-card').getBoundingClientRect().width`)>before+20,'Mode hover expands the pane');
+  await modeLayoutFits(); await shot('desktop-mode-hover');
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:60,y:40});
+  await evaluate(`document.querySelector('.activity-card').focus()`); await key('End'); await delay(600);
+  assert(await evaluate(`document.querySelector('.activity-card:last-child').getBoundingClientRect().width`)>before+20,'Keyboard focus expands mode panes');
+  await evaluate('document.activeElement.blur()'); await delay(600);
 }
 async function equipmentRects() {
   return evaluate(`[...document.querySelectorAll('.next-gen-equipment > a')].map(e=>{const r=e.getBoundingClientRect();return {width:r.width,height:r.height,top:r.top,bottom:r.bottom}})`);
@@ -133,6 +160,7 @@ try {
   await key('Home'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
   await key('Enter'); await wait(`location.pathname==='/play/single-player'`); await delay(600);
   await fits(); await modeArtworkFits(); await shot('desktop-single-player');
+  await modeExpansionWorks();
   assert.equal(await evaluate(`document.querySelectorAll('.activity-card').length`), 5);
   assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/');
   await click('.activity-navigation a'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
@@ -168,6 +196,9 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transitionDuration`), '0s');
   await go('/play', '.next-gen-panel');
   await modeArtworkFits();
+  const reducedModeWidth=await evaluate(`document.querySelector('.activity-card').getBoundingClientRect().width`);
+  await evaluate(`document.querySelector('.activity-card').focus()`); await key('Home');
+  assert.equal(await evaluate(`document.querySelector('.activity-card').getBoundingClientRect().width`),reducedModeWidth,'Reduced motion suppresses mode expansion');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-image')).transitionDuration`), '0s');
   await send('Emulation.setEmulatedMedia', {features:[]});
   for (const [width,height,mobile] of [[320,568,true],[390,844,true],[768,1024,true],[844,390,true],[1024,768,false]]) {
@@ -178,6 +209,14 @@ try {
     assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
     await click('.game-menu-item[href="/play/single-player"]',mobile); await wait(`location.pathname==='/play/single-player'`);
     await fits(); await modeArtworkFits(); await shot(`solo-${width}`);
+    if(width===390) {
+      await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:280,y:250,id:1}]});
+      for(const x of [240,200,160,120,80,40]) { await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:250,id:1}]}); await delay(30); }
+      await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await delay(600);
+      assert(await evaluate(`document.querySelector('.next-gen-panels').scrollLeft>100`),'Touch swipe reveals the next full-height mode');
+      await evaluate(`document.querySelector('.activity-card').focus()`); await key('End'); await delay(600);
+      assert(await evaluate(`(()=>{const e=document.activeElement,r=e.getBoundingClientRect();return e.matches('.activity-card:last-child')&&r.left>=-1&&r.right<=innerWidth+1})()`),'Keyboard navigation reveals offscreen mode cards');
+    }
     await evaluate(`document.querySelector('.activity-card:last-child').scrollIntoView({block:'end'})`);
     await shot(`solo-last-${width}`);
     await click('.activity-card[href="/play/free-for-all"]',mobile); await wait(`!!document.querySelector('.solo-setup')`);

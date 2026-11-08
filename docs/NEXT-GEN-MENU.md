@@ -29,7 +29,13 @@ Back from either mode selector returns to the main menu. Classic retains its
 Play → Single Player / Multiplayer hierarchy, and `/play` remains accessible.
 
 Next-gen also covers the Play, Single Player, Multiplayer and Training
-selectors. Their cards have seven independent mode-specific illustrations:
+selectors. Their panes fill the viewport vertically, separated by 12px gaps,
+with Back, screen title and Settings floating over the artwork. Desktop hover
+and keyboard focus expand panes with the same 1.2 flex growth as the home menu.
+At 900px and below, full-height panes form a horizontally swipeable row with
+8px gaps and a visible next pane; keyboard focus scrolls offscreen modes into
+view. The old heading block and keyboard-hint footer no longer take space.
+Their cards have seven independent mode-specific illustrations:
 Open World, Training/Live-fire Range, Tutorial, Team Deathmatch, Hardpoint,
 Free-for-All and Find a Room. Solo and hosted matches share their mode image;
 these illustrations do not form a panorama. Assets and exact generation
