@@ -79,8 +79,8 @@ function BackLink({ to, className = 'play-nav-back' }: { to: Route; className?: 
 
 type ActivityScreen = 'play' | 'single-player' | 'multiplayer-menu' | 'training-menu';
 const SOLO_ACTIVITIES = [
-  { route: 'world', title: 'Open World', detail: `Explore ${REGIONS.length} districts with patrols and supplies.`, icon: MapIcon },
   { route: 'training-menu', title: 'Training', detail: 'Practise at the range or take the tutorial.', icon: GraduationCap },
+  { route: 'world', title: 'Open World', detail: `Explore ${REGIONS.length} districts with patrols and supplies.`, icon: MapIcon },
   ...MATCH_MODES.map(mode => ({ route: mode.mode, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
 ] as const;
 const ACTIVITY_MENUS = {
