@@ -16,6 +16,8 @@ personal field kit and loadout bench behind Inventory. Phone screens use a
 portrait composition with the armory and personal kit side by side at the
 bottom. Hover/focus gently zooms the shared scene, including equipment actions;
 no individual image crops break continuity at pane boundaries.
+Dark gutters separate the panes (12px on desktop, 8px in the stacked layout)
+so hover expansion is more apparent; the panorama assets and framing stay fixed.
 Panel labels stay clear of these controls. The two play panels expand gently
 on hover/focus; the equipment column keeps its width and equal-height tiles.
 Back from either mode selector returns to the main menu. Classic retains its

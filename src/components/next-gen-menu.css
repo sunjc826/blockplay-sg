@@ -114,7 +114,7 @@
 }
 
 /* Home: two full-height play panels and a fixed-width, vertically split equipment column. */
-.game-menu.next-gen-main { --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
+.game-menu.next-gen-main { --home-gap:12px; --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
 .next-gen-panorama { --panorama-art:url('/images/menu/operations-hub.jpg'); position:absolute; inset:-1.5%; pointer-events:none; background:linear-gradient(180deg,#08101444,transparent 32%,#081014a0),var(--panorama-art) center / cover; filter:saturate(.95); transition:transform .9s cubic-bezier(.2,.75,.25,1),filter .7s; }
 .next-gen-main .next-gen-artwork::after { background:linear-gradient(180deg,transparent 25%,#07101328); opacity:.7; transition:opacity .4s; }
 .next-gen-main .next-gen-grid { display:none; }
@@ -131,9 +131,11 @@
 .next-gen-main.is-title-shown .next-gen-account { visibility:hidden; }
 .next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:0; }
 .next-gen-home-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-.next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:0; width:100%; min-height:0; }
-.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:0; }
+.next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:var(--home-gap); width:100%; min-height:0; }
+.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:var(--home-gap); }
 .next-gen-main .game-menu-item { container-type:inline-size; flex:1 1 0; min-height:0; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:14px; padding:clamp(18px,2.3vw,34px); border-radius:0; border-color:#ffffff24; background:transparent; backdrop-filter:none; transform:none; animation:none; }
+/* Mask only the gutters; the shared photograph stays in the same position. */
+.next-gen-main .game-menu-item { box-shadow:0 0 0 calc(var(--home-gap) / 2) #101315; }
 .next-gen-main .game-menu-item:is(:hover,:focus-visible) { background:transparent; border-color:#f4ad61; }
 .next-gen-main .game-menu-item.is-tile { padding:clamp(16px,2vw,28px); gap:10px; }
 .next-gen-main .game-menu-item::before, .next-gen-main .game-menu-go { display:none; }
@@ -141,7 +143,7 @@
 .next-gen-main .game-menu-copy strong { font:800 clamp(24px,11cqw,52px)/1.05 'Manrope',sans-serif; letter-spacing:-.045em; text-transform:uppercase; }
 .next-gen-main .game-menu-item.is-tile .game-menu-copy strong { font-size:clamp(20px,10cqw,32px); letter-spacing:-.035em; }
 .next-gen-main .game-menu-copy small { white-space:normal; line-height:1.5; color:#c5cecd; margin-top:12px; font-size:13px; max-width:30ch; }
-.next-gen-main .game-menu-item.is-chosen { border-color:#f4ad61; box-shadow:inset 0 0 0 1px #f4ad61; }
+.next-gen-main .game-menu-item.is-chosen { border-color:#f4ad61; box-shadow:inset 0 0 0 1px #f4ad61,0 0 0 calc(var(--home-gap) / 2) #101315; }
 .next-gen-main .game-menu-item.is-tile .next-gen-reticle { display:none; }
 .next-gen-main .game-menu-foot { position:absolute; z-index:3; bottom:var(--home-bottom); right:var(--home-edge); display:flex; justify-content:flex-end; gap:8px; font-size:10px; padding:0; min-height:44px; border:0; }
 .next-gen-main .game-debug-link { order:2; min-height:44px; padding:0 12px; color:#d5dbd6; border-radius:2px; background:#111719e6; backdrop-filter:blur(12px); }
@@ -169,7 +171,7 @@
   .next-gen-main .game-menu-copy strong { font-size:clamp(20px,11cqw,40px); }
 }
 @media (max-width:700px), (max-width:1000px) and (max-aspect-ratio:1/1) {
-  .game-menu.next-gen-main { --home-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(12px,env(safe-area-inset-top)); --home-bottom:max(12px,env(safe-area-inset-bottom)); }
+  .game-menu.next-gen-main { --home-gap:8px; --home-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(12px,env(safe-area-inset-top)); --home-bottom:max(12px,env(safe-area-inset-bottom)); }
   .next-gen-main .game-menu-top { gap:8px; }
   .next-gen-account { gap:8px; }
   .next-gen-main .game-profile { padding:5px 7px; }
