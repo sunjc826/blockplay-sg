@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLensRain, dustStrength, LENS_DROP_LIMIT, rainExposure, SLIDING_RADIUS, sunFlareStrength } from './fps-lens';
+import { createLensRain, waterSplashExposure, dustStrength, LENS_DROP_LIMIT, rainExposure, SLIDING_RADIUS, sunFlareStrength } from './fps-lens';
 
 /** A repeatable stand-in for Math.random. */
 const seeded = (seed = 7) => () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -53,4 +53,19 @@ describe('sun flare and haze dust', () => {
     expect(dustStrength(1, 0, false)).toBeLessThan(.25);
     expect(dustStrength(1, 1, true)).toBeLessThan(.5);
   });
+});
+
+it('nearby water splashes leave draining streaks, while swimming repeatedly wets the lens',()=>{
+  const lens=createLensRain(seeded());lens.splash(.6,16/9);
+  expect(lens.drops.length).toBeGreaterThan(10);expect(lens.drops.some(d=>d.splash&&d.speed>0)).toBe(true);
+  run(lens,.3,{...shower,rain:0});expect(lens.drops.some(d=>d.travelled>0||d.stick===99)).toBe(true);
+  const single=lens.drops.length;
+  run(lens,1.5,{...shower,rain:0,swimming:true,swimSpeed:1.25});expect(lens.drops.length).toBeGreaterThan(single);
+  expect(lens.drops.length).toBeLessThanOrEqual(LENS_DROP_LIMIT);
+  run(lens,7,{...shower,rain:0});expect(lens.drops).toHaveLength(0);
+});
+
+it('only nearby, forward water impacts can reach the player’s eyes',()=>{
+ expect(waterSplashExposure(2,.8,1.7)).toBeGreaterThan(0);
+ expect(waterSplashExposure(8,1,1)).toBe(0);expect(waterSplashExposure(2,-1,1)).toBe(0);expect(waterSplashExposure(2,1,4)).toBe(0);
 });

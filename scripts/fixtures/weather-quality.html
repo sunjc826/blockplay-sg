@@ -12,9 +12,9 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9
 const camera=new THREE.PerspectiveCamera(60,1.5,.08,400),params=new URLSearchParams(location.search),district=params.get('district');
 let scene,atmosphere,world,rain,grass;
 if(district){
- const region=getRegion(district);world=region.build();scene=world.scene;
+ const region=getRegion(district);world=region.build();world.stamps.forEach(s=>s.visible=false);scene=world.scene;
  camera.position.set(region.spawn.x,1.7,region.spawn.z);camera.rotation.y=region.spawn.yaw;
- setEnvironmentSettings({timeOfDay:'noon',weather:'monsoon',celebration:'none',reducedEffects:false});
+ setEnvironmentSettings({timeOfDay:'noon',weather:params.get('weather')||'monsoon',celebration:'none',reducedEffects:false});
  atmosphere=createWorldAtmosphere(scene,region.stamps,world.obstacles,false,renderer);grass=scene.userData.groundCover.grass;
 }else{
  scene=new THREE.Scene();scene.background=new THREE.Color('#81949e');camera.position.set(0,2,10);camera.lookAt(0,1,-12);
@@ -26,14 +26,14 @@ if(district){
  scene.userData.wetGround={surface:(x,z)=>Math.abs(x)<8?0:null,exposed:()=>0,wetness:1,time:1};
  rain=createRainEffects(scene,()=>0);grass=createGrass(scene,{minX:-110,maxX:110,minZ:-110,maxZ:110},x=>Math.abs(x)>8?0:null);
 }
-const post=createWorldOcclusion(renderer,scene,camera);let current={detail:'high',reflections:false,rain:true,ao:true,wetness:1},time=0;
+const post=createWorldOcclusion(renderer,scene,camera);let current={detail:'high',reflections:false,rain:true,ao:true,wetness:1,water:false},time=0;
 window.draw=(options={},dt=0)=>{
  current={...current,...options};renderer.info.reset();
- setGraphicsSettings({rainDetail:current.detail,grassDetail:current.detail});
- if(atmosphere){atmosphere.update(dt,camera,Date.UTC(2026,10,8,12)+time*1000);renderer.toneMappingExposure=atmosphere.light.lighting.exposure;}
+ setGraphicsSettings({rainDetail:current.detail,grassDetail:current.detail,waterDetail:current.detail});
+ if(atmosphere){world.animate(time);atmosphere.update(dt,camera,Date.UTC(2026,10,8,12)+time*1000);renderer.toneMappingExposure=atmosphere.light.lighting.exposure;}
  else{rain.update(dt,camera.position,current.rain?.7:0,2,false,current.detail);grass.update(camera,time,false,false,current.detail);scene.userData.wetGround.wetness=current.wetness;}
- time+=dt;post.render(current.ao,false,current.reflections);
- return {detail:current.detail,reflections:post.rainReflectionsEnabled,grass:grass.count,grassRadius:grass.radius,rain:atmosphere?.root.userData.rain||{...rain.counts,radius:rain.radius},calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
+ time+=dt;post.render(current.ao,false,current.reflections,current.water);
+ return {ripples:atmosphere?.root.userData.waterRipples??0,waterReflections:post.waterReflectionsEnabled,detail:current.detail,reflections:post.rainReflectionsEnabled,grass:grass.count,grassRadius:grass.radius,rain:atmosphere?.root.userData.rain||{...rain.counts,radius:rain.radius},calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
 };
 function pixels(){const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,c.width,c.height).data;}
 window.compare=()=>{
@@ -50,6 +50,23 @@ window.benchmark=async()=>{
   samples.sort((a,b)=>a-b);results.push({...state,medianMs:samples[15],p95Ms:samples[28]});
  }
  return results;
+};
+window.impact=(x=-10,z=24)=>{world.scene.getObjectByName('marina-bay-water').material.userData.ripple(x,z,1);return window.advance(18);};
+window.advance=(frames=90)=>{for(let i=0;i<frames;i++)window.draw({},1/60);return window.draw();};
+window.benchmarkWater=async()=>{
+ const result=[];
+ for(const water of [false,true]){
+  for(let i=0;i<8;i++)window.draw({water,detail:'ultra'},1/60);const samples=[];let state;
+  for(let i=0;i<20;i++){await new Promise(requestAnimationFrame);const start=performance.now();state=window.draw({},1/60);renderer.getContext().finish();samples.push(performance.now()-start);}
+  samples.sort((a,b)=>a-b);result.push({water,...state,medianMs:samples[10],p95Ms:samples[18]});
+ }
+ return result;
+};
+window.compareWater=()=>{
+ window.draw({water:false});const before=pixels();const state=window.draw({water:true});const after=pixels();
+ let changed=0,upper=0;for(let i=0;i<before.length;i+=4){const delta=Math.abs(before[i]-after[i])+Math.abs(before[i+1]-after[i+1])+Math.abs(before[i+2]-after[i+2]);if(delta>5){changed++;if(i/4/1200<300)upper++;}}
+ window.draw({water:false});const restored=pixels().every((v,i)=>v===before[i]);
+ return {changed,upper,restored,enabled:state.waterReflections};
 };
 window.movementCost=()=>{
  const initial=camera.position.clone(),times=[];window.draw({detail:'ultra',reflections:true});

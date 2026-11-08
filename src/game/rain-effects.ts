@@ -8,7 +8,7 @@ export interface RainSplashOptions { strength?: number; normal?: THREE.Vector3; 
 /** Static column index shared by streak clipping, roof splashes and shelter. */
 export function createRainSurface(obstacles: readonly Obstacle[], ground: (x: number, z: number) => number = () => 0) {
   const cells = new Map<string, Obstacle[]>(), size = 12;
-  for (const o of obstacles) for (let x = Math.floor(o.minX / size); x <= Math.floor(o.maxX / size); x++)
+  for (const o of obstacles.filter(o => !o.water)) for (let x = Math.floor(o.minX / size); x <= Math.floor(o.maxX / size); x++)
     for (let z = Math.floor(o.minZ / size); z <= Math.floor(o.maxZ / size); z++) {
       const key = `${x},${z}`, bucket = cells.get(key) ?? []; bucket.push(o); cells.set(key, bucket);
     }
@@ -60,7 +60,7 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const hit: VehicleRainHit = { height: 0, normal: new THREE.Vector3(0, 1, 0) };
   const impactPoint = new THREE.Vector3(), ringPoint = new THREE.Vector3(), ringNormal = new THREE.Vector3(), u = new THREE.Vector3(), v = new THREE.Vector3(), matrix = new THREE.Matrix3();
   function sampleSurface(x: number, z: number) {
-    hit.height = surface(x, z); hit.object = undefined; hit.normal.set(0, 1, 0);
+    hit.height = surface(x, z); hit.object = undefined; hit.kind = 'solid'; hit.normal.set(0, 1, 0);
     movingSurface?.(x, z, hit); return hit.height;
   }
   function splash(point: THREE.Vector3, options: RainSplashOptions = {}) {
@@ -105,12 +105,12 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
         const floor = sampleSurface(d.x, d.z), k = i * 6;
         let exposed = floor;
         if (d.y <= floor || d.y < eye.y - 12) {
-          if (i % 3 === 0 && Math.hypot(d.x - eye.x, d.z - eye.z) < 28 && previousY > floor && d.y <= floor && Math.abs(floor - eye.y) < 9) {
+          if (hit.kind !== 'water' && i % 3 === 0 && Math.hypot(d.x - eye.x, d.z - eye.z) < 28 && previousY > floor && d.y <= floor && Math.abs(floor - eye.y) < 9) {
             const attachment = hit.object;
             const dx = (surface(d.x + .1, d.z) - surface(d.x - .1, d.z)) / .2;
             const dz = (surface(d.x, d.z + .1) - surface(d.x, d.z - .1)) / .2;
             if (!attachment) hit.normal.set(Math.abs(dx) <= 1 ? -dx : 0, 1, Math.abs(dz) <= 1 ? -dz : 0).normalize();
-            splash(impactPoint.set(d.x, floor, d.z).addScaledVector(hit.normal, .025), { attachment, normal: hit.normal, strength: .6 + sample(i, d.cycle) * .4 });
+            splash(impactPoint.set(d.x, floor, d.z).addScaledVector(hit.normal, .025), { attachment, normal: hit.normal, strength: hit.kind === 'rail' ? .22 : .6 + sample(i, d.cycle) * .4, sprayOnly: hit.kind === 'rail' });
           }
           spawn(i, eye, false);
           exposed = sampleSurface(d.x, d.z);

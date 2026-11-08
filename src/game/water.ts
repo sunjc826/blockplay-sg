@@ -9,10 +9,9 @@ import type { LightingState } from './world-lighting';
  * engine "this is water" and a shot into them throws spray instead of sparks.
  *
  * `createWaterMaterial` is the full surface, used where the water is big enough
- * to be looked at (Marina Bay). It is one shader, no render targets: the sky is
- * not re-rendered for reflections, it is approximated from two colours and the
- * reflected ray's elevation, which on a software renderer is the difference
- * between water and a slideshow. Per fragment it
+ * to be looked at (Marina Bay). Its baseline sky reflection is procedural;
+ * Ultra can supply a bounded planar scene capture through water-reflections.
+ * Rain rings stay in the surface shader. Per fragment it
  *
  *  - sums a handful of travelling sine waves into a surface slope (so the
  *    normal moves, even though the mesh is flat enough to raycast as a plane),
@@ -68,10 +67,12 @@ const vertexShader = /* glsl */ `
   uniform float uTime;
   uniform float uChop;
   varying vec3 vWorld;
+  varying float vBaseHeight;
   #include <common>
   #include <fog_pars_vertex>
   void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
+    vBaseHeight = world.y;
     // A slow swell moves the vertices; the fine chop lives only in the normal.
     world.y += uChop * (0.05 * sin(world.x * 0.09 + uTime * 0.7) + 0.035 * sin(world.z * 0.13 - uTime * 0.9));
     vWorld = world.xyz;
@@ -86,6 +87,12 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uChop;
   uniform float uClarity;
+  uniform float uRain;
+  uniform float uReflectionReady;
+  uniform float uReflectionHeight;
+  uniform sampler2D uReflectionMap;
+  uniform mat4 uReflectionMatrix;
+  varying float vBaseHeight;
   uniform vec3 uDeep;
   uniform vec3 uShallow;
   uniform vec3 uSky;
@@ -135,6 +142,21 @@ const fragmentShader = /* glsl */ `
       foam += r.w * exp(-age * 3.2) * smoothstep(0.5 + age * 0.9, 0.0, d);
     }
 
+    // Small, short-lived rain rings deform the surface itself, never floating
+    // white wire circles. Two staggered cell layers avoid a regular grid.
+    float rainFoam = 0.0;
+    if (uRain > .01) for (int layer=0; layer<2; layer++) {
+      vec2 cell=floor(p*1.25+float(layer)*.5);
+      float seed=fract(sin(dot(cell,vec2(127.1,311.7))+float(layer)*43.1)*43758.5453);
+      float age=fract(uTime*.9+seed*7.0);
+      vec2 centre=(cell+vec2(.28+.44*seed,.28+.44*fract(seed*13.7))-float(layer)*.5)/1.25;
+      vec2 delta=p-centre;float d=length(delta),radius=age*.24;
+      float ring=exp(-pow((d-radius)*95.0,2.0))*(1.0-smoothstep(.25,.65,age))*smoothstep(0.0,.06,age);
+      float amount=uRain*(.5+seed*.5)*(1.0-smoothstep(20.0,65.0,distance(cameraPosition.xz,p)));
+      slope += delta/max(d,.001)*ring*amount*.08;
+      rainFoam += ring*amount*.035;
+    }
+    foam += rainFoam;
     vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
     vec3 toEye = normalize(cameraPosition - vWorld);
     float facing = clamp(dot(normal, toEye), 0.0, 1.0);
@@ -145,6 +167,14 @@ const fragmentShader = /* glsl */ `
 
     vec3 reflected = reflect(-toEye, normal);
     vec3 sky = mix(uHorizon, uSky, smoothstep(0.0, 0.45, reflected.y));
+    if (uReflectionReady > .5 && abs(vBaseHeight-uReflectionHeight)<.02) {
+      vec4 projected=uReflectionMatrix*vec4(vWorld,1.0);
+      vec2 uv=projected.xy/projected.w + slope*.018;
+      if(projected.w>0.0 && all(greaterThan(uv,vec2(0.0))) && all(lessThan(uv,vec2(1.0)))) {
+        float edge=smoothstep(0.0,.035,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
+        sky=mix(sky,texture2D(uReflectionMap,uv).rgb,edge*.9);
+      }
+    }
     vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55) * uSurfaceLight;
     vec3 colour = mix(body, sky, fresnel);
     float glint = pow(max(dot(reflected, uSun), 0.0), 380.0);
@@ -164,6 +194,7 @@ export type WaterMaterial = THREE.ShaderMaterial & {
     fpsWater: true;
     ripple: (x: number, z: number, strength?: number) => void;
     setTime: (seconds: number) => void;
+    setRain: (intensity: number, reduced: boolean) => void;
     setLighting: (lighting: LightingState, sky: THREE.Color, horizon: THREE.Color, sunlight: number, blend: number) => void;
     resetLighting: () => void;
   };
@@ -175,6 +206,11 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
   const material = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
       uTime: { value: 0 },
+      uRain: { value: 0 },
+      uReflectionReady: { value: 0 },
+      uReflectionHeight: { value: 0 },
+      uReflectionMap: { value: null },
+      uReflectionMatrix: { value: new THREE.Matrix4() },
       uChop: { value: options.choppiness ?? 1 },
       uClarity: { value: options.clarity ?? 0.62 },
       uDeep: { value: new THREE.Color(options.deep) },
@@ -198,6 +234,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     next = (next + 1) % MAX_WATER_RIPPLES;
   };
   material.userData.setTime = seconds => { material.uniforms.uTime.value = seconds; };
+  material.userData.setRain = (intensity, reduced) => { material.uniforms.uRain.value = reduced ? 0 : THREE.MathUtils.clamp(intensity,0,1); };
   const daySky = new THREE.Color(options.sky), dayHorizon = new THREE.Color(options.horizon);
   const daySun = options.sun.clone().normalize();
   const targetSky = new THREE.Color(), targetHorizon = new THREE.Color(), targetGlint = new THREE.Color();
@@ -219,6 +256,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     u.uSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z);
   };
   material.userData.resetLighting = () => {
+    u.uRain.value=0;u.uReflectionReady.value=0;
     u.uSky.value.copy(daySky); u.uHorizon.value.copy(dayHorizon); u.uSun.value.copy(daySun);
     u.uSurfaceLight.value = 1; u.uGlintStrength.value = 2.4; u.uGlintColor.value.setRGB(1, .96, .86);
   };

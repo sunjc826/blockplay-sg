@@ -4,6 +4,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { softwareRenderer } from './fps-sun-shadows';
 import { getGraphicsSettings } from './graphics-settings';
+import { createWaterReflections } from './water-reflections';
 import { createRainReflections, type WetGround } from './rain-reflections';
 
 /**
@@ -32,6 +33,8 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let gtao: GTAOPass | null = null, output: OutputPass | null = null;
   let bloom: UnrealBloomPass | null = null, bloomEnabled = false;
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
+  const water = createWaterReflections(renderer,scene,camera);
+  let waterReflectionsEnabled = false;
   const size = new THREE.Vector2();
   function build() {
     renderer.getDrawingBufferSize(size);
@@ -67,6 +70,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     /** The GTAO pass once built, for review pages that show its buffers. */
     get pass() { return gtao; },
     get bloomEnabled() { return bloomEnabled; },
+    get waterReflectionsEnabled() { return waterReflectionsEnabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
     setSize() {
@@ -77,7 +81,8 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
-    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections) {
+    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections) {
+      waterReflectionsEnabled = water.render(supported && wantWaterReflections);
       bloomEnabled = supported && wantBloom;
       const ground = scene.userData.wetGround as WetGround | undefined;
       rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
@@ -111,7 +116,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     dispose() {
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); output?.dispose();
       bloom?.dispose();
-      rain?.dispose();
+      rain?.dispose(); water.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.
       bloom?.materialHighPassFilter.dispose();
     },

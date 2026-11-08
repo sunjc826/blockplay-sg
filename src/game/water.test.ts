@@ -32,6 +32,14 @@ describe('water surfaces', () => {
     expect(ripples[0].x).toBe(MAX_WATER_RIPPLES - 1);
     material.dispose();
   });
+  it('keeps rainfall separate from shot ripples and switches it off for reduced effects', () => {
+    const material=createWaterMaterial(options);
+    material.userData.setRain(.7,false);expect(material.uniforms.uRain.value).toBe(.7);
+    expect((material.uniforms.uRipples.value as THREE.Vector4[]).every(r=>r.w===0)).toBe(true);
+    material.userData.setRain(.7,true);expect(material.uniforms.uRain.value).toBe(0);
+    material.userData.setRain(.7,false);material.userData.resetLighting();expect(material.uniforms.uRain.value).toBe(0);
+    material.dispose();
+  });
   it('ignores a ripple on water that has no shader surface', () => {
     expect(() => rippleWater(new THREE.Mesh(new THREE.BoxGeometry(), markWater(new THREE.MeshStandardMaterial())), 0, 0)).not.toThrow();
   });

@@ -9,6 +9,8 @@ import { createNightExposure, skyVisibility } from './night-exposure';
 import { createRainEffects, createRainSurface } from './rain-effects';
 import { createWetSurfaces } from './wet-surfaces';
 import { getGraphicsSettings } from './graphics-settings';
+import { createWaterRipples } from './water-ripples';
+import { createRainReceivers } from './rain-receivers';
 import { createVehicleRain } from './vehicle-rain';
 
 /**
@@ -48,13 +50,20 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
-  const rainSurface = createRainSurface(obstacles, scene.userData.rainGroundHeight ?? groundHeight);
+  const receivers = createRainReceivers(scene), rainGround = scene.userData.rainGroundHeight ?? groundHeight ?? (() => 0);
+  const columns = createRainSurface(obstacles, (x,z) => receivers.water(x,z) ?? rainGround(x,z));
+  const staticHit = { height: 0, normal: new THREE.Vector3(0,1,0) };
+  const rainSurface = (x:number,z:number) => { staticHit.height=columns(x,z);return receivers.sample(x,z,staticHit).height; };
   const vehicleRain = createVehicleRain(scene, groundHeight ?? (() => 0));
-  const rainEffects = createRainEffects(root, rainSurface, vehicleRain.sample);
+  const rainEffects = createRainEffects(root, columns, (x,z,hit) => {
+    const waterY=receivers.water(x,z);hit.kind=waterY!==null&&Math.abs(hit.height-waterY)<.001?'water':'solid';
+    receivers.sample(x,z,hit);return vehicleRain.sample(x,z,hit);
+  });
   const wetGround = { surface: scene.userData.groundCover?.wetGround as ((x: number, z: number) => number | null) | undefined, exposed: rainSurface, wetness: 0, time: 0 };
   scene.userData.wetGround = wetGround;
   const shelterHit = { height: 0, normal: new THREE.Vector3(0, 1, 0), object: undefined as THREE.Object3D | undefined };
   const wetSurfaces = createWetSurfaces(scene);
+  const ripples = createWaterRipples(scene,water,receivers.water,rainSurface);
   const celebrationRoot = new THREE.Group(); root.add(celebrationRoot);
   const bulbGeometry = new THREE.SphereGeometry(.2, 6, 4);
   const lanternGeometry = new THREE.SphereGeometry(.48, 8, 6);
@@ -146,7 +155,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
           light.groundColor.copy(ground).lerp(shiftColor.set(lighting.groundFill), lighting.shift);
         }
       }
-      for (const material of water) material.userData.setLighting(lighting, background, fog.color, preset.sun + lightning, blend);
+      for (const material of water) { material.userData.setLighting(lighting, background, fog.color, preset.sun + lightning, blend); material.userData.setRain(wetness, reduced); }
       if (skyLight && skyFill) {
         const fill = Math.max(1e-4, skyFill.intensity);
         skyLight.update({ sky: rgb(skyFill.color), horizon: rgb(background), ground: rgb(skyFill.groundColor), key: rgb(sunLight?.color ?? skyFill.color),
@@ -170,6 +179,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered; air.storm = active.weather === 'thunderstorm'; air.clock = (now % 3600_000) / 1000;
       rainEffects.update(step, exposurePoint, wetness, wind, reduced, getGraphicsSettings().rainDetail);
       wetSurfaces.update(step, wetness);
+      ripples.update(camera,getGraphicsSettings().waterDetail,reduced,wetness);root.userData.waterRipples=ripples.mesh.count;
       wetGround.wetness = wetSurfaces.wetness; wetGround.time = time;
       root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius };
       sparks.visible = !reduced && CELEBRATIONS[active.celebration].fireworks && places.length > 0;
@@ -188,7 +198,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     dispose() {
       if (disposed) return; disposed = true;
       bulbs.forEach(mesh => mesh.dispose());
-      rainEffects.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
+      rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
       exposure.dispose();
       for (const material of water) material.userData.resetLighting();

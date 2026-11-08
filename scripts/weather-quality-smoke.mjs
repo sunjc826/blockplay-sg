@@ -44,13 +44,13 @@ try{
  await screenshot('live-settings-ultra');await evaluate("document.querySelector('#weather-settings').style.display='none'");
  const button=await evaluate("(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...button,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- await wait("window.hud?.phase==='playing'");await wait("document.querySelector('#world canvas').dataset.rainReflections==='true'");await evaluate('window.engine.toggleAim()');
+ await wait("window.hud?.phase==='playing'");await wait("document.querySelector('#world canvas').dataset.rainReflections==='true'&&document.querySelector('#world canvas').dataset.waterReflections==='true'");await evaluate('window.engine.toggleAim()');
  await wait("document.querySelector('#world canvas').dataset.scopeActive==='true'&&window.hud.aimProgress>.99");
  await evaluate("[...document.querySelectorAll('#weather-settings label')].find(l=>l.textContent.includes('Wet-ground reflections')).querySelector('input').click()");
  await wait("document.querySelector('#world canvas').dataset.rainReflections==='false'");
  assert.equal(await evaluate("document.querySelector('#world canvas').dataset.scopeActive"),'true');
  await evaluate("document.querySelector('[data-preset=high]').click()");
- await wait("JSON.parse(document.querySelector('#world canvas').dataset.rain).radius===80");
+ await wait("JSON.parse(document.querySelector('#world canvas').dataset.rain).radius===80&&document.querySelector('#world canvas').dataset.waterReflections==='false'");
  await evaluate("document.querySelector('[data-preset=low]').click()");
  await wait("JSON.parse(document.querySelector('#world canvas').dataset.rain).drops<=216");
  await evaluate("document.querySelector('[data-preset=ultra]').click()");

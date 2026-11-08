@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { captureRainReceivers } from './rain-receivers';
 import { MARINA_CAMP_DECKS, MARINA_CAMP_COVER, MARINA_ISLET, MARINA_SWIM_EXITS } from './marina-water';
 
 /** Compact Merlion islet, with boat landings and visible swimming ladders. */
@@ -9,7 +10,7 @@ export function buildMarinaCamp() {
   const [wood,float,sand,,metal,gold]=materials;
   const roundGeometries:THREE.BufferGeometry[]=[];
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,material:THREE.Material,name='')=>{
-    const m=new THREE.Mesh(geometry,material);m.name=name;m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=m.receiveShadow=true;root.add(m);return m;
+    const m=new THREE.Mesh(geometry,material);m.name=name;m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=m.receiveShadow=true;m.userData.rainContact='solid';root.add(m);return m;
   };
   for(const deck of MARINA_CAMP_DECKS){
     const x=(deck.minX+deck.maxX)/2,z=(deck.minZ+deck.maxZ)/2,w=deck.maxX-deck.minX,d=deck.maxZ-deck.minZ;
@@ -17,7 +18,7 @@ export function buildMarinaCamp() {
       const radius=MARINA_ISLET.radius/Math.cos(Math.PI/8);
       for(const [y,h,material] of [[-.12,.24,wood],[-.43,.32,float]] as const){
         const g=new THREE.CylinderGeometry(radius,radius,h,8);g.rotateY(Math.PI/8);
-        const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;root.add(m);roundGeometries.push(g);
+        const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;m.userData.rainContact='solid';root.add(m);roundGeometries.push(g);
       }
     }else{box(x,-.12,z,w,.24,d,wood,deck.id);box(x,-.43,z,w-.3,.32,d-.3,float);}
     for(let offset=-d/2+.7;offset<d/2;offset+=.7){
@@ -43,7 +44,7 @@ export function buildMarinaCamp() {
   const guard=(x0:number,z0:number,x1:number,z1:number)=>{
     const length=Math.hypot(x1-x0,z1-z0),yaw=Math.atan2(z0-z1,x1-x0),x=(x0+x1)/2,z=(z0+z1)/2;
     box(x,.05,z,length,.1,.1,wood).rotation.y=yaw;
-    for(const y of [.42,.7])box(x,y,z,length,.025,.025,gold).rotation.y=yaw;
+    for(const y of [.42,.7]){const rail=box(x,y,z,length,.025,.025,gold);rail.rotation.y=yaw;rail.userData.rainContact='rail';}
     const posts=Math.max(1,Math.round(length/1.6));
     for(let i=0;i<=posts;i++)box(x0+(x1-x0)*i/posts,.38,z0+(z1-z0)*i/posts,.08,.76,.08,metal);
   };
@@ -61,6 +62,7 @@ export function buildMarinaCamp() {
   }
   guard(-edge,cz-corners,-edge,cz+corners);
   for(const [sx,sz] of [[-1,-1],[-1,1],[1,-1],[1,1]])guard(sx*edge,cz+sz*corners,sx*corners,cz+sz*edge);
+  const queryScene=new THREE.Scene();queryScene.add(root);captureRainReceivers(queryScene);root.userData.rainReceivers=queryScene.userData.rainReceivers;root.removeFromParent();
   // Planks and repeated campsite props share six draws rather than one per plank.
   const batches=new Map<THREE.Material,THREE.Mesh[]>(),instances:THREE.InstancedMesh[]=[];
   for(const child of [...root.children]){

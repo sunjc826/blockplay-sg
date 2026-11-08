@@ -203,7 +203,7 @@ import { armorPickup, type ArmorPickupAction } from './armor-pickup';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
 import { createVisionSystem } from './fps-vision';
-import { createLensEffects } from './fps-lens';
+import { waterSplashExposure, createLensEffects } from './fps-lens';
 import { activePalette, advanceVision, iffActive, iffOnly, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, VISION_MOUNT_SECONDS, visionViews, type ThermalPalette, type VisionKind, type VisionSpec } from './vision-devices';
 
 export interface FpsArenaOptions { match?: ArenaMatch; session: LanSession; botCount: number; composition?: string; profile: ArmoryProfile; environment?: ArenaEnvironment; initialVitals?: Partial<ArenaVitals> }
@@ -2781,6 +2781,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     impactSound(hit.point, 'water', skip ? energy * .6 : energy, profile);
     // A heavier round rocks the surface harder as well as throwing more spray.
     rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
+    if(getGraphicsSettings().lensEffects&&!vehicles.active){
+      const eye=camera.getWorldPosition(new THREE.Vector3()),toward=hit.point.clone().sub(eye),distance=toward.length();
+      const amount=waterSplashExposure(distance,toward.normalize().dot(camera.getWorldDirection(new THREE.Vector3())),Math.max(0,eye.y-hit.point.y));
+      if(amount>.02){
+        const start=hit.point.clone();start.y+=.12;const toEye=eye.clone().sub(start),range=toEye.length();toEye.normalize();
+        if(facilityCover.distance(start,toEye,range)>=range-.12)lens.splash(Math.min(1,amount*energy*2.5),camera.aspect,getEnvironmentSettings().reducedEffects||!!motionPreference?.matches);
+      }
+    }
     return skip;
   }
   const skipRay = new THREE.Raycaster(), skipDirection = new THREE.Vector3(), skipOrigin = new THREE.Vector3();
@@ -4515,8 +4523,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
       canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal,
         getGraphicsSettings().bloom && !vision.thermal && !nvgAiming,
-        getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive()));
+        getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive(),
+        getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive()));
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
+      canvas.dataset.waterReflections = String(occlusion.waterReflectionsEnabled);
       canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);
       const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
       const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
@@ -4525,8 +4535,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const { lighting } = atmosphere.light, air = atmosphere.air;
       if (getGraphicsSettings().lensEffects) lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
         sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
+        swimming: hud.phase==='playing'&&swimming(), swimSpeed:carry.length(),
         sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
+      else lens.clear();
+      if (debugDatasets) canvas.dataset.waterRipples = String(atmosphere.root.userData.waterRipples ?? 0);
       const lensTag = getGraphicsSettings().lensEffects ? `${lens.status.flare.toFixed(2)}:${lens.status.dust.toFixed(2)}:${lens.status.drops}` : 'off';
       if (lensTag !== canvas.dataset.lens) canvas.dataset.lens = lensTag;
       let iffFrame: IffFrame = EMPTY_IFF_FRAME;

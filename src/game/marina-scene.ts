@@ -10,6 +10,7 @@ import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { MARINA_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './marina-collision';
 import { createWaterMaterial } from './water';
+import { captureRainReceivers } from './rain-receivers';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
@@ -131,7 +132,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // shot ripples are per pixel and need none.
   const bayWater = new THREE.Mesh(geo(new THREE.PlaneGeometry(bayW, bayD, 48, 42)), water);
   bayWater.rotation.x = -Math.PI / 2; bayWater.position.set(bayX, bay.surface, bayZ); bayWater.name = 'marina-bay-water';
-  bayWater.userData.fpsWater = true; bayWater.renderOrder = 1; scene.add(bayWater);
+  bayWater.userData.fpsWater = true; bayWater.userData.rainContact = 'water'; bayWater.renderOrder = 1; scene.add(bayWater);
   // The road completes a continuous loop around the bay.
   for (const z of [-112, 94]) {
     box(0, 0, z, 220, 0.08, 15, road);
@@ -165,6 +166,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // Broad, darker expansion bands observed in south-waterfront.png.
   const promenadeBand = mat('#777b79');
   for (const x of [-64, -32, 0, 32, 64]) box(x, 0.115, 66, 0.7, 0.025, 27, promenadeBand);
+  const railStart = scene.children.length;
   for (let x = -80; x <= 80; x += 3) {
     if(x*S>-22 && x*S<-19) continue;
     beam(new THREE.Vector3(x, 0.05, 51), new THREE.Vector3(x, 1.16, 50.5), 0.075, steel);
@@ -180,6 +182,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   for (let x = -80; x <= 80; x += 3) { if(x*S>-22 && x*S<-19) continue; const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
   for (let x = -80; x <= 80; x += 3) { if(x*S>19 && x*S<22) continue; box(x, 0.58, -90.6, 0.08, 1.16, 0.1, steel); }
   for (let z = -90; z <= 50; z += 3) for (const x of [-80.6, 80.6]) box(x, 0.58, z, 0.1, 1.16, 0.1, steel);
+  for (const rail of scene.children.slice(railStart)) rail.userData.rainContact = 'rail';
   // Bent, tapered fronds with individual leaflets instead of star-shaped cones.
   const frondVertices: number[] = [];
   for (let i = 0; i < 8; i++) {
@@ -320,7 +323,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const museumBase = new THREE.Mesh(baseGeo, pale); museumBase.position.set(135, 9, -110); scene.add(museumBase); collider(135, -110, 44, 44, 34);
   const pondBed = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), silt); pondBed.rotation.x = -Math.PI / 2; pondBed.position.set(135, 0.03, -110); scene.add(pondBed);
   const pond = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), water); pond.rotation.x = -Math.PI / 2; pond.position.set(135, 0.19, -110);
-  pond.name = 'marina-pond-water'; pond.userData.fpsWater = true; pond.renderOrder = 1; scene.add(pond);
+  pond.name = 'marina-pond-water'; pond.userData.fpsWater = true; pond.userData.rainContact = 'water'; pond.renderOrder = 1; scene.add(pond);
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2;
     const support = box(135 + Math.cos(a) * 5, 4, -110 + Math.sin(a) * 5, 0.8, 8, 0.8, pale); support.rotation.z = Math.cos(a) * 0.2;
@@ -768,6 +771,8 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   box(0, 0.72, -2.23, 2.1, 0.2, 0.12, pale, car); box(0, 0.75, 2.23, 2.1, 0.2, 0.12, orange, car);
   const wheelGeo = geo(new THREE.CylinderGeometry(0.48, 0.48, 0.3, 10));
   for (const x of [-1.15, 1.15]) for (const z of [-1.35, 1.35]) { const wheel = new THREE.Mesh(wheelGeo, dark); wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.5, z); car.add(wheel); }
+  captureRainReceivers(scene);
+  scene.userData.rainReceivers.push(...camp.root.userData.rainReceivers);
   // Repeated façade/paving/railing and palm details share batched draw calls.
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
   const batches = new Map<string, THREE.Mesh[]>();

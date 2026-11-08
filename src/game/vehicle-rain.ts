@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { namedObject } from './named-object';
 import type { RainSplashOptions } from './rain-effects';
 
-export interface VehicleRainHit { height: number; object?: THREE.Object3D; normal: THREE.Vector3 }
+export interface VehicleRainHit { height: number; object?: THREE.Object3D; normal: THREE.Vector3; kind?: 'solid' | 'rail' | 'water' }
 interface Receiver { mesh: THREE.Mesh; bounds: THREE.Box3 }
 interface VehicleRainState {
   root: THREE.Object3D; receivers: Receiver[]; bounds: THREE.Box3;
@@ -26,7 +26,7 @@ export function createVehicleRain(scene: THREE.Scene, ground: (x: number, z: num
           if (!mesh.visible || x < bounds.min.x || x > bounds.max.x || z < bounds.min.z || z > bounds.max.z || bounds.max.y <= hit.height) continue;
           hits.length = 0; mesh.raycast(ray, hits);
           for (const contact of hits) if (contact.point.y > hit.height && contact.face) {
-            hit.height = contact.point.y; hit.object = mesh;
+            hit.height = contact.point.y; hit.object = mesh; hit.kind = 'solid';
             hit.normal.copy(contact.face.normal).applyMatrix3(normalMatrix.getNormalMatrix(mesh.matrixWorld)).normalize();
             if (hit.normal.y < 0) hit.normal.negate();
           }

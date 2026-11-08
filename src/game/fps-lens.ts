@@ -28,7 +28,8 @@ import type { Direction } from './world-lighting';
  */
 
 /** One drop on the lens. Screen units: x across 0–1, y up 0–1, radius a share of the screen's height. */
-export interface LensDrop { x: number; y: number; radius: number; age: number; life: number; stick: number; speed: number; seed: number; travelled: number }
+export interface LensDrop { x: number; y: number; radius: number; age: number; life: number; stick: number; speed: number; seed: number; travelled: number; splash?: boolean }
+export const waterSplashExposure = (distance:number, facing:number, height:number) => facing < -.1 || height > 3 ? 0 : Math.max(0,1-distance/5.5) * Math.max(0,1-height/4);
 export const LENS_DROP_LIMIT = 128;
 /** Drops at least this big (share of screen height) run once they let go. */
 export const SLIDING_RADIUS = .011;
@@ -40,10 +41,10 @@ const smoothstep = (a: number, b: number, x: number) => { const t = Math.max(0, 
 /** The rain that has landed on the lens, as a bounded pool of drops. */
 export function createLensRain(random: () => number = Math.random) {
   const drops: LensDrop[] = [];
-  let due = 0;
+  let due = 0, swimDue = 0, wasSwimming = false;
   const add = (x: number, y: number, radius: number, life: number, stick: number) => {
     if (drops.length >= LENS_DROP_LIMIT) return null;
-    const drop = { x, y, radius, age: 0, life, stick, speed: 0, seed: random(), travelled: 0 };
+    const drop: LensDrop = { x, y, radius, age: 0, life, stick, speed: 0, seed: random(), travelled: 0 };
     drops.push(drop); return drop;
   };
   function land(aspect: number) {
@@ -56,14 +57,25 @@ export function createLensRain(random: () => number = Math.random) {
     }
     add(x, y, radius, 2.5 + random() * 4.5, .2 + random() * 2.2);
   }
+  function splash(strength:number, aspect:number, reduced=false) {
+    const amount=Math.max(0,Math.min(1,strength));
+    for(let i=0;i<Math.ceil(amount*(reduced?8:26));i++){
+      const d=add(.5+(random()-.5)*Math.min(.88,1.5/Math.max(.5,aspect)),.15+random()*.8,.006+random()*.019,2.2+random()*2.8,random()*.2);
+      if(d){d.splash=true;d.speed=.12+random()*.25;}
+    }
+  }
   return {
-    drops,
+    drops, splash,
     /**
      * `rain` 0–1 from the weather, `exposure` from `rainExposure`, `aspect` the
      * screen's width over height, `wind` the weather's, `reduced` fewer drops.
      */
-    step(dt: number, air: { rain: number; exposure: number; sheltered: boolean; aspect: number; wind?: number; reduced?: boolean }) {
+    step(dt: number, air: { rain: number; exposure: number; sheltered: boolean; aspect: number; wind?: number; reduced?: boolean; swimming?: boolean; swimSpeed?: number }) {
       dt = Math.max(0, Math.min(.1, dt));
+      if(air.swimming&&!wasSwimming)splash(1,air.aspect,air.reduced);
+      wasSwimming=!!air.swimming;
+      swimDue=air.swimming?swimDue+dt*(.8+Math.min(2,air.swimSpeed??0)*1.8):0;
+      if(swimDue>=1){swimDue-=1;splash(.55,air.aspect,air.reduced);}
       // The weather eases between presets, so the last of a shower counts as none.
       const rate = air.sheltered || air.rain < .03 ? 0 : air.rain * air.exposure * 22 * (air.reduced ? .35 : 1);
       due = Math.min(4, due + rate * dt);
@@ -72,7 +84,7 @@ export function createLensRain(random: () => number = Math.random) {
         const drop = drops[i];
         drop.age += dt;
         // Out of the rain the lens dries: whatever is left goes within a couple of seconds.
-        if (rate === 0) drop.life = Math.min(drop.life, drop.age + 1.2 + drop.seed * .8);
+        if (rate === 0 && !drop.splash) drop.life = Math.min(drop.life, drop.age + 1.2 + drop.seed * .8);
         if (drop.radius >= SLIDING_RADIUS && drop.age > drop.stick) {
           drop.speed = Math.min(.6, drop.speed + dt * (.25 + drop.radius * 20));
           const fall = drop.speed * dt;
@@ -80,7 +92,7 @@ export function createLensRain(random: () => number = Math.random) {
           drop.x += (Math.sin(drop.age * 6 + drop.seed * 40) * .015 * drop.speed + (air.wind ?? 0) * .0015) * dt;
           // A runner loses water to the beads it leaves behind.
           drop.radius *= 1 - dt * .06;
-          if (drop.travelled > drop.radius * 1.6 && rate > 0) {
+          if (drop.travelled > drop.radius * 1.6 && (rate > 0 || drop.splash)) {
             drop.travelled = 0;
             add(drop.x + (random() - .5) * drop.radius / air.aspect, drop.y + drop.radius * 1.2, drop.radius * (.22 + random() * .18), .8 + random(), 99);
           }
@@ -88,7 +100,7 @@ export function createLensRain(random: () => number = Math.random) {
         if (drop.age > drop.life || drop.y + drop.radius < 0) drops.splice(i, 1);
       }
     },
-    clear() { drops.length = 0; due = 0; },
+    clear() { drops.length = 0; due = swimDue = 0; wasSwimming=false; },
   };
 }
 
@@ -240,6 +252,7 @@ export interface LensFrame {
   /** The scene is drawing temperature (thermal), which has no sun or glinting dust. */
   thermal: boolean;
   reduced: boolean;
+  swimming?: boolean; swimSpeed?: number;
 }
 
 export function createLensEffects(renderer: THREE.WebGLRenderer) {
@@ -279,12 +292,14 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
     /** What showed last frame: flare strength (after anything in front of the sun), dust strength, drops on the lens. */
     get status() { return status; },
     get drops() { return rain.drops; },
+    splash(strength:number,aspect:number,reduced=false) { rain.splash(strength,aspect,reduced); },
+    clear() { rain.clear(); },
     present(f: LensFrame) {
       const camera = f.camera;
       renderer.getDrawingBufferSize(size);
       const aspect = size.x / Math.max(1, size.y);
       camera.getWorldDirection(forward);
-      rain.step(f.dt, { rain: f.rain, exposure: rainExposure(forward.y), sheltered: f.sheltered, aspect, wind: f.wind, reduced: f.reduced });
+      rain.step(f.dt, { rain: f.rain, exposure: rainExposure(forward.y), sheltered: f.sheltered, aspect, wind: f.wind, reduced: f.reduced, swimming:f.swimming,swimSpeed:f.swimSpeed });
 
       // Where the sun is on screen, and how much of a flare it could make there.
       sunPoint.set(f.sun.x, f.sun.y, f.sun.z);
@@ -343,7 +358,7 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
         for (let i = 0; i < drops; i++) {
           const drop = rain.drops[i], fadeIn = Math.min(1, drop.age / .08), fadeOut = Math.min(1, (drop.life - drop.age) / .6);
           dropData[i * 4] = drop.x; dropData[i * 4 + 1] = drop.y; dropData[i * 4 + 2] = drop.radius; dropData[i * 4 + 3] = .92 * fadeIn * Math.max(0, fadeOut);
-          shapeData[i * 2] = Math.min(.9, drop.speed * 2.2); shapeData[i * 2 + 1] = drop.seed;
+          shapeData[i * 2] = Math.min(drop.splash?2.4:.9, drop.speed * (drop.splash?5:2.2)); shapeData[i * 2 + 1] = drop.seed;
         }
         dropAttribute.clearUpdateRanges(); dropAttribute.addUpdateRange(0, drops * 4); dropAttribute.needsUpdate = true;
         shapeAttribute.clearUpdateRanges(); shapeAttribute.addUpdateRange(0, drops * 2); shapeAttribute.needsUpdate = true;

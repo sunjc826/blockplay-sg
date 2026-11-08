@@ -37,9 +37,10 @@ export default function GraphicsSettings() {
           if (value === 'off') setEnvironmentSettings({ shadows: false });
           else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'ultra' ? 'ultra' : value === 'low' ? 'low' : 'high' }); }
         }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
-      {(['rainDetail', 'grassDetail'] as const).map(key => <label key={key}><span>{key === 'rainDetail' ? 'Rain distance' : 'Grass detail'}<small>{key === 'rainDetail' ? 'Show rain farther into the scene.' : 'Denser nearby grass and longer coverage.'}</small></span>
+      {(['rainDetail', 'grassDetail', 'waterDetail'] as const).map(key => <label key={key}><span>{key === 'rainDetail' ? 'Rain distance' : key === 'waterDetail' ? 'Water detail' : 'Grass detail'}<small>{key === 'rainDetail' ? 'Show rain farther into the scene.' : key === 'waterDetail' ? 'Raised ripple rings from rain and bullet impacts.' : 'Denser nearby grass and longer coverage.'}</small></span>
         <select value={graphics[key]} onChange={e => setGraphicsSettings({ [key]: e.target.value as WorldDetail })}><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>)}
     </div>
+    <label><input type="checkbox" checked={graphics.waterReflections} onChange={e => setGraphicsSettings({ waterReflections: e.target.checked })} /> Bay reflections (nearby scenery reflected in Marina Bay water)</label>
     <label><input type="checkbox" checked={graphics.rainReflections} onChange={e => setGraphicsSettings({ rainReflections: e.target.checked })} /> Wet-ground reflections (visible scenery reflected in rain-soaked pavement)</label>
     <label><input type="checkbox" checked={environment.occlusion} onChange={e => setEnvironmentSettings({ occlusion: e.target.checked })} /> Ambient occlusion (darker corners and gaps)</label>
     <label><input type="checkbox" checked={graphics.bloom} onChange={e => setGraphicsSettings({ bloom: e.target.checked })} /> Light bloom (subtle glow around bright world lights)</label>
