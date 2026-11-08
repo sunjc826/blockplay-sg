@@ -15,7 +15,7 @@ export function createMerlionVisuals(scene: THREE.Scene) {
   const drops=new THREE.InstancedMesh(dropsGeo,dropsMat,160);drops.userData.fpsEffect=true;drops.raycast=()=>{};drops.frustumCulled=false;root.add(drops);
   const mist=mesh(new THREE.CylinderGeometry(MERLION.mistRadius,0,MERLION.mistRange,32,1,true),new THREE.MeshBasicMaterial({color:0x9fe9f5,transparent:true,opacity:.09,depthWrite:false,side:THREE.DoubleSide}));
   mist.name='merlion-mist-cone';
-  const mistGeo=new THREE.BufferGeometry(),mistPositions=new Float32Array(240*3),mistSizes=new Float32Array(240);
+  const mistCount=384, mistGeo=new THREE.BufferGeometry(),mistPositions=new Float32Array(mistCount*3),mistSizes=new Float32Array(mistCount);
   mistGeo.setAttribute('position',new THREE.BufferAttribute(mistPositions,3));mistGeo.setAttribute('size',new THREE.BufferAttribute(mistSizes,1));geometries.push(mistGeo);
   const mistMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{opacity:{value:1}},
     vertexShader:`attribute float size; void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;gl_PointSize=clamp(size*650.0/max(0.1,-mv.z),1.0,180.0);}`,
@@ -54,10 +54,10 @@ export function createMerlionVisuals(scene: THREE.Scene) {
       (mist.material as THREE.MeshBasicMaterial).opacity=.09*fade;mistMat.uniforms.opacity.value=fade;
       rim.position.copy(from).addScaledVector(direction,MERLION.mistRange);rim.quaternion.setFromUnitVectors(forward,direction);
       (rim.material as THREE.MeshBasicMaterial).opacity=.55*fade;
-      for(let i=0;i<240;i++){
-        const t=(i/240+time*.32)%1,angle=i*2.39996+time*.2,r=MERLION.mistRadius*t*Math.sqrt(((i*37)%239)/239);
+      for(let i=0;i<mistCount;i++){
+        const t=(i/mistCount+time*.32)%1,angle=i*2.39996+time*.2,r=MERLION.mistRadius*t*Math.sqrt(((i*37)%(mistCount-1))/(mistCount-1));
         tmp.position.copy(from).addScaledVector(direction,t*MERLION.mistRange).addScaledVector(side,Math.cos(angle)*r).addScaledVector(up,Math.sin(angle)*r);
-        tmp.position.toArray(mistPositions,i*3);mistSizes[i]=(.25+.9*t)*Math.min(1,t*10,(1-t)*10);
+        tmp.position.toArray(mistPositions,i*3);mistSizes[i]=(.3+2.5*t)*Math.min(1,t*10,(1-t)*10);
       }
       mistGeo.attributes.position.needsUpdate=true;mistGeo.attributes.size.needsUpdate=true;
     }

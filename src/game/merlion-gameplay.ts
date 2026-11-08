@@ -4,7 +4,7 @@ export const MERLION = {
   console: { x: 0, z: -8.5 }, cache: { x: 3.1, z: -11.2 }, reach: 1.8,
   range: 65, radius: .95, turnSpeed: 1.6, minPitch: -.75, maxPitch: .3,
   pressureSeconds: 7, rechargeSeconds: 18, recoverySeconds: 3,
-  mistSeconds: 4.5, mistRange: 12, mistRadius: 7, mistCooldown: 22, mistCost: .4,
+  mistSeconds: 4.5, mistRange: 75, mistRadius: 18, mistCooldown: 22, mistCost: .4,
   packs: 3, packSeconds: 45, pickupSeconds: 8,
 } as const;
 export type MerlionAction = 'operate' | 'leave' | 'mist' | 'supply';

@@ -8,6 +8,7 @@ import type {LanSession} from './lan-peer';
 import {buildMarinaScene} from './marina-scene';
 import {getWalkSurfaces,getTraversalObstacles} from './vertical-routes';
 import {MARINA_BOUNDS,moveInMarina} from './marina-collision';
+import {MARINA_WATER} from './marina-water';
 import {createSceneCover} from './scene-cover';
 
 const operator=():WaterActor=>({id:'p',alive:true,bot:false,x:0,y:1.75,z:-8.5,yaw:-Math.PI/2,pitch:-.06});
@@ -43,7 +44,7 @@ describe('Merlion shared controls',()=>{
     const c=createMerlionController(clear),p=operator();c.action(p,'operate');c.action(p,'mist');
     const wet:string[]=[];
     c.step(.05,[p,{...p,id:'enemy',bot:true,x:7,z:-12},{...p,id:'ally',x:8,z:-12},
-      {...p,id:'rear',x:-5,z:-12},{...p,id:'flank',x:3,z:-7},{...p,id:'beyond',x:15,z:-12}],
+      {...p,id:'rear',x:-5,z:-12},{...p,id:'flank',x:3,z:-7},{...p,id:'beyond',x:MERLION.mistRange+2,z:-12}],
       (a,strength)=>{wet.push(a.id);expect(strength).toBe(.48);});
     expect(wet).toEqual(['enemy','ally']);
     expect(mistBetween(c.state,{x:7,y:2,z:-22},{x:7,y:2,z:-2})).toBe(true);
@@ -55,14 +56,30 @@ describe('Merlion shared controls',()=>{
     const c=createMerlionController(clear);c.state.yaw=yaw;c.state.pitch=.2;c.state.mist=2;
     const o=merlionMouth(yaw),d=merlionDirection(yaw,.2),side={x:Math.cos(yaw),y:0,z:-Math.sin(yaw)};
     const at=(along:number,r:number)=>({x:o.x+d.x*along+side.x*r,y:o.y+d.y*along,z:o.z+d.z*along+side.z*r});
-    for(const [along,r,inside] of [[6,3.4,true],[6,3.6,false],[-1,0,false],[12.1,0,false],[11.9,0,true]] as const){
+    for(const [along,r,inside] of [[MERLION.mistRange/2,MERLION.mistRadius/2-.1,true],[MERLION.mistRange/2,MERLION.mistRadius/2+.1,false],[-1,0,false],[MERLION.mistRange+.1,0,false],[MERLION.mistRange-.1,0,true]] as const){
       const point=at(along,r);expect(inMerlionMist(c.state,point)).toBe(inside);
       expect(mistBetween(c.state,point,point)).toBe(inside);
     }
     expect(mistBetween(c.state,at(-2,0),at(15,0))).toBe(true);
     expect(mistBetween(c.state,at(6,-10),at(6,10))).toBe(true);
     expect(mistBetween(c.state,at(6,10),at(6,-10))).toBe(true);
-    expect(mistBetween(c.state,at(14,-10),at(14,10))).toBe(false);
+    expect(mistBetween(c.state,at(MERLION.mistRange+2,-10),at(MERLION.mistRange+2,10))).toBe(false);
+  });
+  it.each([
+    {x:MARINA_WATER.minX-2,z:MERLION.z},{x:MARINA_WATER.maxX+2,z:MERLION.z},
+    {x:0,z:MARINA_WATER.minZ-2},{x:0,z:MARINA_WATER.maxZ+2},
+    ...[MARINA_WATER.minX-2,MARINA_WATER.maxX+2].flatMap(x=>[MARINA_WATER.minZ-2,MARINA_WATER.maxZ+2].map(z=>({x,z}))),
+  ])('reaches a bot on the real dry promenade at %j',shore=>{
+    const c=createMerlionController(clear),p=operator();
+    p.yaw=Math.atan2(-shore.x,-(shore.z-MERLION.z));c.state.yaw=p.yaw;
+    c.action(p,'operate');c.action(p,'mist');
+    const bot={...p,...shore,id:'shore-bot',bot:true};
+    expect(Math.hypot(bot.x,bot.z-MERLION.z)).toBeGreaterThan(40);
+    const wet:string[]=[];c.step(.05,[p,bot],(a,strength)=>{if(a.id===bot.id){wet.push(a.id);expect(strength).toBe(.48);}});
+    expect(wet).toEqual(['shore-bot']);
+    expect(mistBetween(c.state,merlionMouth(p.yaw),bot)).toBe(true);
+    c.step(MERLION.mistSeconds,[bot],()=>{throw Error('expired mist hit');});
+    expect(mistBetween(c.state,merlionMouth(p.yaw),bot)).toBe(false);
   });
   it('bounds shared supplies, rejects spam and preserves spent stock on district return',()=>{
     const c=createMerlionController(clear),p={...operator(),...MERLION.cache};

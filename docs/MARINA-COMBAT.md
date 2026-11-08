@@ -352,7 +352,8 @@ and needs three seconds of pump recovery after exhaustion. Released, dead,
 disconnected or paused operators cannot leave a permanently firing cannon.
 
 Mist consumes 40% of the same pressure reserve and lasts 4.5 seconds in a cone
-extending 12m ahead of the mouth, widening to a 7m radius. The cone follows the
+extending 75m ahead of the mouth, widening to an 18m radius. This reaches the
+42–48m distant quays and the diagonal promenade corners when aimed at them. The cone follows the
 statue's aim, has a visible rim and drifting mist, and shares a 22-second cooldown.
 Anyone inside is affected, including allies; actors behind the statue stay
 clear. Authority sight checks use the same cone. Mist does not block

@@ -26,6 +26,13 @@ try{
     assert.equal(state.mist,mode==='mist');
     assert.ok(Math.hypot(state.impact[0]-state.end.x,state.impact[1]-state.end.y,state.impact[2]-state.end.z)<.2);
   }
+  for(const view of ['shore-overview','shore-close']){
+    const state=await evaluate(`window.show('mist',${JSON.stringify(view)},.5)`);views[view]=state;
+    assert.equal(state.shoreBotX,50);assert.equal(state.conditions[0].conditions?.['water-eyes']?.strength,.48);
+    assert.equal(state.tags.find(t=>t.actor==='bot-1')?.visible,true);
+    assert.ok(state.cloudEnd[0]>state.shoreBotX,'visible cone extends onto the shore');
+    await shot(view);
+  }
   const reactions={};
   for(const mode of ['cannon','mist','clear']){
     const samples=[];
@@ -42,5 +49,5 @@ try{
   }
   views.reactions=reactions;
   assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,views,errors},null,2));
-  console.log('PASS: forward cone and cannon conditions drive visible bot status; rear bot stays clear; tags clear on recovery; impact matches host endpoint; cannon shields, mist wipes and normal poses recover.');
+  console.log('PASS: mist reaches a bot on the dry shore at 50m; forward cone and cannon conditions drive visible bot status; rear bot stays clear; tags clear on recovery; impact matches host endpoint; cannon shields, mist wipes and normal poses recover.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}
