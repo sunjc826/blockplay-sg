@@ -26,6 +26,18 @@ async function assertLoader(heading, district) {
   assert.equal(samples.at(-1).percent, 100);
   assert(samples.every((sample, i) => i === 0 || sample.percent >= samples[i - 1].percent));
 }
+async function assertSessionMenu(label, resume) {
+  const panel = await evaluate(`(() => {
+    const panel = document.querySelector('.play-panel.is-paused-menu');
+    if (!panel) return null;
+    const action = panel.firstElementChild;
+    const tools = panel.querySelector('.fps-player-tools');
+    const rect = panel.getBoundingClientRect();
+    return { label: panel.getAttribute('aria-label'), resume: action.textContent.trim(), firstAction: action.matches('.pause-resume'),
+      firstTool: tools?.firstElementChild.textContent.trim(), inside: rect.top >= 0 && rect.bottom <= innerHeight + 1 };
+  })()`);
+  assert.deepEqual(panel, { label, resume, firstAction: true, firstTool: 'Settings', inside: true });
+}
 async function openPlay() {
   await go('/', '.game-menu');
   if (await evaluate(`!!document.querySelector('.game-title')`)) { await click('.game-title'); await delay(1100); }
@@ -36,6 +48,8 @@ async function openPlay() {
 try {
   await send('Page.enable'); await send('Runtime.enable'); await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true}); await size(1440, 900);
   await send('Page.addScriptToEvaluateOnNewDocument', {source: `(() => {
+    // Compare the menus with touch input independent of native fullscreen prompts.
+    Object.defineProperty(Element.prototype, 'requestFullscreen', {value: undefined, configurable: true});
     window.loadingSamples = [];
     const observer = new MutationObserver(() => {
       const loader = document.querySelector('.play-loading');
@@ -85,6 +99,7 @@ try {
   if (await evaluate(`document.querySelector('.fps-game')?.dataset.phase==='paused'`)) await click('.pause-resume', true);
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
   await click('[data-touch-action="menu"]', true); await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
+  await assertSessionMenu('Training menu', 'Resume exercise');
   await evaluate(`document.exitFullscreen?.().catch(()=>{})`);
   await evaluate(`window.navigationTestCanvas=document.querySelector('.world canvas')`);
   // Destructive store detour: cancel retains the exact mounted renderer.
@@ -112,7 +127,10 @@ try {
   await click('.tutorial-card > .primary-button', true);
   if (await evaluate(`document.querySelector('.tutorial-game')?.dataset.phase==='paused'`)) await click('.tutorial-card > .primary-button', true);
   await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='playing'`);
-  await click('.tutorial-menu', true); await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='paused'`);
+  assert.equal(await evaluate(`document.querySelectorAll('button[aria-label="Menu"]').length`), 1);
+  await click('[data-touch-action="menu"]', true); await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='paused'`);
+  await assertSessionMenu('Tutorial menu', 'Resume course');
+  await shot('tutorial-pause');
   await click('.tutorial-back', true); await wait(`!!document.querySelector('[role="alertdialog"]')`);
   await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/tutorial');
   await click('.tutorial-card > button.tutorial-secondary:last-of-type', true); await wait(`!!document.querySelector('[role="alertdialog"]')`);
@@ -129,6 +147,22 @@ try {
   await shot('district-list');
   await click('.starting-deploy'); await wait(`!!document.querySelector('.deployment-leave')`, 60000);
   await assertLoader('OPEN WORLD · DEPLOYMENT', 'Queenstown');
+  await click('.deployment-actions .primary-button', true);
+  await wait(`['deploying','playing'].includes(document.querySelector('.expedition-game')?.dataset.phase)`);
+  if (await evaluate(`!!document.querySelector('.expedition-intro-actions button:last-child')`)) await click('.expedition-intro-actions button:last-child', true);
+  await wait(`document.querySelector('.expedition-game')?.dataset.phase==='playing'`);
+  await click('[data-touch-action="menu"]', true);
+  await wait(`document.querySelector('.expedition-game')?.dataset.phase==='paused'`);
+  await assertSessionMenu('Open World menu', 'Resume expedition');
+  await shot('world-pause');
+  await click('.play-nav-district', true);
+  await wait(`!!document.querySelector('[role="alertdialog"]')`);
+  await click('.confirm-leave', true);
+  await wait(`!!document.querySelector('.starting-picker')`);
+  assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
+  // Landing-zone Back is also available before entering a district.
+  await click('.starting-deploy', true);
+  await wait(`!!document.querySelector('.deployment-leave') && !document.querySelector('.play-loading')`,60000);
   await click('.deployment-leave'); await wait(`!!document.querySelector('.starting-picker')`);
   assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
   assert.equal(await evaluate(`!!document.querySelector('[role="alertdialog"]')`), false);
@@ -166,10 +200,29 @@ try {
   }
   await click('.solo-setup .public-options summary');
   assert(await evaluate(`document.querySelector('.solo-setup input[type="range"]').value==='3'`));
+  await evaluate(`(() => {
+    const input = document.querySelector('.solo-setup input[type="range"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  assert(await evaluate(`document.querySelector('.solo-setup .public-options summary').textContent.includes('0 bots')`));
   await click('.solo-setup .lan-deploy');
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
   await assertLoader('SINGLE PLAYER · FREE FOR ALL', 'Marina Bay');
   assert(await evaluate(`document.querySelector('.fps-game').dataset.matchMode==='free-for-all'`));
+  await size(390,844,true);
+  await click('.arena-start-card > .primary-button', true);
+  if (await evaluate(`document.querySelector('.fps-game')?.dataset.phase==='paused'`)) await click('.pause-resume', true);
+  await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
+  await click('[data-touch-action="menu"]', true);
+  await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
+  await assertSessionMenu('Match menu', 'Resume match');
+  assert(await evaluate(`document.querySelector('.arena-menu-section') && !document.querySelector('.arena-menu-section').open`));
+  await shot('arena-pause');
+  await click('.pause-resume', true);
+  await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
+  await click('[data-touch-action="menu"]', true);
+  await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
   await click('.arena-room-return');
   await wait(`document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Return to match')`);
   await click('.solo-setup .lan-cancel');
@@ -206,10 +259,10 @@ try {
     await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/play/multiplayer/hardpoint');
     await click('.public-actions .lan-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
     await assertLoader('MULTIPLAYER · HARDPOINT', 'Chinatown · Smith Street');
-    await click('.arena-start-card > .fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
+    await click('.arena-leave'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /closes the match for everyone/);
     await key('Escape'); assert(await evaluate(`!!document.querySelector('.arena-start-card')`));
-    await click('.arena-start-card > .fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
+    await click('.arena-leave'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     await click('.confirm-leave'); await wait(`!!document.querySelector('.public-lobby')`);
     assert.equal(await evaluate(`!!document.querySelector('.public-lobby.has-room')`),false);
     console.log('PASS local multiplayer: room exit cancellation, Main menu guard, match exit warning, confirmed disconnect to lobby.');

@@ -1,0 +1,61 @@
+.fps-game .play-panel-overlay,
+.fps-game.is-immersive .play-panel-overlay { padding: 16px; grid-template-rows: minmax(0, 1fr); z-index: 2; }
+.fps-game .fps-start-card.play-panel {
+  width: min(100%, 460px);
+  max-width: none;
+  min-height: 0;
+  padding: clamp(16px, 3vw, 26px);
+  border-radius: 10px;
+  background: #192921f5;
+  color: #f0eedf;
+  text-align: left;
+}
+.play-panel > h2 { margin: 8px 0 10px; }
+.play-panel > p { margin: 0 0 12px; }
+.play-panel > .primary-button {
+  min-height: 48px;
+  justify-content: flex-start;
+  margin: 8px 0 16px;
+  border-radius: 6px;
+  background: #e0bb72;
+  color: #1c3022;
+}
+.play-panel > .primary-button:hover { background: #f0ce8c; }
+.play-panel > .primary-button > svg:last-child { margin-left: auto; }
+.play-panel.is-paused-menu > .pause-resume { margin: 0 0 16px; }
+.play-panel .fps-player-tools > button { min-height: 44px; }
+.play-panel-fold { border-top: 1px solid #adbb9230; }
+.play-panel-fold summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 13px; }
+.play-panel-fold summary::after { content: '+'; margin-left: auto; color: #d0b883; }
+.play-panel-fold[open] summary::after { content: '−'; }
+.play-panel-fold p { color: #b6c3ac; margin: 0 0 10px; }
+.play-panel .play-nav { flex-wrap: wrap; }
+.play-panel .play-nav .arena-leave { margin-left: auto; }
+.play-panel .play-nav-back svg { flex-shrink: 0; }
+.play-menu-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid #d2dfc540;
+  border-radius: 8px;
+  background: #16271ed9;
+  color: #f0eedf;
+  font: 600 12px 'Manrope', sans-serif;
+}
+.fps-viewport:has(> .play-menu-button) > .fps-top { left: 108px; }
+.play-menu-button.is-compact { width: 44px; justify-content: center; padding: 0; border-radius: 50%; touch-action: none; }
+.play-menu-button.is-compact span { display: none; }
+.fps-viewport:has(> .play-menu-button.is-compact) > .fps-top { left: 64px; }
+.fps-viewport:has(> .death-recap) > .play-menu-button { z-index: 7; }
+@media (max-height: 500px) {
+  .fps-game .play-panel-overlay, .fps-game.is-immersive .play-panel-overlay { padding: 12px; }
+  .play-menu-button { width: 44px; justify-content: center; padding: 0; }
+  .play-menu-button span { display: none; }
+  .fps-viewport:has(> .play-menu-button) > .fps-top { left: 64px; }
+}

@@ -11,10 +11,10 @@ import './fps-hints.css';
  */
 export function FpsPlayerTools({ hud, engine, immersive, onFullscreen }: { hud: FpsHud; engine: FpsEngine | null; immersive: boolean; onFullscreen: () => void }) {
   return <div className="fps-player-tools">
+    <SettingsButton />
     <button className="session-button" aria-pressed={!hud.muted} onClick={() => engine?.toggleSound()}>{hud.muted ? <VolumeX size={14} /> : <Volume2 size={14} />} Sound {hud.muted ? 'off' : 'on'}</button>
     <FpsRadioVoice hud={hud} engine={engine} />
     <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'}</button>
-    <SettingsButton />
   </div>;
 }
 

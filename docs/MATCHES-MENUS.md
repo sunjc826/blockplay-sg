@@ -26,6 +26,8 @@ Team scoreboards group Alpha and Bravo under explicit headings and mark **YOUR T
 
 The activity cards stack on phones and the arena picker defaults to its list view on narrow screens. The primary room or match action receives focus when switching views, and fullscreen exits when returning to the room.
 
+Ready and pause panels use the Open World layout across Training, Tutorial and matches. Resume is the first action in each pause panel. Settings, sound and fullscreen use the same quick controls. The mode-specific briefing and scoreboard open on demand. In an online room, **Load arena** prepares the map, then the ready panel offers **Start match** for hosts or **Enter match** for guests.
+
 ## Validation
 
 - `scripts/matches-menu-smoke.mjs`: real desktop host and 390×844 touch-emulated guest through Cloudflare’s local WebSocket room relay. Covers mode selection, guest match details, first-spawn loadout, guest entry before host, return from ready/pause, host/guest continuity, same player IDs, retained loadout and scores, advancing authority clock, visible mobile team headings, resuming, explicit leave, bot fill and host closure, plus solo FFA and TDM start/return/end flows. Evidence is in `.cache/matches-menu/`. Uses Vite on 5313, Wrangler on 8787 and Chrome CDP on 9499, configurable with `MATCHES_APP_ORIGIN` / `MATCHES_CHROME_ORIGIN`.

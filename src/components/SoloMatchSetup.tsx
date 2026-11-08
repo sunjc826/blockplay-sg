@@ -31,7 +31,7 @@ export default function SoloMatchSetup({ match, active, hasMatch, suspended, pro
   }, [active, hasMatch]);
   return <section className="lan-lobby solo-setup" aria-labelledby="solo-match-title">
     <nav className="lobby-navigation" aria-label="Single Player">
-      <button className="game-back" onClick={onBack}><ArrowLeft size={16} /> {backLabel}</button>
+      <button className="play-nav-back" onClick={onBack}><ArrowLeft size={16} /> {backLabel}</button>
     </nav>
     <div className="solo-setup-body">
       <header>

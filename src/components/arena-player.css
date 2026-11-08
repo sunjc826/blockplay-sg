@@ -3,15 +3,6 @@
 .game-screen-match.has-match .game-screen-body { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); overflow: hidden; }
 .game-screen-match.has-match .fps-game { min-height: 0; }
 .game-screen-match.has-match .game-screen-body .fps-game:not(.is-immersive) > .fps-viewport { min-height: 0; border-radius: 0; }
-.arena-player-view .arena-overlay { display: flex; align-items: center; justify-content: center; padding: 20px; }
-.arena-player-view.is-immersive .arena-overlay { padding: 20px; }
-.arena-player-view .arena-start-card { width: 100%; max-width: 420px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 26px; border-radius: 18px; border-color: #b8ca9c40; background: #15261af5; box-shadow: 0 24px 70px #0004; scrollbar-width: thin; }
-.arena-player-view.is-immersive .arena-start-card { max-width: 420px; }
-.arena-player-view .arena-start-card h2 { font-size: 30px; margin: 12px 0; }
-.arena-player-view .arena-start-card > p { font-size: 13px; line-height: 1.7; }
-.arena-player-view .arena-start-card > .primary-button { min-height: 50px; background: #dfc48b; color: #202b1b; font-size: 15px; font-weight: 700; border-radius: 9px; margin: 20px 0 14px; }
-.arena-player-view .arena-start-card > .primary-button:hover { background: #efdaab; }
-.arena-player-view .arena-start-card > .primary-button > svg:last-child { margin-left: auto; }
 .arena-player-view .arena-start-card .arena-touch-brief { font-size: 11px; color: #9fb591; margin: 0 0 18px; text-align: center; }
 .arena-menu-section { text-align: left; border-top: 1px solid #b5c89522; }
 .arena-menu-section > summary { min-height: 46px; display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; color: #d2dfc5; font-size: 13px; }
@@ -20,35 +11,20 @@
 .arena-menu-section[open] > summary::after { content: '−'; }
 .arena-menu-section > summary:has(> span)::after { margin-left: 0; }
 .arena-menu-section p { font-size: 12px; color: #a7b89b; line-height: 1.7; }
-.arena-menu-section .fps-player-tools { margin: 0 0 12px; }
-.arena-menu-section .fps-player-tools > button, .arena-menu-section .fps-radio-voice { min-height: 44px; padding: 10px 12px; border-radius: 8px; font-size: 12px; }
-.arena-menu-section .environment-controls { font-size: 12px; }
-.arena-menu-section .environment-options select { font-size: 16px; }
 .arena-player-view .arena-start-card .arena-scoreboard { margin: 0 0 14px; padding: 10px; border-radius: 9px; }
 .arena-player-view .arena-start-card .fps-shop-link { min-height: 44px; font-size: 12px; margin: 6px auto 0; }
 .arena-reset-button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 44px; width: 100%; margin-top: 8px; border: 1px solid #b3c39732; border-radius: 8px; background: transparent; color: #b7c6a7; font-size: 12px; }
 .arena-player-view:not([data-phase=playing]) .fps-top { display: none; }
 .arena-player-view .fps-objective, .arena-player-view .fps-immersive-hint, .arena-player-view .fps-leave-screen { display: none; }
-.arena-menu-button { position: absolute; top: 12px; left: 12px; z-index: 3; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 10px 13px; border: 1px solid #d2dfc540; border-radius: 10px; background: #16271ed9; color: #f0eedf; font-size: 12px; }
-.arena-player-view:has(.arena-menu-button) .fps-top { left: 116px; }
 .arena-player-view .arena-respawn > small { display: none; }
 .arena-player-view .arena-respawn > strong { font-size: 34px; }
 .arena-menu-section > summary:focus-visible { outline: 2px solid #e4c780; outline-offset: 2px; }
 @media (max-width: 700px), (max-height: 500px) {
-  .arena-player-view .arena-overlay, .arena-player-view.is-immersive .arena-overlay { padding: 12px; }
-  .arena-player-view .arena-start-card { padding: 22px; border-radius: 15px; }
-  .arena-player-view .arena-start-card h2 { font-size: 27px; }
   .arena-player-view .arena-scoreboard.is-ffa th:nth-child(2), .arena-player-view .arena-scoreboard.is-ffa td:nth-child(2) { display: none; }
-}
-@media (max-height: 500px) {
-  .arena-player-view .arena-start-card { max-width: 460px; padding: 18px 22px; }
-  .arena-player-view .arena-start-card h2 { font-size: 24px; margin: 7px 0; }
-  .arena-player-view .arena-start-card > p { font-size: 12px; margin-bottom: 10px; }
-  .arena-player-view .arena-start-card > .primary-button { margin: 12px 0; }
 }
 /* The match shell already clears the notch; thumb controls add a margin once. */
 .arena-player-view .touch-layer { --edge-left: 12px; --edge-right: 12px; --edge-bottom: 12px; }
-.arena-player-view .touch-chip { top: 10px; width: 44px; height: 44px; }
+.arena-player-view .touch-chip { top: 10px; }
 .arena-player-view .touch-callout { left: 64px; }
 .arena-player-view:has(.touch-callout) .fps-top { left: 116px; }
 .arena-player-view[data-touch=on] .fps-weapon-slider button { height: 44px; }
@@ -73,7 +49,7 @@
   .arena-player-view[data-touch=on] .arena-kill-feed p:nth-last-child(n+3) { display: none; }
 }
 
-.arena-scoreboard .arena-team-heading th{text-align:left;padding:12px 4px 7px;font-size:11px;color:#9edfff;letter-spacing:.04em}.arena-team-heading span{float:right;margin-left:12px;font-size:10px}.arena-scoreboard [data-score-team=bravo] .arena-team-heading th{color:#ffd295}.arena-scoreboard.has-teams td:nth-child(2){font-size:11px;font-variant-numeric:tabular-nums}.arena-room-return{width:100%;justify-content:center;margin:12px 0;min-height:46px}.match-pause-objective{padding:10px;border-left:3px solid #dfc48b;background:#ffffff08}
+.arena-scoreboard .arena-team-heading th{text-align:left;padding:12px 4px 7px;font-size:11px;color:#9edfff;letter-spacing:.04em}.arena-team-heading span{float:right;margin-left:12px;font-size:10px}.arena-scoreboard [data-score-team=bravo] .arena-team-heading th{color:#ffd295}.arena-scoreboard.has-teams td:nth-child(2){font-size:11px;font-variant-numeric:tabular-nums}.match-pause-objective{padding:10px;border-left:3px solid #dfc48b;background:#ffffff08}
 /* Room/match view wrappers preserve the engine; retain the viewport's flex sizing. */
 .game-screen-match.has-match .game-screen-body .fps-game{flex:1;display:flex;flex-direction:column;min-height:0}
 .game-screen-match.has-match .game-screen-body .fps-game:not(.is-immersive)>.fps-viewport{flex:1 1 0;height:auto;min-height:0}

@@ -110,7 +110,7 @@ it('hides the bare drag surface from assistive tech, but never the buttons', () 
   const html = layer(playing());
   expect(html).toContain('aria-hidden="true"');
   // The pad is icon-only, so the name has to live on the element itself.
-  for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['fire', 'Fire'], ['menu', 'Pause']] as const) {
+  for (const [action, label] of [['aim', 'Aim'], ['reload', 'Reload'], ['jump', 'Jump'], ['fire', 'Fire'], ['menu', 'Menu']] as const) {
     expect(control(html, action)).toContain(`aria-label="${label}"`);
   }
   expect(html).toContain('class="touch-button"');

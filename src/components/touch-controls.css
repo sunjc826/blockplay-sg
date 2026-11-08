@@ -42,7 +42,7 @@
    where no thumb lands mid-fight, and the top bar's badge steps right for it. */
 .touch-chip{position:absolute;top:max(10px,env(safe-area-inset-top));left:var(--edge-left);
   pointer-events:auto;touch-action:none;display:flex;align-items:center;justify-content:center;
-  width:38px;height:38px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
+  width:44px;height:44px;border-radius:50%;border:1px solid #c7d1bb44;background:#16271ec4;color:#f4f4e9;
   backdrop-filter:blur(3px)}
 .fps-game:has(.touch-chip) .fps-top{left:calc(var(--chip-room,58px))}
 /* The map panel names the district and sector, so neither the label nor the fixed setting line adds anything. */

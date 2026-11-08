@@ -88,7 +88,7 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
   const loadout = profile && onLoadout && !hasMatch && <div className="match-loadout"><strong>Starting loadout</strong><p>Choose weapons from your locker before entering. Your room stays connected.</p><button className="lan-secondary" onClick={()=>setLocker(true)}>Choose starting loadout</button></div>;
 
   return <section ref={root} className={`lan-lobby public-lobby ${session ? 'has-room' : ''}`} aria-label="Public multiplayer lobby">
-    <nav className="lobby-navigation" aria-label="Multiplayer"><button className="game-back" onClick={onBack}><ArrowLeft size={16} /> {backLabel}</button></nav>
+    <nav className="lobby-navigation" aria-label="Multiplayer"><button className="play-nav-back" onClick={onBack}><ArrowLeft size={16} /> {backLabel}</button></nav>
     <header className="lan-header">
       <div><span className="lan-kicker">MULTIPLAYER</span>
         <h1>{session ? 'Your room' : match ? 'Host a match' : 'Find a Room'}</h1>
@@ -122,7 +122,7 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
         </>}
         {error && <p className="lan-error" role="alert">{error}</p>}{notice && <p className="lan-notice" role="status">{notice}</p>}
         <div className="public-actions">{session ? <>
-          <button className="lan-deploy" disabled={!connected || !resolved} onClick={launch}>{hasMatch ? 'Return to match' : 'Enter match'} <ArrowRight size={18} /></button>
+          <button className="lan-deploy" disabled={!connected || !resolved} onClick={launch}>{hasMatch ? 'Return to match' : 'Load arena'} <ArrowRight size={18} /></button>
           {!connected && <p className="lan-error" role="status">Room closed. Leave this room and reconnect.</p>}
           <button className="lan-cancel" onClick={() => requestLeave(disconnect)}>{session.role === 'host' ? 'Close room for everyone' : 'Leave room'}</button>
         </> : <>

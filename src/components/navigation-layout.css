@@ -10,6 +10,7 @@
 .game-screen-settings .game-screen-bar{position:sticky;top:0;z-index:10}
 .lobby-navigation{padding:12px 24px;border-bottom:1px solid #ffffff1a}
 .lobby-navigation .game-back{width:fit-content;color:#e9eddf}
+.lobby-navigation .play-nav-back{cursor:pointer}
 
 /* Account details are secondary to finding equipment. */
 .armory-sticky{position:sticky;top:0;z-index:15;background:#131f1a;box-shadow:0 5px 12px #0003}
@@ -91,7 +92,6 @@ main[tabindex="-1"]:focus,h1[tabindex="-1"]:focus,h2[tabindex="-1"]:focus{outlin
 .shop.is-touring .armory-sticky{position:relative}
 .shop.is-touring .armory-grid{display:grid}
 @media(max-height:480px) and (orientation:landscape){.shop .armory-body{padding-top:8px}.shop .armory-section-heading{margin-bottom:8px}.armory-loadout-toggle{margin:8px 12px}.armory-loadout-toggle>summary{padding:8px 12px;min-height:44px}}
-.tutorial-card.is-paused-menu{display:flex;flex-direction:column;align-items:stretch}.tutorial-card.is-paused-menu>.primary-button{order:-1;margin:0 0 16px}.tutorial-card.is-paused-menu>.tutorial-eyebrow,.tutorial-card.is-paused-menu>small{display:none}
 
 @media(max-height:480px) and (orientation:landscape){.armory-header .store-nav{gap:6px}.armory-header .game-back{padding:6px 8px}.armory-account>summary{font-size:11px;padding:6px}.armory-header .armory-wallet{gap:6px}}
 .armory-navigation{display:flex;align-items:center;gap:8px}.armory-navigation>[role=tablist]{flex:1;min-width:0}.armory-navigation>.armory-inspect-back{flex-shrink:0;margin:0;padding:8px 10px}

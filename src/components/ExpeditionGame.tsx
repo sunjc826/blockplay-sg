@@ -42,6 +42,7 @@ import FpsHudLayout from './FpsHudLayout';
 import FpsCalloutWheel from './FpsCalloutWheel';
 import FpsUtilityPicker from './FpsUtilityPicker';
 import TouchControls from './TouchControls';
+import { PlayMenuButton, PlayPanel } from './PlayPanel';
 import { FpsControlGuide, FpsPlayerTools } from './FpsPlayerTools';
 import ReloadStyleToggle from './ReloadStyleToggle';
 import { useDebugMode } from '../lib/debug-mode';
@@ -180,6 +181,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
+      {!debug && playing && !hud.pilotEnabled && (!touch || !alive && hud.deathRecap) && <PlayMenuButton compact={touch} onMenu={() => engine.current?.pause()} />}
       {loadoutOpen && <RespawnLoadoutSelector inventory={profile} selected={nextProfile} onSave={queueLoadout} onClose={() => setLoadoutOpen(false)} />}
       {(debug || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>}
       <div className="fps-top"><span className="fps-badge"><span className="status-dot" /> {zone.name.toUpperCase()} / EXPEDITION</span><span className="expedition-wallet">{hud.credits.toLocaleString()} CR · {hud.tokens.toLocaleString()} TK</span><span className={`expedition-risk risk-${zone.risk}`}>{zone.risk.toUpperCase()} THREAT</span></div>
@@ -244,27 +246,28 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
         {hud.message && <p className="fps-capture-error" role="alert">{hud.message}</p>}
       </ExpeditionDeployment>}
       {physicalCrossing && <FpsDistrictCrossing key={scene.revision} name={zone.name} phase={hud.phase} />}
-      {!playing && !deploying && !planning && !(physicalCrossing && hud.phase === 'loading') && <div className="fps-overlay"><div className={`fps-start-card${hud.phase === 'paused' ? ' is-paused-menu' : ''}`}>
-        {hud.phase === 'paused' && <button className="primary-button pause-resume" disabled={suspended} onClick={() => { if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} /> Resume expedition <ArrowRight size={16} /></button>}
-        {nav}
-        <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
-        <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Operator menu.' : `Welcome to ${zone.name}.`}</h2>
-        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Press H for enemy facility beacons, names and distances. Open M for facility control and routes.`}</p>
-        {hud.arena?.proxies && <p>Personal proxy favor · Freedom Force {hud.arena.proxies.favor['freedom-force']} · Collective Corps {hud.arena.proxies.favor['collective-cops']}. Favor lasts this expedition, including district travel. Look for tracked prototype cargo on the map.</p>}
-        {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations · No match timer</p>}
-        {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
-        <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
-        <EnvironmentControls />
+      {!playing && !deploying && !planning && !(physicalCrossing && hud.phase === 'loading') && <PlayPanel label={hud.phase === 'paused' ? 'Open World menu' : 'Open World'}
+        paused={hud.phase === 'paused'} navigation={nav} debug={debug}
+        primary={<button className={`primary-button${hud.phase === 'paused' ? ' pause-resume' : ''}`} disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>}
+        details={<>
         {debug ? <>
           <FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div>
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
-        <button className="primary-button" hidden={hud.phase === 'paused'} disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>
+        <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
+        <EnvironmentControls />
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
         <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Sprint + C</kbd> Slide</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>E</kbd> Collect / talk / enter / exit vehicle</span><span><kbd>I</kbd> Swap armor inserts</span><span><kbd>V</kbd> Switch seat</span><span><kbd>C</kbd> Vehicle view</span><span><kbd>Space / Ctrl</kbd> Fly up / down</span><span><kbd>F / G</kbd> Recovery / combat · tap to use, hold to choose</span><span><kbd>H</kbd> Objective hints</span><span><kbd>M</kbd> Control map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>T</kbd> Travel</span></FpsControlGuide>
         {debug && <small className="fps-touch-note">{touch ? 'Thumb controls appear once you enter the district. ' : ''}Field equipment lasts for this expedition. Your permanent Armory stays saved.</small>}
-      </div></div>}
+        </>}>
+        <span className="eyebrow">SOLO EXPEDITION / {zone.risk.toUpperCase()} THREAT</span>
+        <h2>{hud.phase === 'loading' ? `Entering ${zone.name}.` : hud.phase === 'error' ? 'District unavailable.' : hud.phase === 'paused' ? 'Open World menu.' : `Welcome to ${zone.name}.`}</h2>
+        <p>{hud.phase === 'loading' ? 'Preparing the district, its patrols and supplies.' : hud.phase === 'error' ? hud.message : hud.phase === 'paused' ? hud.arenaStarted ? 'Your controls are paused. Patrols remain active while the menu is open.' : 'Deployment is on hold. Resume when you are ready.' : `${zone.description} Capture enemy equipment intact, destroy it, or build at ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles. Approach a cabinet and use E or tap its action. Press H for enemy facility beacons, names and distances. Open M for facility control and routes.`}</p>
+        {hud.arena?.proxies && <p>Personal proxy favor · Freedom Force {hud.arena.proxies.favor['freedom-force']} · Collective Corps {hud.arena.proxies.favor['collective-cops']}. Favor lasts this expedition, including district travel. Look for tracked prototype cargo on the map.</p>}
+        {!['loading', 'error'].includes(hud.phase) && <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName}<br />{BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE].mercenaries} opposing troops · {BATTLEFIELD_POPULATIONS[DEFAULT_BATTLEFIELD_SIZE]['armed-forces']} allied troops · 7 capture locations · No match timer</p>}
+        {hud.message && hud.phase !== 'error' && <p className="fps-capture-error" role="alert">{hud.message}</p>}
+      </PlayPanel>}
     </div>
     {debug && <>
     <div className="experience-toolbar fps-toolbar"><div className="experience-title"><span className="mode-icon"><Compass size={22} /></span><div><h3>{zone.name} · expedition</h3><p>Connected districts · Random supplies · Solo survival</p></div></div><div className="toolbar-actions">

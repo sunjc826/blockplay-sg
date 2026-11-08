@@ -74,9 +74,9 @@ try{
   assert.equal(await guest.evaluate(`document.querySelector('.lan-code-input').value`),code);
   await field(guest,'input[autocomplete="nickname"]','Mobile guest');await field(guest,'input[type="password"]','mobile-secret');
   await fits(guest,'Invite join');await guest.screenshot('04-join');
-  await tap(guest,button('Join room'));await guest.wait(`!!${button('Enter match')}`);
+  await tap(guest,button('Join room'));await guest.wait(`!!${button('Load arena')}`);
   await host.wait(`document.querySelector('.lan-roster').textContent.includes('Mobile guest')`);
-  await tap(host,button('Enter match'));await tap(guest,button('Enter match'));
+  await tap(host,button('Load arena'));await tap(guest,button('Load arena'));
   await Promise.all([host.wait(phase('ready')),guest.wait(phase('ready'))]);
   assert.equal(await host.evaluate(`${game}.dataset.touch`),'on');
   await fullScene(host,390,844);await host.screenshot('05-ready-portrait');
@@ -118,11 +118,15 @@ try{
     await tap(host,button('Resume match'));await host.wait(phase('playing'));
   }
   await tap(host,`document.querySelector('.touch-chip')`);await host.wait(phase('paused'));
-  await tap(host,`[...document.querySelectorAll('.arena-menu-section summary')].find(s=>s.textContent.includes('Sound'))`);
   assert(await host.evaluate(`document.querySelector('.fps-player-tools button').getBoundingClientRect().height>=44`));
   await host.screenshot('09-settings');
-  await tap(host,`document.querySelector('[aria-label="Reset arena match"]')`);await host.wait(phase('ready'));
-  await tap(host,button('Leave match · return to lobby →'));await host.wait(`!!document.querySelector('.public-lobby')`);
+  await tap(host,`document.querySelector('[aria-label="Reset arena match"]')`);
+  await host.wait(`!!document.querySelector('[role="alertdialog"]')`);
+  await tap(host,`document.querySelector('.confirm-leave')`);await host.wait(phase('ready'));
+  await tap(host,button('Close room for everyone'));
+  await host.wait(`!!document.querySelector('[role="alertdialog"]')`);
+  await tap(host,`document.querySelector('.confirm-leave')`);
+  await host.wait(`document.querySelector('.public-lobby').getBoundingClientRect().width > 0 && !document.querySelector('.public-lobby.has-room')`);
   await fits(host,'Returned lobby');
   for(const p of pages)assert.deepEqual(p.errors,[],'No browser errors');
   console.log('PASS mobile multiplayer: room browser/create/invite/join, readable inputs, full-screen canvas without native fullscreen, portrait/landscape/320px, no developer panels, real touch movement/fire, pause/resume, scores, settings, reset and leave.');
