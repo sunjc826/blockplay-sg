@@ -17,6 +17,6 @@ window.engine=createFpsEngine(document.getElementById('world'),hud=>{
   root.render(React.createElement(React.Fragment,null,
     React.createElement(FpsWeaponHud,{hud,weapon:equipment.weapons[hud.weapon],canFight:hud.phase==='playing',touch,onScopeZoom:direction=>window.engine.adjustScopeZoom(direction)}),
     touch?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));
-},{loadout:equipment,tutorial:true,combat:false});
+},{loadout:equipment,tutorial:!new URLSearchParams(location.search).has('district'),region:new URLSearchParams(location.search).get('district')||undefined,combat:false});
 document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').style.display='none';};
 </script></body></html>

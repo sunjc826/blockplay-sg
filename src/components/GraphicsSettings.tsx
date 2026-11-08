@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { getEnvironmentSettings, setEnvironmentSettings, subscribeEnvironment } from '../game/environment-settings';
 import './graphics-settings.css';
+import type { WorldDetail } from '../game/environment-quality';
 import { FRAME_CAPS, GRAPHICS_PRESETS, matchingPreset, RENDER_SCALES, setGraphicsSettings, useGraphicsSettings, type FrameCap, type RenderScale } from '../game/graphics-settings';
 
 /**
@@ -36,7 +37,10 @@ export default function GraphicsSettings() {
           if (value === 'off') setEnvironmentSettings({ shadows: false });
           else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'ultra' ? 'ultra' : value === 'low' ? 'low' : 'high' }); }
         }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+      {(['rainDetail', 'grassDetail'] as const).map(key => <label key={key}><span>{key === 'rainDetail' ? 'Rain distance' : 'Grass detail'}<small>{key === 'rainDetail' ? 'Show rain farther into the scene.' : 'Denser nearby grass and longer coverage.'}</small></span>
+        <select value={graphics[key]} onChange={e => setGraphicsSettings({ [key]: e.target.value as WorldDetail })}><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>)}
     </div>
+    <label><input type="checkbox" checked={graphics.rainReflections} onChange={e => setGraphicsSettings({ rainReflections: e.target.checked })} /> Wet-ground reflections (visible scenery reflected in rain-soaked pavement)</label>
     <label><input type="checkbox" checked={environment.occlusion} onChange={e => setEnvironmentSettings({ occlusion: e.target.checked })} /> Ambient occlusion (darker corners and gaps)</label>
     <label><input type="checkbox" checked={graphics.bloom} onChange={e => setGraphicsSettings({ bloom: e.target.checked })} /> Light bloom (subtle glow around bright world lights)</label>
     <label><input type="checkbox" checked={graphics.lensEffects} onChange={e => setGraphicsSettings({ lensEffects: e.target.checked })} /> Lens effects (sun flare, haze dust, raindrops on the lens)</label>

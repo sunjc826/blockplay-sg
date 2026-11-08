@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { insideFootprint, type Obstacle } from './region-collision';
+import { RAIN_DETAIL, type WorldDetail } from './environment-quality';
 import type { VehicleRainHit } from './vehicle-rain';
 
 export interface RainSplashOptions { strength?: number; normal?: THREE.Vector3; attachment?: THREE.Object3D; velocity?: THREE.Vector3; sprayOnly?: boolean }
@@ -20,7 +21,7 @@ export function createRainSurface(obstacles: readonly Obstacle[], ground: (x: nu
   };
 }
 
-const DROP_COUNT = 1200, SPLASH_COUNT = 192, SPOKES = 4, RING_SEGMENTS = 12;
+const DROP_COUNT = RAIN_DETAIL.ultra.drops, SPLASH_COUNT = 192, SPOKES = 4, RING_SEGMENTS = 12;
 const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
 
 /** Two fixed draw calls; particles stay in world space as the eye moves. */
@@ -29,6 +30,17 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const positions = new Float32Array(DROP_COUNT * 6);
   const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
   const material = new THREE.LineBasicMaterial({ color: '#c1deeb', transparent: true, opacity: .48, depthWrite: false });
+  const rainEye = { value: new THREE.Vector3() }, rainReach = { value: 24 };
+  material.onBeforeCompile = shader => {
+    shader.uniforms.rainEye = rainEye; shader.uniforms.rainReach = rainReach;
+    shader.vertexShader = 'varying vec3 rainWorld;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nrainWorld = (modelMatrix * vec4(position, 1.0)).xyz;');
+    shader.fragmentShader = 'varying vec3 rainWorld; uniform vec3 rainEye; uniform float rainReach;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `
+      diffuseColor.a *= 1.0 - smoothstep(rainReach * .75, rainReach, distance(rainWorld.xz, rainEye.xz));
+      #include <alphatest_fragment>`);
+  };
+  material.customProgramCacheKey = () => 'rain-distance-fade-v1';
   const streaks = new THREE.LineSegments(geometry, material); streaks.name = 'rain-streaks'; streaks.frustumCulled = false; root.add(streaks);
   // Each impact has an expanding ring and four short ballistic droplets.
   const vertices = SPLASH_COUNT * (RING_SEGMENTS + SPOKES) * 2;
@@ -41,7 +53,10 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   root.traverse(o => { o.raycast = () => {}; o.userData.fpsEffect = true; });
   const drops = Array.from({ length: DROP_COUNT }, () => ({ x: 0, y: 0, z: 0, cycle: 0, ready: false }));
   const impacts = Array.from({ length: SPLASH_COUNT }, () => ({ x: 0, y: 0, z: 0, age: 1, strength: 0, attachment: undefined as THREE.Object3D | undefined, origin: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0), velocity: new THREE.Vector3(), sprayOnly: false }));
-  let cursor = 0, disposed = false;
+  let cursor = 0, disposed = false, detail: WorldDetail = 'low';
+  let profile: typeof RAIN_DETAIL[WorldDetail] = RAIN_DETAIL.low;
+  let nearCount: number = profile.nearDrops;
+  let activeCount = 0;
   const hit: VehicleRainHit = { height: 0, normal: new THREE.Vector3(0, 1, 0) };
   const impactPoint = new THREE.Vector3(), ringPoint = new THREE.Vector3(), ringNormal = new THREE.Vector3(), u = new THREE.Vector3(), v = new THREE.Vector3(), matrix = new THREE.Matrix3();
   function sampleSurface(x: number, z: number) {
@@ -61,29 +76,36 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   }
   function spawn(i: number, eye: THREE.Vector3, initial: boolean) {
     const d = drops[i], salt = ++d.cycle * 7;
-    const span = i % 3 === 0 ? 16 : 48;
+    const span = i < nearCount ? (i % 3 === 0 ? 16 : 48) : profile.radius * 2;
     d.x = eye.x + (sample(i, salt) - .5) * span; d.z = eye.z + (sample(i, salt + 1) - .5) * span;
-    const top = eye.y + 22, floor = Math.max(eye.y - 12, sampleSurface(d.x, d.z));
+    const top = eye.y + (i < nearCount ? 22 : profile.height), floor = Math.max(eye.y - 12, sampleSurface(d.x, d.z));
     d.y = initial ? floor + sample(i, salt + 2) * Math.max(0, top - floor) : top;
     d.ready = true;
   }
   return {
     root, streaks, splashes, splash,
     get counts() { return { drops: geometry.drawRange.count / 2, splashes: impacts.filter(s => s.age < .48).length }; },
-    update(dt: number, eye: THREE.Vector3, rain: number, wind: number, reduced: boolean) {
+    get radius() { return profile.radius; },
+    update(dt: number, eye: THREE.Vector3, rain: number, wind: number, reduced: boolean, quality: WorldDetail = 'low') {
       if (disposed) return;
       const step = Math.max(0, Math.min(.1, dt));
-      const count = Math.floor(DROP_COUNT * THREE.MathUtils.clamp(rain, 0, 1) * (reduced ? .18 : 1));
+      const nextDetail = reduced ? 'low' : quality;
+      if (detail !== nextDetail) { detail = nextDetail; drops.forEach(d => { d.ready = false; }); }
+      profile = RAIN_DETAIL[detail]; rainEye.value.copy(eye); rainReach.value = profile.radius;
+      const count = Math.floor(profile.drops * THREE.MathUtils.clamp(rain, 0, 1) * (reduced ? .18 : 1));
+      nearCount = Math.floor(count * profile.nearDrops / profile.drops);
       streaks.visible = count > 0; geometry.setDrawRange(0, count * 2);
-      for (let i = 0; i < DROP_COUNT; i++) {
+      for (let i = count; i < activeCount; i++) drops[i].ready = false;
+      activeCount = count;
+      for (let i = 0; i < count; i++) {
         const d = drops[i];
-        if (i >= count) { d.ready = false; continue; }
-        if (!d.ready || Math.abs(d.x - eye.x) > 25 || Math.abs(d.z - eye.z) > 25 || d.y > eye.y + 27 || d.y < eye.y - 13) spawn(i, eye, true);
+        if (!d.ready || Math.abs(d.x - eye.x) > profile.radius + 1 || Math.abs(d.z - eye.z) > profile.radius + 1 || d.y > eye.y + profile.height + 5 || d.y < eye.y - 13) spawn(i, eye, true);
         const previousY = d.y;
         d.x += wind * step; d.z += wind * .18 * step; d.y -= (21 + sample(i, 4) * 9) * step;
         const floor = sampleSurface(d.x, d.z), k = i * 6;
+        let exposed = floor;
         if (d.y <= floor || d.y < eye.y - 12) {
-          if (i % 3 === 0 && previousY > floor && d.y <= floor && Math.abs(floor - eye.y) < 9) {
+          if (i % 3 === 0 && Math.hypot(d.x - eye.x, d.z - eye.z) < 28 && previousY > floor && d.y <= floor && Math.abs(floor - eye.y) < 9) {
             const attachment = hit.object;
             const dx = (surface(d.x + .1, d.z) - surface(d.x - .1, d.z)) / .2;
             const dz = (surface(d.x, d.z + .1) - surface(d.x, d.z - .1)) / .2;
@@ -91,9 +113,10 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
             splash(impactPoint.set(d.x, floor, d.z).addScaledVector(hit.normal, .025), { attachment, normal: hit.normal, strength: .6 + sample(i, d.cycle) * .4 });
           }
           spawn(i, eye, false);
+          exposed = sampleSurface(d.x, d.z);
         }
         // No segment crosses the exposed surface, including the tail.
-        const exposed = sampleSurface(d.x, d.z), bottom = Math.max(exposed + .02, d.y - .65 - sample(i, 5) * .3);
+        const bottom = Math.max(exposed + .02, d.y - (.65 + sample(i, 5) * .3) * (i < nearCount ? 1 : 1.8));
         const visible = d.y > exposed;
         positions[k] = d.x; positions[k + 1] = d.y; positions[k + 2] = d.z;
         positions[k + 3] = d.x + (visible ? wind * .028 : 0); positions[k + 4] = visible ? bottom : d.y; positions[k + 5] = d.z;

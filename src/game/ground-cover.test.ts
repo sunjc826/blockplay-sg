@@ -36,6 +36,7 @@ describe('shared soil and grass',()=>{
       expect(cover.sample(0,0).y).toBeCloseTo(.005);expect(cover.sample(0,0).grass).toBe(false);
       expect(cover.sample(0,10)).toEqual({y:0,grass:true});
       expect(cover.sample(25,0)).toEqual({y:.2,grass:false});
+      expect(cover.wetGround(25,0)).toBeNull();expect(cover.wetGround(0,10)).toBeNull();expect(cover.wetGround(0,0)).toBeCloseTo(.005);
       expect(shore.position.y).toBe(.16);expect(cover.sample(75,0).y).toBeCloseTo(.33);
     }finally{world.dispose();geometry.dispose();paving.dispose();water.dispose();}
   });
@@ -104,3 +105,19 @@ for(const id of REGION_IDS) it(`${id}: range ground, wheels, skids, rain and gra
     expect(soil).toBeGreaterThan(0);
   }finally{world.dispose();}
 },30000);
+
+it('High/Ultra grass extends in two LODs, increases close density, and reuses sampled ground while moving',()=>{
+  const floor=vi.fn(()=>0),grass=createGrass(new THREE.Scene(),{minX:-200,maxX:200,minZ:-200,maxZ:200},floor),camera=new THREE.PerspectiveCamera();
+  camera.position.y=1.7;
+  try{
+    grass.update(camera,0,false);const low=grass.mesh.count;
+    grass.update(camera,0,false,false,'high');const high=grass.mesh.count;
+    expect(high).toBeGreaterThan(low*2);expect(grass.radius).toBe(60);expect(grass.farMesh.count).toBeGreaterThan(4000);
+    expect(grass.farMesh.geometry.attributes.position.count).toBeLessThan(grass.mesh.geometry.attributes.position.count);
+    grass.update(camera,0,false,false,'ultra');expect(grass.radius).toBe(100);expect(grass.mesh.count).toBeGreaterThan(high*1.8);
+    const calls=floor.mock.calls.length;camera.position.x=4;grass.update(camera,1,false,false,'ultra');
+    expect(floor.mock.calls.length-calls).toBeLessThan(4000);
+    grass.update(camera,2,true,false,'ultra');expect(grass.radius).toBe(11);expect(grass.farMesh.count).toBe(0);
+    expect(grass.count).toBeLessThanOrEqual(384);
+  }finally{grass.dispose();}
+});

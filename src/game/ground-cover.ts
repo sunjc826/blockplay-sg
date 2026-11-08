@@ -4,9 +4,10 @@ import type { RegionWorld } from './regions';
 import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-routes';
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
+import { grassDetail, type WorldDetail } from './environment-quality';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
-interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; mesh?: THREE.Mesh }
+interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh }
 const green = (material: THREE.Material) => {
   const c = (material as THREE.MeshStandardMaterial).color;
   return !!c && c.g > c.r * 1.04 && c.g > c.b * 1.12;
@@ -93,6 +94,8 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
       object.geometry = geometry; object.raycast = THREE.Mesh.prototype.raycast; geometries.push(geometry);
       raycastDisposers.push(accelerateMeshRaycast(object));
       object.userData.noShadowCast = true; object.castShadow = false;
+      box.copy(geometry.boundingBox!).applyMatrix4(object.matrixWorld);
+      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass: false, wettable: true, mesh: object });
       corrected++; continue;
     }
     if (object.userData.terrain) {
@@ -124,7 +127,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         else object.position.y += shift;
         corrected++;
       }
-      const patch: Patch = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: box.max.y + shift, grass };
+      const patch: Patch = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: box.max.y + shift, grass, wettable: !grass && !water };
       if (object.geometry.type === 'BoxGeometry' && Math.abs(transform.elements[2]) < 1e-5 && Math.abs(transform.elements[8]) < 1e-5 && transform.elements[0] > 0 && transform.elements[5] > 0 && transform.elements[10] > 0) {
         caps.push({ ...patch, mesh: object, instance: object instanceof THREE.InstancedMesh ? i : undefined, authoredTop: box.max.y });
       }
@@ -145,8 +148,8 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   world.scene.updateMatrixWorld(true);
   const patchesAt = index(patches), surfacesAt = index([...surfaces]), obstaclesAt = index<Obstacle>(world.obstacles);
   const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3);
-  const sample = (x: number, z: number) => {
-    let y = ground(x, z), grass = false, owner = -Infinity;
+  const sampleState = (x: number, z: number) => {
+    let y = ground(x, z), grass = false, wettable = false, owner = -Infinity;
     for (const patch of patchesAt(x, z)) {
       if (x < patch.minX || x > patch.maxX || z < patch.minZ || z > patch.maxZ) continue;
       const top = Number.isNaN(patch.y) ? y : patch.y;
@@ -156,28 +159,32 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         if (!ray.intersectObject(patch.mesh).length) continue;
       }
       // Paving wins over a coplanar soil plate at its edge.
-      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; }
+      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; }
       y = Math.max(y, top);
     }
     for (const s of surfacesAt(x, z)) if (surfaceContains(s, x, z)) {
       const top = surfaceHeight(s, x, z);
-      if (top > y + .02) { y = top; grass = false; }
+      if (top > y + .02) { y = top; grass = false; wettable = false; }
     }
-    return { y, grass };
+    return { y, grass, wettable };
   };
+  const sample = (x: number, z: number) => { const { y, grass } = sampleState(x, z); return { y, grass }; };
   const grass = createGrass(world.scene, bounds, (x, z) => {
     const p = sample(x, z);
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
   });
-  world.scene.userData.groundCover = { corrected, patches: patches.length, ownership, grass, sample };
+  const wetGround = (x: number, z: number) => {
+    const p = sampleState(x, z); return p.wettable && !p.grass ? p.y : null;
+  };
+  world.scene.userData.groundCover = { corrected, patches: patches.length, ownership, grass, sample, wetGround };
   world.scene.userData.rainGroundHeight = (x: number, z: number) => sample(x, z).y;
   const dispose = world.dispose;
   world.dispose = () => { grass.dispose(); ownership.dispose(); raycastDisposers.forEach(remove => remove()); materials.forEach(m => m.dispose()); geometries.forEach(g => g.dispose()); dispose(); };
   return world;
 }
 
-/** One bounded instanced draw; solid tapered blades avoid alpha-card overdraw.
+/** Two bounded instanced LODs; solid tapered blades avoid alpha-card overdraw.
  * Rebuild only after crossing a 4 m cell, with deterministic world placement. */
 export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null) {
   const positions: number[] = [], colors: number[] = [];
@@ -196,6 +203,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(positions.map((_, i) => i % 3 === 1 ? 1 : 0),3));
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1 });
   const time = { value: 0 }, eye = { value: new THREE.Vector3() }, reach = { value: 23 };
+  const farReach = { value: 23 }, nearReach = { value: 23 };
   material.onBeforeCompile = shader => {
     shader.uniforms.grassTime = time; shader.uniforms.grassEye = eye; shader.uniforms.grassReach = reach;
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime;\nuniform vec3 grassEye;\nuniform float grassReach;')
@@ -207,36 +215,80 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal *= faceDirection;');
   };
   material.customProgramCacheKey = () => 'ground-grass-v1';
-  const mesh = new THREE.InstancedMesh(geometry,material,4096); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
+  const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
-  scene.add(mesh);
+  // Three single triangles per tuft in the distance, versus nine nearby.
+  const farGeometry = new THREE.BufferGeometry();
+  const farPositions: number[] = [], farColors: number[] = [];
+  for (let blade = 0; blade < 3; blade++) {
+    const a = blade * Math.PI * 2 / 3;
+    for (const [x, y] of [[-.055, 0], [.055, 0], [0, 1]]) {
+      farPositions.push(x * Math.cos(a), y, x * Math.sin(a));
+      const c = base.clone().lerp(tip, y); farColors.push(c.r, c.g, c.b);
+    }
+  }
+  farGeometry.setAttribute('position', new THREE.Float32BufferAttribute(farPositions, 3));
+  farGeometry.setAttribute('color', new THREE.Float32BufferAttribute(farColors, 3));
+  farGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(farPositions.map((_, i) => i % 3 === 1 ? 1 : 0), 3));
+  const farMaterial = material.clone();
+  farMaterial.onBeforeCompile = (shader, renderer) => {
+    material.onBeforeCompile(shader, renderer);
+    shader.uniforms.grassReach = farReach; shader.uniforms.grassNear = nearReach;
+    shader.vertexShader = 'uniform float grassNear;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('transformed.y *= grassFade;', `
+      grassFade *= smoothstep(grassNear - 6.0, grassNear, distance(grassRoot.xz,grassEye.xz));
+      transformed.y *= grassFade;`);
+  };
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v1';
+  const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
+  farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
+  farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
+  scene.add(mesh, farMesh);
+  const heights = new Map<string, number | null>();
   const dummy = new THREE.Object3D(), cameraPosition = new THREE.Vector3();
   let cellX = Infinity, cellZ = Infinity, lastQuality = '', disposed = false;
   return {
-    mesh,
-    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false) {
+    mesh, farMesh,
+    get radius() { return farReach.value; },
+    get count() { return mesh.count + farMesh.count; },
+    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low') {
       if (disposed) return;
       camera.getWorldPosition(cameraPosition); eye.value.copy(cameraPosition); time.value = reduced ? 0 : seconds;
-      const quality = reduced ? 'reduced' : mobile ? 'mobile' : 'full', radius = reduced ? 11 : mobile ? 16 : 23;
-      reach.value = radius;
+      const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile);
+      reach.value = nearReach.value = profile.near; farReach.value = profile.radius;
       const cx = Math.floor(cameraPosition.x/4)*4, cz = Math.floor(cameraPosition.z/4)*4;
       if (cx === cellX && cz === cellZ && quality === lastQuality) return;
+      if (quality !== lastQuality || heights.size > 100000) heights.clear();
       cellX = cx; cellZ = cz; lastQuality = quality;
-      const spacing = reduced ? 1.35 : mobile ? 1.05 : .8, limit = reduced ? 384 : mobile ? 1536 : 4096;
-      let count = 0;
-      mesh.position.set(cx,0,cz);
-      for (let ix = Math.floor((cx-radius-4)/spacing); ix <= Math.ceil((cx+radius+4)/spacing); ix++)
-        for (let iz = Math.floor((cz-radius-4)/spacing); iz <= Math.ceil((cz+radius+4)/spacing); iz++) {
-          const x = (ix+hash(ix,iz)) * spacing, z = (iz+hash(ix,iz,1)) * spacing;
-          if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ || Math.hypot(x-cx,z-cz)>radius+3 || count>=limit) continue;
-          const y = floor(x,z); if (y === null) continue;
-          dummy.position.set(x-cx,y-.005,z-cz); dummy.rotation.set(0,hash(ix,iz,2)*Math.PI*2,0);
-          const scale = .65 + hash(ix,iz,3)*.65;
-          dummy.scale.set(scale, (.12+hash(ix,iz,4)*.12)*(reduced?.7:1), scale); dummy.updateMatrix(); mesh.setMatrixAt(count++,dummy.matrix);
-        }
-      mesh.count = count; mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingBox(); mesh.computeBoundingSphere(); mesh.updateMatrixWorld(true);
+      const fill = (target: THREE.InstancedMesh, radius: number, inner: number, spacing: number, limit: number) => {
+        let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
+        if (limit) for (let ix = Math.floor((cx-radius-4)/spacing); ix <= Math.ceil((cx+radius+4)/spacing); ix++)
+          for (let iz = Math.floor((cz-radius-4)/spacing); iz <= Math.ceil((cz+radius+4)/spacing); iz++) {
+            const x = (ix+hash(ix,iz)) * spacing, z = (iz+hash(ix,iz,1)) * spacing, distance = Math.hypot(x-cx,z-cz);
+            if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ || distance > radius+3 || distance < inner-9 || count >= limit) continue;
+            const k = `${spacing}:${ix}:${iz}`;
+            if (!heights.has(k)) heights.set(k, floor(x,z));
+            const y = heights.get(k)!; if (y === null) continue;
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            dummy.position.set(x-cx,y-.005,z-cz); dummy.rotation.set(0,hash(ix,iz,2)*Math.PI*2,0);
+            const scale = .65 + hash(ix,iz,3)*.65;
+            dummy.scale.set(scale, (.12+hash(ix,iz,4)*.12)*(reduced?.7:1), scale); dummy.updateMatrix(); target.setMatrixAt(count++,dummy.matrix);
+          }
+        target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true;
+        // Conservative cell bounds include blade height and sway. Avoid two
+        // extra matrix scans over tens of thousands of instances when moving.
+        target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
+        if (count) {
+          target.boundingBox.min.set(-radius-4, minY-.01, -radius-4);
+          target.boundingBox.max.set(radius+4, maxY+.4, radius+4);
+          target.boundingBox.getBoundingSphere(target.boundingSphere);
+        } else { target.boundingBox.makeEmpty(); target.boundingSphere.set(new THREE.Vector3(), 0); }
+        target.updateMatrixWorld(true);
+      };
+      fill(mesh, profile.near, 0, profile.spacing, profile.limit);
+      fill(farMesh, profile.radius, profile.near, profile.farSpacing, profile.farLimit);
     },
-    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); },
+    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); },
   };
 }

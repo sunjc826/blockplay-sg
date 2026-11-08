@@ -4435,8 +4435,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.reflexReflection = String(sight?.magnification === 1 && canvas.dataset.opticReflection === 'true');
       if (reflectionCaptured) canvas.dataset.reflexCaptures = String(Number(canvas.dataset.reflexCaptures || 0) + 1);
       canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal,
-        getGraphicsSettings().bloom && !vision.thermal && !nvgAiming));
+        getGraphicsSettings().bloom && !vision.thermal && !nvgAiming,
+        getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive()));
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
+      canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);
       const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
       const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
       deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);

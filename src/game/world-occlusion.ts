@@ -4,6 +4,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { softwareRenderer } from './fps-sun-shadows';
 import { getGraphicsSettings } from './graphics-settings';
+import { createRainReflections, type WetGround } from './rain-reflections';
 
 /**
  * Ambient occlusion for the world view: corners, gaps under ledges and the
@@ -18,7 +19,8 @@ import { getGraphicsSettings } from './graphics-settings';
  * Bloom shares this HDR scene target, before tone mapping. A high threshold
  * selects bright light sources; the plain sky never enters the extraction.
  * The weapon, scope image and reticle are drawn afterwards and stay crisp.
- * Off (one plain render to the canvas) when neither effect is wanted, or on software
+ * Ultra wet-ground reflections also reuse this scene colour and depth.
+ * Off (one plain render to the canvas) when no effect is wanted, or on software
  * renderers (SwiftShader, llvmpipe).
  */
 /** Metres: about a storey, so the feet of walls and the undersides of decks darken, not whole streets. */
@@ -29,6 +31,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let sceneTarget: THREE.WebGLRenderTarget | null = null, aoTarget: THREE.WebGLRenderTarget | null = null;
   let gtao: GTAOPass | null = null, output: OutputPass | null = null;
   let bloom: UnrealBloomPass | null = null, bloomEnabled = false;
+  let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
   const size = new THREE.Vector2();
   function build() {
     renderer.getDrawingBufferSize(size);
@@ -64,6 +67,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     /** The GTAO pass once built, for review pages that show its buffers. */
     get pass() { return gtao; },
     get bloomEnabled() { return bloomEnabled; },
+    get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
     setSize() {
       if (!sceneTarget) return;
@@ -73,15 +77,18 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
-    render(want: boolean, wantBloom = getGraphicsSettings().bloom) {
+    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections) {
       bloomEnabled = supported && wantBloom;
-      if (!supported || (!want && !bloomEnabled)) {
+      const ground = scene.userData.wetGround as WetGround | undefined;
+      rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
+      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled)) {
         renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera);
         return false;
       }
       if (!sceneTarget) build();
       if (want && !gtao) buildOcclusion();
       if (bloomEnabled && !bloom) buildBloom();
+      if (rainReflectionsEnabled && !rain) rain = createRainReflections(renderer, camera, ground!);
       const sky = scene.background instanceof THREE.Color ? scene.background : null;
       renderer.getClearColor(clearColor); const clearAlpha = renderer.getClearAlpha();
       if (sky) { scene.background = null; renderer.setClearColor(0x000000, 0); }
@@ -89,6 +96,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       scene.background = sky ?? scene.background;
       if (want) gtao!.render(renderer, aoTarget!, sceneTarget!, 0, false);
       const picture = want ? aoTarget! : sceneTarget!;
+      if (rainReflectionsEnabled) rain!.render(picture, sceneTarget!.depthTexture!);
       if (bloomEnabled) bloom!.render(renderer, picture, picture, 0, false);
       renderer.setRenderTarget(null);
       if (sky) renderer.setClearColor(sky, 1);
@@ -103,6 +111,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     dispose() {
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); output?.dispose();
       bloom?.dispose();
+      rain?.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.
       bloom?.materialHighPassFilter.dispose();
     },

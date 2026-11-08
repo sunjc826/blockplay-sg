@@ -19,7 +19,7 @@ describe('bounded rain and splashes', () => {
     for (let i = 0; i < 120; i++) effects.update(1 / 60, eye, 1, 3, false);
     expect(effects.counts.drops).toBe(1200); expect(effects.counts.splashes).toBeGreaterThan(10);
     const streaks = effects.streaks.geometry.attributes.position;
-    for (let i = 0; i < streaks.count; i++) expect(streaks.getY(i)).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < effects.streaks.geometry.drawRange.count; i++) expect(streaks.getY(i)).toBeGreaterThanOrEqual(4);
     const spray = effects.splashes.geometry.attributes.position;
     let height = 0;
     for (let i = 0; i < effects.splashes.geometry.drawRange.count; i++) { expect(spray.getY(i)).toBeGreaterThan(4); height = Math.max(height, spray.getY(i)); }
@@ -43,7 +43,7 @@ describe('bounded rain and splashes', () => {
     const effects = createRainEffects(new THREE.Scene(), surface), eye = new THREE.Vector3(0, 2, 0);
     for (let n = 0; n < 60; n++) effects.update(.016, eye, 1, 2, false);
     const p = effects.streaks.geometry.attributes.position;
-    for (let i = 0; i < p.count; i += 2) {
+    for (let i = 0; i < effects.streaks.geometry.drawRange.count; i += 2) {
       const floor = surface(p.getX(i), p.getZ(i));
       if (p.getY(i) !== p.getY(i + 1)) expect(p.getY(i + 1)).toBeGreaterThan(floor);
     }
@@ -56,4 +56,21 @@ it('keeps ground impacts in view from a raised vehicle chase camera', () => {
   const effects = createRainEffects(new THREE.Scene(), () => 0), eye = new THREE.Vector3(0, 7, 0);
   for (let n = 0; n < 180; n++) effects.update(1 / 60, eye, 1, 2, false);
   expect(effects.counts.splashes).toBeGreaterThan(20); effects.dispose();
+});
+
+for (const [quality, radius, drops] of [['high',80,6000],['ultra',130,12000]] as const) it(`${quality}: distant showers preserve nearby rain, clip roofs and switch back to low`, () => {
+  const effects=createRainEffects(new THREE.Scene(),()=>4), eye=new THREE.Vector3(0,5.75,0);
+  effects.update(0,eye,.4,0,false,quality);
+  expect(effects.radius).toBe(radius);expect(effects.counts.drops).toBe(drops*.4);
+  const p=effects.streaks.geometry.attributes.position;
+  let near=0,far=0;
+  for(let i=0;i<effects.streaks.geometry.drawRange.count;i+=2){
+    const distance=Math.hypot(p.getX(i),p.getZ(i));
+    if(distance<24)near++;if(distance>radius*.5&&distance<radius)far++;
+    expect(p.getY(i+1)).toBeGreaterThanOrEqual(4);
+  }
+  expect(near).toBeGreaterThan(400);expect(far).toBeGreaterThan(200);
+  effects.update(.016,eye,1,0,true,quality);expect(effects.radius).toBe(24);expect(effects.counts.drops).toBe(216);
+  effects.update(.016,eye,1,0,false,'low');expect(effects.counts.drops).toBe(1200);
+  effects.dispose();
 });

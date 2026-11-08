@@ -7,7 +7,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics(null)).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'unknown', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false }))
-      .toEqual({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: true, antialias: false });
+      .toEqual({ rainDetail: 'low', grassDetail: 'low', rainReflections: false, scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: true, antialias: false });
   });
 
   it('adds bloom to full-detail presets and doubles Ultra shadow resolution', () => {
@@ -16,7 +16,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics({ sightReflections: true }).shadowDetail).toBe('ultra');
     expect(sanitizeGraphics({ scale: .85, shadowDetail: 'low' }).bloom).toBe(false);
     expect(sanitizeGraphics({ bloom: false, shadowDetail: 'high', sightReflections: true })).toMatchObject({ bloom: false, shadowDetail: 'high' });
-    const oldUltra = { ...DEFAULT_GRAPHICS, bloom: undefined, sightReflections: true };
+    const oldUltra = { ...DEFAULT_GRAPHICS, bloom: undefined, sightReflections: true, rainDetail: undefined, grassDetail: undefined, rainReflections: undefined };
     expect(matchingPreset(sanitizeGraphics(oldUltra), DEFAULT_ENVIRONMENT)).toBe('ultra');
   });
 
@@ -27,6 +27,13 @@ describe('graphics settings', () => {
     expect(on).toEqual(['ultra']);
     // A High player with the old setting saved still reads as High.
     expect(matchingPreset(sanitizeGraphics({ ...DEFAULT_GRAPHICS, reflections: true }), DEFAULT_ENVIRONMENT)).toBe('high');
+  });
+
+  it('upgrades saved detail presets and preserves explicit weather/grass overrides', () => {
+    expect(sanitizeGraphics({ shadowDetail: 'ultra', bloom: true })).toMatchObject({ rainDetail: 'ultra', grassDetail: 'ultra', rainReflections: true });
+    expect(sanitizeGraphics({ shadowDetail: 'high' })).toMatchObject({ rainDetail: 'high', grassDetail: 'high', rainReflections: false });
+    expect(sanitizeGraphics({ shadowDetail: 'ultra', rainDetail: 'low', grassDetail: 'high', rainReflections: false })).toMatchObject({ rainDetail: 'low', grassDetail: 'high', rainReflections: false });
+    expect(GRAPHICS_PRESETS.filter(p=>p.values.rainReflections).map(p=>p.id)).toEqual(['ultra']);
   });
 
   it('scales the view’s own resolution cap', () => {
