@@ -17,6 +17,15 @@ async function key(key, modifiers = 0) { await send('Input.dispatchKeyEvent', { 
 async function shot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${name}.png`, output), Buffer.from(r.data, 'base64')); }
 async function size(width, height, mobile = false) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }); await send('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: 5 }); }
 async function go(path, selector) { await send('Page.navigate', { url: origin + path }); await wait(`!!document.querySelector(${JSON.stringify(selector)})`); await delay(500); }
+async function assertLoader(heading, district) {
+  await wait(`!document.querySelector('.play-loading')`);
+  const samples = await evaluate('window.loadingSamples');
+  assert(samples.length > 0 && samples.every(sample => sample.heading === heading && sample.district === district), JSON.stringify(samples));
+  assert.equal(samples[0].stage, 'district');
+  assert(samples.some(sample => sample.stage === 'shaders'));
+  assert.equal(samples.at(-1).percent, 100);
+  assert(samples.every((sample, i) => i === 0 || sample.percent >= samples[i - 1].percent));
+}
 async function openPlay() {
   await go('/', '.game-menu');
   if (await evaluate(`!!document.querySelector('.game-title')`)) { await click('.game-title'); await delay(1100); }
@@ -26,6 +35,18 @@ async function openPlay() {
 }
 try {
   await send('Page.enable'); await send('Runtime.enable'); await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true}); await size(1440, 900);
+  await send('Page.addScriptToEvaluateOnNewDocument', {source: `(() => {
+    window.loadingSamples = [];
+    const observer = new MutationObserver(() => {
+      const loader = document.querySelector('.play-loading');
+      if (!loader) return;
+      const sample = {heading: loader.querySelector('.play-loading-kicker').textContent, district: loader.querySelector('h1').textContent,
+        stage: loader.querySelector('.play-loading-stage').dataset.stage, percent: Number(loader.querySelector('[role="progressbar"]').getAttribute('aria-valuenow'))};
+      if (JSON.stringify(sample) !== JSON.stringify(window.loadingSamples.at(-1))) window.loadingSamples.push(sample);
+      if (sample.percent === 100) observer.disconnect();
+    });
+    observer.observe(document, {childList:true, subtree:true, attributes:true, attributeFilter:['aria-valuenow','data-stage']});
+  })()`});
   await go('/store', '.armory');
   await click('#shop-tab-food');
   await click('.store-nav a[href="/inventory"]'); await wait(`!!document.querySelector('.inventory')`);
@@ -47,8 +68,9 @@ try {
   await click('.activity-card[href="/play/single-player"]');
   await click('.activity-card[href="/play/training"]');
   await click('.activity-card[href="/training"]'); await wait(`!!document.querySelector('.starting-picker')`);
+  const rangeDistrict = await evaluate(`document.querySelector('.starting-place h2').textContent`);
   await click('.starting-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`, 60000);
-  await wait(`!document.querySelector('.play-loading')`);
+  await assertLoader('TRAINING · LIVE-FIRE RANGE', rangeDistrict);
   // Settings traps focus in both directions and restores the opener.
   await click('.fps-settings-button'); await key('Tab', 8);
   assert(await evaluate(`!!document.activeElement.closest('.settings-overlay')`));
@@ -86,6 +108,7 @@ try {
   // Tutorial cancellation and restart keep the course and profile semantics explicit.
   await size(844, 390, true); await go('/tutorial', '.tutorial-card');
   await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='ready'`, 60000);
+  await assertLoader('TRAINING · TUTORIAL', 'Field School');
   await click('.tutorial-card > .primary-button', true);
   if (await evaluate(`document.querySelector('.tutorial-game')?.dataset.phase==='paused'`)) await click('.tutorial-card > .primary-button', true);
   await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='playing'`);
@@ -104,7 +127,8 @@ try {
   await wait(`document.querySelectorAll('.starting-list-items>button').length===1`);
   await click('.starting-list-items>button'); assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
   await shot('district-list');
-  await click('.starting-deploy'); await wait(`!!document.querySelector('.deployment-leave')`, 60000); await wait(`!document.querySelector('.play-loading')`);
+  await click('.starting-deploy'); await wait(`!!document.querySelector('.deployment-leave')`, 60000);
+  await assertLoader('OPEN WORLD · DEPLOYMENT', 'Queenstown');
   await click('.deployment-leave'); await wait(`!!document.querySelector('.starting-picker')`);
   assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
   assert.equal(await evaluate(`!!document.querySelector('[role="alertdialog"]')`), false);
@@ -144,6 +168,7 @@ try {
   assert(await evaluate(`document.querySelector('.solo-setup input[type="range"]').value==='3'`));
   await click('.solo-setup .lan-deploy');
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
+  await assertLoader('SINGLE PLAYER · FREE FOR ALL', 'Marina Bay');
   assert(await evaluate(`document.querySelector('.fps-game').dataset.matchMode==='free-for-all'`));
   await click('.arena-room-return');
   await wait(`document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Return to match')`);
@@ -180,6 +205,7 @@ try {
     await click('.lobby-navigation button'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/play/multiplayer/hardpoint');
     await click('.public-actions .lan-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
+    await assertLoader('MULTIPLAYER · HARDPOINT', 'Chinatown · Smith Street');
     await click('.arena-start-card > .fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /closes the match for everyone/);
     await key('Escape'); assert(await evaluate(`!!document.querySelector('.arena-start-card')`));

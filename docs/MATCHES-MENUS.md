@@ -4,6 +4,8 @@
 
 Solo setup shows the arena, rules, starting loadout and, for Free for All, bot settings. **Load arena** prepares the district and **Start match** begins play once it is ready. Solo matches use a local operator and skip room creation and player-name entry.
 
+Tutorial and arena entry use the same staged loader as Open World and the live-fire range. It shows the scene, model and graphics stages with a device-based time estimate. For an online match, the loader begins after the host’s arena configuration arrives. The Back control returns to setup or the room while the existing session is kept.
+
 Choose a mode in Multiplayer to host. **Find a Room** is the menu’s entry for joining. It shows open rooms and a room-code field on one screen. Selecting a listed room fills that field. Invitation links still open `/multiplayer` with the code filled in. Returning from Team Deathmatch setup preserves the last confirmed arena.
 
 Both host and guest see the host’s mode, map, rules and capacity before entering. Team matches have eight combatants, with at most four human room members; bots fill both teams. The human roster distinguishes In room, Loading, Ready, In match and Match complete. These are presence indicators, not a ready-up requirement. The host relays each member’s authenticated status. A room advertises its immutable match configuration before the host loads the game.

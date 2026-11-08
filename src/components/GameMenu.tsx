@@ -220,7 +220,14 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
 
-  if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => requestLeave(() => { setStoreTour(true); transitionTo('store', true); })} /></main></div></SettingsStoreContext.Provider>;
+  if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}>
+    <div className="game-screen game-screen-play"><main className="game-screen-body">
+      <PlayLoading mode="tutorial" district="Field School" back={<BackLink to="training-menu" />}>
+        {(onLoaded, loadScreen) => <TutorialGame suspended={install.updateReady} onLoaded={onLoaded} loadScreen={loadScreen}
+          onStore={() => requestLeave(() => { setStoreTour(true); transitionTo('store', true); })} />}
+      </PlayLoading>
+    </main></div>
+  </SettingsStoreContext.Provider>;
 
   if (screen === 'play' || screen === 'single-player' || screen === 'multiplayer-menu' || screen === 'training-menu') return <ActivityMenu screen={screen} />;
   if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} online={screen === 'host-team-deathmatch'} />;

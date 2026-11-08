@@ -55,7 +55,7 @@ import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-f
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
 
-export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts, onVendorPurchase, onConsume, onElimination, onRentalTime, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded, loadScreen }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onExit: () => void; onBackToDistricts?: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onRentalTime?: (elapsedMs: number) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
+export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts, onVendorPurchase, onConsume, onElimination, onRentalTime, suspended = false, initialZone = 'marina-bay', destination, onZoneChange, onLoaded, loadScreen }: { profile: ArmoryProfile; nav?: ReactNode; onLoaded?: (ready: boolean) => void; loadScreen?: PlayLoadScreen; onExit: () => void; onBackToDistricts?: () => void; onVendorPurchase: (catalogId: string, price: number) => VendorPurchaseResult; onConsume: (catalogId: string) => void; onRentalTime?: (elapsedMs: number) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; suspended?: boolean; initialZone?: WorldZoneId; destination?: WorldZoneId; onZoneChange?: (zone: WorldZoneId) => void }) {
   const [fieldProfile, setFieldProfile] = useState<ArmoryProfile>(() => structuredClone(profile));
   const fieldProfileRef = useRef(fieldProfile);
   const [startingProfile] = useState(() => structuredClone(fieldProfile));
@@ -116,8 +116,8 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
   useEffect(() => () => { surface.current?.dispose(); surface.current = null; }, []);
   useEffect(() => { engine.current?.setPilotDestination(destination); }, [destination, scene]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
-  const loaded = hud.phase !== 'loading';
-  useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
+  const loadResult = hud.phase === 'loading' ? null : hud.phase !== 'error';
+  useEffect(() => { if (loadResult !== null) onLoaded?.(loadResult); }, [loadResult, onLoaded]);
 
   const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true });
   const mounted = hud.vehicle !== 'on-foot';

@@ -59,7 +59,7 @@ import './fps-hit-direction.css';
 type ArenaOptions = { match?: ArenaMatch; session: LanSession; botCount: number; composition: string };
 interface RangeScene { region: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint }
 
-export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onReturnRoom, roomView=false, onPhaseChange, onLoaded, onRegionChange, loadScreen }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void; onReturnRoom?:()=>void; roomView?:boolean; onPhaseChange?:(phase:string)=>void }) {
+export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onReturnRoom, roomView=false, onPhaseChange, onLoaded, onRegionChange, loadScreen }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: (ready: boolean) => void; loadScreen?: PlayLoadScreen; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void; onReturnRoom?:()=>void; roomView?:boolean; onPhaseChange?:(phase:string)=>void }) {
   const [scene, setScene] = useState<RangeScene>(() => ({ region: initialRegion }));
   const region = scene.region;
   const regionChanged = useRef(onRegionChange); regionChanged.current = onRegionChange;
@@ -135,8 +135,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
     if (self) void playMusicStinger(matchWinner === (self.team ? TEAM_NAMES[self.team] : self.name) ? 'win' : 'lose');
     return stopMusicStinger;
   }, [matchWinner]);
-  const loaded = hud.phase !== 'loading';
-  useEffect(() => { if (loaded) onLoaded?.(); }, [loaded, onLoaded]);
+  const loadResult = hud.phase === 'loading' ? null : hud.phase !== 'error';
+  useEffect(() => { if (loadResult !== null) onLoaded?.(loadResult); }, [loadResult, onLoaded]);
   const openLoadout = () => { engine.current?.pause(); setLoadoutOpen(true); };
   const queueLoadout = async (selection: RespawnLoadoutSelection) => {
     const next = applyRespawnLoadout(profile, selection);

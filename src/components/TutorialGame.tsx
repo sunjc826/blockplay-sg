@@ -6,6 +6,7 @@ import { createProfile, resolveLoadout } from '../game/armory-state';
 import { advanceCourse, COURSE_STEPS, COURSE_LAYOUT, startCourse } from '../game/tutorial-course';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useFpsFullscreen } from '../game/use-fps-fullscreen';
+import type { PlayLoadScreen } from '../game/play-load-stages';
 import { returnToParent } from '../lib/route-transition';
 import TouchControls from './TouchControls';
 import FpsWeaponSlider from './FpsWeaponSlider';
@@ -13,7 +14,9 @@ import FpsWeaponHud from './FpsWeaponHud';
 import { FpsPlayerTools } from './FpsPlayerTools';
 import './tutorial.css';
 
-export default function TutorialGame({ suspended, onStore }: { suspended: boolean; onStore: () => void }) {
+export default function TutorialGame({ suspended, onStore, onLoaded, loadScreen }: {
+  suspended: boolean; onStore: () => void; onLoaded: (ready: boolean) => void; loadScreen: PlayLoadScreen;
+}) {
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
   const progress = useRef(startCourse());
   const [hud, setHud] = useState<FpsHud>(initialFpsHud), [step, setStep] = useState(0), [epoch, setEpoch] = useState(0);
@@ -28,11 +31,13 @@ export default function TutorialGame({ suspended, onStore }: { suspended: boolea
         const advanced = advanceCourse(progress.current, next);
         if (advanced.step !== progress.current.step) { setStep(advanced.step); engine.current?.setTutorialStep(advanced.step); }
         progress.current = advanced; setHud(next);
-      }, { tutorial: true, loadout: equipment, onFullscreen: () => { void toggleFullscreen.current(); } });
+      }, { tutorial: true, loadout: equipment, loadScreen, onFullscreen: () => { void toggleFullscreen.current(); } });
       engine.current.setTutorialStep(0);
     } catch { setHud(h => ({ ...h, phase: 'error', message: '3D graphics could not start. Enable WebGL and retry.' })); }
     return () => { engine.current?.dispose(); engine.current = null; };
-  }, [epoch, equipment]);
+  }, [epoch, equipment, loadScreen]);
+  const loadResult = hud.phase === 'loading' ? null : hud.phase !== 'error';
+  useEffect(() => { if (loadResult !== null) onLoaded(loadResult); }, [loadResult, onLoaded]);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
   const complete = step >= COURSE_STEPS.length, lesson = COURSE_STEPS[step];
   const playing = hud.phase === 'playing';

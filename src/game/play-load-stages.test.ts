@@ -135,7 +135,17 @@ describe('createPlayLoadTracker', () => {
   });
   it('records nothing for a load that failed before the last stage', () => {
     const { tracker, advance } = run();
-    advance(500); tracker.report('models'); advance(100); tracker.finish();
+    advance(500); tracker.report('models'); advance(100); tracker.finish(false);
+    expect(localStorage.getItem(STORE)).toBeNull();
+  });
+  it('dismisses a graphics-stage failure without showing completion or saving timings', () => {
+    const { tracker, advance } = run();
+    advance(500); tracker.report('models'); tracker.report('shaders');
+    advance(100); tracker.finish(false);
+    expect(tracker.covering()).toBe(false);
+    expect(tracker.getSnapshot().finished).toBe(false);
+    tracker.report('shaders', 1);
+    expect(tracker.getSnapshot().done).toBe(0);
     expect(localStorage.getItem(STORE)).toBeNull();
   });
   it('records nothing from a hidden tab, whose timers say nothing about the device', () => {
@@ -187,5 +197,7 @@ describe('stageLabel', () => {
     expect(stageLabel('district', 'world', 'Tuas')).toBe('Building Tuas');
     expect(stageLabel('models', 'training', 'Tuas')).toBe('Loading models and targets');
     expect(stageLabel('models', 'world', 'Tuas')).toBe('Loading models and patrols');
+    expect(stageLabel('models', 'tutorial', 'Field School')).toBe('Loading models and training gear');
+    expect(stageLabel('models', 'arena', 'Marina Bay')).toBe('Loading models and arena equipment');
   });
 });

@@ -3,7 +3,7 @@
  * stage as it starts; this works out how much of the bar each one gets and how
  * long is left, from how long the stages took on this device last time.
  */
-export type PlayLoadMode = 'training' | 'world';
+export type PlayLoadMode = 'training' | 'world' | 'tutorial' | 'arena';
 export type PlayLoadStage = 'district' | 'models' | 'shaders';
 
 /** Placing patrols and reading routes take about 50 ms, too short to read, so they count as models. */
@@ -12,10 +12,17 @@ export const PLAY_LOAD_STAGES: readonly PlayLoadStage[] = ['district', 'models',
 /** A first visit's guess, from a production build on Apple silicon, soon replaced by this device's own times. */
 export const DEFAULT_STAGE_MS: Record<PlayLoadStage, number> = { district: 1500, models: 300, shaders: 3200 };
 
+const MODEL_LABELS: Record<PlayLoadMode, string> = {
+  world: 'Loading models and patrols',
+  training: 'Loading models and targets',
+  tutorial: 'Loading models and training gear',
+  arena: 'Loading models and arena equipment',
+};
+
 export function stageLabel(stage: PlayLoadStage, mode: PlayLoadMode, district: string): string {
   switch (stage) {
     case 'district': return `Building ${district}`;
-    case 'models': return mode === 'training' ? 'Loading models and targets' : 'Loading models and patrols';
+    case 'models': return MODEL_LABELS[mode];
     case 'shaders': return 'Preparing graphics';
   }
 }
@@ -110,6 +117,7 @@ export function createPlayLoadTracker(mode: PlayLoadMode, place: string, now: ()
   const plan = planStages(stages, readStageTimings(`${mode}:${place}`));
   const started = now(), measured: StageTimings = {}, listeners = new Set<() => void>();
   let stageStarted = started, snapshot: PlayLoadSnapshot = { index: 0, done: 0, finished: false }, pace = 1, wasHidden = typeof document !== 'undefined' && document.hidden;
+  let closed = false;
   const emit = () => listeners.forEach(listener => listener());
   const closeStage = (time: number) => { measured[stages[snapshot.index]] = time - stageStarted; };
   return {
@@ -118,10 +126,10 @@ export function createPlayLoadTracker(mode: PlayLoadMode, place: string, now: ()
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     pace: () => pace,
     /** False for good after this load, so a later crossing draws its world as before. */
-    covering: () => !snapshot.finished,
+    covering: () => !closed,
     msLeft: () => msLeft(plan, snapshot.index, now() - stageStarted, pace),
     report(stage: PlayLoadStage, done = 0) {
-      if (snapshot.finished) return;
+      if (closed) return;
       wasHidden ||= typeof document !== 'undefined' && document.hidden;
       const index = stages.indexOf(stage);
       if (index < snapshot.index) return;
@@ -134,9 +142,11 @@ export function createPlayLoadTracker(mode: PlayLoadMode, place: string, now: ()
       stageStarted = time; pace = loadPace(plan, index, time - started);
       snapshot = { index, done, finished: false }; emit();
     },
-    /** A failed load never reached the last stage, and a hidden tab's timers say nothing about the device. */
-    finish() {
-      if (snapshot.finished) return;
+    /** Learn from successful, visible loads that reported the whole sequence. */
+    finish(ready = true) {
+      if (closed) return;
+      closed = true;
+      if (!ready) return;
       const complete = snapshot.index === stages.length - 1;
       if (complete && !wasHidden) { closeStage(now()); recordStageTimings(`${mode}:${place}`, measured); }
       snapshot = { ...snapshot, finished: true }; emit();
