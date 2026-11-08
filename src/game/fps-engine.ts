@@ -5,6 +5,7 @@ import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
 import { tdmArea, type ArenaMatch } from './arena-match';
 import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter } from './range-damage';
 import { createRangeDamageLabel } from './range-damage-label';
+import { cloneRangeDummy, createRangeDummyModel, RANGE_DUMMY_BASE_DEPTH } from './range-dummy';
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
@@ -298,6 +299,7 @@ export interface FpsHud {
   spareMagazines?: number; magazineCapacity?: number; reloadCapacity?: number;
   weapon: number; magazine: number; reserve: number; reloading: number;
   rangeDrill: RangeDrillView | null; rangeSupplyPrompt: string;
+  headshot?: boolean;
   prone: boolean; braced: boolean; hits: number; shots: number; landed: number; health: number; armor: number; incoming: boolean; hurt: boolean; lastDamage: number; earned: number; earnedXp: number; callout: string; chain: number; elapsed: number; aiming: boolean; hit: boolean;
   vehicleView: 'first-person' | 'third-person'; vehiclePersonalWeapon: boolean; vehicleSeat: number | null; vehicleCanFire: boolean; vehicleSeats: { label: string; name: string; occupied: boolean; self: boolean }[];
   vehicleAimX: number; vehicleAimY: number; vehicleAimVisible: boolean;
@@ -564,7 +566,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const bloom = specs.map(() => createWeaponBloom());
   let spreadAngle = .005;
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
-  const targets: { tier: RangeArmorTier; armor: number; meter: RangeDamageMeter; label?: ReturnType<typeof createRangeDamageLabel>; root: THREE.Group; hinge: THREE.Group; hitZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
+  const targets: { tier: RangeArmorTier; armor: number; meter: RangeDamageMeter; label?: ReturnType<typeof createRangeDamageLabel>; root: THREE.Group; hinge: THREE.Group; hitZone: THREE.Mesh; headZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
   const decorations = new THREE.Group(); world.scene.add(decorations);
   /** Your section and some onlookers at a practice range: friendlies and neutrals for an IFF reader. */
   let rangeFigures: ReturnType<typeof createRangeFigures> | null = null;
@@ -696,7 +698,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const carry = new THREE.Vector3();
   // Rounds still in the air. Instant weapons never enter this list, so a hitscan
   // loadout costs exactly the single raycast it always did.
-  const rounds: InFlightRound[] = []; let roundSerial = 0;
+  const rounds: (InFlightRound & { hitTargets?: Set<number> })[] = []; let roundSerial = 0;
   // Supplies carried into this exercise, by id. Spending one reports out so
   // the permanent profile can debit it; the counts here are what the belt shows.
   // Supplies picked up in the field sit on the belt beside them but are the
@@ -853,6 +855,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.rangeSpawned = String(hud.rangeDrill?.spawned ?? 0);
       if (debugDatasets) canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({
         id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z,
+        headY: t.headZone.getWorldPosition(new THREE.Vector3()).y,
         alive: t.alive, visible: t.root.visible, tilt: t.hinge.rotation.x, health: t.health, armor: t.armor, tier: t.tier.label,
         damage: { ...t.meter, dps: rangeDamageDps(t.meter, hud.elapsed, t.health === 0) },
       })));
@@ -1018,6 +1021,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A marker you can trust with your eyes shut: a tick for a hit, a ting for the head, a thunk for a kill. */
   function confirmHit(kind: 'hit' | 'kill', head = false) {
+    hud.headshot = head;
     if (!audio || hud.muted || !getHitmarkerSound() || audio.state !== 'running') return;
     const now = audio.currentTime;
     if (kind === 'hit' && !head && now - lastHitConfirm < HIT_CONFIRM_GAP) return;
@@ -2117,7 +2121,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       subjects.push({ id: `npc-${figure.id}`, side: 'neutral', root: figure.root, points: characterPoints(figure.root), bounds: out => characterBounds(figure.root, out) });
     if (!options.arena) targets.forEach((target, i) => {
       if (!target.alive || !target.root.visible) return;
-      subjects.push({ id: `target-${i}-${target.activation}`, side: 'enemy', root: target.root, points: [target.hitZone.getWorldPosition(new THREE.Vector3())], bounds: out => out.setFromObject(target.hitZone).expandByPoint(target.root.localToWorld(iffHeadTop.set(0, 1.86, .026))) });
+      const points = [target.hitZone.getWorldPosition(new THREE.Vector3())];
+      if (practiceRange) points.push(target.headZone.getWorldPosition(new THREE.Vector3()));
+      subjects.push({ id: `target-${i}-${target.activation}`, side: 'enemy', root: target.root, points, bounds: out => practiceRange
+        ? out.setFromObject(target.hinge)
+        : out.setFromObject(target.hitZone).expandByPoint(target.root.localToWorld(iffHeadTop.set(0, 1.86, .026))) });
     });
     const now = arenaRuntime ? hud.arena?.elapsed ?? 0 : localGrenades.clock;
     // Smoke hides a figure from the reader as it does from the eye.
@@ -2727,7 +2735,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * An instant round that skimmed water carries on along the skip, weaker,
    * and may strike something — or skim again — further out.
    */
-  function skipInstantShot(from: THREE.Vector3, direction: { x: number; y: number; z: number }, travelled: number, energy: number, weapon: number) {
+  function skipInstantShot(from: THREE.Vector3, direction: { x: number; y: number; z: number }, travelled: number, energy: number, weapon: number, hitTargets?: ReadonlySet<number>) {
     const rangeLimit = weaponRange(specs[weapon]);
     let skips = 0, at = from, heading: { x: number; y: number; z: number } | null = direction;
     while (heading && skips++ < MAX_SKIPS && travelled < rangeLimit) {
@@ -2735,7 +2743,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // Off the surface by a hair, or the new ray starts inside the water it left.
       skipRay.set(skipOrigin.copy(at).addScaledVector(skipDirection, .05).setY(skipOrigin.y + .01), skipDirection);
       skipRay.near = 0; skipRay.far = rangeLimit - travelled; energy *= SKIP_ENERGY;
-      const hits = stopAtWater(visibleHits(skipRay, gameplayCandidates(), 1)), hit = hits[0];
+      const hits = stopAtWater(visibleHits(skipRay, gameplayCandidates(), 1, false, false, true, hitTargets)), hit = hits[0];
       if (!hit) return;
       const range = travelled + hit.distance;
       energy = resolveSurfaces(hits, weapon, () => range, energy);
@@ -2774,7 +2782,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * surface. Returns the damage scale left over, so a round still in flight can
    * carry it into the next segment.
    */
-  function resolveSurfaces(hits: THREE.Intersection[], weapon: number, rangeAt: (hit: THREE.Intersection) => number, scale: number) {
+  function resolveSurfaces(hits: THREE.Intersection[], weapon: number, rangeAt: (hit: THREE.Intersection) => number, scale: number, hitTargets?: Set<number>) {
     const decay = findTrait(specs[weapon].traits, 'penetration')?.decay ?? 1;
     const struckVehicles = new Set<VehicleKind>();
     for (const hit of hits) {
@@ -2785,7 +2793,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         vehicles.damage(kind, damage);
         if (damage > 0) { hud.lastDamage = Math.round(damage); hitTime = .2; hud.hitKind = 'hit'; confirmHit('hit'); }
       }
-      if (typeof hit.object.userData.fpsTarget === 'number') damageTarget(hit.object.userData.fpsTarget, weapon, rangeAt(hit), hit.object.userData.fpsZone, scale);
+      const target = hit.object.userData.fpsTarget;
+      if (typeof target === 'number') {
+        hitTargets?.add(target);
+        damageTarget(target, weapon, rangeAt(hit), hit.object.userData.fpsZone, scale);
+      }
       scale *= decay;
     }
     return scale;
@@ -3215,7 +3227,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           if (step.expired) rounds.splice(i, 1);
           continue;
         }
-        const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced, false, false, recursive));
+        const hitTargets = practiceRange && round.pierced > 0 ? round.hitTargets ??= new Set<number>() : round.hitTargets;
+        const segmentHits = stopAtWater(visibleHits(roundRay, from, 1 + round.pierced, false, false, recursive, hitTargets));
         const lastHit = segmentHits[segmentHits.length - 1];
         const stopped = segmentHits.length > round.pierced || isWaterHit(lastHit);
         const stop = round.cosmetic ? segmentHits[0] : stopped ? lastHit : undefined;
@@ -3231,7 +3244,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (segmentHits.length) {
           // travelled already covers the arc up to this segment's start.
           const start = round.travelled - step.distance;
-          round.scale = resolveSurfaces(segmentHits, round.weapon, hit => start + hit.distance, round.scale);
+          round.scale = resolveSurfaces(segmentHits, round.weapon, hit => start + hit.distance, round.scale, hitTargets);
           const last = segmentHits[segmentHits.length - 1];
           applySplash(last.point, round.weapon, start + last.distance, round.scale, last.object.userData.fpsTarget);
           if (isWaterHit(last)) {
@@ -3424,7 +3437,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const candidates = shotCandidates;
     // The arena host resolves its own shot, so it only needs the nearest surface.
     const hits = stopAtWater(arenaRuntime ? visibleHits(ray, candidates, 1) : visibleHits(ray, candidates, 1 + pierceBudget(hud.weapon)));
-    const hit = hits[0];
+    const hit = hits[0], struck = hits[hits.length - 1];
+    const hitTargets = isWaterHit(struck) ? new Set<number>() : undefined;
     // What the round has left when it stops, which scales the spray it throws.
     let energy = 1;
     if (arenaRuntime) {
@@ -3432,17 +3446,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       for (let object: THREE.Object3D | null = hit?.object ?? null; object; object = object.parent) if (object.userData.arenaActorId) hitActor = true;
       arenaRuntime.shoot(shotOrigin, ray.ray.direction, hud.weapon, hit ? Math.min(rangeLimit, hit.distance + (hitActor ? 0.7 : 0)) : rangeLimit, prone);
     } else {
-      energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1);
+      energy = resolveSurfaces(hits, hud.weapon, hit => hit.distance, 1, hitTargets);
       const last = hits[hits.length - 1];
       if (last) applySplash(last.point, hud.weapon, last.distance, energy, last.object.userData.fpsTarget);
     }
-    const struck = hits[hits.length - 1];
     const end = struck?.point ?? ray.ray.at(rangeLimit, new THREE.Vector3());
     effects.beam(muzzlePoint, end);
     if (isWaterHit(struck)) {
       const skip = meetWater(struck, ray.ray.direction, energy, hud.weapon);
       // The arena host resolves its own shots, so there the skip is spray only.
-      if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon);
+      if (skip && !arenaRuntime) skipInstantShot(struck.point, skip, struck.distance, energy, hud.weapon, hitTargets);
     } else if (struck) strike(struck, ray.ray.direction, energy, weaponStyles[hud.weapon]?.id);
     checkCompletion();
     publish();
@@ -4525,10 +4538,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   options.loadScreen?.report('models', 0);
   let modelsLoaded = 0;
   void Promise.all(assetIds.map(async id => {
-    const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${id}.glb`);
-    if (disposed) disposeAssets([gltf.scene]); else templates.push(gltf.scene);
+    const model = practiceRange && id === 'range-target' ? createRangeDummyModel()
+      : (await loader.loadAsync(`${import.meta.env.BASE_URL}models/field-kit/${id}.glb`)).scene;
+    if (disposed) disposeAssets([model]); else templates.push(model);
     if (!disposed) options.loadScreen?.report('models', ++modelsLoaded / assetIds.length);
-    return gltf.scene;
+    return model;
   })).then(async loaded => {
     if (disposed) return;
     // Before the hands dress these two: the rack copies them undressed.
@@ -4546,24 +4560,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       root.userData.heat = 'target';
       const facing = options.tutorial ? tutorialCheckpoint(7) : spawn;
       root.rotation.y = Math.atan2(facing.x - p.x, facing.z - p.z);
-      const model = loaded[2].clone(true);
-      // Hinge at the back of the .58 m deep base so the feet stay above ground.
+      const dummy = practiceRange ? cloneRangeDummy(loaded[2], i) : null;
+      const model = dummy?.model ?? loaded[2].clone(true);
+      // Hinge at the back of the base so the feet stay above ground.
       const hinge = new THREE.Group();
-      hinge.position.z = -.29;
-      model.position.z += .29;
+      hinge.position.z = -RANGE_DUMMY_BASE_DEPTH / 2;
+      model.position.z -= hinge.position.z;
       hinge.add(model); root.add(hinge);
-      const hitZone = new THREE.Mesh(targetGeometry, targetMaterial); hitZone.position.set(0, 1.3, 0.026); hitZone.userData.fpsTarget = i; root.add(hitZone);
-      // A separate, smaller collider above centre mass. It never overlaps the body
-      // zone, so the nearest-surface rule picks exactly one of the two.
-      const headZone = new THREE.Mesh(headGeometry, targetMaterial); headZone.position.set(0, 1.72, 0.026);
-      headZone.userData.fpsTarget = i; headZone.userData.fpsZone = 'head'; root.add(headZone);
+      const hitZone = dummy?.chest ?? new THREE.Mesh(targetGeometry, targetMaterial);
+      const headZone = dummy?.head ?? new THREE.Mesh(headGeometry, targetMaterial);
+      if (!dummy) {
+        hitZone.position.set(0, 1.3, .026); hitZone.userData.fpsTarget = i;
+        headZone.position.set(0, 1.72, .026); headZone.userData.fpsTarget = i; headZone.userData.fpsZone = 'head';
+        root.add(hitZone, headZone);
+      }
       const tier = practiceRange ? RANGE_ARMOR_TIERS[i % RANGE_ARMOR_TIERS.length] : { ...RANGE_ARMOR_TIERS[0], health: i % 2 ? 115 : 100 };
       const maxHealth = tier.health, meter = createRangeDamageMeter();
       const label = practiceRange ? createRangeDamageLabel(i + 1, tier) : undefined;
       if (label) { label.sprite.position.y = 2; root.add(label.sprite); }
       const bar = new THREE.Mesh(healthGeometry, healthMaterial); bar.position.set(0, 1.91, .04); root.add(bar);
       const collider = { minX: p.x - .42, maxX: p.x + .42, minZ: p.z - .42, maxZ: p.z + .42, maxY: 2.08 };
-      world.scene.add(root); targets.push({ tier, armor: tier.armor, meter, label, root, hinge, hitZone, alive: true, activation: 0, health: maxHealth, maxHealth, bar, collider });
+      world.scene.add(root); targets.push({ tier, armor: tier.armor, meter, label, root, hinge, hitZone, headZone, alive: true, activation: 0, health: maxHealth, maxHealth, bar, collider });
       world.obstacles.push(collider);
     });
     updateRangeTargets();

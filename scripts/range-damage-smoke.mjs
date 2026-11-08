@@ -14,7 +14,7 @@ await fs.writeFile(new URL('FpsGame.tsx', output), source);
 let html = await fs.readFile(new URL('fixtures/range-drills-ui.html', import.meta.url), 'utf8');
 html = html.replace("'/src/components/FpsGame.tsx'", "'./FpsGame.tsx'");
 html = html.replace('<body><div id="root"></div>', '<body><div class="game-screen game-screen-play"><div id="root" class="game-screen-body"></div></div>');
-html = html.replace('function App()', `window.damageAim=1;window.stopAt=0;
+html = html.replace('function App()', `window.damageAim=1;window.aimHead=false;window.stopAt=0;
 window.rangeTargets=()=>JSON.parse(document.querySelector('canvas').dataset.rangeTargets||'[]');
 window.damageLabels={};
 const labelCanvases=new WeakMap(),fillText=CanvasRenderingContext2D.prototype.fillText;
@@ -32,7 +32,8 @@ CanvasRenderingContext2D.prototype.fillText=function(text,...args){
 window.damagePilot={reset(){},decide(o){
  const t=rangeTargets()[window.damageAim];
  if(!t?.alive)return {goal:'engage',status:'Waiting',action:{}};
- const dx=t.x-o.position.x,dz=t.z-o.position.z,yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(t.y-1.75,Math.hypot(dx,dz));
+ const aimY=window.aimHead?t.headY:t.y;
+ const dx=t.x-o.position.x,dz=t.z-o.position.z,yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(aimY-1.75,Math.hypot(dx,dz));
  const ex=Math.atan2(Math.sin(yaw-o.yaw),Math.cos(yaw-o.yaw)),ey=pitch-o.pitch;
  return {goal:'engage',status:'Dummy check',action:{lookX:-ex/.0023*.8,lookY:-ey/.0023*.8,aim:true,fire:window.damageHud.landed<window.stopAt&&Math.abs(ex)<.008&&Math.abs(ey)<.008,reload:!o.magazine&&o.reserve>0}};
 }};
@@ -48,7 +49,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function wait(expression,timeout=90000){const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(100);}throw Error('Waiting for '+expression);}
 async function shot(name){const r=await send('Page.captureScreenshot',{format:'png'});await fs.writeFile(new URL(name+'.png',output),Buffer.from(r.data,'base64'));}
 const meter=index=>`rangeTargets()[${index}].damage`;
-async function fireAt(index){await evaluate(`damageAim=${index};stopAt=damageHud.landed+1`);await wait(`damageHud.landed>=stopAt`);await delay(400);results.push(await evaluate(meter(index)));}
+async function fireAt(index,head=false){await evaluate(`damageAim=${index};aimHead=${head};stopAt=damageHud.landed+1`);await wait(`damageHud.landed>=stopAt`);await delay(400);results.push(await evaluate(meter(index)));}
 try{
  await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});await send('Page.bringToFront');
  await wait(`window.damageHud?.phase==='ready'`);assert.equal(await evaluate(`new Set(rangeTargets().map(t=>t.tier)).size`),5);
@@ -62,8 +63,12 @@ try{
  const dpsBefore=await evaluate(`${meter(2)}.dps`);await wait(`${meter(2)}.dps<${dpsBefore}`,5000);
  await evaluate('damageEngine.pause()');const pausedDps=await evaluate(`${meter(2)}.dps`);await delay(500);assert.equal(await evaluate(`${meter(2)}.dps`),pausedDps);await evaluate('damageEngine.startPilot()');
  await fireAt(0);assert.equal(results.at(-1).lastArmor,0);assert.equal(results.at(-1).last,results.at(-1).total);assert.equal(results.at(-1).hits,1);
+ const bodyDamage=results.at(-1).last;
+ assert.equal(await evaluate('damageHud.headshot'),false);
  // Every dummy has its own idle clock, and the display updates without another shot.
  await wait(`${meter(0)}.total===0 && damageLabels[1].length===1`,20000);assert.equal(await evaluate(`${meter(0)}.dps`),0);assert.equal(await evaluate(`${meter(0)}.hits`),0);await shot('idle-reset');
+ await fireAt(0,true);assert.equal(await evaluate('damageHud.headshot'),true);
+ assert(results.at(-1).last>bodyDamage);
  await fireAt(3);assert(results.at(-1).lastArmor>0);
  for(const [name,width,height] of [['phone',390,844],['landscape',844,390]]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await send('Emulation.setTouchEmulationEnabled',{enabled:true});await delay(300);
@@ -91,5 +96,5 @@ try{
  await wait('!rangeTargets()[3].visible',4000);
  await evaluate('damageEngine.pause();damageEngine.reset()');await wait(`damageHud.phase==='ready'`);
  assert(await evaluate('rangeTargets().every(t=>t.alive && t.visible && t.tilt===0 && t.damage.total===0 && t.damage.hits===0)'));
- assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({results,errors,ok:true},null,2));console.log('PASS actual training: overhead damage labels, five tiers, separate totals, armor loss, live DPS, pause, idle expiry, desktop and touch layouts, dummy drop/despawn, exercise reset.');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({results,errors,ok:true},null,2));console.log('PASS actual training: mannequin head and body hits, separate hit and armor totals, live and final DPS, pause, idle expiry, desktop and touch layouts, dummy drop/despawn, exercise reset.');
 }catch(error){await shot('failure').catch(()=>{});console.log(errors);throw error;}finally{await evaluate('damageEngine.dispose()').catch(()=>{});ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

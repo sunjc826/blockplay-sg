@@ -4,6 +4,7 @@ import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { createSceneCover } from './scene-cover';
 import { createArena } from './arena-rules';
 import { shootAndLand } from './arena-test-shots';
+import { cloneRangeDummy, createRangeDummyModel } from './range-dummy';
 
 it('blocks a target behind scenery and ignores invisible parent groups', () => {
   const geometry = new THREE.BoxGeometry(1, 1, 1), material = new THREE.MeshBasicMaterial();
@@ -38,6 +39,32 @@ it('returns pierced surfaces nearest first, bounded by the limit', () => {
   middle.visible = false;
   expect(visibleHits(ray, objects, 2).map(h => h.object)).toEqual([near, far]);
   geometry.dispose(); material.dispose();
+});
+
+it('hits the visible mannequin head from the front or side and counts a pierced dummy once', () => {
+  const template = createRangeDummyModel();
+  const first = cloneRangeDummy(template, 0), second = cloneRangeDummy(template, 1);
+  second.model.position.z = -2;
+  const models = [first.model, second.model];
+  models.forEach(model => model.updateMatrixWorld(true));
+  const ray = new THREE.Raycaster(new THREE.Vector3(0, first.head.position.y, 4), new THREE.Vector3(0, 0, -1));
+  expect(visibleHits(ray, models, 3).map(hit => hit.object)).toEqual([first.head, second.head]);
+  expect(first.head.userData.fpsZone).toBe('head');
+  expect(visibleHits(ray, models, 2, false, false, true, new Set([0])).map(hit => hit.object)).toEqual([second.head]);
+  ray.set(new THREE.Vector3(4, first.head.position.y, 0), new THREE.Vector3(-1, 0, 0));
+  expect(firstVisibleHit(ray, models)?.object).toBe(first.head);
+  ray.set(new THREE.Vector3(0, first.chest.position.y, 4), new THREE.Vector3(0, 0, -1));
+  expect(visibleHits(ray, models, 4).map(hit => hit.object)).toEqual([first.chest, second.chest]);
+  ray.set(new THREE.Vector3(4, first.chest.position.y, 0), new THREE.Vector3(-1, 0, 0));
+  expect(visibleHits(ray, models, 4).map(hit => hit.object.userData.fpsTarget)).toEqual([0]);
+  ray.set(new THREE.Vector3(.13, first.head.position.y, 4), new THREE.Vector3(0, 0, -1));
+  expect(firstVisibleHit(ray, models)).toBeUndefined();
+  template.traverse(node => {
+    if (node instanceof THREE.Mesh) {
+      node.geometry.dispose();
+      for (const material of [node.material].flat()) material.dispose();
+    }
+  });
 });
 
 it('separates foliage sight obstruction from bullet/blast obstruction, including instanced leaves', () => {

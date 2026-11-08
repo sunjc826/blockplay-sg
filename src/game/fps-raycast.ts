@@ -7,12 +7,15 @@ export function isVisibleHit(hit: THREE.Intersection, includeFoliage = false, in
 }
 
 /** Nearest first, up to `limit` visible ballistic surfaces. Sight also includes foliage. Physical traces opt into thin glass.
- * `recursive` false is for a flat list that already holds every descendant to test. */
-export function visibleHits(ray: THREE.Raycaster, objects: THREE.Object3D[], limit: number, includeFoliage = false, includeGlass = false, recursive = true) {
+ * `recursive` false is for a flat list that already holds every descendant to test.
+ * A dummy's nearest visible part determines the hit zone and spends one surface. */
+export function visibleHits(ray: THREE.Raycaster, objects: THREE.Object3D[], limit: number, includeFoliage = false, includeGlass = false, recursive = true, hitTargets?: ReadonlySet<number>) {
   const found: THREE.Intersection[] = [];
   if (limit < 1) return found;
   for (const hit of ray.intersectObjects(objects, recursive)) {
     if (!isVisibleHit(hit, includeFoliage, includeGlass)) continue;
+    const target = hit.object.userData.fpsTarget;
+    if (typeof target === 'number' && (hitTargets?.has(target) || found.some(other => other.object.userData.fpsTarget === target))) continue;
     found.push(hit);
     if (found.length >= limit) break;
   }

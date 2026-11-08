@@ -163,7 +163,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const arenaClock = `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, '0')}`;
   const accuracy = hud.shots ? Math.min(100, Math.round(hud.landed / hud.shots * 100)) : 0;
   const rangeClock = drill === 'timed' ? `${Math.max(0, Math.ceil(RANGE_DURATION - hud.elapsed))}s left` : `${hud.elapsed.toFixed(1)}s`;
-  const rangeObjective = drill === 'classic' ? `Clear the ${district.targets.length} round targets around the ${district.setting}.` : drill === 'timed' ? 'Clear as many targets as you can in 90 seconds.' : 'Keep practising. Targets will return; end the drill from the pause menu.';
+  const rangeObjective = drill === 'classic' ? `Clear the ${district.targets.length} dummies around the ${district.setting}.` : drill === 'timed' ? 'Clear as many targets as you can in 90 seconds.' : 'Keep practising. Targets will return; end the drill from the pause menu.';
   const touch = useTouchControls(hud.inputMode);
   const hudHints = useHudHints(), showHints = touch || hudHints;
   const hold = (key: string) => ({
@@ -203,7 +203,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
-        {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
+        {hud.hit && <div className="fps-hit-label" aria-hidden="true">{!isArena && hud.headshot ? 'HEADSHOT' : 'HIT'} −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
         {hud.swimming && <div className="fps-swim-status" role="status">SWIMMING · {hud.swimCanFire ? 'SIDEARM HIP FIRE · LOW ACCURACY' : 'STOP TO USE SIDEARM'} · CLIMB OUT AT GOLD LADDERS</div>}

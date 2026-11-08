@@ -9,8 +9,9 @@ or after finishing/resetting; Practice and Counter-fire are independent choices.
 | Continuous | Up to three active/appearing targets, replaced indefinitely | Pause, then End drill & view summary |
 | 90-second challenge | Up to three active/appearing targets | Ninety seconds of active play, or end early from pause |
 
-Targets have five armor tiers and body/head hit zones. Dynamic drills
-reuse the eight existing positions and models. A target rises over .45 seconds,
+Human-shaped dummies have five armor tiers. Hits use the visible head and
+body, and the range marks headshots separately. Dynamic drills
+reuse the eight target positions. A target rises over .45 seconds,
 becomes hittable when fully raised, then flips backward when cleared and
 disappears 1.8 seconds after the final hit. Its position
 cannot be reused for 2–5 seconds, and the director prefers fresh/older positions.
