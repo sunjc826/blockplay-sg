@@ -1,6 +1,6 @@
 import { districtParatroopers } from './paratroopers';
 import { districtNavalSites } from './naval-landing-sites';
-import { getRegion } from './regions';
+import { getRegion, type RegionBuildOptions } from './regions';
 import { getWorldZone, type WorldZoneId, type ZonePosition, type ZoneSpawn } from './world-zones';
 import { zoneSectors } from './zone-sectors';
 import type { ArenaEnvironment } from './arena-rules';
@@ -26,9 +26,9 @@ export function patrolSpawns(id: WorldZoneId): readonly ZonePosition[] {
 }
 
 /** Build exactly one district. The caller disposes it before entering another. */
-export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn) {
+export function buildDistrictWorld(id: WorldZoneId, arrival?: ZoneSpawn, options?: RegionBuildOptions) {
   const zone = getWorldZone(id), region = getRegion(id);
-  const world = region.build();
+  const world = region.build(options);
   const { bounds, move } = region;
   const navigationAnchors = [...patrolSpawns(id), ...zoneSectors(id).flatMap(s=>s.anchors), ...region.mapRoads.flatMap(road => road.points.flatMap((p,i) => {
     const next=road.points[i+1]; if (!next) return [p];

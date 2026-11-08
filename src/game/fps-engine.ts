@@ -379,6 +379,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const tdm = !expedition && options.arena?.match?.mode === 'team-deathmatch' ? options.arena.match : undefined;
   const hardpoint = !expedition && options.arena?.match?.mode==='hardpoint';
   const teamMatch=!!tdm || hardpoint;
+  const freeForAll = !expedition && !!options.arena && !teamMatch;
   const region = expedition?.zone ?? (hardpoint?'chinatown':tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
   const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = rangeTravel?.spawn ?? district.spawn, targetPositions = district.targets;
   const practiceRange = !expedition && !options.arena && !options.tutorial;
@@ -400,7 +401,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : ' range')}. WASD to move, mouse to look, click to fire.`);
-  const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld() : tdm ? buildTeamDeathmatchWorld(tdm.area) : buildDistrictWorld(region, expedition?.spawn);
+  const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld() : tdm ? buildTeamDeathmatchWorld(tdm.area)
+    : buildDistrictWorld(region, expedition?.spawn, { barricades: freeForAll });
   if (teamMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // A third of the scene is hidden at any time (pooled effects, figures' spare parts); the renderer's

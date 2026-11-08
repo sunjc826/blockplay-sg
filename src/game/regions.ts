@@ -64,6 +64,8 @@ export type RegionMapShape =
   | { kind: 'rect'; x: number; z: number; width: number; depth: number; fill: string; radius?: number; layer?: MapLayer; fpsFill?: string; fpsLayer?: MapLayer }
   | { kind: 'line'; from: Position2D; to: Position2D; stroke: string; width: number; layer?: MapLayer; fpsStroke?: string; fpsLayer?: MapLayer };
 
+export interface RegionBuildOptions { barricades?: boolean }
+
 export interface RegionDefinition {
   readonly id: RegionId;
   /** Full display name; `shortName` labels controls where the district is implied. */
@@ -90,7 +92,7 @@ export interface RegionDefinition {
   readonly decor: readonly RegionMapShape[];
   /** Regions with a reviewed, source-linked learning catalog show the guide panel. */
   readonly hasGuide: boolean;
-  readonly build: () => RegionWorld;
+  readonly build: (options?: RegionBuildOptions) => RegionWorld;
   readonly move: (position: Position2D, dx: number, dz: number, radius: number, obstacles: readonly Obstacle[]) => Position2D;
   readonly canOccupy: (x: number, z: number, radius: number, obstacles: readonly Obstacle[]) => boolean;
 }
@@ -196,7 +198,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
       ...[-65, -15, 35].map((z): RegionMapShape => ({ kind: 'rect', x: 139, z: z - 15, width: 24, depth: 30, fill: '#eee7ce', layer: 'over' })),
       { kind: 'rect', x: 141, z: -107, width: 20, depth: 184, radius: 4, fill: '#819872', layer: 'over' },
     ] as RegionMapShape[]).map(s => s.kind === 'rect' ? {...s,x:s.x*MARINA_SCALE,z:s.z*MARINA_SCALE,width:s.width*MARINA_SCALE,depth:s.depth*MARINA_SCALE} : s).concat(MARINA_CAMP_DECKS.map(d=>({kind:'rect' as const,x:d.minX,z:d.minZ,width:d.maxX-d.minX,depth:d.maxZ-d.minZ,fill:'#bba17b',layer:'over' as const,fpsFill:'#c4ad83',fpsLayer:'over' as const}))),
-    hasGuide: false, build: buildMarinaScene, move: moveInMarina, canOccupy: canOccupyMarina,
+    hasGuide: false, build: () => buildMarinaScene(), move: moveInMarina, canOccupy: canOccupyMarina,
   },
   'raffles-place': {
     id: 'raffles-place', name: 'Raffles Place', shortName: 'Raffles', modeName: 'Raffles 3D', modeSubtitle: 'Explore the city core',
@@ -524,7 +526,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
 // Every district is built with its set pieces, whatever mode builds it.
 for (const id of REGION_IDS) {
   const { build, bounds } = definitions[id];
-  definitions[id] = { ...definitions[id], build: () => withDistrictBoundaries(id, withSetPieces(id, withSurfaceOwnership(withGroundCover(build(), bounds))), bounds) };
+  definitions[id] = { ...definitions[id], build: options => withDistrictBoundaries(id, withSetPieces(id, withSurfaceOwnership(withGroundCover(build(), bounds))), bounds, options?.barricades) };
 }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);
