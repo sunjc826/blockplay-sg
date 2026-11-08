@@ -1,3 +1,4 @@
+import Scoreboard, { holdTime } from './ArenaScoreboard';
 import { HARDPOINT_AREA, HARDPOINT_RULES, SMITH_CONTROL_SITES } from '../game/hardpoint';
 import { TDM_RULES, TEAM_NAMES, tdmArea, type ArenaMatch } from '../game/arena-match';
 import { RANGE_DAMAGE_IDLE_SECONDS, rangeDamageNumber } from '../game/range-damage';
@@ -32,8 +33,7 @@ import { ELIMINATION_CREDITS, progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
 import { encikAddress, resolveLoadout, type ArmoryProfile, type ExerciseReward } from '../game/armory-state';
 import type { LanSession } from '../game/lan-peer';
-import { ARENA_DURATION, ARENA_KILL_LIMIT, type ArenaSnapshot } from '../game/arena-rules';
-import { factionIdOf, listArenaFactions } from '../game/arena-factions';
+import { ARENA_DURATION, ARENA_KILL_LIMIT } from '../game/arena-rules';
 import FpsMinimap from './FpsMinimap';
 import RankBadge from './RankBadge';
 import FpsWeaponHud from './FpsWeaponHud';
@@ -58,13 +58,8 @@ import './fps-hit-direction.css';
 
 type ArenaOptions = { match?: ArenaMatch; session: LanSession; botCount: number; composition: string };
 interface RangeScene { region: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint }
-function Scoreboard({ snapshot, selfId }: { snapshot: ArenaSnapshot; selfId: string }) {
-  const teamScore=snapshot.hardpoint??snapshot.teamDeathmatch;
-  const actors = [...snapshot.actors].sort((a, b) => b.kills - a.kills || a.deaths - b.deaths || a.name.localeCompare(b.name));
-  return <div className="arena-scoreboard"><table><caption>{teamScore ? `ALPHA ${teamScore.scores.alpha} : ${teamScore.scores.bravo} BRAVO` : 'MATCH STANDINGS'} <span>{listArenaFactions().map(faction => [faction, actors.filter(actor => factionIdOf(actor) === faction.id).length] as const).filter(([, n]) => n).map(([faction, n]) => `${n} ${faction.short}`).join(' · ')}</span></caption><thead><tr><th scope="col">OPERATOR</th><th scope="col">{teamScore ? 'TEAM' : 'ROLE'}</th><th scope="col">K</th><th scope="col">D</th></tr></thead><tbody>{actors.map((actor, index) => <tr key={actor.id} className={actor.id === selfId ? 'is-self' : ''}><td><span className="arena-place">{index + 1}</span>{actor.name}{actor.id === selfId && <small>YOU</small>}{actor.bot && <small>BOT</small>}</td><td>{actor.team ? TEAM_NAMES[actor.team] : actor.role === 'player' ? 'Operator' : actor.role}</td><td>{actor.kills}</td><td>{actor.deaths}</td></tr>)}</tbody></table></div>;
-}
 
-export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onLoaded, onRegionChange, loadScreen }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void }) {
+export default function FpsGame({ region: initialRegion = 'marina-bay', suspended = false, profile, nav, onReward, onElimination, onRentalTime, onConsume, onOpenShop, arena, onLeaveArena, onReturnRoom, roomView=false, onPhaseChange, onLoaded, onRegionChange, loadScreen }: { region?: WorldZoneId; suspended?: boolean; profile: ArmoryProfile; nav?: ReactNode; onLoaded?: () => void; loadScreen?: PlayLoadScreen; onRegionChange?: (region: WorldZoneId) => void; onReward: (result: ExerciseReward) => void; onElimination: (id: string, bounty?: RaiderBounty) => void; onConsume: (id: string) => void; onRentalTime?: (elapsedMs: number) => void; onOpenShop: () => void; arena?: ArenaOptions; onLeaveArena?: () => void; onReturnRoom?:()=>void; roomView?:boolean; onPhaseChange?:(phase:string)=>void }) {
   const [scene, setScene] = useState<RangeScene>(() => ({ region: initialRegion }));
   const region = scene.region;
   const regionChanged = useRef(onRegionChange); regionChanged.current = onRegionChange;
@@ -101,7 +96,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const activeRun = useRef(false);
   if (['playing', 'paused'].includes(hud.phase)) activeRun.current = true;
   if (['complete', 'defeated'].includes(hud.phase)) activeRun.current = false;
-  useNavigationGuard(!debug && (arenaOptions ? !['complete', 'error'].includes(hud.phase) : activeRun.current), {
+  useNavigationGuard(!roomView && !debug && (arenaOptions ? !['complete', 'error'].includes(hud.phase) : activeRun.current), {
     title: arenaOptions ? 'Leave this match?' : 'End this exercise?',
     detail: arenaOptions ? `${arenaOptions.session.role === 'host' ? 'You are hosting. Leaving closes the match for everyone. ' : 'You will disconnect from this match. '}Credits and XP already earned stay saved.` : 'Your exercise progress will be lost. Credits, XP and Store purchases already saved are kept. Changing equipment in the Store starts a new exercise.',
     onRequest: () => engine.current?.pause(),
@@ -126,6 +121,9 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   }, [epoch, combat, startingEquipment, arenaOptions, scene]);
   useEffect(() => () => { surface.current?.dispose(); surface.current = null; }, []);
   useEffect(() => { if (suspended) engine.current?.pause(); }, [suspended]);
+  useEffect(()=>{onPhaseChange?.(hud.phase);},[hud.phase,onPhaseChange]);
+  useEffect(()=>{if(!roomView&&onReturnRoom&&['ready','paused'].includes(hud.phase)){const id=requestAnimationFrame(()=>stage.current?.querySelector<HTMLButtonElement>('.arena-start-card .primary-button')?.focus());return()=>cancelAnimationFrame(id);}},[roomView,hud.phase]);
+  const returnToRoom=async()=>{engine.current?.pause();if(document.fullscreenElement)await document.exitFullscreen().catch(()=>{});onReturnRoom?.();};
   // The map's track runs on through loading, then the range is quiet.
   useEffect(() => { if (hud.phase !== 'loading') setMusicCue(null); }, [hud.phase]);
   // A short sting for how the match went. A draw has none.
@@ -226,7 +224,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
       {isArena && (!playing || disconnected) && <div className="fps-overlay arena-overlay"><div className="fps-start-card arena-start-card">
         <span className="eyebrow">{disconnected ? 'CONNECTION LOST' : hud.phase === 'complete' ? 'MATCH COMPLETE' : hud.phase === 'paused' ? 'MATCH MENU' : `${zone.name.toUpperCase()} / ${hp ? 'HARDPOINT' : tdm ? 'TEAM DEATHMATCH' : 'FREE FOR ALL'}`}</span>
         <h2>{disconnected ? guest ? 'Host disconnected.' : 'Room connection lost.' : hud.phase === 'loading' ? 'Preparing the arena.' : hud.phase === 'error' ? 'Arena unavailable.' : hud.phase === 'complete' ? hud.arena?.winner === 'Draw' ? 'Draw.' : `${hud.arena?.winner || 'Match'} wins.` : hud.phase === 'paused' ? 'Stay in the fight.' : 'Ready when you are.'}</h2>
-        <p>{disconnected ? 'The host connection has closed. Return to the lobby and reconnect to a new room.' : hud.phase === 'loading' ? 'Loading your equipped gear and connecting the match.' : hud.phase === 'error' ? hud.message : hud.phase === 'complete' ? `${hud.arenaSelf?.kills || 0} eliminations · ${hud.arenaSelf?.deaths || 0} deaths · ${accuracy}% accuracy` : hud.phase === 'paused' ? 'Your menu is open. The match and other players keep running.' : hp ? '4 vs 4 with bot fill. Hold the active station alone to earn one point per second. Enemies contesting stop scoring. Stations rotate every 60 seconds; the next appears 10 seconds early. First to 200, or most points after six minutes. Three-second respawns; protection ends when firing or entering the active zone.' : tdm ? '4 vs 4 with bot fill. First team to 30, or most eliminations after five minutes. Friendly fire off. Three-second respawns; protection ends when firing.' : `First to ${ARENA_KILL_LIMIT} eliminations wins. Three minutes. Unlimited respawns.`}</p>
+        <p>{disconnected ? 'The host connection has closed. Return to the lobby and reconnect to a new room.' : hud.phase === 'loading' ? 'Loading your equipped gear and connecting the match.' : hud.phase === 'error' ? hud.message : hud.phase === 'complete' ? `${hp?`${holdTime(hud.arenaSelf?.controlSeconds)} uncontested hold · `:''}${hud.arenaSelf?.kills || 0} eliminations · ${hud.arenaSelf?.deaths || 0} deaths · ${accuracy}% accuracy` : hud.phase === 'paused' ? 'Your menu is open. The match and other players keep running.' : hp ? '4 vs 4 with bot fill. Hold the active station without enemies inside to earn one point per second. Enemies contesting stop scoring. Stations rotate every 60 seconds; the next appears 10 seconds early. First to 200, or most points after six minutes. Three-second respawns; protection ends when firing or entering the active zone.' : tdm ? '4 vs 4 with bot fill. First team to 30, or most eliminations after five minutes. Friendly fire off. Three-second respawns; protection ends when firing.' : `First to ${ARENA_KILL_LIMIT} eliminations wins. Three minutes. Unlimited respawns.`}</p>
+        {hp && control && hud.phase==='paused' && <p className="match-pause-objective"><strong>{activeSite?.name} · {Math.ceil(control.remaining)}s</strong><br/>{control.contested?'Contested · scoring paused':control.owner?`${TEAM_NAMES[control.owner]} controls`:'Neutral · enter the marked zone'}{nextSite && ` · Next: ${nextSite.name}`}</p>}
         {hud.message && hud.phase !== 'error' && !disconnected && <p className="fps-capture-error" role="alert">{hud.message}</p>}
         {hud.phase === 'complete' && hud.arena && <Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} />}
         {!disconnected && <button className="primary-button" disabled={hud.phase === 'loading' || suspended || (guest && hud.phase === 'complete')} onClick={() => { if (hud.phase === 'error') setEpoch(n => n + 1); else if (hud.phase === 'complete') resetExercise(); else { if (touch) fullscreen.enter(); engine.current?.start(); } }}>
@@ -243,7 +242,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={() => confirmAction({ title: 'Restart this match?', detail: 'Scores and current match progress will reset for everyone. Credits and XP already saved are kept.', confirmLabel: 'Restart match', action: resetExercise })}><RotateCcw size={14} /> Restart match</button>}
         </>}
         {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}
-        <button className="fps-shop-link" onClick={() => requestLeave(() => onLeaveArena?.())}>Leave match · return to lobby →</button>
+        {onReturnRoom && <button className="lan-secondary arena-room-return" onClick={()=>void returnToRoom()}>{arenaOptions.session.role==='solo'?'Return to setup':'Return to room'}</button>}
+        <button className="fps-shop-link" onClick={() => requestLeave(() => onLeaveArena?.())}>{!onReturnRoom?'Leave match · return to lobby →':arenaOptions.session.role==='solo'?'End solo match':arenaOptions.session.role==='host'?'Close room for everyone':'Leave room'}</button>
         {!['complete', 'loading', 'error'].includes(hud.phase) && !disconnected && !touch && <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Sprint + C</kbd> Slide</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>Space</kbd> Jump</span><span><kbd>1–3</kbd> Switch</span><span><kbd>F / G</kbd> Recovery / combat · tap to use, hold to choose</span><span><kbd>M</kbd> Map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>ESC</kbd> Menu</span></FpsControlGuide>}
 
       </div></div>}

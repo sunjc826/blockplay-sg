@@ -56,7 +56,7 @@ export function getBackRoute(): Route { return entry()?.from ?? 'menu'; }
 export function goBack() {
   if (entry()?.from) window.history.back(); else navigate('menu');
 }
-export const routeLabel = (route: Route) => ({ menu: 'Main menu', store: 'Store', inventory: 'Inventory', settings: 'Settings', training: 'Training', world: 'Open World', tutorial: 'Tutorial', multiplayer: 'Multiplayer', debug: 'Debug', 'faction-designs': 'Faction designs' })[route];
+export const routeLabel = (route: Route) => ({ menu: 'Main menu', store: 'Store', inventory: 'Inventory', settings: 'Settings', training: 'Training', world: 'Open World', tutorial: 'Tutorial', multiplayer: 'Matches', debug: 'Debug', 'faction-designs': 'Faction designs' })[route];
 
 /** Callers that already obtained permission (animated navigation) pass approved. */
 export function navigate(route: Route, approved = false) {

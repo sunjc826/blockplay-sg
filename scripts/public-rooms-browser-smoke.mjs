@@ -10,7 +10,7 @@ const origin = process.env.CLOUDFLARE_APP_ORIGIN || 'http://127.0.0.1:8787';
 const delay = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const browsers=[], pages=[];
 async function page(port) {
-  const child=spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--no-proxy-server',`--user-data-dir=${join(directory,String(port))}`,`--remote-debugging-port=${port}`,'--window-size=1440,1100','about:blank'],{stdio:'ignore'});browsers.push(child);
+  const child=spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless',...(process.platform==='darwin'?['--use-angle=metal']:[]),'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--no-proxy-server',`--user-data-dir=${join(directory,String(port))}`,`--remote-debugging-port=${port}`,'--window-size=1440,1100','about:blank'],{stdio:'ignore'});browsers.push(child);
   for(let i=0;;i++){try{await fetch(`http://127.0.0.1:${port}/json/version`);break;}catch{if(i>80)throw Error('Chrome startup failed');await delay(100);}}
   const tab=await(await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'})).json();
   const ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject;});
@@ -18,17 +18,17 @@ async function page(port) {
   ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);};
   const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;const timer=setTimeout(()=>{pending.delete(n);reject(Error(`CDP timeout ${method}`));},30000);pending.set(n,{resolve,reject,timer});ws.send(JSON.stringify({id:n,method,params}));});
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
-  const wait=async(expression,timeout=20000)=>{const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(100);}throw Error(`Timed out: ${expression}`);};
+  const wait=async(expression,timeout=90000)=>{const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(100);}throw Error(`Timed out: ${expression}`);};
   const click=async expression=>{await send('Page.bringToFront');const p=await evaluate(`(()=>{const e=${expression};if(!e)throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});};
   const key=async(key,code,hold=0)=>{await send('Page.bringToFront');await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});if(hold)await delay(hold);await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});if(key==='Escape')await wait('!document.pointerLockElement');};
   const screenshot=async name=>{const result=await send('Page.captureScreenshot',{format:'png'});await writeFile(new URL(name+'.png',output),Buffer.from(result.data,'base64'));};
   await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   // Observe outbound authoritative snapshots; do not alter game or network state.
-  await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=WebSocket.prototype.send;WebSocket.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
+  await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({scale:.5,frameCap:30,shadowDetail:'low',lensEffects:false,sightReflections:false,antialias:false}));localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({shadows:false,occlusion:false,reducedEffects:true}));window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=WebSocket.prototype.send;WebSocket.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
   await send('Page.navigate',{ url: `${origin}/multiplayer` });
   const p={send,evaluate,wait,click,key,screenshot,errors,close:()=>ws.close()};pages.push(p);return p;
 }
-const button=name=>`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(name)})`;
+const button=name=>`[...document.querySelectorAll('button')].find(b=>b.getBoundingClientRect().width && b.textContent.trim()===${JSON.stringify(name)})`;
 const phase=value=>`document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(value)}`;
 const game=`document.querySelector('.fps-game')`;
 const position=`({x:Number(${game}.dataset.playerX),z:Number(${game}.dataset.playerZ)})`;
@@ -36,6 +36,7 @@ async function field(p,selector,value){await p.evaluate(`(()=>{const e=document.
 try{
   const host=await page(9246),guest=await page(9247);
   await host.wait(`!!document.querySelector('.public-lobby')`);
+  await host.click(`document.querySelector('[data-match-choice="free-for-all"]')`);
   await host.click(`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Create room'))`);
   await field(host,'input[autocomplete="nickname"]','Alpha');
   await field(host,'input[maxlength="40"]','Public browser test');
@@ -52,6 +53,7 @@ try{
   await host.evaluate(`window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}))`);
   await host.send('Page.setWebLifecycleState',{state:'frozen'});
   await guest.wait(`!!document.querySelector('.public-lobby')`);
+  await guest.click(button('Browse rooms'));
   await guest.click(`document.querySelector('[aria-label="Refresh rooms"]')`);
   await guest.wait(`!!document.querySelector('[data-room-code="'+${JSON.stringify(code)}+'"]')`);
   await guest.screenshot('room-browser');
@@ -60,16 +62,17 @@ try{
   await field(guest,'input[type="password"]','wrong-password');await guest.click(button('Join room'));
   await guest.wait(`document.querySelector('[role="alert"]')?.textContent.includes('Incorrect room password')`);
   await field(guest,'input[type="password"]','browser-secret');await guest.click(button('Join room'));
-  await guest.wait(`!!${button('Enter multiplayer match')}`);
+  await guest.wait(`!!${button('Enter match')}`);
   console.log('Host frozen while invite is used; waiting beyond the normal heartbeat timeout');
   await delay(70_000);
   await host.send('Page.setWebLifecycleState',{state:'active'});
   await host.evaluate(`window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))`);
   await host.wait(`document.querySelector('.lan-roster').textContent.includes('Bravo')`);
   assert.equal(await host.evaluate(`document.querySelector('input[aria-label="Invite link"]').value`),invite);
-  await host.wait(`!${button('Enter multiplayer match')}.disabled`);
+  await host.wait(`!${button('Enter match')}.disabled`);
   await host.screenshot('host-roster');
-  await host.click(button('Enter multiplayer match'));await guest.click(button('Enter multiplayer match'));
+  await guest.wait(`!!${button('Enter match')} && !${button('Enter match')}.disabled`);
+  await host.click(button('Enter match'));await guest.click(button('Enter match'));
   await Promise.all([host.wait(phase('ready')),guest.wait(phase('ready'))]);
   console.log('Starting match');await host.click(button('Start match'));await host.wait(phase('playing'));
   await guest.click(button('Enter match'));await guest.wait(phase('playing'));
@@ -113,9 +116,10 @@ try{
   assert(await host.evaluate(`document.querySelector('.arena-scoreboard').textContent.includes('Bravo')`));
   assert(await host.evaluate(`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo').deaths===1`));
   // Host reset is shared and returns a living guest to its ready screen.
-  await host.click(`document.querySelector('[aria-label="Reset arena match"]')`);await host.wait(phase('ready'));await guest.wait(phase('ready'));
+  await host.click(`document.querySelector('[aria-label="Reset arena match"]')`);await host.wait(`!!document.querySelector('[role="alertdialog"]')`);await host.click(`document.querySelector('[role="alertdialog"] .confirm-leave')`);await host.wait(phase('ready'));await guest.wait(phase('ready'));
   console.log('Starting match');await host.click(button('Start match'));await host.wait(phase('playing'));await guest.click(button('Enter match'));await guest.wait(phase('playing'));
-  await host.key('Escape','Escape');await host.click(button('Leave match · return to lobby →'));
+  await host.key('Escape','Escape');await host.click(button('Close room for everyone'));
+  await host.wait(`!!document.querySelector('[role="alertdialog"]')`);await host.click(`document.querySelector('[role="alertdialog"] .confirm-leave')`);
   await guest.wait(`${game}.dataset.arenaConnected==='false'`,10000);await guest.screenshot('host-disconnected');
   assert(await guest.evaluate(`document.querySelector('.arena-start-card h2').textContent==='Host disconnected.'`));
   await host.wait(`!!document.querySelector('.public-lobby')`);

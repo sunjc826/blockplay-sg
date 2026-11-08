@@ -43,7 +43,7 @@ const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
 const ENTRIES = [
   { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district.', mode: true },
   { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies.`, mode: true },
-  { route: 'multiplayer', icon: Users, title: 'Multiplayer', detail: 'Public rooms, or invite your friends.', mode: true },
+  { route: 'multiplayer', icon: Users, title: 'Matches', detail: 'TDM, Hardpoint or free for all. Solo or online.', mode: true },
   { route: 'tutorial', icon: GraduationCap, title: 'Tutorial', detail: 'New here?', mode: false },
   { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment and rental time', mode: false },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },

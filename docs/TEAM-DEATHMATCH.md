@@ -1,6 +1,6 @@
 # Team Deathmatch
 
-Enter Multiplayer → Solo vs bots or Create room → Team Deathmatch. Public rooms retain the four-human limit; the authority fills each team to four with assault bots. Alpha uses green armed-forces uniforms; Bravo uses navy contractor uniforms. Both teams' bots draw from the same role, rank and weapon rules.
+Enter **Matches → Team Deathmatch → Solo vs bots or Create room**. Public rooms retain the four-human limit; the authority fills each team to four with assault bots. Alpha uses green armed-forces uniforms; Bravo uses navy contractor uniforms. Both teams' bots draw from the same role, rank and weapon rules.
 
 The first team to 30 opponent eliminations wins. At five minutes the higher team score wins; equal scores draw, without a deaths tiebreak. Scores belong to the match and survive player departures and bot replacement. Respawns take three seconds, replenish the existing infantry loadout, and grant three seconds of protection that ends on firing or throwing a grenade. Friendly fire is off; self/environment deaths award no team point. Existing Armory gear and progression remain available.
 
@@ -17,7 +17,7 @@ These reuse existing scenery. They are a limited initial set, not a claim of com
 
 `arena-rules.ts` shares infantry movement, weapon handling, damage, spotting and navigation. Team-only branches handle the roster, hostility, spawn selection, scoring and match ending. Actors without teams retain existing expedition/FFA relationships; existing FFA rules and expedition defaults are unchanged. Bots patrol the match's combat anchors and react through the existing spotting system instead of needing facility objectives. Scripted expedition combat events are refused in TDM.
 
-`arena-match-session.ts` resolves the host's immutable mode/area before a guest constructs a world. The guest ignores other senders and unknown areas, and retries while waiting for the host to enter. Runtime registration requires the same area; snapshot validation requires the matching area, eight actors, four on each team, valid team/faction pairs and bounded team scores. The host assigns teams and computes all damage, respawns and scores; guests cannot submit teams or scores. The public directory validates and displays the selected mode/area. Reset keeps the selected area and teams, clears scores, and uses the existing match-ID protection against stale packets.
+`arena-match-session.ts` resolves the host's immutable mode/area before a guest constructs a world. The guest ignores other senders and unknown areas, and retries while waiting for the host’s configuration. Public rooms advertise that configuration before anyone enters the game. Runtime registration requires the same area; snapshot validation requires the matching area, eight actors, four on each team, valid team/faction pairs and bounded team scores. The host assigns teams and computes all damage, respawns and scores; guests cannot submit teams or scores. The public directory validates and displays the selected mode/area. Reset keeps the selected area and teams, clears scores, and uses the existing match-ID protection against stale packets.
 
 ## Validation
 

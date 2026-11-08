@@ -8,8 +8,8 @@ import { hasItemAccess, rentalTimeLeft } from '../game/weapon-rentals';
 import { armoryThumbnailFile } from '../game/armory-thumbnails';
 import './respawn-loadout.css';
 
-export default function RespawnLoadoutSelector({ inventory, selected, onSave, onClose }: {
-  inventory: ArmoryProfile; selected: ArmoryProfile;
+export default function RespawnLoadoutSelector({ inventory, selected, onSave, onClose, deployment = false }: {
+  deployment?: boolean; inventory: ArmoryProfile; selected: ArmoryProfile;
   onSave: (selection: RespawnLoadoutSelection) => Promise<boolean>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(() => selectedRespawnLoadout(selected));
@@ -52,8 +52,8 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
     if (event.shiftKey && (document.activeElement === first || document.activeElement === heading.current)) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }}>
-    <div className="respawn-loadout-panel"><header><span>DEPLOYMENT LOCKER</span><h2 ref={heading} tabIndex={-1} id="loadout-screen-title">Choose your next loadout</h2>
-      <p>Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.</p>
+    <div className="respawn-loadout-panel"><header><span>DEPLOYMENT LOCKER</span><h2 ref={heading} tabIndex={-1} id="loadout-screen-title">{deployment?'Choose your starting loadout':'Choose your next loadout'}</h2>
+      <p>{deployment?'These weapons are equipped when you enter the match. Your room stays connected.':'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
       <button type="button" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
       <div className="respawn-loadout-columns">
         {slot('Main weapon', draft.carry.main, 'main')}
@@ -66,7 +66,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
           try { if (await onSave(draft)) onClose(); else setError('Loadout could not be queued. Check your connection and rental time, then try again.'); }
           catch { setError('Loadout could not be queued. Try again.'); }
           finally { setBusy(false); }
-        }}>{busy ? 'Queuing…' : 'Use on next respawn'}</button></footer>
+        }}>{busy ? 'Saving…' : deployment ? 'Use for this match' : 'Use on next respawn'}</button></footer>
     </div>
   </div>;
 }

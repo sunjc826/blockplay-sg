@@ -41,12 +41,13 @@ export function createHardpoint(sites:readonly ControlSite[]=SMITH_CONTROL_SITES
   const held={alpha:0,bravo:0};
   const scores=()=>({alpha:Math.min(HARDPOINT_RULES.scoreLimit,Math.floor(held.alpha+1e-7)),bravo:Math.min(HARDPOINT_RULES.scoreLimit,Math.floor(held.bravo+1e-7))});
   return {
-    step(from:number,to:number,actors:readonly ControlActor[]) {
+    step(from:number,to:number,actors:readonly ControlActor[],onHold?:(actor:ControlActor,seconds:number)=>void) {
       if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from)return;
       let cursor=Math.max(0,from),end=Math.min(to,HARDPOINT_RULES.duration);
       while(cursor<end-1e-8 && held.alpha<HARDPOINT_RULES.scoreLimit && held.bravo<HARDPOINT_RULES.scoreLimit) {
         const {site,remaining}=controlAt(cursor,sites),seconds=Math.min(end-cursor,remaining);
-        const {owner}=controlOccupancy(site,actors);if(owner)held[owner]=Math.min(HARDPOINT_RULES.scoreLimit,held[owner]+seconds);
+        const {owner}=controlOccupancy(site,actors);
+        if(owner){const earned=Math.min(seconds,HARDPOINT_RULES.scoreLimit-held[owner]);held[owner]+=earned;for(const actor of actors)if(actor.team===owner&&inControlSite(actor,site))onHold?.(actor,earned);}
         cursor+=seconds;
       }
     },

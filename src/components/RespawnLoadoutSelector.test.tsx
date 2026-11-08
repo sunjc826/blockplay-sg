@@ -19,3 +19,8 @@ it('shows active rentals and a purchased extra slot while keeping unavailable we
   expect(html).toContain('Extra main platform'); expect(html).toContain('data-loadout-variant="sar-vanguard"');
   expect(html).toContain('left'); expect(html).not.toContain('data-loadout-variant="sar-marksman"');
 });
+
+it('explains first-spawn equipment when opened from match setup',()=>{
+ const p=createProfile(),html=renderToStaticMarkup(<RespawnLoadoutSelector deployment inventory={p} selected={p} onSave={async()=>true} onClose={()=>{}}/>);
+ expect(html).toContain('Choose your starting loadout');expect(html).toContain('Use for this match');expect(html).not.toContain('Your current life keeps its gear');
+});

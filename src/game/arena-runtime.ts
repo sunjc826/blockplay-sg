@@ -103,6 +103,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
+      (actor.controlSeconds!==undefined && (!environment?.hardpoint || !finite(actor.controlSeconds) || actor.controlSeconds<0 || actor.controlSeconds>HARDPOINT_RULES.duration)) ||
       (teamArea ? !['alpha','bravo'].includes(String(actor.team)) || actor.faction!==teamFaction(actor.team as 'alpha'|'bravo') : actor.team!==undefined) ||
       (isProxyFaction(String(actor.faction)) && (actor.proxyOperation === undefined || actor.proxyTargets === undefined)) ||
       (actor.proxyOperation !== undefined && (!environment?.proxies || !actor.bot || !['freedom-force','collective-cops'].includes(String(actor.faction)) || typeof actor.proxyOperation !== 'string' || actor.proxyOperation !== (value.proxies as import('./proxy-operations').ProxySnapshot)?.operation?.id)) ||

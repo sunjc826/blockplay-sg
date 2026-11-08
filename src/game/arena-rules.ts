@@ -80,6 +80,7 @@ export interface ArenaActor {
   proxyOperation?: string;
   parachuting?: true;
   id: string; name: string; bot: boolean; x: number; y: number; z: number; yaw: number; pitch: number;
+  controlSeconds?: number;
   health: number; armor: number; kills: number; deaths: number; alive: boolean; rentalTimeMs?: number; respawnIn: number; weapon: number;
   swimming?: boolean;
   merlionSupply?: { serial: number; family: number };
@@ -3884,7 +3885,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const actors=[...members.values()].filter(m=>!m.reserve).map(m=>m.actor);
       const active=controlAt(elapsed,environment!.hardpoint!.sites).site;
       for(const entry of members.values())if(inControlSite(entry.actor,active))entry.shieldUntil=0;
-      hardpoint.step(previousElapsed,elapsed,actors);
+      hardpoint.step(previousElapsed,elapsed,actors,(actor,seconds)=>{const a=actor as ArenaActor;a.controlSeconds=Math.min(HARDPOINT_RULES.duration,(a.controlSeconds??0)+seconds);});
       const scores=hardpoint.scores();
       if(Math.max(scores.alpha,scores.bravo)>=HARDPOINT_RULES.scoreLimit){finished=true;winner=teamWinner(scores);announce(`${winner} wins · control limit`);}
     }
@@ -3924,7 +3925,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     vehicles = vehicleOptions ? VEHICLE_KINDS.filter(kind=>vehicleOptions.spawns[kind]).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind]!)) : [];
     if (facilities) for (const v of vehicles) { if(isDragonBoat(v.kind)) continue; const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
     if(teamArea) for(const entry of members.values())entry.actor.alive=false;
-    for (const entry of members.values()) { entry.actor.kills = 0; entry.actor.deaths = 0; entry.actor.shots = 0; delete entry.actor.merlionSupply; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
+    for (const entry of members.values()) { entry.actor.kills = 0; delete entry.actor.controlSeconds; entry.actor.deaths = 0; entry.actor.shots = 0; delete entry.actor.merlionSupply; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
     announce('New arena match');
   }
   const count = teamArea ? 0 : environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;

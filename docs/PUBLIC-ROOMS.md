@@ -116,3 +116,5 @@ width, simulated safe-area padding, touch movement/fire, pause/resume, scores,
 settings, host restart and leaving. Captures are saved in `.cache/public-rooms-mobile/`.
 
 Reference: [Cloudflare WebSocket hibernation](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
+
+For the Matches mode picker, persistent room/game views, loadout and presence flow, see [Matches menus](MATCHES-MENUS.md).

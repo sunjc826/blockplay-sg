@@ -12,6 +12,6 @@ export default function ArenaMatchGame(props: ComponentProps<typeof FpsGame> & {
     const timer=setTimeout(()=>setWaiting(true),8000);
     return ()=>{stop();clearTimeout(timer);};
   },[arena.session,arena.match]);
-  if(!match)return <section className="lan-lobby" role="status"><h2>Waiting for the host’s match</h2><p>{waiting?'The host needs to enter the match. You can stay here or return to the lobby.':'Receiving the mode and district area…'}</p><button onClick={props.onLeaveArena}>Return to lobby</button></section>;
+  if(!match)return <section className="lan-lobby" role="status"><h2>Waiting for the host’s match</h2><p>{waiting?'Waiting for the host’s connection. You can stay here or return to your room.':'Receiving the mode and district area…'}</p><button onClick={props.onReturnRoom??props.onLeaveArena}>{props.onReturnRoom?'Return to room':'Leave match'}</button></section>;
   return <FpsGame {...props} arena={{...arena,match}} region={match.mode!=='free-for-all'?tdmArea(match.area)!.region:'marina-bay'} />;
 }

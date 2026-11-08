@@ -75,12 +75,12 @@ it('plays a full real-district match: all objectives, combat, early rotations, s
    before=s;
   }
   expect([...scored].sort()).toEqual(['east','market','south']);expect(teams.size).toBe(2);expect(rotated.size).toBe(3);expect(respawns).toBeGreaterThan(8);
-  expect(before.finished).toBe(true);expect(before.actors.every(b=>b.shots>0)).toBe(true);
+  expect(before.actors.some(b=>(b.controlSeconds??0)>0)).toBe(true);expect(before.finished).toBe(true);expect(before.actors.every(b=>b.shots>0)).toBe(true);
   expect(before.winner).toBe(before.hardpoint!.scores.alpha===before.hardpoint!.scores.bravo?'Draw':before.hardpoint!.scores.alpha>before.hardpoint!.scores.bravo?'Alpha':'Bravo');
   expect(a.triggerEvent('mortar')).toBeNull();expect(a.facilityAction('bot-1','control-market')).toBe(false);
   for(const key of ['teamDeathmatch','facilities','vehicles','events','transports','heat','reinforcementClocks','proxies'])expect(before).not.toHaveProperty(key);
-  for(const mutate of [(s:typeof before)=>{s.hardpoint!.scores.alpha=NaN;},(s:typeof before)=>{s.hardpoint!.active='east';},(s:typeof before)=>{s.hardpoint!.contested=!s.hardpoint!.contested;},(s:typeof before)=>{s.hardpoint!.occupants.alpha++;},(s:typeof before)=>{delete s.actors[0].team;}]){const s=a.snapshot();mutate(s);expect(validArenaSnapshot(s,w.environment)).toBe(false);}
-  expect(validArenaSnapshot(before)).toBe(false);a.reset();expect(a.snapshot()).toMatchObject({elapsed:0,finished:false,hardpoint:{active:'market',scores:{alpha:0,bravo:0}}});expect(a.snapshot().actors.every(b=>b.alive)).toBe(true);
+  for(const mutate of [(s:typeof before)=>{s.hardpoint!.scores.alpha=NaN;},(s:typeof before)=>{s.hardpoint!.active='east';},(s:typeof before)=>{s.hardpoint!.contested=!s.hardpoint!.contested;},(s:typeof before)=>{s.hardpoint!.occupants.alpha++;},(s:typeof before)=>{delete s.actors[0].team;},(s:typeof before)=>{s.actors[0].controlSeconds=NaN;},(s:typeof before)=>{s.actors[0].controlSeconds=-1;},(s:typeof before)=>{s.actors[0].controlSeconds=HARDPOINT_RULES.duration+1;}]){const s=a.snapshot();mutate(s);expect(validArenaSnapshot(s,w.environment)).toBe(false);}
+  expect(validArenaSnapshot(before)).toBe(false);a.reset();expect(a.snapshot()).toMatchObject({elapsed:0,finished:false,hardpoint:{active:'market',scores:{alpha:0,bravo:0}}});expect(a.snapshot().actors.every(b=>b.alive && b.controlSeconds===undefined)).toBe(true);
  }finally{w.dispose();}
 });
 
@@ -110,4 +110,11 @@ it('finishes at 200 occupation points, retains earned points on departure and re
  expect(a.snapshot()).toMatchObject({elapsed:200,finished:true,winner:'Alpha',hardpoint:{scores:{alpha:200,bravo:0}}});
  a.removePlayer('one');expect(a.snapshot().hardpoint?.scores.alpha).toBe(200);
  a.reset();expect(a.snapshot()).toMatchObject({finished:false,hardpoint:{active:'market',scores:{alpha:0,bravo:0}}});
+});
+
+it('tracks each occupant’s uncontested contribution without multiplying team points',()=>{
+ const h=createHardpoint(),a=player('alpha'),b=player('alpha'),enemy=player('bravo'),held=new Map<ControlActor,number>();
+ const record=(actor:ControlActor,seconds:number)=>held.set(actor,(held.get(actor)??0)+seconds);
+ h.step(0,3,[a,b],record);h.step(3,7,[a,b,enemy],record);h.step(7,8,[b],record);
+ expect(h.scores().alpha).toBe(4);expect(held.get(a)).toBe(3);expect(held.get(b)).toBe(4);expect(held.has(enemy)).toBe(false);
 });
