@@ -4,7 +4,7 @@
   --menu-accent:#f4ad61; --menu-gold:#f4ad61; --menu-line:#ffffff26;
   background:#101315; color:var(--menu-ink);
 }
-.next-gen-main::after, .next-gen-activity::before {
+.next-gen-activity::before {
   content:''; position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(90deg,#101315eb,#101315a8 50%,#10131570),url('/images/menu/operations.jpg') center 44% / cover;
   opacity:.7;
@@ -115,6 +115,11 @@
 
 /* Home: two full-height play panels and a fixed-width, vertically split equipment column. */
 .game-menu.next-gen-main { --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
+.next-gen-panorama { --panorama-art:url('/images/menu/operations-hub.jpg'); position:absolute; inset:-1.5%; pointer-events:none; background:linear-gradient(180deg,#08101444,transparent 32%,#081014a0),var(--panorama-art) center / cover; filter:saturate(.95); transition:transform .9s cubic-bezier(.2,.75,.25,1),filter .7s; }
+.next-gen-main .next-gen-artwork::after { background:linear-gradient(180deg,transparent 25%,#07101328); opacity:.7; transition:opacity .4s; }
+.next-gen-main .next-gen-grid { display:none; }
+.next-gen-main .game-menu-item:is(:hover,:focus-visible) .next-gen-artwork::after { opacity:0; }
+.next-gen-main:has(.game-menu-item:focus-visible) .next-gen-panorama { transform:scale(1.025); filter:saturate(1.05); }
 .next-gen-main .game-menu-skyline { display:none; }
 .next-gen-main .game-menu-top { position:absolute; z-index:3; top:var(--home-top); left:var(--home-edge); right:var(--home-edge); padding:0; pointer-events:none; }
 .next-gen-main .game-menu-top .next-gen-account { pointer-events:auto; }
@@ -126,18 +131,16 @@
 .next-gen-main.is-title-shown .next-gen-account { visibility:hidden; }
 .next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:0; }
 .next-gen-home-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-.next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:6px; width:100%; min-height:0; }
-.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:6px; }
-.next-gen-main .game-menu-item { container-type:inline-size; flex:1 1 0; min-height:0; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:14px; padding:clamp(18px,2.3vw,34px); border-radius:2px; backdrop-filter:none; transform:none; animation:none; }
+.next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:0; width:100%; min-height:0; }
+.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:0; }
+.next-gen-main .game-menu-item { container-type:inline-size; flex:1 1 0; min-height:0; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:14px; padding:clamp(18px,2.3vw,34px); border-radius:0; border-color:#ffffff24; background:transparent; backdrop-filter:none; transform:none; animation:none; }
+.next-gen-main .game-menu-item:is(:hover,:focus-visible) { background:transparent; border-color:#f4ad61; }
 .next-gen-main .game-menu-item.is-tile { padding:clamp(16px,2vw,28px); gap:10px; }
 .next-gen-main .game-menu-item::before, .next-gen-main .game-menu-go { display:none; }
-.next-gen-main .game-menu-copy { flex:none; width:100%; }
+.next-gen-main .game-menu-copy { flex:none; width:100%; text-shadow:0 2px 14px #000b; }
 .next-gen-main .game-menu-copy strong { font:800 clamp(24px,11cqw,52px)/1.05 'Manrope',sans-serif; letter-spacing:-.045em; text-transform:uppercase; }
 .next-gen-main .game-menu-item.is-tile .game-menu-copy strong { font-size:clamp(20px,10cqw,32px); letter-spacing:-.035em; }
 .next-gen-main .game-menu-copy small { white-space:normal; line-height:1.5; color:#c5cecd; margin-top:12px; font-size:13px; max-width:30ch; }
-.next-gen-main .game-menu-item[data-scene='city'] .next-gen-image { background-size:auto 110%; }
-.next-gen-main .game-menu-item[data-scene='inventory'] .next-gen-image { background-image:url('/images/armory/rig-ilbv.webp'); background-size:auto 90%; background-repeat:no-repeat; background-position:center 0; opacity:.8; }
-.next-gen-main .game-menu-item[data-scene='store'] .next-gen-image { background-image:url('/images/armory/ult-issued.webp'); background-size:auto 95%; background-repeat:no-repeat; background-position:center 0; opacity:.85; }
 .next-gen-main .game-menu-item.is-chosen { border-color:#f4ad61; box-shadow:inset 0 0 0 1px #f4ad61; }
 .next-gen-main .game-menu-item.is-tile .next-gen-reticle { display:none; }
 .next-gen-main .game-menu-foot { position:absolute; z-index:3; bottom:var(--home-bottom); right:var(--home-edge); display:flex; justify-content:flex-end; gap:8px; font-size:10px; padding:0; min-height:44px; border:0; }
@@ -155,6 +158,7 @@
 .next-gen-main .next-gen-equipment > .game-menu-item:last-child { padding-bottom:calc(var(--home-bottom) + 72px); }
 @media (hover:hover) and (pointer:fine) and (min-width:701px) {
   .next-gen-main .game-menu-item:not(.is-tile):hover { flex-grow:1.2; }
+  .next-gen-main:has(.game-menu-item:hover) .next-gen-panorama { transform:scale(1.025); filter:saturate(1.05); }
 }
 @media (min-width:701px) {
   .next-gen-main .game-menu-item:not(.is-tile):focus-visible { flex-grow:1.2; }
@@ -164,7 +168,7 @@
   .next-gen-main .game-menu-item.is-tile { padding:16px; }
   .next-gen-main .game-menu-copy strong { font-size:clamp(20px,11cqw,40px); }
 }
-@media (max-width:700px) {
+@media (max-width:700px), (max-width:1000px) and (max-aspect-ratio:1/1) {
   .game-menu.next-gen-main { --home-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(12px,env(safe-area-inset-top)); --home-bottom:max(12px,env(safe-area-inset-bottom)); }
   .next-gen-main .game-menu-top { gap:8px; }
   .next-gen-account { gap:8px; }
@@ -183,8 +187,7 @@
   .next-gen-main .next-gen-index > span { font-size:8px; }
   .next-gen-main .game-menu-copy small { margin-top:8px; font-size:12px; max-width:30ch; }
   .next-gen-main .next-gen-enter { margin-top:12px; padding-top:10px; }
-  .next-gen-main .game-menu-item[data-scene='inventory'] .next-gen-image, .next-gen-main .game-menu-item[data-scene='store'] .next-gen-image { background-size:auto 150%; background-position:70% center; opacity:.45; }
-  .next-gen-main .game-menu-item[data-scene='city'] .next-gen-image { background-size:auto 180%; background-position:left 43%; }
+  .next-gen-panorama { --panorama-art:url('/images/menu/operations-hub-portrait.jpg'); background-position:center; }
   .next-gen-main .next-gen-home-panels > .game-menu-item { padding-bottom:18px; }
   .next-gen-main .next-gen-home-panels > .game-menu-item .next-gen-index { top:16px; }
   .next-gen-main .next-gen-home-panels > .game-menu-item:first-child .next-gen-index { top:calc(var(--home-top) + 64px); }
@@ -209,4 +212,6 @@
 @media (prefers-reduced-motion:reduce) {
   .next-gen-main .game-menu-item:not(.is-tile):is(:hover,:focus-visible) { flex-grow:1; }
   .next-gen-settings { transition:none; }
+  .next-gen-panorama { transition:none; transform:none !important; }
+  .next-gen-main .next-gen-artwork::after { transition:none; }
 }

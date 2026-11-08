@@ -149,11 +149,11 @@ function panelScene(route: Route) {
   return route.includes('hardpoint') ? 'objective' : route.includes('free-for-all') ? 'solo' : 'squad';
 }
 
-function PanelArtwork({ route, index }: { route: Route; index: number }) {
+function PanelArtwork({ route, index, shared = false }: { route: Route; index: number; shared?: boolean }) {
   const scene = panelScene(route);
   const caption = scene === 'city' ? 'EXPLORE' : route === 'multiplayer' || route === 'multiplayer-menu' ? 'CONNECT' : ['squad', 'solo', 'objective'].includes(scene) ? 'COMPETE' : 'PREPARE';
   return <span className="next-gen-artwork" aria-hidden="true">
-    <span className="next-gen-image" />
+    {!shared && <span className="next-gen-image" />}
     <span className="next-gen-grid" />
     <span className="next-gen-index">{String(index + 1).padStart(2, '0')}<span> / {caption}</span></span>
     <span className="next-gen-reticle" />
@@ -478,7 +478,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(entry.route)} style={{ '--i': index } as React.CSSProperties}
       onPointerEnter={hover} onFocus={focus}
       onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
-      {nextGen && <PanelArtwork route={entry.route} index={index} />}
+      {nextGen && <PanelArtwork route={entry.route} index={index} shared />}
       {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
       <entry.icon size={entry.mode ? 26 : 20} />
       <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small>{nextGen && <span className="next-gen-enter" aria-hidden="true">{entry.mode ? 'LET’S PLAY' : 'OPEN'} <ChevronRight size={16} /></span>}</span>
@@ -487,6 +487,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   };
 
   return <div className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}${nextGen ? ' next-gen-main' : ''}`}>
+    {nextGen && <div className="next-gen-panorama" aria-hidden="true" />}
     <Skyline />
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
       <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>

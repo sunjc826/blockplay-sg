@@ -44,7 +44,12 @@ async function overlaysFit() {
     return {visible,labels,level:level.width>0&&level.height>0&&level.top>=0&&level.bottom<90,bottomRight:footer.right>innerWidth-40&&footer.bottom>innerHeight-32};
   })()`);
   assert.deepEqual(geometry,{visible:true,labels:true,level:true,bottomRight:true});
-  assert(await evaluate(`innerWidth>700 || (()=>{const labels=[...document.querySelectorAll('.next-gen-equipment strong')].map(e=>e.getBoundingClientRect());return Math.abs(labels[0].bottom-labels[1].bottom)<1})()`), 'Phone equipment labels align above the floating controls');
+  assert(await evaluate(`getComputedStyle(document.querySelector('.next-gen-home-panels')).display!=='grid' || (()=>{const labels=[...document.querySelectorAll('.next-gen-equipment strong')].map(e=>e.getBoundingClientRect());return Math.abs(labels[0].bottom-labels[1].bottom)<1})()`), 'Phone equipment labels align above the floating controls');
+}
+async function panoramaFits() {
+  assert(await evaluate(`document.querySelectorAll('.next-gen-panorama').length===1 && !document.querySelector('.next-gen-main .next-gen-image')`), 'All home panes share one continuous artwork layer');
+  assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)')`), 'All actions reveal the shared panorama');
+  await evaluate(`(async()=>{const stacked=getComputedStyle(document.querySelector('.next-gen-home-panels')).display==='grid';const name=stacked?'operations-hub-portrait.jpg':'operations-hub.jpg';const background=getComputedStyle(document.querySelector('.next-gen-panorama')).backgroundImage;if(!background.includes(name))throw Error('Wrong panorama for layout');const image=new Image();image.src='/images/menu/'+name;await image.decode()})()`);
 }
 try {
   await send('Page.enable'); await send('Runtime.enable'); await size(1440,900);
@@ -58,7 +63,7 @@ try {
   assert(await evaluate(`!!document.querySelector('.next-gen-main')`), 'Preference survives navigation/reload');
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-item')].map(a=>a.getAttribute('href'))`), ['/play/single-player','/play/multiplayer','/store','/inventory']);
   assert(await evaluate(`!!document.querySelector('.game-menu-top a[aria-label="Settings"]') && !document.querySelector('.game-menu-item[href="/settings"]')`));
-  await fits(); await overlaysFit();
+  await fits(); await overlaysFit(); await panoramaFits();
   const first = '.game-menu-item[href="/play/single-player"]';
   const gear = await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent', {type:'mouseMoved',...gear}); await delay(800);
@@ -72,6 +77,9 @@ try {
   const equipmentBefore = await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`);
   await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:1250,y:250}); await delay(700);
   assert.deepEqual(await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`), equipmentBefore, 'Equipment column stays stable on hover');
+  await panoramaFits();
+  assert(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transform!=='none'`), 'Store hover animates the shared scene');
+  await shot('desktop-store-hover');
   await evaluate(`document.querySelector('${first}').focus()`); await key('ArrowRight');
   assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/multiplayer');
   await key('End'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/inventory');
@@ -101,11 +109,14 @@ try {
   await shot('desktop-multiplayer');
   await click('.activity-card[href="/play/multiplayer/team-deathmatch"]'); await wait(`!!document.querySelector('.starting-picker')`);
   await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await home(); await evaluate(`document.querySelector('.game-menu-item[href="/inventory"]').focus()`);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transform`), 'none');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transitionDuration`), '0s');
   await go('/play', '.next-gen-panel');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-image')).transitionDuration`), '0s');
   await send('Emulation.setEmulatedMedia', {features:[]});
-  for (const [width,height,mobile] of [[320,568,true],[390,844,true],[844,390,true],[1024,768,false]]) {
-    await size(width,height,mobile); await home(); await fits(); await overlaysFit();
+  for (const [width,height,mobile] of [[320,568,true],[390,844,true],[768,1024,true],[844,390,true],[1024,768,false]]) {
+    await size(width,height,mobile); await home(); await fits(); await overlaysFit(); await panoramaFits();
     assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})`), `${width}: home actions fit viewport`);
     await shot(`home-${width}`);
     assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
