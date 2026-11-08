@@ -5,11 +5,20 @@ Next-gen. The choice is local to the browser and survives reloads. Both designs
 use the same routes, saved profile and game setup. The setting is also available
 in the existing in-game Settings overlay.
 
-Next-gen covers the home screen and the Play, Single Player, Multiplayer and
-Training selectors. Tall panels expand on desktop hover and keyboard focus;
-native links retain Tab, Enter and modified clicks. Arrow keys, Home and End
-move between activity panels. Phone panels stack, and reduced motion removes
-zoom, expansion and animation. No new audio generation or gameplay changes.
+Next-gen puts Single Player and Multiplayer directly on the home screen in
+near-full-height panels, alongside a narrower column split into Store and
+Inventory. Settings is a gear in the header. The two play panels expand gently
+on hover/focus; the equipment column keeps its width and equal-height tiles.
+Back from either mode selector returns to the main menu. Classic retains its
+Play → Single Player / Multiplayer hierarchy, and `/play` remains accessible.
+
+Next-gen also covers the Play, Single Player, Multiplayer and Training
+selectors. Native links retain Tab, Enter and modified clicks. Arrow keys,
+Home and End move between panels. Phone home layouts stack the play panels
+over side-by-side Store/Inventory tiles. Reduced motion removes zoom,
+expansion and animation. Installation is available in the footer; manual
+installation help expands on request. No new artwork, audio or gameplay
+changes in the three-column revision.
 
 Verification: `pnpm test:menu-design` with Vite and Chrome CDP at the same
 FPS_APP_ORIGIN / FPS_CHROME_ORIGIN used by `test:menu-navigation`. Screenshots

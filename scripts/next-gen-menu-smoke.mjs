@@ -37,27 +37,46 @@ try {
   await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true});
   await selectDesign('classic'); await home();
   assert(await evaluate(`!document.querySelector('.next-gen-main')`));
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-item')].map(a=>a.getAttribute('href'))`), ['/play','/inventory','/store','/settings']);
   await go('/play', '.activity-grid');
   assert(await evaluate(`!document.querySelector('.next-gen-panel')`));
   await selectDesign('next-gen'); await home();
   assert(await evaluate(`!!document.querySelector('.next-gen-main')`), 'Preference survives navigation/reload');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-item')].map(a=>a.getAttribute('href'))`), ['/play/single-player','/play/multiplayer','/store','/inventory']);
+  assert(await evaluate(`!!document.querySelector('.game-menu-top a[aria-label="Settings"]') && !document.querySelector('.game-menu-item[href="/settings"]')`));
   await fits(); await shot('desktop-home');
-  await click('.game-menu-item[href="/play"]'); await wait(`!!document.querySelector('.next-gen-panels')`);
-  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/play/single-player','/play/multiplayer']);
-  const first = '.activity-card[href="/play/single-player"]';
+  assert(await evaluate(`document.querySelector('.next-gen-home-panels').getBoundingClientRect().height > innerHeight * .8`), 'Panels occupy the available vertical space');
+  const first = '.game-menu-item[href="/play/single-player"]';
   await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:10,y:10}); await delay(800);
   const before = await evaluate(`document.querySelector('${first}').getBoundingClientRect().width`);
   const point = await evaluate(`(()=>{const r=document.querySelector('${first}').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent', {type:'mouseMoved',...point}); await delay(800);
   const after = await evaluate(`document.querySelector('${first}').getBoundingClientRect().width`);
-  assert(after > before + 40, `Hover expands a stripe: ${before} → ${after}`);
-  await shot('desktop-play-hover');
+  assert(after > before + 20, `Hover expands a stripe: ${before} → ${after}`);
+  await shot('desktop-home-hover');
+  const equipmentBefore = await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`);
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:1250,y:250}); await delay(700);
+  assert.deepEqual(await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`), equipmentBefore, 'Equipment column stays stable on hover');
   await evaluate(`document.querySelector('${first}').focus()`); await key('ArrowRight');
   assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/multiplayer');
+  await key('End'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/inventory');
   await key('Home'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
   await key('Enter'); await wait(`location.pathname==='/play/single-player'`); await delay(600);
   await fits(); await shot('desktop-single-player');
   assert.equal(await evaluate(`document.querySelectorAll('.activity-card').length`), 5);
+  assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/');
+  await click('.activity-navigation a'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
+  assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
+  for (const [route,selector] of [['/store','.armory'],['/inventory','.inventory'],['/settings','.armory-settings']]) {
+    await click(route==='/settings' ? '.next-gen-settings' : `.game-menu-item[href="${route}"]`);
+    await wait(`location.pathname===${JSON.stringify(route)} && !!document.querySelector(${JSON.stringify(selector)})`);
+    await click('.context-back'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
+    assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), route);
+  }
+  await click('.game-menu-item[href="/play/multiplayer"]'); await wait(`location.pathname==='/play/multiplayer'`);
+  assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/');
+  await click('.activity-navigation a'); await wait(`location.pathname==='/'`);
+  await click('.game-menu-item[href="/play/single-player"]'); await wait(`location.pathname==='/play/single-player'`);
   await click('.activity-card[href="/play/training"]'); await wait(`location.pathname==='/play/training'`);
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/training','/tutorial']);
   await click('.activity-navigation a'); await wait(`location.pathname==='/play/single-player'`);
@@ -74,17 +93,31 @@ try {
     await size(width,height,mobile); await home(); await fits();
     assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})`), `${width}: home actions fit viewport`);
     await shot(`home-${width}`);
-    await click('.game-menu-item[href="/play"]',mobile); await wait(`!!document.querySelector('.next-gen-panels')`);
-    await fits(); await shot(`play-${width}`);
-    await click('.activity-card[href="/play/single-player"]',mobile); await wait(`location.pathname==='/play/single-player'`);
+    assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
+    await click('.game-menu-item[href="/play/single-player"]',mobile); await wait(`location.pathname==='/play/single-player'`);
     await fits(); await shot(`solo-${width}`);
     await click('.activity-card[href="/play/free-for-all"]',mobile); await wait(`!!document.querySelector('.solo-setup')`);
     await go('/play/multiplayer', '.next-gen-panels'); await fits(); await shot(`multiplayer-${width}`);
   }
+  // Simulate Safari's manual install capability without invoking a native install prompt.
+  const manual = await send('Page.addScriptToEvaluateOnNewDocument', {source:`Object.defineProperty(navigator,'standalone',{value:false,configurable:true});window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();e.stopImmediatePropagation()})`});
+  for (const [width,height] of [[320,568],[844,390]]) {
+    await size(width,height,true); await home();
+    await click('.next-gen-install',true); await wait(`!!document.querySelector('.game-install-card')`);
+    await click('.game-install-go',true);
+    assert(await evaluate(`document.querySelector('.game-install-copy').textContent.includes('Add to Home Screen')`));
+    await fits();
+    assert(await evaluate(`[...document.querySelectorAll('.game-menu-item,.game-install-card')].every(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})`), 'Install help and all menu actions fit');
+    await shot(`install-help-${width}`);
+    await click('.game-install-hide',true); await wait(`!document.querySelector('.game-install-card')`);
+    assert.equal(await evaluate(`document.activeElement.classList.contains('next-gen-install')`), true);
+  }
+  await send('Page.removeScriptToEvaluateOnNewDocument', {identifier:manual.identifier});
   await selectDesign('classic'); await home();
   assert(await evaluate(`!document.querySelector('.next-gen-main')`), 'Classic can be restored');
   await go('/play/single-player', '.activity-grid');
   assert(await evaluate(`!document.querySelector('.next-gen-panel') && document.querySelectorAll('.activity-card').length===5`));
+  assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/play');
   assert.deepEqual(errors, []);
   console.log('PASS: both designs, persisted switch, hover expansion, keyboard navigation, solo/host routes, reduced motion and responsive touch layouts.');
 } catch (error) { console.error(error); await shot('failure').catch(()=>{}); process.exitCode=1; }

@@ -50,6 +50,13 @@ const ENTRIES = [
   { route: 'settings', icon: Settings, title: 'Settings', detail: 'Difficulty, display and profile', mode: false },
 ] as const;
 
+const NEXT_GEN_ENTRIES = [
+  { route: 'single-player', icon: Play, title: 'Single Player', detail: 'Explore Singapore, train, or take on the bots.', mode: true },
+  { route: 'multiplayer-menu', icon: Users, title: 'Multiplayer', detail: 'Host a match. Find your squad. Play together.', mode: true },
+  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear up for your next run.', mode: false },
+  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment. Your loadout.', mode: false },
+] as const;
+
 /** Remembers the last district picked on each screen; storage may be unavailable. */
 function useDistrict(key: string, allowed: readonly string[]) {
   const [id, setId] = useState<WorldZoneId>(() => {
@@ -104,9 +111,10 @@ const ACTIVITY_MENUS = {
 function ActivityMenu({ screen }: { screen: ActivityScreen }) {
   const { back, title, activities } = ACTIVITY_MENUS[screen];
   const nextGen = useMenuDesign() === 'next-gen';
+  const parent = nextGen && (screen === 'single-player' || screen === 'multiplayer-menu') ? 'menu' : back;
   return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <main className="activity-main">
-      <div className="activity-navigation"><BackLink to={back} />{nextGen && <><span className="next-gen-wordmark">blockplaySG<span>.</span></span><a className="play-nav-back" {...link('settings')}><Settings size={16} /> Settings</a></>}</div>
+      <div className="activity-navigation"><BackLink to={parent} />{nextGen && <><span className="next-gen-wordmark">blockplaySG<span>.</span></span><a className="play-nav-back" {...link('settings')}><Settings size={16} /> Settings</a></>}</div>
       <header><span className="starting-eyebrow">{nextGen ? 'SINGAPORE / OPERATIONS' : 'PLAY'}</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}{nextGen && screen === 'play' && <p>Your city. Your rules. Choose your next move.</p>}</header>
       <nav className={`activity-grid${nextGen ? ' next-gen-panels' : ''}`} aria-label={title} onKeyDown={nextGen ? panelKeys : undefined}>
         {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
@@ -367,6 +375,9 @@ const TITLE_LEAVE_MS = 900;
 
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
   const nextGen = useMenuDesign() === 'next-gen';
+  const entries = nextGen ? NEXT_GEN_ENTRIES : ENTRIES;
+  const [installExpanded, setInstallExpanded] = useState(false);
+  const installButton = useRef<HTMLButtonElement>(null);
   const [installHidden, hideInstall] = useInstallCard();
   const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -435,16 +446,18 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   // (left and right too, for the row of tiles).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.key.startsWith('Arrow') || event.altKey || event.ctrlKey || event.metaKey) return;
-      event.preventDefault();
+      if ((!event.key.startsWith('Arrow') && !(nextGen && ['Home', 'End'].includes(event.key))) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const at = items.current.findIndex(item => item === document.activeElement);
+      // Header and install controls keep their native keyboard behavior.
+      if (nextGen && at < 0 && document.activeElement?.closest('a,button,input,select,textarea')) return;
+      event.preventDefault();
       const down = event.key === 'ArrowDown' || event.key === 'ArrowRight';
-      const next = at < 0 ? (down ? 0 : ENTRIES.length - 1) : (at + (down ? 1 : -1) + ENTRIES.length) % ENTRIES.length;
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : at < 0 ? (down ? 0 : entries.length - 1) : (at + (down ? 1 : -1) + entries.length) % entries.length;
       items.current[next]?.focus();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [nextGen, entries]);
   const press = (index: number, event: React.PointerEvent<HTMLAnchorElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     setRipple({ index, x: event.clientX - box.left, y: event.clientY - box.top, key: event.timeStamp });
@@ -452,7 +465,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   const choose = (index: number, event: React.MouseEvent) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
-    const entry = ENTRIES[index];
+    const entry = entries[index];
     if (!transitionTo(entry.route)) return;
     playMenuSound('click');
     setChosen(index);
@@ -460,7 +473,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   };
 
   const item = (index: number) => {
-    const entry = ENTRIES[index];
+    const entry = entries[index];
     return <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
       className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(entry.route)} style={{ '--i': index } as React.CSSProperties}
       onPointerEnter={hover} onFocus={focus}
@@ -480,16 +493,28 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     </button>}
     <header className="game-menu-top">
       <span ref={brand} className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
-      {profile}
+      {nextGen ? <div className="next-gen-account">{profile}<a className="next-gen-settings" {...link('settings')} aria-label="Settings" title="Settings" onPointerEnter={hover} onFocus={focus} onClick={event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        playMenuSound('click'); link('settings').onClick(event);
+      }}><Settings size={20} aria-hidden="true" /></a></div> : profile}
     </header>
 
     <main className="game-menu-main">
-      <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
-      <nav className="game-menu-list" aria-label="Main menu">
-        <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
-        <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
-        {installable && !installHidden && <InstallCard install={install} onHide={hideInstall} sounds={{ onPointerEnter: hover, onFocus: focus }} />}
-      </nav>
+      {nextGen ? <>
+        <h1 className="next-gen-home-heading">Main menu</h1>
+        <nav className="game-menu-list next-gen-home-panels" aria-label="Main menu">
+          {item(0)}{item(1)}
+          <div className="next-gen-equipment" role="group" aria-label="Equipment">{item(2)}{item(3)}</div>
+        </nav>
+        {installable && installExpanded && <InstallCard install={install} onHide={() => { setInstallExpanded(false); installButton.current?.focus(); }} sounds={{ onPointerEnter: hover, onFocus: focus }} />}
+      </> : <>
+        <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
+        <nav className="game-menu-list" aria-label="Main menu">
+          <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
+          <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
+          {installable && !installHidden && <InstallCard install={install} onHide={hideInstall} sounds={{ onPointerEnter: hover, onFocus: focus }} />}
+        </nav>
+      </>}
     </main>
 
     <footer className="game-menu-foot">
@@ -499,7 +524,10 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       }}><Wrench size={13} /> Debug</a>
       <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
       <span className="game-menu-edition">
-        {install.canInstall && installHidden && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
+        {nextGen && installable ? <button ref={installButton} className="game-install next-gen-install" aria-expanded={install.canInstall ? undefined : installExpanded} onPointerEnter={hover} onFocus={focus} onClick={() => {
+          playMenuSound('click');
+          if (install.canInstall) void pwa.install(); else setInstallExpanded(open => !open);
+        }}><Download size={13} /> {install.openInApp ? 'App info' : 'Install'}</button> : install.canInstall && installHidden && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
         <span>SG / 2026 — PROTOTYPE 01</span>
       </span>
     </footer>
