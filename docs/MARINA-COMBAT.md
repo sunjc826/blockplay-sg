@@ -354,8 +354,8 @@ disconnected or paused operators cannot leave a permanently firing cannon.
 Mist consumes 40% of the same pressure reserve and lasts 4.5 seconds in a cone
 extending 12m ahead of the mouth, widening to a 7m radius. The cone follows the
 statue's aim, has a visible rim and drifting mist, and shares a 22-second cooldown.
-Anyone inside is affected, including allies; the operator and allies behind the
-statue stay clear. Authority sight checks use the same cone. Mist does not block
+Anyone inside is affected, including allies; actors behind the statue stay
+clear. Authority sight checks use the same cone. Mist does not block
 bullets.
 
 A bright ring marks the cannon endpoint, with droplets splashing on contact.
