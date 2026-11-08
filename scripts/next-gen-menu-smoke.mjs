@@ -32,6 +32,20 @@ async function fits() {
   const overflow = await evaluate(`[...document.querySelectorAll('.activity-copy,.game-menu-copy')].map(e=>({text:e.textContent,scroll:e.scrollWidth,client:e.clientWidth})).filter(e=>e.scroll>e.client+1)`);
   assert.deepEqual(overflow, [], 'Card text fits (decorative art intentionally bleeds)');
 }
+async function overlaysFit() {
+  assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-home-panels').getBoundingClientRect();return Math.abs(r.top)<1&&Math.abs(r.bottom-innerHeight)<1})()`), 'Panels reach both vertical viewport edges');
+  assert(await evaluate(`!document.querySelector('.game-menu-hint')`), 'No keyboard hint on Next-gen home');
+  const geometry = await evaluate(`(()=>{
+    const controls=[...document.querySelectorAll('.next-gen-settings,.next-gen-install,.game-debug-link')];
+    const visible=controls.every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))});
+    const footer=document.querySelector('.game-menu-foot').getBoundingClientRect();
+    const level=document.querySelector('.game-rank-copy small').getBoundingClientRect();
+    const labels=[...document.querySelectorAll('.game-menu-copy')].every(e=>{const r=e.getBoundingClientRect();return e.closest('a').contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))});
+    return {visible,labels,level:level.width>0&&level.height>0&&level.top>=0&&level.bottom<90,bottomRight:footer.right>innerWidth-40&&footer.bottom>innerHeight-32};
+  })()`);
+  assert.deepEqual(geometry,{visible:true,labels:true,level:true,bottomRight:true});
+  assert(await evaluate(`innerWidth>700 || (()=>{const labels=[...document.querySelectorAll('.next-gen-equipment strong')].map(e=>e.getBoundingClientRect());return Math.abs(labels[0].bottom-labels[1].bottom)<1})()`), 'Phone equipment labels align above the floating controls');
+}
 try {
   await send('Page.enable'); await send('Runtime.enable'); await size(1440,900);
   await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true});
@@ -44,10 +58,11 @@ try {
   assert(await evaluate(`!!document.querySelector('.next-gen-main')`), 'Preference survives navigation/reload');
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-item')].map(a=>a.getAttribute('href'))`), ['/play/single-player','/play/multiplayer','/store','/inventory']);
   assert(await evaluate(`!!document.querySelector('.game-menu-top a[aria-label="Settings"]') && !document.querySelector('.game-menu-item[href="/settings"]')`));
-  await fits(); await shot('desktop-home');
-  assert(await evaluate(`document.querySelector('.next-gen-home-panels').getBoundingClientRect().height > innerHeight * .8`), 'Panels occupy the available vertical space');
+  await fits(); await overlaysFit();
   const first = '.game-menu-item[href="/play/single-player"]';
-  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:10,y:10}); await delay(800);
+  const gear = await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',...gear}); await delay(800);
+  await shot('desktop-home');
   const before = await evaluate(`document.querySelector('${first}').getBoundingClientRect().width`);
   const point = await evaluate(`(()=>{const r=document.querySelector('${first}').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await send('Input.dispatchMouseEvent', {type:'mouseMoved',...point}); await delay(800);
@@ -90,7 +105,7 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-image')).transitionDuration`), '0s');
   await send('Emulation.setEmulatedMedia', {features:[]});
   for (const [width,height,mobile] of [[320,568,true],[390,844,true],[844,390,true],[1024,768,false]]) {
-    await size(width,height,mobile); await home(); await fits();
+    await size(width,height,mobile); await home(); await fits(); await overlaysFit();
     assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})`), `${width}: home actions fit viewport`);
     await shot(`home-${width}`);
     assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
@@ -104,6 +119,7 @@ try {
   for (const [width,height] of [[320,568],[844,390]]) {
     await size(width,height,true); await home();
     await click('.next-gen-install',true); await wait(`!!document.querySelector('.game-install-card')`);
+    assert(await evaluate(`document.querySelector('.next-gen-home-panels').getBoundingClientRect().height===innerHeight`), 'Install help overlays rather than shrinking the panels');
     await click('.game-install-go',true);
     assert(await evaluate(`document.querySelector('.game-install-copy').textContent.includes('Add to Home Screen')`));
     await fits();

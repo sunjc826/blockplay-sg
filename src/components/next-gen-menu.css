@@ -114,16 +114,17 @@
 }
 
 /* Home: two full-height play panels and a fixed-width, vertically split equipment column. */
-.game-menu.next-gen-main { padding-left:max(24px,2.5vw,env(safe-area-inset-left)); padding-right:max(24px,2.5vw,env(safe-area-inset-right)); }
+.game-menu.next-gen-main { --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
 .next-gen-main .game-menu-skyline { display:none; }
-.next-gen-main .game-menu-top { flex:none; padding:18px 0; }
+.next-gen-main .game-menu-top { position:absolute; z-index:3; top:var(--home-top); left:var(--home-edge); right:var(--home-edge); padding:0; pointer-events:none; }
+.next-gen-main .game-menu-top .next-gen-account { pointer-events:auto; }
 .next-gen-account { display:flex; align-items:center; gap:12px; min-width:0; }
-.next-gen-main .game-profile { background:#111719b3; border-radius:2px; }
-.next-gen-settings { display:grid; place-items:center; flex:none; width:44px; height:44px; border:1px solid #ffffff26; border-radius:2px; color:#d5dbd6; background:#ffffff05; transition:color .2s,border-color .2s; }
+.next-gen-main .game-profile { background:#111719e6; border-radius:2px; backdrop-filter:blur(12px); }
+.next-gen-settings { display:grid; place-items:center; flex:none; width:44px; height:44px; border:1px solid #ffffff26; border-radius:2px; color:#d5dbd6; background:#111719e6; backdrop-filter:blur(12px); transition:color .2s,border-color .2s; }
 .next-gen-settings:is(:hover,:focus-visible) { color:#f4ad61; border-color:#f4ad61; }
 .next-gen-settings:focus-visible { outline:2px solid #f4ad61; outline-offset:3px; }
 .next-gen-main.is-title-shown .next-gen-account { visibility:hidden; }
-.next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:10px; padding:0 0 16px; }
+.next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:0; }
 .next-gen-home-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:6px; width:100%; min-height:0; }
 .next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:6px; }
@@ -139,12 +140,19 @@
 .next-gen-main .game-menu-item[data-scene='store'] .next-gen-image { background-image:url('/images/armory/ult-issued.webp'); background-size:auto 95%; background-repeat:no-repeat; background-position:center 0; opacity:.85; }
 .next-gen-main .game-menu-item.is-chosen { border-color:#f4ad61; box-shadow:inset 0 0 0 1px #f4ad61; }
 .next-gen-main .game-menu-item.is-tile .next-gen-reticle { display:none; }
-.next-gen-main .game-menu-foot { flex:none; display:flex; font-size:10px; padding:8px 0 max(12px,env(safe-area-inset-bottom)); min-height:44px; }
-.next-gen-main .game-install-card { flex:none; border-radius:2px; margin:0; padding:8px 12px; }
+.next-gen-main .game-menu-foot { position:absolute; z-index:3; bottom:var(--home-bottom); right:var(--home-edge); display:flex; justify-content:flex-end; gap:8px; font-size:10px; padding:0; min-height:44px; border:0; }
+.next-gen-main .game-debug-link { order:2; min-height:44px; padding:0 12px; color:#d5dbd6; border-radius:2px; background:#111719e6; backdrop-filter:blur(12px); }
+.next-gen-main .game-menu-edition { order:1; }
+.next-gen-main .game-install-card { position:absolute; z-index:4; bottom:calc(var(--home-bottom) + 56px); right:var(--home-edge); width:min(440px,calc(100% - var(--home-edge) * 2)); border-radius:2px; margin:0; padding:12px; background:#111719f5; box-shadow:0 12px 40px #0008; }
 .next-gen-main .game-install-icon { width:30px; height:30px; border-radius:2px; }
 .next-gen-main .game-install-copy strong { font-size:14px; }
 .next-gen-main .game-install-copy small { font-size:11px; }
-.next-gen-main .next-gen-install { display:flex; align-items:center; gap:6px; min-height:32px; }
+.next-gen-main .next-gen-install { display:flex; align-items:center; gap:6px; min-height:44px; padding:0 12px; border-radius:2px; color:#d5dbd6; background:#111719e6; backdrop-filter:blur(12px); }
+/* Keep panel labels clear of the floating controls without shrinking the artwork. */
+.next-gen-main .next-gen-home-panels > .game-menu-item .next-gen-index,
+.next-gen-main .next-gen-equipment > .game-menu-item:first-child .next-gen-index { top:calc(var(--home-top) + 76px); }
+.next-gen-main .next-gen-home-panels > .game-menu-item,
+.next-gen-main .next-gen-equipment > .game-menu-item:last-child { padding-bottom:calc(var(--home-bottom) + 72px); }
 @media (hover:hover) and (pointer:fine) and (min-width:701px) {
   .next-gen-main .game-menu-item:not(.is-tile):hover { flex-grow:1.2; }
 }
@@ -157,14 +165,15 @@
   .next-gen-main .game-menu-copy strong { font-size:clamp(20px,11cqw,40px); }
 }
 @media (max-width:700px) {
-  .game-menu.next-gen-main { padding-left:max(16px,env(safe-area-inset-left)); padding-right:max(16px,env(safe-area-inset-right)); }
-  .next-gen-main .game-menu-top { padding:12px 0; gap:8px; }
+  .game-menu.next-gen-main { --home-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(12px,env(safe-area-inset-top)); --home-bottom:max(12px,env(safe-area-inset-bottom)); }
+  .next-gen-main .game-menu-top { gap:8px; }
   .next-gen-account { gap:8px; }
   .next-gen-main .game-profile { padding:5px 7px; }
-  .next-gen-main .game-profile .game-rank, .next-gen-main .game-profile .game-wallet:last-child { display:none; }
-  .next-gen-main .game-menu-list { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,1fr) minmax(100px,.65fr); }
+  .next-gen-main .game-profile .game-rank, .next-gen-main .game-profile .game-wallet, .next-gen-main .game-profile .game-rank-copy strong, .next-gen-main .game-profile-xp { display:none; }
+  .next-gen-main .game-profile .game-rank-copy { display:block; }
+  .next-gen-main .game-profile .game-rank-copy small { font-size:11px; }
+  .next-gen-main .game-menu-list { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,1fr) minmax(154px,.65fr); }
   .next-gen-equipment { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:minmax(0,1fr); }
-  .next-gen-main .game-menu-main { padding-bottom:8px; }
   .next-gen-main .game-menu-item, .next-gen-main .game-menu-item.is-tile { padding:18px; gap:8px; }
   .next-gen-main .game-menu-copy strong { font-size:clamp(24px,8.5cqw,36px); }
   .next-gen-main .game-menu-item.is-tile .game-menu-copy strong { font-size:clamp(16px,13cqw,24px); }
@@ -176,7 +185,11 @@
   .next-gen-main .next-gen-enter { margin-top:12px; padding-top:10px; }
   .next-gen-main .game-menu-item[data-scene='inventory'] .next-gen-image, .next-gen-main .game-menu-item[data-scene='store'] .next-gen-image { background-size:auto 150%; background-position:70% center; opacity:.45; }
   .next-gen-main .game-menu-item[data-scene='city'] .next-gen-image { background-size:auto 180%; background-position:left 43%; }
-  .next-gen-main .game-menu-foot { min-height:40px; padding-top:6px; }
+  .next-gen-main .next-gen-home-panels > .game-menu-item { padding-bottom:18px; }
+  .next-gen-main .next-gen-home-panels > .game-menu-item .next-gen-index { top:16px; }
+  .next-gen-main .next-gen-home-panels > .game-menu-item:first-child .next-gen-index { top:calc(var(--home-top) + 64px); }
+  .next-gen-main .next-gen-home-panels > .game-menu-item:first-child > svg { top:calc(var(--home-top) + 64px); }
+  .next-gen-main .next-gen-equipment > .game-menu-item.is-tile { padding-bottom:calc(var(--home-bottom) + 64px); }
 }
 @media (max-height:650px) and (max-width:700px) {
   .next-gen-main .game-menu-item, .next-gen-main .game-menu-item.is-tile { padding:12px 16px; }
@@ -186,8 +199,6 @@
   .next-gen-main .next-gen-enter { margin-top:8px; padding-top:7px; }
 }
 @media (max-height:600px) and (min-width:701px) {
-  .next-gen-main .game-menu-top { padding:10px 0; }
-  .next-gen-main .game-menu-main { padding-bottom:8px; }
   .next-gen-main .game-menu-item, .next-gen-main .game-menu-item.is-tile { padding:16px; }
   .next-gen-main .game-menu-item.is-tile > svg, .next-gen-main .game-menu-item.is-tile .next-gen-index, .next-gen-main .game-menu-copy small { display:none; }
   .next-gen-main .game-menu-item.is-tile .next-gen-enter { margin-top:10px; padding-top:8px; }

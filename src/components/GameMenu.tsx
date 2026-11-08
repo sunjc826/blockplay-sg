@@ -259,7 +259,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   const profile = <div className="game-profile" aria-label="Your profile">
     <span className="game-rank" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /></span>
-    <span className="game-rank-copy"><strong>{insignia.label}</strong><small>LV {level.level} · {level.xp.toLocaleString()} XP</small></span>
+    <span className="game-rank-copy"><strong>{insignia.label}</strong><small>LV {level.level}<span className="game-profile-xp"> · {level.xp.toLocaleString()} XP</span></small></span>
     <span className="game-wallet" title="Credits"><Coins size={14} /><b>{armory.profile.credits.toLocaleString()}</b><small>CR</small></span>
     <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
   </div>;
@@ -522,13 +522,13 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         playMenuSound('click'); link('debug', true).onClick(event);
       }}><Wrench size={13} /> Debug</a>
-      <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>
+      {!nextGen && <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>}
       <span className="game-menu-edition">
         {nextGen && installable ? <button ref={installButton} className="game-install next-gen-install" aria-expanded={install.canInstall ? undefined : installExpanded} onPointerEnter={hover} onFocus={focus} onClick={() => {
           playMenuSound('click');
           if (install.canInstall) void pwa.install(); else setInstallExpanded(open => !open);
         }}><Download size={13} /> {install.openInApp ? 'App info' : 'Install'}</button> : install.canInstall && installHidden && <button className="game-install" onPointerEnter={hover} onFocus={focus} onClick={() => { playMenuSound('click'); void pwa.install(); }}><Download size={13} /> Install</button>}
-        <span>SG / 2026 — PROTOTYPE 01</span>
+        {!nextGen && <span>SG / 2026 — PROTOTYPE 01</span>}
       </span>
     </footer>
   </div>;

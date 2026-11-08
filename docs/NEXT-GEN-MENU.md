@@ -6,8 +6,11 @@ use the same routes, saved profile and game setup. The setting is also available
 in the existing in-game Settings overlay.
 
 Next-gen puts Single Player and Multiplayer directly on the home screen in
-near-full-height panels, alongside a narrower column split into Store and
-Inventory. Settings is a gear in the header. The two play panels expand gently
+full-viewport-height panels, alongside a narrower column split into Store and
+Inventory. Profile/level and Settings float over the top of the artwork, with
+Install and Debug together at the bottom right. The keyboard hint and edition
+caption are omitted on Next-gen home; keyboard navigation still works.
+Panel labels stay clear of these controls. The two play panels expand gently
 on hover/focus; the equipment column keeps its width and equal-height tiles.
 Back from either mode selector returns to the main menu. Classic retains its
 Play → Single Player / Multiplayer hierarchy, and `/play` remains accessible.
@@ -17,7 +20,7 @@ selectors. Native links retain Tab, Enter and modified clicks. Arrow keys,
 Home and End move between panels. Phone home layouts stack the play panels
 over side-by-side Store/Inventory tiles. Reduced motion removes zoom,
 expansion and animation. Installation is available in the footer; manual
-installation help expands on request. No new artwork, audio or gameplay
+installation help floats above the bottom controls on request. No new artwork, audio or gameplay
 changes in the three-column revision.
 
 Verification: `pnpm test:menu-design` with Vite and Chrome CDP at the same
