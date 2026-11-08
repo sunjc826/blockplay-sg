@@ -269,7 +269,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         <EnvironmentControls />
         {hud.phase === 'ready' && <details className="play-panel-fold"><summary>Range briefing</summary>
         <p className="fps-armor-note">{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP<br />{combat ? 'Targets return simulated fire. Move when warned to dodge.' : 'Practice mode: targets do not return fire.'}</p>
-        <p>Dummies span armor tiers 0–4, from unarmored to commander. Labels show health damage, average health DPS (minimum 1s window), and armor damage separately. Each dummy’s totals reset after {RANGE_DAMAGE_IDLE_SECONDS}s without a hit. Continuous mode brings cleared dummies back.</p>
+        <p>Dummies span armor tiers 0–4, from unarmored to commander. Labels show hits, health damage, average health DPS (minimum 1s window), and armor damage. Each dummy’s totals reset after {RANGE_DAMAGE_IDLE_SECONDS}s without a hit. Continuous mode brings cleared dummies back.</p>
         <p>The resupply box provides free practice ammunition, grenades and utilities. Press E near it, or tap Resupply.</p>
         {engine.current?.rangeArmoryState() && <p className="fps-armor-note">Gallery wall nearby, marked on the map: try issued, captured and your own weapons. Swaps last for this session.</p>}
         </details>}

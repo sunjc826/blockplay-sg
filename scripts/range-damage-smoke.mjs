@@ -54,16 +54,16 @@ try{
  await wait(`window.damageHud?.phase==='ready'`);assert.equal(await evaluate(`new Set(rangeTargets().map(t=>t.tier)).size`),5);
  assert.equal(await evaluate('damageLabels[3].length'),1);
  await evaluate('damageEngine.startPilot()');await wait(`damageHud.phase==='playing'`);
- await fireAt(2);const first=results.at(-1);assert(first.last>0&&first.lastArmor>0);assert.equal(first.last,first.total);assert(first.dps>0);
- await fireAt(2);assert(results.at(-1).total>first.total);await shot('desktop');
- const [title,health,armor]=await evaluate('damageLabels[3]');
- assert.match(title,/Dummy 3 · Tier 2/);assert.match(health,/Last .+ Total .+ DPS /);assert.match(armor,/Armor .+ last \/ .+ total/);
+ await fireAt(2);const first=results.at(-1);assert(first.last>0&&first.lastArmor>0);assert.equal(first.last,first.total);assert(first.dps>0);assert.equal(first.hits,1);
+ await fireAt(2);assert(results.at(-1).total>first.total);assert.equal(results.at(-1).hits,2);await shot('desktop');
+ const [title,health,details]=await evaluate('damageLabels[3]');
+ assert.match(title,/Dummy 3 · Tier 2/);assert.match(health,/Last .+ Total .+ DPS /);assert.match(details,/^Hits 2 · Armor .+ last \/ .+ total$/);
  assert.equal(await evaluate("document.querySelector('.range-damage-panel')"),null);
  const dpsBefore=await evaluate(`${meter(2)}.dps`);await wait(`${meter(2)}.dps<${dpsBefore}`,5000);
  await evaluate('damageEngine.pause()');const pausedDps=await evaluate(`${meter(2)}.dps`);await delay(500);assert.equal(await evaluate(`${meter(2)}.dps`),pausedDps);await evaluate('damageEngine.startPilot()');
- await fireAt(0);assert.equal(results.at(-1).lastArmor,0);assert.equal(results.at(-1).last,results.at(-1).total);
+ await fireAt(0);assert.equal(results.at(-1).lastArmor,0);assert.equal(results.at(-1).last,results.at(-1).total);assert.equal(results.at(-1).hits,1);
  // Every dummy has its own idle clock, and the display updates without another shot.
- await wait(`${meter(0)}.total===0 && damageLabels[1].length===1`,20000);assert.equal(await evaluate(`${meter(0)}.dps`),0);await shot('idle-reset');
+ await wait(`${meter(0)}.total===0 && damageLabels[1].length===1`,20000);assert.equal(await evaluate(`${meter(0)}.dps`),0);assert.equal(await evaluate(`${meter(0)}.hits`),0);await shot('idle-reset');
  await fireAt(3);assert(results.at(-1).lastArmor>0);
  for(const [name,width,height] of [['phone',390,844],['landscape',844,390]]){
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await send('Emulation.setTouchEmulationEnabled',{enabled:true});await delay(300);
@@ -80,10 +80,16 @@ try{
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
  await evaluate('damageEngine.startPilot(); damageAim=3; stopAt=Infinity');
  await wait('!rangeTargets()[3].alive && rangeTargets()[3].visible && rangeTargets()[3].tilt < 0',15000);
+ const cleared = await evaluate(meter(3));
+ const finalDps = cleared.total / Math.max(1, cleared.lastHitAt - cleared.firstHitAt);
+ assert.equal(cleared.dps, finalDps);
  await wait('rangeTargets()[3].visible && rangeTargets()[3].tilt === -Math.PI/2',4000);
+ assert.equal(await evaluate(`${meter(3)}.dps`), finalDps);
+ assert.equal((await evaluate('damageLabels[4][1]')).split('DPS ').at(-1), String(Number(finalDps.toFixed(1))));
+ assert((await evaluate('damageLabels[4][2]')).startsWith(`Hits ${cleared.hits} ·`));
  await shot('dummy-dropped');
  await wait('!rangeTargets()[3].visible',4000);
  await evaluate('damageEngine.pause();damageEngine.reset()');await wait(`damageHud.phase==='ready'`);
- assert(await evaluate('rangeTargets().every(t=>t.alive && t.visible && t.tilt===0 && t.damage.total===0)'));
+ assert(await evaluate('rangeTargets().every(t=>t.alive && t.visible && t.tilt===0 && t.damage.total===0 && t.damage.hits===0)'));
  assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({results,errors,ok:true},null,2));console.log('PASS actual training: overhead damage labels, five tiers, separate totals, armor loss, live DPS, pause, idle expiry, desktop and touch layouts, dummy drop/despawn, exercise reset.');
 }catch(error){await shot('failure').catch(()=>{});console.log(errors);throw error;}finally{await evaluate('damageEngine.dispose()').catch(()=>{});ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

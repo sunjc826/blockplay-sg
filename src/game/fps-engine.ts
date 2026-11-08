@@ -840,7 +840,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.rangeDrill = practiceRange ? rangeDirector!.view(hud.elapsed, rangeEndedEarly) : null;
     // Refresh changing DPS at the HUD cadence, not once per render frame.
     if (practiceRange) targets.forEach(target => {
-      if (target.root.visible) target.label?.update(target.meter, hud.elapsed);
+      if (target.root.visible) target.label?.update(target.meter, hud.elapsed, target.health === 0);
     });
     updateRackFocus();
     hud.rangeSupplyPrompt = !focusedRack && canResupply() ? 'E · Resupply ammo, grenades & utilities' : '';
@@ -854,7 +854,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (debugDatasets) canvas.dataset.rangeTargets = JSON.stringify(targets.map((t, i) => ({
         id: `target-${i}-${t.activation}`, x: t.root.position.x, y: t.hitZone.getWorldPosition(new THREE.Vector3()).y, z: t.root.position.z,
         alive: t.alive, visible: t.root.visible, tilt: t.hinge.rotation.x, health: t.health, armor: t.armor, tier: t.tier.label,
-        damage: { ...t.meter, dps: rangeDamageDps(t.meter, hud.elapsed) },
+        damage: { ...t.meter, dps: rangeDamageDps(t.meter, hud.elapsed, t.health === 0) },
       })));
       if (debugDatasets) canvas.dataset.rangeStation = JSON.stringify(rangeStation ? { x: rangeStation.point.x, z: rangeStation.point.z, available: !!hud.rangeSupplyPrompt } : null);
     }

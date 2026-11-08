@@ -21,7 +21,8 @@ challenge timer. Maps and the AI pilot receive active targets with unique
 activation IDs. Clearing a target cancels its pending counter-fire warning.
 
 Each dummy's overhead label shows its armor tier. After a hit it also shows
-last-hit and total health damage, average health DPS, and separate armor damage.
+cumulative hits, last-hit and total health damage, average health DPS, and
+separate armor damage. DPS holds at its final value while the dummy is down.
 The stats reset after eight active-play seconds without a hit.
 
 The HUD shows cumulative clears and either elapsed time or time remaining. Every

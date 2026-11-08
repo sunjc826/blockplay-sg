@@ -14,11 +14,11 @@ export function createRangeDamageLabel(target: number, tier: RangeArmorTier) {
   sprite.raycast = () => {};
   const title = `Dummy ${target} · ${tier.label}`;
   let previous = '';
-  function update(meter: RangeDamageMeter, now: number) {
+  function update(meter: RangeDamageMeter, now: number, cleared: boolean) {
     const damaged = meter.lastHitAt !== null;
-    const health = damaged ? `Last ${rangeDamageNumber(meter.last)}   Total ${rangeDamageNumber(meter.total)}   DPS ${rangeDamageNumber(rangeDamageDps(meter, now))}` : '';
-    const armor = damaged ? `Armor ${rangeDamageNumber(meter.lastArmor)} last / ${rangeDamageNumber(meter.totalArmor)} total` : '';
-    const key = `${title}|${health}|${armor}`;
+    const health = damaged ? `Last ${rangeDamageNumber(meter.last)}   Total ${rangeDamageNumber(meter.total)}   DPS ${rangeDamageNumber(rangeDamageDps(meter, now, cleared))}` : '';
+    const details = damaged ? `Hits ${meter.hits} · Armor ${rangeDamageNumber(meter.lastArmor)} last / ${rangeDamageNumber(meter.totalArmor)} total` : '';
+    const key = `${title}|${health}|${details}`;
     if (key === previous) return;
     previous = key;
     const { width, height } = canvas;
@@ -39,7 +39,7 @@ export function createRangeDamageLabel(target: number, tier: RangeArmorTier) {
       context.fillText(health, width / 2, 86, width - 24);
       context.fillStyle = '#d3e2ea';
       context.font = '30px sans-serif';
-      context.fillText(armor, width / 2, 126, width - 24);
+      context.fillText(details, width / 2, 126, width - 24);
     }
     texture.needsUpdate = true;
   }
