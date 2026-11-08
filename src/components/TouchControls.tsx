@@ -99,7 +99,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   const pad: Action[] = [];
   const prompts: Action[] = [];
   if(merlion?.operating){
-    pad.push(act('aim','Mist burst',<Crosshair size={17}/>,{onClick:()=>engine?.merlionAction('mist'),disabled:!!merlion.state.cooldown || merlion.state.pressure<MERLION.mistCost}));
+    pad.push(act('aim','Forward mist cone',<Crosshair size={17}/>,{onClick:()=>engine?.merlionAction('mist'),disabled:!!merlion.state.cooldown || merlion.state.pressure<MERLION.mistCost}));
     prompts.push(act('vehicle','Leave Merlion',<Footprints size={16}/>,{onClick:()=>engine?.merlionAction('leave')}));
   } else if (mounted) {
     pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat(), 'data-pad-slot': 'corner-left' }));

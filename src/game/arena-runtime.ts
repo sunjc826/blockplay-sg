@@ -265,8 +265,33 @@ interface Avatar {
   key: string;
   /** What they last said, over their head until `until` (performance.now ms); painted on first use. */
   bubble: SpeechBubble | null;
+  waterStatus: { sprite: THREE.Sprite; context: CanvasRenderingContext2D; texture: THREE.CanvasTexture; strength: number } | null;
 }
 interface SpeechBubble { sprite: THREE.Sprite; context: CanvasRenderingContext2D; texture: THREE.CanvasTexture; until: number }
+/** Lazily allocated status tag, driven only by the host's actual water condition. */
+function updateWaterStatus(avatar: Avatar, actor: ArenaActor) {
+  const condition=actor.conditions?.['water-eyes'];
+  const strength=actor.alive&&condition&&condition.remaining>0?(condition.strength>.8?1:.48):0;
+  if(strength&&!avatar.waterStatus&&typeof document!=='undefined'){
+    const canvas=document.createElement('canvas');canvas.width=256;canvas.height=48;
+    const context=canvas.getContext('2d');
+    if(context){
+      const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+      const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:true,depthWrite:false});
+      const sprite=new THREE.Sprite(material);sprite.name='merlion-water-status';sprite.position.set(0,2.6,0);sprite.scale.set(1.9,.34,1);sprite.raycast=noRaycast;avatar.root.add(sprite);
+      avatar.resources.push(texture,material);avatar.waterStatus={sprite,context,texture,strength:0};
+    }
+  }
+  const tag=avatar.waterStatus;if(!tag)return;
+  tag.sprite.visible=strength>0;
+  if(strength&&tag.strength!==strength){
+    const ctx=tag.context;ctx.clearRect(0,0,256,48);ctx.fillStyle='#063747';ctx.fillRect(0,0,256,48);
+    ctx.strokeStyle='#8fefff';ctx.lineWidth=3;ctx.strokeRect(2,2,252,44);
+    ctx.fillStyle='#e5fcff';ctx.font='bold 24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(strength>.8?'BLINDED · WATER':'IN MIST',128,25);tag.texture.needsUpdate=true;
+  }
+  tag.strength=strength;tag.sprite.userData.waterStrength=strength;
+}
 /** How long a bark stays over a speaker's head, in seconds. */
 export const BUBBLE_SECONDS = 3.6;
 /**
@@ -381,7 +406,7 @@ function createAvatar(actor: ArenaActor): Avatar {
   const halo = actor.bot ? null : createHalo(resources);
   if (halo) root.add(halo.mesh);
   return { key: avatarKey(actor), parachute: parachute.root, reveal, rig, root, health, label, muzzle, glint, halo, shots: actor.shots, flash: 0, maxHealth: actor.bot ? getArenaRole(actor.role)?.health ?? Math.max(100, actor.health) : 100, resources,
-    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, pitch: actor.pitch, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), unposed: 0, poseSlot: avatarSlot++ & 1, bubble: null };
+    alive: actor.alive, lastHealth: actor.health, yaw: actor.yaw, pitch: actor.pitch, fireTimer: 0, ground: 0, groundTimer: 0, previous: new THREE.Vector3(), velocity: new THREE.Vector3(), unposed: 0, poseSlot: avatarSlot++ & 1, bubble: null, waterStatus: null };
 }
 /**
  * Stands one figure of each kind at `at`, for building their shaders before the
@@ -615,6 +640,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const viewer = snapshot?.actors.find(a => a.id === session.id);
     root.userData.arenaFriendly = !!viewer && !hostile(viewer,actor);
     avatar.reveal.visible = actor.alive && !!viewer && !!actor.markedBy?.some(id => { const caller = snapshot?.actors.find(a => a.id === id); return caller && (caller.id === viewer.id || !hostile(viewer, caller)); });
+    updateWaterStatus(avatar,actor);
+    if(avatar.bubble)avatar.bubble.sprite.position.y=avatar.waterStatus?.sprite.visible?3.1:2.72;
     avatar.health.visible = actor.alive; if (avatar.label) avatar.label.visible = actor.alive;
     if (!root.visible) { avatar.shots = actor.shots; avatar.lastHealth = actor.health; return; }
     avatar.groundTimer -= dt;
@@ -667,7 +694,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: avatar.pitch,
         swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
         crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
-        aim: actor.healing !== undefined ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
+        aim: actor.healing !== undefined || (actor.conditions?.['water-eyes']?.strength??0)>.8 ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,
         ...(actor.healing !== undefined ? { healing: actor.healing } : {}),
         bailoutAge: actor.bailoutAt === undefined ? undefined : Math.min(BAILOUT_ROLL_SECONDS, (snapshot?.elapsed ?? 0) - actor.bailoutAt + (performance.now() - snapshotAt) / 1000),
       };

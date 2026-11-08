@@ -4,7 +4,7 @@ export const MERLION = {
   console: { x: 0, z: -8.5 }, cache: { x: 3.1, z: -11.2 }, reach: 1.8,
   range: 65, radius: .95, turnSpeed: 1.6, minPitch: -.75, maxPitch: .3,
   pressureSeconds: 7, rechargeSeconds: 18, recoverySeconds: 3,
-  mistSeconds: 4.5, mistRadius: 10, mistCooldown: 22, mistCost: .4,
+  mistSeconds: 4.5, mistRange: 12, mistRadius: 7, mistCooldown: 22, mistCost: .4,
   packs: 3, packSeconds: 45, pickupSeconds: 8,
 } as const;
 export type MerlionAction = 'operate' | 'leave' | 'mist' | 'supply';
@@ -30,11 +30,32 @@ export function merlionMouth(yaw: number): WaterPoint {
 export function nearMerlion(a: WaterPoint, site: 'console' | 'cache') {
   const p=MERLION[site];return Math.hypot(a.x-p.x,a.z-p.z)<=MERLION.reach && a.y>=.6 && a.y<2.4;
 }
+/** The mist is a finite cone along the mouth's aim, shared by hits, sight and rendering. */
+export function inMerlionMist(s: MerlionState, p: WaterPoint) {
+  const origin=merlionMouth(s.yaw), d=merlionDirection(s.yaw,s.pitch);
+  const x=p.x-origin.x,y=p.y-origin.y,z=p.z-origin.z,along=x*d.x+y*d.y+z*d.z;
+  const radius=along*MERLION.mistRadius/MERLION.mistRange;
+  return along>=0&&along<=MERLION.mistRange&&x*x+y*y+z*z-along*along<=radius*radius;
+}
 export function mistBetween(s: MerlionState | undefined, a: WaterPoint, b: WaterPoint) {
   if (!s?.mist) return false;
-  const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z,den=dx*dx+dy*dy+dz*dz;
-  const t=den?clamp(((-a.x)*dx+(2.3-a.y)*dy+(MERLION.z-a.z)*dz)/den,0,1):0;
-  return Math.hypot(a.x+dx*t,a.y+dy*t-2.3,a.z+dz*t-MERLION.z)<MERLION.mistRadius;
+  const origin=merlionMouth(s.yaw),d=merlionDirection(s.yaw,s.pitch);
+  const x=a.x-origin.x,y=a.y-origin.y,z=a.z-origin.z,dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+  const along=x*d.x+y*d.y+z*d.z,delta=dx*d.x+dy*d.y+dz*d.z;
+  let lo=0,hi=1;
+  if(Math.abs(delta)<1e-9){if(along<0||along>MERLION.mistRange)return false;}
+  else {
+    const start=-along/delta,end=(MERLION.mistRange-along)/delta;
+    lo=Math.max(0,Math.min(start,end));hi=Math.min(1,Math.max(start,end));
+    if(lo>hi)return false;
+  }
+  // Minimise squared radial distance minus squared cone radius on the clipped segment.
+  const k=1+(MERLION.mistRadius/MERLION.mistRange)**2;
+  const A=dx*dx+dy*dy+dz*dz-k*delta*delta;
+  const B=2*(x*dx+y*dy+z*dz-k*along*delta);
+  const C=x*x+y*y+z*z-k*along*along;
+  const f=(t:number)=>(A*t+B)*t+C;
+  return Math.min(f(lo),f(hi),A>1e-9?f(clamp(-B/(2*A),lo,hi)):Infinity)<=1e-8;
 }
 export function createMerlionController(trace: Trace, saved?: MerlionState) {
   const s: MerlionState={operator:null,yaw:-Math.PI/2,pitch:-.06,pressure:1,firing:false,recovering:0,mist:0,cooldown:0,packs:MERLION.packs,refill:MERLION.packSeconds,end:{x:0,y:0,z:0}};
@@ -79,7 +100,7 @@ export function createMerlionController(trace: Trace, saved?: MerlionState) {
     s.end={x:origin.x+direction.x*range,y:origin.y+direction.y*range,z:origin.z+direction.z*range};
     for(const a of actors){
       if(!a.alive)continue;
-      if(s.mist&&Math.hypot(a.x,a.y-2.3,a.z-MERLION.z)<MERLION.mistRadius)wet(a,.48);
+      if(s.mist&&inMerlionMist(s,a))wet(a,.48);
       if(!s.firing||a.id===s.operator)continue;
       const dx=a.x-origin.x,dy=a.y-origin.y,dz=a.z-origin.z;
       const along=dx*direction.x+dy*direction.y+dz*direction.z;

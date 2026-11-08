@@ -351,10 +351,18 @@ seven seconds of full-pressure firing, replenishes over 18 seconds while idle,
 and needs three seconds of pump recovery after exhaustion. Released, dead,
 disconnected or paused operators cannot leave a permanently firing cannon.
 
-Mist consumes 40% of the same pressure reserve, lasts 4.5 seconds in a 10m radius,
-and has a shared 22-second cooldown. The visible cloud and screen haze obscure
-both factions, including its operator; authority sight checks account for rays
-passing through the cloud. Mist does not block bullets.
+Mist consumes 40% of the same pressure reserve and lasts 4.5 seconds in a cone
+extending 12m ahead of the mouth, widening to a 7m radius. The cone follows the
+statue's aim, has a visible rim and drifting mist, and shares a 22-second cooldown.
+Anyone inside is affected, including allies; the operator and allies behind the
+statue stay clear. Authority sight checks use the same cone. Mist does not block
+bullets.
+
+A bright ring marks the cannon endpoint, with droplets splashing on contact.
+Affected actors show **BLINDED · WATER** or **IN MIST** above their names; blinded
+figures lower their weapons. The operating HUD counts affected bots and explains
+whether their firing is interrupted or sight is obscured. Tags clear as the
+host's water condition expires.
 
 The marked cache beside the east side of the plinth has **three shared packs**.
 Each pickup applies a 25-health field dressing and adds one current-weapon spare

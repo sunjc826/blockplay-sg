@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Merlion effect verification</title><style>html,body{margin:0;overflow:hidden}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import {buildMarinaScene} from '/src/game/marina-scene.ts';
+import {createMerlionController,merlionMouth,merlionDirection} from '/src/game/merlion-gameplay.ts';
+import {createMerlionVisuals} from '/src/game/merlion-visuals.ts';
+import {createArena} from '/src/game/arena-rules.ts';
+import {createArenaRuntime} from '/src/game/arena-runtime.ts';
+const world=buildMarinaScene(),scene=world.scene,renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.05,1200);
+const env={bounds:{minX:-100,maxX:100,minZ:-100,maxZ:100},move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),spawns:[{x:7,z:-12},{x:-4,z:-12}],endless:true};
+const simulation=createArena([],2,'assault',env);simulation.addPlayer('viewer','Operator',0,0);
+let receive;const session={id:'viewer',name:'Operator',role:'guest',send(){},subscribe(cb){receive=cb;return()=>{};},getPeers:()=>[{id:'host',name:'Host'}],onPeers:()=>()=>{},close(){}};
+const runtime=createArenaRuntime({scene,obstacles:[],botCount:0,session,environment:env});
+const visuals=createMerlionVisuals(scene),controller=createMerlionController((_o,_d,r)=>Math.min(r,18));
+const p={id:'viewer',alive:true,bot:false,x:0,y:1.75,z:-8.5,yaw:-Math.PI/2,pitch:-.2};
+const input={...p,weapon:0,playing:true};let tick=0;
+window.show=(mode='mist',view='side')=>{
+ controller.reset();controller.state.pitch=p.pitch;controller.action(p,'operate');
+ if(mode==='mist')controller.action(p,'mist');controller.input(p,mode==='cannon',true);
+ const snapshot=simulation.snapshot();snapshot.tick=++tick;
+ Object.assign(snapshot.actors.find(a=>a.id==='viewer'),p);
+ const bots=snapshot.actors.filter(a=>a.bot);Object.assign(bots[0],{x:7,y:1.75,z:-12,ground:0,name:'Forward bot'});Object.assign(bots[1],{x:-4,y:1.75,z:-12,ground:0,name:'Rear bot'});
+ controller.step(.05,snapshot.actors,(a,strength)=>a.conditions={'water-eyes':{strength,remaining:.24,seconds:.24}});
+ snapshot.merlion=controller.snapshot();receive('host',{type:'arena-state',snapshot,started:true});runtime.update(.05,input);
+ visuals.update(snapshot.merlion,.2);
+ if(view==='operator'){const o=merlionMouth(snapshot.merlion.yaw),d=merlionDirection(snapshot.merlion.yaw,snapshot.merlion.pitch);camera.position.set(o.x+d.x*.65,o.y+.45+d.y*.65,o.z+d.z*.65);camera.lookAt(...Object.values(snapshot.merlion.end));}
+ else {camera.position.set(17,13,14);camera.lookAt(6,1,-12);}
+ world.animate(12);renderer.render(scene,camera);
+ const tags=[];scene.traverse(o=>{if(o.name==='merlion-water-status')tags.push({actor:o.parent.userData.arenaActorId,visible:o.visible,strength:o.userData.waterStrength});});
+ return {tags,conditions:bots.map(a=>({id:a.id,conditions:a.conditions})),mist:scene.getObjectByName('merlion-mist-cone').visible,impact:scene.getObjectByName('merlion-impact').position.toArray(),end:snapshot.merlion.end,calls:renderer.info.render.calls};
+};
+window.show();window.ready=true;
+</script></body></html>

@@ -19,7 +19,7 @@ try{
  await enter();await shot('controls');await key('e','KeyE');await wait('window.hud.arena.merlion.operator===window.hud.arenaSelf.id');
  await evaluate('window.engine.setInput("fire",true)');await wait('window.hud.arena.merlion.firing');await shot('cannon-operator');
  const firing=await evaluate('structuredClone(window.hud.arena.merlion)');assert.ok(firing.pressure<1);const oldYaw=firing.yaw;await evaluate('window.engine.lookBy(160,0)');await wait('Math.abs(window.hud.arena.merlion.yaw-('+oldYaw+'))>.1');await evaluate('window.engine.setInput("fire",false)');await wait('!window.hud.arena.merlion.firing');
- await key('q','KeyQ');await wait('window.hud.arena.merlion.mist>0');await wait('!!document.querySelector(".merlion-water-screen.mist")');await shot('mist');
+ await key('q','KeyQ');await wait('window.hud.arena.merlion.mist>0');assert.equal(await evaluate('!!document.querySelector(".merlion-water-screen.mist")'),false);await shot('mist');
  await key('e','KeyE');await wait('!window.hud.arena.merlion.operator');
  await enter('?mode=range');
  await wait('document.querySelector(".merlion-hud")?.textContent.includes("brass wheel on the south side")');
@@ -31,14 +31,14 @@ try{
  await wait('window.hud.merlion.state.firing && window.hud.merlion.state.pressure<1');
  await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,x:550,y:425,clickCount:1});
  await wait('!window.hud.merlion.state.firing');
- await key('q','KeyQ');await wait('!!document.querySelector(".merlion-water-screen.mist")');
+ await key('q','KeyQ');await wait('window.hud.merlion.state.mist>0');assert.equal(await evaluate('!!document.querySelector(".merlion-water-screen.mist")'),false);
  await key('e','KeyE');await wait('!window.hud.merlion.operating');
  await enter('?mode=cache');await wait('!!document.querySelector(".merlion-hud")');await key('e','KeyE');await wait('window.hud.arena.merlion.packs===2');assert.equal(await evaluate('window.hud.health'),75);await shot('cache');
  await enter('?mode=bot');await wait('window.hud.arena.merlion.operator==="bot-1"');await wait('window.hud.arenaSelf.conditions?.["water-eyes"]?.strength===1');await wait('!!document.querySelector(".merlion-water-screen.cannon")');await shot('cannon-victim');
  const bot=await evaluate('({self:structuredClone(window.hud.arenaSelf),state:structuredClone(window.hud.arena.merlion)})');assert.equal(bot.self.health,50);
  await wait('!window.hud.arenaSelf.conditions?.["water-eyes"]',15000);await shot('vision-restored');
  await send('Emulation.setDeviceMetricsOverride',{width:900,height:600,deviceScaleFactor:1,mobile:true});await enter('?touch');await wait('!!document.querySelector(".merlion-hud button")');await click('.merlion-hud button');await wait('window.hud.arena.merlion.operator===window.hud.arenaSelf.id');await wait('!!document.querySelector("[data-touch-action=aim]")');
- await click('[data-touch-action=aim]');await wait('window.hud.arena.merlion.mist>0');await wait('!!document.querySelector(".merlion-water-screen.mist")');await shot('touch-mist');
+ await click('[data-touch-action=aim]');await wait('window.hud.arena.merlion.mist>0');assert.equal(await evaluate('!!document.querySelector(".merlion-water-screen.mist")'),false);await shot('touch-mist');
  await click('[data-touch-action=vehicle]');await wait('!window.hud.arena.merlion.operator');
  await enter('?mode=range&touch');await wait('!!document.querySelector(".merlion-hud button")');
  await click('.merlion-hud button');await wait('window.hud.merlion.operating');

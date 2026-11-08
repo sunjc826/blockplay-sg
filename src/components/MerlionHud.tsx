@@ -7,6 +7,9 @@ export default function MerlionHud({hud,engine}:{hud:FpsHud;engine:FpsEngine|nul
   if(hud.phase!=='playing'||!hud.merlion)return null;
   const { state, operating, consoleNear, cacheNear, blocked, guide, waterStrength } = hud.merlion;
   const touch=hud.inputMode==='touch';
+  const affected=hud.arena?.actors.filter(a=>a.alive&&a.bot&&(a.conditions?.['water-eyes']?.remaining??0)>0)??[];
+  const blinded=affected.filter(a=>(a.conditions?.['water-eyes']?.strength??0)>.8).length;
+  const misted=affected.length-blinded;
   return <>
     {waterStrength>0&&<div className={`merlion-water-screen ${waterStrength>.8?'cannon':'mist'}`} aria-hidden="true"><div className="merlion-water-sheets" />{Array.from({length:14},(_,i)=><i key={i} style={{left:`${(i*37)%100}%`,top:`${(i*23)%100}%`,animationDelay:`${-i*.17}s`}} />)}</div>}
     {operating&&<div className="merlion-reticle" aria-hidden="true"/>}
@@ -24,9 +27,11 @@ export default function MerlionHud({hud,engine}:{hud:FpsHud;engine:FpsEngine|nul
           <output>{state.recovering>0?`${Math.ceil(state.recovering)}s`:`${Math.round(state.pressure*100)}%`}</output>
         </div>
         <span className="merlion-mist-status">{touch ? 'Hold FIRE for water cannon' : 'Mouse to aim · Hold left click for water cannon'}</span>
+        <span className="merlion-mist-status">Mist: {MERLION.mistRange} m cone ahead · affects anyone inside</span>
+        <output className="merlion-hit-status" data-active={affected.length>0||undefined}>{blinded&&misted?`${blinded} blinded · ${misted} in mist`:blinded?`${blinded} bot${blinded===1?'':'s'} blinded · fire interrupted`:misted?`${misted} bot${misted===1?'':'s'} in mist · sight obscured`:state.firing||state.mist>0?'No bots affected':'Water disrupts vision · no damage'}</output>
         {touch&&<span className="merlion-mist-status">Mist · {state.cooldown>0?`${Math.ceil(state.cooldown)}s`:state.pressure<MERLION.mistCost?'low pressure':'ready'}</span>}
         {!touch&&<div className="merlion-actions">
-          <button onClick={()=>engine?.merlionAction('mist')} disabled={state.cooldown>0||state.pressure<MERLION.mistCost} title="Q · Release mist burst"><kbd>Q</kbd> Mist{state.cooldown>0?` · ${Math.ceil(state.cooldown)}s`:''}</button>
+          <button onClick={()=>engine?.merlionAction('mist')} disabled={state.cooldown>0||state.pressure<MERLION.mistCost} title="Q · Release a forward mist cone"><kbd>Q</kbd> Mist{state.cooldown>0?` · ${Math.ceil(state.cooldown)}s`:''}</button>
           <button onClick={()=>engine?.merlionAction('leave')} title="E · Leave the Merlion controls"><kbd>E</kbd> Exit</button>
         </div>}
       </>:<>

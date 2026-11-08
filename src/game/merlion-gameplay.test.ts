@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import * as THREE from 'three';
-import {createMerlionController,MERLION,merlionMouth,merlionDirection,mistBetween,validMerlionState,type WaterActor} from './merlion-gameplay';
+import {createMerlionController,MERLION,merlionMouth,merlionDirection,inMerlionMist,mistBetween,validMerlionState,type WaterActor} from './merlion-gameplay';
 import {arenaConditionModifiers,advanceGrenadeConditions,validGrenadeConditions} from './grenade-effects';
 import {createArena,type ArenaEnvironment} from './arena-rules';
 import {createArenaRuntime,validArenaInput,validArenaSnapshot} from './arena-runtime';
@@ -39,12 +39,30 @@ describe('Merlion shared controls',()=>{
     for(let i=0;i<80;i++){c.input(p,false,true);c.step(.05,[p],()=>{});}
     expect(c.state.firing).toBe(false);expect(c.state.pressure).toBeGreaterThan(.2);expect(c.state.pressure).toBeLessThan(.3);
   });
-  it('obscures both factions including the operator and blocks sight through the cloud but permits sight above it',()=>{
-    const c=createMerlionController(clear),p=operator();c.action(p,'operate');c.action(p,'mist');const wet:string[]=[];
-    c.step(.05,[p,{...p,id:'enemy',x:3}],(a,strength)=>{wet.push(a.id);expect(strength).toBe(.48);});expect(wet).toEqual(['p','enemy']);
-    expect(mistBetween(c.state,{x:-15,y:2,z:-12},{x:15,y:2,z:-12})).toBe(true);
-    expect(mistBetween(c.state,{x:-15,y:15,z:-12},{x:15,y:15,z:-12})).toBe(false);
+  it('mists anyone in the forward cone, leaving the operator, rear and flanks clear',()=>{
+    const c=createMerlionController(clear),p=operator();c.action(p,'operate');c.action(p,'mist');
+    const wet:string[]=[];
+    c.step(.05,[p,{...p,id:'enemy',bot:true,x:7,z:-12},{...p,id:'ally',x:8,z:-12},
+      {...p,id:'rear',x:-5,z:-12},{...p,id:'flank',x:3,z:-7},{...p,id:'beyond',x:15,z:-12}],
+      (a,strength)=>{wet.push(a.id);expect(strength).toBe(.48);});
+    expect(wet).toEqual(['enemy','ally']);
+    expect(mistBetween(c.state,{x:7,y:2,z:-22},{x:7,y:2,z:-2})).toBe(true);
+    expect(mistBetween(c.state,{x:-5,y:2,z:-22},{x:-5,y:2,z:-2})).toBe(false);
+    expect(mistBetween(c.state,{x:7,y:15,z:-22},{x:7,y:15,z:-2})).toBe(false);
     c.step(5,[p],()=>{});expect(mistBetween(c.state,p,p)).toBe(false);
+  });
+  it.each([-Math.PI/2,0,Math.PI/2,Math.PI])('keeps mist boundary and sight intersections aligned at yaw %s',yaw=>{
+    const c=createMerlionController(clear);c.state.yaw=yaw;c.state.pitch=.2;c.state.mist=2;
+    const o=merlionMouth(yaw),d=merlionDirection(yaw,.2),side={x:Math.cos(yaw),y:0,z:-Math.sin(yaw)};
+    const at=(along:number,r:number)=>({x:o.x+d.x*along+side.x*r,y:o.y+d.y*along,z:o.z+d.z*along+side.z*r});
+    for(const [along,r,inside] of [[6,3.4,true],[6,3.6,false],[-1,0,false],[12.1,0,false],[11.9,0,true]] as const){
+      const point=at(along,r);expect(inMerlionMist(c.state,point)).toBe(inside);
+      expect(mistBetween(c.state,point,point)).toBe(inside);
+    }
+    expect(mistBetween(c.state,at(-2,0),at(15,0))).toBe(true);
+    expect(mistBetween(c.state,at(6,-10),at(6,10))).toBe(true);
+    expect(mistBetween(c.state,at(6,10),at(6,-10))).toBe(true);
+    expect(mistBetween(c.state,at(14,-10),at(14,10))).toBe(false);
   });
   it('bounds shared supplies, rejects spam and preserves spent stock on district return',()=>{
     const c=createMerlionController(clear),p={...operator(),...MERLION.cache};
