@@ -10,6 +10,7 @@ it('relays member states, rejects forged rosters and removes departed members',(
  listeners[1].forEach(cb=>cb('other',{type:'room-roster',states:{host:'Ready'}}));expect(states[1].host).toBe('In match');
  listeners[0].forEach(cb=>cb('intruder',{type:'room-presence',status:'In match'}));expect(states[0].intruder).toBeUndefined();
  listeners[0].forEach(cb=>cb('guest',{type:'room-presence',status:'forged',states:{host:'Ready'}}));expect(states[0].host).toBe('In match');
+ expect(()=>listeners[0].forEach(cb=>cb('guest',{type:'room-presence',status:{toString:null}}))).not.toThrow();expect(states[0].guest).toBe('Loading');
  connections[1].set('In room');expect(states[0].guest).toBe('In room');expect(sessions[1].close).not.toHaveBeenCalled();
  present=['host','guest'];peers[0].forEach(cb=>cb());expect(states[0].other).toBeUndefined();
  connections.forEach(c=>c.dispose());expect(vi.getTimerCount()).toBe(0);listeners.forEach(s=>expect(s.size).toBe(0));

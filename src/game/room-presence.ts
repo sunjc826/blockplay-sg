@@ -1,6 +1,6 @@
 import type { LanSession } from './lan-peer';
 export type RoomPresence='In room'|'Loading'|'Ready'|'In match'|'Match complete';
-const valid=(v:unknown):v is RoomPresence=>['In room','Loading','Ready','In match','Match complete'].includes(String(v));
+const valid=(v:unknown):v is RoomPresence=>typeof v==='string'&&['In room','Loading','Ready','In match','Match complete'].includes(v);
 /** Host relays authenticated member status; guests can only describe themselves. */
 export function connectRoomPresence(session:LanSession,changed:(states:Record<string,RoomPresence>)=>void){
  const authority=session.role!=='guest',host=authority?session.id:session.getPeers()[0]?.id;
