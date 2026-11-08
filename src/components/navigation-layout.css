@@ -84,13 +84,9 @@
 .game-screen-training .is-paused-menu>p:not([role=alert]){display:none}
 .is-paused-menu .play-nav{margin-bottom:12px}
 .is-paused-menu h2{font-size:22px}
-.game-menu-welcome:empty{display:none}
-.game-menu-welcome a{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 12px;border-radius:6px;border:1px solid #e0bb7266;color:#eee2be;background:#263727;text-decoration:none;font-size:13px}
-.game-menu-welcome a svg:last-child{margin-left:auto}
-.game-menu-welcome a:focus-visible{outline:2px solid #e0bb72;outline-offset:3px}
 .game-install-card{border-color:#ffffff25;background:#15231cb3}
 .game-install-go{background:#304637;color:#e4eadb;border:1px solid #80966a}
-@media(max-height:600px){.game-menu-welcome a{min-height:36px;font-size:12px;padding:5px 10px}.game-menu-title{margin:0}.game-menu-main{gap:12px}.game-menu-list{gap:6px}.game-install-card{padding-top:6px;padding-bottom:6px}}
+@media(max-height:600px){.game-menu-title{margin:0}.game-menu-main{gap:12px}.game-menu-list{gap:6px}.game-install-card{padding-top:6px;padding-bottom:6px}}
 main[tabindex="-1"]:focus,h1[tabindex="-1"]:focus,h2[tabindex="-1"]:focus{outline:none}
 .shop.is-touring .armory-sticky{position:relative}
 .shop.is-touring .armory-grid{display:grid}

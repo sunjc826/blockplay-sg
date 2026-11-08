@@ -9,7 +9,7 @@ const output = new URL('../.cache/public-rooms/', import.meta.url); await mkdir(
 const origin = process.env.CLOUDFLARE_APP_ORIGIN || 'http://127.0.0.1:8787';
 const delay = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const browsers=[], pages=[];
-async function page(port) {
+async function page(port, path='/multiplayer') {
   const child=spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless',...(process.platform==='darwin'?['--use-angle=metal']:[]),'--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--no-proxy-server',`--user-data-dir=${join(directory,String(port))}`,`--remote-debugging-port=${port}`,'--window-size=1440,1100','about:blank'],{stdio:'ignore'});browsers.push(child);
   for(let i=0;;i++){try{await fetch(`http://127.0.0.1:${port}/json/version`);break;}catch{if(i>80)throw Error('Chrome startup failed');await delay(100);}}
   const tab=await(await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'})).json();
@@ -25,7 +25,7 @@ async function page(port) {
   await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   // Observe outbound authoritative snapshots; do not alter game or network state.
   await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({scale:.5,frameCap:30,shadowDetail:'low',lensEffects:false,sightReflections:false,antialias:false}));localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({shadows:false,occlusion:false,reducedEffects:true}));window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=WebSocket.prototype.send;WebSocket.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
-  await send('Page.navigate',{ url: `${origin}/multiplayer` });
+  await send('Page.navigate',{ url: `${origin}${path}` });
   const p={send,evaluate,wait,click,key,screenshot,errors,close:()=>ws.close()};pages.push(p);return p;
 }
 const button=name=>`[...document.querySelectorAll('button')].find(b=>b.getBoundingClientRect().width && b.textContent.trim()===${JSON.stringify(name)})`;
@@ -34,11 +34,11 @@ const game=`document.querySelector('.fps-game')`;
 const position=`({x:Number(${game}.dataset.playerX),z:Number(${game}.dataset.playerZ)})`;
 async function field(p,selector,value){await p.evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);}
 try{
-  const host=await page(9246),guest=await page(9247);
+  const host=await page(9246,'/play/free-for-all'),guest=await page(9247);
   await host.wait(`!!document.querySelector('.public-lobby')`);
-  await host.click(`document.querySelector('[data-match-choice="free-for-all"]')`);
-  await host.click(`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Create room'))`);
+  await host.click(`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Host room'))`);
   await field(host,'input[autocomplete="nickname"]','Alpha');
+  await host.click(`document.querySelector('.public-options summary')`);
   await field(host,'input[maxlength="40"]','Public browser test');
   await field(host,'input[type="password"]','browser-secret');
   await field(host,'#public-bots','0');
@@ -53,7 +53,6 @@ try{
   await host.evaluate(`window.dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}))`);
   await host.send('Page.setWebLifecycleState',{state:'frozen'});
   await guest.wait(`!!document.querySelector('.public-lobby')`);
-  await guest.click(button('Browse rooms'));
   await guest.click(`document.querySelector('[aria-label="Refresh rooms"]')`);
   await guest.wait(`!!document.querySelector('[data-room-code="'+${JSON.stringify(code)}+'"]')`);
   await guest.screenshot('room-browser');

@@ -2,7 +2,7 @@ import { requestLeave } from '../lib/navigation-guard';
 import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
+import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Play, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
 import MultiplayerGame from './MultiplayerGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
@@ -17,10 +17,12 @@ import { hasRegionGame } from '../game/region-selection';
 import { progression } from '../game/progression';
 import { rankInsignia } from '../game/rank-insignia';
 import { REGIONS } from '../game/regions';
+import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
+import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
-import { navigate, ROUTE_PATHS, getBackRoute, goBack, routeLabel, type Route } from '../lib/routes';
-import { transitionTo, useShift } from '../lib/route-transition';
+import { navigate, ROUTE_PATHS, getBackRoute, goBack, isPlaySession, routeLabel, type Route } from '../lib/routes';
+import { returnToParent, transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa, type PwaState } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
@@ -37,14 +39,10 @@ const plainScreenSounds = {
   onPointerOver: (event: ReactPointerEvent) => { const button = (event.target as Element).closest?.(SOUNDING_CONTROL); if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget as Node | null)) playMenuSound('hover'); },
 };
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
+const MATCH_DISTRICTS = locations.filter(place => TDM_AREAS.some(area => area.region === place.id));
 
-// The three ways to play lead; the rest sit in a row of tiles beneath, so
-// the whole menu fits one screen without scrolling.
 const ENTRIES = [
-  { route: 'training', icon: Crosshair, title: 'Training', detail: 'Live-fire range in any district.', mode: true },
-  { route: 'world', icon: MapIcon, title: 'Open World', detail: `${REGIONS.length} districts, patrols and supplies.`, mode: true },
-  { route: 'multiplayer', icon: Users, title: 'Matches', detail: 'TDM, Hardpoint or free for all. Solo or online.', mode: true },
-  { route: 'tutorial', icon: GraduationCap, title: 'Tutorial', detail: 'New here?', mode: false },
+  { route: 'play', icon: Play, title: 'Play', detail: 'Explore, train or play a match.', mode: true },
   { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment and rental time', mode: false },
   { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },
   { route: 'settings', icon: Settings, title: 'Settings', detail: 'Difficulty, display and profile', mode: false },
@@ -71,6 +69,58 @@ function link(route: Route, plain = false) {
   } };
 }
 
+function BackLink({ to, className = 'play-nav-back' }: { to: Route; className?: string }) {
+  return <a className={className} href={ROUTE_PATHS[to]} onClick={event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    returnToParent(to);
+  }}><ArrowLeft size={16} /><span>{routeLabel(to)}</span></a>;
+}
+
+function ActivityMenu({ training }: { training: boolean }) {
+  const activities = training ? [
+    { route: 'training', title: 'Live-fire range', detail: 'Practise with your equipped loadout in any district.', icon: Crosshair },
+    { route: 'tutorial', title: 'Tutorial', detail: 'Learn movement and weapon controls in a guided course.', icon: GraduationCap },
+  ] as const : [
+    { route: 'world', title: 'Open World', detail: `Explore ${REGIONS.length} districts with patrols and supplies.`, icon: MapIcon },
+    { route: 'training-menu', title: 'Training', detail: 'Practise at the range or take the tutorial.', icon: GraduationCap },
+    ...MATCH_MODES.map(mode => ({ route: mode.mode, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
+    { route: 'multiplayer', title: 'Find a Room', detail: 'Browse online rooms or enter a room code.', icon: Users },
+  ] as const;
+  return <div className="game-screen activity-screen" {...plainScreenSounds}>
+    <main className="activity-main">
+      <BackLink to={training ? 'play' : 'menu'} />
+      <header><span className="starting-eyebrow">PLAY</span><h1>{training ? 'Training' : 'Choose an activity'}</h1></header>
+      <nav className="activity-grid" aria-label={training ? 'Training activities' : 'Play activities'}>
+        {activities.map(({ route, title, detail, icon: Icon, ...info }) => <a key={route} className="activity-card" {...link(route)}>
+          <Icon size={21} aria-hidden="true" />
+          <span><strong>{title}</strong><small>{detail}</small>{'format' in info && <small className="activity-format">{info.format}</small>}</span>
+          <ChevronRight size={17} aria-hidden="true" />
+        </a>)}
+      </nav>
+    </main>
+  </div>;
+}
+
+function MatchDistrictPicker() {
+  const [preferred] = useState(readMatchPreference);
+  const initial = preferred.mode === 'team-deathmatch' ? TDM_AREAS.find(area => area.id === preferred.area)?.region : undefined;
+  return <StartingPointPicker mode="team-deathmatch" initial={initial ?? TDM_AREAS[0].region} options={MATCH_DISTRICTS} back={<BackLink to="play" />}
+    onDeploy={id => {
+      const area = TDM_AREAS.find(area => area.region === id);
+      if (!area) return;
+      saveMatchPreference({ mode: 'team-deathmatch', area: area.id });
+      navigate(area.id);
+    }} />;
+}
+
+const MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
+  'dragon-courtyard': { mode: 'team-deathmatch', area: 'dragon-courtyard' },
+  'smith-street': { mode: 'team-deathmatch', area: 'smith-street' },
+  hardpoint: defaultMatchFor('hardpoint'),
+  'free-for-all': defaultMatchFor('free-for-all'),
+};
+
 /**
  * The way out and the district choice for a play screen. It sits at the top of
  * the game's own start and pause card, so the game can have the whole screen.
@@ -86,26 +136,26 @@ function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void
 function ReturnLink() {
   const destination = getBackRoute();
   // A finished game cannot be resumed by returning to its URL.
-  const game = ['training', 'world', 'tutorial', 'multiplayer'].includes(destination);
+  const game = isPlaySession(destination);
   return <a className="game-back context-back" href={ROUTE_PATHS[game ? 'menu' : destination]} onClick={event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault(); if (game) transitionTo('menu'); else goBack();
   }}><ArrowLeft size={16} /><span>{game || destination === 'menu' ? 'Main menu' : `Back to ${routeLabel(destination)}`}</span></a>;
 }
 
-/** A fresh route visit always starts at the map, including direct URLs and Store. */
+/** A fresh route visit always starts at the map, including direct URLs. */
 function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'training' | 'world'; initial: WorldZoneId; armory: ReturnType<typeof useArmory>; suspended: boolean; onChoose: (id: WorldZoneId) => void }) {
   const [start, setStart] = useState<WorldZoneId | null>(null);
   const [zone, setZone] = useState(initial);
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
   useEffect(() => () => setMusicCue(null), []);
-  const back = <a className="play-nav-back" {...link('menu')}><ArrowLeft size={16} /><span>Main menu</span></a>;
+  const back = <BackLink to={mode === 'training' ? 'training-menu' : 'play'} />;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
     <main className="game-screen-body"><DebugMode.Provider value={false}>
-      <PlayLoading mode={mode} district={locationName(start)} back={back}>
+      <PlayLoading mode={mode} district={locationName(start)} back={<button className="play-nav-back" onClick={() => setStart(null)}><ArrowLeft size={16} /> Districts</button>}>
         {(onLoaded, loadScreen) => mode === 'training'
           ? <FpsGame suspended={suspended} region={start} onRegionChange={setZone} profile={armory.profile} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} onReward={armory.award} onElimination={armory.awardElimination} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onOpenShop={() => transitionTo('store')} />
           : <ExpeditionGame suspended={suspended} initialZone={start} onZoneChange={setZone} nav={nav} onLoaded={onLoaded} loadScreen={loadScreen} profile={armory.profile} onVendorPurchase={armory.buyFromVendor} onConsume={armory.consume} onRentalTime={armory.advanceRentalTime} onElimination={armory.awardElimination} onExit={() => transitionTo('menu')} onBackToDistricts={() => setStart(null)} />}
@@ -125,7 +175,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
       const open = document.querySelector<HTMLDetailsElement>('details[open]');
       event.preventDefault();
       if (open) { open.open = false; open.querySelector('summary')?.focus(); return; }
-      if (['training', 'world', 'tutorial', 'multiplayer'].includes(getBackRoute())) transitionTo('menu'); else goBack();
+      if (isPlaySession(getBackRoute())) transitionTo('menu'); else goBack();
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
@@ -136,6 +186,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   // Play screens set their own cues below; their effects run first, so this only speaks for the rest.
   useEffect(() => {
     if (hasMenuTheme(screen)) setMusicCue('menu');
+    else if (screen === 'team-deathmatch') setMusicCue('map');
     else if (screen === 'tutorial') setMusicCue(null);
   }, [screen]);
   useEffect(() => () => setMusicCue(null), []);
@@ -149,7 +200,16 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => requestLeave(() => { setStoreTour(true); transitionTo('store', true); })} /></main></div></SettingsStoreContext.Provider>;
 
-  if (screen === 'multiplayer') return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}><MultiplayerGame armory={armory} suspended={install.updateReady} /></div></SettingsStoreContext.Provider>;
+  if (screen === 'play' || screen === 'training-menu') return <ActivityMenu training={screen === 'training-menu'} />;
+  if (screen === 'team-deathmatch') return <MatchDistrictPicker />;
+
+  const match = MATCH_BY_SCREEN[screen];
+  if (match || screen === 'multiplayer') {
+    const parent = match?.mode === 'team-deathmatch' ? 'team-deathmatch' : 'play';
+    return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
+      <MultiplayerGame key={screen} match={match} backLabel={parent === 'team-deathmatch' ? 'Arenas' : 'Play'} onBack={() => returnToParent(parent)} armory={armory} suspended={install.updateReady} />
+    </div></SettingsStoreContext.Provider>;
+  }
 
   if (screen === 'training' || screen === 'world') {
     return <SettingsStoreContext.Provider value={armory}><PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} /></SettingsStoreContext.Provider>;
@@ -165,10 +225,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
           <a className="game-back" {...link('inventory')}>Inventory</a>
           <button className="store-tour-trigger" aria-label="Tour store" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour</button>
           <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
-        </nav>} deployments={[
-          { id: 'training', label: 'Training', detail: 'Choose starting point', onDeploy: () => transitionTo('training') },
-          { id: 'world', label: 'Open World', detail: 'Choose starting point', onDeploy: () => transitionTo('world') },
-        ]} />
+        </nav>} />
       </DebugMode.Provider></main>
     </div>;
   }
@@ -241,7 +298,6 @@ const TITLE_LEAVE_MS = 900;
 
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
   const [installHidden, hideInstall] = useInstallCard();
-  const [newPlayer] = useState(() => { try { return localStorage.getItem('blockplay.tutorial-complete') !== '1'; } catch { return true; } });
   const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -329,7 +385,6 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     const entry = ENTRIES[index];
     if (!transitionTo(entry.route)) return;
     playMenuSound('click');
-    if (entry.route === 'tutorial') setMusicCue(null);
     setChosen(index);
     try { navigator.vibrate?.(12); } catch { /* not allowed here */ }
   };
@@ -341,7 +396,6 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       onPointerEnter={hover} onFocus={focus}
       onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
       {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
-      {entry.mode && <span className="game-menu-index">0{index + 1}</span>}
       <entry.icon size={entry.mode ? 26 : 20} />
       <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></span>
       {entry.mode && <ChevronRight className="game-menu-go" size={20} aria-hidden="true" />}
@@ -361,7 +415,6 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     <main className="game-menu-main">
       <div className="game-menu-title"><span>1° N, 103° E · SINGAPORE</span><h1>Your neighbourhood.<br /><em>Your playground.</em></h1></div>
       <nav className="game-menu-list" aria-label="Main menu">
-        <div className="game-menu-welcome">{newPlayer && <a {...link('tutorial')}><GraduationCap size={18} /> New here? Start tutorial <ChevronRight size={16} /></a>}</div>
         <div className="game-menu-modes">{ENTRIES.map((entry, index) => entry.mode && item(index))}</div>
         <div className="game-menu-more">{ENTRIES.map((entry, index) => !entry.mode && item(index))}</div>
         {installable && !installHidden && <InstallCard install={install} onHide={hideInstall} sounds={{ onPointerEnter: hover, onFocus: focus }} />}

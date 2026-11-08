@@ -4,6 +4,13 @@ import { canonicalUrl, routeFromPath } from './routes';
 describe('routes', () => {
   it('maps each screen path, with or without a trailing slash', () => {
     expect(routeFromPath('/')).toBe('menu');
+    expect(routeFromPath('/play')).toBe('play');
+    expect(routeFromPath('/play/training')).toBe('training-menu');
+    expect(routeFromPath('/play/team-deathmatch')).toBe('team-deathmatch');
+    expect(routeFromPath('/play/team-deathmatch/dragon-courtyard')).toBe('dragon-courtyard');
+    expect(routeFromPath('/play/team-deathmatch/smith-street/')).toBe('smith-street');
+    expect(routeFromPath('/play/hardpoint')).toBe('hardpoint');
+    expect(routeFromPath('/play/free-for-all')).toBe('free-for-all');
     expect(routeFromPath('/tutorial/')).toBe('tutorial');
     expect(routeFromPath('/training')).toBe('training');
     expect(routeFromPath('/world/')).toBe('world');

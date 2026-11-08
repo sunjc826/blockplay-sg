@@ -1,7 +1,7 @@
 import { requestLeave } from './navigation-guard';
 import { useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
-import { navigate, routeFromPath, type Route } from './routes';
+import { getBackRoute, goBack, navigate, ROUTE_PATHS, routeFromPath, type Route } from './routes';
 
 /**
  * A quick shift between screens: the old one slips away, the route changes,
@@ -18,7 +18,7 @@ export const LEAVE_MS = 80;
 export const ENTER_MS = 170;
 
 /** Where each screen sits, left to right. Every pair of screens gets opposite directions from this. */
-const ORDER: readonly Route[] = ['menu', 'tutorial', 'training', 'world', 'multiplayer', 'store', 'inventory', 'settings', 'debug', 'faction-designs'];
+const ORDER = Object.keys(ROUTE_PATHS) as Route[];
 
 export const directionBetween = (from: Route, to: Route): ShiftDirection => ORDER.indexOf(to) < ORDER.indexOf(from) ? 'back' : 'forward';
 
@@ -57,6 +57,13 @@ export function transitionTo(route: Route, approved = false): boolean {
     settle(id);
   }, LEAVE_MS);
   return true;
+}
+
+/** Use history when coming from this parent, with an explicit parent for direct links. */
+export function returnToParent(route: Route) {
+  if (current?.phase === 'leaving') return;
+  if (getBackRoute() === route) goBack();
+  else transitionTo(route);
 }
 
 /** The browser's own Back and Forward have already changed the route, so only the entrance is left to play. */

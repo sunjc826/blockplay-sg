@@ -6,13 +6,19 @@ import { hasNavigationGuard, requestLeave } from './navigation-guard';
  * so `/debug` is a URL worth sharing; the Cloudflare asset server and the
  * service worker both answer any extensionless navigation with the app shell.
  */
-export type Route = 'menu' | 'tutorial' | 'training' | 'world' | 'multiplayer' | 'store' | 'inventory' | 'settings' | 'debug' | 'faction-designs';
-
-export const ROUTE_PATHS: Record<Route, string> = {
-  menu: '/', tutorial: '/tutorial', training: '/training', world: '/world', store: '/store', inventory: '/inventory', settings: '/settings', debug: '/debug',
+export const ROUTE_PATHS = {
+  menu: '/', play: '/play', 'training-menu': '/play/training',
+  tutorial: '/tutorial', training: '/training', world: '/world',
+  'team-deathmatch': '/play/team-deathmatch',
+  'dragon-courtyard': '/play/team-deathmatch/dragon-courtyard',
+  'smith-street': '/play/team-deathmatch/smith-street',
+  hardpoint: '/play/hardpoint', 'free-for-all': '/play/free-for-all',
   multiplayer: '/multiplayer',
+  store: '/store', inventory: '/inventory', settings: '/settings', debug: '/debug',
   'faction-designs': '/faction-designs',
-};
+} as const;
+
+export type Route = keyof typeof ROUTE_PATHS;
 
 export function routeFromPath(pathname: string): Route {
   const path = pathname.replace(/\/+$/, '') || '/';
@@ -56,7 +62,17 @@ export function getBackRoute(): Route { return entry()?.from ?? 'menu'; }
 export function goBack() {
   if (entry()?.from) window.history.back(); else navigate('menu');
 }
-export const routeLabel = (route: Route) => ({ menu: 'Main menu', store: 'Store', inventory: 'Inventory', settings: 'Settings', training: 'Training', world: 'Open World', tutorial: 'Tutorial', multiplayer: 'Matches', debug: 'Debug', 'faction-designs': 'Faction designs' })[route];
+export const routeLabel = (route: Route) => ({
+  menu: 'Main menu', play: 'Play', 'training-menu': 'Training', training: 'Live-fire range', tutorial: 'Tutorial',
+  world: 'Open World', 'team-deathmatch': 'Team Deathmatch', 'dragon-courtyard': 'Dragon Courtyard', 'smith-street': 'Smith Street',
+  hardpoint: 'Hardpoint', 'free-for-all': 'Free for All', multiplayer: 'Find a Room',
+  store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs',
+})[route];
+
+/** Returning from a utility screen must not appear to resume a closed session. */
+export const isPlaySession = (route: Route) => (
+  ['training', 'world', 'tutorial', 'multiplayer', 'dragon-courtyard', 'smith-street', 'hardpoint', 'free-for-all'].includes(route)
+);
 
 /** Callers that already obtained permission (animated navigation) pass approved. */
 export function navigate(route: Route, approved = false) {
@@ -108,9 +124,9 @@ export function useRoute(): Route {
     const snapshot = views.get(route);
     const frame = requestAnimationFrame(() => {
       // Game screens own their start/pause focus. Never focus their canvas automatically.
-      if (['training', 'world', 'tutorial', 'multiplayer', 'debug'].includes(route)) { window.scrollTo(0, 0); return; }
+      if (['tutorial', 'debug'].includes(route)) { window.scrollTo(0, 0); return; }
       const element = (snapshot?.focus ? document.querySelector<HTMLElement>(snapshot.focus) : null)
-        ?? document.querySelector<HTMLElement>('h1, main');
+        ?? document.querySelector<HTMLElement>('h1') ?? document.querySelector<HTMLElement>('main');
       if (element && !element.closest('[inert]')) {
         if (element.tabIndex < 0) element.tabIndex = -1;
         element.focus({ preventScroll: true });

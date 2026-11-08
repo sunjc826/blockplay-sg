@@ -106,12 +106,14 @@ try {
   await wait(`!document.querySelector('.play-loading:not(.is-leaving)')`);
   assert.equal(await evaluate(`localStorage.getItem('blockplay.menu.training')`), 'queenstown');
   assert.equal(await evaluate(`document.querySelector('.fps-game').dataset.mapZone`), 'queenstown');
-  await click('[aria-label="Change starting district"]');
+  await click('.play-nav-district');
   await assertPicker('training');
   assert.equal(await evaluate(`document.querySelector('[aria-pressed=true][data-start-region]').dataset.startRegion`), 'queenstown');
   await click('.starting-header a');
-  await wait(`!!document.querySelector('.game-menu')`);
-  await click('a[href="/world"]');
+  await wait(`location.pathname==='/play/training'`);
+  await click('.activity-main > a');
+  await wait(`location.pathname==='/play'`);
+  await click('.activity-card[href="/world"]');
   await assertPicker('world');
   await click('[data-start-region="yishun"] .starting-region-label');
   assert(await evaluate(`document.querySelector('.starting-brief').textContent.includes('HIGH THREAT')`));
@@ -152,9 +154,9 @@ try {
   await assertFits();
   await send('Emulation.setTouchEmulationEnabled',{enabled:false});
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
-  await send('Page.navigate', { url: origin + '/store' });
-  await wait(`!!document.querySelector('[data-deploy="training"]')`);
-  await click('[data-deploy="training"]');
+  await send('Page.navigate', { url: origin + '/play/training' });
+  await wait(`!!document.querySelector('.activity-card[href="/training"]')`);
+  await click('.activity-card[href="/training"]');
   await assertPicker('training');
   assert.equal(await evaluate(`document.querySelector('[aria-pressed=true][data-start-region]').dataset.startRegion`), 'queenstown', 'Training and World remember separate choices');
   // Merely browsing does not overwrite the remembered deployment.
@@ -163,7 +165,7 @@ try {
   assert.equal(await evaluate(`localStorage.getItem('blockplay.armory.v1')`), savedProfile, 'Choosing a starting district does not change the loadout');
   assert.deepEqual(mapRequests, [], 'No external map requests');
   assert.deepEqual(errors, [], 'No browser exceptions');
-  await fs.writeFile(new URL('results.json', output), JSON.stringify({ passed: true, districts: ids.length, sizes, audioEvidence, touch: {beforeTouch,afterTouch}, errors, mapRequests, checks: ['direct entry', 'all region hit areas', 'keyboard', 'explicit training deployment', 'change district', 'menu world entry', 'world deployment', 'remembered choices', 'portrait', 'landscape', 'store entry', 'no premature renderer', 'no profile mutations', 'ten viewport sizes without scrolling', 'all region hit areas at every size', 'natural-speed ElevenLabs hover and click playback', 'touch selection without hover audio'] }, null, 2));
-  console.log('PASS: all 23 regions at ten viewport sizes without scrolling, visible deploy and district controls, keyboard, ElevenLabs hover/click playback, deployment in both modes, remembered choices, menu/Store/direct entry, cleanup and no map requests.');
+  await fs.writeFile(new URL('results.json', output), JSON.stringify({ passed: true, districts: ids.length, sizes, audioEvidence, touch: {beforeTouch,afterTouch}, errors, mapRequests, checks: ['direct entry', 'all region hit areas', 'keyboard', 'explicit training deployment', 'change district', 'menu world entry', 'world deployment', 'remembered choices', 'portrait', 'landscape', 'training activity entry', 'no premature renderer', 'no profile mutations', 'ten viewport sizes without scrolling', 'all region hit areas at every size', 'natural-speed ElevenLabs hover and click playback', 'touch selection without hover audio'] }, null, 2));
+  console.log('PASS: all 23 regions at ten viewport sizes without scrolling, visible deploy and district controls, keyboard, ElevenLabs hover/click playback, deployment in both modes, remembered choices, activity menu and direct entry, cleanup and no map requests.');
 } catch (error) { await screenshot('failure'); console.error('Browser errors:', errors); throw error; }
 finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

@@ -9,7 +9,7 @@ const output = new URL('../.cache/public-rooms-mobile/', import.meta.url); await
 const origin = process.env.CLOUDFLARE_APP_ORIGIN || 'http://127.0.0.1:8787';
 const delay = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const browsers=[], pages=[];
-async function page(port) {
+async function page(port, path='/multiplayer') {
   const child=spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--no-proxy-server',`--user-data-dir=${join(directory,String(port))}`,`--remote-debugging-port=${port}`,'--window-size=1440,1100','about:blank'],{stdio:'ignore'});browsers.push(child);
   for(let i=0;;i++){try{await fetch(`http://127.0.0.1:${port}/json/version`);break;}catch{if(i>80)throw Error('Chrome startup failed');await delay(100);}}
   const tab=await(await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'})).json();
@@ -25,7 +25,7 @@ async function page(port) {
   await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   // Observe outbound authoritative snapshots; do not alter game or network state.
   await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=WebSocket.prototype.send;WebSocket.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
-  await send('Page.navigate',{ url: `${origin}/multiplayer` });
+  await send('Page.navigate',{ url: `${origin}${path}` });
   const p={send,evaluate,wait,click,key,screenshot,errors,close:()=>ws.close()};pages.push(p);return p;
 }
 const button=name=>`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(name)})`;
@@ -52,14 +52,14 @@ const fullScene = async (p,width,height) => {
   assert(await p.evaluate(`!document.querySelector('.fps-toolbar,.fps-inputs,.fps-loadout,.fps-pilot-panel,.fps-debug-panel,.arena-session-footer')`),'No developer panels or duplicate controls');
 };
 try{
-  const host=await page(9248),guest=await page(9249);
+  const host=await page(9248,'/play/free-for-all'),guest=await page(9249);
   for(const p of [host,guest]){
     // iPhone-style path: the game must fit even without browser fullscreen.
     await p.send('Page.addScriptToEvaluateOnNewDocument',{source:`Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,configurable:true});`});
     await phone(p,390,844);await p.send('Page.reload');await p.wait(`!!document.querySelector('.public-lobby')`);
   }
-  await fits(host,'Room browser');await host.screenshot('01-browse');
-  await tap(host,`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Create room'))`);
+  await fits(guest,'Room browser');await guest.screenshot('01-browse');
+  await tap(host,`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Host room'))`);
   await host.wait(`!!document.querySelector('input[autocomplete="nickname"]')`);
   assert(await host.evaluate(`parseFloat(getComputedStyle(document.querySelector('input')).fontSize)>=16`),'Form text avoids mobile input zoom');
   await host.screenshot('02-create');
@@ -75,9 +75,9 @@ try{
   assert.equal(await guest.evaluate(`document.querySelector('.lan-code-input').value`),code);
   await field(guest,'input[autocomplete="nickname"]','Mobile guest');await field(guest,'input[type="password"]','mobile-secret');
   await fits(guest,'Invite join');await guest.screenshot('04-join');
-  await tap(guest,button('Join room'));await guest.wait(`!!${button('Enter multiplayer match')}`);
+  await tap(guest,button('Join room'));await guest.wait(`!!${button('Enter match')}`);
   await host.wait(`document.querySelector('.lan-roster').textContent.includes('Mobile guest')`);
-  await tap(host,button('Enter multiplayer match'));await tap(guest,button('Enter multiplayer match'));
+  await tap(host,button('Enter match'));await tap(guest,button('Enter match'));
   await Promise.all([host.wait(phase('ready')),guest.wait(phase('ready'))]);
   assert.equal(await host.evaluate(`${game}.dataset.touch`),'on');
   await fullScene(host,390,844);await host.screenshot('05-ready-portrait');

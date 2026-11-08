@@ -17,6 +17,13 @@ async function key(key, modifiers = 0) { await send('Input.dispatchKeyEvent', { 
 async function shot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${name}.png`, output), Buffer.from(r.data, 'base64')); }
 async function size(width, height, mobile = false) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }); await send('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: 5 }); }
 async function go(path, selector) { await send('Page.navigate', { url: origin + path }); await wait(`!!document.querySelector(${JSON.stringify(selector)})`); await delay(500); }
+async function openPlay() {
+  await go('/', '.game-menu');
+  if (await evaluate(`!!document.querySelector('.game-title')`)) { await click('.game-title'); await delay(1100); }
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-list a')].map(a=>a.getAttribute('href'))`), ['/play', '/inventory', '/store', '/settings']);
+  await click('.game-menu-item[href="/play"]');
+  await wait(`!!document.querySelector('.activity-grid')`);
+}
 try {
   await send('Page.enable'); await send('Runtime.enable'); await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true}); await size(1440, 900);
   await go('/store', '.armory');
@@ -36,7 +43,9 @@ try {
   await evaluate(`document.querySelector('#inventory-tab-weapon').focus()`); await key('End');
   assert.equal(await evaluate(`document.activeElement.id`), 'inventory-tab-supply');
   await click('.context-back'); await wait(`!!document.querySelector('.shop')`);
-  await click('[data-deploy="training"]'); await wait(`!!document.querySelector('.starting-picker')`);
+  await openPlay();
+  await click('.activity-card[href="/play/training"]');
+  await click('.activity-card[href="/training"]'); await wait(`!!document.querySelector('.starting-picker')`);
   await click('.starting-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`, 60000);
   await wait(`!document.querySelector('.play-loading')`);
   // Settings traps focus in both directions and restores the opener.
@@ -69,7 +78,7 @@ try {
   assert(await evaluate(`window.navigationTestCanvas===document.querySelector('.world canvas')`));
   await shot('training-pause');
   await evaluate(`history.back()`); await wait(`!!document.querySelector('[role="alertdialog"]')`);
-  await click('.confirm-leave'); await wait(`location.pathname==='/store' && !!document.querySelector('.shop')`);
+  await click('.confirm-leave'); await wait(`location.pathname==='/play/training' && !!document.querySelector('.activity-grid')`);
   assert.equal(await evaluate(`!!document.querySelector('.fps-game')`), false);
   await evaluate(`history.forward()`); await wait(`!!document.querySelector('.starting-picker')`);
   assert.equal(await evaluate(`!!document.querySelector('.fps-game')`), false);
@@ -86,7 +95,7 @@ try {
   assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /Restart the course/);
   await click('.confirm-leave', true); await wait(`document.querySelector('.tutorial-game')?.dataset.phase==='ready'`);
   assert.equal(await evaluate(`!!document.querySelector('[role="alertdialog"]')`), false);
-  await click('.tutorial-back', true); await wait(`location.pathname==='/'`);
+  await click('.tutorial-back', true); await wait(`location.pathname==='/play/training'`);
   // Named list selection, game setup, and the return from landing zones.
   await size(390, 844, true); await go('/world', '.starting-picker');
   assert(await evaluate(`!!document.querySelector('.starting-list')`));
@@ -98,17 +107,45 @@ try {
   await click('.deployment-leave'); await wait(`!!document.querySelector('.starting-picker')`);
   assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
   assert.equal(await evaluate(`!!document.querySelector('[role="alertdialog"]')`), false);
+  for (const [width,height,mobile] of [[1440,900,false],[320,568,true],[844,390,true]]) {
+    await size(width,height,mobile); await go('/play', '.activity-grid');
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.querySelectorAll('.activity-grid a[href="/multiplayer"]').length===1`));
+    await click('.activity-card[href="/play/team-deathmatch"]', mobile);
+    await wait(`document.querySelector('.starting-picker')?.dataset.mode==='team-deathmatch'`);
+    await click('.starting-view button:last-child', mobile);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.starting-list-items button')].map(e=>e.textContent)`), ['ChinatownSmith Street','Toa PayohDragon courtyard']);
+    await click('.starting-list-items button:first-child', mobile);
+    await click('.starting-deploy', mobile);
+    await wait(`document.querySelector('.match-summary')?.textContent.includes('Smith Street')`);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.lan-mode-picker button')].map(e=>e.textContent)`), ['Solo vs bots','Host room']);
+    assert(await evaluate(`!document.querySelector('.lan-code-input') && !document.querySelector('.starting-picker')`));
+    await click('.lobby-navigation button', mobile);
+    await wait(`document.querySelector('.starting-place h2')?.textContent==='Smith Street'`);
+    await shot(`arena-picker-${width}`);
+  }
+  await size(1440,900);
+  for (const [mode, venue] of [['hardpoint','Smith Street'], ['free-for-all','Marina Bay']]) {
+    await go('/play', '.activity-grid');
+    await click(`.activity-card[href="/play/${mode}"]`);
+    await wait(`document.querySelector('.match-summary')?.textContent.includes(${JSON.stringify(venue)})`);
+    assert(await evaluate(`!document.querySelector('.starting-picker') && !document.querySelector('.lan-code-input')`));
+  }
+  await go('/play', '.activity-grid');
+  await click('.activity-card[href="/multiplayer"]');
+  await wait(`document.querySelector('.public-lobby h1')?.textContent==='Find a Room'`);
+  assert(await evaluate(`!!document.querySelector('.lan-code-input') && !document.querySelector('.lan-mode-picker')`));
+  await go('/multiplayer?room=ABC123', '.lan-code-input');
+  assert.equal(await evaluate(`document.querySelector('.lan-code-input').value`), 'ABC123');
   if (process.env.MENU_TEST_ROOMS === '1') {
-    await size(1440,900); await go('/', '.game-menu');
-    if (await evaluate(`!!document.querySelector('.game-title')`)) { await click('.game-title'); await delay(1100); }
-    await click('.game-menu-item[href="/multiplayer"]'); await wait(`!!document.querySelector('.public-lobby')`);
+    await go('/play', '.activity-grid');
+    await click('.activity-card[href="/play/hardpoint"]'); await wait(`!!document.querySelector('.public-lobby')`);
     await click('.lan-mode-picker button:nth-child(2)'); await click('.lan-deploy');
     await wait(`!!document.querySelector('.public-lobby.has-room')`);
     await click('.public-actions .lan-cancel'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /You are hosting/);
     await key('Escape'); assert(await evaluate(`!!document.querySelector('.public-lobby.has-room')`));
     await click('.lobby-navigation button'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
-    await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/multiplayer');
+    await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/play/hardpoint');
     await click('.public-actions .lan-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
     await click('.arena-start-card > .fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /closes the match for everyone/);
