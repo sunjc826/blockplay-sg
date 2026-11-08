@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Graphics quality review</title></head>
+<body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
+import { createSunShadows } from '/src/game/fps-sun-shadows.ts';
+import { getRegion } from '/src/game/regions.ts';
+import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
+import { createNightLights } from '/src/game/world-night-lights.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(1200,800);renderer.autoClear=false;renderer.info.autoReset=false;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;
+document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(60,1.5,.08,1000);
+const district=new URLSearchParams(location.search).get('district');
+let scene,atmosphere,night,world;
+if(district){
+  const region=getRegion(district);world=region.build();scene=world.scene;
+  setEnvironmentSettings({timeOfDay:new URLSearchParams(location.search).get('time')||'night',weather:'sunny',celebration:'none'});
+  camera.position.set(region.spawn.x,1.7,region.spawn.z);camera.rotation.y=region.spawn.yaw;
+  atmosphere=createWorldAtmosphere(scene,region.stamps,world.obstacles,false,renderer);
+  night=createNightLights(scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
+}else{
+  scene=new THREE.Scene();scene.background=new THREE.Color('#172436');camera.position.set(0,2,9);camera.lookAt(0,1,0);
+  const sun=new THREE.DirectionalLight('#ffffff',2.5);sun.position.set(60,90,40);scene.add(sun,new THREE.HemisphereLight('#ffffff','#555555',.7));
+  const white=new THREE.Mesh(new THREE.BoxGeometry(.35,.35,.35),new THREE.MeshBasicMaterial({color:new THREE.Color(1,1,1)}));white.position.set(-2,2,0);scene.add(white);
+  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.35,.35,.35),new THREE.MeshBasicMaterial({color:new THREE.Color(4,3.7,3.1)}));lamp.position.set(2,2,0);scene.add(lamp);
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(12,.1,12),new THREE.MeshStandardMaterial({color:'#9bada4',roughness:1}));floor.position.y=-.1;scene.add(floor);
+  const railMaterial=new THREE.MeshStandardMaterial({color:'#39434b'});
+  for(let i=0;i<12;i++){const rail=new THREE.Mesh(new THREE.BoxGeometry(.045,1.2,.045),railMaterial);rail.position.set(-1.1+i*.2,.6,-1);scene.add(rail);}
+}
+const shadows=createSunShadows(renderer,scene),post=createWorldOcclusion(renderer,scene,camera);
+const overlay=new THREE.Scene(),overlayCamera=new THREE.OrthographicCamera(-1,1,1,-1,.1,10);overlayCamera.position.z=1;
+const dot=new THREE.Mesh(new THREE.PlaneGeometry(.012,.018),new THREE.MeshBasicMaterial({color:'#ff0000'}));overlay.add(dot);
+let current={ao:true,bloom:true,shadow:2048};
+window.draw=(options={})=>{
+  current={...current,...options};renderer.info.reset();
+  if(atmosphere){atmosphere.update(.016,camera,Date.UTC(2026,10,8,12));renderer.toneMappingExposure=atmosphere.light.lighting.exposure;night.update(atmosphere.light.lighting,0,.016,camera,renderer);}
+  const direction=atmosphere?.light.lighting.key||{x:.5,y:1,z:.35};
+  shadows.update(true,camera,direction,.016,current.shadow);
+  const sun=scene.children.find(o=>o.isDirectionalLight);sun.position.copy(sun.target.position).addScaledVector(new THREE.Vector3(direction.x,direction.y,direction.z).normalize(),150);
+  post.render(current.ao,current.bloom);renderer.clearDepth();renderer.render(overlay,overlayCamera);
+  return {bloom:post.bloomEnabled,shadow:shadows.mapSize,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
+};
+function pixels(){const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,c.width,c.height).data;}
+window.verify=()=>{
+  const results=[];
+  for(const ao of [false,true]){
+    window.draw({ao,bloom:false});const before=pixels();window.draw({bloom:true});const after=pixels();
+    const lamp=new THREE.Vector3(2,2,0).project(camera),white=new THREE.Vector3(-2,2,0).project(camera);
+    const at=(p)=>({x:(p.x+1)*600,y:(1-p.y)*400});const l=at(lamp),w=at(white);
+    let glow=0,whiteChange=0,reticleChange=0,dimmed=0;
+    for(let y=0;y<800;y++)for(let x=0;x<1200;x++){
+      const i=(y*1200+x)*4,delta=[0,1,2].map(k=>after[i+k]-before[i+k]),sum=delta.reduce((a,b)=>a+b,0);
+      const r=Math.hypot(x-l.x,y-l.y);if(r>22&&r<55&&sum>3)glow++;
+      // Canvas and offscreen MSAA can cover silhouette pixels differently.
+      const wr=Math.hypot(x-w.x,y-w.y);if(wr<10||(wr>27&&wr<35))whiteChange=Math.max(whiteChange,Math.abs(sum));
+      if(Math.abs(x-600)<3&&Math.abs(y-400)<3)reticleChange=Math.max(reticleChange,Math.abs(sum));
+      if(delta.some(d=>d < -2))dimmed++;
+    }
+    results.push({ao,glow,whiteChange,reticleChange,dimmed,skyBefore:Array.from(before.slice(0,3)),skyAfter:Array.from(after.slice(0,3))});
+  }
+  window.draw({bloom:false});const off=pixels();window.draw({bloom:true});window.draw({bloom:false});const back=pixels();
+  return {results,restored:off.every((v,i)=>v===back[i])};
+};
+window.resize=(width,height)=>{renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();post.setSize();return window.draw();};
+window.compareBloom=()=>{
+window.draw({bloom:false});const a=pixels();window.draw({bloom:true});const b=pixels();let changed=0,total=0;
+for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>3)changed++;total+=d;}
+return {changed,meanChannelChange:total/(a.length/4*3)};
+};
+window.benchmark=async()=>{
+  const result=[];
+  for(const options of [{bloom:false,shadow:2048},{bloom:true,shadow:2048},{bloom:true,shadow:4096}]){
+    for(let i=0;i<8;i++)window.draw({...options,ao:true});renderer.getContext().finish();
+    const samples=[];let state;
+    for(let i=0;i<24;i++){await new Promise(requestAnimationFrame);const start=performance.now();state=window.draw(options);renderer.getContext().finish();samples.push(performance.now()-start);}
+    samples.sort((a,b)=>a-b);result.push({...options,...state,medianMs:samples[12],p95Ms:samples[22]});
+  }
+  return result;
+};
+window.draw();window.ready=true;
+</script></body></html>

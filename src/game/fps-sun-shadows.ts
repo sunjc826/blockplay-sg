@@ -4,7 +4,7 @@ import { isWaterObject } from './water';
 /**
  * Sun shadows for the first-person view. A district's sun was authored with a
  * frustum over the whole map, which at FPS distances is a few texels per
- * metre; here one 2048² map (1024² on low detail) covers a square about 130 metres across
+ * metre; here one 2048² map (4096² on Ultra, 1024² on Low) covers a square about 130 metres across
  * that follows the camera, so a lamp post, a railing or a soldier throws a
  * shadow you can read. The frustum is snapped to whole shadow texels in the
  * light's own frame, so walking does not make every edge crawl.
@@ -14,6 +14,7 @@ import { isWaterObject } from './water';
  */
 export const SHADOW_SPAN = 64;
 const SHADOW_MAP = 2048;
+const MAX_MAP = 4096;
 /** Smallest and largest shadow texture size the detail setting may ask for. */
 const MIN_MAP = 512;
 const RESCAN_SECONDS = 1;
@@ -75,7 +76,7 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     get mapSize() { return mapSize; },
     update(want: boolean, camera: THREE.Camera, direction: { x: number; y: number; z: number }, dt: number, size = SHADOW_MAP) {
       const on = supported && want && !!light;
-      size = Math.max(MIN_MAP, Math.min(SHADOW_MAP, size));
+      size = Math.max(MIN_MAP, Math.min(MAX_MAP, renderer.capabilities.maxTextureSize, size));
       if (light && size !== mapSize) {
         // three.js allocates the map at its first shadow render; dropping it makes the next render allocate at the new size.
         mapSize = size; light.shadow.mapSize.set(size, size);
@@ -103,6 +104,10 @@ export function createSunShadows(renderer: THREE.WebGLRenderer, scene: THREE.Sce
       light.target.updateMatrixWorld();
       renderer.shadowMap.needsUpdate = true;
     },
-    dispose() { renderer.shadowMap.enabled = false; if (light) light.castShadow = false; instancedDepth.forEach(m => m.dispose()); },
+    dispose() {
+      renderer.shadowMap.enabled = false;
+      if (light) { light.castShadow = false; light.shadow.map?.dispose(); light.shadow.map = null; }
+      instancedDepth.forEach(m => m.dispose());
+    },
   };
 }

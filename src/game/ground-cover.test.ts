@@ -69,7 +69,7 @@ describe('shared soil and grass',()=>{
       grass.update(camera,3,false,true);expect(grass.mesh.count).toBeLessThanOrEqual(1536);
       grass.update(camera,4,true);expect(grass.mesh.count).toBeLessThanOrEqual(384);
       camera.position.x=-28;grass.update(camera,5,true);expect(grass.mesh.position.x).toBe(-28);
-      const renderer={getContext:()=>({getExtension:()=>null,getParameter:()=> 'hardware GPU',RENDERER:0}),shadowMap:{}} as unknown as THREE.WebGLRenderer;
+      const renderer={getContext:()=>({getExtension:()=>null,getParameter:()=> 'hardware GPU',RENDERER:0}),shadowMap:{},capabilities:{maxTextureSize:4096}} as unknown as THREE.WebGLRenderer;
       const shadows=createSunShadows(renderer,scene);shadows.update(true,camera,{x:1,y:1,z:1},1);
       expect(grass.mesh.castShadow).toBe(false);expect(grass.mesh.receiveShadow).toBe(true);shadows.dispose();
       expect(new THREE.Raycaster(new THREE.Vector3(-20,5,0),new THREE.Vector3(0,-1,0)).intersectObject(grass.mesh)).toEqual([]);

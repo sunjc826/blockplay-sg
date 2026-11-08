@@ -10,7 +10,7 @@ import type { EnvironmentSettings } from './world-events';
  */
 export type RenderScale = 1 | .85 | .7 | .5;
 export type FrameCap = 0 | 60 | 30;
-export type ShadowDetail = 'high' | 'low';
+export type ShadowDetail = 'ultra' | 'high' | 'low';
 export interface GraphicsSettings {
   /** Share of the view's usual drawing-buffer resolution. */
   scale: RenderScale;
@@ -19,6 +19,8 @@ export interface GraphicsSettings {
   shadowDetail: ShadowDetail;
   /** Sun flare, haze dust and raindrops on the lens. */
   lensEffects: boolean;
+  /** Subtle glow around bright world lights, before the weapon and reticle draw. */
+  bloom: boolean;
   /**
    * Live scenery captured into reflex and scope glass: a second render of the
    * world every frame. Off, the glass keeps its coating and catches sun and sky
@@ -35,16 +37,21 @@ export const RENDER_SCALES: readonly { value: RenderScale; name: string }[] = [
 export const FRAME_CAPS: readonly { value: FrameCap; name: string }[] = [
   { value: 0, name: 'Match display' }, { value: 60, name: '60 fps' }, { value: 30, name: '30 fps · Saves battery' },
 ];
-export const DEFAULT_GRAPHICS: Readonly<GraphicsSettings> = { scale: 1, frameCap: 0, shadowDetail: 'high', lensEffects: true, sightReflections: false, antialias: true };
+export const DEFAULT_GRAPHICS: Readonly<GraphicsSettings> = { scale: 1, frameCap: 0, shadowDetail: 'high', lensEffects: true, bloom: true, sightReflections: false, antialias: true };
 /** Shadow texture size for each detail level. */
-export const SHADOW_MAP_SIZE: Readonly<Record<ShadowDetail, number>> = { high: 2048, low: 1024 };
+export const SHADOW_MAP_SIZE: Readonly<Record<ShadowDetail, number>> = { ultra: 4096, high: 2048, low: 1024 };
 
 export function sanitizeGraphics(value: unknown): GraphicsSettings {
   const v = value && typeof value === 'object' ? value as Partial<GraphicsSettings> : {};
+  const scale = RENDER_SCALES.some(s => s.value === v.scale) ? v.scale! : DEFAULT_GRAPHICS.scale;
+  // Upgrade saved full-detail presets while keeping older performance presets light.
+  const fullDetail = scale === 1 && v.shadowDetail !== 'low' && v.lensEffects !== false;
+  const legacyUltra = v.bloom === undefined && fullDetail && v.sightReflections === true && (v.frameCap ?? 0) === 0 && v.antialias !== false;
   return {
-    scale: RENDER_SCALES.some(s => s.value === v.scale) ? v.scale! : DEFAULT_GRAPHICS.scale,
+    scale,
     frameCap: FRAME_CAPS.some(c => c.value === v.frameCap) ? v.frameCap! : DEFAULT_GRAPHICS.frameCap,
-    shadowDetail: v.shadowDetail === 'low' ? 'low' : 'high',
+    shadowDetail: v.shadowDetail === 'ultra' || legacyUltra ? 'ultra' : v.shadowDetail === 'low' ? 'low' : 'high',
+    bloom: typeof v.bloom === 'boolean' ? v.bloom : fullDetail,
     // A setting saved as `reflections` (on by default) is dropped, so live capture is off until chosen again.
     lensEffects: v.lensEffects !== false, sightReflections: v.sightReflections === true, antialias: v.antialias !== false,
   };
@@ -57,11 +64,11 @@ export function renderPixelRatio(cap: number, settings: Pick<GraphicsSettings, '
 
 type PresetValues = GraphicsSettings & Pick<EnvironmentSettings, 'shadows' | 'occlusion' | 'reducedEffects'>;
 export const GRAPHICS_PRESETS: readonly { id: string; name: string; description: string; values: PresetValues }[] = [
-  { id: 'ultra', name: 'Ultra', description: 'High + live sight reflections', values: { ...DEFAULT_GRAPHICS, sightReflections: true, shadows: true, occlusion: true, reducedEffects: false } },
-  { id: 'high', name: 'High', description: 'Full detail', values: { ...DEFAULT_GRAPHICS, shadows: true, occlusion: true, reducedEffects: false } },
-  { id: 'balanced', name: 'Balanced', description: 'Lighter shadows, no AO', values: { scale: .85, frameCap: 60, shadowDetail: 'low', lensEffects: true, sightReflections: false, antialias: true, shadows: true, occlusion: false, reducedEffects: false } },
-  { id: 'low', name: 'Low', description: 'For older phones', values: { scale: .7, frameCap: 60, shadowDetail: 'low', lensEffects: false, sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
-  { id: 'battery', name: 'Battery saver', description: 'Low, 50%, 30 fps', values: { scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
+  { id: 'ultra', name: 'Ultra', description: 'Sharper shadows + live sight reflections', values: { ...DEFAULT_GRAPHICS, shadowDetail: 'ultra', sightReflections: true, shadows: true, occlusion: true, reducedEffects: false } },
+  { id: 'high', name: 'High', description: 'Full detail + subtle light bloom', values: { ...DEFAULT_GRAPHICS, shadows: true, occlusion: true, reducedEffects: false } },
+  { id: 'balanced', name: 'Balanced', description: 'Lighter shadows, no AO', values: { scale: .85, frameCap: 60, shadowDetail: 'low', lensEffects: true, bloom: false, sightReflections: false, antialias: true, shadows: true, occlusion: false, reducedEffects: false } },
+  { id: 'low', name: 'Low', description: 'For older phones', values: { scale: .7, frameCap: 60, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
+  { id: 'battery', name: 'Battery saver', description: 'Low, 50%, 30 fps', values: { scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
 ];
 /** The preset the current choices amount to, or undefined when they are a custom mix. */
 export function matchingPreset(graphics: GraphicsSettings, environment: Pick<EnvironmentSettings, 'shadows' | 'occlusion' | 'reducedEffects'>) {

@@ -30,14 +30,15 @@ export default function GraphicsSettings() {
       <label><span>Frame rate limit<small>A cap keeps a phone cooler and its battery going longer.</small></span>
         <select value={graphics.frameCap} onChange={e => setGraphicsSettings({ frameCap: Number(e.target.value) as FrameCap })}>
           {FRAME_CAPS.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}</select></label>
-      <label><span>Sun shadows<small>Low halves the shadow texture: softer edges, less memory.</small></span>
+      <label><span>Sun shadows<small>Ultra sharpens fine details and uses more graphics memory.</small></span>
         <select value={shadows} onChange={e => {
           const value = e.target.value;
           if (value === 'off') setEnvironmentSettings({ shadows: false });
-          else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'low' ? 'low' : 'high' }); }
-        }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option></select></label>
+          else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'ultra' ? 'ultra' : value === 'low' ? 'low' : 'high' }); }
+        }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
     </div>
     <label><input type="checkbox" checked={environment.occlusion} onChange={e => setEnvironmentSettings({ occlusion: e.target.checked })} /> Ambient occlusion (darker corners and gaps)</label>
+    <label><input type="checkbox" checked={graphics.bloom} onChange={e => setGraphicsSettings({ bloom: e.target.checked })} /> Light bloom (subtle glow around bright world lights)</label>
     <label><input type="checkbox" checked={graphics.lensEffects} onChange={e => setGraphicsSettings({ lensEffects: e.target.checked })} /> Lens effects (sun flare, haze dust, raindrops on the lens)</label>
     <label><input type="checkbox" checked={graphics.sightReflections} onChange={e => setGraphicsSettings({ sightReflections: e.target.checked })} /> Live reflections in sight glass (redraws the world a second time each frame; off, the glass still catches sun and sky highlights)</label>
     <label><input type="checkbox" checked={environment.reducedEffects} onChange={e => setEnvironmentSettings({ reducedEffects: e.target.checked })} /> Reduce particles &amp; disable lightning/fireworks</label>

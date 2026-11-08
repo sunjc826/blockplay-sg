@@ -1,13 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFrameLimiter, DEFAULT_GRAPHICS, GRAPHICS_PRESETS, matchingPreset, renderPixelRatio, sanitizeGraphics } from './graphics-settings';
+import { createFrameLimiter, DEFAULT_GRAPHICS, GRAPHICS_PRESETS, matchingPreset, renderPixelRatio, sanitizeGraphics, SHADOW_MAP_SIZE } from './graphics-settings';
 import { DEFAULT_ENVIRONMENT } from './world-events';
 
 describe('graphics settings', () => {
   it('falls back to the defaults for anything unknown', () => {
     expect(sanitizeGraphics(null)).toEqual(DEFAULT_GRAPHICS);
-    expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'ultra', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
+    expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'unknown', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false }))
-      .toEqual({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false });
+      .toEqual({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: true, antialias: false });
+  });
+
+  it('adds bloom to full-detail presets and doubles Ultra shadow resolution', () => {
+    expect(GRAPHICS_PRESETS.filter(p => p.values.bloom).map(p => p.id)).toEqual(['ultra', 'high']);
+    expect(SHADOW_MAP_SIZE.ultra).toBe(SHADOW_MAP_SIZE.high * 2);
+    expect(sanitizeGraphics({ sightReflections: true }).shadowDetail).toBe('ultra');
+    expect(sanitizeGraphics({ scale: .85, shadowDetail: 'low' }).bloom).toBe(false);
+    expect(sanitizeGraphics({ bloom: false, shadowDetail: 'high', sightReflections: true })).toMatchObject({ bloom: false, shadowDetail: 'high' });
+    const oldUltra = { ...DEFAULT_GRAPHICS, bloom: undefined, sightReflections: true };
+    expect(matchingPreset(sanitizeGraphics(oldUltra), DEFAULT_ENVIRONMENT)).toBe('ultra');
   });
 
   it('turns live sight reflections off for settings saved before they became Ultra-only', () => {
