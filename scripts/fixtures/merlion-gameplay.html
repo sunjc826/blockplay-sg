@@ -13,11 +13,14 @@ const params=new URLSearchParams(location.search),mode=params.get('mode')??'oper
 const root=createRoot(document.getElementById('overlay'));
 const profile=createProfile(),session=createSoloSession('Merlion tester');
 const spawn=mode==='bot'?{x:8.2,z:-12,yaw:Math.PI/2}:mode==='cache'?{...MERLION.cache,yaw:-Math.PI/2}:{...MERLION.console,yaw:-Math.PI/2};
+const range=mode==='range';
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{
  window.hud=hud;
  document.getElementById('stage').dataset.phase=hud.phase;
  document.getElementById('stage').dataset.touch=touch?'on':'off';
- root.render(React.createElement(React.Fragment,null,React.createElement(MerlionHud,{hud,engine:window.engine??null}),touch&&React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'arena',onMenu:()=>window.engine.pause()})));
-},{region:'marina-bay',arena:{session,profile,botCount:mode==='bot'?1:0,composition:'assault',initialVitals:{health:50},environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[MERLION.console],playerSpawn:spawn,endless:true}}});
+ root.render(React.createElement(React.Fragment,null,React.createElement(MerlionHud,{hud,engine:window.engine??null}),touch&&React.createElement(TouchControls,{hud,engine:window.engine??null,mode:range?'range':'arena',onMenu:()=>window.engine.pause()})));
+},{region:'marina-bay',...(range
+  ? {rangeTravel:{spawn:{...(touch?MERLION.console:{x:0,z:-4.4}),yaw:0,pitch:0},onTravel(){}}}
+  : {arena:{session,profile,botCount:mode==='bot'?1:0,composition:'assault',initialVitals:{health:50},environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[MERLION.console],playerSpawn:spawn,endless:true}}})});
 document.getElementById('start').onclick=()=>{window.engine.configureDebug({combatEvents:false});window.engine.start();document.getElementById('start').hidden=true;};
 </script></body></html>

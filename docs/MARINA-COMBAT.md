@@ -334,8 +334,9 @@ fixture; output is in `.cache/merlion/`.
 ## Merlion pressure station
 
 In Marina combat sessions the central Merlion is a shared suppression station.
-Approach the brass wheel on the south side of its plinth and press **E** to
-operate it. Mouse or touch look rotates the statue (maximum 1.6 radians/second);
+The Marina Field Range also lets you practise with the station.
+On foot, approach the brass wheel on the south side of the plinth and press
+**E** or tap **Board Merlion**. Mouse or touch look rotates the statue (maximum 1.6 radians/second);
 hold **Fire** for the aimed water cannon, **Q** for a mist burst, and **E** to
 leave. Touch controls also provide mist and exit buttons. The operator's body
 stays exposed at the wheel; the camera looks from above the mouth. The statue's

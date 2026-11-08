@@ -12,7 +12,7 @@ import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
 import { createMerlionVisuals } from './merlion-visuals';
-import { nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction } from './merlion-gameplay';
+import { createMerlionController, nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction, type MerlionState, type WaterActor } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
 import { isDragonBoat, DRAGON_BOAT_SPAWNS, MARINA_SWIM_EXITS } from './marina-water';
 import { VEHICLE_KINDS, vehicleName, type VehicleSpawns } from './vehicle-rules';
@@ -82,7 +82,7 @@ import { INFANTRY_SPEED, movementFrameSteps, runningItemMotion, createMovementMo
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getPhysicalWalkSurfaces, getTraversalObstacles } from './vertical-routes';
-import { seatPoint, seatFacing, type VehicleControls } from './vehicle-seats';
+import { seatPoint, seatFacing, vehicleRayDistance, type VehicleControls } from './vehicle-seats';
 import { placeVehicleFirstPersonCamera } from './vehicle-first-person';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage, stanceRecoilMultiplier } from './fps-stance';
 import { pickupSlot, restoreCarrySlots } from './armory-slots';
@@ -314,6 +314,7 @@ export interface FpsHud {
   /** Which control scheme the round is running under; 'touch' skips pointer capture. */
   inputMode: 'mouse' | 'touch';
   arena: ArenaSnapshot | null; arenaSelf: ArenaActor | null; arenaConnected: boolean; arenaStarted: boolean;
+  merlion?: { state: MerlionState; operating: boolean; consoleNear: boolean; cacheNear: boolean; blocked: string; guide: boolean; waterStrength: number };
   respawn: PlayerRespawnView | null;
   /** The scene of death, shown before the respawn map or the respawn. */
   deathRecap: DeathRecapView | null;
@@ -546,6 +547,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
   const merlionVisuals = createMerlionVisuals(world.scene);
+  const rangeMerlion: ReturnType<typeof createMerlionController> | null = practiceRange && region === 'marina-bay' ? createMerlionController((origin, ray, range) => {
+    if (!rangeMerlion?.state.operator) return range;
+    let end = facilityCover.distance(origin, ray, range);
+    for (const vehicle of Object.values(vehicles.states)) {
+      if (!vehicle.despawned) end = Math.min(end, vehicleRayDistance(vehicle, origin, ray));
+    }
+    return end;
+  }) : null;
   const grenadeHands = createGrenadeViewmodel(viewScene);
   let supplyUse: (SupplyUse & { name: string; id: string; fromBelt: boolean; apply: () => boolean }) | null = null;
   let supplyGate = armReloadGate(false, false);
@@ -816,6 +825,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   const publish = () => {
     if (disposed) return;
+    const merlion = merlionState(), player = merlionPlayer();
+    hud.merlion = merlion && player?.alive ? {
+      state: { ...merlion }, operating: merlion.operator === player.id,
+      consoleNear: nearMerlion(player, 'console'), cacheNear: nearMerlion(player, 'cache'),
+      blocked: merlionBlocked(player),
+      guide: player.y < 4 && Math.hypot(player.x, player.z - MERLION.z) <= 8,
+      waterStrength: conditions['water-eyes']?.strength ?? 0,
+    } : undefined;
     if (hud.phase !== 'playing' || !hud.arenaConnected || hud.mapExpanded || hud.calloutWheel || recoveryPicker || grenadePicker) hud.scoreboardHeld = false;
     hud.maxArmor = equipment.armor;
     const state = loadout[hud.weapon];
@@ -873,7 +890,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeArmory ? [{ id: 'range-armory', x: rangeArmory.plot.x, z: rangeArmory.plot.z, kind: 'loot' as const, lootType: 'weapon' as const, label: 'Gallery wall · try issued, captured and bought weapons' }] : []),
         ...(rangeStation ? [{ id: 'range-resupply', x: rangeStation.point.x, z: rangeStation.point.z, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Range resupply · ammo, grenades & utilities' }] : []),
-        ...(region==='marina-bay'?[{id:'merlion-islet',kind:'landmark' as const,label:'Merlion islet',x:0,z:-12},...MARINA_SWIM_EXITS.map((p,i)=>({id:`swim-exit-${i}`,kind:'checkpoint' as const,label:'Swim ladder',x:p.x,z:p.z}))]:[]),
+        ...(merlion?[{id:'merlion-islet',kind:'landmark' as const,label:'Merlion controls · south side',...MERLION.console},...MARINA_SWIM_EXITS.map((p,i)=>({id:`swim-exit-${i}`,kind:'checkpoint' as const,label:'Swim ladder',x:p.x,z:p.z}))]:[]),
         ...VEHICLE_KINDS.filter(kind => kind !== vehicles.active && !vehicles.states[kind].despawned && vehicles.states[kind].health > 0).map((kind): MinimapMarker => ({ id: kind, kind: isDragonBoat(kind) ? 'boat' : kind, label: vehicleName(kind), x: vehicles.states[kind].x, z: vehicles.states[kind].z })),
         ...(hud.arena?.events ?? []).filter(e => e.kind === 'paratroopers' && (hud.arena?.elapsed ?? 0) - e.start <= 28).map((e): MinimapMarker => ({
           id: `parachute-${e.id}`, x: e.target.x, z: e.target.z, kind: 'parachute', side: e.faction === PLAYER_FACTION ? 'ally' : 'enemy',
@@ -937,6 +954,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     capturePending = false;
     mapCaptureUntil = 0;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
+    if (rangeMerlion && merlionOperating()) rangeMerlion.action(rangeMerlionPlayer(), 'leave');
     hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; recoveryPicker = null; hud.recoveryPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
@@ -1289,6 +1307,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilotEnabled = false; pilot.reset(); strategicPlanner?.reset();
     deploymentResolved = false; resolvedDeployment = null; deploymentIntro.reset(); briefing.clear(); deploymentRoof = null; readySound = 0; overviewZoom = 1; overviewPan = { x: 0, z: 0 }; overviewLook.x = overviewLook.y = overviewCursor.x = overviewCursor.y = 0;
     arenaRuntime?.reset();
+    rangeMerlion?.reset();
     hud.objectiveHints = false; hud.objectiveMarkers = [];
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
@@ -1308,7 +1327,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateCameras(0, false, false); publish();
   }
   function interactVehicle() {
-    if (grenadeHeld) return;
+    if (grenadeHeld || merlionOperating()) return;
     if (hud.phase !== 'playing' || hud.arenaSelf?.alive === false || (!vehicles.active && vertical > .35)) return;
     if (arenaRuntime) {
       arenaRuntime.vehicleAction(vehicles.active ? 'exit' : 'enter', vehicles.active ?? vehicles.nearest(position));
@@ -1567,6 +1586,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function setInput(key: string, held: boolean) {
     if (held && (hud.proxyMenu || hud.mapExpanded && !mapMovementKeys.has(key))) return;
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
+    if (merlionOperating() && key !== 'fire') return;
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
     if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keyboardCrouch.clear(); keys.delete('c'); publish(); } return; }
@@ -1788,19 +1808,51 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else { canvas.focus({preventScroll:true}); publish(); }
     return true;
   }
-  function merlionOperating() { return !!hud.arenaSelf?.alive && hud.arena?.merlion?.operator===hud.arenaSelf?.id; }
+  function merlionState() { return rangeMerlion?.state ?? hud.arena?.merlion; }
+  function rangeMerlionPlayer(): WaterActor {
+    return { ...position, id: 'range-player', y: vertical + eyeHeight(), alive: hud.health > 0,
+      bot: false, yaw, pitch, swimming: swimming(), vehicle: vehicles.active, prone };
+  }
+  function merlionPlayer() { return rangeMerlion ? rangeMerlionPlayer() : hud.arenaSelf; }
+  function merlionOperating() {
+    if (rangeMerlion) return hud.health > 0 && rangeMerlion.state.operator !== null;
+    return !!hud.arenaSelf?.alive && hud.arena?.merlion?.operator === hud.arenaSelf.id;
+  }
+  function merlionBlocked(player: WaterActor) {
+    if (vehicles.active || player.vehicle || player.transport) return 'Disembark to use the controls';
+    if (player.swimming) return 'Climb onto the deck at a gold ladder';
+    if (player.prone) return 'Stand up to use the controls';
+    if (arenaConditionModifiers(conditions).frozen) return 'Controls unavailable while frozen';
+    if (grenadeHeld?.pinned) return 'Throw your grenade first';
+    return '';
+  }
   function merlionAction(action: MerlionAction) {
-    if(hud.phase!=='playing'||!hud.arenaSelf?.alive||vehicles.active||grenadeHeld?.pinned)return;
-    if(action==='operate'){endSupply();grenadeHeld=null;ads=touchAim=actualAim=false;aimProgress=0;stopReload();clearInput();}
-    arenaRuntime?.merlionAction(action);
-    if(action==='leave')clearInput();
+    const player = merlionPlayer(), state = merlionState();
+    if (hud.phase !== 'playing' || !player?.alive || !state || pilotEnabled) return;
+    if (action !== 'leave' && merlionBlocked(player)) return;
+    if (action === 'operate' && (state.operator || !nearMerlion(player, 'console'))) return;
+    if (rangeMerlion) {
+      if (!rangeMerlion.action(rangeMerlionPlayer(), action)) return;
+      if (action === 'operate') {
+        yaw = state.yaw; pitch = state.pitch; velocityY = 0;
+      } else if (action === 'supply') {
+        hud.health = Math.min(hud.maxHealth, hud.health + 25);
+        addReserveMagazines(loadout[hud.weapon], 1);
+      }
+    } else arenaRuntime?.merlionAction(action);
+    if (action === 'operate') {
+      endSupply(); grenadeHeld = null; actualAim = false; aimProgress = 0; stopReload(); clearInput();
+    }
+    if (action === 'leave') clearInput();
     canvas.focus({preventScroll:true});
+    publish();
   }
   function interactContext() {
     if(merlionOperating()){merlionAction('leave');return;}
-    if(hud.arena?.merlion&&hud.arenaSelf&&!vehicles.active){
-      if(nearMerlion(hud.arenaSelf,'console')){merlionAction('operate');return;}
-      if(nearMerlion(hud.arenaSelf,'cache')){merlionAction('supply');return;}
+    const player = merlionPlayer();
+    if(merlionState() && player && !merlionBlocked(player)){
+      if(nearMerlion(player,'console')){merlionAction('operate');return;}
+      if(nearMerlion(player,'cache')){merlionAction('supply');return;}
     }
     if (hud.proxyReach) { openProxyMenu(); return; }
     if (hud.arena?.proxies?.operation?.cargo==='carried' && hud.facility && hud.facility.owner===PLAYER_FACTION && Math.hypot(hud.facility.x-position.x,hud.facility.z-position.z)<=4) { chooseProxyAction('deliver'); return; }
@@ -2409,8 +2461,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
     lastLookYaw = yaw; lastLookPitch = pitch;
-    if(merlionOperating()&&hud.arena?.merlion){
-      const s=hud.arena.merlion,at=merlionMouth(s.yaw),dir=merlionDirection(s.yaw,s.pitch);
+    const merlion = merlionState();
+    if(merlionOperating()&&merlion){
+      const s=merlion,at=merlionMouth(s.yaw),dir=merlionDirection(s.yaw,s.pitch);
       actualAim=false;aimProgress=0;rig.visible=false;playerBody.root.visible=false;supplyHands.update(null,0);
       camera.position.set(at.x+dir.x*.65,at.y+.45+dir.y*.65,at.z+dir.z*.65);
       camera.lookAt(s.end.x,s.end.y,s.end.z);camera.fov=65;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
@@ -4173,6 +4226,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (expired.length) hud.fieldLoot = expedition.loot.remaining(expedition.zone);
     }
     updateArena(realDt);
+    if (rangeMerlion) {
+      const player = rangeMerlionPlayer();
+      const operating = rangeMerlion.state.operator === player.id;
+      if (hud.phase === 'playing') {
+        if (arenaConditionModifiers(conditions).frozen) rangeMerlion.action(player, 'leave');
+        rangeMerlion.input(player, trigger, true);
+        rangeMerlion.step(Math.min(realDt, .25), [player], (_, strength) => {
+          conditions['water-eyes'] = { strength, remaining: .24, seconds: .24 };
+        });
+      } else rangeMerlion.action(player, 'leave');
+      if (operating && !rangeMerlion.state.operator) clearInput();
+      merlionVisuals.update(rangeMerlion.state, dt);
+    }
     if (arenaRuntime) {
       vehicles.sharedStep(realDt);
       arenaRuntime.presentVehicleRiders(vehicles.viewStates);

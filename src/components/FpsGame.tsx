@@ -148,7 +148,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const chooseDrill = (next: boolean) => { if (combat !== next) { startingLevel.current = rank.level; setCombat(next); } };
   const isArena = !!arenaOptions, guest = arenaOptions?.session.role === 'guest';
   const mounted = hud.vehicle !== 'on-foot';
-  const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
+  const merlionOperating=hud.merlion?.operating;
   const playing = hud.phase === 'playing', weapon = equipment.weapons[hud.weapon];
   const physicalCrossing = !isArena && !!scene.checkpoint?.continuation;
   const canFight = playing && (!isArena || (hud.arenaSelf?.alive === true && hud.arenaConnected));

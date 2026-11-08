@@ -122,7 +122,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
 
   const zone = getWorldZone(scene.zone), equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true });
   const mounted = hud.vehicle !== 'on-foot';
-  const merlionOperating=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
+  const merlionOperating=hud.merlion?.operating;
   const planning = hud.deployment?.canChoose === true;
   // The landing-zone screen's briefing panel. It closes back to the map; leaving the run is the dock's own Leave button.
   const [briefingOpen, setBriefingOpen] = useState(false);

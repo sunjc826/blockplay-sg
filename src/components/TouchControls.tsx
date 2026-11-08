@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MERLION } from '../game/merlion-gameplay';
 import { ArrowDownToLine, ChevronsDown, ChevronsUp, Crosshair, Eye, Flashlight, Footprints, Menu, MessageCircle, Minus, Move3d, PackageOpen, Plus, RefreshCw, Rocket, Repeat2, RotateCcw } from 'lucide-react';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { padSlot, promptLabel, type StickVector } from '../game/touch-controls';
@@ -43,11 +44,11 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   const alive = mode !== 'arena' || hud.arenaSelf?.alive !== false;
   const playing = (hud.phase === 'playing' || crossing) && alive;
   const mounted = hud.vehicle !== 'on-foot';
-  const merlion=!!hud.arenaSelf?.alive&&hud.arena?.merlion?.operator===hud.arenaSelf?.id;
+  const merlion=hud.merlion;
   const flying = hud.vehicle === 'helicopter';
   const aimPressed = hud.grenadeHeld ? hud.grenadeHeld.under : hud.aiming;
   // Above aim on the edge, and only through the scope: the picture is the only place a change of power shows.
-  const zoom = hud.aiming && !merlion ? hud.scopeZoom : null;
+  const zoom = hud.aiming && !merlion?.operating ? hud.scopeZoom : null;
 
   // The engine drops every held key when it pauses or the player dies, so the
   // crouch latch has to let go too or the button would lie about the stance.
@@ -97,8 +98,8 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   // that comes or goes never moves its neighbours under the thumb.
   const pad: Action[] = [];
   const prompts: Action[] = [];
-  if(merlion){
-    pad.push(act('aim','Mist burst',<Crosshair size={17}/>,{onClick:()=>engine?.merlionAction('mist'),disabled:!!hud.arena?.merlion?.cooldown || (hud.arena?.merlion?.pressure??0)<.4}));
+  if(merlion?.operating){
+    pad.push(act('aim','Mist burst',<Crosshair size={17}/>,{onClick:()=>engine?.merlionAction('mist'),disabled:!!merlion.state.cooldown || merlion.state.pressure<MERLION.mistCost}));
     prompts.push(act('vehicle','Leave Merlion',<Footprints size={16}/>,{onClick:()=>engine?.merlionAction('leave')}));
   } else if (mounted) {
     pad.push(act('seat', 'Switch seat', <Repeat2 size={17} />, { onClick: () => engine?.switchVehicleSeat(), 'data-pad-slot': 'corner-left' }));
@@ -140,7 +141,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
     <button type="button" className="touch-chip" data-touch-action="menu" aria-label="Menu" title="Menu" {...tapProps(onMenu)}><Menu size={16} /></button>
     <CalloutChip hud={hud} engine={engine} />
     <div className="touch-move">
-      <TouchStick kind="move" label={merlion ? 'STATION' : mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : hud.swimming ? 'SWIM' : 'MOVE'} onChange={merlion || mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
+      <TouchStick kind="move" label={merlion?.operating ? 'STATION' : mounted ? hud.vehicleSeat === 0 ? hud.vehicle.startsWith('dragon-boat') ? 'PADDLE' : 'DRIVE' : 'RIDING' : hud.swimming ? 'SWIM' : 'MOVE'} onChange={merlion?.operating || mounted && hud.vehicleSeat !== 0 ? () => {} : move} />
     </div>
 
     {prompts.length > 0 && <div className="touch-prompts">
@@ -163,7 +164,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
         <b aria-live="polite">{zoom.value}×</b>
         <button type="button" aria-label="Decrease scope magnification" disabled={zoom.value <= zoom.min} {...tapProps(() => engine?.adjustScopeZoom(-1))}><Minus size={17} /></button>
       </div>}
-      <button type="button" className="touch-fire" data-touch-action="fire" aria-label="Fire" disabled={hud.swimming && !hud.swimCanFire || mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
+      <button type="button" className="touch-fire" data-touch-action="fire" aria-label={merlion?.operating ? 'Fire water cannon' : 'Fire'} disabled={hud.swimming && !hud.swimCanFire || mounted && !hud.vehiclePersonalWeapon && (!hud.vehicleCanFire || hud.vehicleAmmo === 0)} {...fire}>FIRE</button>
     </div>
   </div>;
 }
