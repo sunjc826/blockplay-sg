@@ -104,7 +104,9 @@ export function createDeploymentOverview(scene: THREE.Scene, initial: readonly D
           const beam = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
             uniforms: { color: { value: new THREE.Color() }, opacity: { value: .22 } },
             vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-            fragmentShader: 'varying vec2 vUv; uniform vec3 color; uniform float opacity; void main(){float fade=pow(1.-vUv.y,1.5);gl_FragColor=vec4(color,opacity*fade);}',
+            // MSAA interpolation can overshoot the top edge. A negative base
+            // in pow produces NaNs that bloom spreads across the frame.
+            fragmentShader: 'varying vec2 vUv; uniform vec3 color; uniform float opacity; void main(){float fade=pow(clamp(1.-vUv.y,0.,1.),1.5);gl_FragColor=vec4(color,opacity*fade);}',
           });
           const column = new THREE.Mesh(beamGeometry, beam); column.position.y = 130; column.name = `deployment-beam:${point.id}`;
           column.userData.deploymentId = point.id; group.add(column);

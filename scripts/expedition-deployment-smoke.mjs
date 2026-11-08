@@ -20,13 +20,27 @@ async function screenshot(name){const s=await send('Page.captureScreenshot',{for
 try{
  await send('Runtime.enable');await send('Page.enable');await send('Network.enable');await send('Network.setBlockedURLs',{urls:['*api.openai.com/*','*api.elevenlabs.io/*','*/api/adventure/*','*maps.googleapis.com/*']});await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});await send('Emulation.setTouchEmulationEnabled',{enabled:true});
- await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}))`});
+ await send('Page.addScriptToEvaluateOnNewDocument',{source:`
+  localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',celebration:'none',reducedEffects:false,shadows:false,occlusion:false}));
+  localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({bloom:true,frameCap:0}));
+ `});
  await send('Page.navigate',{url}); await wait(`${game}?.dataset.phase==='ready'`);const entries=await points();assert.ok(entries.length>=1);assert.equal(await evaluate(`${game}.dataset.deploymentChoice`),'random');
  assert.equal(await evaluate('document.querySelectorAll(".deployment-pins select,.deployment-pins svg").length'),0);
  const before=await evaluate(`JSON.parse(document.querySelector('canvas').dataset.deploymentCamera)`);
  assert.ok(before.y>150 && before.pitch > -1.3 && before.pitch < -1.1 && before.fov===38);assert.equal(await evaluate(`document.querySelector('canvas').dataset.weaponVisible`),'false');
  assert.equal(await evaluate(`${game}.dataset.arenaStarted`),'false');
  assert(await evaluate('document.querySelectorAll("[data-deployment-id]:disabled").length>0'),'Non-allied locations remain visible and unavailable');
+ // Inspect the map itself. HTML pins can remain visible over a black render.
+ const litFraction=await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>{
+  const gl=document.querySelector('canvas').getContext('webgl2');
+  const width=Math.floor(gl.drawingBufferWidth/2),height=Math.floor(gl.drawingBufferHeight/2);
+  const pixels=new Uint8Array(width*height*4);
+  gl.readPixels(Math.floor(width/2),Math.floor(height/2),width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+  let lit=0;
+  for(let i=0;i<pixels.length;i+=4)if(pixels[i]+pixels[i+1]+pixels[i+2]>96)lit++;
+  resolve(lit/(width*height));
+ }))`);
+ assert(litFraction>.25,`The daylight landing map must stay visible with bloom enabled (${litFraction} lit fraction)`);
  // Cursor orbit stays bounded, preserves the long lens and follows native mouse
  // motion. Pins must match the rendered camera between React HUD snapshots.
  await screenshot('desktop-neutral');
