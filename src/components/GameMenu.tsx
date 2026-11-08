@@ -28,7 +28,9 @@ import { pwa, usePwa, type PwaState } from '../lib/pwa';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
 import { hasMenuTheme, setMusicCue } from '../lib/music';
 import { markTitleScreenSeen, needsTitleScreen, startsFromTitleScreen, titleLogoPlacement } from '../lib/title-screen';
+import { useMenuDesign } from '../lib/menu-design';
 import './game-menu.css';
+import './next-gen-menu.css';
 
 type Screen = Exclude<Route, 'debug' | 'faction-designs'>;
 
@@ -101,19 +103,53 @@ const ACTIVITY_MENUS = {
 
 function ActivityMenu({ screen }: { screen: ActivityScreen }) {
   const { back, title, activities } = ACTIVITY_MENUS[screen];
-  return <div className="game-screen activity-screen" {...plainScreenSounds}>
+  const nextGen = useMenuDesign() === 'next-gen';
+  return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <main className="activity-main">
-      <BackLink to={back} />
-      <header><span className="starting-eyebrow">PLAY</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}</header>
-      <nav className="activity-grid" aria-label={title}>
-        {activities.map(({ route, title, detail, icon: Icon, ...info }) => <a key={route} className="activity-card" {...link(route)}>
+      <div className="activity-navigation"><BackLink to={back} />{nextGen && <><span className="next-gen-wordmark">blockplaySG<span>.</span></span><a className="play-nav-back" {...link('settings')}><Settings size={16} /> Settings</a></>}</div>
+      <header><span className="starting-eyebrow">{nextGen ? 'SINGAPORE / OPERATIONS' : 'PLAY'}</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}{nextGen && screen === 'play' && <p>Your city. Your rules. Choose your next move.</p>}</header>
+      <nav className={`activity-grid${nextGen ? ' next-gen-panels' : ''}`} aria-label={title} onKeyDown={nextGen ? panelKeys : undefined}>
+        {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
+          {nextGen && <PanelArtwork route={route} index={index} />}
           <Icon size={21} aria-hidden="true" />
-          <span><strong>{title}</strong><small>{detail}</small>{'format' in info && <small className="activity-format">{info.format}</small>}</span>
+          <span className="activity-copy"><strong>{title}</strong><small>{detail}</small>{'format' in info && <small className="activity-format">{info.format}</small>}{nextGen && <span className="next-gen-enter" aria-hidden="true">{screen === 'play' ? 'SELECT MODE' : 'CONTINUE'} <ChevronRight size={16} /></span>}</span>
           <ChevronRight size={17} aria-hidden="true" />
         </a>)}
       </nav>
+      {nextGen && <footer className="next-gen-footer"><span>BLOCKPLAY / SG</span><span className="next-gen-key-hint">ARROW KEYS TO BROWSE · ENTER TO SELECT</span><span>{String(activities.length).padStart(2, '0')} WAYS IN</span></footer>}
     </main>
   </div>;
+}
+
+/** Native links keep tab, modified clicks and touch activation; arrows are an extra shortcut. */
+function panelKeys(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
+  if (!keys.includes(event.key)) return;
+  const items = Array.from(event.currentTarget.querySelectorAll<HTMLAnchorElement>('a[href]'));
+  const at = items.indexOf(document.activeElement as HTMLAnchorElement);
+  if (at < 0) return;
+  event.preventDefault();
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (at + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+  items[next]?.focus();
+}
+
+function panelScene(route: Route) {
+  if (['play', 'single-player', 'world'].includes(route)) return 'city';
+  if (route.includes('training') || route === 'tutorial') return 'training';
+  if (['inventory', 'store', 'settings'].includes(route)) return route;
+  return route.includes('hardpoint') ? 'objective' : route.includes('free-for-all') ? 'solo' : 'squad';
+}
+
+function PanelArtwork({ route, index }: { route: Route; index: number }) {
+  const scene = panelScene(route);
+  const caption = scene === 'city' ? 'EXPLORE' : route === 'multiplayer' || route === 'multiplayer-menu' ? 'CONNECT' : ['squad', 'solo', 'objective'].includes(scene) ? 'COMPETE' : 'PREPARE';
+  return <span className="next-gen-artwork" aria-hidden="true">
+    <span className="next-gen-image" />
+    <span className="next-gen-grid" />
+    <span className="next-gen-index">{String(index + 1).padStart(2, '0')}<span> / {caption}</span></span>
+    <span className="next-gen-reticle" />
+  </span>;
 }
 
 function MatchDistrictPicker({ online }: { online: boolean }) {
@@ -330,6 +366,7 @@ function InstallCard({ install, onHide, sounds }: { install: PwaState; onHide: (
 const TITLE_LEAVE_MS = 900;
 
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
+  const nextGen = useMenuDesign() === 'next-gen';
   const [installHidden, hideInstall] = useInstallCard();
   const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -425,17 +462,18 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   const item = (index: number) => {
     const entry = ENTRIES[index];
     return <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
-      className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}`} style={{ '--i': index } as React.CSSProperties}
+      className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(entry.route)} style={{ '--i': index } as React.CSSProperties}
       onPointerEnter={hover} onFocus={focus}
       onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
+      {nextGen && <PanelArtwork route={entry.route} index={index} />}
       {ripple?.index === index && <span key={ripple.key} className="game-menu-ripple" style={{ left: ripple.x, top: ripple.y }} onAnimationEnd={() => setRipple(null)} />}
       <entry.icon size={entry.mode ? 26 : 20} />
-      <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small></span>
+      <span className="game-menu-copy"><strong>{entry.title}</strong><small>{entry.detail}</small>{nextGen && <span className="next-gen-enter" aria-hidden="true">{entry.mode ? 'LET’S PLAY' : 'OPEN'} <ChevronRight size={16} /></span>}</span>
       {entry.mode && <ChevronRight className="game-menu-go" size={20} aria-hidden="true" />}
     </a>;
   };
 
-  return <div className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}`}>
+  return <div className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}${nextGen ? ' next-gen-main' : ''}`}>
     <Skyline />
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
       <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>

@@ -40,6 +40,7 @@
     "test:fps": "node scripts/fps-smoke.mjs",
     "test:tutorial": "node --experimental-strip-types scripts/tutorial-smoke.mjs",
     "test:menu-navigation": "node scripts/menu-navigation-smoke.mjs",
+    "test:menu-design": "node scripts/next-gen-menu-smoke.mjs",
     "test:store-tour": "node scripts/store-tour-smoke.mjs",
     "test:inventory": "node scripts/inventory-smoke.mjs",
     "test:weapon-rentals": "node scripts/weapon-rentals-smoke.mjs",

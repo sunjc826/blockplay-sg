@@ -9,6 +9,7 @@ import VoiceSettings from './VoiceSettings';
 import GraphicsSettings from './GraphicsSettings';
 import AimAssistToggle from './AimAssistToggle';
 import PerfOverlaySettings from './PerfOverlaySettings';
+import { MENU_DESIGNS, setMenuDesign, useMenuDesign } from '../lib/menu-design';
 import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
 import { rankInsignia, rankSets } from '../game/rank-insignia';
@@ -49,7 +50,7 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
     event.preventDefault();
     choose(SETTINGS_TABS[(next + SETTINGS_TABS.length) % SETTINGS_TABS.length].id, true);
   };
-  const { profile } = store, reloadStyle = useReloadStyle();
+  const { profile } = store, reloadStyle = useReloadStyle(), menuDesign = useMenuDesign();
   const level = progression(profile.xp), insignia = rankInsignia(level.level, profile.rankSet);
   // A sample in the player's own rank, so the setting shows the joke rather
   // than describing it. `kill` is short and every register rewrites it.
@@ -76,6 +77,10 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
         </div>
       </>}
       {tab === 'video' && <>
+        <div className="armory-settings-group">
+          <h2>Menu design</h2><p>Compare the main menu and Play selectors. Applies immediately and is remembered on this device.</p>
+          <div role="group" aria-label="Menu design">{MENU_DESIGNS.map(design => <button key={design.id} data-menu-design={design.id} aria-pressed={menuDesign === design.id} onClick={() => setMenuDesign(design.id)}><span><strong>{design.name}</strong><small>{design.description}</small></span></button>)}</div>
+        </div>
         <GraphicsSettings />
         <PerfOverlaySettings />
       </>}
