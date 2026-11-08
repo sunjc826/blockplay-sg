@@ -34,14 +34,13 @@ const game=`document.querySelector('.fps-game')`;
 const position=`({x:Number(${game}.dataset.playerX),z:Number(${game}.dataset.playerZ)})`;
 async function field(p,selector,value){await p.evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);}
 try{
-  const host=await page(9246,'/play/free-for-all'),guest=await page(9247);
+  const host=await page(9246,'/play/multiplayer/free-for-all'),guest=await page(9247);
   await host.wait(`!!document.querySelector('.public-lobby')`);
-  await host.click(`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Host room'))`);
   await field(host,'input[autocomplete="nickname"]','Alpha');
   await host.click(`document.querySelector('.public-options summary')`);
   await field(host,'input[maxlength="40"]','Public browser test');
   await field(host,'input[type="password"]','browser-secret');
-  await field(host,'#public-bots','0');
+  await field(host,'.lan-bot-control input','0');
   await host.click(button('Create public room'));
   await host.wait(`!!document.querySelector('output[aria-label="Room code"]')`);
   const code=await host.evaluate(`document.querySelector('output[aria-label="Room code"]').textContent`);

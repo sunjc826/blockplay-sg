@@ -142,6 +142,7 @@
 .activity-main > header { margin:clamp(22px,5vh,48px) 0 20px; }
 .activity-main h1 { margin:7px 0 0; font:700 clamp(30px,5vw,48px)/1.1 'Manrope',sans-serif; letter-spacing:-.035em; }
 .activity-main h1:focus { outline:none; }
+.activity-main > header p { margin:8px 0 0; color:var(--menu-dim); font-size:14px; }
 .activity-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .activity-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:start; gap:12px; min-height:90px; padding:16px; border:1px solid var(--menu-line); border-radius:10px; background:#13251b; color:var(--menu-ink); text-decoration:none; }
 .activity-card:hover,.activity-card:focus-visible { border-color:var(--menu-gold); background:#243b2a; }

@@ -112,7 +112,7 @@ try {
   await click('.starting-header a');
   await wait(`location.pathname==='/play/training'`);
   await click('.activity-main > a');
-  await wait(`location.pathname==='/play'`);
+  await wait(`location.pathname==='/play/single-player'`);
   await click('.activity-card[href="/world"]');
   await assertPicker('world');
   await click('[data-start-region="yishun"] .starting-region-label');

@@ -7,12 +7,18 @@ import { hasNavigationGuard, requestLeave } from './navigation-guard';
  * service worker both answer any extensionless navigation with the app shell.
  */
 export const ROUTE_PATHS = {
-  menu: '/', play: '/play', 'training-menu': '/play/training',
+  menu: '/', play: '/play', 'single-player': '/play/single-player', 'training-menu': '/play/training',
   tutorial: '/tutorial', training: '/training', world: '/world',
   'team-deathmatch': '/play/team-deathmatch',
   'dragon-courtyard': '/play/team-deathmatch/dragon-courtyard',
   'smith-street': '/play/team-deathmatch/smith-street',
   hardpoint: '/play/hardpoint', 'free-for-all': '/play/free-for-all',
+  'multiplayer-menu': '/play/multiplayer',
+  'host-team-deathmatch': '/play/multiplayer/team-deathmatch',
+  'host-dragon-courtyard': '/play/multiplayer/team-deathmatch/dragon-courtyard',
+  'host-smith-street': '/play/multiplayer/team-deathmatch/smith-street',
+  'host-hardpoint': '/play/multiplayer/hardpoint',
+  'host-free-for-all': '/play/multiplayer/free-for-all',
   multiplayer: '/multiplayer',
   store: '/store', inventory: '/inventory', settings: '/settings', debug: '/debug',
   'faction-designs': '/faction-designs',
@@ -63,15 +69,19 @@ export function goBack() {
   if (entry()?.from) window.history.back(); else navigate('menu');
 }
 export const routeLabel = (route: Route) => ({
-  menu: 'Main menu', play: 'Play', 'training-menu': 'Training', training: 'Live-fire range', tutorial: 'Tutorial',
+  menu: 'Main menu', play: 'Play', 'single-player': 'Single Player', 'multiplayer-menu': 'Multiplayer',
+  'training-menu': 'Training', training: 'Live-fire range', tutorial: 'Tutorial',
   world: 'Open World', 'team-deathmatch': 'Team Deathmatch', 'dragon-courtyard': 'Dragon Courtyard', 'smith-street': 'Smith Street',
   hardpoint: 'Hardpoint', 'free-for-all': 'Free for All', multiplayer: 'Find a Room',
+  'host-team-deathmatch': 'Team Deathmatch', 'host-dragon-courtyard': 'Dragon Courtyard', 'host-smith-street': 'Smith Street',
+  'host-hardpoint': 'Hardpoint', 'host-free-for-all': 'Free for All',
   store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs',
 })[route];
 
 /** Returning from a utility screen must not appear to resume a closed session. */
 export const isPlaySession = (route: Route) => (
-  ['training', 'world', 'tutorial', 'multiplayer', 'dragon-courtyard', 'smith-street', 'hardpoint', 'free-for-all'].includes(route)
+  ['training', 'world', 'tutorial', 'multiplayer', 'dragon-courtyard', 'smith-street', 'hardpoint', 'free-for-all',
+    'host-dragon-courtyard', 'host-smith-street', 'host-hardpoint', 'host-free-for-all'].includes(route)
 );
 
 /** Callers that already obtained permission (animated navigation) pass approved. */

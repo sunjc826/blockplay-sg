@@ -5,12 +5,19 @@ describe('routes', () => {
   it('maps each screen path, with or without a trailing slash', () => {
     expect(routeFromPath('/')).toBe('menu');
     expect(routeFromPath('/play')).toBe('play');
+    expect(routeFromPath('/play/single-player')).toBe('single-player');
+    expect(routeFromPath('/play/multiplayer')).toBe('multiplayer-menu');
     expect(routeFromPath('/play/training')).toBe('training-menu');
     expect(routeFromPath('/play/team-deathmatch')).toBe('team-deathmatch');
     expect(routeFromPath('/play/team-deathmatch/dragon-courtyard')).toBe('dragon-courtyard');
     expect(routeFromPath('/play/team-deathmatch/smith-street/')).toBe('smith-street');
     expect(routeFromPath('/play/hardpoint')).toBe('hardpoint');
     expect(routeFromPath('/play/free-for-all')).toBe('free-for-all');
+    expect(routeFromPath('/play/multiplayer/team-deathmatch')).toBe('host-team-deathmatch');
+    expect(routeFromPath('/play/multiplayer/team-deathmatch/dragon-courtyard')).toBe('host-dragon-courtyard');
+    expect(routeFromPath('/play/multiplayer/team-deathmatch/smith-street/')).toBe('host-smith-street');
+    expect(routeFromPath('/play/multiplayer/hardpoint')).toBe('host-hardpoint');
+    expect(routeFromPath('/play/multiplayer/free-for-all')).toBe('host-free-for-all');
     expect(routeFromPath('/tutorial/')).toBe('tutorial');
     expect(routeFromPath('/training')).toBe('training');
     expect(routeFromPath('/world/')).toBe('world');
@@ -31,5 +38,6 @@ describe('routes', () => {
     expect(canonicalUrl('/', '?room=ABC123')).toBe('/debug?room=ABC123');
     expect(canonicalUrl('/debug', '?room=ABC123')).toBeNull();
     expect(canonicalUrl('/', '')).toBeNull();
+    expect(canonicalUrl('/multiplayer', '?room=ABC123')).toBeNull();
   });
 });

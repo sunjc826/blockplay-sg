@@ -1,8 +1,10 @@
 # Matches menus
 
-**Play** is the main menu’s entry for Open World, Training and matches. Choose an activity first. Open World and the live-fire range use the district picker, while Training also contains the tutorial. Team Deathmatch uses the same picker to choose between the Dragon courtyard and Smith Street. Hardpoint and Free for All each have one arena, so they open match setup directly. Match setup offers **Solo vs bots** and **Host room**.
+**Play** opens a choice between **Single Player** and **Multiplayer**. Single Player contains Open World, Training and matches against bots. Open World and the live-fire range use the district picker, while Training also contains the tutorial. Team Deathmatch uses the same arena picker in both branches. Hardpoint and Free for All each have one arena, so they open setup directly.
 
-**Find a Room** is the Play menu’s entry for joining. It shows open rooms and a room-code field on one screen. Selecting a listed room fills that field. Invitation links still open `/multiplayer` with the code filled in. Returning from Team Deathmatch setup preserves the last confirmed arena.
+Solo setup shows the arena, rules, starting loadout and, for Free for All, bot settings. **Load arena** prepares the district and **Start match** begins play once it is ready. Solo matches use a local operator and skip room creation and player-name entry.
+
+Choose a mode in Multiplayer to host. **Find a Room** is the menu’s entry for joining. It shows open rooms and a room-code field on one screen. Selecting a listed room fills that field. Invitation links still open `/multiplayer` with the code filled in. Returning from Team Deathmatch setup preserves the last confirmed arena.
 
 Both host and guest see the host’s mode, map, rules and capacity before entering. Team matches have eight combatants, with at most four human room members; bots fill both teams. The human roster distinguishes In room, Loading, Ready, In match and Match complete. These are presence indicators, not a ready-up requirement. The host relays each member’s authenticated status. A room advertises its immutable match configuration before the host loads the game.
 
@@ -12,7 +14,7 @@ Both host and guest see the host’s mode, map, rules and capacity before enteri
 
 **Return to room** preserves the session, engine, player identity and current match. **Return to match** reopens the existing game. The host continues authoritative simulation while viewing the room. The room explicitly explains that the match keeps running and the operator remains on the field, just as when opening the pause menu. This is not a spectator or invulnerability state.
 
-**Leave room** disconnects a guest. **Close room for everyone** disconnects the host and closes the room. Navigation confirmation remains in place. Solo has **Return to setup** and **End solo match**. Ending a match retains the setup fields so the operator name is ready for another match. The room component owns the connection while its route is open and keeps the session mounted when switching between the room and game.
+**Leave room** disconnects a guest. **Close room for everyone** disconnects the host and closes the room. Navigation confirmation remains in place. Solo has **Return to setup** and **End solo match**. Ending a match retains the bot settings and loadout for another match. The room component owns the connection while its route is open and keeps the session mounted when switching between the room and game.
 
 ## Scoreboards and small screens
 

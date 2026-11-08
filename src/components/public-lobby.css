@@ -1,5 +1,5 @@
 /* The public lobby shares the game's palette, with a touch-sized room flow. */
-.game-screen-multiplayer.has-lobby .game-screen-body {
+.game-screen-match.has-lobby .game-screen-body {
   padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   overflow: auto;
 }
@@ -12,12 +12,6 @@
 .public-lobby .lan-layout { grid-template-columns: minmax(0, 1fr); }
 .public-lobby.has-room .lan-layout { grid-template-columns: minmax(0, 1fr) 280px; }
 .public-lobby .lan-main { padding: 24px 30px 28px; }
-.public-lobby .lan-mode-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; background: #0c191280; border: 1px solid #aabb8d18; border-radius: 11px; }
-.public-lobby .lan-mode-picker button { min-height: 46px; padding: 10px 7px; text-align: center; border: 0; border-radius: 7px; background: transparent; }
-.public-lobby .lan-mode-picker button:disabled { opacity: .55; cursor: default; }
-.public-lobby .lan-mode-picker strong { font: 600 13px 'DM Sans', sans-serif; color: #aebda7; }
-.public-lobby .lan-mode-picker button[aria-pressed=true] { background: #354839; box-shadow: 0 2px 6px #0002; }
-.public-lobby .lan-mode-picker button[aria-pressed=true] strong { color: #f5e2b2; }
 .public-browser-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 24px 0 16px; }
 .public-browser-heading h2 { font: 600 19px 'Manrope', sans-serif; margin: 0; }
 .public-browser-heading h2 small { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 7px; background: #ffffff0a; color: #b8c7af; font: 12px 'DM Sans', sans-serif; margin-left: 6px; }
@@ -46,12 +40,12 @@
 .public-options[open] > summary::after { content: '−'; }
 .public-options > summary > span { margin-left: auto; font-size: 12px; color: #a1b294; }
 .public-options > summary > svg { margin-left: auto; color: #a1b294; }
-.public-lobby .lan-bot-control { padding: 0 0 4px; margin: 6px 0; border: 0; background: none; }
-.public-lobby .lan-bot-control label, .public-lobby .lan-squad-control label { font: 13px 'DM Sans', sans-serif; letter-spacing: 0; }
-.public-lobby .lan-bot-control output { font-size: 23px; }
-.public-lobby .lan-bot-control input { min-height: 32px; margin: 8px 0; }
-.public-lobby .lan-squad-control { margin: 0 0 18px; }
-.public-lobby .lan-squad-control select { font-size: 16px; border-radius: 8px; min-height: 46px; }
+:is(.public-lobby,.solo-setup) .lan-bot-control { padding: 0 0 4px; margin: 6px 0; border: 0; background: none; }
+:is(.public-lobby,.solo-setup) .lan-bot-control label, :is(.public-lobby,.solo-setup) .lan-squad-control label { font: 13px 'DM Sans', sans-serif; letter-spacing: 0; }
+:is(.public-lobby,.solo-setup) .lan-bot-control output { font-size: 23px; }
+:is(.public-lobby,.solo-setup) .lan-bot-control input { min-height: 32px; margin: 8px 0; }
+:is(.public-lobby,.solo-setup) .lan-squad-control { margin: 0 0 18px; }
+:is(.public-lobby,.solo-setup) .lan-squad-control select { font-size: 16px; border-radius: 8px; min-height: 46px; }
 .public-lobby .lan-deploy { min-height: 52px; border-radius: 10px; margin-top: 20px; font-size: 15px; padding: 14px 16px; }
 .public-lobby .lan-deploy svg:last-child { margin-left: auto; }
 .public-lobby .lan-deploy:disabled { opacity: .45; cursor: default; }
@@ -84,13 +78,12 @@
 .public-lobby .lan-error, .public-lobby .lan-notice { font-size: 13px; border-radius: 8px; }
 .public-lobby button:focus-visible, .public-lobby summary:focus-visible { outline: 2px solid #edcc88; outline-offset: 3px; }
 @media (max-width: 700px) {
-  .game-screen-multiplayer.has-lobby .game-screen-body { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+  .game-screen-match.has-lobby .game-screen-body { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .public-lobby { margin: 0 auto; border-radius: 14px; }
   .public-lobby .lan-header { display: flex; gap: 8px; padding: 23px 20px; }
   .public-lobby .lan-header h1 { font-size: 29px; }
   .public-lobby .lan-header p { font-size: 11px; }
   .public-lobby .lan-main { padding: 18px 20px 20px; }
-  .public-lobby .lan-mode-picker strong { font-size: 12px; }
   .public-lobby.has-room .lan-layout { grid-template-columns: minmax(0, 1fr); }
   .public-lobby .lan-sidebar { display: block; padding: 20px; border-left: 0; border-top: 1px solid var(--lan-line); }
   .public-lobby .lan-footer { padding: 8px 20px; gap: 10px; }
@@ -98,11 +91,9 @@
 @media (max-width: 360px) {
   .public-lobby .lan-header, .public-lobby .lan-main, .public-lobby .lan-sidebar { padding-left: 16px; padding-right: 16px; }
   .public-lobby .lan-header h1 { font-size: 25px; }
-  .public-lobby .lan-mode-picker strong { font-size: 11px; }
 }
 .public-lobby .lan-deploy svg { margin-right: 0; }
 
-.public-lobby .lan-mode-picker{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:20px}.match-mode-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}.match-mode-cards button{display:flex;flex-direction:column;gap:12px;min-height:190px;padding:18px;text-align:left;border:1px solid #9aae7940;border-radius:12px;background:#102017;color:#edf1e3}.match-mode-cards button[aria-pressed=true]{border:2px solid #e4c780;background:#30412d;padding:17px}.match-mode-cards strong{font-size:18px}.match-mode-cards span{font-size:13px;line-height:1.6;color:#becbb4}.match-mode-cards small{font-size:12px;color:#e4c780;margin-top:auto}.match-summary{display:grid;gap:7px;padding:18px;margin:18px 0;border:1px solid #aabe8640;border-radius:12px;background:#102017}.match-summary>strong{font-size:20px;color:#f2dfb5}.match-summary>span{font-size:14px;color:#e1e8d9}.match-summary p,.match-loadout p,.match-choice-hint{font-size:13px;line-height:1.7;color:#bdcbb5}.match-summary p{margin:4px 0}.match-summary small{font-size:12px;line-height:1.6;color:#bcccb0}.match-loadout{margin:20px 0;padding:16px 0;border-top:1px solid #aabe8630}.match-loadout>strong{font-size:14px}.public-lobby .lan-squad-control{margin-top:16px}.public-lobby .lan-squad-control p{font-size:12px}.public-lobby .respawn-loadout-screen{z-index:50}.public-lobby:has(.respawn-loadout-screen){overflow:visible}.public-lobby .lan-footer{justify-content:flex-end}
 
 .match-summary { display:grid; gap:7px; padding:18px; margin:0 0 18px; border:1px solid #aabe8640; border-radius:12px; background:#102017; }
 .match-summary > strong { font-size:20px; color:#f2dfb5; }
@@ -112,11 +103,22 @@
 .match-summary small { font-size:12px; line-height:1.6; color:#bcccb0; }
 .match-loadout { margin:20px 0; padding:16px 0; border-top:1px solid #aabe8630; }
 .match-loadout > strong { font-size:14px; }
-.public-lobby .lan-squad-control { margin-top:16px; }
-.public-lobby .respawn-loadout-screen { z-index:50; }
-.public-lobby:has(.respawn-loadout-screen) { overflow:visible; }
+:is(.public-lobby,.solo-setup) .lan-squad-control { margin-top:16px; }
+:is(.public-lobby,.solo-setup) .respawn-loadout-screen { z-index:50; }
+:is(.public-lobby,.solo-setup):has(.respawn-loadout-screen) { overflow:visible; }
 .public-lobby .lan-footer { justify-content:flex-end; }
 @media(max-width:700px) {
   .match-summary { padding:14px; }
   .public-lobby .lan-header { padding:18px 20px; }
 }
+
+.solo-setup { width:min(540px,100%); margin:auto; flex-shrink:0; border-radius:14px; box-shadow:0 24px 80px #0003; }
+.solo-setup-body { padding:clamp(16px,4vw,28px); }
+.solo-setup h1 { margin:6px 0 4px; font:700 clamp(27px,5vw,36px)/1.15 'Manrope',sans-serif; }
+.solo-setup p { margin:12px 0; font-size:14px; line-height:1.55; color:var(--lan-muted); }
+.solo-setup .solo-arena-name { margin-top:4px; color:var(--lan-gold); }
+.solo-setup .solo-rules { font-size:13px; }
+.solo-setup .lan-secondary { min-height:44px; margin:0 0 10px; border-radius:7px; }
+.solo-setup .lan-deploy { min-height:48px; border-radius:8px; font-size:14px; }
+.solo-setup .lan-cancel { min-height:44px; }
+.solo-setup button:focus-visible,.solo-setup summary:focus-visible { outline:2px solid var(--lan-gold); outline-offset:3px; }

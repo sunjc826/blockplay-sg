@@ -53,7 +53,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }}>
     <div className="respawn-loadout-panel"><header><span>DEPLOYMENT LOCKER</span><h2 ref={heading} tabIndex={-1} id="loadout-screen-title">{deployment?'Choose your starting loadout':'Choose your next loadout'}</h2>
-      <p>{deployment?'These weapons are equipped when you enter the match. Your room stays connected.':'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
+      <p>{deployment?'These weapons are equipped when you enter the match.':'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
       <button type="button" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
       <div className="respawn-loadout-columns">
         {slot('Main weapon', draft.carry.main, 'main')}
@@ -63,7 +63,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
       <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.</small></div>
         <button type="button" onClick={onClose}>Cancel</button><button type="button" data-testid="queue-loadout" disabled={busy || !valid} onClick={async () => {
           setBusy(true); setError('');
-          try { if (await onSave(draft)) onClose(); else setError('Loadout could not be queued. Check your connection and rental time, then try again.'); }
+          try { if (await onSave(draft)) onClose(); else setError(deployment ? 'Loadout could not be saved. Check your rental time and try again.' : 'Loadout could not be queued. Check your connection and rental time, then try again.'); }
           catch { setError('Loadout could not be queued. Try again.'); }
           finally { setBusy(false); }
         }}>{busy ? 'Saving…' : deployment ? 'Use for this match' : 'Use on next respawn'}</button></footer>

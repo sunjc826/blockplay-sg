@@ -3,7 +3,7 @@ import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Play, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
-import MultiplayerGame from './MultiplayerGame';
+import MatchGame from './MatchGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import ArmoryShop from './ArmoryShop';
@@ -77,21 +77,35 @@ function BackLink({ to, className = 'play-nav-back' }: { to: Route; className?: 
   }}><ArrowLeft size={16} /><span>{routeLabel(to)}</span></a>;
 }
 
-function ActivityMenu({ training }: { training: boolean }) {
-  const activities = training ? [
+type ActivityScreen = 'play' | 'single-player' | 'multiplayer-menu' | 'training-menu';
+const SOLO_ACTIVITIES = [
+  { route: 'world', title: 'Open World', detail: `Explore ${REGIONS.length} districts with patrols and supplies.`, icon: MapIcon },
+  { route: 'training-menu', title: 'Training', detail: 'Practise at the range or take the tutorial.', icon: GraduationCap },
+  ...MATCH_MODES.map(mode => ({ route: mode.mode, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
+] as const;
+const ACTIVITY_MENUS = {
+  play: { back: 'menu', title: 'Choose how to play', activities: [
+    { route: 'single-player', title: 'Single Player', detail: 'Explore Singapore, train, or play matches with bots.', icon: Play },
+    { route: 'multiplayer-menu', title: 'Multiplayer', detail: 'Host a match or join an online room.', icon: Users },
+  ] },
+  'single-player': { back: 'play', title: 'Single Player', activities: SOLO_ACTIVITIES },
+  'multiplayer-menu': { back: 'play', title: 'Multiplayer', activities: [
+    { route: 'multiplayer', title: 'Find a Room', detail: 'Browse online rooms or enter a room code.', icon: Users },
+    ...MATCH_MODES.map(mode => ({ route: `host-${mode.mode}` as const, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
+  ] },
+  'training-menu': { back: 'single-player', title: 'Training', activities: [
     { route: 'training', title: 'Live-fire range', detail: 'Practise with your equipped loadout in any district.', icon: Crosshair },
     { route: 'tutorial', title: 'Tutorial', detail: 'Learn movement and weapon controls in a guided course.', icon: GraduationCap },
-  ] as const : [
-    { route: 'world', title: 'Open World', detail: `Explore ${REGIONS.length} districts with patrols and supplies.`, icon: MapIcon },
-    { route: 'training-menu', title: 'Training', detail: 'Practise at the range or take the tutorial.', icon: GraduationCap },
-    ...MATCH_MODES.map(mode => ({ route: mode.mode, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
-    { route: 'multiplayer', title: 'Find a Room', detail: 'Browse online rooms or enter a room code.', icon: Users },
-  ] as const;
+  ] },
+} as const;
+
+function ActivityMenu({ screen }: { screen: ActivityScreen }) {
+  const { back, title, activities } = ACTIVITY_MENUS[screen];
   return <div className="game-screen activity-screen" {...plainScreenSounds}>
     <main className="activity-main">
-      <BackLink to={training ? 'play' : 'menu'} />
-      <header><span className="starting-eyebrow">PLAY</span><h1>{training ? 'Training' : 'Choose an activity'}</h1></header>
-      <nav className="activity-grid" aria-label={training ? 'Training activities' : 'Play activities'}>
+      <BackLink to={back} />
+      <header><span className="starting-eyebrow">PLAY</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}</header>
+      <nav className="activity-grid" aria-label={title}>
         {activities.map(({ route, title, detail, icon: Icon, ...info }) => <a key={route} className="activity-card" {...link(route)}>
           <Icon size={21} aria-hidden="true" />
           <span><strong>{title}</strong><small>{detail}</small>{'format' in info && <small className="activity-format">{info.format}</small>}</span>
@@ -102,23 +116,31 @@ function ActivityMenu({ training }: { training: boolean }) {
   </div>;
 }
 
-function MatchDistrictPicker() {
+function MatchDistrictPicker({ online }: { online: boolean }) {
   const [preferred] = useState(readMatchPreference);
   const initial = preferred.mode === 'team-deathmatch' ? TDM_AREAS.find(area => area.id === preferred.area)?.region : undefined;
-  return <StartingPointPicker mode="team-deathmatch" initial={initial ?? TDM_AREAS[0].region} options={MATCH_DISTRICTS} back={<BackLink to="play" />}
+  return <StartingPointPicker mode="team-deathmatch" initial={initial ?? TDM_AREAS[0].region} options={MATCH_DISTRICTS} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
     onDeploy={id => {
       const area = TDM_AREAS.find(area => area.region === id);
       if (!area) return;
       saveMatchPreference({ mode: 'team-deathmatch', area: area.id });
-      navigate(area.id);
+      navigate(online ? `host-${area.id}` : area.id);
     }} />;
 }
 
-const MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
+const SOLO_MATCHES = {
   'dragon-courtyard': { mode: 'team-deathmatch', area: 'dragon-courtyard' },
   'smith-street': { mode: 'team-deathmatch', area: 'smith-street' },
   hardpoint: defaultMatchFor('hardpoint'),
   'free-for-all': defaultMatchFor('free-for-all'),
+} satisfies Record<string, ArenaMatch>;
+
+const SOLO_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = SOLO_MATCHES;
+const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
+  'host-dragon-courtyard': SOLO_MATCHES['dragon-courtyard'],
+  'host-smith-street': SOLO_MATCHES['smith-street'],
+  'host-hardpoint': SOLO_MATCHES.hardpoint,
+  'host-free-for-all': SOLO_MATCHES['free-for-all'],
 };
 
 /**
@@ -150,7 +172,7 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
   useEffect(() => () => setMusicCue(null), []);
-  const back = <BackLink to={mode === 'training' ? 'training-menu' : 'play'} />;
+  const back = <BackLink to={mode === 'training' ? 'training-menu' : 'single-player'} />;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
@@ -186,7 +208,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   // Play screens set their own cues below; their effects run first, so this only speaks for the rest.
   useEffect(() => {
     if (hasMenuTheme(screen)) setMusicCue('menu');
-    else if (screen === 'team-deathmatch') setMusicCue('map');
+    else if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') setMusicCue('map');
     else if (screen === 'tutorial') setMusicCue(null);
   }, [screen]);
   useEffect(() => () => setMusicCue(null), []);
@@ -200,14 +222,18 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}><div className="game-screen game-screen-play"><main className="game-screen-body"><TutorialGame suspended={install.updateReady} onStore={() => requestLeave(() => { setStoreTour(true); transitionTo('store', true); })} /></main></div></SettingsStoreContext.Provider>;
 
-  if (screen === 'play' || screen === 'training-menu') return <ActivityMenu training={screen === 'training-menu'} />;
-  if (screen === 'team-deathmatch') return <MatchDistrictPicker />;
+  if (screen === 'play' || screen === 'single-player' || screen === 'multiplayer-menu' || screen === 'training-menu') return <ActivityMenu screen={screen} />;
+  if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} online={screen === 'host-team-deathmatch'} />;
 
-  const match = MATCH_BY_SCREEN[screen];
-  if (match || screen === 'multiplayer') {
-    const parent = match?.mode === 'team-deathmatch' ? 'team-deathmatch' : 'play';
+  const solo = SOLO_MATCH_BY_SCREEN[screen];
+  const hosted = HOST_MATCH_BY_SCREEN[screen];
+  const match = solo ?? hosted;
+  const online = !!hosted || screen === 'multiplayer';
+  if (match || online) {
+    const arenaPicker = match?.mode === 'team-deathmatch';
+    const parent = online ? arenaPicker ? 'host-team-deathmatch' : 'multiplayer-menu' : arenaPicker ? 'team-deathmatch' : 'single-player';
     return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
-      <MultiplayerGame key={screen} match={match} backLabel={parent === 'team-deathmatch' ? 'Arenas' : 'Play'} onBack={() => returnToParent(parent)} armory={armory} suspended={install.updateReady} />
+      <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={() => returnToParent(parent)} armory={armory} suspended={install.updateReady} />
     </div></SettingsStoreContext.Provider>;
   }
 

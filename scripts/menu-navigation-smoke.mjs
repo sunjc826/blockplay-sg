@@ -44,6 +44,7 @@ try {
   assert.equal(await evaluate(`document.activeElement.id`), 'inventory-tab-supply');
   await click('.context-back'); await wait(`!!document.querySelector('.shop')`);
   await openPlay();
+  await click('.activity-card[href="/play/single-player"]');
   await click('.activity-card[href="/play/training"]');
   await click('.activity-card[href="/training"]'); await wait(`!!document.querySelector('.starting-picker')`);
   await click('.starting-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`, 60000);
@@ -107,45 +108,77 @@ try {
   await click('.deployment-leave'); await wait(`!!document.querySelector('.starting-picker')`);
   assert.match(await evaluate(`document.querySelector('.starting-place h2').textContent`), /Queenstown/);
   assert.equal(await evaluate(`!!document.querySelector('[role="alertdialog"]')`), false);
+  const roomRequests = [];
+  ws.addEventListener('message', event => {
+    const request = JSON.parse(event.data);
+    if (request.method === 'Network.requestWillBeSent' && new URL(request.params.request.url).pathname.startsWith('/api/rooms')) roomRequests.push(request.params.request.url);
+  });
+  await send('Network.enable');
   for (const [width,height,mobile] of [[1440,900,false],[320,568,true],[844,390,true]]) {
     await size(width,height,mobile); await go('/play', '.activity-grid');
-    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth && document.querySelectorAll('.activity-grid a[href="/multiplayer"]').length===1`));
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/play/single-player','/play/multiplayer']);
+    assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth`));
+    await shot(`play-branches-${width}`);
+    await click('.activity-card[href="/play/single-player"]', mobile);
+    assert(await evaluate(`!document.querySelector('.activity-card[href="/multiplayer"]')`));
     await click('.activity-card[href="/play/team-deathmatch"]', mobile);
     await wait(`document.querySelector('.starting-picker')?.dataset.mode==='team-deathmatch'`);
     await click('.starting-view button:last-child', mobile);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('.starting-list-items button')].map(e=>e.textContent)`), ['ChinatownSmith Street','Toa PayohDragon courtyard']);
     await click('.starting-list-items button:first-child', mobile);
     await click('.starting-deploy', mobile);
-    await wait(`document.querySelector('.match-summary')?.textContent.includes('Smith Street')`);
-    assert.deepEqual(await evaluate(`[...document.querySelectorAll('.lan-mode-picker button')].map(e=>e.textContent)`), ['Solo vs bots','Host room']);
-    assert(await evaluate(`!document.querySelector('.lan-code-input') && !document.querySelector('.starting-picker')`));
+    await wait(`document.querySelector('.solo-arena-name')?.textContent.includes('Smith Street')`);
+    assert(await evaluate(`!document.querySelector('.solo-setup input, .public-lobby, .starting-picker')`));
+    await shot(`solo-setup-${width}`);
     await click('.lobby-navigation button', mobile);
     await wait(`document.querySelector('.starting-place h2')?.textContent==='Smith Street'`);
-    await shot(`arena-picker-${width}`);
   }
   await size(1440,900);
   for (const [mode, venue] of [['hardpoint','Smith Street'], ['free-for-all','Marina Bay']]) {
-    await go('/play', '.activity-grid');
+    await go('/play/single-player', '.activity-grid');
     await click(`.activity-card[href="/play/${mode}"]`);
-    await wait(`document.querySelector('.match-summary')?.textContent.includes(${JSON.stringify(venue)})`);
-    assert(await evaluate(`!document.querySelector('.starting-picker') && !document.querySelector('.lan-code-input')`));
+    await wait(`document.querySelector('.solo-arena-name')?.textContent.includes(${JSON.stringify(venue)})`);
+    assert(await evaluate(`!document.querySelector('.starting-picker, .solo-setup input[autocomplete="nickname"], .public-lobby')`));
   }
+  await click('.solo-setup .public-options summary');
+  assert(await evaluate(`document.querySelector('.solo-setup input[type="range"]').value==='3'`));
+  await click('.solo-setup .lan-deploy');
+  await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
+  assert(await evaluate(`document.querySelector('.fps-game').dataset.matchMode==='free-for-all'`));
+  await click('.arena-room-return');
+  await wait(`document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Return to match')`);
+  await click('.solo-setup .lan-cancel');
+  await wait(`!!document.querySelector('[role="alertdialog"]')`);
+  await click('.confirm-leave');
+  await wait(`!document.querySelector('.fps-game') && document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Load arena')`);
+  assert.deepEqual(roomRequests, [], 'Single-player flows never contact the rooms API');
   await go('/play', '.activity-grid');
+  await click('.activity-card[href="/play/multiplayer"]');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/multiplayer','/play/multiplayer/team-deathmatch','/play/multiplayer/hardpoint','/play/multiplayer/free-for-all']);
+  await click('.activity-card[href="/play/multiplayer/team-deathmatch"]');
+  await wait(`document.querySelector('.starting-picker')?.dataset.mode==='team-deathmatch'`);
+  await click('.starting-deploy');
+  await wait(`location.pathname==='/play/multiplayer/team-deathmatch/smith-street' && !!document.querySelector('.public-lobby input[autocomplete="nickname"]')`);
+  assert(await evaluate(`!document.querySelector('.solo-setup, .lan-mode-picker, .lan-code-input')`));
+  await click('.lobby-navigation button');
+  await wait(`document.querySelector('.starting-place h2')?.textContent==='Smith Street'`);
+  await click('.starting-header a');
+  await wait(`location.pathname==='/play/multiplayer'`);
   await click('.activity-card[href="/multiplayer"]');
   await wait(`document.querySelector('.public-lobby h1')?.textContent==='Find a Room'`);
   assert(await evaluate(`!!document.querySelector('.lan-code-input') && !document.querySelector('.lan-mode-picker')`));
   await go('/multiplayer?room=ABC123', '.lan-code-input');
   assert.equal(await evaluate(`document.querySelector('.lan-code-input').value`), 'ABC123');
   if (process.env.MENU_TEST_ROOMS === '1') {
-    await go('/play', '.activity-grid');
-    await click('.activity-card[href="/play/hardpoint"]'); await wait(`!!document.querySelector('.public-lobby')`);
-    await click('.lan-mode-picker button:nth-child(2)'); await click('.lan-deploy');
+    await go('/play/multiplayer', '.activity-grid');
+    await click('.activity-card[href="/play/multiplayer/hardpoint"]'); await wait(`!!document.querySelector('.public-lobby')`);
+    await click('.lan-deploy');
     await wait(`!!document.querySelector('.public-lobby.has-room')`);
     await click('.public-actions .lan-cancel'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /You are hosting/);
     await key('Escape'); assert(await evaluate(`!!document.querySelector('.public-lobby.has-room')`));
     await click('.lobby-navigation button'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
-    await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/play/hardpoint');
+    await key('Escape'); assert.equal(await evaluate(`location.pathname`), '/play/multiplayer/hardpoint');
     await click('.public-actions .lan-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
     await click('.arena-start-card > .fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
     assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /closes the match for everyone/);
@@ -177,6 +210,6 @@ try {
     await shot(`${name}-menu`);
   }
   assert.deepEqual(errors, []);
-  console.log('PASS menu navigation: contextual returns/state/focus, tabs, dialog containment, active-run exit cancellation, Back/Forward, named districts, landing-zone return, responsive store and inspection.');
+  console.log('PASS menu navigation: contextual returns/state/focus, tabs, dialog containment, active-run exit cancellation, Back/Forward, named districts, landing-zone return, responsive store and inspection, separate single-player and multiplayer menus, solo setup and invite prefill.');
 } catch (error) { console.error(error); await shot('failure').catch(()=>{}); process.exitCode = 1; }
 finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

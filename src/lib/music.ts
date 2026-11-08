@@ -13,7 +13,7 @@ export type MusicCue = 'menu' | 'map' | 'spawn';
 export type MusicStinger = 'descent' | 'win' | 'lose';
 
 /** The screens with the menu theme. Training, Open World and Multiplayer choose their own cues as they go. */
-const THEME_ROUTES: ReadonlySet<string> = new Set(['menu', 'play', 'training-menu', 'inventory', 'settings', 'store']);
+const THEME_ROUTES: ReadonlySet<string> = new Set(['menu', 'play', 'single-player', 'multiplayer-menu', 'training-menu', 'inventory', 'settings', 'store']);
 export const hasMenuTheme = (route: string) => THEME_ROUTES.has(route);
 
 interface Voice { cue: MusicCue; source: AudioBufferSourceNode; gain: GainNode; stopping?: ReturnType<typeof setTimeout> }

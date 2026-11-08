@@ -52,21 +52,20 @@ const fullScene = async (p,width,height) => {
   assert(await p.evaluate(`!document.querySelector('.fps-toolbar,.fps-inputs,.fps-loadout,.fps-pilot-panel,.fps-debug-panel,.arena-session-footer')`),'No developer panels or duplicate controls');
 };
 try{
-  const host=await page(9248,'/play/free-for-all'),guest=await page(9249);
+  const host=await page(9248,'/play/multiplayer/free-for-all'),guest=await page(9249);
   for(const p of [host,guest]){
     // iPhone-style path: the game must fit even without browser fullscreen.
     await p.send('Page.addScriptToEvaluateOnNewDocument',{source:`Object.defineProperty(Element.prototype,'requestFullscreen',{value:undefined,configurable:true});`});
     await phone(p,390,844);await p.send('Page.reload');await p.wait(`!!document.querySelector('.public-lobby')`);
   }
   await fits(guest,'Room browser');await guest.screenshot('01-browse');
-  await tap(host,`[...document.querySelectorAll('.lan-mode-picker button')].find(b=>b.textContent.includes('Host room'))`);
   await host.wait(`!!document.querySelector('input[autocomplete="nickname"]')`);
   assert(await host.evaluate(`parseFloat(getComputedStyle(document.querySelector('input')).fontSize)>=16`),'Form text avoids mobile input zoom');
   await host.screenshot('02-create');
   await field(host,'input[autocomplete="nickname"]','Mobile host');
   await tap(host,`[...document.querySelectorAll('.public-options summary')].find(s=>s.textContent.includes('Room name'))`);
   await field(host,'input[maxlength="40"]','Phone squad');await field(host,'input[type="password"]','mobile-secret');
-  await field(host,'#public-bots','0');
+  await field(host,'.lan-bot-control input','0');
   await tap(host,button('Create public room'));await host.wait(`!!document.querySelector('output[aria-label="Room code"]')`);
   const code=await host.evaluate(`document.querySelector('output[aria-label="Room code"]').textContent`);
   const invite=await host.evaluate(`document.querySelector('input[aria-label="Invite link"]').value`);
