@@ -26,6 +26,21 @@ try{
     assert.equal(state.mist,mode==='mist');
     assert.ok(Math.hypot(state.impact[0]-state.end.x,state.impact[1]-state.end.y,state.impact[2]-state.end.z)<.2);
   }
+  const reactions={};
+  for(const mode of ['cannon','mist','clear']){
+    const samples=[];
+    for(let i=0;i<8;i++){
+      const state=await evaluate(`window.show(${JSON.stringify(mode)},'reaction',.25)`);
+      samples.push(state.pose);if(i===2||i===5)await shot(mode+'-reaction-'+i);
+    }
+    const distances=samples.map(p=>Math.hypot(...p.hand.map((v,i)=>v-p.head[i])));
+    if(mode==='cannon')assert.ok(distances.slice(2).every(d=>d<.34),'cannon hand shields face');
+    if(mode==='mist'){assert.ok(distances.some(d=>d<.34),'mist wipes face');assert.ok(distances.some(d=>d>.4),'mist releases the wipe');}
+    if(mode==='clear')assert.ok(distances.at(-1)>.4,'normal weapon hold restored');
+    if(mode!=='clear')assert.notDeepEqual(samples[2].headRotation,samples[5].headRotation,'head reaction animates');
+    reactions[mode]={samples,distances};
+  }
+  views.reactions=reactions;
   assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,views,errors},null,2));
-  console.log('PASS: forward cone and cannon conditions drive visible bot status; rear bot stays clear; tags clear on recovery; impact matches host endpoint.');
+  console.log('PASS: forward cone and cannon conditions drive visible bot status; rear bot stays clear; tags clear on recovery; impact matches host endpoint; cannon shields, mist wipes and normal poses recover.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}

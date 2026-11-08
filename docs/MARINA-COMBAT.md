@@ -360,7 +360,11 @@ bullets.
 
 A bright ring marks the cannon endpoint, with droplets splashing on contact.
 Affected actors show **BLINDED · WATER** or **IN MIST** above their names; blinded
-figures lower their weapons. The operating HUD counts affected bots and explains
+bots lower their weapons, shield their eyes with their off hand, shake their
+heads and recoil through the shoulders. Bots in mist intermittently wipe their
+brows and turn their heads. These reactions blend with walking/crouching/prone
+poses and fade back to the normal grip on recovery; swimming, driving, healing,
+rolls and death keep their own poses. The operating HUD counts affected bots and explains
 whether their firing is interrupted or sight is obscured. Tags clear as the
 host's water condition expires.
 

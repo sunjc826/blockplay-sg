@@ -69,6 +69,8 @@ export interface CharacterDrive {
    * forearm.
    */
   healing?: number;
+  /** Host-confirmed water exposure: sustained shielding or intermittent mist wipes. */
+  water?: 'cannon' | 'mist';
 }
 
 export interface CharacterRig {
@@ -659,9 +661,12 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   let time = hashString(name) % 1000 / 37, phase = 0, moveWeight = 0, speedSmoothed = 0, runWeight = 0;
   let crouch = 0, prone = 0, seated = 0, slide = 0, air = 0, aim = 1, driving = 0, kick = 0, flinch = 0, flinchSide = 1;
   let heal = 0, healTime = 0;
+  let waterBlind = 0, waterMist = 0, waterTime = 0;
+  let lastWater: CharacterDrive['water'];
   let down = false, downTime = 0, gestureTime = 0, gesture: CharacterGesture = 'idle', gestureBlend = 0, lookYaw = 0, lookPitch = 0;
   const moveDirection = new THREE.Vector2(0, -1), wanted = new THREE.Vector2();
   const target = new THREE.Vector3(), world = new THREE.Vector3(), pole = new THREE.Vector3();
+  const waterTarget = new THREE.Vector3();
   const footLevel = new THREE.Quaternion(), footEuler = new THREE.Euler();
 
   /** Body-space point → the given joint's parent frame. */
@@ -726,6 +731,15 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     aim = smooth(aim, clamp01(drive.aim ?? 1), 9, dt);
     const healing = drive.healing !== undefined && !down;
     heal = smooth(heal, healing ? 1 : 0, 8, dt); healTime = healing ? healTime + dt : 0;
+    // Special poses keep their own hands/controls. Water never changes movement or hit authority.
+    const waterAllowed = !down && !drive.swimming && !drive.driving && !healing && !bailoutRoll(drive.bailoutAge).active;
+    const water = waterAllowed ? drive.water : undefined;
+    if (water && water !== lastWater) waterTime = 0;
+    lastWater = water; waterTime += clock;
+    waterBlind = waterAllowed ? smooth(waterBlind, water === 'cannon' ? 1 : 0, 14, dt) : 0;
+    waterMist = waterAllowed ? smooth(waterMist, water === 'mist' ? 1 : 0, 14, dt) : 0;
+    const wipe = ease(clamp01((Math.sin(waterTime * 3.8) + .3) / .8));
+    const waterShield = waterBlind + waterMist * wipe;
     if (dressing) { dressing.visible = heal > .35; dressing.scale.setScalar(.6 + clamp01(drive.healing ?? 0) * .6); }
     kick = Math.max(0, kick - clock * 9); flinch = Math.max(0, flinch - clock * 5);
     if (down) downTime += clock;
@@ -768,6 +782,9 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     // The hips roll back into a slide; the spine curls forward again so the head and gun stay level.
     spine.rotation.set(-crouch * .05 * (1 - seated) - lean * .35 - gestureLean * .5 + breathe * .012 + flinch * .18 + seated * .05 - slide * .3, -hips.rotation.y * .6, 0);
     chest.rotation.set(-(pitchAim * .35 * aim) - lean * .25 - gestureLean * .5 + breathe * .02 + flinch * .2 + crouch * .25 * (1 - seated) + fall * .3 - slide * .4, -hips.rotation.y * .5 + lookYaw * .3, flinch * -.08 * flinchSide);
+    spine.rotation.x += waterBlind * (.1 + .035 * Math.sin(waterTime * 8));
+    chest.rotation.x += waterBlind * .12 - waterMist * .06;
+    chest.rotation.z += waterBlind * Math.sin(waterTime * 7) * .035;
     chest.scale.set(1, 1 + breathe * .006, 1 + breathe * .012);
 
     // Head look and aim.
@@ -784,10 +801,14 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     neck.rotation.set(-chest.rotation.x * .4 + pitchAim * .3 * aim + lookPitch * .4 + prone * .55, lookYaw * .35, 0);
     head.rotation.set(pitchAim * .35 * aim + lookPitch * .6 - nod + prone * .65 - fall * .5 + flinch * .25, lookYaw * .5, flinch * .12 * flinchSide);
 
+    head.rotation.y += waterBlind * (.2 + Math.sin(waterTime * 9) * .18) + waterMist * Math.sin(waterTime * 2.8) * .16;
+    head.rotation.x -= waterBlind * .12 + waterMist * (.07 + wipe * .06);
+    head.rotation.z += waterBlind * Math.sin(waterTime * 7) * .07;
+
     // Weapon: shouldered when aiming, low ready on the move, across the chest
     // at a run, stowed on the back while driving.
     if (weapon) {
-      const ready = aim * (1 - runWeight * (1 - aim)), low = 1 - ready, run = runWeight * low;
+      const ready = aim * (1 - waterBlind * .95 - waterMist * .2) * (1 - runWeight * (1 - aim)), low = 1 - ready, run = runWeight * low;
       weapon.visible = driving < .5 || seated < .5;
       if (heal > .5 && !down) {
         // Hung on its sling, muzzle down at the right hip, while both hands are busy.
@@ -847,6 +868,15 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
         const raised = gesture === 'wave' && side > 0 ? gestureBlend : 0;
         pole.set(side * (.35 + raised), -.2 * (1 - raised), 1 - raised * .6).normalize();
       }
+      // Keep the firing hand on the lowered weapon; blend the off hand to the brow.
+      // Head-local targets work for standing, crouched and prone figures alike.
+      const shield = side < 0 ? waterShield : 0;
+      if (shield > .001) {
+        waterTarget.set(-.08 + Math.sin(waterTime * (waterBlind > .5 ? 8 : 5)) * .09, .17, -.23);
+        head.localToWorld(waterTarget); upper.parent!.worldToLocal(waterTarget);
+        goal.lerp(waterTarget, shield);
+        pole.lerp(waterTarget.set(-1, -.2, -.25).normalize(), shield).normalize();
+      }
       solveLimb(upper, lower, goal, pole, D.upperArm, D.forearm);
       if (armed && weapon) {
         upper.updateMatrixWorld(true);
@@ -854,6 +884,10 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
         weapon.getWorldQuaternion(tmpQuat).multiply(footLevel.setFromEuler(footEuler.set(side > 0 ? -1.75 : -1.35, 0, side > 0 ? .1 : -.5)));
         hand.quaternion.copy(tmpQuat2.multiply(tmpQuat));
       } else hand.rotation.set(gesture === 'wave' && side > 0 ? .2 * gestureBlend : -.05, 0, side * -.08);
+      if (shield > .001) {
+        // Open palm across the eyes instead of retaining the rifle-grip wrist angle.
+        hand.quaternion.slerp(tmpQuat.setFromEuler(footEuler.set(-.25, 0, -.3)), shield);
+      }
     }
     if(drive.swimming && !down){
       const stroke=time*3.5;
@@ -886,7 +920,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     age(dt: number) { if (!Number.isFinite(dt) || dt <= 0) return; aged += dt; time += dt; if (down) downTime += dt; kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5); },
     fire() { kick = 1; aim = Math.max(aim, .8); },
     flinch() { flinch = 1; flinchSide = Math.random() < .5 ? -1 : 1; },
-    setDown(next: boolean) { if (next === down) return; down = next; downTime = 0; if (!next) { crouch = 0; prone = 0; } },
+    setDown(next: boolean) { if (next === down) return; down = next; downTime = 0; waterBlind = waterMist = waterTime = 0; lastWater = undefined; if (!next) { crouch = 0; prone = 0; } },
     get down() { return down; },
     get downTime() { return downTime; },
     dispose() { root.removeFromParent(); resources.forEach(resource => resource.dispose()); resources.length = 0; },

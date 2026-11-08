@@ -692,6 +692,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     else {
       const drive: CharacterDrive = {
         velocity: actor.transport || actor.vehicle ? { x: 0, z: 0 } : local, turn: actor.transport || actor.vehicle ? 0 : turnStep / Math.max(dt, 1e-3), pitch: avatar.pitch,
+        water: actor.bot && (actor.conditions?.['water-eyes']?.remaining??0)>0 ? ((actor.conditions?.['water-eyes']?.strength??0)>.8?'cannon':'mist') : undefined,
         swimming:actor.swimming && !(actor.weapon===2 && speed<.12),
         crouch, prone: !!actor.prone, slide: !actor.bot && !seated && looksLikeSlide(crouch, speed) ? 1 : 0, seated, driving: seated && (actor.seat === 0 || !!actor.transport && !rifleSeat(actor.aircrew)), airborne,
         aim: actor.healing !== undefined || (actor.conditions?.['water-eyes']?.strength??0)>.8 ? 0 : avatar.fireTimer > 0 || speed < 1.2 || actor.prone ? 1 : .15,

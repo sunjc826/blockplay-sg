@@ -15,6 +15,7 @@ const POSES: [string, CharacterDrive, boolean?][] = [
   ['standing', {}], ['walking aim', { velocity: { x: .4, z: -2 }, pitch: .3, aim: 1 }], ['running', { velocity: { x: 0, z: -6 }, aim: 0 }],
   ['crouched', { crouch: 1, pitch: -.4 }], ['prone crawl', { prone: true, velocity: { x: 0, z: -.6 } }], ['seated driving', { seated: true, driving: true }],
   ['sliding', { slide: 1, velocity: { x: 0, z: -7 } }], ['swimming', { swimming: true, velocity: { x: 0, z: -1 } }], ['airborne', { airborne: true }],
+  ['water shielding', { water: 'cannon', aim: 0 }], ['mist wipe', { water: 'mist' }], ['prone shielding', { prone: true, water: 'cannon' }],
   ['healing', { healing: .5 }], ['bailout roll', { bailoutAge: .35 }], ['waving', { gesture: 'wave' }], ['fallen', {}, true],
 ];
 

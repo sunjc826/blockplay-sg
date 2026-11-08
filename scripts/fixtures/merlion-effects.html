@@ -15,20 +15,24 @@ const runtime=createArenaRuntime({scene,obstacles:[],botCount:0,session,environm
 const visuals=createMerlionVisuals(scene),controller=createMerlionController((_o,_d,r)=>Math.min(r,18));
 const p={id:'viewer',alive:true,bot:false,x:0,y:1.75,z:-8.5,yaw:-Math.PI/2,pitch:-.2};
 const input={...p,weapon:0,playing:true};let tick=0;
-window.show=(mode='mist',view='side')=>{
+window.show=(mode='mist',view='side',seconds=.05)=>{
  controller.reset();controller.state.pitch=p.pitch;controller.action(p,'operate');
  if(mode==='mist')controller.action(p,'mist');controller.input(p,mode==='cannon',true);
  const snapshot=simulation.snapshot();snapshot.tick=++tick;
  Object.assign(snapshot.actors.find(a=>a.id==='viewer'),p);
- const bots=snapshot.actors.filter(a=>a.bot);Object.assign(bots[0],{x:7,y:1.75,z:-12,ground:0,name:'Forward bot'});Object.assign(bots[1],{x:-4,y:1.75,z:-12,ground:0,name:'Rear bot'});
+ const bots=snapshot.actors.filter(a=>a.bot);Object.assign(bots[0],{x:7,y:1.75,z:-12,ground:0,yaw:Math.PI/2,name:'Forward bot'});Object.assign(bots[1],{x:-4,y:1.75,z:-12,ground:0,name:'Rear bot'});
  controller.step(.05,snapshot.actors,(a,strength)=>a.conditions={'water-eyes':{strength,remaining:.24,seconds:.24}});
- snapshot.merlion=controller.snapshot();receive('host',{type:'arena-state',snapshot,started:true});runtime.update(.05,input);
+ snapshot.merlion=controller.snapshot();receive('host',{type:'arena-state',snapshot,started:true});for(let t=0;t<seconds;t+=1/60)runtime.update(1/60,input);
  visuals.update(snapshot.merlion,.2);
  if(view==='operator'){const o=merlionMouth(snapshot.merlion.yaw),d=merlionDirection(snapshot.merlion.yaw,snapshot.merlion.pitch);camera.position.set(o.x+d.x*.65,o.y+.45+d.y*.65,o.z+d.z*.65);camera.lookAt(...Object.values(snapshot.merlion.end));}
+ else if(view==='reaction'){camera.position.set(3.6,2.5,-8.9);camera.lookAt(7,1.35,-12);}
  else {camera.position.set(17,13,14);camera.lookAt(6,1,-12);}
  world.animate(12);renderer.render(scene,camera);
  const tags=[];scene.traverse(o=>{if(o.name==='merlion-water-status')tags.push({actor:o.parent.userData.arenaActorId,visible:o.visible,strength:o.userData.waterStrength});});
- return {tags,conditions:bots.map(a=>({id:a.id,conditions:a.conditions})),mist:scene.getObjectByName('merlion-mist-cone').visible,impact:scene.getObjectByName('merlion-impact').position.toArray(),end:snapshot.merlion.end,calls:renderer.info.render.calls};
+ const avatar=scene.children.find(o=>o.userData.arenaActorId==='bot-1');
+ const point=name=>avatar.getObjectByName(name).getWorldPosition(new THREE.Vector3()).toArray();
+ const pose={head:point('rig-head'),hand:point('rig-handL'),headRotation:avatar.getObjectByName('rig-head').quaternion.toArray()};
+ return {pose,tags,conditions:bots.map(a=>({id:a.id,conditions:a.conditions})),mist:scene.getObjectByName('merlion-mist-cone').visible,impact:scene.getObjectByName('merlion-impact').position.toArray(),end:snapshot.merlion.end,calls:renderer.info.render.calls};
 };
 window.show();window.ready=true;
 </script></body></html>
