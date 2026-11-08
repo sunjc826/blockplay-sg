@@ -149,11 +149,21 @@ function panelScene(route: Route) {
   return route.includes('hardpoint') ? 'objective' : route.includes('free-for-all') ? 'solo' : 'squad';
 }
 
+/** Mode illustrations are shared by solo/host routes, independently of the home panorama. */
+const MODE_ARTWORK: Partial<Record<Route, string>> = {
+  'single-player': 'mode-open-world', world: 'mode-open-world',
+  'multiplayer-menu': 'mode-find-room', multiplayer: 'mode-find-room',
+  'training-menu': 'mode-training', training: 'mode-training', tutorial: 'mode-tutorial',
+  'team-deathmatch': 'mode-team-deathmatch', 'host-team-deathmatch': 'mode-team-deathmatch',
+  hardpoint: 'mode-hardpoint', 'host-hardpoint': 'mode-hardpoint',
+  'free-for-all': 'mode-free-for-all', 'host-free-for-all': 'mode-free-for-all',
+};
+
 function PanelArtwork({ route, index, shared = false }: { route: Route; index: number; shared?: boolean }) {
   const scene = panelScene(route);
   const caption = scene === 'city' ? 'EXPLORE' : route === 'multiplayer' || route === 'multiplayer-menu' ? 'CONNECT' : ['squad', 'solo', 'objective'].includes(scene) ? 'COMPETE' : 'PREPARE';
   return <span className="next-gen-artwork" aria-hidden="true">
-    {!shared && <span className="next-gen-image" />}
+    {!shared && <span className="next-gen-image" style={{ backgroundImage: `url('/images/menu/${MODE_ARTWORK[route] ?? 'operations'}.jpg')` }} />}
     <span className="next-gen-grid" />
     <span className="next-gen-index">{String(index + 1).padStart(2, '0')}<span> / {caption}</span></span>
     <span className="next-gen-reticle" />

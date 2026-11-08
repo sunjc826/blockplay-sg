@@ -29,7 +29,12 @@ Back from either mode selector returns to the main menu. Classic retains its
 Play → Single Player / Multiplayer hierarchy, and `/play` remains accessible.
 
 Next-gen also covers the Play, Single Player, Multiplayer and Training
-selectors. Native links retain Tab, Enter and modified clicks. Arrow keys,
+selectors. Their cards have seven independent mode-specific illustrations:
+Open World, Training/Live-fire Range, Tutorial, Team Deathmatch, Hardpoint,
+Free-for-All and Find a Room. Solo and hosted matches share their mode image;
+these illustrations do not form a panorama. Assets and exact generation
+prompts are recorded in [MODE-ARTWORK.md](MODE-ARTWORK.md).
+Native links retain Tab, Enter and modified clicks. Arrow keys,
 Home and End move between panels. Phone home layouts stack the play panels
 over side-by-side Store/Inventory tiles. Reduced motion removes zoom,
 expansion and animation. Installation is available in the footer; manual

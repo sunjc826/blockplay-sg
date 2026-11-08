@@ -51,6 +51,23 @@ async function panoramaFits() {
   assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)')`), 'All actions reveal the shared panorama');
   await evaluate(`(async()=>{const stacked=getComputedStyle(document.querySelector('.next-gen-home-panels')).display==='grid';const name=stacked?'operations-hub-portrait.jpg':'operations-hub.jpg';const background=getComputedStyle(document.querySelector('.next-gen-panorama')).backgroundImage;if(!background.includes(name))throw Error('Wrong panorama for layout');const image=new Image();image.src='/images/menu/'+name;await image.decode()})()`);
 }
+async function modeArtworkFits() {
+  const expected = {
+    '/play/single-player':'open-world', '/play/multiplayer':'find-room',
+    '/play/training':'training', '/world':'open-world', '/multiplayer':'find-room',
+    '/training':'training', '/tutorial':'tutorial',
+    ...Object.fromEntries(['team-deathmatch','hardpoint','free-for-all'].flatMap(mode=>[
+      [`/play/${mode}`,mode],[`/play/multiplayer/${mode}`,mode],
+    ])),
+  };
+  const cards = await evaluate(`[...document.querySelectorAll('.activity-card')].map(e=>({route:e.getAttribute('href'),image:getComputedStyle(e.querySelector('.next-gen-image')).backgroundImage}))`);
+  for (const card of cards) {
+    assert(expected[card.route], `Known mode route: ${card.route}`);
+    assert(card.image.includes(`/images/menu/mode-${expected[card.route]}.jpg`), `Mode-specific art: ${card.route}`);
+  }
+  assert.equal(new Set(cards.map(card=>card.image)).size,cards.length,'Every card on this selector has distinct artwork');
+  await evaluate(`Promise.all([...document.querySelectorAll('.next-gen-image')].map(async e=>{const url=getComputedStyle(e).backgroundImage.match(/url\\(["']?(.*?)["']?\\)/)[1];const image=new Image();image.src=url;await image.decode();if(image.naturalWidth<768||image.naturalHeight<1024)throw Error('Mode artwork resolution too small')}))`);
+}
 async function equipmentRects() {
   return evaluate(`[...document.querySelectorAll('.next-gen-equipment > a')].map(e=>{const r=e.getBoundingClientRect();return {width:r.width,height:r.height,top:r.top,bottom:r.bottom}})`);
 }
@@ -115,7 +132,7 @@ try {
   assert(hoveredEquipment[0].height > hoveredEquipment[1].height + 100, 'Store hover takes precedence over Inventory focus');
   await key('Home'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
   await key('Enter'); await wait(`location.pathname==='/play/single-player'`); await delay(600);
-  await fits(); await shot('desktop-single-player');
+  await fits(); await modeArtworkFits(); await shot('desktop-single-player');
   assert.equal(await evaluate(`document.querySelectorAll('.activity-card').length`), 5);
   assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/');
   await click('.activity-navigation a'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
@@ -132,11 +149,12 @@ try {
   await click('.game-menu-item[href="/play/single-player"]'); await wait(`location.pathname==='/play/single-player'`);
   await click('.activity-card[href="/play/training"]'); await wait(`location.pathname==='/play/training'`);
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/training','/tutorial']);
+  await modeArtworkFits(); await shot('desktop-training');
   await click('.activity-navigation a'); await wait(`location.pathname==='/play/single-player'`);
   await click('.activity-card[href="/play/hardpoint"]'); await wait(`!!document.querySelector('.solo-setup')`);
   await go('/play/multiplayer', '.next-gen-panels');
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/multiplayer','/play/multiplayer/team-deathmatch','/play/multiplayer/hardpoint','/play/multiplayer/free-for-all']);
-  await shot('desktop-multiplayer');
+  await modeArtworkFits(); await shot('desktop-multiplayer');
   await click('.activity-card[href="/play/multiplayer/team-deathmatch"]'); await wait(`!!document.querySelector('.starting-picker')`);
   await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await home();
@@ -149,6 +167,7 @@ try {
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transform`), 'none');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transitionDuration`), '0s');
   await go('/play', '.next-gen-panel');
+  await modeArtworkFits();
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-image')).transitionDuration`), '0s');
   await send('Emulation.setEmulatedMedia', {features:[]});
   for (const [width,height,mobile] of [[320,568,true],[390,844,true],[768,1024,true],[844,390,true],[1024,768,false]]) {
@@ -158,9 +177,11 @@ try {
     if (!mobile) await checkEquipmentExpansion();
     assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
     await click('.game-menu-item[href="/play/single-player"]',mobile); await wait(`location.pathname==='/play/single-player'`);
-    await fits(); await shot(`solo-${width}`);
+    await fits(); await modeArtworkFits(); await shot(`solo-${width}`);
+    await evaluate(`document.querySelector('.activity-card:last-child').scrollIntoView({block:'end'})`);
+    await shot(`solo-last-${width}`);
     await click('.activity-card[href="/play/free-for-all"]',mobile); await wait(`!!document.querySelector('.solo-setup')`);
-    await go('/play/multiplayer', '.next-gen-panels'); await fits(); await shot(`multiplayer-${width}`);
+    await go('/play/multiplayer', '.next-gen-panels'); await fits(); await modeArtworkFits(); await shot(`multiplayer-${width}`);
   }
   // Simulate Safari's manual install capability without invoking a native install prompt.
   const manual = await send('Page.addScriptToEvaluateOnNewDocument', {source:`Object.defineProperty(navigator,'standalone',{value:false,configurable:true});window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();e.stopImmediatePropagation()})`});
