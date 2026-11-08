@@ -1,3 +1,4 @@
+import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
 import { SMITH_CONTROL_SITES } from './hardpoint';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
@@ -76,7 +77,7 @@ import { createWorldAtmosphere } from './world-atmosphere';
 import { createWetSurfaces } from './wet-surfaces';
 import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
-import { createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
+import { INFANTRY_SPEED, movementFrameSteps, runningItemMotion, createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getPhysicalWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -2423,11 +2424,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
     const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
+    const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, slide.active ? 0 : speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     playerBody.update(dt, equipment, loadout, {
       x: position.x, y: vertical, z: position.z, yaw, activeFamily: heldFamily,
       velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
       crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround && !slide.active, slide: slide.active ? 1 : 0,
-      bailoutAge,
+      bailoutAge, gaitPhase: bodyMotion.gait, sprint: bodyMotion.sprint,
       visible: rig.visible && hud.health > 0 && !vehicles.active && !landingRoll.active && !swimming(),
     });
     if (debugDatasets) canvas.dataset.body = JSON.stringify({ visible: playerBody.root.visible, rig: equipment.rigId, plate: equipment.plateId,
@@ -2437,7 +2439,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return mount ? [{ family, kind: mount.userData.carryClass, visible: mount.children[0].visible }] : [];
     }));
     // A slide has no stride: no bob and no footsteps.
-    const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, slide.active ? 0 : speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     if (step && hud.phase === 'playing' && !conditions.deafened) movementSound(poseStance === 'prone' ? .18 : poseStance === 'crouch' ? .25 : sprinting ? .65 : .4);
     if (poseStance !== lastStance && hud.phase === 'playing' && !vehicles.active) handsSound(poseStance === 'stand' ? 'world-cloth-up' : 'world-cloth-down', 0);
     lastStance = poseStance;
@@ -2511,16 +2512,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const eyeY = THREE.MathUtils.lerp(handling[hud.weapon]?.aimHeight ?? .435, offsetSight ? offsetSight.aimX * Math.sin(roll) + offsetSight.aimHeight * Math.cos(roll) : 0, offsetSight ? cant : 0);
     const eyeDepth = THREE.MathUtils.lerp(handling[hud.weapon]?.aimDepth ?? -.47, offsetSight?.aimDepth ?? 0, offsetSight ? cant : 0);
     // Sliding, the gun rolls in across the chest, still pointed where the shots go.
+    const run = runningItemMotion(bodyMotion, specs[hud.weapon].weightKg ?? 3, aim, !!motionPreference?.matches);
     const slideCant = slideWeight * motionScale * (1 - aim);
-    rig.position.set(THREE.MathUtils.lerp(.20, -eyeX, aim) + sway - slideCant * .05 + motion.x * reloadTravel + lookLagX,
-      THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) - bodyMotion.sprint * .08 - slideCant * .03 + bodyFollow + motion.y * reloadTravel + lookLagY,
-      THREE.MathUtils.lerp(-.78, eyeDepth, aim) + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
+    rig.position.set(THREE.MathUtils.lerp(.20, -eyeX, aim) + sway + run.x - slideCant * .05 + motion.x * reloadTravel + lookLagX,
+      THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) + run.y - slideCant * .03 + bodyFollow + motion.y * reloadTravel + lookLagY,
+      THREE.MathUtils.lerp(-.78, eyeDepth, aim) + run.z + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
     // `recoilPose` sizes them; aiming in is the only thing damped here, because
     // a shouldered weapon is held against the shooter rather than by the hands.
-    rig.rotation.set(pose.pitch * (1 - aim * .8) + bodyMotion.sprint * -.18 + bodyFollow * 1.2 + motion.pitch * reloadTravel,
-      motion.yaw * reloadTravel + pose.yaw * (1 - aim * .6), motion.roll * reloadTravel + pose.roll * (1 - aim * .5) + sway * .7 + roll * Math.max(aim, .35) + slideCant * .3);
+    rig.rotation.set(pose.pitch * (1 - aim * .8) + run.pitch + bodyFollow * 1.2 + motion.pitch * reloadTravel,
+      run.yaw + motion.yaw * reloadTravel + pose.yaw * (1 - aim * .6), run.roll + motion.roll * reloadTravel + pose.roll * (1 - aim * .5) + sway * .7 + roll * Math.max(aim, .35) + slideCant * .3);
     const inspection = inspectMotion(inspectElapsed === null ? 0 : inspectElapsed / INSPECT_DURATION);
     // Keep the hands on the weapon; reduced motion uses a smaller turn and lift.
     const inspectScale = motionPreference?.matches ? .25 : 1;
@@ -2569,7 +2571,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
     const supply = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
     // Both sets of hands ride the same sway as the weapon.
-    grenadeHands.root.position.set(sway + lookLagX, Math.abs(sway) + bodyFollow + lookLagY, 0); supplyHands.root.position.copy(grenadeHands.root.position);
+    const itemRun = grenadeHeld && !grenadeHeld.pinned ? .45 : 0;
+    grenadeHands.root.position.set(sway + lookLagX + run.x * itemRun, Math.abs(sway) + bodyFollow + lookLagY + run.y * itemRun, run.z * itemRun);
+    grenadeHands.root.rotation.set(run.pitch * itemRun, run.yaw * itemRun, run.roll * itemRun);
+    supplyHands.root.position.set(sway + lookLagX, Math.abs(sway) + bodyFollow + lookLagY, 0);
     handsView = grenadeMotion?.view ?? supply?.view ?? { pitch: 0, roll: 0 };
     const tucked = supply && supply.weaponTuck > 0 ? handling[hud.weapon] ?? null : null;
     if (tuckedHandling !== tucked) { tuckedHandling?.setSupportHand(true); tucked?.setSupportHand(false); tuckedHandling = tucked; }
@@ -2614,7 +2619,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage;
     canvas.dataset.weaponVisible = String(rig.visible);
     if (debugDatasets) canvas.dataset.movement = JSON.stringify({ speed: +speed.toFixed(3), eye: +bodyMotion.eye.toFixed(3),
-      feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4), slide: slide.active, spread: +spreadAngle.toFixed(5) });
+      gait: bodyMotion.gait, sprint: bodyMotion.sprint, run, weaponPosition: rig.position.toArray(), weaponRotation: [rig.rotation.x, rig.rotation.y, rig.rotation.z], feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4), slide: slide.active, spread: +spreadAngle.toFixed(5) });
     viewScene.updateMatrixWorld(true);
   }
   /** Exposure, sun shadows and the weapon's own lights, from the hour and weather the world resolved to. */
@@ -2875,8 +2880,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function releaseGrenade() {
     if (!grenadeHeld?.pinned) return;
     const held = grenadeHeld, spec = itemById(held.id)!.grenade!, cooked = Math.min(spec.fuse, held.cooked);
-    const direction = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-    const input = { id: held.id, origin: { x: position.x, y: vertical + eyeHeight() - .15, z: position.z }, direction, under: held.under ?? (ads || touchAim), cooked };
+    const under = held.under ?? (ads || touchAim);
+    const direction = playerGrenadeDirection(yaw, pitch, under);
+    const input = { id: held.id, origin: { x: position.x, y: vertical + eyeHeight() - .15, z: position.z }, direction, under, cooked };
     grenadeAfter = { id: held.id, elapsed: 0, thrown: true, under: grenadeUnder };
     // Run out of fuse or input mid-hold, the arm never swung until now.
     if (held.swingAt === null) handsSound('hands-grenade-throw', .25);
@@ -4189,62 +4195,65 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
       } else {
       if (!arenaRuntime) vehicles.step(keys, dt);
-      const move = resolveMovement(keys, moveStick, stickRunning);
-      stickRunning = !!moveStick && move.sprint;
-      const forward = move.forward, side = move.side;
-      const onGround = grounded(), burden = movement(), footScale = footSpeedScale(foodEffects);
-      coolSlide(slide, dt);
-      // Crouch mid-sprint is a slide. Sprinting needs a standing body, so last frame's run is the proof.
-      if (wasSprinting && crouchRequested() && !prone && onGround && !swimming()) startSlide(slide, bodyMotion.x, bodyMotion.z, 7 * footScale * burden.movement, 2.1 * footScale * burden.movement);
-      if (slide.active && (prone || swimming())) endSlide(slide);
-      const poseStance = stance();
-      const wantsSprint = !swimming() && move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
-      sprintIntent = wantsSprint && keys.has('shift');
-      // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
-      ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, realDt));
-      // A fresh trigger pull or sprint key stops a reload; one already held when
-      // it began does not, and a held sprint drops to a run until the reload ends.
-      if (loadout[hud.weapon].reloadRemaining > 0) {
-        if (reloadInterrupt(reloadGate, pulled, sprintIntent, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
-        else sprinting = false;
-      }
-      // A fresh trigger pull or sprint key puts a supply away; one already held walks.
-      if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
-      const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? .85 : poseStance === 'crouch' ? 2.1 : sprinting ? 7 : (ads || touchAim) ? 2.5 : 4.2) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
-      const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
-      const canStandUp = () => footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8, liftCollision());
-      if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6 || slide.active && canStandUp(), dt)) {
-        velocityY = INFANTRY_JUMP_SPEED * burden.jumpVelocity;
-        // Jumping out of a slide stands up and keeps what the slide was carrying.
-        if (slide.active) { endSlide(slide); keyboardCrouch.clear(); keys.delete('c'); }
-      }
-      const slideWasActive = slide.active;
-      const delta = slide.active ? advanceSlide(slide, target.x, target.z, onGround, dt) : advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);
-      // Keep enough clearance for the head while lowering into a crawl.
-      const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
-      const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance,liftCollision()) ? clearance : eyeHeight() + .05;
-      const next = playerMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
-        [...vehicles.footObstacles().slice(world.obstacles.length),...liftCollision()], INFANTRY_GRAVITY);
-      moving = Math.hypot(next.x - position.x, next.z - position.z) > .0001;
-      carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
-      // A blocked axis loses momentum instead of storing a burst against the wall.
-      if (Math.abs(next.x - position.x - delta.x) > .001) bodyMotion.x = carry.x;
-      if (Math.abs(next.z - position.z - delta.z) > .001) bodyMotion.z = carry.z;
-      if (slideWasActive) {
-        resolveSlideContact(slide, delta.x, delta.z, next.x - position.x, next.z - position.z);
-        // Walking takes over from wherever the slide got to, so its end has no jolt.
-        bodyMotion.x = slide.x * slide.speed; bodyMotion.z = slide.z * slide.speed;
-        // Still asking to run when it ends, a slide comes up into the run; otherwise it stays down.
-        if (!slide.active && move.sprint && forward > .5 && !keyboardCrouch.holding && canStandUp()) { keyboardCrouch.clear(); keys.delete('c'); }
-      }
-      if (next.impactSpeed > 1.5) { landMovement(bodyMotion, next.impactSpeed); movementSound(Math.min(1, next.impactSpeed / 9), true); }
-      const previousPosition = position;
-      position = next;
-      vertical = next.y; velocityY = next.velocityY;
-      if(swimming()){prone=false;keyboardCrouch.clear();ads=touchAim=actualAim=false;if(supplyUse)endSupply();if(grenadeHeld){grenadeHeld=null;grenadeFireHeld=false;grenadePicker=null;}}
-      if ((expedition || rangeTravel) && !vehicles.active && vertical <= .35 && velocityY <= 0) {
-        const crossing = resolveWorldBorderCrossing(region, previousPosition, position, { yaw, pitch });
-        if (crossing) { commitTravel(crossing, true); return; }
+      for (const dt of movementFrameSteps(realDt)) {
+        const move = resolveMovement(keys, moveStick, stickRunning);
+        stickRunning = !!moveStick && move.sprint;
+        const forward = move.forward, side = move.side;
+        const onGround = grounded(), burden = movement(), footScale = footSpeedScale(foodEffects);
+        coolSlide(slide, dt);
+        // Crouch mid-sprint is a slide. Sprinting needs a standing body, so last frame's run is the proof.
+        if (wasSprinting && crouchRequested() && !prone && onGround && !swimming()) startSlide(slide, bodyMotion.x, bodyMotion.z, INFANTRY_SPEED.sprint * footScale * burden.movement, INFANTRY_SPEED.crouch * footScale * burden.movement);
+        if (slide.active && (prone || swimming())) endSlide(slide);
+        const poseStance = stance();
+        const wantsSprint = !swimming() && move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
+        sprintIntent = wantsSprint && keys.has('shift');
+        // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
+        ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, dt));
+        // A fresh trigger pull or sprint key stops a reload; one already held when
+        // it began does not, and a held sprint drops to a run until the reload ends.
+        if (loadout[hud.weapon].reloadRemaining > 0) {
+          if (reloadInterrupt(reloadGate, pulled, sprintIntent, roundReady(loadout[hud.weapon], specs[hud.weapon]))) stopReload();
+          else sprinting = false;
+        }
+        // A fresh trigger pull or sprint key puts a supply away; one already held walks.
+        if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
+        const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? INFANTRY_SPEED.prone : poseStance === 'crouch' ? INFANTRY_SPEED.crouch : sprinting ? INFANTRY_SPEED.sprint : (ads || touchAim) ? INFANTRY_SPEED.aim : INFANTRY_SPEED.walk) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
+        const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
+        const canStandUp = () => footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8, liftCollision());
+        if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6 || slide.active && canStandUp(), dt)) {
+          velocityY = INFANTRY_JUMP_SPEED * burden.jumpVelocity;
+          // Jumping out of a slide stands up and keeps what the slide was carrying.
+          if (slide.active) { endSlide(slide); keyboardCrouch.clear(); keys.delete('c'); }
+        }
+        const slideWasActive = slide.active;
+        const delta = slide.active ? advanceSlide(slide, target.x, target.z, onGround, dt) : advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);
+        // Keep enough clearance for the head while lowering into a crawl.
+        const clearance = Math.max(eyeHeight(), bodyMotion.eye) + .05;
+        const height = footMovement.canOccupy(position.x, vertical, position.z, .38, clearance,liftCollision()) ? clearance : eyeHeight() + .05;
+        const next = playerMovement.move({ ...position, y: vertical, velocityY }, delta.x, delta.z, dt, .38, height,
+          [...vehicles.footObstacles().slice(world.obstacles.length),...liftCollision()], INFANTRY_GRAVITY);
+        moving ||= Math.hypot(next.x - position.x, next.z - position.z) > .0001;
+        carry.set((next.x - position.x) / Math.max(dt, 1e-4), 0, (next.z - position.z) / Math.max(dt, 1e-4));
+        // A blocked axis loses momentum instead of storing a burst against the wall.
+        if (Math.abs(next.x - position.x - delta.x) > .001) bodyMotion.x = carry.x;
+        if (Math.abs(next.z - position.z - delta.z) > .001) bodyMotion.z = carry.z;
+        if (slideWasActive) {
+          resolveSlideContact(slide, delta.x, delta.z, next.x - position.x, next.z - position.z);
+          // Walking takes over from wherever the slide got to, so its end has no jolt.
+          bodyMotion.x = slide.x * slide.speed; bodyMotion.z = slide.z * slide.speed;
+          // Still asking to run when it ends, a slide comes up into the run; otherwise it stays down.
+          if (!slide.active && move.sprint && forward > .5 && !keyboardCrouch.holding && canStandUp()) { keyboardCrouch.clear(); keys.delete('c'); }
+        }
+        if (next.impactSpeed > 1.5) { landMovement(bodyMotion, next.impactSpeed); movementSound(Math.min(1, next.impactSpeed / 9), true); }
+        wasSprinting = sprinting;
+        const previousPosition = position;
+        position = next;
+        vertical = next.y; velocityY = next.velocityY;
+        if(swimming()){prone=false;keyboardCrouch.clear();ads=touchAim=actualAim=false;if(supplyUse)endSupply();if(grenadeHeld){grenadeHeld=null;grenadeFireHeld=false;grenadePicker=null;}}
+        if ((expedition || rangeTravel) && !vehicles.active && vertical <= .35 && velocityY <= 0) {
+          const crossing = resolveWorldBorderCrossing(region, previousPosition, position, { yaw, pitch });
+          if (crossing) { commitTravel(crossing, true); return; }
+        }
       }
       }
       // Recoil and the effect pools run on wall-clock time, as the weapon
@@ -4253,7 +4262,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // has to settle at its real rate too or it piles up.
       firearmShake.advance(realDt); flinch.advance(realDt); shoulderMotion.advance(realDt);
       advanceRecoil(kick, realDt); applyAimPush();
-      updateCameras(dt, moving, sprinting);
+      updateCameras(Math.min(realDt, .25), moving, sprinting);
       refreshAimAssist(realDt); trackAimAssist();
       resolveVehicleDestruction();
       vehicleAimTimer -= realDt;

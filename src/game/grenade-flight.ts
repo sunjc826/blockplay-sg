@@ -3,6 +3,13 @@ import type { GrenadeSpec } from './grenade-catalog';
 export interface GrenadeFlight { position: Point; velocity: Point; age: number; remaining: number; rested: boolean; restTime: number; launched: boolean }
 export interface GrenadeCollision { point: Point; normal: Point }
 export type GrenadeTrace = (from: Point, to: Point) => GrenadeCollision | null;
+/** A modest overarm lift helps level aim clear the street. Underarm lobs and
+ * bot ballistic solutions retain their exact direction. Vertical aim stays vertical. */
+export function playerGrenadeDirection(yaw: number, pitch: number, under = false): Point {
+  const elevation = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+  const angle = elevation + (under ? 0 : Math.PI / 15 * Math.cos(elevation));
+  return { x: -Math.sin(yaw) * Math.cos(angle), y: Math.sin(angle), z: -Math.cos(yaw) * Math.cos(angle) };
+}
 export function launchGrenade(origin: Point, direction: Point, spec: GrenadeSpec, under = false, cooked = 0): GrenadeFlight {
   const length = Math.hypot(direction.x, direction.y, direction.z) || 1, speed = under ? spec.lobSpeed ?? spec.throwSpeed * .5 : spec.throwSpeed;
   return { position: { ...origin }, velocity: { x: direction.x / length * speed, y: direction.y / length * speed, z: direction.z / length * speed },
@@ -11,7 +18,7 @@ export function launchGrenade(origin: Point, direction: Point, spec: GrenadeSpec
 /** Fixed 10 ms collision steps, using the same constant-gravity integrator as rounds. */
 export function stepGrenadeFlight(state: GrenadeFlight, spec: GrenadeSpec, dt: number, trace: GrenadeTrace): boolean {
   if (!Number.isFinite(dt) || dt < 0) return false;
-  if (state.remaining <= 0 && (!spec.trigger || state.age === 0)) return true;
+  if (state.remaining <= 0 && spec.trigger !== 'ground' && (!spec.trigger || state.age === 0)) return true;
   for (let left = Math.min(dt, 1); left > 1e-8;) {
     const step = Math.min(.01, left); left -= step; state.age += step; state.remaining = Math.max(0, state.remaining - step);
     if (state.rested) {
@@ -25,12 +32,20 @@ export function stepGrenadeFlight(state: GrenadeFlight, spec: GrenadeSpec, dt: n
       if (hit) {
         state.position = { x: hit.point.x + hit.normal.x * .025, y: hit.point.y + hit.normal.y * .025, z: hit.point.z + hit.normal.z * .025 };
         if (spec.trigger === 'impact') return true;
+        // Walls/ceilings do not activate smoke. Canisters settle on supporting
+        // surfaces, then wait only for any fuse time still left.
+        if (spec.trigger === 'ground' && hit.normal.y > .5) {
+          state.rested = true; state.velocity = { x: 0, y: 0, z: 0 };
+          if (state.remaining <= 1e-7) return true;
+          continue;
+        }
         const dot = velocity.x * hit.normal.x + velocity.y * hit.normal.y + velocity.z * hit.normal.z;
         state.velocity = { x: (velocity.x - 2 * dot * hit.normal.x) * spec.bounce, y: (velocity.y - 2 * dot * hit.normal.y) * spec.bounce, z: (velocity.z - 2 * dot * hit.normal.z) * spec.bounce };
-        if (spec.bounce === 0 || Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z) < 1) { state.rested = true; state.velocity = { x: 0, y: 0, z: 0 }; }
+        if (spec.trigger !== 'ground' && (spec.bounce === 0 || Math.hypot(state.velocity.x, state.velocity.y, state.velocity.z) < 1)) { state.rested = true; state.velocity = { x: 0, y: 0, z: 0 }; }
       } else state.position = to;
       if ((spec.trigger === 'apex' || state.launched) && velocity.y <= 0) return true;
     }
+    if (spec.trigger === 'ground' && state.rested && state.remaining <= 1e-7) return true;
     // Fuses always remain dangerous while cooking, but rest/apex mechanisms govern flight.
     if ((!spec.trigger || spec.trigger === 'impact') && state.remaining <= 1e-7) return true;
     if (state.age >= 15) return true;

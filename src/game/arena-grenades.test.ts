@@ -66,7 +66,7 @@ describe('host-owned grenades', () => {
   it('publishes team reveals and enforces a 60 second fire-mission cooldown', () => {
     const a = pair(); a.setPlayerHealthMultiplier('a', 10); a.setPlayerHealthMultiplier('b', 10);
     a.setPlayerGrenades('a', { 'grenade-red-smoke': 4 });
-    expect(a.throwGrenade('a', input(a, 'a', 'grenade-red-smoke'))).toBe(true); advance(a, .02);
+    expect(a.throwGrenade('a', { ...input(a, 'a', 'grenade-red-smoke'), direction: { x: 0, y: -1, z: 0 } })).toBe(true); advance(a, .65);
     expect(actor(a, 'b').markedBy).toEqual(['a']);
     advance(a, 1); expect(a.throwGrenade('a', input(a, 'a', 'grenade-red-smoke'))).toBe(false);
     const before = actor(a, 'b').health; advance(a, 6); expect(actor(a, 'b').health).toBe(before);

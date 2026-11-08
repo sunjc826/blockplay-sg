@@ -79,6 +79,17 @@ describe('articulated characters', () => {
     });
     expect(highest).toBeGreaterThan(.06); expect(maxZ - minZ).toBeGreaterThan(.4);
   });
+  it('runs with longer steps and keeps both hands attached throughout the weapon swing', () => {
+    const rig = soldier(); let min = Infinity, max = -Infinity;
+    run(rig, { velocity: { x: 0, z: -6 }, aim: 0 }, 1);
+    const grips = rig.weapon!.children.filter(child => !(child instanceof THREE.Mesh) && child !== rig.muzzle);
+    run(rig, { velocity: { x: 0, z: -6 }, aim: 0 }, 2, () => {
+      const z = worldOf(rig.joints.footL).z; min = Math.min(min, z); max = Math.max(max, z);
+      expect(worldOf(rig.joints.handR).distanceTo(worldOf(grips[0]))).toBeLessThan(.03);
+      expect(worldOf(rig.joints.handL).distanceTo(worldOf(grips[1]))).toBeLessThan(.03);
+    });
+    expect(max - min).toBeGreaterThan(.65); rig.dispose();
+  });
   it('sidesteps without crossing the feet', () => {
     const rig = soldier();
     run(rig, { velocity: { x: 2.6, z: 0 }, aim: 1 }, 2.5, () => {

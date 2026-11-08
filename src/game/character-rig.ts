@@ -43,6 +43,8 @@ export interface CharacterLook {
 export interface CharacterDrive {
   /** Seconds since a high-speed bailout, absent outside its short recovery. */
   bailoutAge?: number;
+  /** Optional shared local-player footfall phase and sprint blend. */
+  gaitPhase?: number; sprint?: number;
   /** Body-local velocity in m/s; -z is forward. */
   velocity?: { x: number; z: number };
   /** Yaw rate in rad/s, so turning on the spot shuffles the feet. */
@@ -737,12 +739,13 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
 
     const walking = speedSmoothed * (1 - seated) * (1 - air) * (1 - slide);
     moveWeight = smooth(moveWeight, clamp01((walking - .12) / .9), 10, dt);
-    runWeight = smooth(runWeight, clamp01((walking - 3.2) / 2.4), 6, dt);
+    runWeight = smooth(runWeight, drive.sprint === undefined ? clamp01((walking - 2.4) / 2.8) : clamp01(drive.sprint), 6, dt);
     const crawling = prone > .5;
-    const stride = crawling ? .55 : 1.35 + runWeight * 1.05 - crouch * .35;
-    phase = (phase + walking * dt / stride * Math.PI * 2) % (Math.PI * 4);
-    const stepReach = Math.min(stride / 4, .44) * moveWeight;
-    const lift = (.11 + runWeight * .12 - crouch * .03) * moveWeight;
+    // Full left/right cycle: longer running strides avoid rapid tiny steps.
+    const stride = crawling ? .55 : 2.2 + runWeight * 2.2 - crouch * .6;
+    phase = drive.gaitPhase ?? (phase + walking * dt / stride * Math.PI * 2) % (Math.PI * 4);
+    const stepReach = Math.min(stride / 5, .52) * moveWeight;
+    const lift = (.11 + runWeight * .18 - crouch * .03) * moveWeight;
 
     // Whole-body placement: prone lies the figure face-down with its head over
     // the root (the eye column); death topples it backwards.
@@ -795,7 +798,10 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
       } else {
         // Prone, the chest frame's -z faces the ground and +y points ahead.
         weapon.position.set(.065 - run * .1 + prone * .05, .135 - low * .1 + prone * .3, -.33 + low * .03 - run * .06 + kick * .045 + prone * .39);
-        weapon.rotation.set(pitchAim * .65 * ready - low * .42 - run * .15 + kick * .09 + prone * Math.PI / 2, run * .55 - .04 * ready, run * .25, 'YXZ');
+        const swing = run * moveWeight * (1 - prone) * (1 - air) * (1 - slide);
+        weapon.position.x += Math.sin(phase) * .018 * swing;
+        weapon.position.y += Math.cos(phase * 2) * .012 * swing;
+        weapon.rotation.set(pitchAim * .65 * ready - low * .42 - run * .15 + kick * .09 + prone * Math.PI / 2, run * .55 - .04 * ready + Math.sin(phase) * .05 * swing, run * .25 + Math.sin(phase) * .06 * swing, 'YXZ');
       }
     }
 

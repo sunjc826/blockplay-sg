@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
+import { INFANTRY_SPEED, movementFrameSteps, runningItemMotion, advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
 import { createVerticalMovement } from './vertical-movement';
 
 const flat = () => createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [], surfaces: [], traversalObstacles: [] });
@@ -92,5 +92,43 @@ describe('weighted infantry movement', () => {
       peak = Math.max(peak, next.y); state = next; if (next.grounded) break;
     }
     expect(peak).toBeGreaterThan(1.5); expect(peak).toBeLessThan(1.65); expect(fall).toBeLessThan(rise);
+  });
+});
+
+describe('wall-clock traversal and running presentation', () => {
+  it('preserves sprint distance at 5–144 FPS, including irregular slow frames', () => {
+    const travel = (frames: number[]) => {
+      const state = createMovementMotion(); let distance = 0;
+      for (const elapsed of frames) for (const dt of movementFrameSteps(elapsed)) distance += advanceGroundMotion(state, INFANTRY_SPEED.sprint, 0, true, 1, 'stand', false, dt).x;
+      return distance;
+    };
+    const reference = travel(Array(600).fill(1 / 60));
+    for (const fps of [5, 10, 15, 20, 30, 144]) expect(travel(Array(fps * 10).fill(1 / fps))).toBeCloseTo(reference, 8);
+    expect(travel(Array.from({ length: 100 }, (_, i) => i % 2 ? .18 : .02))).toBeCloseTo(reference, 8);
+    expect(reference).toBeGreaterThan(89); expect(reference).toBeLessThan(91);
+    expect(movementFrameSteps(20).reduce((a, b) => a + b, 0)).toBeCloseTo(.25);
+    for (const bad of [0, -1, NaN, Infinity]) expect(movementFrameSteps(bad)).toEqual([]);
+  });
+  it('keeps slow-frame sprint collisions solid', () => {
+    const wall = { minX: 5, maxX: 5.1, minZ: -10, maxZ: 10, maxY: 5 };
+    const world = createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [wall], surfaces: [], traversalObstacles: [] });
+    const motion = createMovementMotion(); let at = { x: 0, y: 0, z: 0, velocityY: 0 };
+    for (let frame = 0; frame < 30; frame++) for (const dt of movementFrameSteps(.1)) {
+      const delta = advanceGroundMotion(motion, INFANTRY_SPEED.sprint, 0, true, 1, 'stand', false, dt);
+      at = world.move(at, delta.x, delta.z, dt, .38, 1.8, [], INFANTRY_GRAVITY);
+    }
+    expect(at.x).toBeGreaterThan(4.5); expect(at.x).toBeLessThanOrEqual(4.62);
+  });
+  it('ties a complete running cycle to two footfalls and suppresses optional motion in ADS/reduced motion', () => {
+    const state = createMovementMotion();
+    advanceBodyMotion(state, 1.75, 'stand', 8.8, true, true, 0, 8.8, .5);
+    expect(state.gait).toBeCloseTo(Math.PI * 2);
+    const first = runningItemMotion(state, 3);
+    state.gait += Math.PI / 2; const next = runningItemMotion(state, 3);
+    expect(Math.abs(first.x - next.x)).toBeGreaterThan(.02);
+    for (const value of Object.values(runningItemMotion(state, 3, 1))) expect(value).toBeCloseTo(0);
+    const reduced = runningItemMotion(state, 3, 0, true); state.gait += 1;
+    expect(runningItemMotion(state, 3, 0, true)).toEqual(reduced);
+    expect(reduced.y).toBeLessThan(0);
   });
 });

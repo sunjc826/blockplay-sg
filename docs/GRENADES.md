@@ -64,20 +64,29 @@ stronger strength and the longer time win, and it shows as a timed chip.
 
 ## The catalogue
 
-**Throw** is the overarm throw speed in m/s. At 45°, 14 m/s carries about 20 m,
-10 m/s about 10 m and 16 m/s about 26 m. Lighter grenades fly further. The fuse
-counts from the moment the pin comes out.
+**Throw** is the overarm launch speed in m/s. The frag launches at 24.5 m/s;
+a 30° launch reaches ground about 56 m away on flat terrain. Player overarm
+throws add a 12° lift at level aim, tapering to zero for vertical aim, so a
+level quick throw finishes about 35 m away. Cooking and obstructions shorten
+reach. Bot aiming uses the published speed with its own ballistic solution.
+Underarm speeds retain the original close lob (7 m/s for frag and smoke).
+
+White smoke, red smoke and fogging canisters settle on supporting ground or
+rooftops and activate after both landing and fuse expiry. Wall/ceiling hits do
+not activate them. Even a fully cooked smoke waits to land; explosive grenades
+still detonate in the hand when fully cooked. Red smoke's mission countdown
+starts when the grounded smoke activates.
 
 ### Standard
 
 | Grenade | Tier | Lv | Price | kg | Throw | Fuse | Effects, and where they come from |
 | --- | --- | ---: | --- | ---: | ---: | --- | --- |
-| Frag grenade | Issued | 1 | 110 CR | 0.40 | 14 | 3.5 s | Blast 100 · 6 m · 20% edge (the steel body, scored to break up) |
-| Smoke grenade | Issued | 1 | 80 CR | 0.45 | 14 | 1.5 s | Smoke 6 m, 25 s (white smoke compound) |
-| Stun grenade | Field | 2 | 190 CR | 0.35 | 15 | 1.5 s | Dazed 3 s within 8 m, half as long for anyone facing away (the flash); deafened 5 s within 12 m (the bang). Does no damage |
-| Chilli padi mini-frag | Field | 3 | 240 CR | 0.20 | 16 | 3 s | Blast 115 · 6 m · 20% (a denser filler); shred 30% (a pre-notched wire coil rather than a cast body) |
-| Town council fogging canister | Field | 3 | 210 CR | 0.60 | 13 | 1 s | Smoke 9 m, 35 s (thermal fog); repel 9 m, 35 s (the insecticide, which nobody wants to stand in) |
-| Red smoke · fire mission | Elite | 5 | 90 TK | 0.45 | 14 | 1.5 s | Red smoke 9 m, 35 s; marked 12 m, 20 s (the spotter's report); fire mission of four mortar rounds (110 / 6 m) in a 10 m spread, starting 8 s after the smoke goes up |
+| Frag grenade | Issued | 1 | 110 CR | 0.40 | 24.5 | 3.5 s | Blast 100 · 6 m · 20% edge (the steel body, scored to break up) |
+| Smoke grenade | Issued | 1 | 80 CR | 0.45 | 24.5 | 1.5 s | Smoke 6 m, 25 s (white smoke compound) |
+| Stun grenade | Field | 2 | 190 CR | 0.35 | 26.3 | 1.5 s | Dazed 3 s within 8 m, half as long for anyone facing away (the flash); deafened 5 s within 12 m (the bang). Does no damage |
+| Chilli padi mini-frag | Field | 3 | 240 CR | 0.20 | 28 | 3 s | Blast 115 · 6 m · 20% (a denser filler); shred 30% (a pre-notched wire coil rather than a cast body) |
+| Town council fogging canister | Field | 3 | 210 CR | 0.60 | 22.8 | 1 s | Smoke 9 m, 35 s (thermal fog); repel 9 m, 35 s (the insecticide, which nobody wants to stand in) |
+| Red smoke · fire mission | Elite | 5 | 90 TK | 0.45 | 24.5 | 1.5 s | Red smoke 9 m, 35 s; marked 12 m, 20 s (the spotter's report); fire mission of four mortar rounds (110 / 6 m) in a 10 m spread, starting 8 s after the smoke goes up |
 
 Flavour lines:
 
@@ -96,13 +105,13 @@ Flavour lines:
 
 | Grenade | Tier | Lv | Price | kg | Throw | Fuse | Effects, and where they come from |
 | --- | --- | ---: | --- | ---: | ---: | --- | --- |
-| Durian · Mao Shan Wang | Ultra | 10 | 150 TK | 1.60 | 10 | 3.5 s | Blast 135 · 7 m · 20% (the husk bursts); shred 40% (the thorns); retching 25% within 10 m, for as long as you stand in it plus 5 s (the smell); repel 10 m, 40 s. Doesn't block sight. Barely rolls, because the thorns dig in |
-| Sambal belacan, void-deck strength | Ultra | 11 | 140 TK | 0.50 | 14 | 2 s | Smoke 10 m, 35 s (shrimp paste and chilli on a heating charge); gas 5 HP/s; streaming eyes 30% inside the cloud plus 6 s |
-| Mandarin orange pair | Ultra | 12 | 170 TK | 0.50 | 14 | splits at the top of the arc | Bomblets 8 × 50 · 3.5 m, scattered over 9 m. The pair splits into two, then straight into eight, skipping four |
-| Chope packet | Ultra | 10 | 130 TK | 0.05 | 12 | lands flat | Marked 12 m, 45 s; repel 9 m, 45 s. Does no damage and doesn't bounce |
-| Encik's whistle | Legendary | 15 | 220 TK | 0.30 | 14 | 2 s | At attention 3.5 s within 14 m, for every enemy that hears it; deafened 6 s within 14 m; rally for allies within 14 m: steady 20%, 60 s |
-| Ah Gong's firecracker string | Legendary | 18 | 260 TK | 0.90 | 12 | 1 s, then 4 s of pops | Bomblets 16 × 55 · 3.5 m along a 12 m line; dazed 3.5 s within 4 m of any pop; deafened 8 s within 14 m; repel 20 m, 60 s |
-| Countdown finale shell | Mythic | 24 | 380 TK | 2.20 | 9 | lands upright, launches after 2 s | Embers over 25 m for 6 s: gas 6 HP/s, falling from overhead, so a roof leaves 20%. Dazed 3.5 s for enemies within 30 m. Rally for allies within 30 m who can see the sky: fired up 15% and energised 15%, 120 s |
+| Durian · Mao Shan Wang | Ultra | 10 | 150 TK | 1.60 | 17.5 | 3.5 s | Blast 135 · 7 m · 20% (the husk bursts); shred 40% (the thorns); retching 25% within 10 m, for as long as you stand in it plus 5 s (the smell); repel 10 m, 40 s. Doesn't block sight. Barely rolls, because the thorns dig in |
+| Sambal belacan, void-deck strength | Ultra | 11 | 140 TK | 0.50 | 24.5 | 2 s | Smoke 10 m, 35 s (shrimp paste and chilli on a heating charge); gas 5 HP/s; streaming eyes 30% inside the cloud plus 6 s |
+| Mandarin orange pair | Ultra | 12 | 170 TK | 0.50 | 24.5 | splits at the top of the arc | Bomblets 8 × 50 · 3.5 m, scattered over 9 m. The pair splits into two, then straight into eight, skipping four |
+| Chope packet | Ultra | 10 | 130 TK | 0.05 | 21 | lands flat | Marked 12 m, 45 s; repel 9 m, 45 s. Does no damage and doesn't bounce |
+| Encik's whistle | Legendary | 15 | 220 TK | 0.30 | 24.5 | 2 s | At attention 3.5 s within 14 m, for every enemy that hears it; deafened 6 s within 14 m; rally for allies within 14 m: steady 20%, 60 s |
+| Ah Gong's firecracker string | Legendary | 18 | 260 TK | 0.90 | 21 | 1 s, then 4 s of pops | Bomblets 16 × 55 · 3.5 m along a 12 m line; dazed 3.5 s within 4 m of any pop; deafened 8 s within 14 m; repel 20 m, 60 s |
+| Countdown finale shell | Mythic | 24 | 380 TK | 2.20 | 15.8 | lands upright, launches after 2 s | Embers over 25 m for 6 s: gas 6 HP/s, falling from overhead, so a roof leaves 20%. Dazed 3.5 s for enemies within 30 m. Rally for allies within 30 m who can see the sky: fired up 15% and energised 15%, 120 s |
 
 Flavour lines, and what each one is about:
 
@@ -165,8 +174,8 @@ food slot does:
   thrown.
 - **Fire** pulls the pin. Holding it *cooks* the grenade: a ring around the
   crosshair fills toward the fuse. Releasing fire throws overarm. Holding aim
-  as you release makes it an underarm lob at half the speed. If you cook past
-  the fuse, it goes off in your hand.
+  as you release makes it a short underarm lob. If you cook an explosive past
+  the fuse, it goes off in your hand; smoke canisters still wait for landing.
 - Before the pin is out, `1`–`3` put the grenade away. After that, the only
   way to get rid of it is to throw it.
 - `G` already means "use the last slot again", so after a throw, `G` gets the

@@ -1,4 +1,14 @@
 /** Infantry feel. World collision and authoritative stance remain owned by the engine. */
+/** On-foot speeds in metres/second, before equipment and food modifiers. */
+export const INFANTRY_SPEED = { walk: 5.46, sprint: 9.1, crouch: 2.73, prone: 1.105, aim: 3.25 } as const;
+/** Consume ordinary slow frames completely, with small collision steps. Long
+ * suspensions are bounded to avoid teleporting on tab resume. */
+export function movementFrameSteps(elapsed: number): number[] {
+  if (!Number.isFinite(elapsed) || elapsed <= 0) return [];
+  const time = Math.min(elapsed, .25), count = Math.ceil(time / (1 / 60));
+  return Array.from({ length: count }, () => time / count);
+}
+
 export type MovementStance = 'stand' | 'crouch' | 'prone';
 export const INFANTRY_GRAVITY = { rise: 18, fall: 24 };
 /** About 1.6 m unladen: enough to mount low cover, with a quick landing. */
@@ -57,13 +67,25 @@ export function advanceBodyMotion(state: MovementMotion, eye: number, stance: Mo
   }
   state.sprint = damp(state.sprint, sprinting && grounded ? 1 : 0, 8, dt);
   state.gaitWeight = damp(state.gaitWeight, grounded ? clamp(speed / (stance === 'prone' ? .7 : 3.8), 0, 1) : 0, 14, dt);
-  state.gait += grounded ? speed * dt * (stance === 'prone' ? 7 : 3.1) : 0;
+  const stride = stance === 'prone' ? .8 : stance === 'crouch' ? 1.35 : sprinting ? 2.2 : 1.85;
+  // One half cycle per footfall: faster travel lengthens cadence without vibrating the hands.
+  state.gait += grounded ? speed * dt * Math.PI / stride : 0;
   state.lean = damp(state.lean, clamp(sideSpeed * -.003, -.016, .016), 9, dt);
   state.surge = damp(state.surge, clamp(forwardSpeed * .004, -.018, .028), 8, dt);
   state.stepDistance += grounded ? speed * dt : 0;
-  const stride = stance === 'prone' ? .8 : stance === 'crouch' ? 1.35 : sprinting ? 2.2 : 1.85;
   const step = grounded && speed > .2 && state.stepDistance >= stride;
   if (step) state.stepDistance %= stride;
   if (!grounded || speed < .1) state.stepDistance = 0;
   return step;
+}
+
+/** Low-ready sprint carry, driven by the same footfalls as the body. Static
+ * lowering remains with reduced motion; optional oscillation does not. */
+export function runningItemMotion(state: MovementMotion, weightKg: number, aim = 0, reduced = false) {
+  const run = state.sprint * (1 - clamp(aim, 0, 1));
+  const swing = run * state.gaitWeight * (reduced ? 0 : 1) * clamp(1 - weightKg * .018, .55, 1);
+  const side = Math.sin(state.gait), step = Math.cos(state.gait * 2);
+  return { x: run * .035 + side * .028 * swing, y: -run * .075 + step * .018 * swing,
+    z: run * .045 + step * .012 * swing, pitch: -run * .22 + step * .035 * swing,
+    yaw: run * .12 + side * .045 * swing, roll: -run * .18 + side * .06 * swing };
 }

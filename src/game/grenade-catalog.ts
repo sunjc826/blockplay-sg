@@ -10,7 +10,7 @@ export type GrenadeEffect =
   | { kind: 'bomblets'; count: number; damage: number; radius: number; spread: number; line?: boolean; seconds?: number }
   | { kind: 'mission'; count: number; delay: number; spread: number }
   | { kind: 'rally'; radius: number; sky?: boolean; effects: readonly FoodEffect[] };
-export interface GrenadeSpec { fuse: number; throwSpeed: number; lobSpeed?: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch' | 'impact'; effects: readonly GrenadeEffect[] }
+export interface GrenadeSpec { fuse: number; throwSpeed: number; lobSpeed?: number; bounce: number; trigger?: 'apex' | 'rest' | 'launch' | 'impact' | 'ground'; effects: readonly GrenadeEffect[] }
 export const grenadeBlast = (damage: number, radius: number): BlastSpec => ({ damage, radius, minScale: .2, vehicleScale: .6, stance: true });
 const blast = (damage: number, radius: number, shred = 0): GrenadeEffect => ({ kind: 'blast', blast: grenadeBlast(damage, radius), shred });
 const cloud = (radius: number, seconds: number, colour = '#e4e5dd', dps = 0): GrenadeEffect => ({ kind: 'cloud', radius, seconds, colour, dps });
@@ -22,11 +22,11 @@ const item = (id: string, name: string, tier: ShopItem['tier'], requiredLevel: n
 export const OICW_AMMUNITION: ShopItem = { ...item('oicw', '20 mm launcher round', 'Mythic', 1, 0, .15, 70, 3, [blast(100, 4)], 'Integral launcher ammunition. Impact burst, 4 m blast; fired from Peace Offering and Win-Win Cooperation, not thrown by hand.', { trigger: 'impact', bounce: 0 }), source: 'enemy', specialist: true };
 export const GRENADE_CATALOG: readonly ShopItem[] = [
   item('frag', 'Frag grenade', 'Issued', 1, 110, .4, 14, 3.5, [blast(100, 6)], 'Scored steel fragments: 100 damage, 6 m blast.'),
-  item('smoke', 'Smoke grenade', 'Issued', 1, 80, .45, 14, 1.5, [cloud(6, 25)], 'White smoke blocks sight within 6 m for 25 s.'),
+  item('smoke', 'Smoke grenade', 'Issued', 1, 80, .45, 14, 1.5, [cloud(6, 25)], 'White smoke activates on landing after the fuse, blocking sight within 6 m for 25 s.', { trigger: 'ground' }),
   item('stun', 'Stun grenade', 'Field', 2, 190, .35, 15, 1.5, [condition('dazed', 8, 3, 1, { facing: true }), condition('deafened', 12, 5)], 'Flash dazes for 3 s; bang deafens for 5 s. Players take half daze time.'),
   item('chilli', 'Chilli padi mini-frag', 'Field', 3, 240, .2, 16, 3, [blast(115, 6, .3)], 'Dense filler hits for 115 within 6 m; the wire coil sends 30% through plates.', {}, 'Small but chilli padi.'),
-  item('fogging', 'Town council fogging canister', 'Field', 3, 210, .6, 13, 1, [cloud(9, 35), { kind: 'repel', radius: 9, seconds: 35 }], 'Thermal fog blocks sight and insecticide drives bots out for 35 s.', {}, 'The fogging man comes round at five, and every window on the block shuts.'),
-  item('red-smoke', 'Red smoke · fire mission', 'Elite', 5, 90, .45, 14, 1.5, [cloud(9, 35, '#b74739'), { kind: 'reveal', radius: 12, seconds: 20 }, { kind: 'mission', count: 4, delay: 8, spread: 10 }], 'Red smoke, team spotting, then four mortar rounds. Warning visible to everyone. One mission per 60 s.', {}, "Throw it where you want the mortars, then don't stand there."),
+  item('fogging', 'Town council fogging canister', 'Field', 3, 210, .6, 13, 1, [cloud(9, 35), { kind: 'repel', radius: 9, seconds: 35 }], 'Activates on landing after the fuse. Thermal fog blocks sight and insecticide drives bots out for 35 s.', { trigger: 'ground' }, 'The fogging man comes round at five, and every window on the block shuts.'),
+  item('red-smoke', 'Red smoke · fire mission', 'Elite', 5, 90, .45, 14, 1.5, [cloud(9, 35, '#b74739'), { kind: 'reveal', radius: 12, seconds: 20 }, { kind: 'mission', count: 4, delay: 8, spread: 10 }], 'Red smoke, team spotting, then four mortar rounds. Warning visible to everyone. One mission per 60 s. Smoke activates on landing after the fuse.', { trigger: 'ground' }, "Throw it where you want the mortars, then don't stand there."),
   item('durian', 'Durian · Mao Shan Wang', 'Ultra', 10, 150, 1.6, 10, 3.5, [blast(135, 7, .4), condition('retching', 10, 5, .25, { lingering: true }), { kind: 'repel', radius: 10, seconds: 40 }], 'Thorny husk blasts and shreds plates. Smell slows reloads and repels bots; does not block sight.', { bounce: .15 }, 'Not allowed on the MRT. Not allowed in the hotel lobby. Nobody said anything about here.'),
   item('sambal', 'Sambal belacan, void-deck strength', 'Ultra', 11, 140, .5, 14, 2, [cloud(10, 35, '#985b38', 5), condition('streaming-eyes', 10, 6, .3, { lingering: true })], 'Heating charge makes a 10 m belacan cloud for 35 s: 5 HP/s through plates and streaming eyes.', {}, 'Level 3 smells it. Level 12 smells it. The town council gets four emails.'),
   item('oranges', 'Mandarin orange pair', 'Ultra', 12, 170, .5, 14, 3.5, [{ kind: 'bomblets', count: 8, damage: 50, radius: 3.5, spread: 9 }], 'Splits at the top of the arc into two, then eight: eight small blasts scattered over 9 m.', { trigger: 'apex' }, 'Always in pairs. Never four. Eight is huat.'),
@@ -38,7 +38,7 @@ export const GRENADE_CATALOG: readonly ShopItem[] = [
   ...item,
   // Give hand throws more reach while retaining the original close-range lob.
   // Keep the published speed shared by flight, bot aiming and item stats.
-  grenade: { ...item.grenade!, throwSpeed: Math.round(item.grenade!.throwSpeed * 13) / 10, lobSpeed: item.grenade!.throwSpeed * .5 },
+  grenade: { ...item.grenade!, throwSpeed: Math.round(item.grenade!.throwSpeed * 17.5) / 10, lobSpeed: item.grenade!.throwSpeed * .5 },
 }));
 export const grenadeEffectLines = (spec?: GrenadeSpec): string[] => spec?.effects.map(e => {
   switch (e.kind) {
