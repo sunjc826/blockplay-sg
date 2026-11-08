@@ -27,11 +27,50 @@ const ready=`document.querySelector('.fps-game')?.dataset.phase==='ready'`,playi
 const choose=(p,mode)=>p.ev(`document.querySelector('[data-match-choice="${mode}"]').click()`);
 const tap=async(p,name)=>{await p.send('Page.bringToFront');const point=await p.ev(`(()=>{const e=${button(name)};e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);await p.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...point,id:1}]});await p.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
 const visibleText=p=>p.ev('document.body.innerText');
+const liveScores = 'document.querySelector(".arena-live-scoreboard")';
+const wheelPage = 'document.querySelector(".fps-callout-wheel")?.dataset.page';
+async function checkLiveScoreboard(host) {
+ const key = (type, key, code, modifiers = 0, autoRepeat = false) =>
+  host.send('Input.dispatchKeyEvent', {type, key, code, modifiers, autoRepeat});
+ const holdTab = () => key('keyDown', 'Tab', 'Tab');
+ const releaseTab = () => key('keyUp', 'Tab', 'Tab');
+ const tapTab = async (modifiers = 0) => {
+  await key('keyDown', 'Tab', 'Tab', modifiers);
+  await key('keyUp', 'Tab', 'Tab', modifiers);
+ };
+ assert.equal(await host.ev(`!!${liveScores}`), false);
+ await holdTab();
+ await host.wait(`${liveScores} && getComputedStyle(${liveScores}).visibility==='visible'`);
+ assert(await host.ev(`${liveScores}.textContent.includes('Menu Host') && !!document.pointerLockElement`));
+ const clock = await host.ev('document.querySelector(".fps-score b").textContent');
+ await host.wait(`document.querySelector(".fps-score b").textContent!==${JSON.stringify(clock)}`);
+ assert(await host.ev(`!!${liveScores} && ${playing}`), 'The scoreboard stays open as the match advances');
+ await host.screenshot('desktop-live-scoreboard');
+ await releaseTab();
+ await host.wait(`!${liveScores}`);
+
+ await holdTab();
+ await host.wait(liveScores);
+ await key('keyDown', 'y', 'KeyY');
+ await host.wait(`(${wheelPage}) && !${liveScores}`);
+ const firstPage = await host.ev(wheelPage);
+ await releaseTab();
+ await tapTab();
+ await host.wait(`(${wheelPage})!==${JSON.stringify(firstPage)} && !${liveScores}`);
+ await tapTab(8); // CDP Shift modifier
+ await host.wait(`(${wheelPage})===${JSON.stringify(firstPage)} && !${liveScores}`);
+ await holdTab();
+ await key('keyUp', 'y', 'KeyY');
+ await host.wait(`!(${wheelPage})`);
+ await key('keyDown', 'Tab', 'Tab', 0, true);
+ assert.equal(await host.ev(`!!${liveScores}`), false, 'A Tab hold started on the wheel cannot open the scoreboard');
+ await releaseTab();
+}
 try{
  const host=await page();await host.screenshot('desktop-modes');await choose(host,'hardpoint');await host.click('Create room');await host.field('input[autocomplete="nickname"]','Menu Host');await host.click('Create public room');await host.wait(`document.querySelector('output[aria-label="Room code"]')`);const code=await host.ev(`document.querySelector('output[aria-label="Room code"]').textContent`);
  const guest=await page();await guest.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await guest.send('Emulation.setTouchEmulationEnabled',{enabled:true});await guest.screenshot('mobile-modes');await tap(guest,'Join by code');await guest.field('input[autocomplete="nickname"]','Menu Guest');await guest.field('.lan-code-input',code);await tap(guest,'Join room');await guest.wait(`document.querySelector('.match-summary')?.textContent.includes('Hardpoint')`);assert((await visibleText(guest)).includes('Smith Street'));await guest.screenshot('mobile-room');
- await tap(guest,'Choose starting loadout');await guest.wait(`document.querySelector('[aria-label="Main weapon platform"]')`);await guest.select('[aria-label="Main weapon platform"]','1');await tap(guest,'Use for this match');await guest.wait(`!document.querySelector('[role="dialog"]')`);await tap(guest,'Enter match');await guest.wait(ready);await guest.ev(`window.originalGame=document.querySelector('.fps-game');true`);await guest.screenshot('mobile-ready');await tap(guest,'Return to room');await guest.wait(room);assert.equal(await guest.ev(`document.activeElement?.textContent.trim()`),'Return to match');assert.equal(await guest.ev(`document.querySelector('output[aria-label="Room code"]').textContent`),code);assert((await visibleText(guest)).includes('Return to match'));await host.wait(`document.querySelector('.public-room-capacity').textContent.includes('2/4')`);
- await host.click('Enter match');await host.wait(ready);await host.click('Start match');await host.wait(playing);await tap(guest,'Return to match');await guest.wait(ready);await tap(guest,'Enter match');await guest.wait(playing);await host.wait(`window.lastArenaSnapshot?.actors.some(a=>a.name==='Menu Guest'&&a.weapon===1)`);
+ await tap(guest,'Choose starting loadout');await guest.wait(`document.querySelector('[aria-label="Main weapon platform"]')`);await guest.select('[aria-label="Main weapon platform"]','1');await tap(guest,'Use for this match');await guest.wait(`!document.querySelector('[role="dialog"]')`);await tap(guest,'Enter match');await guest.wait(ready);await guest.ev(`window.originalGame=document.querySelector('.fps-game');true`);await guest.screenshot('mobile-ready');await tap(guest,'Return to room');await guest.wait(room);await guest.wait(`document.activeElement?.textContent.trim()==='Return to match'`);assert.equal(await guest.ev(`document.querySelector('output[aria-label="Room code"]').textContent`),code);assert((await visibleText(guest)).includes('Return to match'));await host.wait(`document.querySelector('.public-room-capacity').textContent.includes('2/4')`);
+ await host.click('Enter match');await host.wait(ready);await host.click('Start match');await host.wait(playing);await checkLiveScoreboard(host);await tap(guest,'Return to match');await guest.wait(ready);await tap(guest,'Enter match');await guest.wait(playing);await host.wait(`window.lastArenaSnapshot?.actors.some(a=>a.name==='Menu Guest'&&a.weapon===1)`);
  await host.wait(`window.lastArenaSnapshot?.hardpoint.scores.alpha+window.lastArenaSnapshot?.hardpoint.scores.bravo>0`,90000);
  await guest.ev(`document.querySelector('button[aria-label="Menu"]').click()`);await guest.wait(`document.querySelector('.fps-game').dataset.phase==='paused'`);await guest.ev(`document.querySelector('.arena-menu-section').open=true`);
  const headings=await guest.ev(`[...document.querySelectorAll('.arena-team-heading')].map(e=>({text:e.textContent,w:e.getBoundingClientRect().width,h:e.getBoundingClientRect().height,align:getComputedStyle(e.querySelector('th')).textAlign}))`);assert.equal(headings.length,2);assert(headings.every(h=>h.w>0&&h.h>0&&h.align==='left'));assert(await guest.ev(`document.documentElement.scrollWidth<=innerWidth`));assert(headings.some(h=>h.text.includes('YOUR TEAM')));await guest.screenshot('mobile-team-scoreboard');await tap(guest,'Return to room');await guest.wait(room);
@@ -44,5 +83,5 @@ try{
   await host.click('Change mode');await choose(host,mode);await host.click('Solo vs bots');if(mode==='free-for-all')await host.field('#public-bots','0');await host.click('Enter solo match');await host.wait(ready);assert.equal(await host.ev(`document.querySelector('.fps-game').dataset.matchMode`),mode);await host.screenshot('desktop-solo-'+mode);await host.click('Start match');await host.wait(playing);
   await host.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape'});await host.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape'});await host.wait(`document.querySelector('.fps-game').dataset.phase==='paused'`);await host.click('Return to setup');await host.wait(room);await host.click('Return to match');await host.wait(`document.querySelector('.fps-game').dataset.phase==='paused'`);await host.click('End solo match');await host.wait(`document.querySelector('[role="alertdialog"]')`);await host.ev(`document.querySelector('[role="alertdialog"] .confirm-leave').click()`);await host.wait(room);
  }
- assert.deepEqual(pages.flatMap(p=>p.errors),[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,headings,soloModes:['free-for-all','team-deathmatch'],elapsedBefore:before.elapsed,elapsedAfter:after.elapsed,score:after.hardpoint.scores,errors:pages.flatMap(p=>p.errors)},null,2));console.log('PASS Matches: desktop/mobile picker, shared room details, starting loadout, team visibility, guest and host room return without reset/disconnect, resume, explicit leave and retained setup.');
+ assert.deepEqual(pages.flatMap(p=>p.errors),[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,headings,soloModes:['free-for-all','team-deathmatch'],elapsedBefore:before.elapsed,elapsedAfter:after.elapsed,score:after.hardpoint.scores,errors:pages.flatMap(p=>p.errors)},null,2));console.log('PASS Matches: desktop/mobile picker, shared room details, starting loadout, team visibility, hold-to-show scoreboard, callout paging, guest and host room return without reset/disconnect, resume, explicit leave and retained setup.');
 }finally{for(const p of pages)await p.close();}

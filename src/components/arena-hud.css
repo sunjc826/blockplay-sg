@@ -11,3 +11,30 @@
 .hardpoint-status{position:absolute;top:116px;left:50%;transform:translateX(-50%);width:270px;padding:8px 12px;background:rgba(9,20,28,.85);border-left:3px solid #e7df88;color:#fff;display:grid;gap:4px;font-size:12px;pointer-events:none}.hardpoint-status strong{display:flex;justify-content:space-between}.hardpoint-status span{font-size:10px;letter-spacing:.04em}.hardpoint-status small{color:#e7df88}
 .fps-game:not([data-phase=playing]) .hardpoint-status{display:none}
 @media(max-width:700px) and (min-height:600px){.hardpoint-status{top:250px;left:12px;right:12px;transform:none;width:auto;padding:6px 8px;font-size:11px}.hardpoint-status span{font-size:9px}.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:315px}}
+
+.arena-live-scoreboard {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 7;
+  transform: translate(-50%, -50%);
+  width: min(540px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  padding: 12px 16px;
+  border: 1px solid #b6c6a166;
+  border-radius: 8px;
+  background: #121f18f5;
+  box-shadow: 0 10px 36px #0008;
+  color: #f0eedf;
+  pointer-events: none;
+}
+.arena-live-scoreboard > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.arena-live-scoreboard > header small { color: #b7c6a8; }
+.arena-live-scoreboard .arena-scoreboard td { padding-block: 5px; }

@@ -185,6 +185,11 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {playing && <FpsMinimap matchBounds={hp?HARDPOINT_AREA.bounds:arenaOptions?.match?.mode==='team-deathmatch'?tdmArea(arenaOptions.match.area)?.bounds:undefined} zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={() => engine.current?.toggleMap()} />}
       </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
+      {isArena && playing && !disconnected && hud.arena && hud.scoreboardHeld &&
+        <section className="arena-live-scoreboard" aria-label="Live match scoreboard">
+          <header><strong>Live scoreboard</strong><small>Release Tab to close</small></header>
+          <Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} />
+        </section>}
       <FpsUtilityPicker hud={hud} engine={engine.current} />
       {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && <>
@@ -233,7 +238,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         </button>}
         {!['loading', 'error', 'complete'].includes(hud.phase) && !disconnected && <>
           {hud.phase === 'ready' && touch && <p className="arena-touch-brief">Left thumb to move · Drag to look · Hold FIRE to shoot</p>}
-          {hud.arena && <details className="arena-menu-section" open={hud.phase === 'paused'}><summary>Players &amp; scores <span>{hud.arena.actors.length}</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
+          {hud.arena && <details className="arena-menu-section" open={hud.phase === 'paused'}><summary>Players &amp; scores <span>{!touch && 'Hold Tab in match · '}{hud.arena.actors.length}</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
           <details className="arena-menu-section"><summary>Sound, display &amp; settings</summary>
             <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />
             <EnvironmentControls multiplayer={arenaOptions.session.role !== 'solo'} />

@@ -5,7 +5,7 @@
   animation:death-recap-enter .55s ease-out both}
 .death-recap button{pointer-events:auto}
 /* An arena match keeps its HUD up while dead; nothing on it means anything now. */
-.fps-viewport:has(>.death-recap)>:not(.world,.death-recap,.fps-top,.arena-menu-button,.respawn-loadout-screen){visibility:hidden}
+.fps-viewport:has(>.death-recap)>:not(.world,.death-recap,.fps-top,.arena-menu-button,.arena-live-scoreboard,.respawn-loadout-screen){visibility:hidden}
 .death-recap-flash{position:absolute;inset:0;background:#7c1410;opacity:0;animation:death-recap-flash .8s ease-out both;pointer-events:none}
 
 .death-recap-head{position:relative;text-align:center;text-shadow:0 2px 16px #000d;animation:death-recap-drop .6s .35s cubic-bezier(.2,.7,.2,1) both}

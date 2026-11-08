@@ -14,6 +14,8 @@ Leaving is a separate action: **Leave room** disconnects a guest; **Close room f
 
 ## Scoreboards and small screens
 
+Hold **Tab** during play to see the live scoreboard and release it to close. When the callout wheel is open, **Tab** and **Shift+Tab** still page through callouts. The match menu also shows **Players & scores**.
+
 Team scoreboards group Alpha and Bravo under explicit headings and mark **YOUR TEAM**. Mobile no longer hides team membership. Hardpoint ranks by uncontested hold time, then eliminations and deaths; hold time is informational and does not change team scoring. Its pause screen also shows the active station, control state and rotation countdown. FFA retains individual standings.
 
 The mode cards stack on phones; the four room actions form a two-by-two grid. Shared rules use readable text sizes. The primary room/match action receives focus when switching views, and fullscreen exits when returning to the room.
