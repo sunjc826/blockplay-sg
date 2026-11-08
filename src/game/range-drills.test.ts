@@ -1,6 +1,6 @@
 import { createVerticalMovement } from './vertical-movement';
 import { describe, expect, it } from 'vitest';
-import { createRangeDirector, rangeTargetRise, rangeTargetHeight, RANGE_DURATION } from './range-drills';
+import { createRangeDirector, rangeTargetRise, rangeTargetHeight, rangeTargetDrop, RANGE_DESPAWN_SECONDS, RANGE_DURATION } from './range-drills';
 import { claimReward, createProfile, type ExerciseReward } from './armory-state';
 
 describe('range director', () => {
@@ -19,6 +19,21 @@ describe('range director', () => {
       expect(d.slots.filter(s => s.phase === 'active' || s.phase === 'appearing').length).toBeLessThanOrEqual(3);
     }
     expect(cleared).toBeGreaterThan(30); expect(d.slots).toHaveLength(8); expect(d.view(100).goal).toBeNull();
+  });
+  it.each(['classic', 'continuous', 'timed'] as const)('tips a cleared %s target, holds its pose, then despawns it', mode => {
+    const d = createRangeDirector(mode, 1, 7);
+    const slot = d.slots[0], clearedAt = 1;
+    d.step(clearedAt);
+    expect(d.eliminate(0, slot.activation, clearedAt)).toBe(true);
+    expect(d.view(clearedAt).active).toBe(0);
+    expect(rangeTargetHeight(slot, clearedAt)).toBe(0);
+    expect(rangeTargetDrop(slot, clearedAt)).toBe(0);
+    expect(rangeTargetDrop(slot, clearedAt + .225)).toBeCloseTo(.25);
+    d.step(clearedAt + 1);
+    expect(rangeTargetDrop(slot, clearedAt + 1)).toBe(1);
+    d.step(clearedAt + RANGE_DESPAWN_SECONDS);
+    expect(rangeTargetDrop(slot, clearedAt + RANGE_DESPAWN_SECONDS)).toBeNull();
+    expect(slot.phase).toBe(mode === 'classic' ? 'inactive' : 'cooldown');
   });
   it('has a visible appearance phase, pauses with the simulation clock and respects unavailable anchors', () => {
     const d = createRangeDirector('continuous', 8, 4), i = d.slots.findIndex(s => s.phase === 'appearing');
@@ -60,12 +75,12 @@ describe('drill completion rewards', () => {
   });
 });
 
-it('opens movement through a fully retracted target without rebuilding the spatial index', () => {
+it('opens movement through a cleared target without rebuilding the spatial index', () => {
   const d = createRangeDirector('continuous', 1, 3), collider = { minX: -.42, maxX: .42, minZ: -.42, maxZ: .42, maxY: 0 };
   const world = createVerticalMovement({ bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 }, obstacles: [collider], surfaces: [], traversalObstacles: [] });
   expect(world.canOccupy(0, 0, 0)).toBe(true);
   d.step(.5); collider.maxY = rangeTargetHeight(d.slots[0], .5); expect(world.canOccupy(0, 0, 0)).toBe(false);
-  d.eliminate(0, d.slots[0].activation, .5); d.step(1, []); collider.maxY = rangeTargetHeight(d.slots[0], 1);
+  d.eliminate(0, d.slots[0].activation, .5); collider.maxY = rangeTargetHeight(d.slots[0], .5);
   expect(world.canOccupy(0, 0, 0)).toBe(true);
   d.step(8, []); expect(d.slots[0].phase).toBe('cooldown');
 });

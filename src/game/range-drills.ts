@@ -7,15 +7,22 @@ export const RANGE_DRILLS = {
 export type RangeDrillId = keyof typeof RANGE_DRILLS;
 export const RANGE_DURATION = 90;
 export const RANGE_RAISE_SECONDS = .45;
-export type RangeTargetPhase = 'inactive' | 'appearing' | 'active' | 'retracting' | 'cooldown';
+const RANGE_DROP_SECONDS = .45;
+export const RANGE_DESPAWN_SECONDS = 1.8;
+export type RangeTargetPhase = 'inactive' | 'appearing' | 'active' | 'falling' | 'cooldown';
 export interface RangeTargetSlot { phase: RangeTargetPhase; activation: number; since: number; readyAt: number }
 export interface RangeDrillView { mode: RangeDrillId; active: number; spawned: number; goal: number | null; remaining: number | null; endedEarly: boolean }
 export const validRangeDrill = (value: unknown): value is RangeDrillId => typeof value === 'string' && Object.hasOwn(RANGE_DRILLS, value);
 export function rangeTargetRise(slot: RangeTargetSlot, now: number) {
   const t = Math.max(0, Math.min(1, (now - slot.since) / RANGE_RAISE_SECONDS)), eased = t * t * (3 - 2 * t);
-  return slot.phase === 'active' ? 1 : slot.phase === 'appearing' ? eased : slot.phase === 'retracting' ? 1 - eased : 0;
+  return slot.phase === 'active' ? 1 : slot.phase === 'appearing' ? eased : 0;
 }
 export function rangeTargetHeight(slot: RangeTargetSlot, now: number) { return Math.max(0, 2.08 - (1 - rangeTargetRise(slot, now)) * 2.3); }
+/** Quarter-turn about the dummy's feet, then hold the fallen pose. */
+export function rangeTargetDrop(slot: RangeTargetSlot, now: number) {
+  if (slot.phase !== 'falling' || now >= slot.since + RANGE_DESPAWN_SECONDS) return null;
+  return Math.min(1, Math.max(0, now - slot.since) / RANGE_DROP_SECONDS) ** 2;
+}
 export function createRangeDirector(mode: RangeDrillId, count: number, seed: number) {
   if (!validRangeDrill(mode) || !Number.isInteger(count) || count < 1 || count > 64) throw new Error('Invalid range drill.');
   const slots: RangeTargetSlot[] = Array.from({ length: count }, () => ({ phase: 'inactive', activation: 0, since: 0, readyAt: 0 }));
@@ -31,11 +38,11 @@ export function createRangeDirector(mode: RangeDrillId, count: number, seed: num
   function step(now: number, eligible: readonly number[] = slots.map((_, i) => i)) {
     if (finished || !Number.isFinite(now) || now < clock) return;
     clock = now;
-    if (mode === 'classic' || mode === 'timed' && now >= RANGE_DURATION) return;
     for (const slot of slots) {
       if (slot.phase === 'appearing' && now - slot.since >= RANGE_RAISE_SECONDS) { slot.phase = 'active'; slot.since = now; }
-      if (slot.phase === 'retracting' && now - slot.since >= RANGE_RAISE_SECONDS) { slot.phase = 'cooldown'; slot.since = now; }
+      if (slot.phase === 'falling' && rangeTargetDrop(slot, now) === null) { slot.phase = mode === 'classic' ? 'inactive' : 'cooldown'; slot.since = now; }
     }
+    if (mode === 'classic' || mode === 'timed' && now >= RANGE_DURATION) return;
     const live = () => slots.filter(s => s.phase === 'appearing' || s.phase === 'active').length;
     while (live() < Math.min(3, count)) {
       const ready = slots.map((slot, i) => ({ slot, i })).filter(({ slot, i }) => eligible.includes(i) && (slot.phase === 'inactive' || slot.phase === 'cooldown' && now >= slot.readyAt));
@@ -48,7 +55,7 @@ export function createRangeDirector(mode: RangeDrillId, count: number, seed: num
   function eliminate(index: number, activation: number, now: number) {
     const slot = slots[index];
     if (finished || !slot || slot.phase !== 'active' || slot.activation !== activation || !Number.isFinite(now) || now < clock || mode === 'timed' && now >= RANGE_DURATION) return false;
-    slot.phase = mode === 'classic' ? 'inactive' : 'retracting'; slot.since = now; slot.readyAt = now + 2 + random() * 3;
+    slot.phase = 'falling'; slot.since = now; slot.readyAt = now + 2 + random() * 3;
     return true;
   }
   function view(now: number, endedEarly = false): RangeDrillView {

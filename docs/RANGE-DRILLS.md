@@ -9,15 +9,20 @@ or after finishing/resetting; Practice and Counter-fire are independent choices.
 | Continuous | Up to three active/appearing targets, replaced indefinitely | Pause, then End drill & view summary |
 | 90-second challenge | Up to three active/appearing targets | Ninety seconds of active play, or end early from pause |
 
-Targets retain their 100/115 HP profiles and body/head hit zones. Dynamic drills
+Targets have five armor tiers and body/head hit zones. Dynamic drills
 reuse the eight existing positions and models. A target rises over .45 seconds,
-becomes hittable when fully raised, then retracts when cleared. Its position
+becomes hittable when fully raised, then flips backward when cleared and
+disappears 1.8 seconds after the final hit. Its position
 cannot be reused for 2–5 seconds, and the director prefers fresh/older positions.
-Retracted targets release their movement collider, so empty positions do not
-leave invisible barriers. Positions within 4 m of the player are not selected for new appearances. The
+Cleared targets release their movement collider immediately. Positions within
+4 m of the player are not selected for new appearances. The
 seeded director is independent of rendering; pausing freezes its clock and the
 challenge timer. Maps and the AI pilot receive active targets with unique
 activation IDs. Clearing a target cancels its pending counter-fire warning.
+
+Each dummy's overhead label shows its armor tier. After a hit it also shows
+last-hit and total health damage, average health DPS, and separate armor damage.
+The stats reset after eight active-play seconds without a hit.
 
 The HUD shows cumulative clears and either elapsed time or time remaining. Every
 elimination retains the existing 20 CR / 25 XP reward. Classic and a fully

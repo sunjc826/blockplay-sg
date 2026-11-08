@@ -1,7 +1,7 @@
 import Scoreboard, { holdTime } from './ArenaScoreboard';
 import { HARDPOINT_AREA, HARDPOINT_RULES, SMITH_CONTROL_SITES } from '../game/hardpoint';
 import { TDM_RULES, TEAM_NAMES, tdmArea, type ArenaMatch } from '../game/arena-match';
-import { RANGE_DAMAGE_IDLE_SECONDS, rangeDamageNumber } from '../game/range-damage';
+import { RANGE_DAMAGE_IDLE_SECONDS } from '../game/range-damage';
 import { confirmAction, requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 import MerlionHud from './MerlionHud';
 import { playMusicStinger, setMusicCue, stopMusicStinger } from '../lib/music';
@@ -203,12 +203,6 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.cloudCover && <div className={`fps-cloud-overlay ${hud.cloudCover.kind}`} style={{ opacity: cloudOpacity(hud.cloudCover.amount, hud.vision?.on === true && hud.vision.kind === 'thermal') }} aria-hidden="true" />}
         {hud.incoming && <div className="fps-incoming">INCOMING · MOVE OR TAKE COVER</div>}
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
-        {!isArena && hud.rangeDamage && <div className="range-damage-panel" aria-label="Dummy damage">
-          <strong>Dummy {hud.rangeDamage.target} · {hud.rangeDamage.tier}</strong>
-          <div><span>Last hit <b>{rangeDamageNumber(hud.rangeDamage.last)}</b></span><span>Total <b>{rangeDamageNumber(hud.rangeDamage.total)}</b></span><span>DPS <b>{rangeDamageNumber(hud.rangeDamage.dps)}</b></span></div>
-          <small>Health damage · armor {rangeDamageNumber(hud.rangeDamage.lastArmor)} last / {rangeDamageNumber(hud.rangeDamage.totalArmor)} total</small>
-          <small>Resets after {RANGE_DAMAGE_IDLE_SECONDS}s without damage</small>
-        </div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">HIT −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
         <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>

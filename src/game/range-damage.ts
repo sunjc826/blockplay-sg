@@ -18,7 +18,6 @@ export const RANGE_ARMOR_TIERS: readonly RangeArmorTier[] = [
   }),
 ];
 export interface RangeDamageMeter { last: number; total: number; lastArmor: number; totalArmor: number; firstHitAt: number | null; lastHitAt: number | null }
-export interface RangeDamageView extends RangeDamageMeter { dps: number; target: number; tier: string; health: number; armor: number }
 export const createRangeDamageMeter = (): RangeDamageMeter => ({ last: 0, total: 0, lastArmor: 0, totalArmor: 0, firstHitAt: null, lastHitAt: null });
 /** Average health damage per active-play second in this burst, including time between hits.
  * A one-second minimum avoids infinite/huge rates on the opening hit. */
