@@ -5,7 +5,7 @@ export type ArenaTeam = 'alpha' | 'bravo';
 export const ARENA_TEAMS = ['alpha', 'bravo'] as const;
 export const TEAM_NAMES = { alpha: 'Alpha', bravo: 'Bravo' } as const;
 export const TDM_RULES = { teamSize: 4, scoreLimit: 30, duration: 300, respawnSeconds: 3, shieldSeconds: 3 } as const;
-export type ArenaMatch = { mode: 'free-for-all' } | { mode: 'team-deathmatch'; area: 'dragon-courtyard' | 'smith-street' };
+export type ArenaMatch = { mode: 'free-for-all' } | { mode: 'team-deathmatch'; area: 'dragon-courtyard' | 'smith-street' } | {mode:'hardpoint';area:'smith-street'};
 export const DEFAULT_ARENA_MATCH: ArenaMatch = { mode: 'free-for-all' };
 export interface TeamDeathmatchArea {
   id: Extract<ArenaMatch, {mode:'team-deathmatch'}>['area']; name: string; region: WorldZoneId;
@@ -29,8 +29,8 @@ export const tdmArea = (id: string) => TDM_AREAS.find(area => area.id === id);
 export function validArenaMatch(value: unknown): value is ArenaMatch {
   if (!value || typeof value !== 'object') return false;
   const m=value as Record<string,unknown>;
-  return m.mode==='free-for-all' || m.mode==='team-deathmatch' && typeof m.area==='string' && !!tdmArea(m.area);
+  return m.mode==='hardpoint' && m.area==='smith-street' || m.mode==='free-for-all' || m.mode==='team-deathmatch' && typeof m.area==='string' && !!tdmArea(m.area);
 }
-export const sameArenaMatch = (a: ArenaMatch, b: ArenaMatch) => a.mode===b.mode && (a.mode!=='team-deathmatch' || b.mode==='team-deathmatch' && a.area===b.area);
+export const sameArenaMatch = (a: ArenaMatch, b: ArenaMatch) => a.mode===b.mode && (a.mode==='free-for-all' || b.mode!=='free-for-all' && a.area===b.area);
 export const teamFaction = (team: ArenaTeam) => team === 'alpha' ? 'armed-forces' : 'mercenaries';
 export function teamWinner(scores: Record<ArenaTeam,number>) { return scores.alpha===scores.bravo ? 'Draw' : TEAM_NAMES[scores.alpha>scores.bravo?'alpha':'bravo']; }

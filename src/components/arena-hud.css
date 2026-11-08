@@ -7,3 +7,7 @@
 .tdm-score{position:absolute;top:56px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;padding:7px 12px;border-radius:6px;background:#102318dc;display:flex;flex-direction:column;gap:3px;margin:6px 0;color:#fff}.tdm-score strong{font:700 16px var(--font-mono,monospace);letter-spacing:.06em}.tdm-score span{font-size:11px;color:#d5e3ed}
 
 .fps-game:not([data-phase=playing]) .tdm-score{display:none}.tdm-score .tdm-uniform{font:inherit}@media(max-width:700px){.tdm-score{top:5px;left:110px;right:110px;transform:none;padding:4px;white-space:nowrap;gap:2px}.tdm-score strong{font-size:clamp(8px,2.6vw,11px)}.tdm-score span{font-size:9px}.tdm-score .tdm-uniform{display:none}}
+
+.hardpoint-status{position:absolute;top:116px;left:50%;transform:translateX(-50%);width:270px;padding:8px 12px;background:rgba(9,20,28,.85);border-left:3px solid #e7df88;color:#fff;display:grid;gap:4px;font-size:12px;pointer-events:none}.hardpoint-status strong{display:flex;justify-content:space-between}.hardpoint-status span{font-size:10px;letter-spacing:.04em}.hardpoint-status small{color:#e7df88}
+.fps-game:not([data-phase=playing]) .hardpoint-status{display:none}
+@media(max-width:700px) and (min-height:600px){.hardpoint-status{top:250px;left:12px;right:12px;transform:none;width:auto;padding:6px 8px;font-size:11px}.hardpoint-status span{font-size:9px}.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:315px}}

@@ -1,3 +1,5 @@
+import { buildHardpointWorld } from './hardpoint-world';
+import { SMITH_CONTROL_SITES } from './hardpoint';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
 import { tdmArea, type ArenaMatch } from './arena-match';
 import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter, type RangeDamageView } from './range-damage';
@@ -373,7 +375,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const rangeTravel = !expedition && !options.arena && !options.tutorial ? options.rangeTravel : undefined;
   const checkpoint = expedition?.checkpoint ?? rangeTravel?.checkpoint;
   const tdm = !expedition && options.arena?.match?.mode === 'team-deathmatch' ? options.arena.match : undefined;
-  const region = expedition?.zone ?? (tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
+  const hardpoint = !expedition && options.arena?.match?.mode==='hardpoint';
+  const teamMatch=!!tdm || hardpoint;
+  const region = expedition?.zone ?? (hardpoint?'chinatown':tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
   const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = rangeTravel?.spawn ?? district.spawn, targetPositions = district.targets;
   const practiceRange = !expedition && !options.arena && !options.tutorial;
   let drillMode: RangeDrillId = practiceRange && validRangeDrill(options.rangeDrill) ? options.rangeDrill : 'classic';
@@ -392,9 +396,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Sun shadows follow the camera (fps-sun-shadows) and stay off on software renderers.
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
-  canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (tdm ? ' Team Deathmatch' : ' range')}. WASD to move, mouse to look, click to fire.`);
-  const zoneWorld = options.tutorial ? buildTutorialWorld() : tdm ? buildTeamDeathmatchWorld(tdm.area) : buildDistrictWorld(region, expedition?.spawn);
-  if (tdm && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
+  canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : ' range')}. WASD to move, mouse to look, click to fire.`);
+  const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld() : tdm ? buildTeamDeathmatchWorld(tdm.area) : buildDistrictWorld(region, expedition?.spawn);
+  if (teamMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // A third of the scene is hidden at any time (pooled effects, figures' spare parts); the renderer's
   // every-frame matrix pass skips it. Explicit forced updates still reach everything.
@@ -464,7 +468,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment && (options.arena.environment.paratroopers || options.arena.environment.proxies)) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
   const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { enabled: !tdm, spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { enabled: !teamMatch, spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
     footMovement.canOccupy(x, 0, z, .5, 1.8) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
@@ -852,6 +856,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.proxyMenu && (!hud.proxyReach || hud.phase !== 'playing')) { closeProxyMenu(false); return; }
     onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
+        ...(hud.arena?.hardpoint ? SMITH_CONTROL_SITES.map((site,i):MinimapMarker=>({id:`control-${site.id}`,x:site.x,z:site.z,kind:'control',number:i+1,
+          active:hud.arena!.hardpoint!.active===site.id,inactive:hud.arena!.hardpoint!.active!==site.id,
+          label:`${i+1}. ${site.name} · ${hud.arena!.hardpoint!.active===site.id?(hud.arena!.hardpoint!.contested?'Contested':'Active'):hud.arena!.hardpoint!.next===site.id?'Next':'Inactive'}`})):[]),
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
         ...(!options.arena ? targetPositions : []).flatMap((point, index): MinimapMarker[] => targets[index]?.alive ? [{ ...point, id: `target-${index}-${targets[index].activation}`, kind: 'target', label: `Target ${index + 1}` }] : []),
         ...(rangeArmory ? [{ id: 'range-armory', x: rangeArmory.plot.x, z: rangeArmory.plot.z, kind: 'loot' as const, lootType: 'weapon' as const, label: 'Gallery wall · try issued, captured and bought weapons' }] : []),
@@ -3554,6 +3561,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (frame.vehicleNotice) vehicles.setNotice(frame.vehicleNotice);
     facilityVisuals?.update(frame.snapshot?.facilities);
+    if('controlStations' in world)(world as ReturnType<typeof buildHardpointWorld>).controlStations.update(frame.snapshot?.hardpoint);
     proxyVisuals.update(frame.snapshot?.proxies);
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (frame.started && !wasStarted && hud.phase === 'playing' && !hud.muted) playTake('world-match-start', .7);
@@ -4539,7 +4547,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: tdm ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: teamMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);

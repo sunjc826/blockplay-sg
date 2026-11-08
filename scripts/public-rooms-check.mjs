@@ -34,7 +34,7 @@ try {
   assert.equal((await api('', profile, { Origin: 'https://evil.invalid' })).status, 403);
   assert.equal((await api('', { ...profile, password: 'abc' })).status, 400);
   assert.equal((await api('', { ...profile, title: 'x'.repeat(5000) })).status, 413);
-  assert.equal((await api('', {...profile,match:{mode:'team-deathmatch',area:'unknown'}})).status,400);
+  assert.equal((await api('', {...profile,match:{mode:'hardpoint',area:'dragon-courtyard'}})).status,400);
   const hostTicket = await reserve('', { title: '<Public test>', name: 'Host\nName', password: 'room-secret', match:{mode:'team-deathmatch',area:'dragon-courtyard'} });
   assert.equal(await deniedSocket(hostTicket, 'https://evil.invalid'), 403);
   assert.equal(await deniedSocket({ ...hostTicket, token: '0'.repeat(64) }), 403);
@@ -84,6 +84,7 @@ try {
   host.socket.close(1000, 'Left room.'); await second.wait(packet => packet.kind === 'closed');
   assert(!(await api()).body.rooms.some(room => room.code === hostTicket.code));
   assert.equal((await api(`/${hostTicket.code}/join`, { ...profile, password: 'room-secret' })).status, 404);
+  const hpTicket=await reserve('',{title:'Hardpoint test',match:{mode:'hardpoint',area:'smith-street'}});const hp=await connect(hpTicket);const hpListing=(await api()).body.rooms.find(r=>r.code===hpTicket.code);assert.equal(hpListing.mode,'Hardpoint');assert.equal(hpListing.map,'Chinatown · Smith Street');hp.socket.close(1000,'Left room.');
   const openTicket = await reserve('', { title: 'Open room' }); const open = await connect(openTicket);
   const openGuest = await reserve(`/${openTicket.code}/join`, { name: 'No password' }); await connect(openGuest);
   const openListing=(await api()).body.rooms.find(room=>room.code===openTicket.code);assert.equal(openListing.locked,false);assert.equal(openListing.mode,'Free for all');assert.equal(openListing.map,'Marina Bay');

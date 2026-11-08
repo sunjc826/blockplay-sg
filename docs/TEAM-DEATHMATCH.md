@@ -13,7 +13,7 @@ These reuse existing scenery. They are a limited initial set, not a claim of com
 
 ## Separation from expedition
 
-`arena-match.ts` owns the match catalog, teams and constants. `team-deathmatch-world.ts` builds terrain plus a bounded combat environment directly from the region registry. It does not instantiate facilities, camp layouts, heat, logistics, capture objectives, vehicles, reinforcements or the expedition event director. No new physical cover has been added. The previous independent structure-layout installer and expedition adapter remain available for future mode-owned structures.
+`arena-match.ts` owns the match catalog, teams and constants. `team-deathmatch-world.ts` selects its area and delegates terrain plus the bounded combat environment to `team-combat-world.ts`. It does not instantiate facilities, camp layouts, heat, logistics, capture objectives, vehicles, reinforcements or the expedition event director. No new physical cover has been added. The previous independent structure-layout installer and expedition adapter are also used by the dedicated [Hardpoint control stations](HARDPOINT.md).
 
 `arena-rules.ts` shares infantry movement, weapon handling, damage, spotting and navigation. Team-only branches handle the roster, hostility, spawn selection, scoring and match ending. Actors without teams retain existing expedition/FFA relationships; existing FFA rules and expedition defaults are unchanged. Bots patrol the match's combat anchors and react through the existing spotting system instead of needing facility objectives. Scripted expedition combat events are refused in TDM.
 

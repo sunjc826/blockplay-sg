@@ -29,7 +29,8 @@ export interface MinimapMarker {
   id: string; x: number; z: number; label: string;
   /** `scent`: an opponent revealed by their inserts even without visual contact. */
   side?: 'ally' | 'enemy' | 'neutral'; inactive?: boolean;
-  kind: 'landmark' | 'parachute' | 'boat' | 'facility' | 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent' | 'ally' | 'enemy';
+  number?:number;
+  kind: 'control' | 'landmark' | 'parachute' | 'boat' | 'facility' | 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent' | 'ally' | 'enemy';
   lootType?: 'weapon' | 'ammo' | 'medical' | 'armor' | 'food' | 'resupply';
   facilityType?: 'command' | 'garage' | 'helipad' | 'supply';
   active?: boolean;

@@ -20,7 +20,7 @@ function FpsMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
 
 const SECTOR_FILL = { dense: '#31473b', broken: '#2c3f3a', open: '#354036' } as const;
 const VIEW = { compact: { width: 200, height: 160 }, expanded: { width: 600, height: 440 } } as const;
-const EDGE_KINDS = new Set<MinimapMarker['kind']>(['checkpoint', 'parachute', 'boat', 'facility']);
+const EDGE_KINDS = new Set<MinimapMarker['kind']>(['control','checkpoint', 'parachute', 'boat', 'facility']);
 const SYMBOLS: { label: string; marker: MinimapMarker }[] = [
   ...(['command', 'garage', 'helipad', 'supply'] as const).map(facilityType => ({ label: { command: 'Command', garage: 'Garage', helipad: 'Helipad', supply: 'Depot' }[facilityType], marker: { id: facilityType, kind: 'facility' as const, facilityType, label: '', x: 0, z: 0 } })),
   ...(['weapon', 'ammo', 'medical', 'armor', 'food'] as const).map(lootType => ({ label: { weapon: 'Weapon', ammo: 'Ammo', medical: 'Medical / resupply', armor: 'Armor', food: 'Food' }[lootType], marker: { id: lootType, kind: 'loot' as const, lootType, label: '', x: 0, z: 0 } })),
@@ -109,7 +109,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
           <FpsMapShapes shapes={decor('under')} />
           {district.mapRoads.map((road, index) => <polyline key={index} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke="#63766a" strokeWidth={expanded ? Math.max(6, 3 * unit) : 12} />)}
           <FpsMapShapes shapes={decor('over')} />
-          {matchBounds && <rect data-match-boundary x={matchBounds.minX} y={matchBounds.minZ} width={matchBounds.maxX-matchBounds.minX} height={matchBounds.maxZ-matchBounds.minZ} fill="none" stroke="#ffc56e" strokeWidth={2*unit}><title>Team Deathmatch boundary</title></rect>}
+          {matchBounds && <rect data-match-boundary x={matchBounds.minX} y={matchBounds.minZ} width={matchBounds.maxX-matchBounds.minX} height={matchBounds.maxZ-matchBounds.minZ} fill="none" stroke="#ffc56e" strokeWidth={2*unit}><title>Match boundary</title></rect>}
           {!jammed && mode === 'expedition' && sectors.map(sector => {
             const control = controls.get(sector.id)!;
             return <rect key={sector.id} data-sector-control={control} data-control-sector={sector.id} x={sector.bounds.minX} y={sector.bounds.minZ} width={sector.bounds.maxX - sector.bounds.minX} height={sector.bounds.maxZ - sector.bounds.minZ}

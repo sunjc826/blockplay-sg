@@ -2,6 +2,7 @@ import type { MinimapMarker } from '../game/minimap';
 
 /** Shapes stay distinct without relying on color, including at minimap size. */
 export default function FpsMapMarker({ marker, outside }: { marker: MinimapMarker; outside: boolean }) {
+  if(marker.kind==='control')return <g data-control-station={marker.id}><circle r="7" fill={marker.active?'#eef5fa':'#253c43'} stroke={marker.active?'#ffc56e':'#93a3aa'} strokeWidth="2"/><text y="3" textAnchor="middle" fontSize="9" fontWeight="800" fill={marker.active?'#152a32':'#dde6e9'}>{marker.number}</text></g>;
   if (marker.kind === 'facility') return <g data-facility-type={marker.facilityType ?? 'unknown'}>
     <rect x="-6" y="-6" width="12" height="12" rx="1" fill="#16231f" stroke={marker.side === 'ally' ? '#70cfff' : marker.side === 'enemy' ? '#ff8870' : '#cbd2c7'} strokeWidth="1.8" strokeDasharray={marker.inactive ? '2 2' : undefined} />
     {marker.inactive ? <path d="M-3 -3L3 3M-3 3L3 -3" stroke="#eef2e4" strokeWidth="1.4" />

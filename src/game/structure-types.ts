@@ -6,7 +6,7 @@ export interface StructurePoint { x: number; y: number; z: number }
 export type StructurePropKind = 'canopy' | 'shelter' | 'stores' | 'barricade';
 export interface StructureProp extends StructurePoint { kind: StructurePropKind; yaw: number }
 export interface StructureCore {
-  model: 'command-console' | 'equipment-cabinet';
+  model: 'command-console' | 'equipment-cabinet' | 'signal-beacon';
   /** External cores use the mode's analytical hit test, not rendered scenery rays. */
   cover: 'scene' | 'external';
 }

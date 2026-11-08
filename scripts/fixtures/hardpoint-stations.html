@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Smith Street control stations</title><style>body{margin:0;background:#18232a;color:white;font:16px system-ui}canvas{display:block}#status{position:absolute;top:16px;left:16px;padding:14px;background:#18232add}</style></head><body><div id="status"></div><script type="module">
+import * as THREE from 'three';
+import { buildHardpointWorld } from '/src/game/hardpoint-world.ts';
+import { SMITH_CONTROL_SITES, createHardpoint } from '/src/game/hardpoint.ts';
+const world=buildHardpointWorld();world.stamps.forEach(s=>s.visible=false);
+world.scene.background=new THREE.Color('#b8d3de');world.scene.fog=null;
+world.scene.add(new THREE.HemisphereLight('#e4efff','#71746e',2.6));
+const light=new THREE.DirectionalLight('#fff4de',2);light.position.set(-50,70,60);world.scene.add(light);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1100,720);renderer.setPixelRatio(1);document.body.appendChild(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(55,1100/720,.1,500);
+window.showStation=(index=0,state='alpha')=>{
+ const site=SMITH_CONTROL_SITES[index],h=createHardpoint();
+ const actors=state==='contested'?['alpha','bravo']:state==='neutral'?[]:[state];
+ world.controlStations.update(h.snapshot(index*60,actors.map(team=>({...site,y:1.75,alive:true,team}))));
+ camera.position.set(site.x,index===0?19:12,site.z+(index===2?13:-13));camera.lookAt(site.x,0,site.z);
+ renderer.render(world.scene,camera);document.getElementById('status').textContent=`${index+1}. ${site.name} · ${state} · fixed beacon, capture ring and cover`;
+};
+window.showStation();window.ready=true;
+</script></body></html>

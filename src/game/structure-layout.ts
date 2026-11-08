@@ -16,6 +16,7 @@ export function structurePropBounds(prop: StructureProp): Obstacle {
 }
 
 export function structureCoreBounds(position: StructurePoint, model: StructureCore['model']): Obstacle {
+  if(model==='signal-beacon')return {minX:position.x-.45,maxX:position.x+.45,minZ:position.z-.35,maxZ:position.z+.35,minY:position.y,maxY:position.y+.9};
   const w = model === 'command-console' ? 1.2 : .85, d = model === 'command-console' ? .8 : .65, h = model === 'command-console' ? 1.55 : 1.8;
   return { minX: position.x-w, maxX: position.x+w, minZ: position.z-d, maxZ: position.z+d, minY: position.y, maxY: position.y+h };
 }

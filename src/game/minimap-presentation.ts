@@ -13,7 +13,7 @@ const FACILITY_NAMES = { command: 'Command post', garage: 'Garage', helipad: 'He
 export function minimapMarkerCategory(marker: MinimapMarker) {
   if (marker.kind === 'loot') return marker.lootType ? LOOT_NAMES[marker.lootType] : 'Supplies';
   if (marker.kind === 'facility') return marker.facilityType ? FACILITY_NAMES[marker.facilityType] : 'Facility';
-  return { landmark: 'Landmark', parachute: 'Paratroopers', boat: 'Landing craft', target: 'Practice target',
+  return { control:'Control station', landmark: 'Landmark', parachute: 'Paratroopers', boat: 'Landing craft', target: 'Practice target',
     car: 'Car', helicopter: 'Helicopter', npc: 'NPC', checkpoint: 'Checkpoint / objective', scent: 'Scent reveal', ally: 'Allied contact', enemy: 'Enemy contact' }[marker.kind];
 }
 

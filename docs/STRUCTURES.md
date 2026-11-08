@@ -92,3 +92,5 @@ sandbags and a separate test-only zone. It checks collision/cover, zone occupanc
 respawning/reset, absence of facility/logistics state, layout replacement and
 cleanup. It is a composition proof, not a shipped capture mode. Evidence is saved
 to `.cache/structure-extraction/`.
+
+The [Smith Street Hardpoint implementation](HARDPOINT.md) now supplies its own fixed signal-beacon stations, rings and barricades through this neutral structure layer. Its occupancy, rotation and scoring stay separate from expedition facilities.

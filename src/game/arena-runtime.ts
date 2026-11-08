@@ -1,3 +1,4 @@
+import { HARDPOINT_RULES, validHardpointSnapshot } from './hardpoint';
 import { TDM_RULES, teamFaction } from './arena-match';
 import { looksLikeSlide } from './fps-slide';
 import { getBuildingLifts } from './building-lifts';
@@ -87,20 +88,22 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (object(value) && value.proxies !== undefined && (!environment?.proxies || !validProxySnapshot(value.proxies))) return false;
   if (object(value) && value.merlion !== undefined && !validMerlionState(value.merlion)) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
-  if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : environment?.teamDeathmatch ? TDM_RULES.duration : 181) ||
+  if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : environment?.hardpoint ? HARDPOINT_RULES.duration : environment?.teamDeathmatch ? TDM_RULES.duration : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
-  const tdm=environment?.teamDeathmatch;
+  const tdm=environment?.teamDeathmatch, teamArea=tdm??environment?.hardpoint?.area;
   if(tdm) {
     const state=value.teamDeathmatch;
     if(!object(state)||state.area!==tdm.id||!object(state.scores)||!['alpha','bravo'].every(t=>Number.isInteger((state.scores as Record<string,unknown>)[t]) && Number((state.scores as Record<string,unknown>)[t])>=0 && Number((state.scores as Record<string,unknown>)[t])<=TDM_RULES.scoreLimit))return false;
+  } else if(value.teamDeathmatch!==undefined)return false;
+  if(teamArea) {
     if(value.actors.length!==TDM_RULES.teamSize*2 || value.facilities || value.vehicles || value.events || value.transports || value.heat || value.reinforcementClocks || value.raiders || value.proxies)return false;
     for(const team of ['alpha','bravo'])if(value.actors.filter(a=>object(a)&&a.team===team).length!==TDM_RULES.teamSize)return false;
-  } else if(value.teamDeathmatch!==undefined)return false;
+  }
   const ids = new Set<string>();
   for (const actor of value.actors) {
     if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
-      (tdm ? !['alpha','bravo'].includes(String(actor.team)) || actor.faction!==teamFaction(actor.team as 'alpha'|'bravo') : actor.team!==undefined) ||
+      (teamArea ? !['alpha','bravo'].includes(String(actor.team)) || actor.faction!==teamFaction(actor.team as 'alpha'|'bravo') : actor.team!==undefined) ||
       (isProxyFaction(String(actor.faction)) && (actor.proxyOperation === undefined || actor.proxyTargets === undefined)) ||
       (actor.proxyOperation !== undefined && (!environment?.proxies || !actor.bot || !['freedom-force','collective-cops'].includes(String(actor.faction)) || typeof actor.proxyOperation !== 'string' || actor.proxyOperation !== (value.proxies as import('./proxy-operations').ProxySnapshot)?.operation?.id)) ||
       (actor.proxyTargets !== undefined && (actor.proxyOperation === undefined || !Array.isArray(actor.proxyTargets) || actor.proxyTargets.length > 64 || !actor.proxyTargets.every(id => typeof id === 'string' && id.length <= 100))) ||
@@ -129,6 +132,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
+  if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites) : value.hardpoint!==undefined)return false;
   if (value.proxies !== undefined) {
     const op=(value.proxies as import('./proxy-operations').ProxySnapshot).operation;
     if (op && environment && [op.at,...Object.values(op.entries)].some(p=>p.x<environment.bounds.minX || p.x>environment.bounds.maxX || p.z<environment.bounds.minZ || p.z>environment.bounds.maxZ)) return false;
@@ -454,7 +458,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!point(origin) || !point(direction)) return 0;
     return sceneCover.distance(origin, direction, finite(supplied) ? Math.max(0, Math.min(MAX_WEAPON_RANGE, supplied)) : MAX_WEAPON_RANGE);
   }
-  simulation?.setPlayerRespawnSeconds(options.environment?.teamDeathmatch ? TDM_RULES.respawnSeconds : ARENA_PLAYER_RESPAWN_SECONDS);
+  simulation?.setPlayerRespawnSeconds((options.environment?.teamDeathmatch || options.environment?.hardpoint) ? TDM_RULES.respawnSeconds : ARENA_PLAYER_RESPAWN_SECONDS);
   if (simulation) { simulation.addPlayer(session.id, session.name, initial.armor, initial.absorption, initial.weapons, options.initialVitals, session.role === 'solo', initial.carriedFamilies, initial.insert); simulation.setPlayerEquipmentRentals(session.id, initial.equipmentRentals); simulation.setPlayerGrenades(session.id, initial.supplies); registered.add(session.id); }
   function accept(next: ArenaSnapshot) {
     if (next.tick < lastTick) { seenFeed.clear(); seenBarks.clear(); localAdopted = false; }
@@ -501,7 +505,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || !object(payload)) return;
     if (simulation) {
       const peer = session.getPeers().find(candidate => candidate.id === from); if (!peer) return;
-      if (payload.type === 'arena-hello' && payload.area === options.environment?.teamDeathmatch?.id && !registered.has(from)) {
+      if (payload.type === 'arena-hello' && payload.area === (options.environment?.teamDeathmatch??options.environment?.hardpoint?.area)?.id && (payload.mode??(options.environment?.teamDeathmatch?'team-deathmatch':undefined)) === (options.environment?.hardpoint?'hardpoint':options.environment?.teamDeathmatch?'team-deathmatch':undefined) && !registered.has(from)) {
         let raw: string;
         try { raw = JSON.stringify(payload.profile); } catch { return; }
         if (typeof raw !== 'string' || raw.length > 16_000) return;
@@ -686,7 +690,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!connected) { for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear(); }
     inputTime += dt; helloTime += dt;
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
-    if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:options.environment?.teamDeathmatch?.id }); }
+    if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:(options.environment?.teamDeathmatch??options.environment?.hardpoint?.area)?.id,mode:options.environment?.hardpoint?'hardpoint':options.environment?.teamDeathmatch?'team-deathmatch':undefined }); }
     self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (validArenaInput(input)) lastInput = { ...input };
     if (simulation && input.playing && !started) { started = true; lastTime = performance.now(); publish(); }

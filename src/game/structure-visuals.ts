@@ -18,7 +18,11 @@ export function createStructureVisuals(scene: THREE.Scene, layout: StructureLayo
         const geometry = new THREE.BoxGeometry(w, h, d), mesh = new THREE.Mesh(geometry, material);
         resources.push(geometry); mesh.position.set(x, y, z); root.add(mesh); return mesh;
       };
-      if(site.core?.model==='command-console') {
+      const beacon=site.core?.model==='signal-beacon';
+      if(beacon){
+        box(.9,.9,.7,0,.45,0);box(.72,.16,.04,0,.62,.37,accent);
+        for(const x of [-.3,.3])box(.12,.3,.1,x,.9,0,accent);
+      } else if(site.core?.model==='command-console') {
         // Open-legged map table, radio, screen and a field map replace the box.
         box(2.4,.16,1.6,0,.94,0);
         for(const x of [-1.05,1.05])for(const z of [-.65,.65])box(.12,.86,.12,x,.43,z);
@@ -33,10 +37,11 @@ export function createStructureVisuals(scene: THREE.Scene, layout: StructureLayo
         box(1.7, 1.8, 1.3, 0, .9, 0);
         box(1.5, .25, .12, 0, 1.4, .7, accent);
       }
-      const mast = box(.08, 3.6, .08, .65, 1.8, -.3);
+      const mast = beacon ? box(.08,2.4,.08,0,1.8,0) : box(.08, 3.6, .08, .65, 1.8, -.3);
+      if(beacon){box(.42,.35,.42,0,2.9,0,accent);} else {
       box(1.2, .08, .08, .65, 3.3, -.3);
       box(.08, .6, .08, .3, 3.3, -.3);
-      box(.08, .6, .08, 1, 3.3, -.3);
+      box(.08, .6, .08, 1, 3.3, -.3);}
       const bar = box(1.7, .12, .1, 0, 2.1, .7, accent);
       // Only these authored, fixed boxes share a draw. Each console retains its
       // own materials; the mast and progress bar still change independently.
@@ -60,7 +65,7 @@ export function createStructureVisuals(scene: THREE.Scene, layout: StructureLayo
       }
       const ringGeo = new THREE.RingGeometry(2.3, 2.45, 32); resources.push(ringGeo);
       const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: '#70cfff', side: THREE.DoubleSide, transparent: true, opacity: .7, depthWrite: false }));
-      resources.push(ring.material); ring.rotation.x = -Math.PI / 2; ring.position.y = .04; root.add(ring);
+      resources.push(ring.material); if(beacon)ring.visible=false; ring.rotation.x = -Math.PI / 2; ring.position.y = .04; root.add(ring);
       return { mast, bar, ring };
     })() : undefined;
     const pad = new THREE.Group(); pad.userData.structureId = site.id; pad.userData.structureRole = 'pad'; pad.userData.structureCover = 'none';
