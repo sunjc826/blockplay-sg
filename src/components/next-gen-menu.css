@@ -113,9 +113,9 @@
   .next-gen-panel:hover, .next-gen-panel:focus-visible { flex-grow:1; }
 }
 
-/* Home: two full-height play panels and a fixed-width, vertically split equipment column. */
+/* Home: two full-height play panels and an expanding, vertically split equipment column. */
 .game-menu.next-gen-main { --home-gap:12px; --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
-.next-gen-panorama { --panorama-art:url('/images/menu/operations-hub.jpg'); position:absolute; inset:-1.5%; pointer-events:none; background:linear-gradient(180deg,#08101444,transparent 32%,#081014a0),var(--panorama-art) center / cover; filter:saturate(.95); transition:transform .9s cubic-bezier(.2,.75,.25,1),filter .7s; }
+.next-gen-panorama { --panorama-art:url('/images/menu/operations-hub.jpg'); position:absolute; inset:-1.5%; pointer-events:none; background:linear-gradient(180deg,#08101444,transparent 32%,#081014a0),var(--panorama-art) center / cover; filter:saturate(.95); transition:transform .9s cubic-bezier(.2,.75,.25,1),background-position .9s cubic-bezier(.2,.75,.25,1),filter .7s; }
 .next-gen-main .next-gen-artwork::after { background:linear-gradient(180deg,transparent 25%,#07101328); opacity:.7; transition:opacity .4s; }
 .next-gen-main .next-gen-grid { display:none; }
 .next-gen-main .game-menu-item:is(:hover,:focus-visible) .next-gen-artwork::after { opacity:0; }
@@ -132,9 +132,9 @@
 .next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:0; }
 .next-gen-home-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:var(--home-gap); width:100%; min-height:0; }
-.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:repeat(2,minmax(0,1fr)); gap:var(--home-gap); }
+.next-gen-equipment { flex:0 0 28%; min-width:0; display:grid; grid-template-rows:minmax(0,1fr) minmax(0,1fr); gap:var(--home-gap); transition:flex-basis .55s cubic-bezier(.2,.75,.25,1),grid-template-rows .55s cubic-bezier(.2,.75,.25,1); }
 .next-gen-main .game-menu-item { container-type:inline-size; flex:1 1 0; min-height:0; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:14px; padding:clamp(18px,2.3vw,34px); border-radius:0; border-color:#ffffff24; background:transparent; backdrop-filter:none; transform:none; animation:none; }
-/* Mask only the gutters; the shared photograph stays in the same position. */
+/* Mask only the gutters; keep one shared photograph behind all panes. */
 .next-gen-main .game-menu-item { box-shadow:0 0 0 calc(var(--home-gap) / 2) #101315; }
 .next-gen-main .game-menu-item:is(:hover,:focus-visible) { background:transparent; border-color:#f4ad61; }
 .next-gen-main .game-menu-item.is-tile { padding:clamp(16px,2vw,28px); gap:10px; }
@@ -164,6 +164,23 @@
 }
 @media (min-width:701px) {
   .next-gen-main .game-menu-item:not(.is-tile):focus-visible { flex-grow:1.2; }
+}
+/* Widen toward the armory's left edge; give the active shelf/bench more height.
+   Pointer hover takes precedence over an earlier keyboard focus. */
+@media (min-width:701px) and (aspect-ratio > 1/1), (min-width:1001px) {
+  .next-gen-equipment:has(> :focus-visible) { flex-basis:38%; }
+  .next-gen-equipment:has(> :where([data-scene='store']:focus-visible)) { grid-template-rows:minmax(0,1.16fr) minmax(0,.84fr); }
+  .next-gen-equipment:has(> :where([data-scene='inventory']:focus-visible)) { grid-template-rows:minmax(0,.76fr) minmax(0,1.24fr); }
+  /* Reframe the same shared image to include the rightmost shelf/kit on narrower desktops. */
+  .next-gen-main:has(.next-gen-equipment > :focus-visible) .next-gen-panorama { background-position:right center; transform:translateX(-1.4%); }
+  @media (hover:hover) and (pointer:fine) {
+    .next-gen-main:has(:where(.game-menu-item:hover)) .next-gen-equipment { flex-basis:28%; grid-template-rows:minmax(0,1fr) minmax(0,1fr); }
+    .next-gen-main:has(.game-menu-item:hover) .next-gen-panorama { background-position:center; transform:scale(1.025); }
+    .next-gen-main:has(.next-gen-equipment > :hover) .next-gen-panorama { background-position:right center; transform:translateX(-1.4%); }
+    .next-gen-main .next-gen-equipment:has(> :hover) { flex-basis:38%; }
+    .next-gen-main .next-gen-equipment:has(> [data-scene='store']:hover) { grid-template-rows:minmax(0,1.16fr) minmax(0,.84fr); }
+    .next-gen-main .next-gen-equipment:has(> [data-scene='inventory']:hover) { grid-template-rows:minmax(0,.76fr) minmax(0,1.24fr); }
+  }
 }
 @media (max-width:900px) {
   .next-gen-main .game-menu-item { padding:20px; }
@@ -213,7 +230,11 @@
 }
 @media (prefers-reduced-motion:reduce) {
   .next-gen-main .game-menu-item:not(.is-tile):is(:hover,:focus-visible) { flex-grow:1; }
+  .next-gen-main .next-gen-equipment { flex-basis:28% !important; grid-template-rows:minmax(0,1fr) minmax(0,1fr) !important; transition:none; }
+  @media (max-width:700px), (max-width:1000px) and (max-aspect-ratio:1/1) {
+    .next-gen-main .next-gen-equipment { grid-template-rows:minmax(0,1fr) !important; }
+  }
   .next-gen-settings { transition:none; }
-  .next-gen-panorama { transition:none; transform:none !important; }
+  .next-gen-panorama { transition:none; transform:none !important; background-position:center !important; }
   .next-gen-main .next-gen-artwork::after { transition:none; }
 }

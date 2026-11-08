@@ -51,6 +51,31 @@ async function panoramaFits() {
   assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>getComputedStyle(e).backgroundColor==='rgba(0, 0, 0, 0)')`), 'All actions reveal the shared panorama');
   await evaluate(`(async()=>{const stacked=getComputedStyle(document.querySelector('.next-gen-home-panels')).display==='grid';const name=stacked?'operations-hub-portrait.jpg':'operations-hub.jpg';const background=getComputedStyle(document.querySelector('.next-gen-panorama')).backgroundImage;if(!background.includes(name))throw Error('Wrong panorama for layout');const image=new Image();image.src='/images/menu/'+name;await image.decode()})()`);
 }
+async function equipmentRects() {
+  return evaluate(`[...document.querySelectorAll('.next-gen-equipment > a')].map(e=>{const r=e.getBoundingClientRect();return {width:r.width,height:r.height,top:r.top,bottom:r.bottom}})`);
+}
+async function hoverEquipment(route) {
+  const point = await evaluate(`(()=>{const r=document.querySelector('.game-menu-item[href="/${route}"]').getBoundingClientRect();return {x:r.right-60,y:r.top+r.height/2}})()`);
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',...point}); await delay(900);
+}
+async function checkEquipmentExpansion() {
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:20,y:20});
+  await evaluate(`document.activeElement.blur()`); await delay(900);
+  const before = await equipmentRects();
+  for (const [index,route] of ['store','inventory'].entries()) {
+    await hoverEquipment(route);
+    const after = await equipmentRects();
+    assert(after[index].width > before[index].width + 60, `${route} widens`);
+    assert(after[index].height > before[index].height + 40, `${route} grows vertically`);
+    assert(after[1-index].height < before[1-index].height - 40, 'Other equipment action yields height');
+    assert(Math.abs(after[0].top) < 1 && Math.abs(after[1].bottom - await evaluate('innerHeight')) < 1, 'Equipment remains full height');
+    assert(Math.abs(after[1].top-after[0].bottom-12)<1, 'Expansion keeps the gutter');
+    await fits(); await overlaysFit(); await panoramaFits();
+    await shot(`equipment-${route}-${await evaluate('innerWidth')}`);
+  }
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:20,y:20}); await delay(900);
+  assert.deepEqual(await equipmentRects(),before,'Equipment returns to its resting split');
+}
 try {
   await send('Page.enable'); await send('Runtime.enable'); await size(1440,900);
   await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true});
@@ -74,15 +99,20 @@ try {
   const after = await evaluate(`document.querySelector('${first}').getBoundingClientRect().width`);
   assert(after > before + 20, `Hover expands a stripe: ${before} → ${after}`);
   await shot('desktop-home-hover');
-  const equipmentBefore = await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`);
-  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:1250,y:250}); await delay(700);
-  assert.deepEqual(await evaluate(`(()=>{const r=document.querySelector('.next-gen-equipment').getBoundingClientRect();return [r.width,r.height]})()`), equipmentBefore, 'Equipment column stays stable on hover');
+  await checkEquipmentExpansion();
+  await hoverEquipment('store');
   await panoramaFits();
   assert(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transform!=='none'`), 'Store hover animates the shared scene');
   await shot('desktop-store-hover');
   await evaluate(`document.querySelector('${first}').focus()`); await key('ArrowRight');
   assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/multiplayer');
   await key('End'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/inventory');
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',...gear}); await delay(900);
+  const focusedEquipment = await equipmentRects();
+  assert(focusedEquipment[1].height > focusedEquipment[0].height + 100, 'Keyboard focus expands Inventory');
+  await hoverEquipment('store');
+  const hoveredEquipment = await equipmentRects();
+  assert(hoveredEquipment[0].height > hoveredEquipment[1].height + 100, 'Store hover takes precedence over Inventory focus');
   await key('Home'); assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
   await key('Enter'); await wait(`location.pathname==='/play/single-player'`); await delay(600);
   await fits(); await shot('desktop-single-player');
@@ -109,7 +139,13 @@ try {
   await shot('desktop-multiplayer');
   await click('.activity-card[href="/play/multiplayer/team-deathmatch"]'); await wait(`!!document.querySelector('.starting-picker')`);
   await send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion',value:'reduce'}]});
-  await home(); await evaluate(`document.querySelector('.game-menu-item[href="/inventory"]').focus()`);
+  await home();
+  await send('Input.dispatchMouseEvent', {type:'mouseMoved',x:20,y:20});
+  await evaluate(`document.activeElement.blur()`);
+  const reducedBefore = await equipmentRects();
+  await evaluate(`document.querySelector('.game-menu-item[href="/inventory"]').focus()`);
+  await hoverEquipment('store');
+  assert.deepEqual(await equipmentRects(), reducedBefore, 'Reduced motion keeps equipment dimensions steady');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transform`), 'none');
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.next-gen-panorama')).transitionDuration`), '0s');
   await go('/play', '.next-gen-panel');
@@ -119,6 +155,7 @@ try {
     await size(width,height,mobile); await home(); await fits(); await overlaysFit(); await panoramaFits();
     assert(await evaluate(`[...document.querySelectorAll('.game-menu-item')].every(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1})`), `${width}: home actions fit viewport`);
     await shot(`home-${width}`);
+    if (!mobile) await checkEquipmentExpansion();
     assert(await evaluate(`(()=>{const r=document.querySelector('.next-gen-settings').getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight})()`), 'Settings remains a reachable touch target');
     await click('.game-menu-item[href="/play/single-player"]',mobile); await wait(`location.pathname==='/play/single-player'`);
     await fits(); await shot(`solo-${width}`);

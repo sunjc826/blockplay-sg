@@ -14,12 +14,17 @@ One continuous panorama runs behind all four actions: Singapore city at the
 left, teammates in the middle, a rooftop armory counter behind Store, and a
 personal field kit and loadout bench behind Inventory. Phone screens use a
 portrait composition with the armory and personal kit side by side at the
-bottom. Hover/focus gently zooms the shared scene, including equipment actions;
+bottom. Hover/focus gently moves the shared scene, including equipment actions;
 no individual image crops break continuity at pane boundaries.
 Dark gutters separate the panes (12px on desktop, 8px in the stacked layout)
-so hover expansion is more apparent; the panorama assets and framing stay fixed.
+so hover expansion is more apparent; the panorama assets remain unchanged.
 Panel labels stay clear of these controls. The two play panels expand gently
-on hover/focus; the equipment column keeps its width and equal-height tiles.
+on hover/focus. In the wide layout, Store and Inventory widen their column
+from 28% to 38%; Store grows downward to 58% of its height, and Inventory
+grows upward to 62%, revealing more of the shelf or loadout bench. Keyboard
+focus does the same; pointer hover takes precedence. The shared scene gently
+reframes toward its right edge to reveal the full shelf/kit on narrower desktops.
+Touch layouts stay steady.
 Back from either mode selector returns to the main menu. Classic retains its
 Play → Single Player / Multiplayer hierarchy, and `/play` remains accessible.
 
