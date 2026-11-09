@@ -127,6 +127,33 @@ it('adds an open, recessed scope barrel and disposes it with the optic', () => {
   expect(getWeaponSight(root)!.scopeEye).toBeUndefined(); removeDot();
 });
 
+it('strengthens strafe shadow without moving the scene or reticle and clears it when inactive', () => {
+  const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
+  const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
+  const view = new THREE.PerspectiveCamera(ADS_VIEW_FOV, 1, .01, 3), camera = new THREE.PerspectiveCamera(HIP_FOV, 1, .08, 800), world = new THREE.Scene();
+  root.position.set(0, -sight.aimHeight, sight.aimDepth);
+  const plane = sight.lens.position.clone();
+  scope.render(world, camera, view, sight, true);
+  const projection = scope.camera.projectionMatrix.clone();
+  for (const lateralSpeed of [-2.2, 2.2]) {
+    for (let i = 0; i < 30; i++) scope.render(world, camera, view, sight, true, 1, { lateralSpeed, dt: 1 / 60 });
+    expect(sight.scopeEye!.value.x * -Math.sign(lateralSpeed)).toBeGreaterThan(.17);
+    expect(sight.scopeEye!.value.y).toBeCloseTo(0);
+    expect(scope.camera.projectionMatrix.equals(projection)).toBe(true);
+    expect(scope.camera.position.equals(camera.position)).toBe(true);
+    expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
+    expect(sight.lens.position.equals(plane)).toBe(true);
+  }
+  scope.render(world, camera, view, sight, false);
+  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 0, dt: 0 });
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 2, dt: .1 });
+  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 2, dt: .1, reducedMotion: true });
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  remove(); scope.dispose();
+});
+
 it.each([1.5, 1.75])('keeps SAR %s× glass visible at hip and layers it over PiP without leaking resources', magnification => {
   const root = new THREE.Group(), native = new THREE.Group(); native.name = 'sar21-inspired__optic'; root.add(native);
   const remove = fitWeaponOptic(root, { ...FPS_WEAPONS[0], optic: magnification > 1.5 ? 'precision' : 'integrated', aimFov: magnifiedFov(magnification) });

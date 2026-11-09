@@ -8,6 +8,7 @@ import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 import { createScopeBarrel } from './scope-barrel';
+import { createScopeStrafeShadow } from './scope-shadow';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
@@ -327,6 +328,8 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3(), eyePosition = new THREE.Vector3(), buffer = new THREE.Vector2();
+  const strafeShadow = createScopeStrafeShadow();
+  let previousSight: WeaponSight | undefined;
   /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
   function prepare(sight: WeaponSight) {
     if (sight.magnification <= 1.01 || sight.lens.material.map === target.texture) return;
@@ -337,22 +340,27 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
     prepare,
     /** The camera the lens's picture was last drawn with: lens UV (0–1) is this camera's NDC halved and moved to the centre. */
     camera,
-    render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1) {
-      if (!sight) return false;
+    render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1,
+      motion?: { lateralSpeed: number; dt: number; reducedMotion?: boolean }) {
+      if (sight !== previousSight) strafeShadow.reset();
+      previousSight = sight;
+      if (!sight) { strafeShadow.reset(); return false; }
       // Powered reflex dots are gated by the optical aperture and eye alignment,
       // never by the aim button. Only magnified scopes fade with the ADS animation.
       sight.visibility.value = sight.magnification <= 1.01 ? 1 : THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       if (sight.reflection) sight.reflection.uniforms.aiming.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       sight.lens.visible = active && sight.visibility.value > 0;
-      if (!sight.lens.visible || sight.magnification <= 1.01) return false;
+      if (!sight.lens.visible || sight.magnification <= 1.01) { strafeShadow.reset(); return false; }
       // The viewmodel camera is the eye. Lens-local coordinates include both
-      // translation and tilt from actual weapon sway/recoil, without adding any
-      // artificial motion or changing the world camera's aiming direction.
+      // translation and tilt from actual weapon sway/recoil. The additional
+      // strafe cue compensates for ADS sway suppression only in the shadow.
       viewCamera.updateWorldMatrix(true, false);
       if (sight.scopeEye) {
         viewCamera.getWorldPosition(eyePosition);
         sight.lens.worldToLocal(eyePosition);
-        sight.scopeEye.value.set(-eyePosition.x, -eyePosition.y).multiplyScalar(.28 / sight.radius).clampLength(0, .18);
+        sight.scopeEye.value.set(-eyePosition.x, -eyePosition.y).multiplyScalar(.28 / sight.radius);
+        sight.scopeEye.value.x += strafeShadow.update(motion?.dt ?? 0, motion?.lateralSpeed ?? 0, !!motion && !motion.reducedMotion) * sight.visibility.value;
+        sight.scopeEye.value.clampLength(0, .18);
       }
       sight.lens.getWorldPosition(lensPosition);
       const depth = -lensPosition.applyMatrix4(viewCamera.matrixWorldInverse).z;

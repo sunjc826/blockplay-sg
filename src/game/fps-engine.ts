@@ -4736,7 +4736,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
       if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
       canvas.dataset.cant = cant.toFixed(2);
-      const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress);
+      const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress, {
+        lateralSpeed: vehicles.active ? 0 : carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw),
+        dt: realDt, reducedMotion: !!motionPreference?.matches,
+      });
+      if (debugDatasets) canvas.dataset.scopeShadow = JSON.stringify(sight?.scopeEye?.value.toArray() ?? null);
       // Without live capture the glass keeps its tint, coating and clearcoat highlights but shows no scenery.
       const reflectionsOn = getGraphicsSettings().sightReflections;
       if (!reflectionsOn && sight?.reflection) sight.reflection.uniforms.reflectionReady.value = 0;

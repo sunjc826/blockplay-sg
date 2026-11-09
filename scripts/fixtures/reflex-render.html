@@ -88,9 +88,10 @@ window.verifyScopeDepth=()=>{
 const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
 const sample=()=>{renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
 const results={};
-for(const [label,x,y,tilt] of [['left',-.45,0,0],['right',.45,0,0],['up',0,.45,0],['down',0,-.45,0],['tilt',0,0,.035]]){
+for(const [label,x,y,tilt,speed] of [['left',-.45,0,0],['right',.45,0,0],['up',0,.45,0],['down',0,-.45,0],['tilt',0,0,.035],['strafeLeft',0,0,0,-2.2],['strafeRight',0,0,0,2.2]]){
 window.show('ads');model.position.x+=x*sight.radius;model.position.y+=y*sight.radius;model.rotation.y=tilt;viewScene.updateMatrixWorld(true);
 scope.render(world,camera,viewCamera,sight,true,1);
+if(speed!==undefined)for(let i=0;i<30;i++)scope.render(world,camera,viewCamera,sight,true,1,{lateralSpeed:speed,dt:1/60});
 const offset=sight.scopeEye.value.clone(),moving=sample();sight.scopeEye.value.set(0,0);const centred=sample();sight.scopeEye.value.copy(offset);
 let centralMax=0,darkLeft=0,darkRight=0,darkTop=0,darkBottom=0;
 for(let y=-.9;y<=.901;y+=.03)for(let x=-.9;x<=.901;x+=.03){
