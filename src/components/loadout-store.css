@@ -113,3 +113,15 @@
 .loadout-charts>.armory-curve>figcaption{font-size:11px;line-height:1.5}
 .loadout-charts .armory-curve-legend{font-size:11px;line-height:1.5}
 .loadout-charts .armory-curve-legend span{flex-wrap:wrap}
+/* Semantic colors match the classic Store's tier and premium palette. */
+.loadout-store .store-tier.tier-issued{color:#cdd7d1}
+.loadout-store .store-tier.tier-field{color:#a8d8a6}
+.loadout-store .store-tier.tier-elite{color:#dfbd76}
+.loadout-store .store-tier.tier-ultra{color:#7fd6e2}
+.loadout-store .store-tier.tier-legendary{color:#c3a3ff}
+.loadout-store .store-tier.tier-mythic{color:#ffb49a}
+.loadout-store .store-currency.currency-credits{color:#b9d6c4}
+.loadout-store .store-currency.currency-tokens{color:#e3c07b}
+.loadout-store .store-currency{font-weight:600;font-variant-numeric:tabular-nums}
+.loadout-store .armory-wallet .store-currency small{color:inherit}
+.loadout-store .loadout-primary .store-currency,.loadout-store button[aria-pressed=true] .store-currency{background:#14241c;border-radius:4px;padding:1px 5px}
