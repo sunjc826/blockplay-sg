@@ -1,3 +1,4 @@
+import { treePart } from './tree-wind';
 import * as THREE from 'three';
 import { PULAU_UBIN_SECTORS } from '../data/region-sectors';
 import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
@@ -95,7 +96,7 @@ export function buildPulauUbinScene() {
     box(x+3, .55,z,.15,1.1,.15,pale);
   }
   for(const x of [155,170,185]) for(const z of [80,105]) {
-    cylinder(x,2,z,.4,4,wood);blob(x,5,z,5,3,5,leaf);
+    treePart(cylinder(x,2,z,.4,4,wood),x,0,z,5);treePart(blob(x,5,z,5,3,5,leaf),x,0,z,5,1);
     for(const side of [-1,1]) k.beam(new THREE.Vector3(x,2,z),new THREE.Vector3(x+side*2,.1,z+2),.12,wood);
   }
   kampong(214,20,'#ded9c3',24);

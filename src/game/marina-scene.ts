@@ -1,3 +1,4 @@
+import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { withMarinaInteriors } from './marina-interiors';
 import { buildMerlionModel } from './merlion-model';
 import { withBuildingLifts } from './building-lift-scene';
@@ -196,11 +197,11 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const palmLeaf = mat('#2e6631', { side: THREE.DoubleSide });
   const trunkGeo = geo(new THREE.CylinderGeometry(0.18, 0.32, 1, 7));
   function palm(x: number, z: number, height = 11, parent: THREE.Object3D = scene, collision = true) {
-    const stem = new THREE.Mesh(trunkGeo, trunk); stem.position.set(x, height / 2, z); stem.scale.y = height; stem.castShadow = true; parent.add(stem);
+    const stem = new THREE.Mesh(trunkGeo, trunk); stem.position.set(x, height / 2, z); stem.scale.y = height; stem.castShadow = true; parent.add(stem); treePart(stem, x, 0, z, height);
     for (let j = 0; j < 10; j++) {
       const frond = new THREE.Mesh(frondGeo, palmLeaf);
       frond.position.set(x, height, z); frond.rotation.y = j / 10 * Math.PI * 2; frond.rotation.z = (j % 3) * 0.15;
-      frond.castShadow = true; parent.add(frond);
+      frond.castShadow = true; parent.add(frond); treePart(frond, x, 0, z, height, 1.8);
     }
     if (collision) collider(x, z, 1, 1, height + 1);
   }
@@ -231,9 +232,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     shrub.position.set(x, 0.55, 82.5); shrub.scale.set(2.8, 0.7, 0.75); scene.add(shrub);
   }
   for (const x of [-77, -7, 63]) {
-    box(x, 2.8, 83.5, 0.65, 5.6, 0.65, trunk, scene, true); collider(x, 83.5, 1, 1, 10);
+    treePart(box(x, 2.8, 83.5, 0.65, 5.6, 0.65, trunk, scene, true),x,0,83.5,6.3); collider(x, 83.5, 1, 1, 10);
     for (let j = 0; j < 5; j++) {
-      const crown = new THREE.Mesh(shrubGeo, j % 2 ? leaf : hedge); crown.position.set(x + Math.cos(j * 2.4) * 1.8, 6.3 + j % 2, 83.5 + Math.sin(j * 2.4)); crown.scale.set(3.3, 2.3, 2.8); crown.castShadow = true; scene.add(crown);
+      const crown = new THREE.Mesh(shrubGeo, j % 2 ? leaf : hedge); crown.position.set(x + Math.cos(j * 2.4) * 1.8, 6.3 + j % 2, 83.5 + Math.sin(j * 2.4)); crown.scale.set(3.3, 2.3, 2.8); crown.castShadow = true; scene.add(crown); treePart(crown,x,0,83.5,6.3,1);
     }
   }
 
@@ -414,9 +415,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   for (let z = -158; z <= 122; z += 28) {
     box(201, 0.35, z, 3, 0.7, 15, hedge);
     for (let i = 0; i < 3; i++) {
-      const tree = new THREE.Mesh(shrubGeo, leaf); tree.position.set(258 + i * 2.4, 9 + i % 2 * 2, z + i * 1.6); tree.scale.set(7, 3.5, 6); tree.castShadow = true; scene.add(tree);
+      const tree = new THREE.Mesh(shrubGeo, leaf); tree.position.set(258 + i * 2.4, 9 + i % 2 * 2, z + i * 1.6); tree.scale.set(7, 3.5, 6); tree.castShadow = true; scene.add(tree); treePart(tree,260,0,z,9,1);
     }
-    box(260, 4.5, z, 0.8, 9, 0.8, trunk); collider(260, z, 1, 1);
+    treePart(box(260, 4.5, z, 0.8, 9, 0.8, trunk),260,0,z,9); collider(260, z, 1, 1);
   }
   box(221, 3, 42, 0.15, 6, 0.15, steel); collider(221, 42, 0.4, 0.4);
   box(221, 5.5, 42, 0.18, 2.5, 5, mat('#246d55'));
@@ -694,6 +695,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // bullets and movement retain their normal physical dimensions and speed.
   for (const child of scene.children) if (!(child instanceof THREE.Light)) {
     child.position.multiplyScalar(S); child.scale.multiplyScalar(S);
+    if (child.userData.treePart) { child.userData.treePart.root.multiplyScalar(S); child.userData.treePart.height *= S; }
   }
   for (const {group} of walkers) group.scale.divideScalar(S);
   for (const obstacle of obstacles) Object.assign(obstacle, marinaBounds(obstacle),
@@ -775,6 +777,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   scene.userData.rainReceivers.push(...camp.root.userData.rainReceivers);
   // Repeated façade/paving/railing and palm details share batched draw calls.
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
+  instances.push(...batchTrees(scene, geo, m => materials.push(m)));
   const batches = new Map<string, THREE.Mesh[]>();
   for (const child of [...scene.children]) {
     if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || Array.isArray(child.material)) continue;
@@ -791,7 +794,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   }
   return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
-    animate(time: number) { water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
+    animate(time: number) { animateTrees(scene, time); water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
     dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },

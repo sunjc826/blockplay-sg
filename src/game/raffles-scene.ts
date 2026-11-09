@@ -1,3 +1,4 @@
+import { treePart, batchTrees, animateTrees } from './tree-wind';
 import * as THREE from 'three';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
@@ -99,7 +100,7 @@ export function buildRafflesScene() {
   const paverWarm=mat('#aaa9a1'),paverCool=mat('#a5adb0');
   for(let z=-88;z<40;z+=4)for(let x=-48;x<57;x+=6){if(Math.abs(x-28)<13&&z>-58&&z<-10||Math.abs(x+28)<13&&z>-58&&z<-10)continue;if((Math.round(x/6)+Math.round(z/4))%4===0)box(x,0.296,z,5.94,0.012,3.94,z%8===0?paverWarm:paverCool);}
   for(const x of [-28,28]) {box(x,0.36,-33,22,0.55,44,stone);box(x,0.68,-33,20,0.1,42,grass);solid(x,-33,22,44);}
-  function tree(x:number,z:number,h=8) {box(x,h/2,z,0.6,h,0.6,wood,scene,true);solid(x,z,0.8,0.8);for(let i=0;i<3;i++){const m=new THREE.Mesh(crownGeo,leaf);m.position.set(x+(i-1)*1.7,h+i%2,z);m.scale.set(3.6,2.5,3.5);m.castShadow=true;scene.add(m);}}
+  function tree(x:number,z:number,h=8) {treePart(box(x,h/2,z,0.6,h,0.6,wood,scene,true),x,0,z,h);solid(x,z,0.8,0.8);for(let i=0;i<3;i++){const m=new THREE.Mesh(crownGeo,leaf);m.position.set(x+(i-1)*1.7,h+i%2,z);m.scale.set(3.6,2.5,3.5);m.castShadow=true;scene.add(m);treePart(m,x,0,z,h,1);}}
   for(const x of [-28,28])for(const z of [-48,-19])tree(x,z,7);
   // Paired MRT pavilions: red pitched canopies, low glass walls and recognizable station signs.
   for(const x of [-34,34]) {box(x,1.4,22,12,2.8,7,dark);solid(x,22,12,7);box(x,2,25.6,10,1.5,0.12,glass);for(const side of [-1,1]){const r=box(x+side*3.15,3.9,22,7,0.3,9,red,scene,true);r.rotation.z=-side*0.4;}sign('NS26 / EW14',x,2.8,26.6,11,1.1,'#944740');}
@@ -243,7 +244,7 @@ export function buildRafflesScene() {
   const fanVertices:number[]=[];for(let i=0;i<18;i++){const a=-1.2+i*2.4/18,b=-1.2+(i+1)*2.4/18;fanVertices.push(0,0,0,Math.sin(a)*2.5,Math.cos(a)*2.5,i%2?0.15:-0.1,Math.sin(b)*2.5,Math.cos(b)*2.5,i%2?-0.1:0.15);}
   const fanGeo=geo(new THREE.BufferGeometry());fanGeo.setAttribute('position',new THREE.Float32BufferAttribute(fanVertices,3));fanGeo.computeVertexNormals();
   const fanGreen=mat('#3e7739');fanGreen.side=THREE.DoubleSide;
-  for(const x of [-139,-101]){box(x,0.45,-5,5,0.9,5,stone);solid(x,-5,5,5);cylinder(x,2.2,-5,0.2,4.4,wood);for(let i=0;i<9;i++){const a=i*Math.PI*2/9;const frond=new THREE.Mesh(fanGeo,fanGreen);frond.position.set(x+Math.cos(a)*0.6,3.5+i%3*0.5,-5+Math.sin(a)*0.6);frond.rotation.set(0.9,a,0);frond.castShadow=true;scene.add(frond);}}
+  for(const x of [-139,-101]){box(x,0.45,-5,5,0.9,5,stone);solid(x,-5,5,5);treePart(cylinder(x,2.2,-5,0.2,4.4,wood),x,0,-5,4.4);for(let i=0;i<9;i++){const a=i*Math.PI*2/9;const frond=new THREE.Mesh(fanGeo,fanGreen);frond.position.set(x+Math.cos(a)*0.6,3.5+i%3*0.5,-5+Math.sin(a)*0.6);frond.rotation.set(0.9,a,0);frond.castShadow=true;scene.add(frond);treePart(frond,x,0,-5,4.4,1.8);}}
   box(39,9,70.7,27,11,0.7,leaf);
   for(let x=27;x<54;x+=3)for(let y=5;y<14;y+=3){const m=new THREE.Mesh(crownGeo,y%2?leaf:grass);m.position.set(x,y,71.4);m.scale.set(1.8,1.8,0.5);scene.add(m);}
   for(let y=16;y<70;y+=12)for(const x of [108,139])for(let j=0;j<3;j++){const plant=new THREE.Mesh(crownGeo,j%2?fanGreen:leaf);plant.position.set(x+j-1,y-0.6-j*0.3,207.2);plant.scale.set(1,1.7,0.5);scene.add(plant);}
@@ -303,8 +304,8 @@ export function buildRafflesScene() {
   scene.userData.referenceFeatures=['square-0','battery-90','boat-quay-270','cecil-180'];scene.userData.authoredMeshCount=scene.children.filter(c=>c instanceof THREE.Mesh).length;
   scene.userData.qualityFeatures=['folded-fan-palms','granite-paver-courses','arched-shutter-trim','market-tile-courses','scalloped-market-fascia','market-fan-ironwork','cylindrical-bridge-supports','glazed-bridge-mullions','differentiated-tower-crowns','layered-facade-planting'];
   scene.userData.materialContrast={glassRoughness:glass.roughness,stoneRoughness:stone.roughness,silverMetalness:silver.metalness};
-  const batches=new Map<string,THREE.Mesh[]>(),instances:THREE.InstancedMesh[]=[];
-  for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
+  const batches=new Map<string,THREE.Mesh[]>(),instances=batchTrees(scene,geo,m=>materials.push(m));
+  for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||c instanceof THREE.InstancedMesh||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
   for(const batch of batches.values()){if(batch.length<2)continue;const m=new THREE.InstancedMesh(batch[0].geometry,batch[0].material,batch.length);m.castShadow=batch[0].castShadow;m.receiveShadow=batch[0].receiveShadow;batch.forEach((b,i)=>{b.updateMatrix();m.setMatrixAt(i,b.matrix);scene.remove(b);});m.computeBoundingSphere();scene.add(m);instances.push(m);}
-  return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
+  return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){animateTrees(scene,time);stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
 }

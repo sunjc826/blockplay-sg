@@ -1,3 +1,4 @@
+import { setTreeWeather } from './tree-wind';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import { getEnvironmentSettings } from './environment-settings';
@@ -138,6 +139,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       targetColor.set(preset.sky).lerp(shiftColor.set(lighting.sky), lighting.skyWeight); background.lerp(targetColor, blend); fog.color.copy(background);
       fog.near += (preset.fogNear - fog.near) * blend; fog.far += (preset.fogFar - fog.far) * blend;
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
+      setTreeWeather(scene, wind, reduced);
       haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
       const time = (now % 3600_000) / 1000;
       scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail);

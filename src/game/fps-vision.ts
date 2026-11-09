@@ -1,3 +1,4 @@
+import { inheritTreeWind } from './tree-wind';
 import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
 import { isWaterObject } from './water';
@@ -159,6 +160,7 @@ export function createThermalMaterials() {
       thermal = new THREE.ShaderMaterial({ name: `thermal:${material.name}`, vertexShader: THERMAL_VERTEX, fragmentShader: THERMAL_FRAGMENT,
         uniforms: { ...shared, uBase: { value: base }, uHeat: { value: warmth }, uAbsorb: { value: absorb } },
         side: material.side, vertexColors: material.vertexColors });
+      inheritTreeWind(material, thermal);
       cache.set(key, thermal); ours.add(thermal);
     }
     return thermal;

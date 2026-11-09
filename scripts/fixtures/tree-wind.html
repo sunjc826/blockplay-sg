@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Tree wind review</title></head><body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { createSceneKit } from '/src/game/scene-kit.ts';
+import { setTreeWeather } from '/src/game/tree-wind.ts';
+import { WEATHER } from '/src/game/world-events.ts';
+import { getRegion } from '/src/game/regions.ts';
+import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
+import { createNightLights } from '/src/game/world-night-lights.ts';
+import { createThermalMaterials } from '/src/game/fps-vision.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1000,750);renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(50,4/3,.1,1000),district=new URLSearchParams(location.search).get('district');
+let world,air,night;
+if(district){
+ world=getRegion(district).build();
+ setEnvironmentSettings({weather:'sunny',timeOfDay:'noon',celebration:'none',reducedEffects:false});
+ air=createWorldAtmosphere(world.scene,[],world.obstacles,false,renderer);
+ const region=getRegion(district);night=createNightLights(world.scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
+ const trees=[];world.scene.traverse(m=>{if(m.isInstancedMesh&&m.geometry.hasAttribute('treeRootHeight'))trees.push(m)});
+ const roots=trees.find(t=>Array.from(t.geometry.getAttribute('treeFlutter').array).some(n=>n>0)).geometry.getAttribute('treeRootHeight');
+ const x=roots.getX(0),y=roots.getY(0),z=roots.getZ(0),h=roots.getW(0);
+ camera.position.set(x+14,y+8,z+20);camera.lookAt(x,y+h*.7,z);
+}else{
+ const kit=createSceneKit({background:'#bfd4df',fogNear:120,fogFar:500});
+ const wood=kit.mat('#735239'),leaf=kit.mat('#477a37');
+ kit.tree(-6,0,8,wood,leaf);kit.tree(6,-3,10,wood,leaf);
+ kit.box(0,-.15,0,100,.2,100,kit.mat('#b2ae87'));
+ kit.box(0,1,1,3,1,1,wood);
+ world=kit.finish({car:new THREE.Group(),stamps:[],animate(){}});
+ camera.position.set(18,12,30);camera.lookAt(0,5,0);
+}
+const thermal=createThermalMaterials();let currentTime=0;
+window.draw=(weather='sunny',time=0,reduced=false,heat=false)=>{
+ if(air)air.update(0,camera,Date.UTC(2026,10,9,4));
+ setTreeWeather(world.scene,WEATHER[weather].wind,reduced);world.animate(time);currentTime=time;
+ if(heat)thermal.apply(world.scene);else thermal.restore();
+ renderer.render(world.scene,camera);
+ return {calls:renderer.info.render.calls,trees:world.scene.children.filter(t=>t.geometry?.hasAttribute('treeRootHeight')).length};
+};
+function pixels(){const gl=renderer.getContext(),out=new Uint8Array(1000*750*4);gl.readPixels(0,0,1000,750,gl.RGBA,gl.UNSIGNED_BYTE,out);return out;}
+window.motion=(weather,reduced=false,heat=false)=>{
+ let changes=0;
+ for(const t of [0,1,2,3]){
+  window.draw(weather,t,reduced,heat);const a=pixels();window.draw(weather,t+.35,reduced,heat);const b=pixels();
+  for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>12)changes++;
+ }
+ return changes;
+};
+window.play=(weather='thunderstorm')=>{const frame=()=>{window.draw(weather,currentTime+1/60);window.animation=requestAnimationFrame(frame)};frame();};
+window.draw();window.ready=true;
+</script></body></html>

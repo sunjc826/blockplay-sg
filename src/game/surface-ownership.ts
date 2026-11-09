@@ -32,7 +32,8 @@ type Part = { instance?: number; cuts: Map<SurfaceFace, Polygon[]> };
  * own intersections with broader walls. Local geometry variants preserve UVs,
  * material semantics, instancing and building night-window spans. */
 export function withSurfaceOwnership<T extends RegionWorld>(world: T): T {
-  const faces=mapSurfaceFaces(world.scene).filter(f=>!Array.isArray(f.mesh.material));
+  // Wind-deformed tree parts cannot own a fixed coplanar cut in nearby scenery.
+  const faces=mapSurfaceFaces(world.scene).filter(f=>!Array.isArray(f.mesh.material) && !f.mesh.geometry.hasAttribute('treeRootHeight'));
   const planes=new Map<string,SurfaceFace[]>(),parts=new Map<THREE.Mesh,Map<number|undefined,Part>>();
   const geometries=new Map<string,THREE.BufferGeometry>(),batches:THREE.InstancedMesh[]=[],disposers:(()=>void)[]=[];
   let cuts=0;

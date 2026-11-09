@@ -1,3 +1,4 @@
+import { treePart } from './tree-wind';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -96,14 +97,14 @@ export function buildSentosaScene() {
 
   /** Palm: a leaning trunk in collars under a crown of fronds. */
   function palm(x: number, z: number, height: number, lean = 0) {
-    for (let i = 0; i < 6; i++) cylinder(x + lean * i * 0.5, height * (i + 0.5) / 6, z, 0.42 - i * 0.02, height / 6, wood);
+    for (let i = 0; i < 6; i++) treePart(cylinder(x + lean * i * 0.5, height * (i + 0.5) / 6, z, 0.42 - i * 0.02, height / 6, wood), x, 0, z, height);
     solid(x, z, 1, 1);
     for (let i = 0; i < 8; i++) {
       const angle = i * Math.PI / 4;
       const frond = blob(x + lean * 3 + Math.cos(angle) * 3.2, height + 0.4 - (i % 3) * 0.5, z + Math.sin(angle) * 3.2, 3.6, 0.7, 1.5, palmLeaf);
-      frond.rotation.y = angle;
+      frond.rotation.y = angle; treePart(frond, x, 0, z, height, 1.8);
     }
-    for (const dz of [-0.9, 0.9]) blob(x + lean * 3, height - 0.5, z + dz, 1, 0.7, 1, terra);
+    for (const dz of [-0.9, 0.9]) treePart(blob(x + lean * 3, height - 0.5, z + dz, 1, 0.7, 1, terra), x, 0, z, height);
   }
   for (let x = -208; x <= 208; x += 13) {
     if (NS_ROADS.some(road => Math.abs(x - road) < 14) || Math.abs(x - LANDING_X) < 14) continue;

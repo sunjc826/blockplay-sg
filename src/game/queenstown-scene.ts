@@ -1,3 +1,4 @@
+import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -345,12 +346,12 @@ export function buildQueenstownScene() {
   function tree(x: number, z: number, height = 7, mature = false, base = 0) {
     treeCount++;
     const thickness = mature ? 1.6 : 1;
-    const trunk=new THREE.Mesh(trunkGeo,wood);trunk.position.set(x,base+height/2,z);trunk.scale.set(thickness,height,thickness);trunk.castShadow=true;scene.add(trunk);solid(x,z,.8*thickness,.8*thickness,base+height);
+    const trunk=new THREE.Mesh(trunkGeo,wood);trunk.position.set(x,base+height/2,z);trunk.scale.set(thickness,height,thickness);trunk.castShadow=true;scene.add(trunk);treePart(trunk,x,base,z,height);solid(x,z,.8*thickness,.8*thickness,base+height);
     const phase=(x*0.73+z*0.37),palette=[leaf,foliageLight,foliageDeep];
     for (let j = 0; j < 4; j++) {
       const angle=phase+j*Math.PI/2,spread=1.6+(j%2)*0.7,px=x+Math.cos(angle)*spread,pz=z+Math.sin(angle)*spread,py=base+height+(j%2)*0.7;
-      beam(new THREE.Vector3(x,base+height*0.63,z),new THREE.Vector3(px,py-0.5,pz),0.22,wood);
-      const crown=new THREE.Mesh(crownGeo,palette[j%3]);crown.position.set(px,py,pz);crown.scale.set(2.6+(j%2)*0.5,1.8+(j%3)*0.25,2.8);crown.rotation.y=angle;crown.castShadow=true;scene.add(crown);
+      treePart(beam(new THREE.Vector3(x,base+height*0.63,z),new THREE.Vector3(px,py-0.5,pz),0.22,wood),x,base,z,height);
+      const crown=new THREE.Mesh(crownGeo,palette[j%3]);crown.position.set(px,py,pz);crown.scale.set(2.6+(j%2)*0.5,1.8+(j%3)*0.25,2.8);crown.rotation.y=angle;crown.castShadow=true;scene.add(crown);treePart(crown,x,base,z,height,1);
     }
   }
   for (let z = -126; z <= 126; z += 21) for (const x of [-170, 168]) {
@@ -540,7 +541,9 @@ export function buildQueenstownScene() {
   // level pads; draped paving and the terrain already use absolute elevations.
   for(const child of scene.children) {
     if(child===terrain.mesh || child===car || child===train || child instanceof THREE.Light || child.userData.grounded) continue;
-    child.position.y+=queenstownTerrainHeight(child.position.x,child.position.z);
+    const elevation = queenstownTerrainHeight(child.userData.treePart?.root.x ?? child.position.x,child.userData.treePart?.root.z ?? child.position.z);
+    child.position.y+=elevation;
+    if (child.userData.treePart) child.userData.treePart.root.y+=elevation;
   }
   for(const obstacle of obstacles) {
     if(absoluteObstacles.has(obstacle))continue;
@@ -552,9 +555,9 @@ export function buildQueenstownScene() {
     obstacle.minY+=base;obstacle.maxY+=base;
   }
   // Batch static details while leaving car, train and collectible animation independent.
-  const batches = new Map<string, THREE.Mesh[]>(), instances: THREE.InstancedMesh[] = [];
+  const batches = new Map<string, THREE.Mesh[]>(), instances = batchTrees(scene, geo, m => materials.push(m));
   for (const child of [...scene.children]) {
-    if (!(child instanceof THREE.Mesh) || child.userData.grounded || child===terrain.mesh || Array.isArray(child.material) || stamps.includes(child)) continue;
+    if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || child.userData.grounded || child===terrain.mesh || Array.isArray(child.material) || stamps.includes(child)) continue;
     // Keep gameplay meaning on the mesh: thermal vision swaps its material.
     if (child.material.userData.visualCover) child.userData.visualCover = true;
     const key = `${child.geometry.uuid}:${child.material.uuid}:${child.castShadow}:${child.receiveShadow}`;
@@ -586,7 +589,7 @@ export function buildQueenstownScene() {
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
   const world = withVerticalPlaces({ scene, obstacles, car, stamps,
-    animate(time: number) { stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = queenstownTerrainHeight(stamp.position.x,stamp.position.z) + 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
+    animate(time: number) { animateTrees(scene, time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = queenstownTerrainHeight(stamp.position.x,stamp.position.z) + 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { raycastDisposers.forEach(dispose=>dispose()); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); terrain.dispose(); },
   }, QUEENSTOWN_HOUSING_PLACES);
   withVerticalPlaces(world, QUEENSTOWN_LANDSCAPE_PLACES);

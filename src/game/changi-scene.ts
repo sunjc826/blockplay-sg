@@ -1,3 +1,4 @@
+import { treePart } from './tree-wind';
 import * as THREE from 'three';
 import { bumboat } from './bumboat';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
@@ -231,11 +232,11 @@ export function buildChangiScene() {
   box(266, 0.1, 10, 28, 0.3, 260, water);
   for (let z = -110; z < 130; z += 22) {
     const px = 222 + (z % 44 ? 8 : -6);
-    cylinder(px, 4.2, z, 0.42, 8.4, wood); solid(px, z, 0.9, 0.9);
+    treePart(cylinder(px, 4.2, z, 0.42, 8.4, wood), px, 0, z, 8.4); solid(px, z, 0.9, 0.9);
     for (let i = 0; i < 7; i++) {
       const angle = i * Math.PI * 2 / 7;
       const frond = blob(px + Math.cos(angle) * 2.4, 8.8 + (i % 3) * 0.5, z + Math.sin(angle) * 2.4, 3, 0.7, 1.4, fern);
-      frond.rotation.y = angle;
+      frond.rotation.y = angle; treePart(frond, px, 0, z, 8.4, 1.8);
     }
   }
   for (const z of [-60, 40]) { box(234, 0.85, z, 3.4, 0.22, 1.2, wood); solid(234, z, 3.6, 1.2); }

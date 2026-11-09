@@ -1,3 +1,4 @@
+import { treePart, batchTrees, animateTrees } from './tree-wind';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
@@ -79,8 +80,8 @@ export function createSceneKit(options: SceneKitOptions) {
     panel.position.set(x, y, z); scene.add(panel); return panel;
   }
   function tree(x: number, z: number, h: number, trunk: THREE.Material, leaf: THREE.Material) {
-    box(x, h / 2, z, 0.6, h, 0.6, trunk, scene, true); solid(x, z, 0.8, 0.8);
-    for (let i = 0; i < 3; i++) blob(x + (i - 1) * 1.7, h + i % 2, z, 3.6, 2.5, 3.5, leaf);
+    treePart(box(x, h / 2, z, 0.6, h, 0.6, trunk, scene, true), x, 0, z, h); solid(x, z, 0.8, 0.8);
+    for (let i = 0; i < 3; i++) treePart(blob(x + (i - 1) * 1.7, h + i % 2, z, 3.6, 2.5, 3.5, leaf), x, 0, z, h, 1);
   }
   /** Simple animated bystander. Groups are never batched, so they can move. */
   function walker(x: number, z: number, shirt: THREE.Material, skin: THREE.Material, legs: THREE.Material) {
@@ -158,9 +159,9 @@ export function createSceneKit(options: SceneKitOptions) {
    */
   function finish({ car: carGroup, stamps, animate }: { car: THREE.Object3D; stamps: THREE.Mesh[]; animate: (time: number) => void }): RegionWorld {
     scene.userData.authoredMeshCount = scene.children.filter(child => child instanceof THREE.Mesh).length;
-    const batches = new Map<string, THREE.Mesh[]>(), instances: THREE.InstancedMesh[] = [];
+    const batches = new Map<string, THREE.Mesh[]>(), instances = batchTrees(scene, geo, m => materials.push(m));
     for (const child of [...scene.children]) {
-      if (!(child instanceof THREE.Mesh) || Array.isArray(child.material) || stamps.includes(child)) continue;
+      if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || Array.isArray(child.material) || stamps.includes(child)) continue;
       const key = `${child.geometry.uuid}:${child.material.uuid}:${child.castShadow}:${child.receiveShadow}`;
       const batch = batches.get(key) ?? []; batch.push(child); batches.set(key, batch);
     }
@@ -174,6 +175,7 @@ export function createSceneKit(options: SceneKitOptions) {
     return {
       scene, obstacles, car: carGroup, stamps,
       animate(time: number) {
+        animateTrees(scene, time);
         stamps.forEach((stamp, index) => {
           stamp.rotation.y = time * 0.7;
           stamp.position.y = 2.2 + Math.sin(time * 2 + index) * 0.2;

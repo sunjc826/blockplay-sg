@@ -1,3 +1,4 @@
+import { treePart } from './tree-wind';
 import * as THREE from 'three';
 import { KAMPONG_GLAM_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -114,11 +115,11 @@ export function buildKampongGlamScene() {
     for (let z = fromZ; z < toZ; z += 6) box(x, 0.32, z, 42, 0.02, 4.4, (Math.round(z / 6) % 2) ? cream : stone);
     for (let z = fromZ + 8; z < toZ - 12; z += 18) for (const side of [-1, 1]) {
       const px = x + side * 17;
-      cylinder(px, 4.4, z, 0.45, 8.8, wood); solid(px, z, 1, 1);
+      treePart(cylinder(px, 4.4, z, 0.45, 8.8, wood), px, 0, z, 8.8); solid(px, z, 1, 1);
       for (let i = 0; i < 7; i++) {
         const angle = i * Math.PI * 2 / 7;
         const frond = blob(px + Math.cos(angle) * 2.6, 9.2 + (i % 3) * 0.5, z + Math.sin(angle) * 2.6, 3.2, 0.7, 1.5, leaf);
-        frond.rotation.y = angle;
+        frond.rotation.y = angle; treePart(frond, px, 0, z, 8.8, 1.8);
       }
       box(px + side * 3.6, 0.85, z + 4, 3.2, 0.2, 3.2, wood); solid(px + side * 3.6, z + 4, 3.4, 3.4);
       for (const dz of [-1.3, 1.3]) box(px + side * 3.6, 0.5, z + 4 + dz, 2.6, 1, 0.9, cream);
