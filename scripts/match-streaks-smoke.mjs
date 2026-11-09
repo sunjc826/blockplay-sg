@@ -76,12 +76,33 @@ try {
  if(support && mode!=='tdm')await click('[data-streak=interceptor]');else await key('4','Digit4');
  if(!support){
   await wait(`hud.arena.streaks.effects.some(e=>e.kind==='recon')`);
+  await wait(`document.querySelector('[data-recon-sweep]')`);
+  await evaluate(`window.firstSweep=document.querySelector('[data-recon-sweep]');window.firstScan=hud.arena.streaks.effects.find(e=>e.kind==='recon').pulse`);
+  await delay(150);
+  assert.equal(await evaluate(`firstSweep===document.querySelector('[data-recon-sweep]')`),true,'HUD updates preserve the sweep');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.fps-recon-wave')).animationName`),'fps-recon-sweep');
+  await evaluate(`document.querySelector('.fps-recon-wave').getAnimations().forEach(a=>{a.pause();a.currentTime=600})`);
+  await screenshot(mode+'-recon-pulse');
+  await wait(`hud.arena.streaks.effects.find(e=>e.kind==='recon')?.pulse!==firstScan`);
+  assert.equal(await evaluate(`firstSweep===document.querySelector('[data-recon-sweep]')`),false,'A new host scan starts a new sweep');
+  await evaluate('window.expanded=true;renderHud()');await delay(100);
+  assert.equal(await evaluate(`!!document.querySelector('.is-expanded [data-recon-sweep]')`),true);
+  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.fps-recon-wave')).display`),'none');
+  assert.equal(await evaluate(`!!document.querySelector('[data-map-recon]')`),true);
+  await evaluate('window.jammed=true;renderHud()');await delay(100);
+  assert.equal(await evaluate(`!!document.querySelector('[data-recon-sweep]')`),false);
+  await send('Emulation.setEmulatedMedia',{features:[]});
+  await evaluate('window.jammed=false;window.expanded=false;renderHud()');
   assert.equal(await evaluate('accepted'),true);
   await key('5','Digit5');await wait(`hud.streakPlacement==='jammer'`);
   const shots=await evaluate('hud.shots');await key('Escape','Escape');await wait(`hud.streakPlacement===null`);assert.equal(await evaluate('hud.shots'),shots);
   await key('6','Digit6');await wait(`hud.arena.raiders?.some(r=>r.kind==='drone')`);
   assert.equal(await evaluate('valid'),true);
   await screenshot(mode+'-active');
+  await evaluate(`for(let i=0;i<80;i++)sim.step(.25);publish()`);await delay(150);
+  assert.equal(await evaluate(`!!document.querySelector('[data-recon-sweep]')`),false,'Expired Recon removes the pulse');
+  assert.equal(await evaluate(`!!document.querySelector('[data-map-recon]')`),false);
  }else{
   await wait(`hud.streakPlacement==='interceptor'`);
   const shotsBeforePlacement=await evaluate('hud.shots');

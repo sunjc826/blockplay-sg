@@ -48,3 +48,8 @@
 /* The map is always north-up and tapping it opens it, so neither the arrow nor the M key says anything. */
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading>span{display:none}
 .fps-game[data-touch=on] .fps-minimap:not(.is-expanded) .fps-minimap-heading strong{overflow:hidden;font-weight:500;color:var(--hud-dim);white-space:nowrap;text-overflow:ellipsis}
+
+/* One sweep per authoritative Recon scan; ordinary HUD renders keep its clock. */
+.fps-recon-wave{transform-origin:0 0;animation:fps-recon-sweep 1.8s ease-out both}
+@keyframes fps-recon-sweep{from{transform:scale(.025);opacity:.85}to{transform:scale(1);opacity:0}}
+@media(prefers-reduced-motion:reduce){.fps-recon-wave{display:none;animation:none}}

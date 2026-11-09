@@ -1,6 +1,6 @@
 import FpsDamageFeedback from './FpsDamageFeedback';
 import { MatchStreakHud, MatchStreakLoadout } from './MatchStreaks';
-import { streakFriendly } from '../game/match-streak-visuals';
+import { streakFriendly, streakReconPulse } from '../game/match-streak-visuals';
 import MatchBotSettings, { type MatchSquad } from './MatchBotSettings';
 import { DeploymentOverlay } from './DeploymentBriefing';
 import { matchSummary } from '../game/match-menu';
@@ -200,7 +200,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
       {isArena && playing && <><div className="arena-kill-feed" aria-label="Elimination feed">{hud.arena?.feed.slice(-4).map(event => <p key={event.id} className={event.killerId === arenaOptions.session.id ? 'own-kill' : event.victimId === arenaOptions.session.id ? 'own-death' : ''}>{event.text}</p>)}</div>{hud.arenaSelf && !hud.arenaSelf.alive && hud.deathRecap && <DeathRecap recap={hud.deathRecap} respawnIn={hud.arenaSelf.respawnIn} touch={touch} onLoadout={openLoadout} />}{hud.arenaSelf && !hud.arenaSelf.alive && !hud.deathRecap && <div className="arena-respawn" role="status"><span>ELIMINATED</span><strong>Back in {Math.ceil(hud.arenaSelf.respawnIn)}s</strong><small>{teamMode ? 'Armor and ammo replenish · Protection ends when firing.' : 'Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match.'}</small><button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button></div>}{!hud.arenaStarted && !disconnected && <div className="arena-waiting" role="status">Waiting for the host to start the match.</div>}</>}
       {!debug && playing && !hud.pilotEnabled && (!touch || hud.arenaSelf?.alive === false) && <PlayMenuButton compact={touch} onMenu={() => engine.current?.pause()} />}
       <FpsHudLayout hud={hud} history={debug && fullscreen.immersive}>
-        {playing && <FpsMinimap matchBounds={hp?HARDPOINT_AREA.bounds:arenaOptions?.match?.mode==='team-deathmatch'?tdmArea(arenaOptions.match.area)?.bounds:undefined} zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} onToggle={() => engine.current?.toggleMap()} />}
+        {playing && <FpsMinimap matchBounds={hp?HARDPOINT_AREA.bounds:arenaOptions?.match?.mode==='team-deathmatch'?tdmArea(arenaOptions.match.area)?.bounds:undefined} zone={region} player={hud} markers={hud.mapMarkers} contactRange={hud.mapContactRange} mode={isArena ? 'arena' : 'practice'} expanded={hud.mapExpanded} dangers={hud.mapDangers} jammed={hud.mapJammed} reconPulse={hud.arena?.finished ? undefined : streakReconPulse(hud.arena?.streaks, hud.arena?.actors ?? [], hud.arenaSelf, hud.arena?.elapsed ?? 0)} onToggle={() => engine.current?.toggleMap()} />}
       </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       {isArena && playing && !disconnected && hud.arena && hud.scoreboardHeld &&

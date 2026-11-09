@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMatchStreaks, defaultStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
 import type { ArenaActor } from './arena-rules';
-import { streakReconMarkers } from './match-streak-visuals';
+import { streakReconMarkers, streakReconPulse } from './match-streak-visuals';
 
 function setup(mode: StreakMode = 'team-deathmatch') {
   const actor = (id: string, team: 'alpha' | 'bravo', x: number, z: number): ArenaActor => ({ id, name: id, bot: false, x, y: 1.75, z, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player', faction: team === 'alpha' ? 'armed-forces' : 'mercenaries', ...(mode === 'free-for-all' ? {} : { team }) });
@@ -111,4 +111,32 @@ describe('network snapshot validation', () => {
       const snap = s.snapshot(); change(snap); expect(validStreakSnapshot(snap, actors, 'team-deathmatch', 0)).toBe(false);
     }
   });
+});
+
+it('synchronizes friendly Recon sweeps with scans, including empty scans and late viewers', () => {
+  const { system: s, a, b, ally, actors, earn, setShield } = setup();
+  expect(streakReconPulse(s.snapshot(), actors, a, 0)).toBeUndefined();
+  earn('recon'); s.activate(a, 'recon', a, 0);
+  expect(streakReconPulse(s.snapshot(), actors, a, 0)).toBeUndefined();
+  setShield(true); s.step(0);
+  expect(s.effects[0].contacts).toEqual([]);
+  const first = streakReconPulse(s.snapshot(), actors, a, 0)!;
+  expect(first).toMatchObject({ at: 0, age: 0 });
+  expect(streakReconPulse(s.snapshot(), actors, ally, 1.2)).toEqual({ ...first, age: 1.2 });
+  expect(streakReconPulse(s.snapshot(), actors, b, 1.2)).toBeUndefined();
+  s.step(3); expect(streakReconPulse(s.snapshot(), actors, a, 3)).toEqual({ ...first, at: 3 });
+  a.alive = false; expect(streakReconPulse(s.snapshot(), actors, a, 3)).toBeUndefined();
+  a.alive = true; expect(streakReconPulse(s.snapshot(), actors, a, 15)).toBeUndefined();
+  s.hurt(s.effects[0], 100, b); expect(streakReconPulse(s.snapshot(), actors, ally, 3)).toBeUndefined();
+});
+it('suppresses Recon sweeps in an enemy jammer and keeps FFA scans private', () => {
+  const { system: s, a, b, actors, earn } = setup(); earn('recon'); earn('jammer', b);
+  s.activate(a, 'recon', a, 0); s.step(0); s.activate(b, 'jammer', b, 0);
+  expect(streakReconPulse(s.snapshot(), actors, a, 0)).toBeUndefined();
+  a.x = 40; expect(streakReconPulse(s.snapshot(), actors, a, 0)).toBeDefined();
+  a.x = 0; s.hurt(s.effects.find(e => e.kind === 'jammer')!, 100, a);
+  expect(streakReconPulse(s.snapshot(), actors, a, 0)).toBeDefined();
+  const ffa = setup('free-for-all'); ffa.earn('recon'); ffa.system.activate(ffa.a, 'recon', ffa.a, 0); ffa.system.step(0);
+  expect(streakReconPulse(ffa.system.snapshot(), ffa.actors, ffa.ally, 0)).toBeUndefined();
+  expect(streakReconPulse(ffa.system.snapshot(), ffa.actors, ffa.a, 10)).toBeUndefined();
 });

@@ -27,8 +27,17 @@ const SYMBOLS: { label: string; marker: MinimapMarker }[] = [
   ...(['landmark', 'checkpoint', 'parachute', 'boat', 'scent', 'npc', 'car', 'helicopter'] as const).map(kind => ({ label: { landmark: 'Landmark', checkpoint: 'Exit / objective', parachute: 'Paratroopers', boat: 'Landing craft', scent: 'Scent', npc: 'NPC', car: 'Car', helicopter: 'Helicopter' }[kind], marker: { id: kind, kind, label: '', x: 0, z: 0 } })),
 ];
 
+function ReconSweep({ x, y, radius, age }: { x: number; y: number; radius: number; age: number }) {
+  // Capture the scan age on mount; HUD updates must not restart or accelerate it.
+  const [delay] = useState(() => -age);
+  return <g data-recon-sweep transform={`translate(${x} ${y})`} pointerEvents="none" aria-hidden="true">
+    <circle className="fps-recon-wave" r={radius} fill="#60efd3" fillOpacity=".035" stroke="#60efd3" strokeWidth="1.5" vectorEffect="non-scaling-stroke" style={{ animationDelay: `${delay}s` }} />
+  </g>;
+}
+
 /** Callers supply only permitted tactical markers. Landmarks and boundaries are static. */
-export default function FpsMinimap({ zone, player, markers = [], mode, expanded: open = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [], matchBounds }: {
+export default function FpsMinimap({ zone, player, markers = [], mode, expanded: open = false, onToggle, dangers = [], jammed = false, contactRange = MINIMAP_CONTACT_RANGE, facilities = [], matchBounds, reconPulse }: {
+  reconPulse?: { id: string; at: number; age: number };
   matchBounds?: RegionBounds;
   facilities?: readonly FacilityState[];
   dangers?: readonly { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
@@ -126,6 +135,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
           const label = labels.get(`sector:${sector.id}`); if (!label) return null;
           return <text key={sector.id} className="fps-map-sector" data-map-sector={sector.id} x={label.x} y={label.y} textAnchor="middle">{sector.name}{mode === 'expedition' && !jammed && <tspan x={label.x} dy="13" className="fps-map-control-label" fill={CONTROL_COLOR[controls.get(sector.id)!]}>{CONTROL_LABEL[controls.get(sector.id)!]}</tspan>}</text>;
         })}
+        {!jammed && reconPulse && <ReconSweep key={`${reconPulse.id}:${reconPulse.at}`} x={map.x(player.x)} y={map.y(player.z)} radius={Math.hypot(Math.max(map.x(player.x), width - map.x(player.x)), Math.max(map.y(player.z), height - map.y(player.z)))} age={reconPulse.age} />}
         {!jammed && dangers.map(danger => danger.kind === 'raider'
           ? <g key={danger.id} data-map-danger={danger.kind} transform={`translate(${map.x(danger.x)} ${map.y(danger.z)})`}><path d="M0 -5 L5 4 L-5 4 Z" fill="#ff5a45" stroke="#2a0d0a" strokeWidth="1" /></g>
           : <circle key={danger.id} data-map-danger={danger.kind} cx={map.x(danger.x)} cy={map.y(danger.z)} r={Math.max(3, danger.radius * map.scale)} fill={danger.kind === 'crate' ? '#5fe08a22' : '#ff4a3a22'} stroke={danger.kind === 'crate' ? '#5fe08a' : '#ff5a45'} strokeWidth="1.5" strokeDasharray={danger.kind === 'crate' ? '3 2' : undefined} />)}
@@ -150,6 +160,7 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
         </g>
       </g>
       <path d={`M${edge} ${height - 18} v4 h${map.scale * bar} v-4`} fill="none" stroke="#dde7cd" strokeWidth="1" /><text x={edge} y={height - 22} fontSize={expanded ? 10 : 7} fill="#dde7cd">{bar}m</text>
+      {!jammed && reconPulse && <g data-map-recon role="status" aria-label="Recon active: scans every three seconds" pointerEvents="none"><rect x={edge} y={edge} width="82" height="15" rx="3" fill="#102e29e8" /><text x={edge + 41} y={edge + 10.5} textAnchor="middle" fontSize="8" fontWeight="700" fill="#83ffe2">RECON ACTIVE</text></g>}
       {expanded && <text x={width - edge} y={edge + 10} textAnchor="end" fontSize="11" fill="#efd077" fontWeight="700">↑ N</text>}
     </svg>
     {jammed && <div className="fps-map-jammed" role="status">SIGNAL JAMMED · static map only</div>}

@@ -188,3 +188,13 @@ it('keeps static geography but excludes all tactical details and hazards while j
   expect(html).not.toContain('Capturing 42%');
   expect(html).not.toContain('data-map-danger');
 });
+
+it('shows synchronized Recon sweeps on compact and expanded maps but hides them while jammed', () => {
+  for (const expanded of [false, true]) {
+    const props = { zone: 'marina-bay' as const, player: {x:0,z:0,yaw:0}, mode:'arena' as const, expanded, reconPulse:{id:'recon-one',at:3,age:.5} };
+    const html = renderToStaticMarkup(<FpsMinimap {...props} />);
+    expect(html).toContain('data-recon-sweep');expect(html).toContain('animation-delay:-0.5s');expect(html).toContain('RECON ACTIVE');
+    expect(renderToStaticMarkup(<FpsMinimap {...props} jammed />)).not.toContain('data-recon-sweep');
+    expect(renderToStaticMarkup(<FpsMinimap {...props} reconPulse={undefined} />)).not.toContain('RECON ACTIVE');
+  }
+});

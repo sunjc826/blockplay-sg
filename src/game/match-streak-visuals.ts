@@ -6,6 +6,15 @@ import type { MinimapMarker } from './minimap';
 export function streakFriendly(owner: ArenaActor | undefined, self: ArenaActor | null) {
   return !!owner && !!self && (owner.id === self.id || !!self.team && self.team === owner.team);
 }
+/** The authority's next scan time identifies each completed three-second pulse. */
+export function streakReconPulse(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null, now: number) {
+  if (!snapshot || !self?.alive) return undefined;
+  const friendly = (id: string) => streakFriendly(actors.find(a => a.id === id), self);
+  const live = snapshot.effects.filter(e => e.health > 0 && e.until > now);
+  if (live.some(e => e.kind === 'jammer' && !friendly(e.owner) && Math.hypot(e.x - self.x, e.z - self.z) <= 20)) return undefined;
+  const recon = live.filter(e => e.kind === 'recon' && friendly(e.owner) && e.pulse > now).sort((a, b) => b.pulse - a.pulse || a.id.localeCompare(b.id))[0];
+  return recon ? { id: recon.id, at: recon.pulse - 3, age: Math.max(0, now - (recon.pulse - 3)) } : undefined;
+}
 export function streakReconMarkers(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null): MinimapMarker[] {
   if (!snapshot || !self?.alive) return [];
   const friendly = (id: string) => streakFriendly(actors.find(a => a.id === id), self);
