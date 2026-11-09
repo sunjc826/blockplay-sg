@@ -147,6 +147,11 @@
 .activity-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:start; gap:12px; min-height:90px; padding:16px; border:1px solid var(--menu-line); border-radius:10px; background:#13251b; color:var(--menu-ink); text-decoration:none; }
 .activity-card:hover,.activity-card:focus-visible { border-color:var(--menu-gold); background:#243b2a; }
 .activity-card:focus-visible { outline:2px solid var(--menu-gold); outline-offset:2px; }
+@media (hover:hover) and (pointer:fine) {
+  .activity-card { transition:filter .25s; }
+  .activity-card:not(:hover):not(:focus-visible) { filter:grayscale(1) brightness(.75); }
+}
+@media (prefers-reduced-motion:reduce) { .activity-card { transition:none; } }
 .activity-card svg { color:var(--menu-gold); align-self:center; }
 .activity-card strong { display:block; font:700 17px 'Manrope',sans-serif; }
 .activity-card small { display:block; margin-top:4px; color:#bfcdb7; font-size:13px; line-height:1.4; }

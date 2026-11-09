@@ -27,7 +27,7 @@
   --scene-tint:#d9a36a; position:relative; isolation:isolate; overflow:hidden;
   flex:1 1 0; min-width:0; border:1px solid #ffffff24; border-radius:2px;
   background:#1b2327; color:#f4f2e9; text-decoration:none;
-  transition:flex-grow .48s cubic-bezier(.2,.75,.25,1),border-color .25s,box-shadow .25s;
+  transition:flex-grow .48s cubic-bezier(.2,.75,.25,1),border-color .25s,box-shadow .25s,filter .25s;
   -webkit-tap-highlight-color:transparent; touch-action:manipulation;
 }
 .next-gen-panel[data-scene='training'] { --scene-tint:#7ca7a4; }
