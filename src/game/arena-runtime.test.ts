@@ -239,6 +239,15 @@ describe('bot fire against rendered cover', () => {
     const scene = new THREE.Scene(), session = createSoloSession('Explorer');
     const shell = new THREE.Mesh(new THREE.BoxGeometry(5, 6, 5), new THREE.MeshBasicMaterial());
     shell.position.set(-20, 1, 70); if (walled) scene.add(shell);
+    // Keep observers outside the shell in both trials. Movement guards are not
+    // rendered shot cover: the open trial must still take damage through them.
+    // Without these guards a patrol can enter the hollow test mesh and fire inside.
+    scene.userData.traversalObstacles = [
+      { minX: -22.6, maxX: -22.4, minZ: 67.4, maxZ: 72.6, minY: 0, maxY: 4 },
+      { minX: -17.6, maxX: -17.4, minZ: 67.4, maxZ: 72.6, minY: 0, maxY: 4 },
+      { minX: -22.6, maxX: -17.4, minZ: 67.4, maxZ: 67.6, minY: 0, maxY: 4 },
+      { minX: -22.6, maxX: -17.4, minZ: 72.4, maxZ: 72.6, minY: 0, maxY: 4 },
+    ];
     const runtime = createArenaRuntime({ scene, session, obstacles: [], botCount: 2, composition: 'assault',
       environment: { bounds: MARINA_BOUNDS, move: moveInMarina, spawns: [{ x: -44, z: 68 }, { x: 4, z: 74 }], endless: true, playerSpawn: { x: -20, z: 70 } } });
     try {
