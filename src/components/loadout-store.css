@@ -125,3 +125,4 @@
 .loadout-store .store-currency{font-weight:600;font-variant-numeric:tabular-nums}
 .loadout-store .armory-wallet .store-currency small{color:inherit}
 .loadout-store .loadout-primary .store-currency,.loadout-store button[aria-pressed=true] .store-currency{background:#14241c;border-radius:4px;padding:1px 5px}
+.loadout-charts{width:100%;max-width:1060px}
