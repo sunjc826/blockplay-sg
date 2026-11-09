@@ -198,7 +198,7 @@ function LoadoutSpecifications({ item, profile, target }: { item: ShopItem; prof
   const equipped = worn?.category === 'weapon' ? current.weapons[worn.family!] : weapon;
   return <section className="loadout-specifications" aria-label="Specifications and equipment details"><h3>Specifications & equipment details</h3><div className="loadout-stack">
     {item.flavorText && <p>“{item.flavorText}”</p>}
-    {weapon && <><div className="loadout-charts"><FalloffCurve weapon={weapon} equipped={equipped ?? weapon} /><SprayPattern weapon={weapon} equipped={equipped ?? weapon} /></div>{weapon.bipod && <p data-testid="bipod-policy">{bipodDescription(weapon.bipod)}</p>}</>}
+    {weapon && <><div className="loadout-charts"><FalloffCurve weapon={weapon} equipped={equipped ?? weapon} /><SprayPattern compact weapon={weapon} equipped={equipped ?? weapon} /></div>{weapon.bipod && <p data-testid="bipod-policy">{bipodDescription(weapon.bipod)}</p>}</>}
     <FixedBuildDetails item={item} />
     {item.category === 'consumable' && <SupplyDetails item={item} />}
     {item.category === 'vision' && <VisionDeviceDetails item={item} />}

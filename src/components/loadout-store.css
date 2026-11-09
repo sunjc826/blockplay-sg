@@ -104,3 +104,12 @@
 @media(max-width:1000px){.loadout-charts{grid-template-columns:1fr}}
 .loadout-rank{display:flex;align-items:center;gap:12px}
 .loadout-account progress{width:100%;height:6px;accent-color:var(--ls-accent)}
+
+/* Bound plots independently of the desktop columns; keep legends full width. */
+.loadout-charts .armory-curve-plot{width:100%;max-width:440px;margin-inline:auto}
+.loadout-charts .armory-spray .armory-curve-plot{max-width:340px}
+.loadout-charts .armory-curve-axis,.loadout-charts .armory-curve-band{font-size:10px}
+.loadout-charts .armory-curve-tag{font-size:10px}
+.loadout-charts>.armory-curve>figcaption{font-size:11px;line-height:1.5}
+.loadout-charts .armory-curve-legend{font-size:11px;line-height:1.5}
+.loadout-charts .armory-curve-legend span{flex-wrap:wrap}

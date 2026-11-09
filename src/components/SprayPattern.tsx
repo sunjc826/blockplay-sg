@@ -23,13 +23,14 @@ import type { EquippedWeapon } from '../game/armory-state';
  */
 const SERIES = ['#3987e5', '#d95926'];
 const SURFACE = '#131c1d';
-const WIDTH = 320, HEIGHT = 560;
+const WIDTH = 320;
 const PAD = { top: 16, right: 16, bottom: 24, left: 16 };
-const PLOT = { w: WIDTH - PAD.left - PAD.right, h: HEIGHT - PAD.top - PAD.bottom };
 /** Solid, dashed, dotted, so the three ranges separate without relying on size alone. */
 const RING_DASH = ['', '4 3', '1 3'];
 
-export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWeapon; equipped: EquippedWeapon }) {
+export default function SprayPattern({ weapon, equipped, compact = false }: { weapon: EquippedWeapon; equipped: EquippedWeapon; compact?: boolean }) {
+  const height = compact ? 300 : 560;
+  const plot = { w: WIDTH - PAD.left - PAD.right, h: height - PAD.top - PAD.bottom };
   const rounds = Math.min(SPRAY_ROUNDS, weapon.capacity, equipped.capacity);
   const sequence = weapon.fireMode === 'semi' ? 'rapid trigger presses' : 'held burst';
   const titleId = useId();
@@ -46,9 +47,9 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
   // ring is drawn half outside the plot and the one thing the chart is read
   // against gets clipped.
   const foot = targetAngle(SPRAY_RANGES[0]) + .3;
-  const perDegree = PLOT.h / (top + foot);
-  const x = (degrees: number) => PAD.left + PLOT.w / 2 + degrees * perDegree;
-  const y = (degrees: number) => PAD.top + PLOT.h - (degrees + foot) * perDegree;
+  const perDegree = plot.h / (top + foot);
+  const x = (degrees: number) => PAD.left + plot.w / 2 + degrees * perDegree;
+  const y = (degrees: number) => PAD.top + plot.h - (degrees + foot) * perDegree;
   const path = (shots: SprayShot[]) => shots.map((s, i) => `${i ? 'L' : 'M'}${x(s.x).toFixed(1)} ${y(s.y).toFixed(1)}`).join(' ');
 
   const series = same ? [{ name: weapon.name, spray: preview, color: SERIES[0] }]
@@ -57,9 +58,9 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
   const landed = (spray: { cloud: SprayShot[] }, range: number) => Math.round(sprayAccuracy(spray.cloud, range) * rounds);
   const move = (event: React.PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
-    const local = ((event.clientY - box.top) / box.height) * HEIGHT;
+    const local = ((event.clientY - box.top) / box.height) * height;
     // Nearest round by height, which is how the pattern is read.
-    const wanted = (PAD.top + PLOT.h - local) / perDegree;
+    const wanted = (PAD.top + plot.h - local) / perDegree - foot;
     setHover(preview.mean.reduce((best, s) => Math.abs(s.y - wanted) < Math.abs(preview.mean[best - 1].y - wanted) ? s.round : best, 1));
   };
 
@@ -74,16 +75,16 @@ export default function SprayPattern({ weapon, equipped }: { weapon: EquippedWea
       </span>)}
     </div>
     <div className="armory-curve-plot">
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Spray pattern for ${series.map(s => s.name).join(' and ')}: where ${rounds} rounds from ${sequence} land relative to the point of aim, over targets at ${SPRAY_RANGES.join(', ')} metres.`}
+      <svg viewBox={`0 0 ${WIDTH} ${height}`} role="img" aria-label={`Spray pattern for ${series.map(s => s.name).join(' and ')}: where ${rounds} rounds from ${sequence} land relative to the point of aim, over targets at ${SPRAY_RANGES.join(', ')} metres.`}
         onPointerMove={move} onPointerLeave={() => setHover(null)}>
         {/* The point of aim, and the target around it at each range. */}
-        <line x1={x(0)} x2={x(0)} y1={PAD.top} y2={PAD.top + PLOT.h} stroke="#ffffff" strokeOpacity=".08" />
+        <line x1={x(0)} x2={x(0)} y1={PAD.top} y2={PAD.top + plot.h} stroke="#ffffff" strokeOpacity=".08" />
         {SPRAY_RANGES.map((range, i) => <circle key={range} cx={x(0)} cy={y(0)} r={targetAngle(range) * perDegree}
           fill={i ? 'none' : '#ffffff'} fillOpacity={i ? 0 : .06} stroke="#9fb0a4" strokeOpacity=".7" strokeDasharray={RING_DASH[i]} />)}
         {/* Keyed along the foot rather than beside the rings: three concentric
             circles this close together cannot carry three labels without them
             landing on each other. */}
-        {SPRAY_RANGES.map((range, i) => <g key={range} transform={`translate(${PAD.left + i * 70} ${HEIGHT - 6})`}>
+        {SPRAY_RANGES.map((range, i) => <g key={range} transform={`translate(${PAD.left + i * 70} ${height - 6})`}>
           <line x1="0" x2="13" y1="-3" y2="-3" stroke="#9fb0a4" strokeOpacity=".7" strokeDasharray={RING_DASH[i]} />
           <text x="17" y="0" className="armory-curve-band">{range} m</text>
         </g>)}
