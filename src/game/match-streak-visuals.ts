@@ -1,10 +1,23 @@
 import * as THREE from 'three';
-import type { ArenaActor, ArenaPoint } from './arena-rules';
+import type { ArenaActor, ArenaPoint, ArenaRaider } from './arena-rules';
 import { STREAKS, type StreakId, type StreakSnapshot } from './match-streaks';
 import type { MinimapMarker } from './minimap';
 
 export function streakFriendly(owner: ArenaActor | undefined, self: ArenaActor | null) {
   return !!owner && !!self && (owner.id === self.id || !!self.team && self.team === owner.team);
+}
+/** Friendly drone telemetry follows the live aircraft, not its launch point. */
+export function streakHunterMarkers(snapshot: StreakSnapshot | undefined, raiders: readonly ArenaRaider[], actors: readonly ArenaActor[], self: ArenaActor | null, now: number): MinimapMarker[] {
+  if (!snapshot || !self?.alive) return [];
+  return snapshot.effects.flatMap<MinimapMarker>(effect => {
+    if (effect.kind !== 'hunter' || effect.until <= now || effect.health <= 0) return [];
+    const owner = actors.find(a => a.id === effect.owner);
+    if (!owner || !streakFriendly(owner, self)) return [];
+    const drone = raiders.find(r => r.event === effect.event && r.kind === 'drone');
+    if (!drone || drone.health <= 0 || ['down', 'wreck', 'exploded', 'landing', 'landed'].includes(drone.state)) return [];
+    return [{ id: `hunter-${drone.event}`, kind: 'hunter', side: 'ally', x: drone.x, z: drone.z,
+      label: owner.id === self.id ? 'Your Hunter Drone' : `Friendly Hunter Drone · ${owner.name}` }];
+  });
 }
 /** The authority's next scan time identifies each completed three-second pulse. */
 export function streakReconPulse(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null, now: number) {

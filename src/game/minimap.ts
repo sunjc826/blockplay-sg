@@ -30,7 +30,7 @@ export interface MinimapMarker {
   /** `scent`: an opponent revealed by their inserts even without visual contact. */
   side?: 'ally' | 'enemy' | 'neutral'; inactive?: boolean;
   number?:number;
-  kind: 'control' | 'landmark' | 'parachute' | 'boat' | 'facility' | 'target' | 'car' | 'helicopter' | 'loot' | 'npc' | 'checkpoint' | 'scent' | 'ally' | 'enemy';
+  kind: 'control' | 'landmark' | 'parachute' | 'boat' | 'facility' | 'target' | 'car' | 'helicopter' | 'hunter' | 'loot' | 'npc' | 'checkpoint' | 'scent' | 'ally' | 'enemy';
   lootType?: 'weapon' | 'ammo' | 'medical' | 'armor' | 'food' | 'resupply';
   facilityType?: 'command' | 'garage' | 'helipad' | 'supply';
   active?: boolean;

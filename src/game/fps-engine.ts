@@ -1,6 +1,6 @@
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { STREAKS, type StreakId } from './match-streaks';
-import { createStreakVisuals, streakReconMarkers, streakFriendly } from './match-streak-visuals';
+import { createStreakVisuals, streakReconMarkers, streakFriendly, streakHunterMarkers } from './match-streak-visuals';
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
@@ -930,6 +930,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(proxy?.phase==='incoming' ? PROXY_IDS.map((faction): MinimapMarker=>({id:`${proxy.id}-${faction}-landing`,x:proxy.entries[faction].x,z:proxy.entries[faction].z,kind:'parachute',side:'neutral',label:`${proxyName(faction)} landing zone · touchdown in ${Math.ceil(proxy.remaining)}s`})) : []),
         ...contactMarkers(mapContactRange),
         ...streakReconMarkers(hud.arena?.streaks, hud.arena?.actors ?? [], hud.arenaSelf),
+        ...streakHunterMarkers(hud.arena?.streaks, hud.arena?.raiders ?? [], hud.arena?.actors ?? [], hud.arenaSelf, hud.arena?.elapsed ?? 0),
       ],
     });
   };

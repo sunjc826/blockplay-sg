@@ -6,7 +6,7 @@ import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
 const {MatchStreakHud}=await import('/src/components/MatchStreaks.tsx');
 const {default:FpsMinimap}=await import('/src/components/FpsMinimap.tsx');
-const {streakReconPulse}=await import('/src/game/match-streak-visuals.ts');
+const {streakReconPulse,streakHunterMarkers}=await import('/src/game/match-streak-visuals.ts');
 await import('/src/styles.css');
 import {createFpsEngine} from '/src/game/fps-engine.ts';
 import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
@@ -39,7 +39,7 @@ const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',na
  if(p.type==='arena-hello')publish();
  }};
 const root=ReactDOM.createRoot(document.querySelector('#hud'));window.touch=false;
-window.renderHud=()=>root.render(React.createElement(React.Fragment,null,React.createElement(MatchStreakHud,{progress:hud.arena?.streaks?.players.guest,effects:hud.arena?.streaks?.effects.filter(e=>e.owner==='guest')??[],now:hud.arena?.elapsed??0,hardpoint:mode==='hardpoint',alive:hud.arenaSelf?.alive,touch:window.touch,placement:hud.streakPlacement,notice:hud.streakNotice,onUse:slot=>engine.useStreak(slot),onConfirm:()=>engine.confirmStreak(),onCancel:()=>engine.cancelStreak()}),React.createElement(FpsMinimap,{zone:mode==='ffa'?'marina-bay':'chinatown',player:hud,mode:'arena',markers:hud.mapMarkers,dangers:hud.mapDangers,matchBounds:mode==='ffa'?undefined:area.bounds,expanded:window.expanded??false,jammed:window.jammed??false,reconPulse:streakReconPulse(hud.arena?.streaks,hud.arena?.actors??[],hud.arenaSelf,hud.arena?.elapsed??0)})));
+window.renderHud=()=>root.render(React.createElement(React.Fragment,null,React.createElement(MatchStreakHud,{progress:hud.arena?.streaks?.players.guest,effects:hud.arena?.streaks?.effects.filter(e=>e.owner==='guest')??[],now:hud.arena?.elapsed??0,hardpoint:mode==='hardpoint',alive:hud.arenaSelf?.alive,touch:window.touch,placement:hud.streakPlacement,notice:hud.streakNotice,onUse:slot=>engine.useStreak(slot),onConfirm:()=>engine.confirmStreak(),onCancel:()=>engine.cancelStreak()}),React.createElement(FpsMinimap,{zone:mode==='ffa'?'marina-bay':'chinatown',player:hud,mode:'arena',markers:window.mapViewer?[...hud.mapMarkers.filter(m=>m.kind!=='hunter'),...streakHunterMarkers(hud.arena?.streaks,hud.arena?.raiders??[],hud.arena?.actors??[],window.mapViewer,hud.arena?.elapsed??0)]:hud.mapMarkers,dangers:hud.mapDangers,matchBounds:mode==='ffa'?undefined:area.bounds,expanded:window.expanded??false,jammed:window.jammed??false,reconPulse:streakReconPulse(hud.arena?.streaks,hud.arena?.actors??[],hud.arenaSelf,hud.arena?.elapsed??0)})));
 window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;window.renderHud();},{loadout:kit,arena:{session,profile,botCount:0,environment,
  ...(mode==='ffa'?{}:{match:{mode:mode==='tdm'?'team-deathmatch':'hardpoint',area:'smith-street'}})}});
 setInterval(()=>{if(started)sim.step(.05);publish()},50);

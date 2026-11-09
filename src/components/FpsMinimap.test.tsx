@@ -198,3 +198,19 @@ it('shows synchronized Recon sweeps on compact and expanded maps but hides them 
     expect(renderToStaticMarkup(<FpsMinimap {...props} reconPulse={undefined} />)).not.toContain('RECON ACTIVE');
   }
 });
+
+it('shows blue friendly Hunters, keeps distant friendly telemetry at the edge, and retains red enemy threats',()=>{
+  for(const expanded of [false,true]) {
+    const props={zone:'marina-bay' as const,player:{x:0,z:0,yaw:0},mode:'arena' as const,expanded,markers:[
+      {id:'hunter-own',kind:'hunter' as const,side:'ally' as const,x:10,z:10,label:'Your Hunter Drone'},
+      {id:'hunter-team',kind:'hunter' as const,side:'ally' as const,x:2000,z:2000,label:'Friendly Hunter Drone · Teammate'},
+    ],dangers:[{id:'raider-enemy',kind:'raider' as const,x:-10,z:-10,radius:0}]};
+    const html=renderToStaticMarkup(<FpsMinimap {...props}/>);
+    expect(html).toContain('data-minimap-marker="hunter-own"');expect(html).toContain('data-hunter-side="ally"');
+    expect(html).toContain('stroke="#70cfff"');expect(html).toContain('fill="#ff5a45"');
+    expect(html).toContain('data-minimap-marker="hunter-team" data-marker-kind="hunter" data-edge="true"');
+    expect(html).toContain('Friendly Hunter Drone · Teammate');
+    const jammed=renderToStaticMarkup(<FpsMinimap {...props} jammed/>);
+    expect(jammed).not.toContain('data-minimap-marker="hunter-own"');expect(jammed).not.toContain('data-map-danger="raider"');
+  }
+});

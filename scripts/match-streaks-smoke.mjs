@@ -98,11 +98,30 @@ try {
   await key('5','Digit5');await wait(`hud.streakPlacement==='jammer'`);
   const shots=await evaluate('hud.shots');await key('Escape','Escape');await wait(`hud.streakPlacement===null`);assert.equal(await evaluate('hud.shots'),shots);
   await key('6','Digit6');await wait(`hud.arena.raiders?.some(r=>r.kind==='drone')`);
+  await wait(`document.querySelector('[data-marker-kind="hunter"] [data-hunter-side="ally"]')`);
+  assert.equal(await evaluate(`document.querySelector('[data-hunter-side="ally"]').getAttribute('stroke')`),'#70cfff');
+  assert.equal(await evaluate(`(()=>{const marker=hud.mapMarkers.find(m=>m.kind==='hunter'),drone=hud.arena.raiders.find(r=>'hunter-'+r.event===marker.id);return marker.x===drone.x&&marker.z===drone.z})()`),true);
+  await evaluate(`window.hunterStart=hud.mapMarkers.find(m=>m.kind==='hunter')`);await delay(500);
+  assert.equal(await evaluate(`(()=>{const m=hud.mapMarkers.find(m=>m.id===hunterStart.id);return !!m&&(m.x!==hunterStart.x||m.z!==hunterStart.z)})()`),true);
+  await screenshot(mode+'-hunter-own');
+  if(mode!=='ffa'){
+    // View the same host aircraft as a teammate; no simulation ownership changes.
+    await evaluate(`window.mapViewer={...hud.arenaSelf,id:'teammate-viewer'};window.expanded=true;renderHud()`);await delay(150);
+    assert.equal(await evaluate(`document.querySelector('[data-marker-kind="hunter"] title').textContent.includes('Friendly Hunter Drone · Player')`),true);
+    await screenshot(mode+'-hunter-teammate');
+    await evaluate('window.mapViewer=null;window.expanded=false;renderHud()');
+  }
+  await evaluate('window.jammed=true;renderHud()');await delay(100);
+  assert.equal(await evaluate(`!!document.querySelector('[data-marker-kind="hunter"]')`),false);
+  await evaluate('window.jammed=false;renderHud()');
+  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await evaluate('touchMode(true)');await delay(150);await screenshot(mode+'-hunter-touch');
+  await send('Emulation.setDeviceMetricsOverride',{width:1200,height:800,deviceScaleFactor:1,mobile:false});await evaluate('touchMode(false)');
   assert.equal(await evaluate('valid'),true);
   await screenshot(mode+'-active');
-  await evaluate(`for(let i=0;i<80;i++)sim.step(.25);publish()`);await delay(150);
+  await evaluate(`for(let i=0;i<160;i++)sim.step(.25);publish()`);await delay(150);
   assert.equal(await evaluate(`!!document.querySelector('[data-recon-sweep]')`),false,'Expired Recon removes the pulse');
   assert.equal(await evaluate(`!!document.querySelector('[data-map-recon]')`),false);
+  assert.equal(await evaluate(`!!document.querySelector('[data-marker-kind="hunter"]')`),false,'Expired Hunter disappears');
  }else{
   await wait(`hud.streakPlacement==='interceptor'`);
   const shotsBeforePlacement=await evaluate('hud.shots');

@@ -2,6 +2,12 @@ import type { MinimapMarker } from '../game/minimap';
 
 /** Shapes stay distinct without relying on color, including at minimap size. */
 export default function FpsMapMarker({ marker, outside }: { marker: MinimapMarker; outside: boolean }) {
+  if (marker.kind === 'hunter') return <g data-hunter-side={marker.side} fill="#173447" stroke={marker.side === 'enemy' ? '#ff675c' : '#70cfff'} strokeWidth="1.5">
+    {outside && <circle r="8" fill="#13231d" strokeDasharray="2 2" />}
+    <path d="M-4 -4L4 4M-4 4L4 -4" />
+    {[-4, 4].flatMap(x => [-4, 4].map(y => <circle key={`${x}:${y}`} cx={x} cy={y} r="2" />))}
+    <path d="M0 -3L2 2L0 1L-2 2Z" fill={marker.side === 'enemy' ? '#ff675c' : '#70cfff'} stroke="none" />
+  </g>;
   if(marker.kind==='control')return <g data-control-station={marker.id}><circle r="7" fill={marker.active?'#eef5fa':'#253c43'} stroke={marker.active?'#ffc56e':'#93a3aa'} strokeWidth="2"/><text y="3" textAnchor="middle" fontSize="9" fontWeight="800" fill={marker.active?'#152a32':'#dde6e9'}>{marker.number}</text></g>;
   if (marker.kind === 'facility') return <g data-facility-type={marker.facilityType ?? 'unknown'}>
     <rect x="-6" y="-6" width="12" height="12" rx="1" fill="#16231f" stroke={marker.side === 'ally' ? '#70cfff' : marker.side === 'enemy' ? '#ff8870' : '#cbd2c7'} strokeWidth="1.8" strokeDasharray={marker.inactive ? '2 2' : undefined} />

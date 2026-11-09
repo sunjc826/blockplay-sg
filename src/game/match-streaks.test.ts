@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMatchStreaks, defaultStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
-import type { ArenaActor } from './arena-rules';
-import { streakReconMarkers, streakReconPulse } from './match-streak-visuals';
+import type { ArenaActor, ArenaRaider } from './arena-rules';
+import { streakReconMarkers, streakReconPulse, streakHunterMarkers } from './match-streak-visuals';
 
 function setup(mode: StreakMode = 'team-deathmatch') {
   const actor = (id: string, team: 'alpha' | 'bravo', x: number, z: number): ArenaActor => ({ id, name: id, bot: false, x, y: 1.75, z, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player', faction: team === 'alpha' ? 'armed-forces' : 'mercenaries', ...(mode === 'free-for-all' ? {} : { team }) });
@@ -139,4 +139,28 @@ it('suppresses Recon sweeps in an enemy jammer and keeps FFA scans private', () 
   const ffa = setup('free-for-all'); ffa.earn('recon'); ffa.system.activate(ffa.a, 'recon', ffa.a, 0); ffa.system.step(0);
   expect(streakReconPulse(ffa.system.snapshot(), ffa.actors, ffa.ally, 0)).toBeUndefined();
   expect(streakReconPulse(ffa.system.snapshot(), ffa.actors, ffa.a, 10)).toBeUndefined();
+});
+
+it.each(['team-deathmatch', 'hardpoint', 'free-for-all'] as const)('tracks own and team Hunters at their live position in %s', mode => {
+  const {system:s,a,b,ally,actors,earn}=setup(mode); earn('hunter');s.activate(a,'hunter',a,0);
+  const drone: ArenaRaider = {event:'event-1',kind:'drone',x:40,y:12,z:50,yaw:0,health:30,maxHealth:30,state:'cruise',aim:null,shots:0};
+  const own=streakHunterMarkers(s.snapshot(),[drone],actors,a,1);
+  expect(own).toEqual([{id:'hunter-event-1',kind:'hunter',side:'ally',x:40,z:50,label:'Your Hunter Drone'}]);
+  expect(streakHunterMarkers(s.snapshot(),[drone],actors,b,1)).toEqual([]);
+  const team=streakHunterMarkers(s.snapshot(),[drone],actors,ally,1);
+  if(mode==='free-for-all')expect(team).toEqual([]);
+  else expect(team[0]).toMatchObject({side:'ally',label:'Friendly Hunter Drone · a'});
+  drone.x=65;drone.state='dive';expect(streakHunterMarkers(s.snapshot(),[drone],actors,a,2)[0].x).toBe(65);
+});
+it('removes Hunter telemetry when the aircraft is destroyed, gone, expired or the viewer is dead',()=>{
+  const {system:s,a,b,actors,earn}=setup();earn('hunter');s.activate(a,'hunter',a,0);
+  const drone: ArenaRaider={event:'event-1',kind:'drone',x:40,y:12,z:50,yaw:0,health:30,maxHealth:30,state:'cruise',aim:null,shots:0};
+  for(const state of ['down','wreck','exploded','landing','landed'] as const)expect(streakHunterMarkers(s.snapshot(),[{...drone,state}],actors,a,1)).toEqual([]);
+  expect(streakHunterMarkers(s.snapshot(),[{...drone,health:0}],actors,a,1)).toEqual([]);
+  expect(streakHunterMarkers(s.snapshot(),[],actors,a,1)).toEqual([]);
+  expect(streakHunterMarkers(s.snapshot(),[drone],actors,a,30)).toEqual([]);
+  expect(streakHunterMarkers(undefined,[drone],actors,a,1)).toEqual([]);
+  expect(streakHunterMarkers(s.snapshot(),[drone],[b],a,1)).toEqual([]);
+  expect(streakHunterMarkers(s.snapshot(),[drone],actors,null,1)).toEqual([]);
+  a.alive=false;expect(streakHunterMarkers(s.snapshot(),[drone],actors,a,1)).toEqual([]);
 });
