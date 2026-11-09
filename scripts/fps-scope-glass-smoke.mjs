@@ -62,9 +62,27 @@ try {
     assert(coating.hip.centralMax>coating.ads.rimMax*3,'Lowered lens has a much stronger reflection');
     assert(coating.hip.changed>20,'Lowered lens visibly reflects scenery');
     assert.equal(coating.ads.outside+coating.hip.outside,0,'Both reflections stay within the lens');
+    for(const result of Object.values(await evaluate('window.verifyScopeCoverage()'))) assert.equal(result.missing,0,optic+' reflects through the centre');
+  }
+  for(const variant of ['p30-kiasu','mag-lepak','g36-rifle','xm8-sharpshooter','ff-longwatch','ff-intervention','ff-oicw']) {
+    await send('Page.navigate',{url:origin+'/scripts/fixtures/reflex-render.html?variant='+variant});
+    let ready=false;
+    for(let i=0;i<100&&!ready;i++) {
+      await new Promise(resolve=>setTimeout(resolve,250));
+      ready=await evaluate('window.ready===true').catch(()=>false);
+    }
+    assert(ready,variant+' fixture loads');
+    const coverage=await evaluate('window.verifyScopeCoverage()');
+    console.log(variant,coverage);
+    for(const [mode,result] of Object.entries(coverage)) {
+      assert(result.samples>50);
+      assert.equal(result.missing,0,variant+' '+mode+' reflects across the entire inner lens');
+    }
+    const shot=await send('Page.captureScreenshot',{format:'png'});
+    await fs.writeFile(new URL(variant+'-hip.png',output),Buffer.from(shot.data,'base64'));
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS: SAR 1.5x and 1.75x PiP, hip coating, actual scenery reflections and clear etched crosshairs');
+  console.log('PASS: clear SAR PiP and etched crosshairs; unbroken lowered-lens reflections across nine scope configurations');
 } finally {
   ws.close();await fetch(`${chrome}/json/close/${tab.id}`);
 }

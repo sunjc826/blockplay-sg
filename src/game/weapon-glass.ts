@@ -107,7 +107,10 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
   const vertices = geometry.attributes.position, uvs = geometry.attributes.uv;
   for (let i = 0; i < vertices.count; i++) {
     const r2 = Math.min(1, (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2);
-    vertices.setZ(i, -curvature * (1 - r2));
+    // Scope mounts place this surface just in front of an opaque end cap.
+    // Anchor its deepest point there: recessing the centre behind that plane
+    // lets the cap depth-occlude a circular hole in the reflection.
+    vertices.setZ(i, scope ? curvature * r2 : -curvature * (1 - r2));
     // Spread the UVs over the pane, so its rim follows the window's edges.
     if (window) uvs.setXY(i, vertices.getX(i) / window.width + .5, vertices.getY(i) / window.height + .5);
   }

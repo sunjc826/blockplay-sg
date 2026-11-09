@@ -59,6 +59,29 @@ result[mode]={centralMax,rimMax,changed,outside};
 }
 window.show('ads');return result;
 };
+// Solid reflection colours isolate coverage from the scenery and lens tint.
+// Sample the whole inner disc, not just its brightest changed pixel: a reflected
+// ring around an occluded centre must fail this check.
+window.verifyScopeCoverage=()=>{
+const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
+const sample=()=>{ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
+const maps=[[255,0,0,255],[0,0,255,255]].map(rgba=>{const t=new THREE.DataTexture(new Uint8Array(rgba),1,1);t.needsUpdate=true;return t;});
+const result={};
+for(const mode of ['aligned-hip','hip']){
+window.show(mode);const original=sight.reflection.uniforms.reflectionMap.value;
+const frames=maps.map(map=>{sight.reflection.uniforms.reflectionMap.value=map;renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);return sample();});
+let samples=0,missing=0,minDelta=Infinity;
+for(let y=-.6;y<=.601;y+=.15)for(let x=-.6;x<=.601;x+=.15){
+if(Math.hypot(x,y)>.65)continue;
+const at=sight.reflection.surface.localToWorld(new THREE.Vector3(x*sight.radius,y*sight.radius,0)).project(viewCamera);
+const px=Math.round((at.x+1)*600),py=Math.round((1-at.y)*400),i=(py*1200+px)*4;
+const delta=[0,1,2].reduce((sum,k)=>sum+Math.abs(frames[0][i+k]-frames[1][i+k]),0);
+samples++;if(delta<8)missing++;minDelta=Math.min(minDelta,delta);
+}
+result[mode]={samples,missing,minDelta};sight.reflection.uniforms.reflectionMap.value=original;
+}
+maps.forEach(t=>t.dispose());window.show('hip');return result;
+};
 window.verifyBloom=()=>{
 const bloom=model.getObjectByName('fps-reflex-bloom');
 const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
