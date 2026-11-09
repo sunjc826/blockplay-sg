@@ -13,3 +13,5 @@
   .fps-game[data-touch=on] .match-streak-hud{top:316px}
   .fps-game.arena-player-view[data-touch=on] .arena-kill-feed,.fps-game.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:376px}
 }
+
+.streak-placement .streak-placement-notice{color:#ffd299;font-size:12px;line-height:1.4;max-width:320px}

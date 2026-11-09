@@ -14,8 +14,8 @@ export function MatchStreakLoadout({ mode, progress, disabled, onChange }: { mod
     {disabled && <p>Streak loadouts lock when the match starts.</p>}
   </details>;
 }
-export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch, placement, onUse, onConfirm, onCancel }: {
-  progress?: StreakProgress; effects: StreakEffect[]; now: number; hardpoint: boolean; alive: boolean; touch: boolean; placement: StreakId | null;
+export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch, placement, notice, onUse, onConfirm, onCancel }: {
+  progress?: StreakProgress; effects: StreakEffect[]; now: number; hardpoint: boolean; alive: boolean; touch: boolean; placement: StreakId | null; notice?: string;
   onUse: (slot: number) => void; onConfirm: () => void; onCancel: () => void;
 }) {
   if (!progress) return null;
@@ -29,6 +29,6 @@ export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch
         </button>;
       })}
     </div>
-    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>Aim at clear ground · {placement === 'strike' ? '100m range · 5m blast' : '8m placement range'}</span><div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
+    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>Look down at clear ground · {placement === 'strike' ? '100m range · 5m blast' : '8m placement range'}</span>{notice && <span className="streak-placement-notice">{notice}</span>}<div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
   </>;
 }

@@ -11,3 +11,9 @@ it('keeps ready, active, used and placement states accessible without relying on
  const html=renderToStaticMarkup(<MatchStreakHud progress={{loadout:['recon','jammer','strike'],charge:600,heldCharge:0,ready:['recon'],earned:['recon','jammer','strike']}} effects={[]} now={0} hardpoint={false} alive touch placement="strike" onUse={()=>{}} onConfirm={()=>{}} onCancel={()=>{}}/>);
  expect(html).toContain('Kestrel Recon: READY');expect(html).toContain('Signal Jammer: USED');expect(html).toContain('Deploy here');expect(html).toContain('Cancel');expect(html).toContain('5m blast');expect(html).not.toContain('<kbd>');
 });
+
+it('shows placement refusal beside the deploy control while retaining the ready charge',()=>{
+ const notice='Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
+ const html=renderToStaticMarkup(<MatchStreakHud progress={{loadout:['recon','interceptor','strike'],charge:400,heldCharge:0,ready:['interceptor'],earned:['interceptor']}} effects={[]} now={0} hardpoint alive touch placement="interceptor" notice={notice} onUse={()=>{}} onConfirm={()=>{}} onCancel={()=>{}}/>);
+ expect(html).toContain(notice);expect(html).toContain('Guardian Interceptor: READY');expect(html).toContain('Deploy here');
+});

@@ -22,7 +22,10 @@ export function streakReconMarkers(snapshot: StreakSnapshot | undefined, actors:
 
 /** Small original meshes; gameplay hit volumes remain owned by the match simulation. */
 export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3) => void) {
-  const root = new THREE.Group(); root.name = 'match-streaks'; scene.add(root);
+  const root = new THREE.Group(); root.name = 'match-streaks';
+  // Preview rings and device meshes must not become placement surfaces or cover.
+  // The authority owns device hit volumes and interception line-of-sight.
+  root.userData.fpsEffect = true; scene.add(root);
   const entries = new Map<string, { group: THREE.Group; kind: StreakId; until: number; shots: number }>();
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
   const box = new THREE.BoxGeometry(1, 1, 1), cylinder = new THREE.CylinderGeometry(1, 1, 1, 12), ring = new THREE.RingGeometry(.96, 1, 64), sphere = new THREE.SphereGeometry(1, 10, 8);

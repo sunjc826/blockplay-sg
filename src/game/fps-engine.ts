@@ -265,6 +265,7 @@ const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
   streakPlacement: StreakId | null;
+  streakNotice: string;
   /** Live movement telemetry for the guided recruit course. */
   tutorial?: { feet: number; grounded: boolean; stance: 'stand' | 'crouch' | 'prone'; sprinting: boolean };
   /** The touch crouch latch as the engine holds it: a slide that comes up into a run lets it go. */
@@ -359,7 +360,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { streakPlacement: null, scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { streakPlacement: null, streakNotice: '', scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -4053,7 +4054,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const point = hit?.point ?? pingRay.ray.at(60, pingAt);
     return { x: point.x, y: point.y, z: point.z };
   }
-  function cancelStreak() { hud.streakPlacement = null; streakVisuals.preview(null, null, false); }
+  function cancelStreak() { hud.streakPlacement = null; hud.streakNotice = ''; streakVisuals.preview(null, null, false); }
   function placementPoint() {
     camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = 100;
     const hit = firstVisibleHit(pingRay, gameplayCandidates());
@@ -4067,16 +4068,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     trigger = false; pullBuffer = 0; stopInspect();
     if (kind === 'recon' || kind === 'hunter') {
       cancelStreak(); arenaRuntime.activateStreak(kind, undefined, ok => { hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Streak unavailable here or already active. Charge retained.'; publish(); });
-    } else hud.streakPlacement = hud.streakPlacement === kind ? null : kind;
+    } else {
+      const next = hud.streakPlacement === kind ? null : kind;
+      cancelStreak(); hud.streakPlacement = next;
+    }
     publish();
   }
   function confirmStreak() {
     const kind = hud.streakPlacement;
     if (!kind || hud.phase !== 'playing' || !hud.arenaSelf?.alive) return;
     const at = placementPoint();
-    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? 100 : 8)) { hud.message = 'Aim at clear ground within range.'; publish(); return; }
+    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? 100 : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${kind === 'strike' ? 100 : 8}m, then deploy. Charge retained.`; publish(); return; }
     arenaRuntime?.activateStreak(kind, { x: at.x, y: at.y, z: at.z }, ok => {
-      hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Placement blocked or reward active. Charge retained.';
+      hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
       if (ok) cancelStreak(); publish();
     });
   }

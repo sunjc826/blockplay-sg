@@ -41,6 +41,22 @@ async function key(key, code) {
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code });
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code });
 }
+async function click(selector, touch = true) {
+  const point = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
+  if(touch){
+    await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...point,id:1}]});
+    await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }else{
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
+  }
+}
+async function deploy() {
+  if(mode==='tdm'){
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',x:600,y:400,button:'left',clickCount:1});
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:600,y:400,button:'left',clickCount:1});
+  }else await click('.streak-placement button');
+}
 async function screenshot(name) {
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   await fs.writeFile(new URL(name + '.png', output), Buffer.from(shot.data, 'base64'));
@@ -50,13 +66,14 @@ try {
  await send('Emulation.setDeviceMetricsOverride',{width:1200,height:800,deviceScaleFactor:1,mobile:false});
  await wait(`window.hud?.phase==='ready'`,90000);
  await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
- await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:45,y:20,id:1}]});
- await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await click('#enter', !(support && mode==='tdm'));
+ if(support && mode==='tdm')await wait('document.pointerLockElement');
  await wait(`hud.phase==='playing'`);
+ if(support && mode!=='tdm')await evaluate('touchMode(true)');
  const earned=await evaluate('earn()');assert.equal(earned.ready.length,3,JSON.stringify(await evaluate('earnTrace')));
  await wait(`document.querySelectorAll('.match-streak-hud button[data-ready]').length===3`);
  await screenshot(variant.replace('&','-')+'-ready');
- await key('4','Digit4');
+ if(support && mode!=='tdm')await click('[data-streak=interceptor]');else await key('4','Digit4');
  if(!support){
   await wait(`hud.arena.streaks.effects.some(e=>e.kind==='recon')`);
   assert.equal(await evaluate('accepted'),true);
@@ -67,17 +84,28 @@ try {
   await screenshot(mode+'-active');
  }else{
   await wait(`hud.streakPlacement==='interceptor'`);
+  const shotsBeforePlacement=await evaluate('hud.shots');
+  // A horizon/sky target must visibly explain why the click cannot deploy.
+  await evaluate('engine.lookBy(0,-500)');await delay(200);
+  await deploy();
+  await wait(`document.querySelector('.streak-placement-notice')?.textContent.includes('Look down')`);
+  assert.equal(await evaluate(`hud.arena.streaks.players.guest.ready.includes('interceptor')`),true);
+  await screenshot(mode+'-guardian-invalid');
+  await evaluate('engine.lookBy(0,hud.pitch/.0023)');
   await evaluate('engine.lookBy((hud.yaw+Math.PI/2)/.0023,0)');
   for(let i=0;i<12;i++){await evaluate('engine.lookBy(0,20)');await delay(40);}
   await screenshot('hardpoint-placement');
-  await evaluate('engine.confirmStreak()');await delay(500);
+  await deploy();await delay(500);
   // Authored spawn protection may reject this first point. Walk away from it, then retry with the real placement control.
   if(!await evaluate('accepted')){
     await evaluate('engine.cancelStreak();engine.lookBy((hud.yaw+Math.PI/2)/.0023,0);engine.setInput("w",true)');await delay(2500);await evaluate('engine.setInput("w",false);engine.useStreak(0)');await delay(100);
-    await evaluate('engine.confirmStreak()');await delay(300);
+    await deploy();await delay(300);
   }
   assert.equal(await evaluate('accepted'),true,JSON.stringify(await evaluate('({request:lastStreakRequest,hud:{x:hud.x,z:hud.z,pitch:hud.pitch,message:hud.message}})')));
-  await evaluate('engine.cancelStreak()');
+  assert.equal(await evaluate('hud.streakPlacement'),null);
+  assert.equal(await evaluate('hud.streakNotice'),'');
+  assert.equal(await evaluate('hud.shots'),shotsBeforePlacement);
+  assert.equal(await evaluate(`hud.arena.streaks.players.guest.ready.includes('interceptor')`),false);
   // Render the other authored devices through the same authority; the GUI path was verified above.
   assert.equal(await evaluate('place("sentry")'),true);
   await evaluate('place("strike")');await delay(300);
