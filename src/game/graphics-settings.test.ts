@@ -7,7 +7,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics(null)).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'unknown', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false }))
-      .toEqual({ rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, sightReflections: true, antialias: false });
+      .toEqual({ rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, godRays: 'off', sightReflections: true, antialias: false });
   });
 
   it('adds bloom to full-detail presets and doubles Ultra shadow resolution', () => {
@@ -16,7 +16,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics({ sightReflections: true }).shadowDetail).toBe('ultra');
     expect(sanitizeGraphics({ scale: .85, shadowDetail: 'low' }).bloom).toBe(false);
     expect(sanitizeGraphics({ bloom: false, shadowDetail: 'high', sightReflections: true })).toMatchObject({ bloom: false, shadowDetail: 'high' });
-    const oldUltra = { ...DEFAULT_GRAPHICS, bloom: undefined, sightReflections: true, rainDetail: undefined, grassDetail: undefined, waterDetail: undefined, rainReflections: undefined, waterReflections: undefined };
+    const oldUltra = { ...DEFAULT_GRAPHICS, godRays: undefined, bloom: undefined, sightReflections: true, rainDetail: undefined, grassDetail: undefined, waterDetail: undefined, rainReflections: undefined, waterReflections: undefined };
     expect(matchingPreset(sanitizeGraphics(oldUltra), DEFAULT_ENVIRONMENT)).toBe('ultra');
   });
 

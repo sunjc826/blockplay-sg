@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { getEnvironmentSettings, setEnvironmentSettings, subscribeEnvironment } from '../game/environment-settings';
 import './graphics-settings.css';
+import type { SunRayQuality } from '../game/sun-rays';
 import type { WorldDetail } from '../game/environment-quality';
 import { FRAME_CAPS, GRAPHICS_PRESETS, matchingPreset, RENDER_SCALES, setGraphicsSettings, useGraphicsSettings, type FrameCap, type RenderScale } from '../game/graphics-settings';
 
@@ -37,6 +38,8 @@ export default function GraphicsSettings() {
           if (value === 'off') setEnvironmentSettings({ shadows: false });
           else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'ultra' ? 'ultra' : value === 'low' ? 'low' : 'high' }); }
         }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+      <label><span>God rays<small>Sunlight shafts through trees and buildings. High draws finer rays at a higher GPU cost.</small></span>
+        <select value={graphics.godRays} onChange={e => setGraphicsSettings({ godRays: e.target.value as SunRayQuality })}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option></select></label>
       {(['rainDetail', 'grassDetail', 'waterDetail'] as const).map(key => <label key={key}><span>{key === 'rainDetail' ? 'Rain distance' : key === 'waterDetail' ? 'Water detail' : 'Grass detail'}<small>{key === 'rainDetail' ? 'Show rain farther into the scene.' : key === 'waterDetail' ? 'Raised ripple rings from rain and bullet impacts.' : 'Denser nearby grass and longer coverage.'}</small></span>
         <select value={graphics[key]} onChange={e => setGraphicsSettings({ [key]: e.target.value as WorldDetail })}><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>)}
     </div>

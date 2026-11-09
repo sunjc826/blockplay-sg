@@ -1,3 +1,4 @@
+import { createSunRays, projectSunRays, type SunRayLight, type SunRayQuality } from './sun-rays';
 import * as THREE from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
@@ -35,6 +36,8 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
   const water = createWaterReflections(renderer,scene,camera);
   let waterReflectionsEnabled = false;
+  let sunRays: ReturnType<typeof createSunRays> | null = null, godRaysEnabled = false;
+  const sunUv = new THREE.Vector2();
   const size = new THREE.Vector2();
   function build() {
     renderer.getDrawingBufferSize(size);
@@ -69,6 +72,8 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     get supported() { return supported; },
     /** The GTAO pass once built, for review pages that show its buffers. */
     get pass() { return gtao; },
+    get godRaysEnabled() { return godRaysEnabled; },
+    get godRaysSize() { return sunRays?.size ?? null; },
     get bloomEnabled() { return bloomEnabled; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
@@ -81,17 +86,22 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
-    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections) {
+    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays) {
+      camera.updateMatrixWorld();
+      const sun = scene.userData.sunRays as SunRayLight | undefined;
+      const rayStrength = supported && wantGodRays !== 'off' ? projectSunRays(camera, sun, sunUv) : 0;
+      godRaysEnabled = rayStrength > .002;
       waterReflectionsEnabled = water.render(supported && wantWaterReflections);
       bloomEnabled = supported && wantBloom;
       const ground = scene.userData.wetGround as WetGround | undefined;
       rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
-      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled)) {
+      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled)) {
         renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera);
         return false;
       }
       if (!sceneTarget) build();
       if (want && !gtao) buildOcclusion();
+      if (godRaysEnabled && !sunRays) sunRays = createSunRays(renderer, camera);
       if (bloomEnabled && !bloom) buildBloom();
       if (rainReflectionsEnabled && !rain) rain = createRainReflections(renderer, camera, ground!);
       const sky = scene.background instanceof THREE.Color ? scene.background : null;
@@ -110,12 +120,13 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       // Writes to the canvas (renderToScreen ignores the write buffer) without auto-clearing the sky just put there.
       const autoClear = renderer.autoClear; renderer.autoClear = false;
       output!.render(renderer, picture, picture, 0, false);
+      if (godRaysEnabled) sunRays!.render(picture, sceneTarget!.depthTexture!, wantGodRays as Exclude<SunRayQuality, 'off'>, sun!, sunUv, rayStrength);
       renderer.autoClear = autoClear;
       return want;
     },
     dispose() {
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); output?.dispose();
-      bloom?.dispose();
+      bloom?.dispose(); sunRays?.dispose();
       rain?.dispose(); water.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.
       bloom?.materialHighPassFilter.dispose();

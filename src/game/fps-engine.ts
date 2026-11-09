@@ -4596,7 +4596,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.occlusion = String(occlusion.render(!overviewActive() && atmosphere.light.occlusion && !vision.thermal,
         getGraphicsSettings().bloom && !vision.thermal && !nvgAiming,
         getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive(),
-        getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive()));
+        getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive(),
+        !vision.thermal && !nvgAiming && !overviewActive() ? getGraphicsSettings().godRays : 'off'));
+      canvas.dataset.godRays = String(occlusion.godRaysEnabled);
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
       canvas.dataset.waterReflections = String(occlusion.waterReflectionsEnabled);
       canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);

@@ -1,0 +1,105 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>God rays review and timing</title></head><body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
+import { createSceneKit } from '/src/game/scene-kit.ts';
+import { getRegion } from '/src/game/regions.ts';
+import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
+import { setGraphicsSettings } from '/src/game/graphics-settings.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1280,720);renderer.autoClear=false;renderer.info.autoReset=false;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(60,16/9,.1,900),district=new URLSearchParams(location.search).get('district');
+let world,air,cover;
+setGraphicsSettings({godRays:'low',rainReflections:false,waterReflections:false,grassDetail:'high'});
+if(district){
+ const region=getRegion(district);world=region.build();
+ setEnvironmentSettings({weather:'sunny',timeOfDay:'morning',celebration:'none',reducedEffects:false});
+ air=createWorldAtmosphere(world.scene,[],world.obstacles,false,renderer);
+ camera.position.set(region.spawn.x,1.7,region.spawn.z);camera.rotation.y=region.spawn.yaw;
+ air.update(0,camera,Date.UTC(2026,10,9,4));
+ // Aim the real camera towards the morning sun, keeping its source above centre.
+ const sun=world.scene.userData.sunRays.direction;
+ camera.lookAt(camera.position.clone().add(new THREE.Vector3(sun.x,sun.y-.3,sun.z).multiplyScalar(100)));
+}else{
+ const kit=createSceneKit({background:'#748b9b',fogNear:140,fogFar:500});
+ const wood=kit.mat('#6a4a34'),leaf=kit.mat('#386237'),stone=kit.mat('#6f7678');
+ kit.tree(-7,-18,11,wood,leaf);kit.tree(4,-22,13,wood,leaf);kit.tree(14,-30,15,wood,leaf);
+ kit.box(-20,10,-42,10,20,12,stone);kit.box(21,14,-45,9,28,16,stone);
+ kit.box(0,-.15,0,150,.2,150,kit.mat('#777b6b'));
+ // Vertical slats make depth-occluded shafts inspectable against a plain sky.
+ for(const x of [-4,-2,0,2,4])kit.box(x,13,-40,.45,10,1,wood);
+ cover=kit.box(0,8,2,160,160,.5,kit.mat('#717777'));cover.visible=false;
+ world=kit.finish({car:new THREE.Group(),stamps:[],animate(){}});
+ camera.position.set(0,3,18);camera.lookAt(0,9,-25);
+ world.scene.userData.sunRays={direction:{x:-.1,y:.4,z:-1},color:'#ffe0a5',elevation:22,sunlight:1,reduced:false};
+}
+const post=createWorldOcclusion(renderer,world.scene,camera);
+const render=renderer.render.bind(renderer);let sceneDraws=0,passQuery=null,wantPassTiming=false;
+renderer.render=(scene,...args)=>{
+ if(scene===world.scene)sceneDraws++;
+ if(wantPassTiming&&ext&&scene.material?.name==='Sun ray mask'){passQuery=gl.createQuery();gl.beginQuery(ext.TIME_ELAPSED_EXT,passQuery);}
+ const result=render(scene,...args);
+ if(wantPassTiming&&ext&&scene.material?.name==='Sun ray composite')gl.endQuery(ext.TIME_ELAPSED_EXT);
+ return result;
+};
+let current={quality:'low',ao:true,bloom:true};
+window.draw=(options={})=>{
+ current={...current,...options};renderer.info.reset();sceneDraws=0;
+ world.animate(1);if(air)air.update(0,camera,Date.UTC(2026,10,9,4));
+ post.render(current.ao,current.bloom,false,false,current.quality);
+ return {enabled:post.godRaysEnabled,size:post.godRaysSize,calls:renderer.info.render.calls,sceneDraws};
+};
+function pixels(){const gl=renderer.getContext(),p=new Uint8Array(renderer.domElement.width*renderer.domElement.height*4);gl.readPixels(0,0,renderer.domElement.width,renderer.domElement.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;}
+window.compare=()=>{
+ window.draw({quality:'off'});const a=pixels();window.draw({quality:'high'});const b=pixels();let changed=0,energy=0;
+ for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>8)changed++;energy+=d;}
+ window.draw({quality:'off'});const restored=pixels().every((v,i)=>v===a[i]);return{changed,energy,restored};
+};
+window.block=()=>{cover.visible=true;const result=window.compare();cover.visible=false;return result};
+window.gates=()=>{
+ const original=structuredClone(world.scene.userData.sunRays),result={};
+ for(const [name,patch]of [['night',{elevation:-10}],['reduced',{reduced:true}],['behind',{direction:{x:0,y:.2,z:1}}]]){
+  Object.assign(world.scene.userData.sunRays,original,patch);result[name]=window.draw({quality:'high'});
+ }
+ Object.assign(world.scene.userData.sunRays,original);return result;
+};
+window.resize=(w,h)=>{renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();post.setSize();return window.draw()};
+const gl=renderer.getContext(),ext=gl.getExtension('EXT_disjoint_timer_query_webgl2'),debug=gl.getExtension('WEBGL_debug_renderer_info');
+window.hardware={renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),gpuTimer:!!ext};
+const percentile=(a,p)=>[...a].sort((x,y)=>x-y)[Math.floor((a.length-1)*p)];
+window.benchmark=async(ao=true,bloom=true,count=60)=>{
+ const results={off:[],low:[],high:[]},gpu={off:[],low:[],high:[]},states={};
+ for(const quality of ['off','low','high'])for(let i=0;i<12;i++)window.draw({quality,ao,bloom});gl.finish();
+ for(let block=0;block<3;block++)for(const quality of (block%2?['high','low','off']:['off','low','high'])){
+  for(let warm=0;warm<8;warm++)window.draw({quality,ao,bloom});gl.finish();
+  for(let i=0;i<Math.ceil(count/3);i++){
+  await new Promise(requestAnimationFrame);gl.finish();
+  const query=ext?gl.createQuery():null;if(query)gl.beginQuery(ext.TIME_ELAPSED_EXT,query);
+  const start=performance.now();states[quality]=window.draw({quality,ao,bloom});if(query)gl.endQuery(ext.TIME_ELAPSED_EXT);gl.finish();results[quality].push(performance.now()-start);
+  if(query){while(!gl.getQueryParameter(query,gl.QUERY_RESULT_AVAILABLE))await new Promise(r=>setTimeout(r,1));
+   if(!gl.getParameter(ext.GPU_DISJOINT_EXT))gpu[quality].push(gl.getQueryParameter(query,gl.QUERY_RESULT)/1e6);gl.deleteQuery(query);}
+  }
+ }
+ return {hardware:window.hardware,resolution:[renderer.domElement.width,renderer.domElement.height],ao,bloom,samples:count,
+  results:Object.fromEntries(Object.keys(results).map(k=>[k,{medianMs:percentile(results[k],.5),p95Ms:percentile(results[k],.95),gpuMedianMs:gpu[k].length?percentile(gpu[k],.5):null,...states[k]}]))};
+};
+window.passBenchmark=async(count=60)=>{
+ if(!ext)return null;
+ const result={};
+ for(const quality of ['low','high']){
+  for(let i=0;i<12;i++)window.draw({quality,ao:true,bloom:true});
+  const times=[];
+  for(let i=0;i<count;i++){
+   await new Promise(requestAnimationFrame);wantPassTiming=true;window.draw({quality});wantPassTiming=false;
+   if(!passQuery)throw Error('Sun ray pass did not run');
+   while(!gl.getQueryParameter(passQuery,gl.QUERY_RESULT_AVAILABLE))await new Promise(r=>setTimeout(r,1));
+   if(!gl.getParameter(ext.GPU_DISJOINT_EXT))times.push(gl.getQueryParameter(passQuery,gl.QUERY_RESULT)/1e6);
+   gl.deleteQuery(passQuery);passQuery=null;
+  }
+  result[quality]={gpuMedianMs:percentile(times,.5),gpuP95Ms:percentile(times,.95),samples:times.length};
+ }
+ return result;
+};
+window.move=(x,y,z,tx,ty,tz)=>{camera.position.set(x,y,z);camera.lookAt(tx,ty,tz);return window.draw()};
+window.draw();window.ready=true;
+</script></body></html>

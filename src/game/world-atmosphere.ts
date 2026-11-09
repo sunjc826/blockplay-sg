@@ -1,3 +1,4 @@
+import type { SunRayLight } from './sun-rays';
 import { setTreeWeather } from './tree-wind';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
@@ -48,7 +49,11 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   let lighting: LightingState = dayLighting(13);
   /** What the frame's light amounts to, for the parts of the view the scene's lights do not reach. */
   const output = { lighting, key: 1, ambient: 1, skyVisibility: 1, moonVisibility: 1, shadows: true, occlusion: true };
-  /** The air round the camera, eased like the light, for what lands on or glints in front of the lens (fps-lens). */
+  // Shared with the depth-based sunlight post-process.
+  const originalSunRays = scene.userData.sunRays;
+  const sunRays: SunRayLight = { direction: { x: 0, y: 1, z: 0 }, color: '#fff3e2', elevation: -90, sunlight: 0, reduced: false };
+  scene.userData.sunRays = sunRays;
+  /** Eased air conditions around the camera, shared with lens and audio effects. */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const receivers = createRainReceivers(scene), rainGround = scene.userData.rainGroundHeight ?? groundHeight ?? (() => 0);
@@ -141,6 +146,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       wetness += (preset.rain - wetness) * blend; wind += (preset.wind - wind) * blend;
       setTreeWeather(scene, wind, reduced);
       haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
+      sunRays.direction = lighting.key; sunRays.color = lighting.keyColor; sunRays.elevation = lighting.elevation;
+      sunRays.sunlight = sunlight; sunRays.reduced = reduced;
       const time = (now % 3600_000) / 1000;
       scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail);
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
@@ -199,6 +206,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     },
     dispose() {
       if (disposed) return; disposed = true;
+      if (originalSunRays === undefined) delete scene.userData.sunRays; else scene.userData.sunRays = originalSunRays;
       bulbs.forEach(mesh => mesh.dispose());
       rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
