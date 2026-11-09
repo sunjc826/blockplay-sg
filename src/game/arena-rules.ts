@@ -667,7 +667,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     delete entry.actor.bailoutAt;
     Object.assign(entry.actor, { x: p.x, z: p.z }, { y: 1.75 + (destination?.y ?? bounds.groundHeight?.(p.x,p.z) ?? 0), health: entry.healthMax, armor: entry.armorMax, alive: true, prone: false, respawnIn: 0,
       yaw: destination?.yaw ?? (Number.isFinite(preferred?.yaw) ? preferred!.yaw! : 0), pitch: Number.isFinite(preferred?.pitch) ? clamp(preferred!.pitch!, -1.5, 1.5) : 0 });
-    if (entry.role && entry.actor.faction === PLAYER_FACTION && !teamArea) {
+    if (entry.role && entry.actor.faction === PLAYER_FACTION) {
       // Heavy gunners carry the issued FN MAG; other support troops use the Ultimax.
       entry.actor.weapon = forcesFamily(entry.role); delete entry.actor.variant;
       entry.spec = entry.role.id === 'heavy' ? FPS_WEAPONS[entry.actor.weapon] : undefined;
@@ -3988,7 +3988,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const count = teamArea ? 0 : environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
   const fixedPopulation = environment?.reinforcements && Number.isFinite(environment.population) ? Math.floor(clamp(environment.population!, count, regularLimit)) : count;
   let enlisted = 0, friendly = 0;
-  /** Friendly soldiers carry issued rifles, Ultimax support weapons or FN MAGs, and drop nothing. */
+  /** Armed Forces bots carry issued rifles, Ultimax support weapons or FN MAGs in every mode. */
   const forcesFamily = (role: ArenaRolePlugin) => role.id === 'heavy' ? 3 : role.id === 'tank' ? 1 : 0;
   /** A recruit's role under heat: the hotter the side, the more support gunners and marksmen in the mix. */
   function heatedRole(faction: SquadFaction) {
@@ -4006,7 +4006,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const roleId = recruit && factionHeat && (composition === 'mixed' || faction === PLAYER_FACTION) ? heatedRole(faction)
       : teamArea ? 'assault' : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
     const role = getArenaRole(roleId) ?? getArenaRole('assault')!;
-    const armed = !teamArea && faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
+    const armed = faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
     // Each spawn puts their rank's title before this.
     const name = faction === PLAYER_FACTION ? FORCES_NAMES[friendly++ % FORCES_NAMES.length] : CALLSIGNS[i % CALLSIGNS.length];
     // Recruits arrive unannounced: the transport's banner is their entrance.
