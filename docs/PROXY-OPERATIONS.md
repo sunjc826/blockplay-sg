@@ -80,7 +80,7 @@ when the operation spawns: **Soft Power · Foreign Aid** (SCAR-L, 5.56 mm,
 7.62 mm, 20-round magazines, 2× optic), or **Smart Power · Targeted Assistance** (semi-automatic
 precision rifle, 7.62 mm, 10-round magazines, 4× optic), **Peace Offering ·
 Escalation Clause** (40-round 5.56 mm rifle and separate 6-round 20 mm impact
-launcher, shared 4× sight), or **M200 Intervention** (7-round .408 bolt-action
+launcher, shared 4× sight), or **Foreign Intervention** (7-round .408 bolt-action
 sniper, 6× sight and deployable bipod). All five are Mythic; each has a 20% chance. The selection remains
 fixed through warning, inspection and recovery; the choice panel names the
 weapon before acting. Freedom Force cargo never grants a SAR 21.

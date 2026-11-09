@@ -18,7 +18,7 @@ is not expanded into matching assault/heavy/sniper classes.
 | Freedom Force / Lancer option | FN SCAR-L | **Soft Power · Foreign Aid** (`ff-scar-l`) | Compact family upper, narrow curved magazine, shared folding-style stock and a low reflex hood |
 | Freedom Force / Wayfinder option | FN SCAR-H | **Hard Power · Strings Attached** (`ff-scar-h`) | Broader receiver and magazine well, wider straight magazine, prism optic; distinct from the Smart Power precision configuration |
 | Freedom Force / Wayfinder | FN Mk 20 / SCAR 20S | **Smart Power · Targeted Assistance** (`ff-longwatch`) | Extended upper, precision stock, short box magazine, large scope and folded bipod give the observer a distinct long silhouette |
-| Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **M200 Intervention** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
+| Freedom Force / Wayfinder precision option | CheyTac M200 Intervention | **Foreign Intervention** (`ff-intervention`) | Exposed long barrel, round fore-end, under-barrel carry handle, twin stock rods, bipod and rear monopod |
 | Collective Corps / Bastion | QBZ-95 family | **Strong Objection No. 496 · Final Warning No. 497** (`cc-gatekeeper`) | Bullpup magazine behind the hand, raised open carry bridge, integrated rear stock and pointed fore-end give the protected-entry specialist a different equipment language |
 | Collective Corps / Conductor | QBZ-191 family | **Consensus Builder · Unanimous Vote** (`cc-network`) | Conventional forward magazine, continuous rail and stepped adjustable-stock shape suit a modern sensor-coordination concept |
 | Collective Corps / Conductor experimental option | QTS-11 integrated combat system | **Win-Win Cooperation · Mutual Benefit** (`cc-qts11`) | Dual projecting barrels, a slimmer upper launcher shell, open stock and offset sight/sensor housing contrast with the XM29 |
@@ -171,7 +171,7 @@ magazines and reloads. See [cargo implementation](PROXY-OPERATIONS.md) for U /
 mode controls and tuning. Range programming and targeting electronics remain
 outside that implementation.
 
-**M200 Intervention:** an additional Freedom Force precision candidate,
+**Foreign Intervention (M200):** an additional Freedom Force precision candidate,
 not a replacement for Smart Power. The manufacturer's side photo informed the
 long exposed barrel, round fore-end, open under-barrel carry handle, stock rods,
 cheek rest, large scope, bipod and rear monopod. Bone/sand hardware, steel-blue
@@ -180,7 +180,7 @@ are real negative space; the bipod is splayed for review. The model is visibly
 longer than Smart Power at the same scale. Portrait framing now allows the longer
 profile for every study without individually rescaling weapons.
 
-The display name is M200 Intervention; no fictional name is selected. Its
+The display name is Foreign Intervention; its real-world reference is the CheyTac M200 Intervention. Its
 Mythic cargo version now has a manual bolt cycle, a live 6× sight, .408
 magazines, a deployable bipod and weapon-specific recorded action audio. The
 gallery retains its static review pose; the rear monopod remains static.

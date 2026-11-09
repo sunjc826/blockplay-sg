@@ -1299,7 +1299,7 @@ remain separate.
 
 ### Intervention variable scope
 
-The Mythic M200 Intervention has 3×, 6×, 9× and 12× optical zoom, starting at
+The Mythic Foreign Intervention has 3×, 6×, 9× and 12× optical zoom, starting at
 6×. Scroll while aiming or press `[` / `]` to change one setting; the scope
 readout has −/+ buttons for touch. It remembers the setting across weapon
 switches during the session. The picture transitions smoothly, and aiming
