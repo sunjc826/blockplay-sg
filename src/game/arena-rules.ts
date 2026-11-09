@@ -4,7 +4,7 @@ import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
 import { refillAmmo } from './ammo-refill';
 import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
 import { BOAT_AI, BOAT_BERTHS, BOAT_FOOT_ANCHORS, boatAutopilot, planBoatRoute, type BoatRoute, type BoatPoint } from './dragon-boat-autopilot';
-import { createMerlionController, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
+import { createMerlionController, inMerlionMist, mistBetween, nearMerlion, merlionMouth, MERLION, type MerlionState, type MerlionAction } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
@@ -3347,9 +3347,18 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if(entry.anchor||entry.order&&entry.order.until>elapsed){if(s.operator===a.id)merlionAction(a.id,'leave');return false;}
     if(a.swimming||a.parachuting||a.vehicle||a.transport||Math.hypot(a.x,a.z-MERLION.z)>6||arenaConditionModifiers(a.conditions).dazed)return false;
     if(s.operator&&s.operator!==a.id)return false;
+    // Keep suppressing the last visible position through our own burst. Do not
+    // reacquire or track hidden actors through the mist, or abandon it immediately.
+    if(s.operator===a.id&&s.mist>0){
+      merlion.input(a,s.firing,true);
+      if(s.pressure<.05&&s.recovering>0)merlionAction(a.id,'leave');
+      return true;
+    }
+    const mistReady=s.cooldown===0&&s.pressure>=MERLION.mistCost;
+    const targetRange=mistReady?Math.max(MERLION.range,MERLION.mistRange):MERLION.range;
     const target=[...members.values()].filter(m=>{
       const origin=merlionMouth(Math.atan2(-m.actor.x,MERLION.z-m.actor.z)),length=distance(origin,m.actor);
-      if(!m.actor.alive||m.reserve||!hostile(a,m.actor)||length<.01||length>=MERLION.range||smokeBetween(a,m.actor))return false;
+      if(!m.actor.alive||m.reserve||!hostile(a,m.actor)||length<.01||length>targetRange||smokeBetween(a,m.actor))return false;
       const ray={x:(m.actor.x-origin.x)/length,y:(m.actor.y-origin.y)/length,z:(m.actor.z-origin.z)/length};
       return merlionTrace(origin,ray,length)>=length-.1;
     })
@@ -3377,8 +3386,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if(!s.operator)merlionAction(a.id,'operate');
     a.prone=false;a.yaw=Math.atan2(-target.x,MERLION.z-target.z);
     const origin=merlionMouth(a.yaw);a.pitch=Math.atan2(target.y-origin.y,Math.hypot(target.x-origin.x,target.z-origin.z));
-    if(distance(a,target)<8&&s.cooldown===0)merlionAction(a.id,'mist');
-    merlion.input(a,!!target,true);
+    if(mistReady&&inMerlionMist(s,target))merlionAction(a.id,'mist');
+    merlion.input(a,distance(origin,target)<=MERLION.range,true);
     // Relieve an exhausted post rather than permanently occupying it.
     if(s.pressure<.05&&s.recovering>0)merlionAction(a.id,'leave');
     return true;

@@ -377,8 +377,11 @@ There is an eight-second pickup interval per actor; one pack replenishes every
 expedition district travel. A new arena match resets the station.
 
 Bots already on the island can navigate to the wheel, claim it when free, rotate
-and fire at visible enemies, use mist against nearby threats, and release a post
-with no target. Boat missions now bring nearby squads to the island (see below);
+and fire at visible enemies. When mist is ready, they acquire targets up to 75m
+from the mouth and wait until the aimed cone covers the target before releasing
+it. Targets beyond the 65m cannon range receive mist without wasting cannon
+pressure. During their burst bots hold their last visible aim, rather than
+tracking enemies hidden by the cloud. They release a post with no usable target. Boat missions now bring nearby squads to the island (see below);
 infantry still uses dry walking routes to board and disembark. Host authority
 owns occupancy, aiming rate, pressure, supplies and water contact in solo and shared combat sessions; clients submit intent only.
 

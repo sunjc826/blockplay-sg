@@ -180,6 +180,48 @@ describe('Merlion arena authority',()=>{
     expect(a.snapshot().merlion?.operator).toBe('bot-1');expect(a.snapshot().merlion?.firing).toBe(true);
     expect(p().conditions?.['water-eyes']?.strength).toBe(1);expect(p().health).toBe(100);
   });
+  it.each([50,75,-75])('aims and mists a distant target at x=%i, including beyond cannon range',x=>{
+    const e={...env,spawns:[MERLION.console],playerSpawn:{x,z:-12}};
+    const a=createArena(taggedWater,1,'assault',e,undefined,undefined,clear);a.addPlayer('p','Target',0,0,undefined,undefined,true);
+    const player=()=>a.snapshot().actors.find(actor=>actor.id==='p')!;
+    a.setInput('p',{...player(),playing:true});
+    if(x<0){a.step(.05);expect(a.snapshot().merlion?.mist).toBe(0);expect(a.snapshot().merlion?.pressure).toBe(1);}
+    let burst=false,wet=false;
+    for(let i=0;i<65;i++){
+      a.step(.05);const s=a.snapshot().merlion!;
+      if(s.mist>0){
+        if(!burst)expect(inMerlionMist(s,player())).toBe(true);
+        burst=true;expect(s.operator).toBe('bot-1');
+        if(Math.abs(x)>MERLION.range){expect(s.firing).toBe(false);expect(s.pressure).toBeGreaterThanOrEqual(.59);}
+      }
+      if((player().conditions?.['water-eyes']?.strength??0)>0)wet=true;
+    }
+    expect(burst).toBe(true);expect(wet).toBe(true);
+    if(Math.abs(x)>MERLION.range)expect(player().conditions?.['water-eyes']?.strength).toBe(.48);
+    expect(player().health).toBe(100);
+  });
+  it('holds its last aim during mist rather than tracking a hidden moving target',()=>{
+    const e={...env,spawns:[MERLION.console],playerSpawn:{x:70,z:-12}};
+    const a=createArena(taggedWater,1,'assault',e,undefined,undefined,clear);a.addPlayer('p','Target',0,0,undefined,undefined,true);
+    const player=()=>a.snapshot().actors.find(actor=>actor.id==='p')!;
+    a.setInput('p',{...player(),playing:true});
+    for(let i=0;i<8;i++)a.step(.05);
+    expect(a.snapshot().merlion!.mist).toBeGreaterThan(0);
+    const aim=a.snapshot().actors.find(actor=>actor.id==='bot-1')!.yaw;
+    a.setInput('p',{...player(),z:40,playing:true});
+    for(let i=0;i<20;i++)a.step(.05);
+    expect(a.snapshot().actors.find(actor=>actor.id==='bot-1')!.yaw).toBeCloseTo(aim);
+    expect(a.snapshot().merlion!.operator).toBe('bot-1');
+    expect(a.snapshot().merlion!.firing).toBe(false);
+  });
+  it.each([{x:77,blocked:false},{x:70,blocked:true}])('does not spend mist on an unreachable target %j',({x,blocked})=>{
+    const e={...env,spawns:[MERLION.console],playerSpawn:{x,z:-12}};
+    const a=createArena(taggedWater,1,'assault',e,undefined,undefined,blocked?(_o,_d,r)=>Math.min(r,5):clear);
+    a.addPlayer('p','Target',0,0,undefined,undefined,true);
+    const player=a.snapshot().actors.find(actor=>actor.id==='p')!;a.setInput('p',{...player,playing:true});
+    for(let i=0;i<20;i++)a.step(.05);
+    expect(a.snapshot().merlion).toMatchObject({mist:0,cooldown:0,pressure:1,operator:null});
+  });
   it('does not add a Merlion to other districts and resets spent supplies for a new match',()=>{
     expect(createArena([],0,'assault',env).snapshot().merlion).toBeUndefined();
     const a=createArena(taggedWater,0,'assault',{...env,playerSpawn:MERLION.cache});a.addPlayer('p','Player',0,0,undefined,undefined,true);const p=a.snapshot().actors[0];a.setInput('p',{...p,playing:true});

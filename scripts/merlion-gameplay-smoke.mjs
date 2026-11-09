@@ -34,6 +34,11 @@ try{
  await key('q','KeyQ');await wait('window.hud.merlion.state.mist>0');assert.equal(await evaluate('!!document.querySelector(".merlion-water-screen.mist")'),false);
  await key('e','KeyE');await wait('!window.hud.merlion.operating');
  await enter('?mode=cache');await wait('!!document.querySelector(".merlion-hud")');await key('e','KeyE');await wait('window.hud.arena.merlion.packs===2');assert.equal(await evaluate('window.hud.health'),75);await shot('cache');
+ await enter('?mode=bot-mist');await wait('window.hud.arena.merlion.operator==="bot-1"');
+ await wait('window.hud.arenaSelf.conditions?.["water-eyes"]?.strength===.48');
+ const distant=await evaluate('({self:structuredClone(window.hud.arenaSelf),state:structuredClone(window.hud.arena.merlion)})');
+ assert.ok(Math.hypot(distant.self.x,distant.self.z+12)>65);assert.equal(distant.state.firing,false);assert.ok(distant.state.pressure>=.59);assert.equal(distant.self.health,50);
+ await shot('bot-mist-shore');
  await enter('?mode=bot');await wait('window.hud.arena.merlion.operator==="bot-1"');await wait('window.hud.arenaSelf.conditions?.["water-eyes"]?.strength===1');await wait('!!document.querySelector(".merlion-water-screen.cannon")');await shot('cannon-victim');
  const bot=await evaluate('({self:structuredClone(window.hud.arenaSelf),state:structuredClone(window.hud.arena.merlion)})');assert.equal(bot.self.health,50);
  await wait('!window.hud.arenaSelf.conditions?.["water-eyes"]',15000);await shot('vision-restored');
@@ -50,5 +55,5 @@ try{
  await click('[data-touch-action=aim]');await wait('window.hud.merlion.state.mist>0');
  await click('[data-touch-action=vehicle]');await wait('!window.hud.merlion.operating');
  await delay(900);assert.equal(await evaluate('window.hud.merlion.operating'),false);
- assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,firing,bot,errors},null,2));console.log('PASS: real engine range approach and boarding, combat desktop/touch controls, rotating cannon, bot operation and player blindness/recovery, mist, finite supplies.');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,firing,bot,distant,errors},null,2));console.log('PASS: real engine range approach and boarding, combat desktop/touch controls, rotating cannon, bot mist beyond cannon range, bot operation and player blindness/recovery, mist, finite supplies.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}
