@@ -726,7 +726,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (teamArea && !members.has(id) && [...members.values()].filter(m=>!m.actor.bot).length>=4) return;
     const team=teamArea ? ARENA_TEAMS.reduce((best,t)=>[...members.values()].filter(m=>!m.actor.bot&&m.actor.team===t).length < [...members.values()].filter(m=>!m.actor.bot&&m.actor.team===best).length?t:best) : undefined;
     // Replace a bot before spawning the human so its occupied point is available.
-    if (team && !members.has(id)) { const bot=[...members.values()].find(m=>m.actor.bot&&m.actor.team===team); if(bot) {grenadeSystem.removeCaller(bot.actor.id);members.delete(bot.actor.id);} }
+    if (team && !members.has(id)) {
+      const bots=[...members.values()].filter(m=>m.actor.bot&&m.actor.team===team);
+      // Humans take rifle slots first so both support roles survive joins and refills.
+      const bot=bots.find(m=>m.role?.id==='assault') ?? bots[0];
+      if(bot) {grenadeSystem.removeCaller(bot.actor.id);members.delete(bot.actor.id);}
+    }
     const entry = addMember(id, name, armor, absorption, weapons, usePlayerSpawn, allowed, insert, team); if (!entry) return;
     if(teamArea) fillTeams();
     if (initialVitals) setPlayerVitals(id, initialVitals); announce(`${entry.actor.name} joined`);
@@ -4008,6 +4013,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   let enlisted = 0, friendly = 0;
   /** Armed Forces bots carry issued rifles, Ultimax support weapons or FN MAGs in every mode. */
   const forcesFamily = (role: ArenaRolePlugin) => role.id === 'heavy' ? 3 : role.id === 'tank' ? 1 : 0;
+  /** Fill missing roles per team, including when a departing human is replaced. */
+  function teamBotRole(team: ArenaTeam) {
+    const bots = [...members.values()].filter(m => m.actor.bot && m.actor.team === team);
+    const roster = [['assault', 2], ['tank', 1], ['heavy', 1]] as const;
+    return roster.find(([role, slots]) => bots.filter(m => m.role?.id === role).length < slots)?.[0] ?? 'assault';
+  }
   /** A recruit's role under heat: the hotter the side, the more support gunners and marksmen in the mix. */
   function heatedRole(faction: SquadFaction) {
     const s = factionHeat!.districtStrength(faction), weights = faction === PLAYER_FACTION ? [1, .3 * s, .3 * s, .2 * s] : [1, .2 + .8 * s, .2 + .5 * s, .2 + .5 * s];
@@ -4022,7 +4033,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function enlist(recruit = false, faction: SquadFaction = 'mercenaries', team?: ArenaTeam) {
     const i = enlisted++, id = `bot-${i + 1}`;
     const roleId = recruit && factionHeat && (composition === 'mixed' || faction === PLAYER_FACTION) ? heatedRole(faction)
-      : teamArea ? 'assault' : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
+      : teamArea && team ? teamBotRole(team) : faction === PLAYER_FACTION ? 'assault' : composition === 'mixed' ? ['assault', 'heavy', 'sniper', 'tank'][i % 4] : composition;
     const role = getArenaRole(roleId) ?? getArenaRole('assault')!;
     const armed = faction === PLAYER_FACTION ? [forcesFamily(role)] : armamentFamilies(role), weapons = FPS_WEAPONS.map((w, index) => armed.includes(index) ? role.weapon : w);
     // Each spawn puts their rank's title before this.
