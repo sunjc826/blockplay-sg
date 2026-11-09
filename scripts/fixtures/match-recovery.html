@@ -1,0 +1,61 @@
+<!doctype html><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative}#world{height:calc(100vh - 44px);width:100vw}button{padding:12px}</style>
+<button id="enter">Enter match</button><div class="fps-game"><div id="world"></div><div id="hud"></div></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+const {default:FpsLootCard}=await import('/src/components/FpsLootCard.tsx');
+await import('/src/components/expedition.css');
+await import('/src/styles.css');
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
+import {itemById} from '/src/game/armory-catalog.ts';
+import {shootAndLand} from '/src/game/arena-test-shots.ts';
+import {createArena} from '/src/game/arena-rules.ts';
+import {TDM_AREAS} from '/src/game/arena-match.ts';
+import {SMITH_CONTROL_SITES} from '/src/game/hardpoint.ts';
+const mode=new URLSearchParams(location.search).get('mode')??'ffa', area=TDM_AREAS.find(a=>a.id==='smith-street');
+let placement=null;
+const environment={bounds:mode==='ffa'?{minX:-200,maxX:200,minZ:-200,maxZ:200}:area.bounds,move:(p,dx,dz)=>p.bot?(placement?.id===p.id?{x:placement.x,z:placement.z}:p):({x:p.x+dx,z:p.z+dz}),
+ spawns:mode==='ffa'?[{x:-103,z:95.5}]:[...area.spawns.alpha,...area.spawns.bravo],
+ ...(mode==='tdm'?{teamDeathmatch:area}:mode==='hardpoint'?{hardpoint:{area,sites:SMITH_CONTROL_SITES}}:{})};
+let collecting=false;
+window.sim=createArena([],mode==='ffa'?1:0,'heavy',environment,undefined,undefined,()=>collecting?Infinity:0);
+const profile=createProfile(),kit=resolveLoadout(profile);window.original=JSON.stringify(profile);
+sim.addPlayer('guest','Player',0,0,kit.weapons,undefined,false,kit.carriedFamilies);
+const handlers=new Set();let started=false;
+const publish=()=>{const packet={type:'arena-state',snapshot:sim.snapshot(),started,matchId:'fixture'};for(const cb of handlers)cb('host',structuredClone(packet));};
+const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',name:'Host'}],isConnected:()=>true,onPeers:()=>()=>{},close(){},
+ subscribe:cb=>{handlers.add(cb);return()=>handlers.delete(cb)},send:p=>{
+ if(p.type==='arena-input')sim.setInput('guest',p.input);
+ if(p.type==='arena-shot')sim.shoot('guest',p.origin,p.direction,p.weapon,p.maxDistance);
+ if(p.type==='arena-reload')sim.reloadPlayer('guest',p.weapon,p.capacity);
+ if(p.type==='arena-pickup'){collecting=true;window.accepted=sim.pickupWeapon('guest',p.id);collecting=false;}
+ if(p.type==='arena-armor-pickup'){collecting=true;window.accepted=sim.pickupArmor('guest',p.id);collecting=false;}
+ if(p.type==='arena-hello'||p.type==='arena-pickup'||p.type==='arena-armor-pickup')publish();
+ }};
+const root=ReactDOM.createRoot(document.querySelector('#hud'));window.touch=false;
+window.renderHud=()=>root.render(React.createElement(FpsLootCard,{hud:window.hud,touch:window.touch,actions:window.touch?{take:()=>engine.interactLoot()}:undefined}));
+window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;window.renderHud();},{loadout:kit,arena:{session,profile,botCount:0,environment,
+ ...(mode==='ffa'?{}:{match:{mode:mode==='tdm'?'team-deathmatch':'hardpoint',area:'smith-street'}})}});
+window.profile=profile;
+setInterval(()=>{if(started)sim.step(.05);publish()},50);
+document.querySelector('#enter').onclick=()=>{started=true;publish();engine.start()};
+window.makeArmorDrop=()=>{
+ const a=sim.snapshot().actors.find(a=>a.id==='guest'),bot=sim.snapshot().actors.find(b=>b.bot&&(!a.team||b.team!==a.team)&&b.role==='heavy');
+ placement={id:bot.id,x:a.x-Math.sin(hud.yaw)*1.5,z:a.z-Math.cos(hud.yaw)*1.5};
+ for(let i=0;i<90;i++)sim.step(.05);
+ for(let i=0;i<15&&sim.snapshot().actors.find(b=>b.id===bot.id).alive;i++) {
+   const player=sim.snapshot().actors.find(a=>a.id==='guest'),target=sim.snapshot().actors.find(a=>a.id===bot.id);
+   const dx=target.x-player.x,dy=target.y-.6-player.y,dz=target.z-player.z,d=Math.hypot(dx,dy,dz);
+   collecting=true;shootAndLand(sim,'guest',player,{x:dx/d,y:dy/d,z:dz/d},0);collecting=false;
+   for(let n=0;n<4;n++)sim.step(.05);
+ }
+ const drop=sim.snapshot().armorDrops.at(-1);
+ collecting=true;for(const weapon of sim.snapshot().weaponDrops)sim.pickupWeapon('guest',weapon.id);collecting=false;
+ placement=null;publish();return drop;
+};
+window.hurt=()=>{sim.setPlayerVitals('guest',{health:20});publish()};
+window.advance=seconds=>{for(let i=0;i<seconds*20;i++)sim.step(.05);publish()};
+window.die=()=>{sim.setPlayerVitals('guest',{health:0});publish()};
+</script>

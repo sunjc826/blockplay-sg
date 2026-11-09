@@ -1,3 +1,4 @@
+import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { STREAKS, type StreakId } from './match-streaks';
 import { createStreakVisuals, streakReconMarkers, streakFriendly } from './match-streak-visuals';
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
@@ -661,7 +662,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, world.bounds.groundHeight?.(x,z) ?? 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
   const matchDrops = !expedition && !!options.arena;
   const markers = expedition || matchDrops ? createExpeditionMarkers(world.scene, expedition?.zone ?? null, hud.fieldLoot, npcs) : null;
-  let pickupSeen = 0;
+  let pickupSeen = 0, armorPickupSeen = 0;
   const renderedDrops = new Set<string>();
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
@@ -1407,13 +1408,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (matchDrops) {
       focusedLoot = hud.phase === 'playing' && hud.arenaSelf?.alive && !vehicles.active
         ? focusLoot(hud.fieldLoot, { ...position, y: vertical }, camera.position, camera.getWorldDirection(lookDirection)) : null;
-      if (focusedLoot) {
+      if (focusedLoot?.kind === 'armor') {
+        hud.lootCard = matchArmorCard(focusedLoot, hud.armor, equipment.armor);
+      } else if (focusedLoot) {
         const item = itemById(focusedLoot.catalogId!)!, replaced = putDownFor(item.family!);
         hud.lootCard = { id: focusedLoot.id, name: item.name, tier: item.tier, kind: 'weapon', type: 'Dropped weapon',
           description: item.description, stats: [], action: 'Pick up', detail: `Replaces ${specs[replaced].name}`,
           note: 'Full magazine + spare ammo · equipped until respawn' };
       } else hud.lootCard = null;
-      hud.lootPrompt = focusedLoot ? `E · Pick up ${focusedLoot.name} + ammo` : '';
+      hud.lootPrompt = focusedLoot ? `E · ${hud.lootCard!.action} ${focusedLoot.name}${focusedLoot.kind === 'weapon' ? ' + ammo' : ''}${hud.lootCard!.blocked ? ` · ${hud.lootCard!.blocked}` : ''}` : '';
       markers?.focus(focusedLoot?.id ?? null);
       return;
     }
@@ -1485,7 +1488,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function interactLoot(action: ArmorPickupAction = 'collect') {
     if (matchDrops) {
-      if (action === 'collect' && hud.phase === 'playing' && hud.arenaSelf?.alive && !vehicles.active && focusedLoot && !supplyUse && !grenadeHeld) arenaRuntime?.pickupWeapon(focusedLoot.id);
+      if (action === 'collect' && hud.phase === 'playing' && hud.arenaSelf?.alive && !vehicles.active && focusedLoot && !supplyUse && !grenadeHeld) {
+        if (focusedLoot.kind === 'armor') arenaRuntime?.pickupArmor(focusedLoot.id);
+        else arenaRuntime?.pickupWeapon(focusedLoot.id);
+      }
       return;
     }
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
@@ -1556,6 +1562,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
     markers?.remove(collected.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
+  }
+  function applyMatchArmor(receipt: MatchArmorPickup) {
+    armorPickupSeen = receipt.serial;
+    if (receipt.plateId && fieldProfile.plate !== receipt.plateId) {
+      const next = copyProfile(fieldProfile);
+      next.owned = [...new Set([...next.owned, receipt.plateId])]; next.plate = receipt.plateId;
+      fieldProfile = next; equipment = resolveLoadout(next, { deferRentalExpiry: true });
+      options.onLoadout?.(equipment);
+    }
+    pickupSound('combat-pickup-armor');
+    hud.lootNotice = `${itemById(receipt.catalogId)!.name} recovered · ${Math.ceil(hud.armor)} armor`; lootNoticeTime = 3;
+    updateExpeditionPrompts();
   }
   function applyMatchPickup(receipt: MatchWeaponPickup) {
     pickupSeen = receipt.serial;
@@ -3737,11 +3755,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if('controlStations' in world)(world as ReturnType<typeof buildHardpointWorld>).controlStations.update(frame.snapshot?.hardpoint);
     proxyVisuals.update(frame.snapshot?.proxies);
     if (matchDrops) {
-      const drops = frame.snapshot?.weaponDrops ?? [], ids = new Set(drops.map(d => d.id));
+      const drops = frame.snapshot?.weaponDrops ?? [], armor = frame.snapshot?.armorDrops ?? [], ids = new Set([...drops, ...armor].map(d => d.id));
       for (const id of renderedDrops) if (!ids.has(id)) { markers?.remove(id); renderedDrops.delete(id); }
-      hud.fieldLoot = drops.map(drop => matchDropLoot(drop, region));
+      hud.fieldLoot = [...drops.map(drop => matchDropLoot(drop, region)), ...armor.map(drop => matchArmorLoot(drop, region))];
       for (const item of hud.fieldLoot) if (!renderedDrops.has(item.id)) { markers?.addDrop(item); renderedDrops.add(item.id); }
       if (!frame.self?.weaponPickup) pickupSeen = 0;
+      if (!frame.self?.armorPickup) armorPickupSeen = 0;
     }
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (frame.started && !wasStarted && hud.phase === 'playing' && !hud.muted) playTake('world-match-start', .7);
@@ -3865,6 +3884,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         updateCameras(0, false, false);
       }
       if (matchDrops && frame.self.alive && frame.self.weaponPickup && frame.self.weaponPickup.serial !== pickupSeen) applyMatchPickup(frame.self.weaponPickup);
+      if (matchDrops && frame.self.alive && frame.self.armorPickup && frame.self.armorPickup.serial !== armorPickupSeen) applyMatchArmor(frame.self.armorPickup);
       rig.visible = frame.self.alive && (!vehicles.active || vehicles.canUseFirearm && firstPersonVehicle());
     }
     if (newRound) seenImpacts.clear();
@@ -4509,7 +4529,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     updateCombatVisuals(realDt);
     if (debugAvailable && hud.phase === 'playing' && hud.health > 0) {
       recoveryDelay = Math.max(0, recoveryDelay - dt);
-      if (debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {
+      if (!matchDrops && debug.regeneration && recoveryDelay === 0 && hud.health < hud.maxHealth) {
         hud.health = regenerateHealth(hud.health, hud.maxHealth, dt); arenaRuntime?.setVitals({ health: hud.health });
       }
     }
