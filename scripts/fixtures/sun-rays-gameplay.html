@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>God ray settings in gameplay</title><style>html,body,#world{margin:0;height:100%;overflow:hidden}#start{position:absolute;z-index:10;top:10px;left:10px}#settings{position:absolute;z-index:20;top:0;right:0;width:440px;height:100%;overflow:auto;background:#152532;color:white}</style></head><body><div id="world"></div><button id="start">Start</button><div id="settings"></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import GraphicsSettings from '/src/components/GraphicsSettings.tsx';
+import { createProfile, equip, purchase, resolveLoadout } from '/src/game/armory-state.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
+import { setGraphicsSettings, getGraphicsSettings } from '/src/game/graphics-settings.ts';
+import { dayLighting, singaporeDayOfYear } from '/src/game/world-lighting.ts';
+const device=new URLSearchParams(location.search).get('device')||'nvg-gen2';
+const profile=equip(purchase({...createProfile(),xp:50000,credits:100000,tokens:10000},device).profile,device,0);
+setEnvironmentSettings({weather:'sunny',timeOfDay:'morning',celebration:'none',reducedEffects:false});setGraphicsSettings({godRays:'low',scale:1,bloom:true});
+const sun=dayLighting(9.5,singaporeDayOfYear(Date.now())).key,yaw=Math.atan2(-sun.x,-sun.z),pitch=Math.asin(sun.y)-.2;
+window.engine=createFpsEngine(document.getElementById('world'),hud=>window.hud=structuredClone(hud),{region:'marina-bay',combat:false,loadout:resolveLoadout(profile),deploymentIntro:false,rangeTravel:{spawn:{x:0,z:16,yaw,pitch},onTravel(){}}});
+createRoot(document.getElementById('settings')).render(React.createElement(GraphicsSettings));
+window.settings=getGraphicsSettings;window.environment=setEnvironmentSettings;
+document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').style.display='none';};
+</script></body></html>
