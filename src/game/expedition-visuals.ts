@@ -153,6 +153,7 @@ export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId | 
   };
   const locals: { npc: ExpeditionNpc; rig: CharacterRig; yaw: number; baseYaw: number; greeted: boolean; react: number; gesture: CharacterGesture }[] = [];
   for (const npc of npcs) {
+    if (!zone) continue; // Match-only markers have no district NPCs.
     const ground = floorAt(npc.x, npc.z);
     const group = new THREE.Group(); group.position.set(npc.x, ground, npc.z); root.add(group);
     const interaction = npc.interaction;
