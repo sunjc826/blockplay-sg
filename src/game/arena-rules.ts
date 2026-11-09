@@ -1036,6 +1036,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (!roundReady(ammo, entry.weapons[weapon])) { startReload(entry, weapon); return { ...EMPTY_SHOT }; }
     const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= floorAt(entry.actor) + 1.17, !entry.actor.prone && entry.actor.y <= floorAt(entry.actor) + 1.17);
     if (recoilDamage) {
+      entry.lastHurt = elapsed;
       const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
       entry.actor.health = damage.health; entry.actor.armor = damage.armor;
       if (!entry.actor.health) {
