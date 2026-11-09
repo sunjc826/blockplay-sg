@@ -1,3 +1,4 @@
+import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { STREAKS, type StreakId } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
@@ -44,7 +45,7 @@ import { createDeploymentBlur } from './deployment-blur';
 import { aerialNearPlane, createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta, WORLD_CAMERA_NEAR } from './deployment-overview';
 import { createDeploymentIntro, DEPLOYMENT_SECONDS } from './deployment-intro';
 import { createBriefingClock, type BriefingInfo } from './deployment-briefing';
-import { SPAWN_SHIELD_SECONDS } from './arena-rules';
+import { SPAWN_SHIELD_SECONDS, actorRayDistance } from './arena-rules';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
 import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeathRecapTracker, type DeathRecap, type DeathRecapView } from './death-recap';
@@ -4079,8 +4080,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function cancelStreak() { hud.streakPlacement = null; hud.streakNotice = ''; streakVisuals.preview(null, null, false); }
   function placementPoint() {
-    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = 100;
-    const hit = firstVisibleHit(pingRay, gameplayCandidates());
+    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = hud.streakPlacement === 'strike' ? PRECISION_STRIKE.range : 8;
+    const designating = hud.streakPlacement === 'strike';
+    const hit = firstVisibleHit(pingRay, gameplayCandidates().filter(o => !designating || !o.userData.arenaActorId));
+    if (designating) {
+      // Use the same body volumes as combat: skinned meshes and hidden LOD
+      // parts must not make an otherwise visible enemy impossible to designate.
+      let nearest = hit?.distance ?? PRECISION_STRIKE.range, target: ArenaActor | undefined;
+      for (const actor of hud.arena?.actors ?? []) {
+        if (!actor.alive || actor.id === hud.arenaSelf?.id) continue;
+        const distance = actorRayDistance(camera.position, pingForward, actor);
+        if (distance < nearest) { nearest = distance; target = actor; }
+      }
+      if (target) {
+        const floor = footMovement.supportHeight(target.x, target.z, target.y, .15, .2);
+        return floor === null ? null : new THREE.Vector3(target.x, floor, target.z);
+      }
+    }
     if (!hit || !hit.face || hit.face.normal.clone().transformDirection(hit.object.matrixWorld).y < .65) return null;
     return hit.point;
   }
@@ -4109,15 +4125,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return { at: null, reason: 'Your team already has an active Guardian.' };
     return result;
   }
+  function strikePreview(target: THREE.Vector3 | null) {
+    const self = hud.arenaSelf!;
+    const area = tdmArea(hardpoint ? 'smith-street' : tdm?.area ?? '');
+    const result = precisionStrikePlacement(camera.position, target, {
+      movement: footMovement, wallDistance: facilityCover.distance,
+      spawns: area ? Object.values(area.spawns).flat() : [],
+      protectedEnemies: hud.arena?.actors.filter(a => a.alive && a.shield && !streakFriendly(a, self)) ?? [],
+    });
+    if (hud.arena?.streaks?.effects.some(e => e.kind === 'strike' && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
+      return { at: null, reason: 'Your team already has an active Precision Strike.' };
+    return result;
+  }
   function confirmStreak() {
     const kind = hud.streakPlacement;
     if (!kind || hud.phase !== 'playing' || !hud.arenaSelf?.alive) return;
     const at = placementPoint();
-    if (kind === 'interceptor') {
-      const placement = guardianPreview(at);
+    if (kind === 'interceptor' || kind === 'strike') {
+      const placement = kind === 'strike' ? strikePreview(at) : guardianPreview(at);
       if (!placement.at) { hud.streakNotice = hud.message = `${placement.reason} Charge retained.`; publish(); return; }
     }
-    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? 100 : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${kind === 'strike' ? 100 : 8}m, then deploy. Charge retained.`; publish(); return; }
+    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? PRECISION_STRIKE.range : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${kind === 'strike' ? PRECISION_STRIKE.range : 8}m, then deploy. Charge retained.`; publish(); return; }
     arenaRuntime?.activateStreak(kind, { x: at.x, y: at.y, z: at.z }, ok => {
       hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : kind === 'interceptor' ? 'Placement changed or a teammate deployed a Guardian. Try another clear spot. Charge retained.' : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
       if (ok) cancelStreak(); publish();
@@ -4185,11 +4213,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.streakPlacement && (!hud.arenaSelf?.alive || snapshot.finished)) cancelStreak();
     if (hud.streakPlacement) {
       const at = placementPoint();
-      if (hud.streakPlacement === 'interceptor') {
-        const placement = guardianPreview(at);
-        streakVisuals.preview(placement.at ? { ...placement.at, y: placement.at.y - .7 } : at, hud.streakPlacement, !!placement.at);
+      if (hud.streakPlacement === 'interceptor' || hud.streakPlacement === 'strike') {
+        const placement = hud.streakPlacement === 'strike' ? strikePreview(at) : guardianPreview(at);
+        streakVisuals.preview(placement.at ? { ...placement.at, y: placement.at.y - (hud.streakPlacement === 'strike' ? .4 : .7) } : at, hud.streakPlacement, !!placement.at);
         hud.streakNotice = placement.reason;
-      } else streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= (hud.streakPlacement === 'strike' ? 100 : 8));
+      } else streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= 8);
     } else streakVisuals.preview(null, null, false);
     const eventThreatens = (event: CombatEventDescriptor, plugin: NonNullable<ReturnType<typeof getCombatEvent>>) => {
       const reward = snapshot.streaks?.effects.find(e => e.event === event.id);
@@ -4302,8 +4330,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const e of snapshot.streaks?.effects ?? []) {
       const friendly = streakFriendly(snapshot.actors.find(a => a.id === e.owner), hud.arenaSelf);
       if (e.kind === 'strike') {
-        dangers.push({ id: e.id, x: e.x, z: e.z, radius: 5, kind: 'ring' });
-        if (!friendly && flat(e) < 12) offer(`PRECISION STRIKE · ${Math.max(1, Math.ceil(e.until - snapshot.elapsed))}s · LEAVE THE MARKED ZONE`, 'hazard', 10);
+        dangers.push({ id: e.id, x: e.x, z: e.z, radius: PRECISION_STRIKE.radius, kind: 'ring' });
+        if (!friendly && flat(e) < PRECISION_STRIKE.radius + 7) offer(`PRECISION STRIKE · ${Math.max(1, Math.ceil(e.until - snapshot.elapsed))}s · LEAVE THE MARKED ZONE`, 'hazard', 10);
       }
       if (e.kind === 'jammer' || e.kind === 'recon') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 4);
     }

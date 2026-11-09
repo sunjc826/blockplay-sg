@@ -1,3 +1,4 @@
+import { PRECISION_STRIKE } from '../game/precision-strike';
 import { Radio, Radar, Shield, Crosshair, Plane, ScanLine } from 'lucide-react';
 import { STREAKS, defaultStreaks, streakAvailable, type StreakId, type StreakMode, type StreakProgress, type StreakEffect } from '../game/match-streaks';
 import { tapProps } from './touch-tap';
@@ -29,6 +30,6 @@ export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch
         </button>;
       })}
     </div>
-    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>Look down at clear ground · {placement === 'strike' ? '100m range · 5m blast' : '8m placement range'}</span>{notice && <span className="streak-placement-notice">{notice}</span>}<div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
+    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>{placement === 'strike' ? `Aim at an enemy or visible ground · ${PRECISION_STRIKE.range}m range · ${PRECISION_STRIKE.radius}m blast radius` : 'Look down at clear ground · 8m placement range'}</span>{notice && <span className="streak-placement-notice">{notice}</span>}<div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
   </>;
 }

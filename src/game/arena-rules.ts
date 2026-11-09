@@ -1,3 +1,4 @@
+import { PRECISION_STRIKE, precisionStrikeDamage, precisionStrikePlacement } from './precision-strike';
 import { matchRegeneratedHealth, matchBotArmor, matchArmorGain, MAX_MATCH_ARMOR_DROPS, type MatchArmorDrop, type MatchArmorPickup } from './match-recovery';
 import { createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffect, type StreakSnapshot } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
@@ -471,7 +472,7 @@ function headHit(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor, d
   const head = actor.prone ? { x: actor.x, y: actor.y - PRONE_EYE_HEIGHT + .45, z: actor.z } : { x: actor.x, y: actor.y - .06, z: actor.z };
   return Math.abs(sphereDistance(origin, direction, head, .15) - distance) < .35;
 }
-function bodyDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor) {
+export function actorRayDistance(origin: ArenaPoint, direction: ArenaPoint, actor: ArenaActor) {
   if (actor.prone) return Math.min(...[0, .55, 1.1].map(back =>
     sphereDistance(origin, direction, { x: actor.x + Math.sin(actor.yaw) * back, y: actor.y - PRONE_EYE_HEIGHT + .35, z: actor.z + Math.cos(actor.yaw) * back }, .3)));
 
@@ -1256,7 +1257,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     for (const other of members.values()) {
       if (other === entry || entry.actor.transport && entry.actor.transport === other.actor.transport || !other.actor.alive || other.reserve || (other.actor.vehicle && !isDragonBoat(other.actor.vehicle))) continue;
-      const intersection = bodyDistance(origin, ray, other.actor);
+      const intersection = actorRayDistance(origin, ray, other.actor);
       if (intersection < nearest) { victim = other; hull = undefined; nearest = intersection; }
     }
     let raider: Raider | undefined;
@@ -1512,10 +1513,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const owner = members.get(e.owner); if (!owner) return;
       for (const victim of members.values()) {
         const a = victim.actor, d = Math.hypot(a.x - e.x, a.z - e.z);
-        if (!a.alive || d > 5 || roofed(a) || !clearBlast(e, chestOf(a), distance(e, chestOf(a)))) continue;
-        hurtActor(victim, 180 * Math.max(.2, 1 - d / 5), owner, STREAKS.strike.name, e, true, false, undefined, 0, true);
+        if (!a.alive || d > PRECISION_STRIKE.radius || roofed(a) || !clearBlast(e, chestOf(a), distance(e, chestOf(a)))) continue;
+        hurtActor(victim, precisionStrikeDamage(d), owner, STREAKS.strike.name, e, true, false, undefined, 0, true);
       }
-      for (const device of [...(streaks?.effects ?? [])]) if (device !== e && distance(e, device) <= 5 && clearBlast(e, device, distance(e, device))) streaks?.hurt(device, 180, owner.actor);
+      for (const device of [...(streaks?.effects ?? [])]) if (device !== e && distance(e, device) <= PRECISION_STRIKE.radius && clearBlast(e, device, distance(e, device))) streaks?.hurt(device, precisionStrikeDamage(distance(e, device)), owner.actor);
     },
     drone: (owner, effect) => {
       const d = startEvent({ kind: 'drone', seed: (++eventSerial * 2654435761) >>> 0, target: effect, heading: owner.yaw, intensity: 1, faction: owner.faction as SquadFaction });
@@ -1545,6 +1546,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const rise = Math.min(6, worldWallDistance(a, UP, 7) - 1);
       if (rise < 1) return false;
       at = { x: a.x, y: a.y + rise, z: a.z };
+    } else if (kind === 'strike') {
+      const placement = precisionStrikePlacement(a, target ?? null, {
+        movement: deviceMovement, wallDistance: worldWallDistance,
+        spawns: teamArea ? Object.values(teamArea.spawns).flat() : [],
+        protectedEnemies: [...members.values()].filter(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && streaks.enemy(a, m.actor)).map(m => m.actor),
+      });
+      if (!placement.at) return false;
+      at = placement.at;
     } else if (kind === 'interceptor') {
       const placement = guardianPlacement(a, target ?? null, {
         movement: deviceMovement, wallDistance: worldWallDistance,
@@ -1554,10 +1563,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if (!placement.at) return false;
       at = placement.at;
     } else {
-      if (!target || !finitePoint(target) || target.x < bounds.minX || target.x > bounds.maxX || target.z < bounds.minZ || target.z > bounds.maxZ || distance(a, target) > (kind === 'strike' ? 100 : 8)) return false;
+      if (!target || !finitePoint(target) || target.x < bounds.minX || target.x > bounds.maxX || target.z < bounds.minZ || target.z > bounds.maxZ || distance(a, target) > 8) return false;
       const floor = floorAt({ ...target, y: target.y + .8 });
       if (Math.abs(target.y - floor) > .8) return false;
-      at = { x: target.x, y: floor + (kind === 'strike' ? .4 : .7), z: target.z };
+      at = { x: target.x, y: floor + .7, z: target.z };
       if (!lineClear(a, at) || !(traversal ? traversal.canOccupy(at.x, floor, at.z, .5, 1.4) : clearSpawn(at))) return false;
       if ([...members.values()].some(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && Math.hypot(m.actor.x - at.x, m.actor.z - at.z) < 6 && streaks.enemy(a, m.actor))) return false;
       if (teamArea && Object.values(teamArea.spawns).flat().some(p => Math.hypot(p.x - at.x, p.z - at.z) < 5)) return false;
@@ -2311,7 +2320,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     for (const v of vehicles) { const d = vehicleRayDistance(v, origin, ray); if (d < nearest) { nearest = d; hull = v; } }
     for (const member of members.values()) {
       if (!member.actor.alive || member.reserve || seatOf(vehicles, member.actor.id)) continue;
-      const d = bodyDistance(origin, ray, member.actor); if (d < nearest) { nearest = d; victim = member; hull = undefined; }
+      const d = actorRayDistance(origin, ray, member.actor); if (d < nearest) { nearest = d; victim = member; hull = undefined; }
     }
     let transport: Transport | undefined;
     for (const t of transports.values()) { const d = transportRayDistance(t, origin, ray); if (d < nearest) { nearest = d; transport = t; hull = undefined; victim = undefined; } }
@@ -2944,7 +2953,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function dangerExit(actor: ArenaPoint) {
     for (const e of streaks?.effects ?? []) if (e.kind === 'strike') {
       const dx = actor.x - e.x, dz = actor.z - e.z, d = Math.hypot(dx, dz);
-      if (d < 7 && !roofed(actor)) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+      if (d < PRECISION_STRIKE.radius + 2 && !roofed(actor)) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
     }
     for (const r of raiders.values()) if (r.kind === 'drone' && (r.state === 'lock' || r.state === 'dive') && r.victim === (actor as ArenaActor).id) {
       const dx = actor.x - r.x, dz = actor.z - r.z, d = Math.hypot(dx, dz);

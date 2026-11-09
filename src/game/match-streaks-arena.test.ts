@@ -7,7 +7,7 @@ import type { StreakId } from './match-streaks';
 const tick = (a: ArenaSimulation, n: number) => { for (let t = 0; t < n - 1e-6; t += .05) a.step(Math.min(.05, n - t)); };
 const actor = (a: ArenaSimulation, id: string) => a.snapshot().actors.find(a => a.id === id)!;
 function setup(loadout: StreakId[] = ['recon', 'hunter', 'strike']) {
-  const bounds = { minX: -100, maxX: 100, minZ: -100, maxZ: 100 };
+  const bounds = { minX: -300, maxX: 300, minZ: -300, maxZ: 300 };
   const environment: ArenaEnvironment = { bounds, move: createRegionMovement(bounds).move, spawns: [{x:0,z:0},{x:0,z:-20},{x:30,z:-20}] };
   let roof = false;
   const a = createArena([], 0, 'mixed', environment, undefined, undefined, (_p, ray) => roof && ray.y > .9 ? 1 : Infinity);
@@ -64,4 +64,24 @@ it('invalid placement retains rewards; departure removes airborne rewards and co
 it('does not enable streak rewards in endless expedition simulations', () => {
   const a=createArena([],0,'mixed',{bounds:{minX:-100,maxX:100,minZ:-100,maxZ:100},move:(p)=>p,spawns:[{x:0,z:0}],endless:true});a.addPlayer('one','One');
   expect(a.snapshot().streaks).toBeUndefined();expect(a.configureStreaks('one',['recon','hunter','strike'])).toBe(false);expect(a.activateStreak('one','recon')).toBe(false);
+});
+
+it('authority accepts a 200m designation but retains the reward beyond 250m', () => {
+  const { a, earn, environment } = setup(); earn(6);
+  const self = actor(a, 'one');
+  expect(a.activateStreak('one', 'strike', { x: self.x, y: 0, z: self.z - 251 })).toBe(false);
+  expect(a.snapshot().streaks?.players.one.ready).toContain('strike');
+  expect(a.activateStreak('one', 'strike', { x: self.x, y: 0, z: self.z - 200 })).toBe(true);
+  expect(a.snapshot().streaks?.players.one.ready).not.toContain('strike');
+  expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+});
+it('strike kills across its core and damages the outer ring without extending beyond it', () => {
+  for (const [offset, health] of [[4, 0], [7, 0], [8, 40], [8.1, 100]]) {
+    const { a, earn } = setup(); earn(6);
+    a.setPlayerVitals('two', { health: 100 }); const target = actor(a, 'two');
+    expect(a.activateStreak('one', 'strike', { x: target.x + offset, y: 0, z: target.z })).toBe(true);
+    tick(a, 3.01);
+    expect(actor(a, 'two').health).toBeCloseTo(health);
+    expect(a.snapshot().streaks?.players.one.charge).toBe(600);
+  }
 });

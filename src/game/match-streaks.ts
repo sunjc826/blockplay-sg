@@ -7,7 +7,7 @@ export const STREAKS = {
   jammer: { name: 'Signal Jammer', cost: 400, seconds: 15, health: 70, description: 'Blocks enemy recon within 20m. Objective markers remain visible.' },
   interceptor: { name: 'Guardian Interceptor', cost: 400, seconds: 20, health: 60, description: 'Intercepts three enemy thrown grenades within 6m and line of sight.' },
   hunter: { name: 'Hunter Drone', cost: 500, seconds: 30, health: 30, description: 'Launch along your aim. Autonomously searches, locks and dives at enemies.' },
-  strike: { name: 'Precision Strike', cost: 600, seconds: 3, health: 0, description: 'One blast in a 5m zone after a 3s warning. Solid roofs protect.' },
+  strike: { name: 'Precision Strike', cost: 600, seconds: 3, health: 0, description: 'Designate up to 250m away. 8m blast radius with a powerful 4m core after a 3s warning. Solid roofs protect.' },
   sentry: { name: 'Sentry Turret', cost: 700, seconds: 18, health: 100, description: 'Fixed 90° arc, 25m reach. Smoke and cover break targeting.' },
 } as const;
 export type StreakId = keyof typeof STREAKS;

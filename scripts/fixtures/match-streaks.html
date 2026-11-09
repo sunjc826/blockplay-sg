@@ -32,7 +32,8 @@ const profile=createProfile(),kit=resolveLoadout(profile);window.original=JSON.s
 sim.addPlayer('guest','Player',0,0,[{damage:200,interval:.06,capacity:100,reload:.4}],undefined,false,[0]);
 sim.addPlayer('donor','Enemy',0,0,[{damage:1,interval:5,capacity:100,reload:.4}]);
 sim.configureStreaks('guest',support?['interceptor','strike','sentry']:['recon','jammer','hunter']);
-if(support&&!params.has('spawn'))for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-80)<.1)break;sim.setInput('guest',{...a,x:-30,z:80,playing:true});sim.step(.05)}
+const placementZ=params.has('precision')?77:80;
+if(support&&!params.has('spawn'))for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-placementZ)<.1)break;sim.setInput('guest',{...a,x:-30,z:placementZ,playing:true});sim.step(.05)}
 const handlers=new Set();let started=false;
 window.publish=()=>{const snapshot=sim.snapshot();window.valid=validArenaSnapshot(snapshot,environment);const packet={type:'arena-state',snapshot,started,matchId:'fixture'};for(const cb of handlers)cb('host',structuredClone(packet));};
 const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',name:'Host'}],isConnected:()=>true,onPeers:()=>()=>{},close(){},

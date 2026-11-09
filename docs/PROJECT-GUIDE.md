@@ -479,7 +479,7 @@ Before starting TDM, FFA or Hardpoint, open **Briefing & settings**, expand
 **Killstreaks / Objective streaks**, and select three rewards. Press **4–6** or tap a HUD reward
 to activate it. Ground equipment and Precision Strike first show a placement
 preview: aim at clear ground and fire / tap **Deploy here**, or cancel with
-Escape. Equipment places within 8 m; the strike designator reaches 100 m.
+Escape. Equipment places within 8 m; the strike designator reaches 250 m and can mark the ground beneath an enemy you aim at.
 Protected spawn locations and obstructed placements are refused without
 spending the charge. The host confirms guest activations.
 
@@ -489,7 +489,7 @@ spending the charge. The host confirms guest activations.
 | Signal Jammer | 4 / 400 | Shootable 20 m recon jammer for 15 s; objective and ordinary visible contacts remain. |
 | Guardian Interceptor | 4 / 400 | Three enemy thrown grenades within 6 m and clear sight; expires after 20 s. Team modes only. |
 | Hunter Drone | 5 / 500 | Launches along aim, then reuses autonomous search, lock, reacquisition and dive; up to 30 s. Two-second target lock warning. |
-| Precision Strike | 6 / 600 | One 5 m blast after a visible 3 s warning. Solid overhead cover protects. |
+| Precision Strike | 6 / 600 | 250 m designator; 8 m blast radius, full 250 damage within 4 m, falling to 60 at the edge, after a visible 3 s warning. Solid overhead cover protects. |
 | Sentry Turret | 7 / 700 | Shootable 25 m turret with a fixed 90° arc; 0.75 s acquisition, three-round bursts, 18 s lifetime. Smoke breaks targeting. Team modes only. |
 
 Hardpoint grants 100 charge per ordinary kill, a single +25 bonus when either

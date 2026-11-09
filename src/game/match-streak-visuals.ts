@@ -1,3 +1,4 @@
+import { PRECISION_STRIKE } from './precision-strike';
 import * as THREE from 'three';
 import type { ArenaActor, ArenaPoint, ArenaRaider } from './arena-rules';
 import { STREAKS, type StreakId, type StreakSnapshot } from './match-streaks';
@@ -63,7 +64,7 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
   function create(kind: StreakId, tint: THREE.Material) {
     const group = new THREE.Group(); group.name = STREAKS[kind].name;
     if (kind === 'strike') {
-      const danger = mesh(group, ring, tint, [5, 5, 1]); danger.rotation.x = -Math.PI / 2;
+      const danger = mesh(group, ring, tint, [PRECISION_STRIKE.radius, PRECISION_STRIKE.radius, 1]); danger.rotation.x = -Math.PI / 2;
       const cross = mesh(group, box, tint, [1.6, .04, .08]); cross.position.y = .02;
       mesh(group, box, tint, [.08, .04, 1.6], [0, .02, 0]);
       mesh(group, cylinder, tint, [.035, 5, .035], [0, 2.5, 0]);
@@ -92,7 +93,7 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
   return {
     preview(at: ArenaPoint | null, kind: StreakId | null, valid: boolean) {
       preview.visible = !!at && !!kind;
-      if (at && kind) { preview.position.set(at.x, at.y + .06, at.z); const radius = kind === 'strike' ? 5 : kind === 'jammer' ? 20 : kind === 'interceptor' ? 6 : 1; preview.scale.set(radius, radius, 1); preview.material = valid ? friendly : invalid; }
+      if (at && kind) { preview.position.set(at.x, at.y + .06, at.z); const radius = kind === 'strike' ? PRECISION_STRIKE.radius : kind === 'jammer' ? 20 : kind === 'interceptor' ? 6 : 1; preview.scale.set(radius, radius, 1); preview.material = valid ? friendly : invalid; }
     },
     update(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null, now: number) {
       const alive = new Set<string>();

@@ -9,7 +9,7 @@ it('offers only legal rewards and explains objective charge and locked selection
 });
 it('keeps ready, active, used and placement states accessible without relying on color',()=>{
  const html=renderToStaticMarkup(<MatchStreakHud progress={{loadout:['recon','jammer','strike'],charge:600,heldCharge:0,ready:['recon'],earned:['recon','jammer','strike']}} effects={[]} now={0} hardpoint={false} alive touch placement="strike" onUse={()=>{}} onConfirm={()=>{}} onCancel={()=>{}}/>);
- expect(html).toContain('Kestrel Recon: READY');expect(html).toContain('Signal Jammer: USED');expect(html).toContain('Deploy here');expect(html).toContain('Cancel');expect(html).toContain('5m blast');expect(html).not.toContain('<kbd>');
+ expect(html).toContain('Kestrel Recon: READY');expect(html).toContain('Signal Jammer: USED');expect(html).toContain('Deploy here');expect(html).toContain('Cancel');expect(html).toContain('250m range · 8m blast radius');expect(html).not.toContain('<kbd>');
 });
 
 it('shows placement refusal beside the deploy control while retaining the ready charge',()=>{
