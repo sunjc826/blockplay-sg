@@ -232,6 +232,14 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   // A red dot is a red dot whatever field of view the variant asks for.
   const magnification = built?.kind === 'reflex' ? 1 : opticMagnification(weapon);
   const magnified = magnification > 1.01;
+  // Only the reference-approved generic eyepieces are convex. The SAR's
+  // integrated sight, G36 and OICW/QTS modules retain their unverified shape.
+  // A fictional SAR match telescope is distinct from its integrated variants.
+  // Sources and approximation boundaries: docs/OPTIC-GLASS.md.
+  const convexEyepiece = magnified && (fitted === 'prism' || fitted === 'pistol-scope'
+    || (!built && weapon.optic === 'precision')
+    || (built?.kind === 'scope' && ['xm8-inspired', 'ff-scar-h', 'cc-network', 'ff-longwatch', 'ff-intervention'].includes(weapon.id)));
+  const scopeCurvature = convexEyepiece ? -.0014 : .0014;
   const reticle = magnified ? scopeReticleFor(weapon, built) : undefined;
   const group = new THREE.Group(); group.name = 'equipped-optic'; root.add(group);
   const mount = fitted ? buildSightHousing(group, weapon.id, fitted, !!weapon.accessories?.offsetDot) : undefined;
@@ -249,14 +257,14 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   let scopeGlass: ReturnType<typeof createOpticGlass> | undefined;
   if (mount) {
     group.name = `fps-${fitted}-optic`;
-    scopeGlass = createOpticGlass(radius, magnified ? .0014 : fitted === 'holo' ? .0003 : .005, magnified ? 'scope' : fitted === 'holo' ? 'holo' : 'reflex', reticle, mount.main.window);
+    scopeGlass = createOpticGlass(radius, magnified ? scopeCurvature : fitted === 'holo' ? 0 : .005, magnified ? 'scope' : fitted === 'holo' ? 'holo' : 'reflex', reticle, mount.main.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, mount.main.glassZ);
     group.add(scopeGlass.reflection.surface);
   } else if (built) {
     group.name = integrated ? 'fps-integrated-optic' : 'fps-reflex-optic';
     // A scope's coating sits on the eye side of its picture; a reflex's
     // mirror sits just beyond the dot, as on the receiver-mounted housing.
-    scopeGlass = createOpticGlass(radius, integrated ? .0014 : .005, integrated ? 'scope' : 'reflex', reticle, built.window);
+    scopeGlass = createOpticGlass(radius, integrated ? scopeCurvature : .005, integrated ? 'scope' : 'reflex', reticle, built.window);
     scopeGlass.reflection.surface.position.set(0, aimHeight, built.lens + (integrated ? .0005 : -.003));
     group.add(scopeGlass.reflection.surface);
   } else if (!integrated) {
@@ -265,7 +273,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   } else {
     // The original SAR housing includes opaque lens faces. Seat the coating
     // just ahead of the rear face, and composite it over the live scope image.
-    scopeGlass = createOpticGlass(radius, .0014, 'scope', reticle);
+    scopeGlass = createOpticGlass(radius, scopeCurvature, 'scope', reticle);
     scopeGlass.reflection.surface.position.set(0, aimHeight, rearZ + .0015);
     group.add(scopeGlass.reflection.surface);
   }

@@ -13,13 +13,13 @@ export interface OpticGlass {
   };
 }
 
-/** A telescope stays a dark optical surface when its live aiming image fades out. */
+/** Convex backing for generic telescopes when their live aiming image fades out. */
 export function createScopeBacking(radius: number) {
   const geometry = new THREE.RingGeometry(0, radius, 48, 8);
   const vertices = geometry.attributes.position;
   for (let i = 0; i < vertices.count; i++) {
     const r2 = (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2;
-    vertices.setZ(i, -.0012 * (1 - Math.min(1, r2)));
+    vertices.setZ(i, .0012 * (1 - Math.min(1, r2)));
   }
   geometry.computeVertexNormals();
   const material = new THREE.MeshPhysicalMaterial({ color: '#18343e', roughness: .16, metalness: .28,
@@ -49,7 +49,7 @@ function windowPane(window: SightWindow, rings = 6) {
   return geometry;
 }
 
-/** Curved coated glass shared by reflex and magnified optics; `holo` is the near-flat neutral pane of a holographic sight. */
+/** Coated glass: positive curvature is concave towards the eye, negative is convex, zero is flat. See docs/OPTIC-GLASS.md. */
 /** A scope's `reticle` is the etching the coating thins over; a magnified sight without one shows none. */
 /** A `window` cuts the glass to that outline instead of a disc of `radius`, which should then just reach its corners. */
 export function createOpticGlass(radius: number, curvature: number, profile: 'reflex' | 'holo' | 'scope', reticle?: ScopeReticle, window?: SightWindow) {
@@ -108,9 +108,10 @@ export function createOpticGlass(radius: number, curvature: number, profile: 're
   for (let i = 0; i < vertices.count; i++) {
     const r2 = Math.min(1, (vertices.getX(i) ** 2 + vertices.getY(i) ** 2) / radius ** 2);
     // Scope mounts place this surface just in front of an opaque end cap.
-    // Anchor its deepest point there: recessing the centre behind that plane
-    // lets the cap depth-occlude a circular hole in the reflection.
-    vertices.setZ(i, scope ? curvature * r2 : -curvature * (1 - r2));
+    // Keep the deepest point at that plane for either curvature: the centre
+    // of a concave surface, or the rim of a convex one. Simply negating z
+    // would bury the convex rim in the cap and clip its reflection.
+    vertices.setZ(i, scope && curvature >= 0 ? curvature * r2 : -curvature * (1 - r2));
     // Spread the UVs over the pane, so its rim follows the window's edges.
     if (window) uvs.setXY(i, vertices.getX(i) / window.width + .5, vertices.getY(i) / window.height + .5);
   }
