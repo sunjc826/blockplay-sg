@@ -109,11 +109,15 @@ const fragmentShader = /* glsl */ `
 
   // Slope contribution of one travelling wave: d/dx, d/dz of a*sin(k.p - wt).
   vec2 wave(vec2 p, vec2 dir, float k, float a, float w) {
-    return dir * (a * k * cos(dot(p, dir) * k - uTime * w));
+    float phase = dot(p, dir) * k - uTime * w;
+    // Remove frequencies that cannot be resolved by this pixel (especially at the horizon).
+    float footprint = max(abs(dFdx(phase)), abs(dFdy(phase)));
+    return dir * (a * k * cos(phase)) * (1.0 - smoothstep(1.0, 3.14159, footprint));
   }
 
   void main() {
     vec2 p = vWorld.xz;
+    float waterFootprint = max(length(dFdx(p)), length(dFdy(p)));
     vec2 slope = vec2(0.0);
     slope += wave(p, normalize(vec2(0.8, 0.6)), 0.55, 0.035, 1.3);
     slope += wave(p, normalize(vec2(-0.5, 0.86)), 0.9, 0.022, 1.9);
@@ -136,7 +140,7 @@ const fragmentShader = /* glsl */ `
       float envelope = exp(-behind * behind * 3.0) * step(0.0, behind + 0.35);
       float decay = r.w * exp(-age * 1.6) / (1.0 + d * 1.4);
       float phase = behind * 11.0;
-      float dh = cos(phase) * envelope * decay;
+      float dh = cos(phase) * envelope * decay * (1.0 - smoothstep(1.0, 3.14159, 11.0 * waterFootprint));
       slope += (d > 1e-3 ? offset / d : vec2(0.0)) * dh * 0.9;
       // Fresh white water where the round broke the surface.
       foam += r.w * exp(-age * 3.2) * smoothstep(0.5 + age * 0.9, 0.0, d);
@@ -151,7 +155,8 @@ const fragmentShader = /* glsl */ `
       float age=fract(uTime*.9+seed*7.0);
       vec2 centre=(cell+vec2(.28+.44*seed,.28+.44*fract(seed*13.7))-float(layer)*.5)/1.25;
       vec2 delta=p-centre;float d=length(delta),radius=age*.24;
-      float ring=exp(-pow((d-radius)*95.0,2.0))*(1.0-smoothstep(.25,.65,age))*smoothstep(0.0,.06,age);
+      float ringWidth=sqrt(1.0/(95.0*95.0)+.25*waterFootprint*waterFootprint);
+      float ring=exp(-pow((d-radius)/ringWidth,2.0))/(95.0*ringWidth)*(1.0-smoothstep(.25,.65,age))*smoothstep(0.0,.06,age);
       float amount=uRain*(.5+seed*.5)*(1.0-smoothstep(20.0,65.0,distance(cameraPosition.xz,p)));
       slope += delta/max(d,.001)*ring*amount*.08;
       rainFoam += ring*amount*.035;
@@ -177,7 +182,11 @@ const fragmentShader = /* glsl */ `
     }
     vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55) * uSurfaceLight;
     vec3 colour = mix(body, sky, fresnel);
-    float glint = pow(max(dot(reflected, uSun), 0.0), 380.0);
+    // Broaden subpixel highlights and conserve their energy instead of flashing single pixels.
+    vec3 reflectionDx = dFdx(reflected), reflectionDy = dFdy(reflected);
+    float glintVariance = .5 * (dot(reflectionDx, reflectionDx) + dot(reflectionDy, reflectionDy));
+    float glintPower = 1.0 / (1.0 / 380.0 + glintVariance);
+    float glint = pow(max(dot(reflected, uSun), 0.0), glintPower) * (glintPower / 380.0);
     colour += uGlintColor * glint * uGlintStrength;
     colour = mix(colour, vec3(0.9, 0.96, 0.97) * uSurfaceLight, clamp(foam, 0.0, 0.85));
 

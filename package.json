@@ -103,6 +103,7 @@
     "test:merlion:gameplay": "node scripts/merlion-gameplay-smoke.mjs",
     "test:marina:atrium": "node scripts/marina-atrium-smoke.mjs",
     "test:marina:lifts": "node scripts/marina-lift-repair-smoke.mjs",
+    "test:marina:aliasing": "node scripts/marina-aliasing-smoke.mjs",
     "test:marina:access": "node scripts/marina-access-smoke.mjs",
     "test:merlion": "node scripts/merlion-smoke.mjs"
   },

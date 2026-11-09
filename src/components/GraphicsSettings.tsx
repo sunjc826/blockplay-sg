@@ -3,7 +3,7 @@ import { getEnvironmentSettings, setEnvironmentSettings, subscribeEnvironment } 
 import './graphics-settings.css';
 import type { SunRayQuality } from '../game/sun-rays';
 import type { WorldDetail } from '../game/environment-quality';
-import { FRAME_CAPS, GRAPHICS_PRESETS, matchingPreset, RENDER_SCALES, setGraphicsSettings, useGraphicsSettings, type FrameCap, type RenderScale } from '../game/graphics-settings';
+import { FRAME_CAPS, GRAPHICS_PRESETS, PIXEL_DENSITIES, type PixelDensity, matchingPreset, RENDER_SCALES, setGraphicsSettings, useGraphicsSettings, type FrameCap, type RenderScale } from '../game/graphics-settings';
 
 /**
  * Rendering costs that follow the player across every mode, saved on this
@@ -17,7 +17,7 @@ export default function GraphicsSettings() {
   const shadows = environment.shadows ? graphics.shadowDetail : 'off';
   return <div className="armory-settings-group graphics-settings">
     <h2>Graphics</h2>
-    <p>Saved on this device only, so a phone can run lighter than a computer. Changes apply immediately, including mid-game, except antialiasing.</p>
+    <p>Saved on this device only, so a phone can run lighter than a computer. Changes apply immediately, including mid-game, except hardware antialiasing.</p>
     <div role="group" aria-label="Graphics preset" className="graphics-presets">{GRAPHICS_PRESETS.map(p =>
       <button key={p.id} data-preset={p.id} aria-pressed={preset === p.id} onClick={() => {
         const { shadows, occlusion, reducedEffects, ...rest } = p.values;
@@ -29,6 +29,9 @@ export default function GraphicsSettings() {
       <label><span>Resolution<small>Below 100% renders fewer pixels and upscales: the biggest saving on a phone.</small></span>
         <select value={graphics.scale} onChange={e => setGraphicsSettings({ scale: Number(e.target.value) as RenderScale })}>
           {RENDER_SCALES.map(s => <option key={s.value} value={s.value}>{s.name}</option>)}</select></label>
+      <label><span>First-person pixel density<small>Higher limits sharpen high-density screens at a higher GPU cost. 1.35× saves power; 2× favors quality.</small></span>
+        <select value={graphics.pixelDensity} onChange={e => setGraphicsSettings({ pixelDensity: Number(e.target.value) as PixelDensity })}>
+          {PIXEL_DENSITIES.map(value => <option key={value} value={value}>{value}×</option>)}</select></label>
       <label><span>Frame rate limit<small>A cap keeps a phone cooler and its battery going longer.</small></span>
         <select value={graphics.frameCap} onChange={e => setGraphicsSettings({ frameCap: Number(e.target.value) as FrameCap })}>
           {FRAME_CAPS.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}</select></label>
@@ -50,6 +53,7 @@ export default function GraphicsSettings() {
     <label><input type="checkbox" checked={graphics.lensEffects} onChange={e => setGraphicsSettings({ lensEffects: e.target.checked })} /> Lens effects (sun flare, haze dust, raindrops on the lens)</label>
     <label><input type="checkbox" checked={graphics.sightReflections} onChange={e => setGraphicsSettings({ sightReflections: e.target.checked })} /> Live reflections in sight glass (redraws the world a second time each frame; off, the glass still catches sun and sky highlights)</label>
     <label><input type="checkbox" checked={environment.reducedEffects} onChange={e => setEnvironmentSettings({ reducedEffects: e.target.checked })} /> Reduce particles &amp; disable lightning/fireworks</label>
-    <label><input type="checkbox" checked={graphics.antialias} onChange={e => setGraphicsSettings({ antialias: e.target.checked })} /> Antialiasing (smoother edges; takes effect next time a game starts)</label>
+    <label><input type="checkbox" checked={graphics.smaa} onChange={e => setGraphicsSettings({ smaa: e.target.checked })} /> Extra edge smoothing (SMAA; world scenery only, adds GPU work, applies immediately)</label>
+    <label><input type="checkbox" checked={graphics.antialias} onChange={e => setGraphicsSettings({ antialias: e.target.checked })} /> Hardware antialiasing (smoother edges; takes effect next time a game starts)</label>
   </div>;
 }

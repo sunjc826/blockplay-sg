@@ -11,11 +11,16 @@ import type { EnvironmentSettings } from './world-events';
  * desktop keep their own choices.
  */
 export type RenderScale = 1 | .85 | .7 | .5;
+export type PixelDensity = 1 | 1.35 | 1.5 | 2;
 export type FrameCap = 0 | 60 | 30;
 export type ShadowDetail = 'ultra' | 'high' | 'low';
 export interface GraphicsSettings {
   /** Share of the view's usual drawing-buffer resolution. */
   scale: RenderScale;
+  /** Maximum first-person drawing-buffer pixels per CSS pixel, before render scale. */
+  pixelDensity: PixelDensity;
+  /** Optional world-only SMAA; applied live, without filtering the weapon or HUD. */
+  smaa: boolean;
   /** Frames per second at most; 0 follows the display. */
   frameCap: FrameCap;
   shadowDetail: ShadowDetail;
@@ -44,10 +49,11 @@ export interface GraphicsSettings {
 export const RENDER_SCALES: readonly { value: RenderScale; name: string }[] = [
   { value: 1, name: '100% · Full' }, { value: .85, name: '85%' }, { value: .7, name: '70%' }, { value: .5, name: '50% · Blurry, fastest' },
 ];
+export const PIXEL_DENSITIES: readonly PixelDensity[] = [1, 1.35, 1.5, 2];
 export const FRAME_CAPS: readonly { value: FrameCap; name: string }[] = [
   { value: 0, name: 'Match display' }, { value: 60, name: '60 fps' }, { value: 30, name: '30 fps · Saves battery' },
 ];
-export const DEFAULT_GRAPHICS: Readonly<GraphicsSettings> = { scale: 1, frameCap: 0, shadowDetail: 'high', rainDetail: 'high', grassDetail: 'high', waterDetail: 'high', rainReflections: false, waterReflections: false, lensEffects: true, bloom: true, godRays: 'low', sightReflections: false, antialias: true };
+export const DEFAULT_GRAPHICS: Readonly<GraphicsSettings> = { scale: 1, pixelDensity: 1.5, smaa: false, frameCap: 0, shadowDetail: 'high', rainDetail: 'high', grassDetail: 'high', waterDetail: 'high', rainReflections: false, waterReflections: false, lensEffects: true, bloom: true, godRays: 'low', sightReflections: false, antialias: true };
 /** Shadow texture size for each detail level. */
 export const SHADOW_MAP_SIZE: Readonly<Record<ShadowDetail, number>> = { ultra: 4096, high: 2048, low: 1024 };
 
@@ -64,6 +70,8 @@ export function sanitizeGraphics(value: unknown): GraphicsSettings {
     waterReflections: typeof v.waterReflections === 'boolean' ? v.waterReflections : detail === 'ultra',
     rainReflections: typeof v.rainReflections === 'boolean' ? v.rainReflections : detail === 'ultra',
     scale,
+    pixelDensity: PIXEL_DENSITIES.includes(v.pixelDensity!) ? v.pixelDensity! : detail === 'ultra' ? 2 : fullDetail ? 1.5 : 1.35,
+    smaa: typeof v.smaa === 'boolean' ? v.smaa : detail === 'ultra',
     frameCap: FRAME_CAPS.some(c => c.value === v.frameCap) ? v.frameCap! : DEFAULT_GRAPHICS.frameCap,
     shadowDetail: v.shadowDetail === 'ultra' || legacyUltra ? 'ultra' : v.shadowDetail === 'low' ? 'low' : 'high',
     godRays: v.godRays === 'off' || v.godRays === 'low' || v.godRays === 'high' ? v.godRays : detail === 'ultra' ? 'high' : fullDetail ? 'low' : 'off',
@@ -80,11 +88,11 @@ export function renderPixelRatio(cap: number, settings: Pick<GraphicsSettings, '
 
 type PresetValues = GraphicsSettings & Pick<EnvironmentSettings, 'shadows' | 'occlusion' | 'reducedEffects'>;
 export const GRAPHICS_PRESETS: readonly { id: string; name: string; description: string; values: PresetValues }[] = [
-  { id: 'ultra', name: 'Ultra', description: 'Longest detail range + wet-ground reflections', values: { ...DEFAULT_GRAPHICS, godRays: 'high', shadowDetail: 'ultra', rainDetail: 'ultra', grassDetail: 'ultra', waterDetail: 'ultra', rainReflections: true, waterReflections: true, sightReflections: true, shadows: true, occlusion: true, reducedEffects: false } },
-  { id: 'high', name: 'High', description: 'Dense grass, distant rain + sunlight shafts', values: { ...DEFAULT_GRAPHICS, shadows: true, occlusion: true, reducedEffects: false } },
-  { id: 'balanced', name: 'Balanced', description: 'Lighter shadows, no AO', values: { scale: .85, frameCap: 60, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: true, bloom: false, godRays: 'off', sightReflections: false, antialias: true, shadows: true, occlusion: false, reducedEffects: false } },
-  { id: 'low', name: 'Low', description: 'For older phones', values: { scale: .7, frameCap: 60, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: false, bloom: false, godRays: 'off', sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
-  { id: 'battery', name: 'Battery saver', description: 'Low, 50%, 30 fps', values: { scale: .5, frameCap: 30, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: false, bloom: false, godRays: 'off', sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
+  { id: 'ultra', name: 'Ultra', description: '2× density, edge smoothing + reflections', values: { ...DEFAULT_GRAPHICS, pixelDensity: 2, smaa: true, godRays: 'high', shadowDetail: 'ultra', rainDetail: 'ultra', grassDetail: 'ultra', waterDetail: 'ultra', rainReflections: true, waterReflections: true, sightReflections: true, shadows: true, occlusion: true, reducedEffects: false } },
+  { id: 'high', name: 'High', description: '1.5× density, detailed scenery + sunlight shafts', values: { ...DEFAULT_GRAPHICS, shadows: true, occlusion: true, reducedEffects: false } },
+  { id: 'balanced', name: 'Balanced', description: 'Lighter shadows, no AO', values: { scale: .85, pixelDensity: 1.35, smaa: false, frameCap: 60, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: true, bloom: false, godRays: 'off', sightReflections: false, antialias: true, shadows: true, occlusion: false, reducedEffects: false } },
+  { id: 'low', name: 'Low', description: 'For older phones', values: { scale: .7, pixelDensity: 1.35, smaa: false, frameCap: 60, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: false, bloom: false, godRays: 'off', sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
+  { id: 'battery', name: 'Battery saver', description: 'Low, 50%, 30 fps', values: { scale: .5, pixelDensity: 1.35, smaa: false, frameCap: 30, shadowDetail: 'low', rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, lensEffects: false, bloom: false, godRays: 'off', sightReflections: false, antialias: false, shadows: false, occlusion: false, reducedEffects: true } },
 ];
 /** The preset the current choices amount to, or undefined when they are a custom mix. */
 export function matchingPreset(graphics: GraphicsSettings, environment: Pick<EnvironmentSettings, 'shadows' | 'occlusion' | 'reducedEffects'>) {

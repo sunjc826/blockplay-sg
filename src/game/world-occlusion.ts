@@ -1,6 +1,7 @@
 import { createSunRays, projectSunRays, type SunRayLight, type SunRayQuality } from './sun-rays';
 import * as THREE from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { softwareRenderer } from './fps-sun-shadows';
@@ -32,6 +33,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   const supported = !softwareRenderer(renderer) && renderer.capabilities.isWebGL2;
   let sceneTarget: THREE.WebGLRenderTarget | null = null, aoTarget: THREE.WebGLRenderTarget | null = null;
   let gtao: GTAOPass | null = null, output: OutputPass | null = null;
+  let smaa: SMAAPass | null = null, smaaTarget: THREE.WebGLRenderTarget | null = null, smaaEnabled = false;
   let bloom: UnrealBloomPass | null = null, bloomEnabled = false;
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
   const water = createWaterReflections(renderer,scene,camera);
@@ -69,6 +71,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   }
   const clearColor = new THREE.Color();
   return {
+    get smaaEnabled() { return smaaEnabled; },
     get supported() { return supported; },
     /** The GTAO pass once built, for review pages that show its buffers. */
     get pass() { return gtao; },
@@ -83,11 +86,15 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       if (!sceneTarget) return;
       renderer.getDrawingBufferSize(size);
       sceneTarget.setSize(size.x, size.y); aoTarget?.setSize(size.x, size.y);
+      smaaTarget?.setSize(size.x, size.y); smaa?.setSize(size.x, size.y);
       gtao?.setSize(Math.ceil(size.x / 2), Math.ceil(size.y / 2));
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
     render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays) {
+      smaaEnabled = supported && getGraphicsSettings().smaa;
+      // Release optional full-resolution buffers when the player switches back to a light preset.
+      if (!smaaEnabled && smaa) { smaa.dispose(); smaaTarget!.dispose(); smaa = null; smaaTarget = null; }
       camera.updateMatrixWorld();
       const sun = scene.userData.sunRays as SunRayLight | undefined;
       const rayStrength = supported && wantGodRays !== 'off' ? projectSunRays(camera, sun, sunUv) : 0;
@@ -96,7 +103,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloomEnabled = supported && wantBloom;
       const ground = scene.userData.wetGround as WetGround | undefined;
       rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
-      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled)) {
+      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled && !smaaEnabled)) {
         renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera);
         return false;
       }
@@ -111,9 +118,22 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       renderer.setRenderTarget(sceneTarget); renderer.clear(); renderer.render(scene, camera);
       scene.background = sky ?? scene.background;
       if (want) gtao!.render(renderer, aoTarget!, sceneTarget!, 0, false);
-      const picture = want ? aoTarget! : sceneTarget!;
+      let picture = want ? aoTarget! : sceneTarget!;
       if (rainReflectionsEnabled) rain!.render(picture, sceneTarget!.depthTexture!);
       if (bloomEnabled) bloom!.render(renderer, picture, picture, 0, false);
+      if (smaaEnabled) {
+        if (!smaa) {
+          smaa = new SMAAPass(); smaa.clear = true; // Edge detection discards non-edges; never retain last frame's edges.
+          smaa.setSize(sceneTarget!.width, sceneTarget!.height);
+          smaaTarget = new THREE.WebGLRenderTarget(sceneTarget!.width, sceneTarget!.height, { type: THREE.HalfFloatType, depthBuffer: false });
+        }
+        // Linear HDR colour + coverage, after world effects and before tone mapping.
+        // Clear scratch buffers to transparent black, independent of the world's sky colour.
+        renderer.setClearColor(0, 0);
+        smaa.render(renderer, smaaTarget!, picture, 0, false);
+        renderer.setClearColor(clearColor, clearAlpha);
+        picture = smaaTarget!;
+      }
       renderer.setRenderTarget(null);
       if (sky) renderer.setClearColor(sky, 1);
       renderer.clear();
@@ -127,6 +147,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     },
     dispose() {
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); output?.dispose();
+      smaa?.dispose(); smaaTarget?.dispose();
       bloom?.dispose(); sunRays?.dispose();
       rain?.dispose(); water.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.

@@ -1,5 +1,6 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { withMarinaInteriors } from './marina-interiors';
+import { filterThinDetail } from './thin-detail';
 import { buildMerlionModel } from './merlion-model';
 import { withBuildingLifts } from './building-lift-scene';
 import { MARINA_LANDMARK_PLACES, MARINA_LIFTS } from './marina-landmarks';
@@ -107,6 +108,12 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const water = createWaterMaterial({ deep: '#1d4750', shallow: '#3d7c84', sky: '#8db6d4', horizon: '#557788', sun: sun.position, clarity: 0.55, choppiness: 0.9 });
   materials.push(water);
   const steel = mat('#a6afb2', { roughness: 0.35, metalness: 0.65 }), wood = mat('#766257'), hedge = mat('#466b2d');
+  const detail = (source: THREE.MeshStandardMaterial, width: number, backing?: THREE.Color) => {
+    const material = filterThinDetail(source, width * S, backing); materials.push(material); return material;
+  };
+  const railWire = detail(steel, .035), boardSeam = detail(dark, .025, wood.color);
+  const frontBand = detail(steel, .09, glass.color), frontFrame = detail(steel, .1, glass.color);
+  const rearBand = detail(pale, .12, glass.color), rearFrame = detail(pale, .13, glass.color);
   const collider = (x: number, z: number, w: number, d: number, maxY = 6.8) => obstacles.push({ maxY, minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {
     const mesh = new THREE.Mesh(boxGeo, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d);
@@ -155,7 +162,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   }
   pavers.receiveShadow = true; scene.add(pavers);
   box(0, 0.1, 51.9, 161, 0.12, 2, wood);
-  for (let x = -80; x < 80; x += 2) box(x, 0.17, 51.9, 0.025, 0.015, 2, dark);
+  for (let x = -80; x < 80; x += 2) box(x, 0.17, 51.9, 0.025, 0.015, 2, boardSeam);
   for (const z of [85, 103, -103, -121]) box(0, 0.14, z, 220, 0.28, 0.45, cream);
   // Crosswalks, curbside planting and human-scale street lights.
   for (const x of [-103, 103]) for (let z = 84; z < 104; z += 2.8) box(x, 0.07, z, 11, 0.02, 1.3, white);
@@ -173,12 +180,12 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     beam(new THREE.Vector3(x, 0.05, 51), new THREE.Vector3(x, 1.16, 50.5), 0.075, steel);
   }
   for (const y of [0.25, 0.45, 0.65, 0.85, 1.1]) {
-    box(-58.58, y, 50.6, 43.83, 0.035, 0.035, steel);
-    box(24.42, y, 50.6, 112.17, 0.035, 0.035, steel);
-    box(58.58, y, -90.6, 43.83, 0.035, 0.035, steel);
-    box(-24.42, y, -90.6, 112.17, 0.035, 0.035, steel);
-    box(-80.6, y, -20, 0.035, 0.035, 141, steel);
-    box(80.6, y, -20, 0.035, 0.035, 141, steel);
+    box(-58.58, y, 50.6, 43.83, 0.035, 0.035, railWire);
+    box(24.42, y, 50.6, 112.17, 0.035, 0.035, railWire);
+    box(58.58, y, -90.6, 43.83, 0.035, 0.035, railWire);
+    box(-24.42, y, -90.6, 112.17, 0.035, 0.035, railWire);
+    box(-80.6, y, -20, 0.035, 0.035, 141, railWire);
+    box(80.6, y, -20, 0.035, 0.035, 141, railWire);
   }
   for (let x = -80; x <= 80; x += 3) { if(x*S>-22 && x*S<-19) continue; const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
   for (let x = -80; x <= 80; x += 3) { if(x*S>19 && x*S<22) continue; box(x, 0.58, -90.6, 0.08, 1.16, 0.1, steel); }
@@ -291,15 +298,15 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
       const y = floor * 2 + 1, splay = Math.pow(1 - y / h, 2) * 8;
       box(142.64 - splay * 0.2, y, z, .28, 1.94, 30, glass, scene, true);
       box(159.36 + splay, y, z, .28, 1.94, 30, glass, scene, true);
-      box(142.35 - splay * 0.2, y - 0.95, z, 0.16, 0.09, 30, steel);
+      box(142.35 - splay * 0.2, y - 0.95, z, 0.16, 0.09, 30, frontBand);
       box(151, y, z - 15.2, 18 + splay, 2, 0.6, cream);
       box(151, y, z + 15.2, 18 + splay, 2, 0.6, cream);
       // Follow both splayed faces rather than floating a straight grille in
       // front of the curved lower legs. Rear frames read pale against glass.
-      box(159.65 + splay, y - 0.93, z, 0.13, 0.12, 30, pale);
+      box(159.65 + splay, y - 0.93, z, 0.13, 0.12, 30, rearBand);
       for (let dz = -13.5; dz <= 13.5; dz += 3) {
-        box(142.35 - splay * 0.2, y, z + dz, 0.1, 1.96, 0.1, steel);
-        box(159.65 + splay, y, z + dz, 0.13, 1.96, 0.13, pale);
+        box(142.35 - splay * 0.2, y, z + dz, 0.1, 1.96, 0.1, frontFrame);
+        box(159.65 + splay, y, z + dz, 0.13, 1.96, 0.13, rearFrame);
         qualityDetails.sandsMullions += 2;
       }
       if (floor >= 2) for (let dz = -12; dz <= 12; dz += 3) {

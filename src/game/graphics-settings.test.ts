@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFrameLimiter, DEFAULT_GRAPHICS, GRAPHICS_PRESETS, matchingPreset, renderPixelRatio, sanitizeGraphics, SHADOW_MAP_SIZE } from './graphics-settings';
+import { fpsPixelRatio } from './fps-surface';
 import { DEFAULT_ENVIRONMENT } from './world-events';
 
 describe('graphics settings', () => {
@@ -7,7 +8,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics(null)).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .3, frameCap: 45, shadowDetail: 'unknown', lensEffects: 'no' })).toEqual(DEFAULT_GRAPHICS);
     expect(sanitizeGraphics({ scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, sightReflections: true, antialias: false }))
-      .toEqual({ rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, godRays: 'off', sightReflections: true, antialias: false });
+      .toEqual({ pixelDensity: 1.35, smaa: false, rainDetail: 'low', grassDetail: 'low', waterDetail: 'low', rainReflections: false, waterReflections: false, scale: .5, frameCap: 30, shadowDetail: 'low', lensEffects: false, bloom: false, godRays: 'off', sightReflections: true, antialias: false });
   });
 
   it('adds bloom to full-detail presets and doubles Ultra shadow resolution', () => {
@@ -16,7 +17,7 @@ describe('graphics settings', () => {
     expect(sanitizeGraphics({ sightReflections: true }).shadowDetail).toBe('ultra');
     expect(sanitizeGraphics({ scale: .85, shadowDetail: 'low' }).bloom).toBe(false);
     expect(sanitizeGraphics({ bloom: false, shadowDetail: 'high', sightReflections: true })).toMatchObject({ bloom: false, shadowDetail: 'high' });
-    const oldUltra = { ...DEFAULT_GRAPHICS, godRays: undefined, bloom: undefined, sightReflections: true, rainDetail: undefined, grassDetail: undefined, waterDetail: undefined, rainReflections: undefined, waterReflections: undefined };
+    const oldUltra = { ...DEFAULT_GRAPHICS, pixelDensity: undefined, smaa: undefined, godRays: undefined, bloom: undefined, sightReflections: true, rainDetail: undefined, grassDetail: undefined, waterDetail: undefined, rainReflections: undefined, waterReflections: undefined };
     expect(matchingPreset(sanitizeGraphics(oldUltra), DEFAULT_ENVIRONMENT)).toBe('ultra');
   });
 
@@ -36,6 +37,20 @@ describe('graphics settings', () => {
     expect(GRAPHICS_PRESETS.filter(p=>p.values.waterReflections).map(p=>p.id)).toEqual(['ultra']);
     expect(sanitizeGraphics({shadowDetail:'ultra',waterReflections:false}).waterReflections).toBe(false);
     expect(GRAPHICS_PRESETS.filter(p=>p.values.rainReflections).map(p=>p.id)).toEqual(['ultra']);
+  });
+
+  it('migrates density and smoothing by preset while preserving explicit choices', () => {
+    expect(sanitizeGraphics({ shadowDetail: 'ultra' })).toMatchObject({ pixelDensity: 2, smaa: true });
+    expect(sanitizeGraphics({ shadowDetail: 'high' })).toMatchObject({ pixelDensity: 1.5, smaa: false });
+    expect(sanitizeGraphics({ scale: .85 })).toMatchObject({ pixelDensity: 1.35, smaa: false });
+    expect(sanitizeGraphics({ shadowDetail: 'ultra', pixelDensity: 1, smaa: false })).toMatchObject({ pixelDensity: 1, smaa: false });
+    expect(sanitizeGraphics({ pixelDensity: 8, smaa: 'yes' })).toEqual(DEFAULT_GRAPHICS);
+  });
+
+  it('caps first-person density at the screen density and applies render scale once', () => {
+    expect(fpsPixelRatio({ pixelDensity: 2, scale: 1 }, 1)).toBe(1);
+    expect(fpsPixelRatio({ pixelDensity: 2, scale: 1 }, 3)).toBe(2);
+    expect(fpsPixelRatio({ pixelDensity: 1.5, scale: .7 }, 2)).toBeCloseTo(1.05);
   });
 
   it('scales the view’s own resolution cap', () => {
@@ -84,9 +99,9 @@ describe('graphics storage', () => {
     const settings = await import('./graphics-settings');
     const listener = vi.fn();
     settings.subscribeGraphics(listener);
-    settings.setGraphicsSettings({ scale: .7, frameCap: 30 });
+    settings.setGraphicsSettings({ scale: .7, frameCap: 30, pixelDensity: 2, smaa: true });
     expect(listener).toHaveBeenCalledTimes(1);
     vi.resetModules();
-    expect((await import('./graphics-settings')).getGraphicsSettings()).toMatchObject({ scale: .7, frameCap: 30, lensEffects: true });
+    expect((await import('./graphics-settings')).getGraphicsSettings()).toMatchObject({ scale: .7, frameCap: 30, lensEffects: true, pixelDensity: 2, smaa: true });
   });
 });

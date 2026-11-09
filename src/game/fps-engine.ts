@@ -148,9 +148,9 @@ import { getFpsDistrict } from './fps-districts';
 import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
 import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, WORLD_GATEWAYS, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
-import { createFpsSurface, FPS_PIXEL_RATIO_CAP, type FpsSurface } from './fps-surface';
+import { createFpsSurface, fpsPixelRatio, type FpsSurface } from './fps-surface';
 import { beginProfiledFrame, endProfiledFrame } from './perf-overlay';
-import { createFrameLimiter, getGraphicsSettings, renderPixelRatio, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
+import { createFrameLimiter, getGraphicsSettings, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
@@ -4416,11 +4416,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     camera.updateProjectionMatrix(); viewCamera.updateProjectionMatrix();
   };
   // Render scale applies at once: a surface kept from the last district may predate a change.
-  let pixelScale = getGraphicsSettings().scale;
-  renderer.setPixelRatio(renderPixelRatio(FPS_PIXEL_RATIO_CAP));
+  let pixelRatio = fpsPixelRatio();
+  renderer.setPixelRatio(pixelRatio);
   const unsubscribeGraphics = subscribeGraphics(() => {
-    if (disposed || getGraphicsSettings().scale === pixelScale) return;
-    pixelScale = getGraphicsSettings().scale; renderer.setPixelRatio(renderPixelRatio(FPS_PIXEL_RATIO_CAP)); resize();
+    const next = fpsPixelRatio();
+    if (disposed || next === pixelRatio) return;
+    pixelRatio = next; renderer.setPixelRatio(pixelRatio); resize();
   });
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
   // A frame skipped under the cap runs nothing; the next one takes the whole time step.
@@ -4756,6 +4757,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive(),
         !vision.thermal && !nvgAiming && !overviewActive() ? getGraphicsSettings().godRays : 'off'));
       canvas.dataset.godRays = String(occlusion.godRaysEnabled);
+      canvas.dataset.smaa = String(occlusion.smaaEnabled);
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
       canvas.dataset.waterReflections = String(occlusion.waterReflectionsEnabled);
       canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);
