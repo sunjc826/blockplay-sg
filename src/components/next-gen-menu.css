@@ -109,6 +109,8 @@
 /* Home: two full-height play panels and an expanding, vertically split equipment column. */
 .game-menu.next-gen-main { --home-gap:12px; --home-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(20px,env(safe-area-inset-top)); --home-bottom:max(16px,env(safe-area-inset-bottom)); padding:0; }
 .next-gen-panorama { --panorama-art:url('/images/menu/operations-hub.jpg'); position:absolute; inset:-1.5%; pointer-events:none; background:linear-gradient(180deg,#08101444,transparent 32%,#081014a0),var(--panorama-art) center / cover; filter:saturate(.95); transition:transform .9s cubic-bezier(.2,.75,.25,1),background-position .9s cubic-bezier(.2,.75,.25,1),filter .7s; }
+/* Keep the title legible; the existing filter transition restores colour on entry. */
+.next-gen-main.is-title-shown .next-gen-panorama { filter:saturate(.65) brightness(.82); }
 .next-gen-main .next-gen-artwork::after { background:linear-gradient(180deg,transparent 25%,#07101328); opacity:.7; transition:opacity .4s; }
 .next-gen-main .next-gen-grid { display:none; }
 .next-gen-main .game-menu-item:is(:hover,:focus-visible) .next-gen-artwork::after { opacity:0; }
