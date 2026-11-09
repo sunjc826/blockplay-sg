@@ -51,15 +51,19 @@ is as small as the joke needs.
 ## Match announcer (TDM, FFA, Hardpoint, killstreaks)
 
 In shared matches Encik also calls the match itself. `src/game/match-callout-lines.ts`
-holds **108 recorded lines** over 44 events: a start line per mode, lead taken/lost
+holds **108 recorded lines** over 43 events: a start line per mode, lead taken/lost
 (team or personal), one minute left, nearly at the limit (yours or theirs), the result
 (win/loss/draw, or FFA first/top three/out), Hardpoint preview per site, rotation,
 capture, contest and loss, and for each of the six streaks: earned, deployed by you,
 and deployed by the enemy, plus your kit destroyed and theirs shot down.
 
 He addresses the whole section here, so the lines are gruff but never insult the
-player and do not change with the rank register; personal kill, death and respawn
-calls keep following the register. Lines quote the rules (30 kills or five minutes,
+player and do not change with the rank register. Every line carries Singlish
+markers (*ah*, *lah*, *already*, *aiyoh*, *don’t anyhow*): the first pack was
+written in plain English and Eleven v3 delivered it with an American lilt, even with
+the same voice and settings, because the wording is what holds his accent. Keep that
+in mind when adding lines. Personal calls are unaffected; kill, death and respawn calls keep
+following the register. Lines quote the rules (30 kills or five minutes,
 15 kills, the 3 s strike); `match-callouts.test.ts` fails if those rules change,
 since the recordings would then be wrong.
 
@@ -74,11 +78,17 @@ flip-flopping score stays quiet. Results replace the generic `complete` line.
 `pnpm voice:match` prints the plan; `pnpm voice:match --generate` records missing
 lines with the saved Encik voice and the same Eleven v3 settings, caching each paid
 attempt once in `.cache/encik-match/` and writing `src/audio/encik/match-manifest.json`.
-The pack was recorded on **2026-11-09**: 108 clips, 4,461 characters, account usage
-9,120 → **10,057 / 40,000** (an observed **937-credit** change), no failures or retries.
-The clips total **5,494,070 bytes**, about **340 seconds** (2.0–6.1 s each); every file
-decoded and passed non-silence and checksum checks. Delivery remains subject to
-listening review on `/audio/encik/index.html`, where the match clips are listed first.
+The first pack (2026-11-09, 937 credits) sounded American and was replaced the same
+day. Six audition takes (192 credits) compared a `[Singaporean accent]` v3 tag with
+Singlish rewording; the key lacks speech-to-text permission, so nobody could confirm
+the tag stays unspoken, and the shipped pack uses rewording alone. The re-record kept
+the three lines that were already Singlish and recorded **105 clips** (5,125
+characters): account usage 10,977 → **12,346 / 40,000**, an observed **1,369-credit**
+change, while the response `character-cost` headers sum to 1,914. No failures or
+retries; the superseded clips were removed. The 108 clips total **6,134,376 bytes**,
+about **380 seconds** (2.5–5.3 s each); every file decoded and passed non-silence and
+checksum checks. The accent has not been confirmed by ear: listen on
+`/audio/encik/index.html`, where the match clips are listed first.
 
 ## Game playback
 

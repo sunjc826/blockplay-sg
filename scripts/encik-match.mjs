@@ -62,7 +62,10 @@ export async function generate(key) {
     if (failure) throw failure.reason;
   }
   await publish();
-  const card = c => `<section><h2>${escape(c.id)}</h2><p>${escape(c.text)}</p><audio controls preload="none" src="${escape(c.file)}"></audio></section>`;
+  // Reworded lines get new ids; drop the superseded clips so the bundle carries one take per line.
+  const kept = new Set(clips.map(c => c.file));
+  for (const file of await fs.readdir(publicDirectory)) if (/^match-.*\.mp3$/.test(file) && !kept.has(file)) await fs.rm(path.join(publicDirectory, file));
+  const card =c => `<section><h2>${escape(c.id)}</h2><p>${escape(c.text)}</p><audio controls preload="none" src="${escape(c.file)}"></audio></section>`;
   const total = base.clips.length + ranks.clips.length + clips.length;
   await fs.writeFile(path.join(publicDirectory, 'index.html'), `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Encik callout pack</title><style>body{max-width:760px;margin:30px auto;padding:20px;background:#15251f;color:#f3e7c8;font:16px/1.6 system-ui}section{padding:10px 0;border-top:1px solid #647b66}audio{width:100%}h2{font-size:18px}</style><h1>Encik · ${total} callouts</h1><p>Match announcer (${clips.length}) · Recruit, Noticed, Respect and Defers · all shipped rank titles</p>${clips.map(card).join('')}${[...base.clips, ...ranks.clips].map(card).join('')}`);
   const after = await usage(key);
