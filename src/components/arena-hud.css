@@ -11,6 +11,47 @@
 .hardpoint-status{position:absolute;top:116px;left:50%;transform:translateX(-50%);width:270px;padding:8px 12px;background:rgba(9,20,28,.85);border-left:3px solid #e7df88;color:#fff;display:grid;gap:4px;font-size:12px;pointer-events:none}.hardpoint-status strong{display:flex;justify-content:space-between}.hardpoint-status span{font-size:10px;letter-spacing:.04em}.hardpoint-status small{color:#e7df88}
 .fps-game:not([data-phase=playing]) .hardpoint-status{display:none}
 @media(max-width:700px) and (min-height:600px){.hardpoint-status{top:250px;left:12px;right:12px;transform:none;width:auto;padding:6px 8px;font-size:11px}.hardpoint-status span{font-size:9px}.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:315px}}
+.hardpoint-match-clock{display:none}
+.hardpoint-status .hardpoint-site{font:inherit;letter-spacing:inherit;min-width:0}
+
+/* Hardpoint touch HUD: keep match information at the edges, leaving the
+   centre open. These rules follow the game viewport, including browser bars. */
+@container fps-hud (max-width:520px) or (max-height:560px){
+.fps-game[data-touch=on][data-match-mode=hardpoint] .fps-top{display:none}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .tdm-score{top:8px;left:50%;right:auto;transform:translateX(-50%);width:200px;margin:0;padding:4px 6px;gap:2px}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .tdm-score strong{font-size:11px;letter-spacing:0;white-space:nowrap}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .tdm-score>span{display:flex;justify-content:space-between;font-size:9px}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .tdm-uniform{display:none}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-match-clock{display:inline;font:inherit;font-variant-numeric:tabular-nums}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status{top:48px;width:200px;padding:5px 7px;gap:2px;font-size:11px;line-height:1.3;background:#09141cb8}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status strong{gap:6px}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status strong b{flex-shrink:0;font-variant-numeric:tabular-nums}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status>span,.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status small{font-size:9px}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-detail{display:none}
+.fps-game.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:43px;left:12px;right:auto;width:100px;max-width:none;text-align:left}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed p{margin:0;padding:0;background:none;border:0;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 3px #000}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed p:not(:last-child){display:none}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .match-streak-hud{top:176px;left:12px;right:auto;bottom:auto;transform:none;gap:4px}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .match-streak-hud button{width:44px;min-height:48px;padding:3px 2px;gap:2px;align-items:center}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .match-streak-hud small{font-size:8px;white-space:nowrap}
+.fps-game[data-touch=on][data-match-mode=hardpoint] .fps-minimap:not(.is-expanded) .fps-minimap-legend,
+.fps-game[data-touch=on][data-match-mode=hardpoint] .fps-minimap:not(.is-expanded) .fps-map-control-legend{display:none}
+@container fps-hud (min-width:521px){
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .fps-health-line{left:116px;width:min(100px,calc(50cqw - 248px));transform:none}
+}
+@container fps-hud (max-height:560px) and (min-width:521px){
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .fps-subtitles{position:absolute;grid-area:auto;top:104px;left:132px;right:168px;width:auto}
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .fps-radio-message>p{font-size:11px}
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .fps-minimap:not(.is-expanded){width:100px}
+}
+@container fps-hud (max-width:520px){
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .tdm-score{left:116px;right:12px;width:auto;transform:none}
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .fps-hud-layout{padding-top:84px}
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .hardpoint-status{top:212px;left:12px;right:168px;transform:none;width:auto}
+  .fps-game[data-touch=on][data-match-mode=hardpoint] .match-streak-hud{top:222px;left:auto;right:12px}
+  .fps-game.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{left:auto;right:12px;width:140px}
+}
+}
 
 .arena-live-scoreboard {
   position: absolute;
