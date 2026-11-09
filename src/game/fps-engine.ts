@@ -173,6 +173,7 @@ import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
 import { encikRecordingUrl } from './encik-recordings';
+import { createMatchAnnouncer, createMatchCallQueue, matchCallPriority, matchMode, matchResultEvent, matchStartEvent, type MatchCallEvent } from './match-callouts';
 import { createPlayerPilot, normalizePilotAction, PILOT_HEALING_KINDS, PILOT_INTERVAL, type PilotObservation, type PilotGoal, type PlayerPilot } from './fps-pilot';
 import { visiblePilotContacts, type PilotSubject } from './fps-pilot-perception';
 import { createStrategyPlanner, llmPilotStrategy } from './pilot-strategy';
@@ -682,6 +683,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const heatTiers: Record<SquadFaction, number> = { mercenaries: 0, 'armed-forces': 0 };
   let heatDistrict = '';
   const encik = createEncikRadio(Math.random, () => options.encik?.() ?? encikAddress(fieldProfile)), comms = createFpsComms(checkpoint?.comms);
+  // TDM, FFA and Hardpoint: Encik also calls the score race, the objective and killstreaks.
+  const matchAnnouncer = createMatchAnnouncer(), matchCalls = createMatchCallQueue((event, now) => matchCall(event, now));
   hud.encikVoice = checkpoint?.encikVoice ?? true;
   let killChain: KillChain = { count: 0, lastAt: -Infinity }, calloutTime = 0;
   let roundId = randomRoundId(), attackTimer = 3, hurtTime = 0;
@@ -978,7 +981,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     mapCaptureUntil = 0;
     if (!['playing', 'deploying'].includes(hud.phase)) return;
     if (rangeMerlion && merlionOperating()) rangeMerlion.action(rangeMerlionPlayer(), 'leave');
-    hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; recoveryPicker = null; hud.recoveryPicker = null;
+    hud.phase = 'paused'; hud.mapExpanded = false; clearInput(); stopVoice(); encik.clear(); matchCalls.clear(); hud.encikCallout = null; wheel = null; hud.calloutWheel = null; recoveryPicker = null; hud.recoveryPicker = null;
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     publish();
   }
@@ -1128,8 +1131,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let slideSurface: ReturnType<typeof surfaceUnder> | null = null;
   const worldLoops = createWorldLoops(() => audio, sfx);
   function stopVoice() { encikAudio.stop(); }
+  /** Says a match announcement now if the channel allows; false means try again shortly. */
+  function matchCall(event: MatchCallEvent, now = performance.now() / 1000) {
+    // A deafened or paused player loses the call rather than hearing it late.
+    if (disposed || conditions.deafened || !['playing', 'complete', 'defeated'].includes(hud.phase)) return true;
+    const line = encik.match(event, matchCallPriority(event), now); if (!line) return false;
+    hud.encikCallout = line;
+    comms.add('radio', 'Encik', line.text);
+    const recording = !hud.muted && hud.encikVoice ? encikRecordingUrl(line) : null;
+    if (recording) void encikAudio.play(recording);
+    return true;
+  }
   function radioCall(event: EncikEvent) {
     if (disposed || conditions.deafened || !['playing', 'complete', 'defeated'].includes(hud.phase)) return;
+    const mode = event === 'start' && options.arena ? matchMode(hud.arena) : null;
+    if (mode) { matchCall(matchStartEvent(mode)); return; }
     const line = encik.emit(event, performance.now() / 1000); if (!line) return;
     hud.encikCallout = line;
     comms.add('radio', pilotEnabled ? 'Encik · AI' : 'Encik', line.text);
@@ -1336,7 +1352,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
     cancelStreak(); streakVisuals.reset(); combatVisuals.reset(); seenEvents.clear(); openedSupplies.clear(); eventClock = -1; shake = 0; blackout = 0; hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null;
     hud.health = hud.maxHealth; hud.armor = equipment.armor; hud.incoming = false; hud.hurt = false; hud.earned = 0; hud.earnedXp = 0; hud.lastDamage = 0; hud.callout = ''; hud.chain = 0;
-    killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null;
+    killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); matchAnnouncer.reset(); matchCalls.clear(); comms.clear(); hud.encikCallout = null;
     rangeDirector?.reset(Math.floor(Math.random() * 0xffffffff)); rangeEndedEarly = false; rangeCompletionAge = 0;
     if (practiceRange) { looted = {}; supplies = { ...equipment.supplies }; }
     roundId = randomRoundId(); attackTimer = 3; pendingAttack = null; hurtTime = 0; hitDirections.clear(); supplyUse = null; foodEffects = {}; recoveryPicker = null; hud.recoveryPicker = null;
@@ -3729,7 +3745,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       deploymentIntro.reset(); briefing.clear(); overviewZoom = 1; overviewPan = { x: 0, z: 0 };
       hud.phase = 'ready'; hud.shots = hud.landed = hud.earned = hud.earnedXp = hud.chain = 0;
       hud.callout = ''; hud.message = ''; calloutTime = 0; killChain = { count: 0, lastAt: -Infinity };
-      clearInput(); vehicles.reset(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createPooledLoadout(specs, equipment.carriedFamilies);
+      clearInput(); vehicles.reset(); stopVoice(); encik.reset(); matchAnnouncer.reset(); matchCalls.clear(); comms.clear(); hud.encikCallout = null; loadout = createPooledLoadout(specs, equipment.carriedFamilies);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     }
     const oldVehicle = vehicles.active, oldSeat = vehicles.seat;
@@ -3917,12 +3933,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         expedition.onEquipment(copyProfile(fieldProfile));
       }
     }
+    // Read every snapshot so the announcer's picture stays current; it speaks only while playing.
+    const matchEvents = matchAnnouncer.update(frame.snapshot, options.arena!.session.id);
+    if (hud.phase === 'playing') matchCalls.push(matchEvents, performance.now() / 1000);
     if (!frame.connected && options.arena!.session.role === 'guest' && hud.phase !== 'loading') {
       hud.message = 'The host disconnected. Return to the lobby to join another match.';
       if (hud.phase === 'playing') pause();
     }
     if (frame.snapshot?.finished && hud.phase !== 'complete') {
-      hud.phase = 'complete'; clearInput(); hud.incoming = false; radioCall('complete');
+      hud.phase = 'complete'; clearInput(); hud.incoming = false; matchCalls.clear();
+      const result = matchResultEvent(frame.snapshot, options.arena!.session.id);
+      if (result) matchCall(result); else radioCall('complete');
       if (document.pointerLockElement === canvas) document.exitPointerLock();
       publish();
     }
@@ -4613,6 +4634,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       else if (hud.incoming) radioCall('contact');
       else if (spareMagazines(loadout[hud.weapon]) < 1) radioCall('lowAmmo');
     }
+    matchCalls.step(now / 1000);
     hud.encikCallout = encik.current(now / 1000);
     objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);
     world.animate(hud.elapsed);

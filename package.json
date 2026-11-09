@@ -16,6 +16,7 @@
     "test:fps:voice": "node scripts/encik-playback-smoke.mjs",
     "voice:batch": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-batch.mjs",
     "voice:missing": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-missing.mjs",
+    "voice:match": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-match.mjs",
     "voice:audition": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-audition.mjs",
     "sfx:batch": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/sfx-batch.mjs",
     "sfx:publish": "node --experimental-strip-types scripts/sfx-publish.mjs",

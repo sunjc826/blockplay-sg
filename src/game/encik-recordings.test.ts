@@ -50,3 +50,17 @@ it('ships intact rank recordings with unique exact-text lookup keys', () => {
 it('does not play a mismatched recording if a subtitle changes', () => {
   expect(encikRecordingUrl({ event: 'start', text: 'A new line without a recording' })).toBeNull();
 });
+it('records every match announcer line with an intact clip', async () => {
+  const { MATCH_LINES } = await import('./match-callout-lines');
+  const { default: matchManifest } = await import('../audio/encik/match-manifest.json');
+  const lines = Object.entries(MATCH_LINES).flatMap(([event, texts]) => texts.map(text => ({ event, text })));
+  expect(matchManifest.clips).toHaveLength(lines.length);
+  for (const line of lines) {
+    const clip = matchManifest.clips.find((c: { event: string; text: string }) => c.event === line.event && c.text === line.text) as { file: string; bytes: number; sha256: string } | undefined;
+    expect(clip, line.text).toBeDefined();
+    expect(encikRecordingUrl(line as never, '/demo/')).toBe(`/demo/audio/encik/${clip!.file}`);
+    const data = readFileSync(new URL(`../../public/audio/encik/${clip!.file}`, import.meta.url));
+    expect(data.length).toBe(clip!.bytes);
+    expect(createHash('sha256').update(data).digest('hex')).toBe(clip!.sha256);
+  }
+});

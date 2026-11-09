@@ -1,0 +1,52 @@
+/**
+ * Recorded wording of Encik's match announcer (see match-callouts.ts). No
+ * imports, so the generation script can read it directly. The recording lookup
+ * matches exact event + text: editing a line makes it subtitle-only until
+ * `pnpm voice:match --generate` records it. Add new lines at the end of a pool.
+ */
+export const MATCH_LINES = {
+  'tdm-start': ['Team deathmatch! Thirty kills or five minutes. Move as a section!', 'Two teams, thirty kills. Stick together, don’t anyhow run off!', 'Team deathmatch, start! Watch your buddy, watch your sector.'],
+  'ffa-start': ['Free-for-all! Everybody is enemy. Fifteen kills wins.', 'No buddy system today. Every man for himself. Go!', 'Free-for-all, start! Trust nobody, check every corner.'],
+  'hp-start': ['Hardpoint! Hold the zone, earn the points. Move!', 'Hardpoint, start! Points only come from standing on the objective.', 'Objective is live! Get on the hardpoint and stay there!'],
+  'team-lead': ['We got the lead! Don’t relax now.', 'Our side in front! Keep the pressure.', 'We’re ahead! Steady, don’t give it back.'],
+  'team-behind': ['Enemy took the lead! Wake up, section!', 'We’re behind! Regroup and push back.', 'They’re ahead now. Tighten up, move together!'],
+  'ffa-lead': ['You’re in front! Now everybody coming for you.', 'Top of the board! Watch your back.', 'You got the lead! Don’t get greedy.'],
+  'ffa-lead-lost': ['Lost the lead! Go and take it back.', 'Somebody overtook you! Faster, faster!', 'You’re not on top anymore. Fix it!'],
+  'one-minute': ['One minute left! Make it count!', 'Last minute! Everything you got!', 'Sixty seconds! No more waiting around!'],
+  'near-win': ['Almost there! Finish the job!', 'Nearly at the limit! Close it out!', 'So close already. Don’t throw it away!'],
+  'near-loss': ['They’re about to win it! Stop them now!', 'Enemy nearly at the limit! Everybody push!', 'Last chance! Don’t let them close it out!'],
+  'win': ['Victory! Good job, whole section. Can lah!', 'We won it! Proper teamwork, that one.', 'Match over, we take it! Now go drink water.'],
+  'loss': ['We lost this one. Debrief, then come back stronger.', 'Defeat. Never mind, learn from it.', 'They took it. Next round, we do properly.'],
+  'draw': ['Draw! Nobody wins, nobody book out.', 'All square. Same score, same lesson.', 'Draw lah. Next one, settle it properly.'],
+  'ffa-win': ['You won the free-for-all! Wah, not bad ah!', 'Top of the board! Nobody could touch you.', 'Winner! Encik saw everything. Good.'],
+  'ffa-podium': ['Top three! Not bad, but not first.', 'On the podium. Next time, aim for the top.', 'Top three finish. Steady, keep improving.'],
+  'ffa-loss': ['Match over. Not your day, try again.', 'Out of the top three. Go back and train.', 'Finished, but nowhere near the top. Again!'],
+  'hp-next-market': ['Hardpoint moving to Market crossing! Start moving!', 'Next hardpoint, Market crossing! Get there first!'],
+  'hp-next-east': ['Hardpoint moving to the Eastern opening! Go now!', 'Next hardpoint, Eastern opening! Rotate!'],
+  'hp-next-south': ['Hardpoint moving to the Southern passage! Shift!', 'Next hardpoint, Southern passage! Move early!'],
+  'hp-online': ['New hardpoint is live! Get on it!', 'Hardpoint up! Take it and hold it!', 'Objective moved! Clear it, then hold!'],
+  'hp-captured': ['We’re holding the hardpoint! Stay on it!', 'Hardpoint secured! Dig in, watch the doors.', 'Point is ours! Don’t anyhow wander off!'],
+  'hp-lost': ['Enemy holding the hardpoint! Push them off!', 'They got the point! Clear it out!', 'Hardpoint taken by enemy! Get back in there!'],
+  'hp-contested': ['Hardpoint contested! Clear the zone!', 'Contested! Kill them on the point!', 'Enemy on the hardpoint! Nobody scores till it’s cleared!'],
+  'streak-ready-recon': ['Kestrel Recon ready! Put eyes in the sky.', 'Recon drone available! Use it, don’t keep for souvenir.'],
+  'streak-ready-jammer': ['Signal Jammer ready! Blind their drones.', 'Jammer available! Switch off their eyes.'],
+  'streak-ready-interceptor': ['Guardian Interceptor ready! No more grenades for them.', 'Guardian available! Grenade protection, use it.'],
+  'streak-ready-hunter': ['Hunter Drone ready! Send it hunting.', 'Hunter Drone available! Point and launch.'],
+  'streak-ready-strike': ['Precision Strike ready! Pick your target.', 'Strike available! Mark it, then stay clear.'],
+  'streak-ready-sentry': ['Sentry Turret ready! Put it where they come from.', 'Sentry available! Let it guard the flank.'],
+  'streak-up-recon': ['Kestrel up! Enemy positions coming in.', 'Recon drone airborne! Watch the map.'],
+  'streak-up-jammer': ['Jammer on! Their recon is blind here.', 'Signal Jammer running! Their drones see nothing.'],
+  'streak-up-interceptor': ['Guardian set! Their grenades won’t reach.', 'Interceptor online! Grenades covered.'],
+  'streak-up-hunter': ['Hunter Drone away! Let it do the work.', 'Hunter launched! It will find them.'],
+  'streak-up-strike': ['Strike called! Three seconds, stay clear!', 'Precision Strike inbound! Don’t stand there!'],
+  'streak-up-sentry': ['Sentry up! It’s watching that arc.', 'Turret online! Front covered.'],
+  'streak-enemy-recon': ['Enemy recon drone up! Shoot it down!', 'Enemy Kestrel overhead! Stay moving.'],
+  'streak-enemy-jammer': ['Enemy jammer running! Our recon can’t see there.', 'Enemy jamming! No drone picture near them.'],
+  'streak-enemy-interceptor': ['Enemy Guardian up! Grenades won’t work near it.', 'Enemy interceptor! Use bullets, not grenades.'],
+  'streak-enemy-hunter': ['Enemy Hunter Drone! Get under cover, shoot it!', 'Hunter drone incoming! Find a roof, now!'],
+  'streak-enemy-strike': ['Enemy strike incoming! Get under a roof!', 'Strike coming in! Move, move, move!'],
+  'streak-enemy-sentry': ['Enemy sentry turret! Smoke it or flank it.', 'Turret up on their side! Don’t walk into its arc.'],
+  'streak-destroyed': ['Your kit is down! Enemy took it out.', 'They destroyed it! You’re on your own now.', 'Lost your streak! Next time, place it better.'],
+  'streak-killed': ['Enemy kit destroyed! Good shooting.', 'Their streak is down! Carry on.', 'Took out their gear! Nice one.'],
+} as const satisfies Record<string, readonly string[]>;
+export type MatchCallEvent = keyof typeof MATCH_LINES;

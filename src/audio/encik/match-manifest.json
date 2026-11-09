@@ -1,0 +1,980 @@
+{
+  "version": 1,
+  "provider": "ElevenLabs",
+  "model": "eleven_v3",
+  "voice": "Encik — Round 4 Candidate 3",
+  "clips": [
+    {
+      "id": "match-draw-1-803897e0",
+      "event": "draw",
+      "index": 0,
+      "text": "Draw! Nobody wins, nobody book out.",
+      "file": "match-draw-1-803897e0-5437106ce1.mp3",
+      "bytes": 59811,
+      "sha256": "5437106ce171f7d0c2d5996ea2b01958efccf075b667a8a27a8aadd6f0449e03"
+    },
+    {
+      "id": "match-draw-2-d2727465",
+      "event": "draw",
+      "index": 1,
+      "text": "All square. Same score, same lesson.",
+      "file": "match-draw-2-d2727465-466965b032.mp3",
+      "bytes": 47272,
+      "sha256": "466965b0320150ffe2d1fb8f98fc631339d1925d240b18d88ddac0f22f563e2e"
+    },
+    {
+      "id": "match-draw-3-d0763c42",
+      "event": "draw",
+      "index": 2,
+      "text": "Draw lah. Next one, settle it properly.",
+      "file": "match-draw-3-d0763c42-a2ed0d4189.mp3",
+      "bytes": 43510,
+      "sha256": "a2ed0d41894cf5db129775ff1a5af347f74497662a63a14b59ce4f0097b64a65"
+    },
+    {
+      "id": "match-ffa-lead-1-df6b922f",
+      "event": "ffa-lead",
+      "index": 0,
+      "text": "You’re in front! Now everybody coming for you.",
+      "file": "match-ffa-lead-1-df6b922f-3597f918f4.mp3",
+      "bytes": 52287,
+      "sha256": "3597f918f42bdf2ba33ab8d9084f1cc767b1d230a5b648ef763a903d6f9242d7"
+    },
+    {
+      "id": "match-ffa-lead-2-e42c2691",
+      "event": "ffa-lead",
+      "index": 1,
+      "text": "Top of the board! Watch your back.",
+      "file": "match-ffa-lead-2-e42c2691-3bb45fd702.mp3",
+      "bytes": 39331,
+      "sha256": "3bb45fd702bea07002a850d1b6f0626aff9766041563917e629edfc291b9ca91"
+    },
+    {
+      "id": "match-ffa-lead-3-976efb83",
+      "event": "ffa-lead",
+      "index": 2,
+      "text": "You got the lead! Don’t get greedy.",
+      "file": "match-ffa-lead-3-976efb83-1f44f314ac.mp3",
+      "bytes": 52287,
+      "sha256": "1f44f314ac7105c549ed35488f740fb21cd22572143e28bcd406197b336344a4"
+    },
+    {
+      "id": "match-ffa-lead-lost-1-3ca6ba3a",
+      "event": "ffa-lead-lost",
+      "index": 0,
+      "text": "Lost the lead! Go and take it back.",
+      "file": "match-ffa-lead-lost-1-3ca6ba3a-0be8954105.mp3",
+      "bytes": 41838,
+      "sha256": "0be8954105576719d1af79e7ae9c01d14111766d3458466f1a23ba071338b599"
+    },
+    {
+      "id": "match-ffa-lead-lost-2-50dbce73",
+      "event": "ffa-lead-lost",
+      "index": 1,
+      "text": "Somebody overtook you! Faster, faster!",
+      "file": "match-ffa-lead-lost-2-50dbce73-ab2977ae65.mp3",
+      "bytes": 41838,
+      "sha256": "ab2977ae65d8c159989845bc7d034dcc74614c6669cddc35d49ad01c2640d7ea"
+    },
+    {
+      "id": "match-ffa-lead-lost-3-1ead8ff4",
+      "event": "ffa-lead-lost",
+      "index": 2,
+      "text": "You’re not on top anymore. Fix it!",
+      "file": "match-ffa-lead-lost-3-1ead8ff4-17e5529d98.mp3",
+      "bytes": 35569,
+      "sha256": "17e5529d987c9538470ff219225aaedcfa5fb9692faab108956ca68f9a3c005a"
+    },
+    {
+      "id": "match-ffa-loss-1-40c4a8e9",
+      "event": "ffa-loss",
+      "index": 0,
+      "text": "Match over. Not your day, try again.",
+      "file": "match-ffa-loss-1-40c4a8e9-6977f27d67.mp3",
+      "bytes": 51034,
+      "sha256": "6977f27d67d3e87ba4ea3f5c6ff606b4ac4bc4436a388f59c67c0a77157ae3b8"
+    },
+    {
+      "id": "match-ffa-loss-2-595d9d29",
+      "event": "ffa-loss",
+      "index": 1,
+      "text": "Out of the top three. Go back and train.",
+      "file": "match-ffa-loss-2-595d9d29-1cedf52173.mp3",
+      "bytes": 59811,
+      "sha256": "1cedf521736d2625c2d5268909cb0297e652e479751dac5fb320e7ad12c056d6"
+    },
+    {
+      "id": "match-ffa-loss-3-7cc4a634",
+      "event": "ffa-loss",
+      "index": 2,
+      "text": "Finished, but nowhere near the top. Again!",
+      "file": "match-ffa-loss-3-7cc4a634-e21ec69465.mp3",
+      "bytes": 54795,
+      "sha256": "e21ec69465a362a9b1168bdf33ef0c26d2d48a4e6c372d0d5622a2623c4ac77a"
+    },
+    {
+      "id": "match-ffa-podium-1-6a6576eb",
+      "event": "ffa-podium",
+      "index": 0,
+      "text": "Top three! Not bad, but not first.",
+      "file": "match-ffa-podium-1-6a6576eb-a5fb9f2d1b.mp3",
+      "bytes": 46018,
+      "sha256": "a5fb9f2d1bac4b03d9668636f6cda6c3defb1db180aebcc4fe9b9c32646bd852"
+    },
+    {
+      "id": "match-ffa-podium-2-37bf499c",
+      "event": "ffa-podium",
+      "index": 1,
+      "text": "On the podium. Next time, aim for the top.",
+      "file": "match-ffa-podium-2-37bf499c-32fd054254.mp3",
+      "bytes": 59811,
+      "sha256": "32fd0542540f23b9a8cb9d5c7201a439d890f6a51b74a5ec5a6f3e35f3116ec5"
+    },
+    {
+      "id": "match-ffa-podium-3-3bb6ec21",
+      "event": "ffa-podium",
+      "index": 2,
+      "text": "Top three finish. Steady, keep improving.",
+      "file": "match-ffa-podium-3-3bb6ec21-5ada4fbd5a.mp3",
+      "bytes": 49780,
+      "sha256": "5ada4fbd5a641b7875126423a492c01d6b1580e1783c116e8eccd3c1733a4ac6"
+    },
+    {
+      "id": "match-ffa-start-1-65720643",
+      "event": "ffa-start",
+      "index": 0,
+      "text": "Free-for-all! Everybody is enemy. Fifteen kills wins.",
+      "file": "match-ffa-start-1-65720643-55617841b7.mp3",
+      "bytes": 76529,
+      "sha256": "55617841b79894e79a0a4b16c184734d05f72ca083a56883d7353a23216e7e73"
+    },
+    {
+      "id": "match-ffa-start-2-d57a3a88",
+      "event": "ffa-start",
+      "index": 1,
+      "text": "No buddy system today. Every man for himself. Go!",
+      "file": "match-ffa-start-2-d57a3a88-80f62ecf27.mp3",
+      "bytes": 67752,
+      "sha256": "80f62ecf278d704341cf710aea548cccb77fcbedc27e637efb895c536d98833a"
+    },
+    {
+      "id": "match-ffa-start-3-b8674ae1",
+      "event": "ffa-start",
+      "index": 2,
+      "text": "Free-for-all, start! Trust nobody, check every corner.",
+      "file": "match-ffa-start-3-b8674ae1-b0dad9e2e9.mp3",
+      "bytes": 98263,
+      "sha256": "b0dad9e2e9476568df2aa3474de09463c2ca72c32148e762ce9821c0a93bfb1e"
+    },
+    {
+      "id": "match-ffa-win-1-1de06ca8",
+      "event": "ffa-win",
+      "index": 0,
+      "text": "You won the free-for-all! Wah, not bad ah!",
+      "file": "match-ffa-win-1-1de06ca8-dea7eafa2d.mp3",
+      "bytes": 54795,
+      "sha256": "dea7eafa2d299e62f40feca8a85f6a9cd875a0ed93dae0a9c2143b94479ebc2b"
+    },
+    {
+      "id": "match-ffa-win-2-cd35ad90",
+      "event": "ffa-win",
+      "index": 1,
+      "text": "Top of the board! Nobody could touch you.",
+      "file": "match-ffa-win-2-cd35ad90-c0d81ee9a0.mp3",
+      "bytes": 56049,
+      "sha256": "c0d81ee9a077a13146e27e1fd315e6d0d40afa160182e1f1c8e06e871ad425c3"
+    },
+    {
+      "id": "match-ffa-win-3-2c322249",
+      "event": "ffa-win",
+      "index": 2,
+      "text": "Winner! Encik saw everything. Good.",
+      "file": "match-ffa-win-3-2c322249-5710545593.mp3",
+      "bytes": 38077,
+      "sha256": "57105455939b0c3ac79d88be03f961f544f2ff804638f87b2300751d084974c0"
+    },
+    {
+      "id": "match-hp-captured-1-fbc4ca6a",
+      "event": "hp-captured",
+      "index": 0,
+      "text": "We’re holding the hardpoint! Stay on it!",
+      "file": "match-hp-captured-1-fbc4ca6a-7c61fdbf58.mp3",
+      "bytes": 39331,
+      "sha256": "7c61fdbf58c74af25002ddf798c82a96d6e28fc09cf938d7cc8daf782ba65b40"
+    },
+    {
+      "id": "match-hp-captured-2-9d9af6dc",
+      "event": "hp-captured",
+      "index": 1,
+      "text": "Hardpoint secured! Dig in, watch the doors.",
+      "file": "match-hp-captured-2-9d9af6dc-4cf6cb0aec.mp3",
+      "bytes": 52287,
+      "sha256": "4cf6cb0aecb2fb01cd12d30d5495d051ca685458cb1e3f25a171f63e3cf7f6b6"
+    },
+    {
+      "id": "match-hp-captured-3-39094c56",
+      "event": "hp-captured",
+      "index": 2,
+      "text": "Point is ours! Don’t anyhow wander off!",
+      "file": "match-hp-captured-3-39094c56-fcdbcb38d0.mp3",
+      "bytes": 72767,
+      "sha256": "fcdbcb38d051acc660bc87e78cddf88a5458b91510d88f716876280c11bf99b2"
+    },
+    {
+      "id": "match-hp-contested-1-3e09c414",
+      "event": "hp-contested",
+      "index": 0,
+      "text": "Hardpoint contested! Clear the zone!",
+      "file": "match-hp-contested-1-3e09c414-34b2ea5809.mp3",
+      "bytes": 44764,
+      "sha256": "34b2ea5809da99bcbbcc7450dbc61edb7f83527beaab8e99aa249138943a5120"
+    },
+    {
+      "id": "match-hp-contested-2-d8b23e8b",
+      "event": "hp-contested",
+      "index": 1,
+      "text": "Contested! Kill them on the point!",
+      "file": "match-hp-contested-2-d8b23e8b-3ff7662ca0.mp3",
+      "bytes": 46018,
+      "sha256": "3ff7662ca0bf2e4474b0c50c7cfe972ce0859f6a368a1683f0af9b21a5d3b70b"
+    },
+    {
+      "id": "match-hp-contested-3-d253af63",
+      "event": "hp-contested",
+      "index": 2,
+      "text": "Enemy on the hardpoint! Nobody scores till it’s cleared!",
+      "file": "match-hp-contested-3-d253af63-1ecd8376f4.mp3",
+      "bytes": 59811,
+      "sha256": "1ecd8376f4a8cff83d5efcde0e52f5fd066454edac262c099b7bed4cda6c0f0d"
+    },
+    {
+      "id": "match-hp-lost-1-47438b00",
+      "event": "hp-lost",
+      "index": 0,
+      "text": "Enemy holding the hardpoint! Push them off!",
+      "file": "match-hp-lost-1-47438b00-cab0caad70.mp3",
+      "bytes": 44764,
+      "sha256": "cab0caad70e89c20dbd0765cb861f874281e16d37461ddb25efd8895db9074b7"
+    },
+    {
+      "id": "match-hp-lost-2-5447ddf2",
+      "event": "hp-lost",
+      "index": 1,
+      "text": "They got the point! Clear it out!",
+      "file": "match-hp-lost-2-5447ddf2-efe677f1d6.mp3",
+      "bytes": 34315,
+      "sha256": "efe677f1d6ba7cd43640a126065d9fcd3ecb94c2e6c115873203dd74437be4e5"
+    },
+    {
+      "id": "match-hp-lost-3-63b61701",
+      "event": "hp-lost",
+      "index": 2,
+      "text": "Hardpoint taken by enemy! Get back in there!",
+      "file": "match-hp-lost-3-63b61701-6ded461ed3.mp3",
+      "bytes": 56049,
+      "sha256": "6ded461ed3f38d6b6f2dcb763696b79f4f74bbaef29ce3a0c68b18f6375e2ea4"
+    },
+    {
+      "id": "match-hp-next-east-1-4ee96465",
+      "event": "hp-next-east",
+      "index": 0,
+      "text": "Hardpoint moving to the Eastern opening! Go now!",
+      "file": "match-hp-next-east-1-4ee96465-284912d27f.mp3",
+      "bytes": 51034,
+      "sha256": "284912d27f04918a8a9a299ba50b6ee399df2b12a538919ebc36d684c23aff71"
+    },
+    {
+      "id": "match-hp-next-east-2-1758b96a",
+      "event": "hp-next-east",
+      "index": 1,
+      "text": "Next hardpoint, Eastern opening! Rotate!",
+      "file": "match-hp-next-east-2-1758b96a-32bac461bd.mp3",
+      "bytes": 43510,
+      "sha256": "32bac461bd29fbb855dbc06eab2ee34643eb19a98285f41d4acc0ea81e1fa6fb"
+    },
+    {
+      "id": "match-hp-next-market-1-72f2fbf2",
+      "event": "hp-next-market",
+      "index": 0,
+      "text": "Hardpoint moving to Market crossing! Start moving!",
+      "file": "match-hp-next-market-1-72f2fbf2-dbfe44d7e2.mp3",
+      "bytes": 56049,
+      "sha256": "dbfe44d7e286b6c3dc19d055c6751cea69d915eb44a6c8a0579c26db302a4dba"
+    },
+    {
+      "id": "match-hp-next-market-2-38a4fd79",
+      "event": "hp-next-market",
+      "index": 1,
+      "text": "Next hardpoint, Market crossing! Get there first!",
+      "file": "match-hp-next-market-2-38a4fd79-b57335cd3d.mp3",
+      "bytes": 61065,
+      "sha256": "b57335cd3d3c56c21a0f85f48490d71fc1d3f605da39d89ba2c59b34f1fbeb3a"
+    },
+    {
+      "id": "match-hp-next-south-1-b021c030",
+      "event": "hp-next-south",
+      "index": 0,
+      "text": "Hardpoint moving to the Southern passage! Shift!",
+      "file": "match-hp-next-south-1-b021c030-e4c2fd5f40.mp3",
+      "bytes": 49780,
+      "sha256": "e4c2fd5f405e6a54163874fefb67b1fb9d12553439c0ec49e127c8a2e2e12f9e"
+    },
+    {
+      "id": "match-hp-next-south-2-3b993d42",
+      "event": "hp-next-south",
+      "index": 1,
+      "text": "Next hardpoint, Southern passage! Move early!",
+      "file": "match-hp-next-south-2-3b993d42-49086c8459.mp3",
+      "bytes": 52287,
+      "sha256": "49086c8459deebe2bb15b047fd70348eb1fed500c9dbcdaa3d2a1167385bd15f"
+    },
+    {
+      "id": "match-hp-online-1-a60c6400",
+      "event": "hp-online",
+      "index": 0,
+      "text": "New hardpoint is live! Get on it!",
+      "file": "match-hp-online-1-a60c6400-c98313bd8f.mp3",
+      "bytes": 34315,
+      "sha256": "c98313bd8fc9fe36462d619cd3320d1931012dc892cd12da7b0c2fcc804044d3"
+    },
+    {
+      "id": "match-hp-online-2-a7fcefd5",
+      "event": "hp-online",
+      "index": 1,
+      "text": "Hardpoint up! Take it and hold it!",
+      "file": "match-hp-online-2-a7fcefd5-9e67803fb4.mp3",
+      "bytes": 47272,
+      "sha256": "9e67803fb4d2a70cf7d559155b2b1e98e5208b9fed73a5393b57e40a80a7709f"
+    },
+    {
+      "id": "match-hp-online-3-ed90616e",
+      "event": "hp-online",
+      "index": 2,
+      "text": "Objective moved! Clear it, then hold!",
+      "file": "match-hp-online-3-ed90616e-57123e9c16.mp3",
+      "bytes": 47272,
+      "sha256": "57123e9c16fc8b893d6e97d68dd0250c9a6b9052e64d0d7114542419ed478b23"
+    },
+    {
+      "id": "match-hp-start-1-060644de",
+      "event": "hp-start",
+      "index": 0,
+      "text": "Hardpoint! Hold the zone, earn the points. Move!",
+      "file": "match-hp-start-1-060644de-32970a3951.mp3",
+      "bytes": 56049,
+      "sha256": "32970a3951f938ccbd1ea155abb8ed225be5f4ad6d4f26caf4cb48217e92afd6"
+    },
+    {
+      "id": "match-hp-start-2-10415b7c",
+      "event": "hp-start",
+      "index": 1,
+      "text": "Hardpoint, start! Points only come from standing on the objective.",
+      "file": "match-hp-start-2-10415b7c-833ac1f71e.mp3",
+      "bytes": 81545,
+      "sha256": "833ac1f71e3c80ffbdda7262921b601952b3ea17f416f50b23ce11568660fdb6"
+    },
+    {
+      "id": "match-hp-start-3-09b87d9e",
+      "event": "hp-start",
+      "index": 2,
+      "text": "Objective is live! Get on the hardpoint and stay there!",
+      "file": "match-hp-start-3-09b87d9e-9ea8f63e98.mp3",
+      "bytes": 76529,
+      "sha256": "9ea8f63e98d1b7c3750035339e1db42f29e24628f37fe19d8ee34b3aef82b6ad"
+    },
+    {
+      "id": "match-loss-1-c23965df",
+      "event": "loss",
+      "index": 0,
+      "text": "We lost this one. Debrief, then come back stronger.",
+      "file": "match-loss-1-c23965df-c662afabaa.mp3",
+      "bytes": 59811,
+      "sha256": "c662afabaad7470ad7f412493c91e02ba0bbf3ea1bfebfc84c2fd2c744bc8ab4"
+    },
+    {
+      "id": "match-loss-2-4278eed4",
+      "event": "loss",
+      "index": 1,
+      "text": "Defeat. Never mind, learn from it.",
+      "file": "match-loss-2-4278eed4-c4cc3ab9bf.mp3",
+      "bytes": 40585,
+      "sha256": "c4cc3ab9bf3519023849adeb20fa3b102bd7b52dfd355b956423eb558ec82bda"
+    },
+    {
+      "id": "match-loss-3-3ef21381",
+      "event": "loss",
+      "index": 2,
+      "text": "They took it. Next round, we do properly.",
+      "file": "match-loss-3-3ef21381-8cbb6ad635.mp3",
+      "bytes": 44764,
+      "sha256": "8cbb6ad635a4ebc4b1e59abf030bb05f67251e058a276006f119552580f9f512"
+    },
+    {
+      "id": "match-near-loss-1-49b52e96",
+      "event": "near-loss",
+      "index": 0,
+      "text": "They’re about to win it! Stop them now!",
+      "file": "match-near-loss-1-49b52e96-a22538d115.mp3",
+      "bytes": 39331,
+      "sha256": "a22538d11502c35f7f9fbc7c1bfbf87e6b23bf911a463e2ad9d84cb943d4b4e3"
+    },
+    {
+      "id": "match-near-loss-2-57ac6431",
+      "event": "near-loss",
+      "index": 1,
+      "text": "Enemy nearly at the limit! Everybody push!",
+      "file": "match-near-loss-2-57ac6431-e7215b0e18.mp3",
+      "bytes": 47272,
+      "sha256": "e7215b0e1884196e44aab16abc67aff485718bf38455feae299e407a3bfeb965"
+    },
+    {
+      "id": "match-near-loss-3-d58029ea",
+      "event": "near-loss",
+      "index": 2,
+      "text": "Last chance! Don’t let them close it out!",
+      "file": "match-near-loss-3-d58029ea-2708a5e33f.mp3",
+      "bytes": 46018,
+      "sha256": "2708a5e33ffcd32a5b771c1a57edcf7996de930827e4e9c875a4d4c7c174234b"
+    },
+    {
+      "id": "match-near-win-1-f04a53d3",
+      "event": "near-win",
+      "index": 0,
+      "text": "Almost there! Finish the job!",
+      "file": "match-near-win-1-f04a53d3-c8ab96d3a4.mp3",
+      "bytes": 35569,
+      "sha256": "c8ab96d3a41072d3ba150ac6fc3b8e2c4fd6bfeccee16d79f84be9f8160dc5c4"
+    },
+    {
+      "id": "match-near-win-2-bb3f2304",
+      "event": "near-win",
+      "index": 1,
+      "text": "Nearly at the limit! Close it out!",
+      "file": "match-near-win-2-bb3f2304-b821aba540.mp3",
+      "bytes": 38077,
+      "sha256": "b821aba540e81092bfae226913093cf470468a10ce5711dda2a7abed6ab39e67"
+    },
+    {
+      "id": "match-near-win-3-19280cf7",
+      "event": "near-win",
+      "index": 2,
+      "text": "So close already. Don’t throw it away!",
+      "file": "match-near-win-3-19280cf7-ff7565b187.mp3",
+      "bytes": 35569,
+      "sha256": "ff7565b1874a281baec938b9517b2be02aee8f030ac5da0acdcc04372099e68a"
+    },
+    {
+      "id": "match-one-minute-1-7fff316d",
+      "event": "one-minute",
+      "index": 0,
+      "text": "One minute left! Make it count!",
+      "file": "match-one-minute-1-7fff316d-e22a91190a.mp3",
+      "bytes": 41838,
+      "sha256": "e22a91190ad7da89d8b589961172021ff175975336bfc3c9cfcb225a8c9de91d"
+    },
+    {
+      "id": "match-one-minute-2-5f49378c",
+      "event": "one-minute",
+      "index": 1,
+      "text": "Last minute! Everything you got!",
+      "file": "match-one-minute-2-5f49378c-d5c23614bd.mp3",
+      "bytes": 33061,
+      "sha256": "d5c23614bd2a4fdd8e38aad402cf7ff607b21c645d15144d726f1cc8f51b7835"
+    },
+    {
+      "id": "match-one-minute-3-4eb2b954",
+      "event": "one-minute",
+      "index": 2,
+      "text": "Sixty seconds! No more waiting around!",
+      "file": "match-one-minute-3-4eb2b954-30fd7740e8.mp3",
+      "bytes": 48526,
+      "sha256": "30fd7740e8d43af28adab687d7207551c8b0154d87b2236839153ea544b2ea40"
+    },
+    {
+      "id": "match-streak-destroyed-1-19d6b8c2",
+      "event": "streak-destroyed",
+      "index": 0,
+      "text": "Your kit is down! Enemy took it out.",
+      "file": "match-streak-destroyed-1-19d6b8c2-941cdba1f8.mp3",
+      "bytes": 41838,
+      "sha256": "941cdba1f8e0e833761b09ba522f8ce527a409b674646e6c874680632655cb72"
+    },
+    {
+      "id": "match-streak-destroyed-2-c990ebdc",
+      "event": "streak-destroyed",
+      "index": 1,
+      "text": "They destroyed it! You’re on your own now.",
+      "file": "match-streak-destroyed-2-c990ebdc-ffce6a5b52.mp3",
+      "bytes": 52287,
+      "sha256": "ffce6a5b5270cac1142926295fc2909362cd2388d29ebd1ffe269b8468c2e6b3"
+    },
+    {
+      "id": "match-streak-destroyed-3-6f0a444d",
+      "event": "streak-destroyed",
+      "index": 2,
+      "text": "Lost your streak! Next time, place it better.",
+      "file": "match-streak-destroyed-3-6f0a444d-a9b5b61cc5.mp3",
+      "bytes": 48526,
+      "sha256": "a9b5b61cc5c1b6977eb90638ffb1eb89ee21403530e54374d028868f67588d7a"
+    },
+    {
+      "id": "match-streak-enemy-hunter-1-89c3d002",
+      "event": "streak-enemy-hunter",
+      "index": 0,
+      "text": "Enemy Hunter Drone! Get under cover, shoot it!",
+      "file": "match-streak-enemy-hunter-1-89c3d002-f1bc695c05.mp3",
+      "bytes": 62318,
+      "sha256": "f1bc695c05bcc2fa9c4778030f0b04b207d837f13a62c149d96b870e90e6c9b8"
+    },
+    {
+      "id": "match-streak-enemy-hunter-2-c510f53e",
+      "event": "streak-enemy-hunter",
+      "index": 1,
+      "text": "Hunter drone incoming! Find a roof, now!",
+      "file": "match-streak-enemy-hunter-2-c510f53e-e61b278b74.mp3",
+      "bytes": 47272,
+      "sha256": "e61b278b74223d8e47b75fb9c13e9500cb459361c890f1a30feb126bd020e4f5"
+    },
+    {
+      "id": "match-streak-enemy-interceptor-1-f4289a84",
+      "event": "streak-enemy-interceptor",
+      "index": 0,
+      "text": "Enemy Guardian up! Grenades won’t work near it.",
+      "file": "match-streak-enemy-interceptor-1-f4289a84-74f4979028.mp3",
+      "bytes": 49780,
+      "sha256": "74f497902886eb2e28026ca191bf2bdef9d5166572f44b0622d71b772724fb2a"
+    },
+    {
+      "id": "match-streak-enemy-interceptor-2-e3aeceeb",
+      "event": "streak-enemy-interceptor",
+      "index": 1,
+      "text": "Enemy interceptor! Use bullets, not grenades.",
+      "file": "match-streak-enemy-interceptor-2-e3aeceeb-2178c4df18.mp3",
+      "bytes": 63990,
+      "sha256": "2178c4df1816699603c00e4c3763c1d9d2013dd07dbf1120dac01ebe25ac0996"
+    },
+    {
+      "id": "match-streak-enemy-jammer-1-cd69a659",
+      "event": "streak-enemy-jammer",
+      "index": 0,
+      "text": "Enemy jammer running! Our recon can’t see there.",
+      "file": "match-streak-enemy-jammer-1-cd69a659-888b1e8adc.mp3",
+      "bytes": 52287,
+      "sha256": "888b1e8adc1620b2e38e9e770d59114ab178d3a91cc3cc9ce49fc3dbe035f971"
+    },
+    {
+      "id": "match-streak-enemy-jammer-2-9a492e13",
+      "event": "streak-enemy-jammer",
+      "index": 1,
+      "text": "Enemy jamming! No drone picture near them.",
+      "file": "match-streak-enemy-jammer-2-9a492e13-01d8ea1cec.mp3",
+      "bytes": 70260,
+      "sha256": "01d8ea1cecb2dc60f7f044edc3c88d2d33d26bed4638ce48272fd6c92c5798ec"
+    },
+    {
+      "id": "match-streak-enemy-recon-1-700ed817",
+      "event": "streak-enemy-recon",
+      "index": 0,
+      "text": "Enemy recon drone up! Shoot it down!",
+      "file": "match-streak-enemy-recon-1-700ed817-524bb3457e.mp3",
+      "bytes": 41838,
+      "sha256": "524bb3457eafa0db6664486f42d6aba2943d459e8a978cced5a53eff328b0ff1"
+    },
+    {
+      "id": "match-streak-enemy-recon-2-bd5c5a5d",
+      "event": "streak-enemy-recon",
+      "index": 1,
+      "text": "Enemy Kestrel overhead! Stay moving.",
+      "file": "match-streak-enemy-recon-2-bd5c5a5d-94ce926c4d.mp3",
+      "bytes": 46018,
+      "sha256": "94ce926c4d04352314e0c9ddb7a8b03ff05023e721a25884eef0d2e40b0daf0d"
+    },
+    {
+      "id": "match-streak-enemy-sentry-1-296d85dd",
+      "event": "streak-enemy-sentry",
+      "index": 0,
+      "text": "Enemy sentry turret! Smoke it or flank it.",
+      "file": "match-streak-enemy-sentry-1-296d85dd-d1bd1c1906.mp3",
+      "bytes": 54795,
+      "sha256": "d1bd1c1906b311482bd169a7ae9ab53f398c32859c865f7f4d7860dcae9ea9fc"
+    },
+    {
+      "id": "match-streak-enemy-sentry-2-40412149",
+      "event": "streak-enemy-sentry",
+      "index": 1,
+      "text": "Turret up on their side! Don’t walk into its arc.",
+      "file": "match-streak-enemy-sentry-2-40412149-18df0540e0.mp3",
+      "bytes": 47272,
+      "sha256": "18df0540e0b9e939e60fd2955b57fc163dfed2cc4db265fd15e3c5c1fdf9a310"
+    },
+    {
+      "id": "match-streak-enemy-strike-1-2c259753",
+      "event": "streak-enemy-strike",
+      "index": 0,
+      "text": "Enemy strike incoming! Get under a roof!",
+      "file": "match-streak-enemy-strike-1-2c259753-aa8f2d5e6e.mp3",
+      "bytes": 48526,
+      "sha256": "aa8f2d5e6ed92297de9a8451f5fd4f4a8aaac34a96a0e85231f11bac769a2610"
+    },
+    {
+      "id": "match-streak-enemy-strike-2-5adaf59d",
+      "event": "streak-enemy-strike",
+      "index": 1,
+      "text": "Strike coming in! Move, move, move!",
+      "file": "match-streak-enemy-strike-2-5adaf59d-65c2f5a060.mp3",
+      "bytes": 48526,
+      "sha256": "65c2f5a06014b4309bfa3596093ee2c30c13b0d37ae2ad817eb9fc125877b73a"
+    },
+    {
+      "id": "match-streak-killed-1-4e4592a9",
+      "event": "streak-killed",
+      "index": 0,
+      "text": "Enemy kit destroyed! Good shooting.",
+      "file": "match-streak-killed-1-4e4592a9-1d8196c44f.mp3",
+      "bytes": 44764,
+      "sha256": "1d8196c44fa9fc4dd890a74724182fc60cc31713184137def267781398805663"
+    },
+    {
+      "id": "match-streak-killed-2-fbe166bc",
+      "event": "streak-killed",
+      "index": 1,
+      "text": "Their streak is down! Carry on.",
+      "file": "match-streak-killed-2-fbe166bc-76a12e95da.mp3",
+      "bytes": 40585,
+      "sha256": "76a12e95da35dbad2def7249bbe2e890c1f3313950a6118e3ab77e0fa0715d50"
+    },
+    {
+      "id": "match-streak-killed-3-8c128010",
+      "event": "streak-killed",
+      "index": 2,
+      "text": "Took out their gear! Nice one.",
+      "file": "match-streak-killed-3-8c128010-1d671c687d.mp3",
+      "bytes": 38077,
+      "sha256": "1d671c687d438850ae57e4e60e543bc3b893cf5051c3a922e959d57f788cac02"
+    },
+    {
+      "id": "match-streak-ready-hunter-1-e8f1b0df",
+      "event": "streak-ready-hunter",
+      "index": 0,
+      "text": "Hunter Drone ready! Send it hunting.",
+      "file": "match-streak-ready-hunter-1-e8f1b0df-c3b3896d8d.mp3",
+      "bytes": 43510,
+      "sha256": "c3b3896d8d33b85f3bee362eed55e907c8267baeee63d68fb4bc73afdb3f831e"
+    },
+    {
+      "id": "match-streak-ready-hunter-2-56507060",
+      "event": "streak-ready-hunter",
+      "index": 1,
+      "text": "Hunter Drone available! Point and launch.",
+      "file": "match-streak-ready-hunter-2-56507060-3feda59242.mp3",
+      "bytes": 46018,
+      "sha256": "3feda592429145450f87cfdc5b599dcd464185f95bf2ff6e11aa2e8e075e7410"
+    },
+    {
+      "id": "match-streak-ready-interceptor-1-02b133c3",
+      "event": "streak-ready-interceptor",
+      "index": 0,
+      "text": "Guardian Interceptor ready! No more grenades for them.",
+      "file": "match-streak-ready-interceptor-1-02b133c3-bdfe83800b.mp3",
+      "bytes": 61065,
+      "sha256": "bdfe83800b69fd04e3cb1cfc03e0d3234a66455cf36df162f93fee98304cb30a"
+    },
+    {
+      "id": "match-streak-ready-interceptor-2-6bf99f38",
+      "event": "streak-ready-interceptor",
+      "index": 1,
+      "text": "Guardian available! Grenade protection, use it.",
+      "file": "match-streak-ready-interceptor-2-6bf99f38-40760da713.mp3",
+      "bytes": 49780,
+      "sha256": "40760da713825570425c72d57a41748b8cebf62a22221f92052dbc2dab4a4942"
+    },
+    {
+      "id": "match-streak-ready-jammer-1-db37fcfa",
+      "event": "streak-ready-jammer",
+      "index": 0,
+      "text": "Signal Jammer ready! Blind their drones.",
+      "file": "match-streak-ready-jammer-1-db37fcfa-3651022161.mp3",
+      "bytes": 48526,
+      "sha256": "3651022161fa417f05aeb07d93a133cecf9d484eb3b5f04a2bcdf9494d02ff28"
+    },
+    {
+      "id": "match-streak-ready-jammer-2-6ee23801",
+      "event": "streak-ready-jammer",
+      "index": 1,
+      "text": "Jammer available! Switch off their eyes.",
+      "file": "match-streak-ready-jammer-2-6ee23801-caf4a144cf.mp3",
+      "bytes": 49780,
+      "sha256": "caf4a144cf31489482a6b62ecf43cfee4b79cd70d378254abc421abf861f1ce1"
+    },
+    {
+      "id": "match-streak-ready-recon-1-80f96cc3",
+      "event": "streak-ready-recon",
+      "index": 0,
+      "text": "Kestrel Recon ready! Put eyes in the sky.",
+      "file": "match-streak-ready-recon-1-80f96cc3-5453324ea8.mp3",
+      "bytes": 47272,
+      "sha256": "5453324ea8085c1d0fa8edc408da2b1d9faa4f6c322d39d6ee05b512bdf9395e"
+    },
+    {
+      "id": "match-streak-ready-recon-2-9cd6a97d",
+      "event": "streak-ready-recon",
+      "index": 1,
+      "text": "Recon drone available! Use it, don’t keep for souvenir.",
+      "file": "match-streak-ready-recon-2-9cd6a97d-75fd5ae7c3.mp3",
+      "bytes": 79037,
+      "sha256": "75fd5ae7c3c6150ed6e174132e4e353392b35bf06be35b545b0dfa0fb15ef8c1"
+    },
+    {
+      "id": "match-streak-ready-sentry-1-9746f7c6",
+      "event": "streak-ready-sentry",
+      "index": 0,
+      "text": "Sentry Turret ready! Put it where they come from.",
+      "file": "match-streak-ready-sentry-1-9746f7c6-5c72ce250f.mp3",
+      "bytes": 49780,
+      "sha256": "5c72ce250f3aeaeaba4c88c721d5182b2392c60657b21dadecaf48cd601cd935"
+    },
+    {
+      "id": "match-streak-ready-sentry-2-c5c7318c",
+      "event": "streak-ready-sentry",
+      "index": 1,
+      "text": "Sentry available! Let it guard the flank.",
+      "file": "match-streak-ready-sentry-2-c5c7318c-c1bf0a7807.mp3",
+      "bytes": 48526,
+      "sha256": "c1bf0a78073ae01cfa29820f100a2d4bb0cc595015b5f7ebc6070bb6f3ba2c0c"
+    },
+    {
+      "id": "match-streak-ready-strike-1-8f708e20",
+      "event": "streak-ready-strike",
+      "index": 0,
+      "text": "Precision Strike ready! Pick your target.",
+      "file": "match-streak-ready-strike-1-8f708e20-d6d7c5aefa.mp3",
+      "bytes": 53541,
+      "sha256": "d6d7c5aefa79adaa2958a957194dbecf54bc4a69b8ade8b02404af30312d9de9"
+    },
+    {
+      "id": "match-streak-ready-strike-2-809c7ccc",
+      "event": "streak-ready-strike",
+      "index": 1,
+      "text": "Strike available! Mark it, then stay clear.",
+      "file": "match-streak-ready-strike-2-809c7ccc-030affc221.mp3",
+      "bytes": 48526,
+      "sha256": "030affc221cb4da89a3acbd1a854805d693938397cc61c90877e94bcc96ad69b"
+    },
+    {
+      "id": "match-streak-up-hunter-1-6b343b2b",
+      "event": "streak-up-hunter",
+      "index": 0,
+      "text": "Hunter Drone away! Let it do the work.",
+      "file": "match-streak-up-hunter-1-6b343b2b-7ffe41fd41.mp3",
+      "bytes": 47272,
+      "sha256": "7ffe41fd417c8b038356fd7bb474677ccfef5267f1afec860cd5faff9f6bfa7e"
+    },
+    {
+      "id": "match-streak-up-hunter-2-508b4e38",
+      "event": "streak-up-hunter",
+      "index": 1,
+      "text": "Hunter launched! It will find them.",
+      "file": "match-streak-up-hunter-2-508b4e38-a50aa40188.mp3",
+      "bytes": 38077,
+      "sha256": "a50aa40188b195a53b81f6a7f5f4863b5e6ba8ec567b7f6c7eae81a630fc843b"
+    },
+    {
+      "id": "match-streak-up-interceptor-1-54527537",
+      "event": "streak-up-interceptor",
+      "index": 0,
+      "text": "Guardian set! Their grenades won’t reach.",
+      "file": "match-streak-up-interceptor-1-54527537-27db802e0e.mp3",
+      "bytes": 48526,
+      "sha256": "27db802e0e3228d4c2d71402deeff0c5c54de5820e623ca371ec5b9844356fd5"
+    },
+    {
+      "id": "match-streak-up-interceptor-2-62a2bdd6",
+      "event": "streak-up-interceptor",
+      "index": 1,
+      "text": "Interceptor online! Grenades covered.",
+      "file": "match-streak-up-interceptor-2-62a2bdd6-e684c58401.mp3",
+      "bytes": 56049,
+      "sha256": "e684c5840166659b609b5ccb0d2369d7e927c06ba1a095eaeb8c79d42a9eb337"
+    },
+    {
+      "id": "match-streak-up-jammer-1-a19e0ee9",
+      "event": "streak-up-jammer",
+      "index": 0,
+      "text": "Jammer on! Their recon is blind here.",
+      "file": "match-streak-up-jammer-1-a19e0ee9-9da20a4135.mp3",
+      "bytes": 56049,
+      "sha256": "9da20a4135b917adbe49c608eeb0d602408270121c14b8b7c8676e40d0074b69"
+    },
+    {
+      "id": "match-streak-up-jammer-2-e14b7888",
+      "event": "streak-up-jammer",
+      "index": 1,
+      "text": "Signal Jammer running! Their drones see nothing.",
+      "file": "match-streak-up-jammer-2-e14b7888-3a2cb1c763.mp3",
+      "bytes": 58557,
+      "sha256": "3a2cb1c7630eca65b6c8d397df8d01cf813c127f76f82201b57846e6993e38a8"
+    },
+    {
+      "id": "match-streak-up-recon-1-5142581c",
+      "event": "streak-up-recon",
+      "index": 0,
+      "text": "Kestrel up! Enemy positions coming in.",
+      "file": "match-streak-up-recon-1-5142581c-daf8a8224b.mp3",
+      "bytes": 56049,
+      "sha256": "daf8a8224b366481fd53d6e2e70da441f2ab0c683f08f47d79fd81b910e7c9cd"
+    },
+    {
+      "id": "match-streak-up-recon-2-85e263c1",
+      "event": "streak-up-recon",
+      "index": 1,
+      "text": "Recon drone airborne! Watch the map.",
+      "file": "match-streak-up-recon-2-85e263c1-78863feeee.mp3",
+      "bytes": 46018,
+      "sha256": "78863feeee17ab685ea42519711b810a04ea4869ac6a6d25ca4ba9575be9a2a3"
+    },
+    {
+      "id": "match-streak-up-sentry-1-99547d25",
+      "event": "streak-up-sentry",
+      "index": 0,
+      "text": "Sentry up! It’s watching that arc.",
+      "file": "match-streak-up-sentry-1-99547d25-a73209f221.mp3",
+      "bytes": 47272,
+      "sha256": "a73209f221165f09649b23098c9f631ff719f8d353c9d2879689b836c1ee8046"
+    },
+    {
+      "id": "match-streak-up-sentry-2-a9f184ea",
+      "event": "streak-up-sentry",
+      "index": 1,
+      "text": "Turret online! Front covered.",
+      "file": "match-streak-up-sentry-2-a9f184ea-6fb5057ca9.mp3",
+      "bytes": 38077,
+      "sha256": "6fb5057ca9c18886fe5e29ea1a27d0e8a6148a19847ece6899402a5b4b8313ba"
+    },
+    {
+      "id": "match-streak-up-strike-1-1ba0ef68",
+      "event": "streak-up-strike",
+      "index": 0,
+      "text": "Strike called! Three seconds, stay clear!",
+      "file": "match-streak-up-strike-1-1ba0ef68-3ba4df971e.mp3",
+      "bytes": 44764,
+      "sha256": "3ba4df971e19713ecfc69f8629f3ddf363ff533bfb079bbb64d4623adbb0e23d"
+    },
+    {
+      "id": "match-streak-up-strike-2-487c2aad",
+      "event": "streak-up-strike",
+      "index": 1,
+      "text": "Precision Strike inbound! Don’t stand there!",
+      "file": "match-streak-up-strike-2-487c2aad-7327dcb01e.mp3",
+      "bytes": 53541,
+      "sha256": "7327dcb01efc9b1d4969e0939a12e13d715fefc1a179908e8da8eb5aab0d5329"
+    },
+    {
+      "id": "match-tdm-start-1-83c96ab2",
+      "event": "tdm-start",
+      "index": 0,
+      "text": "Team deathmatch! Thirty kills or five minutes. Move as a section!",
+      "file": "match-tdm-start-1-83c96ab2-956913b766.mp3",
+      "bytes": 66498,
+      "sha256": "956913b76647152031fb635d24c3cc01a381e83234b5abdf92f387fa4f6e3b51"
+    },
+    {
+      "id": "match-tdm-start-2-d999fa9a",
+      "event": "tdm-start",
+      "index": 1,
+      "text": "Two teams, thirty kills. Stick together, don’t anyhow run off!",
+      "file": "match-tdm-start-2-d999fa9a-1409a12b21.mp3",
+      "bytes": 66498,
+      "sha256": "1409a12b2114a7c813e1840686d9af8c7f59967133aa0e9fb0495dc6207185c3"
+    },
+    {
+      "id": "match-tdm-start-3-5fca2801",
+      "event": "tdm-start",
+      "index": 2,
+      "text": "Team deathmatch, start! Watch your buddy, watch your sector.",
+      "file": "match-tdm-start-3-5fca2801-adb10bfbcd.mp3",
+      "bytes": 63990,
+      "sha256": "adb10bfbcdbde54da1612a278fd90192e21753227e13685fadbbcd613250202c"
+    },
+    {
+      "id": "match-team-behind-1-b048cf9f",
+      "event": "team-behind",
+      "index": 0,
+      "text": "Enemy took the lead! Wake up, section!",
+      "file": "match-team-behind-1-b048cf9f-fd61685f4a.mp3",
+      "bytes": 47272,
+      "sha256": "fd61685f4a253875d93c1375380d3d223143a8c6e8c1049791a002bafc41cbde"
+    },
+    {
+      "id": "match-team-behind-2-d44dbab7",
+      "event": "team-behind",
+      "index": 1,
+      "text": "We’re behind! Regroup and push back.",
+      "file": "match-team-behind-2-d44dbab7-8e4411ae49.mp3",
+      "bytes": 52287,
+      "sha256": "8e4411ae4915f371f239cb2022fcb963f3c83a599d4fed2cbb9a472dabd774e3"
+    },
+    {
+      "id": "match-team-behind-3-07622543",
+      "event": "team-behind",
+      "index": 2,
+      "text": "They’re ahead now. Tighten up, move together!",
+      "file": "match-team-behind-3-07622543-557aa3c48e.mp3",
+      "bytes": 40585,
+      "sha256": "557aa3c48eb4c08d5c5ec5ad9402a689e555b9fe738f90ff0e58b4468197e737"
+    },
+    {
+      "id": "match-team-lead-1-057b0c60",
+      "event": "team-lead",
+      "index": 0,
+      "text": "We got the lead! Don’t relax now.",
+      "file": "match-team-lead-1-057b0c60-f8a5cfd098.mp3",
+      "bytes": 54795,
+      "sha256": "f8a5cfd098efe2271355e8d5a1aa19b330bffabd28d0f1b0dd7f5f6f807775d3"
+    },
+    {
+      "id": "match-team-lead-2-db8dd3e6",
+      "event": "team-lead",
+      "index": 1,
+      "text": "Our side in front! Keep the pressure.",
+      "file": "match-team-lead-2-db8dd3e6-e4e9284793.mp3",
+      "bytes": 43510,
+      "sha256": "e4e9284793c81083c91f36d6d5cdce2362d2f5879107738c48059c7839370b5b"
+    },
+    {
+      "id": "match-team-lead-3-3d73863c",
+      "event": "team-lead",
+      "index": 2,
+      "text": "We’re ahead! Steady, don’t give it back.",
+      "file": "match-team-lead-3-3d73863c-76a83eff71.mp3",
+      "bytes": 46018,
+      "sha256": "76a83eff71e34fd93c6fe930d0903d73e9fa4b4e10ce16fdc7b76391d913f417"
+    },
+    {
+      "id": "match-win-1-e9162823",
+      "event": "win",
+      "index": 0,
+      "text": "Victory! Good job, whole section. Can lah!",
+      "file": "match-win-1-e9162823-a600655901.mp3",
+      "bytes": 48526,
+      "sha256": "a600655901e05b0c6f53eeae192b4879e4100644d77204409dce012b8404d715"
+    },
+    {
+      "id": "match-win-2-b8226f9e",
+      "event": "win",
+      "index": 1,
+      "text": "We won it! Proper teamwork, that one.",
+      "file": "match-win-2-b8226f9e-bbaa774910.mp3",
+      "bytes": 46018,
+      "sha256": "bbaa7749100ee96b1df9d156a0c048693bc99b5ced10c1fc4f2d6070c6afbf43"
+    },
+    {
+      "id": "match-win-3-4afc7899",
+      "event": "win",
+      "index": 2,
+      "text": "Match over, we take it! Now go drink water.",
+      "file": "match-win-3-4afc7899-a6f10dc676.mp3",
+      "bytes": 59811,
+      "sha256": "a6f10dc676199b9ee241d842a7bebd310e86b7e6f6334492b9c1eea3a12e5321"
+    }
+  ]
+}

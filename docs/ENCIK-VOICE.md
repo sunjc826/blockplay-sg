@@ -48,6 +48,38 @@ Registers overlay rather than replace: one declares only the events whose
 wording changes and the rest fall through to the register below, so a new one
 is as small as the joke needs.
 
+## Match announcer (TDM, FFA, Hardpoint, killstreaks)
+
+In shared matches Encik also calls the match itself. `src/game/match-callout-lines.ts`
+holds **108 recorded lines** over 44 events: a start line per mode, lead taken/lost
+(team or personal), one minute left, nearly at the limit (yours or theirs), the result
+(win/loss/draw, or FFA first/top three/out), Hardpoint preview per site, rotation,
+capture, contest and loss, and for each of the six streaks: earned, deployed by you,
+and deployed by the enemy, plus your kit destroyed and theirs shot down.
+
+He addresses the whole section here, so the lines are gruff but never insult the
+player and do not change with the rank register; personal kill, death and respawn
+calls keep following the register. Lines quote the rules (30 kills or five minutes,
+15 kills, the 3 s strike); `match-callouts.test.ts` fails if those rules change,
+since the recordings would then be wrong.
+
+`createMatchAnnouncer` (`match-callouts.ts`) reads only successive snapshots — scores,
+`hardpoint`, `streaks` — so host and LAN guests hear the same calls from their own
+side. The first snapshot only primes it, and a rematch resets it. A short queue keeps
+two simultaneous calls (a kill that earns a streak *and* takes the lead) from losing
+the second: match calls cut in over lower-priority chatter, otherwise wait until the
+last line has roughly finished (about 11 characters a second), and lapse after 10 s. Lead and objective calls have cooldowns so a
+flip-flopping score stays quiet. Results replace the generic `complete` line.
+
+`pnpm voice:match` prints the plan; `pnpm voice:match --generate` records missing
+lines with the saved Encik voice and the same Eleven v3 settings, caching each paid
+attempt once in `.cache/encik-match/` and writing `src/audio/encik/match-manifest.json`.
+The pack was recorded on **2026-11-09**: 108 clips, 4,461 characters, account usage
+9,120 → **10,057 / 40,000** (an observed **937-credit** change), no failures or retries.
+The clips total **5,494,070 bytes**, about **340 seconds** (2.0–6.1 s each); every file
+decoded and passed non-silence and checksum checks. Delivery remains subject to
+listening review on `/audio/encik/index.html`, where the match clips are listed first.
+
 ## Game playback
 
 The shared FPS engine uses these bundled recordings in practice, arena and expeditions, including AI pilot callouts. No ElevenLabs API key or TTS request is needed during play. Audio loads on demand through the existing Web Audio context; at most eight decoded clips remain cached. A higher-priority callout replaces the active clip. Voice mute, sound mute, pause, reset and disposal stop the channel and invalidate pending audio. Captions and the comms history remain available when muted or when a recording fails to load. The former installed-OS-voice fallback has been removed to keep the chosen accent consistent.
