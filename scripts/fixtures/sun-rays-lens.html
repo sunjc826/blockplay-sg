@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>God rays and lens flare regression</title></head><body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
+import { createLensEffects } from '/src/game/fps-lens.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(960,540);renderer.autoClear=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#748b9b');
+const camera=new THREE.PerspectiveCamera(60,16/9,.1,900);camera.updateMatrixWorld();
+const sun={direction:{x:.12,y:.2,z:-1},color:'#ffe0a5',elevation:22,sunlight:1,reduced:false};scene.userData.sunRays=sun;
+const post=createWorldOcclusion(renderer,scene,camera),weaponScene=new THREE.Scene();
+const geometry=new THREE.BoxGeometry(1,1,.1),material=new THREE.MeshBasicMaterial({color:'#273329'});
+const wall=new THREE.Mesh(geometry,material),weapon=new THREE.Mesh(geometry,material);
+wall.position.set(.24,.4,-2);weapon.position.copy(wall.position);scene.add(wall);weaponScene.add(weapon);
+function pixels(){const gl=renderer.getContext(),p=new Uint8Array(960*540*4);gl.readPixels(0,0,960,540,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;}
+window.check=({quality='high',block='none',compensate=true,bright=false,ao=false,bloom=false,elevation=22,reduced=false}={})=>{
+ scene.background.set(bright?'#f8eeee':'#748b9b');sun.elevation=elevation;sun.reduced=reduced;
+ wall.visible=block==='wall'||block==='partial';wall.position.x=block==='partial'?.74:.24;weapon.visible=block==='weapon';
+ const draw=()=>{post.render(ao,bloom,false,false,quality);renderer.clearDepth();renderer.render(weaponScene,camera)};
+ draw();const before=pixels(),lens=createLensEffects(renderer);
+ lens.present({camera,dt:1/60,time:1,sun:sun.direction,elevation,sunColor:sun.color,dusk:0,sunlight:1,haze:0,rain:0,wind:0,sheltered:false,
+  sky:scene.background,thermal:false,reduced,sunRayOverlay:compensate?post.sunRayOverlay:null});
+ const after=pixels();let changed=0,energy=0;for(let i=0;i<before.length;i+=4){const d=Math.abs(after[i]-before[i])+Math.abs(after[i+1]-before[i+1])+Math.abs(after[i+2]-before[i+2]);if(d>8)changed++;energy+=d;}
+ const result={quality,block,compensate,bright,ao,bloom,elevation,reduced,changed,energy,rays:post.godRaysEnabled,overlay:!!post.sunRayOverlay};lens.dispose();return result;
+};
+window.ready=true;
+</script></body></html>

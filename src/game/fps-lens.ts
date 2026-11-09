@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Direction } from './world-lighting';
+import type { SunRayOverlay } from './sun-rays';
 
 /**
  * What the eye, as a lens, adds over the finished frame (world and weapon):
@@ -8,8 +9,8 @@ import type { Direction } from './world-lighting';
  *   ghosts strung through the middle of the view. Whether the sun is in sight
  *   is read off the frame itself: the sky is the background colour cleared on
  *   the canvas (world-occlusion keeps it so), so the pixels round the sun
- *   either still are that colour or something (a tower, a tree, the gun, a
- *   cloud) stands in front of it. That test lands in a 1×1 target that eases
+ *   either still are that colour plus any god-ray glow or something (a tower,
+ *   a tree, the gun, a cloud) stands in front of it. That test lands in a 1×1 target that eases
  *   towards each frame's answer, so the flare fades as the sun slips behind an
  *   edge instead of blinking.
  * - Dust in haze: specks laid out by direction, so turning sweeps them past
@@ -114,6 +115,8 @@ varying vec2 vUv;
 void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const VISIBILITY_FRAGMENT = /* glsl */`
 uniform sampler2D tFrame;
+uniform sampler2D tSunRays;
+uniform vec3 uRayColor;
 uniform vec2 uSun;
 uniform vec2 uSpread;
 uniform vec3 uSky;
@@ -122,7 +125,11 @@ void main() {
   float seen = 0.0;
   for (int x = -3; x <= 3; x++) for (int y = -3; y <= 3; y++) {
     vec2 uv = uSun + vec2(float(x), float(y)) * uSpread;
-    vec3 c = texture2D(tFrame, uv).rgb, d = abs(c - uSky);
+    // God rays brighten clear sky before this pass. Compare with that same
+    // bounded display-space addition, not the original clear colour alone.
+    // Keep testing the finished frame so the weapon still blocks the sun.
+    vec3 sky = clamp(uSky + texture2D(tSunRays, uv).r * uRayColor, 0.0, 1.0);
+    vec3 c = texture2D(tFrame, uv).rgb, d = abs(c - sky);
     float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
     seen += inside * (1.0 - smoothstep(0.025, 0.07, max(d.r, max(d.g, d.b))));
   }
@@ -249,6 +256,8 @@ export interface LensFrame {
   sheltered: boolean;
   /** The sky colour cleared on the canvas, or null when the sky is not a plain colour. */
   sky: THREE.Color | null;
+  /** Only the god-ray overlay actually composited into this frame, if any. */
+  sunRayOverlay?: SunRayOverlay | null;
   /** The scene is drawing temperature (thermal), which has no sun or glinting dust. */
   thermal: boolean;
   reduced: boolean;
@@ -262,7 +271,7 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
   const quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quadScene = new THREE.Scene();
   const visible = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, type: THREE.HalfFloatType });
   const visibility = new THREE.ShaderMaterial({ vertexShader: QUAD_VERTEX, fragmentShader: VISIBILITY_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true,
-    uniforms: { tFrame: { value: null }, uSun: { value: new THREE.Vector2() }, uSpread: { value: new THREE.Vector2() }, uSky: { value: new THREE.Vector3() }, uBlend: { value: 1 } } });
+    uniforms: { tFrame: { value: null }, tSunRays: { value: null }, uRayColor: { value: new THREE.Color(0) }, uSun: { value: new THREE.Vector2() }, uSpread: { value: new THREE.Vector2() }, uSky: { value: new THREE.Vector3() }, uBlend: { value: 1 } } });
   const air = new THREE.ShaderMaterial({ vertexShader: QUAD_VERTEX, fragmentShader: AIR_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true, blending: THREE.AdditiveBlending,
     uniforms: { tVisible: { value: visible.texture }, uSun: { value: new THREE.Vector2() }, uFlare: { value: 0 }, uSunColor: { value: new THREE.Color() }, uAspect: { value: 1 },
       uHaze: { value: 0 }, uDust: { value: 0 }, uTime: { value: 0 }, uPxPerRadian: { value: 1000 }, uSunDirection: { value: new THREE.Vector3() },
@@ -339,6 +348,8 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
         // Is the sky still there round the sun? Eased towards each frame's answer.
         f.sky!.getRGB(skyRgb, THREE.SRGBColorSpace);
         const v = visibility.uniforms;
+        v.tSunRays.value = f.sunRayOverlay?.texture ?? frame;
+        if (f.sunRayOverlay) v.uRayColor.value.copy(f.sunRayOverlay.color); else v.uRayColor.value.setRGB(0, 0, 0);
         v.tFrame.value = frame; v.uSun.value.set(sunU, sunV); v.uSpread.value.set(.006 / aspect, .006);
         v.uSky.value.set(skyRgb.r, skyRgb.g, skyRgb.b); v.uBlend.value = seenSun ? 1 - Math.exp(-Math.min(.1, f.dt) * 14) : 1;
         quad.material = visibility; renderer.setRenderTarget(visible); renderer.render(quadScene, quadCamera);

@@ -4614,6 +4614,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
         swimming: hud.phase==='playing'&&swimming(), swimSpeed:carry.length(),
         sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
+        sunRayOverlay: occlusion.sunRayOverlay,
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
       else lens.clear();
       if (debugDatasets) canvas.dataset.waterRipples = String(atmosphere.root.userData.waterRipples ?? 0);

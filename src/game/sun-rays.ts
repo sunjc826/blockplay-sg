@@ -4,6 +4,8 @@ import type { Direction } from './world-lighting';
 
 export type SunRayQuality = 'off' | 'low' | 'high';
 export interface SunRayLight { direction: Direction; color: string; elevation: number; sunlight: number; reduced: boolean }
+/** Display-space light added over unobstructed sky, for lens visibility tests. */
+export interface SunRayOverlay { texture: THREE.Texture; color: THREE.Color }
 export const SUN_RAY_BUDGET = { low: { scale: .25, samples: 32 }, high: { scale: .5, samples: 48 } } as const;
 const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
 
@@ -35,7 +37,7 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
   const uniforms = {
     tDepth: { value: null as THREE.DepthTexture | null }, tMask: { value: mask.texture }, tRays: { value: rays.texture },
     sunUv: { value: new THREE.Vector2() }, aspect: { value: 1 }, texel: { value: new THREE.Vector2() },
-    rayColor: { value: new THREE.Color() }, strength: { value: 0 }, samples: { value: 32 },
+    rayColor: { value: new THREE.Color() }, samples: { value: 32 },
     near: { value: camera.near }, far: { value: camera.far },
   };
   const material = (fragmentShader: string) => new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, depthTest: false, depthWrite: false, toneMapped: false });
@@ -65,13 +67,13 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
     }`);
   const blendMaterial = material(/* glsl */`
     #include <packing>
-    varying vec2 vUv; uniform sampler2D tDepth,tRays; uniform vec3 rayColor; uniform float strength,near,far;
+    varying vec2 vUv; uniform sampler2D tDepth,tRays; uniform vec3 rayColor; uniform float near,far;
     void main(){
       float d=texture2D(tDepth,vUv).r;
       float distanceToSurface=-perspectiveDepthToViewZ(d,near,far);
       // Short air paths in front of nearby walls receive very little scattering.
       float air=smoothstep(1.0,35.0,distanceToSurface);
-      float ray=texture2D(tRays,vUv).r*strength*air*.35;
+      float ray=texture2D(tRays,vUv).r*air;
       gl_FragColor=vec4(rayColor*ray,0.0);
     }`);
   // Add a bounded display-space glow without changing canvas coverage.
@@ -79,14 +81,16 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
     blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor });
   maskMaterial.name = 'Sun ray mask'; scatterMaterial.name = 'Sun ray scatter'; blendMaterial.name = 'Sun ray composite';
   const quad = new FullScreenQuad(maskMaterial);
+  const overlay: SunRayOverlay = { texture: rays.texture, color: uniforms.rayColor.value };
   return {
+    overlay,
     get size() { return { width: mask.width, height: mask.height }; },
     render(picture: THREE.WebGLRenderTarget, depth: THREE.DepthTexture, quality: Exclude<SunRayQuality, 'off'>, light: SunRayLight, uv: THREE.Vector2, strength: number) {
       const budget = SUN_RAY_BUDGET[quality], w = Math.max(1, Math.ceil(picture.width * budget.scale)), h = Math.max(1, Math.ceil(picture.height * budget.scale));
       if (mask.width !== w || mask.height !== h) { mask.setSize(w, h); rays.setSize(w, h); }
       uniforms.tDepth.value = depth; uniforms.texel.value.set(1 / picture.width, 1 / picture.height);
       uniforms.sunUv.value.copy(uv); uniforms.aspect.value = camera.aspect; uniforms.samples.value = budget.samples;
-      uniforms.rayColor.value.set(light.color).convertLinearToSRGB(); uniforms.strength.value = strength;
+      uniforms.rayColor.value.set(light.color).convertLinearToSRGB().multiplyScalar(strength * .35);
       uniforms.near.value = camera.near; uniforms.far.value = camera.far;
       const auto = renderer.autoClear; renderer.autoClear = false;
       try {

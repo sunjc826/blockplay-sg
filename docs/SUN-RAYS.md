@@ -9,6 +9,11 @@ palm fronds and buildings interrupt the light. Sun elevation and eased weather
 sunlight control intensity. The effect fades near screen edges and skips night,
 reduced effects/motion, thermal vision, active NVG and the overview map. Weapons,
 scope images and HUD elements are drawn separately and remain crisp.
+Lens-flare visibility accounts for the composited ray glow when checking sky
+pixels, preserving both effects together and retaining weapon/world obstruction.
+This reuses the ray texture in the existing 1×1 visibility pass; no extra pass
+or render target is allocated. Run `node scripts/sun-rays-lens-smoke.mjs` for
+the pixel regression (including bright sky, partial cover and quality changes).
 
 This is screen-space scattering: it only knows the visible depth buffer and
 cannot simulate shafts from off-screen objects or a sun behind the camera.

@@ -73,6 +73,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     /** The GTAO pass once built, for review pages that show its buffers. */
     get pass() { return gtao; },
     get godRaysEnabled() { return godRaysEnabled; },
+    get sunRayOverlay() { return godRaysEnabled ? sunRays?.overlay ?? null : null; },
     get godRaysSize() { return sunRays?.size ?? null; },
     get bloomEnabled() { return bloomEnabled; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
