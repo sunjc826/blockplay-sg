@@ -473,6 +473,43 @@ Pickups last for the current life; respawning restores your chosen loadout.
 The host resolves competing claims. Drops expire after 45 seconds, with at most
 24 on the map. Open-world weapon and ammunition drops remain separate pickups.
 
+### Match streak rewards
+
+Before starting TDM, FFA or Hardpoint, open **Briefing & settings**, expand
+**Killstreaks / Objective streaks**, and select three rewards. Press **4–6** or tap a HUD reward
+to activate it. Ground equipment and Precision Strike first show a placement
+preview: aim at clear ground and fire / tap **Deploy here**, or cancel with
+Escape. Equipment places within 8 m; the strike designator reaches 100 m.
+Protected spawn locations and obstructed placements are refused without
+spending the charge. The host confirms guest activations.
+
+| Reward | Kills / Hardpoint charge | Duration and effect |
+| --- | --- | --- |
+| Kestrel Recon | 3 / 300 | Shootable drone, last-known positions every 3 s; 15 s, or 10 s in FFA. |
+| Signal Jammer | 4 / 400 | Shootable 20 m recon jammer for 15 s; objective and ordinary visible contacts remain. |
+| Guardian Interceptor | 4 / 400 | Three enemy thrown grenades within 6 m and clear sight; expires after 20 s. Team modes only. |
+| Hunter Drone | 5 / 500 | Launches along aim, then reuses autonomous search, lock, reacquisition and dive; up to 30 s. Two-second target lock warning. |
+| Precision Strike | 6 / 600 | One 5 m blast after a visible 3 s warning. Solid overhead cover protects. |
+| Sentry Turret | 7 / 700 | Shootable 25 m turret with a fixed 90° arc; 0.75 s acquisition, three-round bursts, 18 s lifetime. Smoke breaks targeting. Team modes only. |
+
+Hardpoint grants 100 charge per ordinary kill, a single +25 bonus when either
+combatant is in the active hill, and 10 charge per uncontested second personally
+held, capped at 200 holding charge per life. These are separate from team score.
+Death resets progress; earned rewards survive, one charge per slot. Each slot
+can be earned once per life; thresholds never loop. Streak kills count toward
+normal kill scores but do not earn more streaks. Spawn protection and team
+allegiance apply to all streak damage. One reward of each type may be active
+per team (per owner in FFA). Leaving removes the owner's devices and drone;
+reset/end clears rewards. Bots earn, deploy, evade warnings and shoot devices
+under the same rules. These rewards are separate from rapid double/triple-kill
+callouts and do not appear in Training or Open World.
+
+Rules and wire validation live in `src/game/match-streaks.ts`; host integration
+uses `arena-rules.ts` / `arena-runtime.ts`, presentation uses
+`match-streak-visuals.ts` and `components/MatchStreaks.tsx`.
+`node scripts/match-streaks-smoke.mjs` checks the real renderer, guest path,
+keyboard, touch layout and placement (Vite 5231 / Chrome CDP 9391 by default).
+
 ### Optional LAN multiplayer
 
 ```sh

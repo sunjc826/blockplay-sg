@@ -1,3 +1,4 @@
+import { isStreakId, validStreakSnapshot, type StreakId } from './match-streaks';
 import { MAX_MATCH_DROPS, validMatchDrop, validMatchPickup } from './match-weapon-drops';
 import { HARDPOINT_RULES, validHardpointSnapshot } from './hardpoint';
 import { TDM_RULES, teamFaction } from './arena-match';
@@ -97,7 +98,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if(!object(state)||state.area!==tdm.id||!object(state.scores)||!['alpha','bravo'].every(t=>Number.isInteger((state.scores as Record<string,unknown>)[t]) && Number((state.scores as Record<string,unknown>)[t])>=0 && Number((state.scores as Record<string,unknown>)[t])<=TDM_RULES.scoreLimit))return false;
   } else if(value.teamDeathmatch!==undefined)return false;
   if(teamArea) {
-    if(value.actors.length!==TDM_RULES.teamSize*2 || value.facilities || value.vehicles || value.events || value.transports || value.heat || value.reinforcementClocks || value.raiders || value.proxies)return false;
+    if(value.actors.length!==TDM_RULES.teamSize*2 || value.facilities || value.vehicles || value.transports || value.heat || value.reinforcementClocks || value.proxies)return false;
     for(const team of ['alpha','bravo'])if(value.actors.filter(a=>object(a)&&a.team===team).length!==TDM_RULES.teamSize)return false;
   }
   if (value.weaponDrops !== undefined && (environment?.endless || !Array.isArray(value.weaponDrops) || value.weaponDrops.length > MAX_MATCH_DROPS
@@ -139,6 +140,9 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
       (actor.health as number) < 0 || (actor.health as number) > 300 || (actor.armor as number) < 0 || (actor.armor as number) > 150) return false;
     ids.add(actor.id);
   }
+  if (value.streaks !== undefined && (environment?.endless || !validStreakSnapshot(value.streaks, value.actors as ArenaActor[], environment?.hardpoint ? 'hardpoint' : teamArea ? 'team-deathmatch' : 'free-for-all', value.elapsed as number))) return false;
+  if (teamArea && ((Array.isArray(value.events) && value.events.some(e => !object(e) || e.kind !== 'drone' || !(value.streaks as import('./match-streaks').StreakSnapshot)?.effects?.some(s => s.kind === 'hunter' && s.event === e.id))) || (Array.isArray(value.raiders) && value.raiders.some(r => !object(r) || r.kind !== 'drone')))) return false;
+  if (value.streaks !== undefined && (value.streaks as import('./match-streaks').StreakSnapshot).effects.some(e => e.event && (!Array.isArray(value.events) || !value.events.some(d => d.id === e.event && d.kind === 'drone')))) return false;
   if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites) : value.hardpoint!==undefined)return false;
   if (value.proxies !== undefined) {
     const op=(value.proxies as import('./proxy-operations').ProxySnapshot).operation;
@@ -478,6 +482,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let matchId = authority ? newMatchId() : '', inputSequence = 0;
   const registered = new Set<string>();
   let grenadeRequest = 0;
+  let streakRequest = 0;
+  const streakRequests = new Map<number, (accepted: boolean) => void>();
   const grenadeRequests = new Map<number, ((accepted: boolean) => void) | undefined>();
   let snapshot: ArenaSnapshot | null = null, started = false, disposed = false, inputTime = 0, helloTime = 3;
   let snapshotAt = performance.now();
@@ -578,6 +584,12 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
       else if (registered.has(from) && started && payload.type === 'merlion-action' && validMerlionAction(payload.action)) { if(simulation.merlionAction(from,payload.action))publish(); }
       else if (registered.has(from) && started && payload.type === 'facility-action' && typeof payload.site === 'string' && payload.site.length <= 100) { if (simulation.facilityAction(from, payload.site)) publish(); }
+      else if (registered.has(from) && payload.type === 'streak-loadout') { if (simulation.configureStreaks(from, payload.loadout)) publish(); }
+      else if (registered.has(from) && started && payload.type === 'streak-use' && isStreakId(payload.kind) && (payload.at === undefined || point(payload.at))) {
+        const accepted = simulation.activateStreak(from, payload.kind, payload.at as ArenaPoint | undefined);
+        if (Number.isSafeInteger(payload.request)) session.send({ type: 'streak-result', request: payload.request, accepted }, from);
+        if (accepted) publish();
+      }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
       }
@@ -588,6 +600,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         refresh();
       }
     } else if (from === hostId) {
+      if (payload.type === 'streak-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean') { const callback = streakRequests.get(payload.request as number); streakRequests.delete(payload.request as number); callback?.(payload.accepted); }
       if (payload.type === 'grenade-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean' && grenadeRequests.has(payload.request as number)) { const callback = grenadeRequests.get(payload.request as number); grenadeRequests.delete(payload.request as number); callback?.(payload.accepted); }
       if (payload.type === 'arena-vehicle-result' && payload.accepted === false) vehicleNotice = 'Seat unavailable. Board stopped vehicles; exits need clear ground. Land helicopters first.';
       if (payload.type === 'arena-loadout-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean') {
@@ -850,6 +863,17 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
   }
   /** A callout from the wheel, by id; `at` is where a pinging one points. The host says it, so it arrives back in a frame's barks. */
+  function configureStreaks(loadout: StreakId[]) {
+    if (disposed) return false;
+    if (simulation) { const ok = simulation.configureStreaks(session.id, loadout); if (ok) publish(); return ok; }
+    session.send({ type: 'streak-loadout', loadout }); return true;
+  }
+  function activateStreak(kind: StreakId, at?: ArenaPoint, result?: (accepted: boolean) => void) {
+    if (disposed || !started || !localAdopted || !isStreakId(kind) || streakRequests.size >= 8) { result?.(false); return false; }
+    if (simulation) { const ok = simulation.activateStreak(session.id, kind, at); if (ok) publish(); result?.(ok); return ok; }
+    const request = ++streakRequest; if (result) streakRequests.set(request, result);
+    session.send({ type: 'streak-use', kind, request, ...(at ? { at } : {}) }); return true;
+  }
   function callout(id: string, at?: ArenaPoint) {
     if (disposed || !started || !localAdopted || !getPlayerCallout(id) || (at !== undefined && !point(at))) return;
     if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
@@ -912,6 +936,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function dispose() {
     for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear();
+    for (const callback of streakRequests.values()) callback(false); streakRequests.clear();
     for (const callback of grenadeRequests.values()) callback?.(false); grenadeRequests.clear();
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
@@ -939,6 +964,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (!simulation || disposed || started || !simulation.configureBots(count, composition)) return false;
       publish(); return true;
     },
-    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    configureStreaks, activateStreak, merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

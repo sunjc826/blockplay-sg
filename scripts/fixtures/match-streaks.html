@@ -1,0 +1,58 @@
+<!doctype html><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative}#world{height:calc(100vh - 44px);width:100vw}button{padding:12px}#hud{position:absolute;inset:0;pointer-events:none}#hud button{pointer-events:auto}</style>
+<button id="enter">Enter match</button><div class="fps-game"><div id="world"></div><div id="hud"></div></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+const {MatchStreakHud}=await import('/src/components/MatchStreaks.tsx');
+await import('/src/styles.css');
+import {createFpsEngine} from '/src/game/fps-engine.ts';
+import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
+import {createArena} from '/src/game/arena-rules.ts';
+import {TDM_AREAS} from '/src/game/arena-match.ts';
+import {SMITH_CONTROL_SITES} from '/src/game/hardpoint.ts';
+import {buildHardpointWorld} from '/src/game/hardpoint-world.ts';
+import {buildTeamDeathmatchWorld} from '/src/game/team-deathmatch-world.ts';
+import {validArenaSnapshot} from '/src/game/arena-runtime.ts';
+const params=new URLSearchParams(location.search), mode=params.get('mode')??'ffa', support=params.has('support'), area=TDM_AREAS.find(a=>a.id==='smith-street');
+const environment={bounds:mode==='ffa'?{minX:-200,maxX:200,minZ:-200,maxZ:200}:area.bounds,move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),
+ spawns:mode==='ffa'?[{x:-103,z:95.5},{x:-103,z:70}]:[...area.spawns.alpha,...area.spawns.bravo],
+ ...(mode==='tdm'?{teamDeathmatch:area}:mode==='hardpoint'?{hardpoint:{area,sites:SMITH_CONTROL_SITES}}:{})};
+const authored=mode==='ffa'?null:mode==='hardpoint'?buildHardpointWorld():buildTeamDeathmatchWorld(area.id);if(authored)Object.assign(environment,authored.environment);
+let clear=false;
+window.sim=createArena(authored?.obstacles??[],0,'mixed',environment,undefined,undefined,()=>clear?Infinity:0);
+const profile=createProfile(),kit=resolveLoadout(profile);window.original=JSON.stringify(profile);
+sim.addPlayer('guest','Player',0,0,[{damage:200,interval:.06,capacity:100,reload:.4}],undefined,false,[0]);
+sim.addPlayer('donor','Enemy',0,0,[{damage:1,interval:5,capacity:100,reload:.4}]);
+sim.configureStreaks('guest',support?['interceptor','strike','sentry']:['recon','jammer','hunter']);
+if(support)for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-80)<.1)break;sim.setInput('guest',{...a,x:-30,z:80,playing:true});sim.step(.05)}
+const handlers=new Set();let started=false;
+window.publish=()=>{const snapshot=sim.snapshot();window.valid=validArenaSnapshot(snapshot,environment);const packet={type:'arena-state',snapshot,started,matchId:'fixture'};for(const cb of handlers)cb('host',structuredClone(packet));};
+const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',name:'Host'}],isConnected:()=>true,onPeers:()=>()=>{},close(){},
+ subscribe:cb=>{handlers.add(cb);return()=>handlers.delete(cb)},send:p=>{
+ if(p.type==='arena-input')sim.setInput('guest',p.input);
+ if(p.type==='arena-shot')sim.shoot('guest',p.origin,p.direction,p.weapon,p.maxDistance);
+ if(p.type==='streak-use'){window.lastStreakRequest={p,self:sim.snapshot().actors.find(a=>a.id==='guest')};clear=true;window.accepted=sim.activateStreak('guest',p.kind,p.at);clear=false;for(const cb of handlers)cb('host',{type:'streak-result',request:p.request,accepted:window.accepted});publish();}
+ if(p.type==='streak-loadout')sim.configureStreaks('guest',p.loadout);
+ if(p.type==='arena-hello')publish();
+ }};
+const root=ReactDOM.createRoot(document.querySelector('#hud'));window.touch=false;
+window.renderHud=()=>root.render(React.createElement(MatchStreakHud,{progress:hud.arena?.streaks?.players.guest,effects:hud.arena?.streaks?.effects.filter(e=>e.owner==='guest')??[],now:hud.arena?.elapsed??0,hardpoint:mode==='hardpoint',alive:hud.arenaSelf?.alive,touch:window.touch,placement:hud.streakPlacement,onUse:slot=>engine.useStreak(slot),onConfirm:()=>engine.confirmStreak(),onCancel:()=>engine.cancelStreak()}));
+window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;window.renderHud();},{loadout:kit,arena:{session,profile,botCount:0,environment,
+ ...(mode==='ffa'?{}:{match:{mode:mode==='tdm'?'team-deathmatch':'hardpoint',area:'smith-street'}})}});
+setInterval(()=>{if(started)sim.step(.05);publish()},50);
+document.querySelector('#enter').onclick=()=>{started=true;publish();engine.start()};
+window.earn=()=>{
+ window.earnTrace=[];
+ for(let n=0;n<80;n++)sim.step(.05);
+ for(let i=0;i<7;i++){
+   sim.setPlayerVitals('donor',{health:1});const s=sim.snapshot(),a=s.actors.find(a=>a.id==='guest'),b=s.actors.find(a=>a.id==='donor');
+   const dx=b.x-a.x,dy=b.y-.6-a.y,dz=b.z-a.z,l=Math.hypot(dx,dy,dz);clear=true;
+   window.earnTrace.push({a,b,phase:hud.phase});sim.setPlayerVitals('guest',{health:100});sim.shoot('guest',a,{x:dx/l,y:dy/l,z:dz/l},0);for(let n=0;n<400&&sim.inFlight('guest');n++){sim.setPlayerVitals('guest',{health:100});sim.step(.002);}clear=false;for(let n=0;n<3;n++)sim.step(.05);
+ }
+ publish();window.earnTrace.push({snapshot:sim.snapshot()});return sim.snapshot().streaks.players.guest;
+};
+window.touchMode=(on)=>{window.touch=on;document.querySelector('.fps-game').dataset.touch=on?'on':'off';renderHud()};
+window.reposition=()=>{for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-80)<.1)break;sim.setInput('guest',{...a,x:-30,z:80,playing:true});sim.step(.05)}publish()};
+window.place=(kind)=>{const a=sim.snapshot().actors.find(a=>a.id==='guest');clear=true;const ok=sim.activateStreak('guest',kind,{x:a.x-Math.sin(a.yaw)*6,y:0,z:a.z-Math.cos(a.yaw)*6});clear=false;publish();return ok;};
+</script>

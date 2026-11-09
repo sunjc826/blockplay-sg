@@ -1,3 +1,5 @@
+import { STREAKS, type StreakId } from './match-streaks';
+import { createStreakVisuals, streakReconMarkers, streakFriendly } from './match-streak-visuals';
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
@@ -261,6 +263,7 @@ export interface ChatterLine { id: number; source: string; text: string; tone: '
 const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
+  streakPlacement: StreakId | null;
   /** Live movement telemetry for the guided recruit course. */
   tutorial?: { feet: number; grounded: boolean; stance: 'stand' | 'crouch' | 'prone'; sprinting: boolean };
   /** The touch crouch latch as the engine holds it: a slide that comes up into a run lets it go. */
@@ -355,7 +358,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { streakPlacement: null, scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -616,6 +619,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   const grenadeVisuals = createGrenadeVisuals(world.scene, (at, damage) => { combatVisuals.blast(at, damage > 90 ? 1 : .5); combatAudio.boom(at.distanceTo(camera.position), damage > 90 ? 1 : .5); ambientSky.startle(at, 1); }, p => { eventRay.set(p.clone().setY(160), new THREE.Vector3(0, -1, 0)); eventRay.near = 0; eventRay.far = 180; return (firstVisibleHit(eventRay, gameplayCandidates())?.point.clone() ?? p).add(new THREE.Vector3(0, .15, 0)); });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
+  const streakVisuals = createStreakVisuals(world.scene, at => { combatVisuals.blast(at, 1); combatAudio.boom(at.distanceTo(camera.position), 1); });
   const sfx = createSfxBank();
   const gunshots = createGunshotAudio(() => audio, () => hud.muted || hud.phase !== 'playing', sfx, combatOutput);
   const gunshotSpaces = createSceneGunshotAcoustics(world.scene);
@@ -920,6 +924,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ...(proxy && proxy.cargo==='sealed' && ['incoming','contested'].includes(proxy.phase) ? [{ id:proxy.id, x:proxy.at.x,z:proxy.at.z,kind:'checkpoint' as const,label:'Tracked prototype cargo',side:'neutral' as const }] : []),
         ...(proxy?.phase==='incoming' ? PROXY_IDS.map((faction): MinimapMarker=>({id:`${proxy.id}-${faction}-landing`,x:proxy.entries[faction].x,z:proxy.entries[faction].z,kind:'parachute',side:'neutral',label:`${proxyName(faction)} landing zone · touchdown in ${Math.ceil(proxy.remaining)}s`})) : []),
         ...contactMarkers(mapContactRange),
+        ...streakReconMarkers(hud.arena?.streaks, hud.arena?.actors ?? [], hud.arenaSelf),
       ],
     });
   };
@@ -956,6 +961,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
   function pause() {
+    cancelStreak();
     if (hud.phase === 'playing') playMenuSound('click');
     options.onRentalTime?.(0);
     if (resumeCrossing) {
@@ -1326,7 +1332,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.objectiveHints = false; hud.objectiveMarkers = [];
     capturePending = false; hud.phase = 'ready'; hud.hits = 0; hud.shots = 0; hud.landed = 0; hud.elapsed = 0; hud.message = '';
     localGrenades.reset(); seenGrenadeCues.clear(); grenadeVisuals.reset(); grenadeHeld = null; grenadePicker = null; conditions = {}; grenadeLastAt = missionLastAt = -Infinity;
-    combatVisuals.reset(); seenEvents.clear(); openedSupplies.clear(); eventClock = -1; shake = 0; blackout = 0; hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null;
+    cancelStreak(); streakVisuals.reset(); combatVisuals.reset(); seenEvents.clear(); openedSupplies.clear(); eventClock = -1; shake = 0; blackout = 0; hud.combatBanner = null; hud.mapDangers = []; hud.mapJammed = false; hud.cloudCover = null;
     hud.health = hud.maxHealth; hud.armor = equipment.armor; hud.incoming = false; hud.hurt = false; hud.earned = 0; hud.earnedXp = 0; hud.lastDamage = 0; hud.callout = ''; hud.chain = 0;
     killChain = { count: 0, lastAt: -Infinity }; calloutTime = 0; stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null;
     rangeDirector?.reset(Math.floor(Math.random() * 0xffffffff)); rangeEndedEarly = false; rangeCompletionAge = 0;
@@ -1659,6 +1665,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A fresh press is a new pull, buffered until it fires or `TRIGGER_BUFFER` runs out. */
   function pullTrigger(held: boolean) {
+    if (hud.streakPlacement) { if (held) confirmStreak(); trigger = false; pullBuffer = 0; return; }
     if ((hud.mapExpanded || wheel || recoveryPicker || grenadePicker) && held) return;
     if (grenadeHeld) {
       if (hud.phase !== 'playing' || hud.proxyMenu || arenaConditionModifiers(conditions).frozen) return;
@@ -1964,6 +1971,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // While the wheel is open, Tab turns its page and a number says that slot at once; moving keeps working.
     if (wheel && key === 'tab') { setCalloutPage(wheel.page + (event.shiftKey ? -1 : 1)); return; }
     if (wheel && /^[1-8]$/.test(key)) { const callout = CALLOUT_PAGES[wheel.page].callouts[Number(key) - 1]; if (callout && !event.repeat) sendCallout(callout.id); return; }
+    if (hud.streakPlacement && key === 'escape') { cancelStreak(); return; }
+    if (['4','5','6'].includes(key) && !wheel && !expedition && options.arena) { if (!event.repeat) useStreak(Number(key) - 4); return; }
     if (key === 'tab') {
       if (!event.repeat && !event.ctrlKey && !expedition && options.arena && hud.arenaConnected && !recoveryPicker && !grenadePicker) {
         hud.scoreboardHeld = true;
@@ -4024,6 +4033,33 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const point = hit?.point ?? pingRay.ray.at(60, pingAt);
     return { x: point.x, y: point.y, z: point.z };
   }
+  function cancelStreak() { hud.streakPlacement = null; streakVisuals.preview(null, null, false); }
+  function placementPoint() {
+    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = 100;
+    const hit = firstVisibleHit(pingRay, gameplayCandidates());
+    if (!hit || !hit.face || hit.face.normal.clone().transformDirection(hit.object.matrixWorld).y < .65) return null;
+    return hit.point;
+  }
+  function useStreak(slot: number) {
+    if (hud.phase !== 'playing' || !hud.arenaSelf?.alive || expedition || !arenaRuntime || wheel || grenadeHeld || recoveryPicker || grenadePicker) return;
+    const p = hud.arena?.streaks?.players[hud.arenaSelf.id], kind = p?.loadout[slot];
+    if (!kind || !p?.ready.includes(kind)) return;
+    trigger = false; pullBuffer = 0; stopInspect();
+    if (kind === 'recon' || kind === 'hunter') {
+      cancelStreak(); arenaRuntime.activateStreak(kind, undefined, ok => { hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Streak unavailable here or already active. Charge retained.'; publish(); });
+    } else hud.streakPlacement = hud.streakPlacement === kind ? null : kind;
+    publish();
+  }
+  function confirmStreak() {
+    const kind = hud.streakPlacement;
+    if (!kind || hud.phase !== 'playing' || !hud.arenaSelf?.alive) return;
+    const at = placementPoint();
+    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? 100 : 8)) { hud.message = 'Aim at clear ground within range.'; publish(); return; }
+    arenaRuntime?.activateStreak(kind, { x: at.x, y: at.y, z: at.z }, ok => {
+      hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Placement blocked or reward active. Charge retained.';
+      if (ok) cancelStreak(); publish();
+    });
+  }
   /** Says a callout. In a match the host says it and it comes back in the frame's barks; on the range it is only heard here. */
   function sendCallout(id: string) {
     const spoken = getPlayerCallout(id);
@@ -4082,6 +4118,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // the authority's time and never stepping backwards.
     const previous = eventClock < 0 || Math.abs(snapshot.elapsed - eventClock) > .5 ? snapshot.elapsed : eventClock;
     eventClock = Math.max(previous, previous + dt + (snapshot.elapsed - previous - dt) * Math.min(1, dt * 4));
+    streakVisuals.update(snapshot.streaks, snapshot.actors, hud.arenaSelf, snapshot.elapsed);
+    if (hud.streakPlacement && (!hud.arenaSelf?.alive || snapshot.finished)) cancelStreak();
+    if (hud.streakPlacement) {
+      const at = placementPoint(); streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= (hud.streakPlacement === 'strike' ? 100 : 8));
+    } else streakVisuals.preview(null, null, false);
+    const eventThreatens = (event: CombatEventDescriptor, plugin: NonNullable<ReturnType<typeof getCombatEvent>>) => {
+      const reward = snapshot.streaks?.effects.find(e => e.event === event.id);
+      return reward ? !streakFriendly(snapshot.actors.find(a => a.id === reward.owner), hud.arenaSelf) : threatens(event, plugin);
+    };
     const listener = camera.position, flat = (p: { x: number; z: number }) => Math.hypot(p.x - listener.x, p.z - listener.z);
     for (const cue of combatCues(events, previous, eventClock)) {
       if (cue.kind === 'launch') { combatAudio.thunk(flat(cue.payload.launch!)); continue; }
@@ -4099,8 +4144,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const plugin = getCombatEvent(event.kind);
       if (!plugin || !['warning', 'active'].includes(combatPhase(event, eventClock))) continue;
       // Something happening across the district is news; only one near you is an alarm.
-      const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR, threat = threatens(event, plugin);
-      const named = `${event.faction === 'armed-forces' ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
+      const near = Math.hypot(event.target.x - position.x, event.target.z - position.z) < COMBAT_NEAR, threat = eventThreatens(event, plugin);
+      const named = `${!threat ? 'FRIENDLY ' : ''}${plugin.name.toUpperCase()}`;
       const coast = event.landing ? SENTOSA_LANDING_SITES.find(s => s.id === event.landing)?.name : undefined;
       comms.add('system', threat && near ? 'Fire control' : 'Intel', near ? `${bannerOf(event, plugin).warning} · ${whereFrom(event.target)}` : `${named} · ${whereFrom(event.target)}`);
       if (event.kind === 'paratroopers') comms.add('system', 'Air control', `${whereFrom(event.target)} · Drop in ${Math.max(0, Math.ceil(event.start + 12 - eventClock))}s`);
@@ -4120,7 +4165,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     for (const event of events) {
       const plugin = getCombatEvent(event.kind); if (!plugin) continue;
       const phase = combatPhase(event, eventClock), age = eventClock - event.start, live = phase === 'warning' || phase === 'active';
-      const far = Math.hypot(event.target.x - position.x, event.target.z - position.z) >= COMBAT_NEAR, threat = threatens(event, plugin);
+      const far = Math.hypot(event.target.x - position.x, event.target.z - position.z) >= COMBAT_NEAR, threat = eventThreatens(event, plugin);
       if (far && live && threat) offer(`${plugin.name.toUpperCase()} · ${whereFrom(event.target)}`, 'notice', 1);
       const countdown = `${Math.max(1, Math.ceil(event.start + plugin.warning - eventClock))}s`;
       if (event.kind === 'air-raid' && live) siren = true;
@@ -4168,7 +4213,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // One on your side is news, not an alarm: it is not looking for you.
       if (!threat) { offer(`${phase === 'warning' ? bannerOf(event, plugin).warning : bannerOf(event, plugin).active} · ${whereFrom(hunter)}`, 'notice', 1); continue; }
       // Hunters: their warning is a countdown; once here, where they are is what matters.
-      if (phase === 'warning') { offer(`${plugin.banner.warning} · ${countdown}`, 'hazard', 3); continue; }
+      if (phase === 'warning' && !snapshot.streaks?.effects.some(e => e.event === event.id)) { offer(`${plugin.banner.warning} · ${countdown}`, 'hazard', 3); continue; }
       if (event.kind === 'sniper') { if (event.ended === undefined && event.origin) offer(`${plugin.banner.active} · ${whereFrom(event.origin)}`, 'hazard', 2); continue; }
       if (!raider || ['down', 'wreck', 'exploded', 'landing', 'landed'].includes(raider.state)) continue;
       const onMe = !!raider.aim && Math.hypot(raider.aim.x - position.x, raider.aim.z - position.z) < 2.5;
@@ -4182,10 +4227,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const distance = Math.hypot(r.x - listener.x, r.y - listener.y, r.z - listener.z);
       if (r.kind === 'gunship') raid = Math.min(raid, distance); else drone = Math.min(drone, distance);
       const owner = events.find(e => e.id === r.event);
-      if (r.state !== 'down' && (!owner || threatens(owner, getCombatEvent(owner.kind)!))) dangers.push({ id: `raider-${r.event}`, x: r.x, z: r.z, radius: 0, kind: 'raider' });
+      if (r.state !== 'down' && (!owner || eventThreatens(owner, getCombatEvent(owner.kind)!))) dangers.push({ id: `raider-${r.event}`, x: r.x, z: r.z, radius: 0, kind: 'raider' });
     }
     lockBeep -= dt;
     if (lockedOn && lockBeep <= 0) { combatAudio.beep(); lockBeep = .22; }
+    for (const e of snapshot.streaks?.effects ?? []) {
+      const friendly = streakFriendly(snapshot.actors.find(a => a.id === e.owner), hud.arenaSelf);
+      if (e.kind === 'strike') {
+        dangers.push({ id: e.id, x: e.x, z: e.z, radius: 5, kind: 'ring' });
+        if (!friendly && flat(e) < 12) offer(`PRECISION STRIKE · ${Math.max(1, Math.ceil(e.until - snapshot.elapsed))}s · LEAVE THE MARKED ZONE`, 'hazard', 10);
+      }
+      if (e.kind === 'jammer' || e.kind === 'recon') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 4);
+    }
     hud.combatBanner = banner;
     hud.mapJammed = jammed; hud.mapDangers = jammed ? [] : dangers; hud.cloudCover = cloud;
     blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
@@ -4810,6 +4863,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   });
 
   return {
+    useStreak, confirmStreak, cancelStreak: () => { cancelStreak(); publish(); },
+    configureStreaks: (ids: StreakId[]) => arenaRuntime?.configureStreaks(ids) ?? false,
     setTutorialStep(step: number, reposition = false) {
       if (!options.tutorial) return;
       world.scene.userData.setTutorialStep?.(step);
@@ -4896,7 +4951,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       wetView.dispose();merlionVisuals.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
-      healthGeometry.dispose(); healthMaterial.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); slideScrape.dispose(); worldLoops.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
+      healthGeometry.dispose(); healthMaterial.dispose(); streakVisuals.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); slideScrape.dispose(); worldLoops.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();
       disposeCombatOutput(audio);
       targets.forEach(target => target.label?.dispose());
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();

@@ -1,0 +1,15 @@
+.match-streak-hud{position:absolute;z-index:4;left:50%;bottom:72px;transform:translateX(-50%);display:flex;gap:5px;pointer-events:auto}
+.match-streak-hud button{position:relative;display:flex;flex-direction:column;gap:4px;width:108px;min-height:67px;padding:7px 9px;background:#102027e8;border:1px solid #637d8077;border-radius:5px;color:#bdceca;text-align:left;touch-action:manipulation}
+.match-streak-hud button:disabled{opacity:.68}.match-streak-hud button[data-ready]{border-color:#6ae6ca;color:#c9fff1;box-shadow:inset 0 0 18px #42ad9220}.match-streak-hud button[data-ready]:disabled{opacity:.8}
+.match-streak-hud button>span{display:flex;align-items:center;justify-content:space-between}.match-streak-hud kbd{font:10px monospace}.match-streak-hud b{font:600 10px 'DM Sans',sans-serif}.match-streak-hud small{font:9px monospace}.match-streak-hud progress{width:100%;height:3px;accent-color:#6ae6ca}
+.streak-placement{position:absolute;z-index:5;left:50%;top:58%;transform:translate(-50%,-50%);display:grid;gap:8px;min-width:240px;max-width:80%;padding:12px;background:#102027ef;border:1px solid #6ae6ca88;border-radius:6px;text-align:center;color:#e3fff6;pointer-events:auto}.streak-placement span{font-size:10px}.streak-placement>div{display:flex;justify-content:center;gap:8px}.streak-placement button{min-height:36px;background:#243d42;border:1px solid #87b5aa;color:#e3fff6;border-radius:4px;padding:5px 10px}
+.streak-loadout label{display:grid;gap:5px;margin:12px 0;font-size:11px;text-align:left}.streak-loadout select{width:100%;min-height:36px;background:#172a29;color:#e6f2de;border:1px solid #688278;border-radius:4px;padding:6px}.streak-loadout small{color:#abbeb1;font-size:10px;line-height:1.5}
+/* Keep the rewards beside the minimap and below ammunition on phones. */
+.fps-game[data-touch=on] .match-streak-hud{bottom:auto;top:176px;left:auto;right:12px;transform:none;gap:4px}
+.fps-game[data-touch=on] .match-streak-hud button{width:clamp(48px,calc((100vw - 156px)/3),78px);min-height:52px;padding:6px;gap:3px}
+.fps-game[data-touch=on] .match-streak-hud b{display:none}
+@media(max-height:500px) and (orientation:landscape){.fps-game[data-touch=on] .match-streak-hud{top:calc(50% - 38px)}.fps-game[data-touch=on] .match-streak-hud button{width:78px;min-height:48px;gap:2px;padding:4px 6px}.streak-placement{top:50%;padding:8px}}
+@media(max-width:700px) and (orientation:portrait){
+  .fps-game[data-touch=on] .match-streak-hud{top:316px}
+  .fps-game.arena-player-view[data-touch=on] .arena-kill-feed,.fps-game.arena-player-view[data-touch=on][data-match-mode=hardpoint] .arena-kill-feed{top:376px}
+}
