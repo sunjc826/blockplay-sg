@@ -1344,7 +1344,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing' || hud.arenaSelf?.alive === false || (!vehicles.active && vertical > .35)) return;
     if (arenaRuntime) {
       arenaRuntime.vehicleAction(vehicles.active ? 'exit' : 'enter', vehicles.active ?? vehicles.nearest(position));
-      clearInput(); canvas.focus({ preventScroll: true }); return;
+      // Shared boarding can be rejected or delayed; reset input only when the
+      // authoritative vehicle/seat transition is adopted in updateArena.
+      canvas.focus({ preventScroll: true }); return;
     }
     const change = vehicles.interact(position);
     if (change) {
@@ -1562,7 +1564,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const launcher = launcherOf(picked);
       if (launcher !== undefined) addReserveRounds(loadout[launcher], specs[launcher].reserve);
     }
-    weaponSwitch = null; clearInput(); supplyUse = null;
+    // Equipping a pickup must preserve held movement, stance and momentum.
+    weaponSwitch = null; stopInspect(); reloadAudio.clear(); supplyUse = null;
+    trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false;
+    ads = touchAim = actualAim = false; resetWeaponRecoil();
     undress.splice(0).forEach(dispose => dispose());
     weapons.forEach((model, i) => { undress.push(dressWeapon(model, specs[i])); model.visible = i === family; weaponStyles[i] = effectStyleForWeapon(specs[i]); });
     hud.weapon = family;
@@ -1895,9 +1900,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     } else arenaRuntime?.merlionAction(action);
     if (action === 'operate') {
-      endSupply(); grenadeHeld = null; actualAim = false; aimProgress = 0; stopReload(); clearInput();
+      endSupply(); grenadeHeld = null; actualAim = false; aimProgress = 0; stopReload();
+      if (rangeMerlion) clearInput();
     }
-    if (action === 'leave') clearInput();
+    // Shared controls reset movement on the confirmed operator transition.
+    if (action === 'leave' && rangeMerlion) clearInput();
     canvas.focus({preventScroll:true});
     publish();
   }

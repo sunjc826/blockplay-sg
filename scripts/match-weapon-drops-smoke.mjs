@@ -45,18 +45,37 @@ async function screenshot(name) {
   await fs.writeFile(new URL(name + '.png', output), Buffer.from(shot.data, 'base64'));
 }
 try {
- await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
+ await send('Runtime.enable');await send('Page.enable');await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1200,height:800,deviceScaleFactor:1,mobile:false});
  await wait(`window.hud?.phase==='ready'`,90000);
- await send('Input.dispatchMouseEvent',{type:'mousePressed',x:45,y:20,button:'left',clickCount:1});
- await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:45,y:20,button:'left',clickCount:1});
+ // Touch entry avoids requiring desktop pointer capture; keyboard events still
+ // exercise the real E and held movement bindings below.
+ await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+ await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:45,y:20,id:1}]});
+ await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await wait(`hud.phase==='playing'`);
+ // A failed/pending E request must not release held movement or sprint.
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW'});
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Shift',code:'ShiftLeft'});
+ await wait(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed>3`);
+ const moving=await evaluate(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed`);
+ await key('e','KeyE');await delay(250);
+ assert(await evaluate(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed>${moving}*.7`),'E preserves running without boarding');
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW'});
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Shift',code:'ShiftLeft'});
+ await delay(400);
  await evaluate(`makeDrop()`);
  for(let i=0;i<35 && !await evaluate('!!hud.lootCard');i++){await evaluate('engine.lookBy(0,5)');await delay(100);}
  await wait(`hud.lootCard?.name==='G36'`);
  assert.match(await evaluate('hud.lootCard.note'),/Full magazine.*spare ammo/);
  await screenshot(mode+'-keyboard');
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA'});
+ await wait(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed>1`);
  await key('e','KeyE');await wait(`hud.weapon===6 && hud.arenaSelf.weaponPickup?.catalogId==='g36-rifle'`);
+ await delay(250);
+ assert(await evaluate(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed>1`),'weapon pickup preserves held movement');
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA'});
+ await delay(400);
  assert(await evaluate('hud.magazine>0 && hud.reserve>0'));
  assert.equal(await evaluate('JSON.stringify(profile)===original'),true);
  assert.equal(await evaluate('hud.fieldLoot.length'),0);
@@ -67,14 +86,18 @@ try {
  await evaluate(`window.touch=true;makeDrop('g36c');renderHud()`);
  await wait(`hud.lootCard?.name==='G36C' && document.querySelector('[data-touch-action="loot"]')`);
  await screenshot(mode+'-touch');
+ await evaluate(`engine.setMoveAxis({x:1,y:0,magnitude:1})`);
  const point=await evaluate(`(()=>{const r=document.querySelector('[data-touch-action="loot"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
  await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...point,id:1,radiusX:3,radiusY:3}]});
  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await wait(`hud.arenaSelf.weaponPickup?.catalogId==='g36c' && hud.fieldLoot.length===0`);
  assert(await evaluate('hud.magazine>0 && hud.reserve>0'));
+ await delay(250);
+ assert(await evaluate(`JSON.parse(document.querySelector('#world canvas').dataset.movement).speed>1`),'touch pickup preserves movement stick');
+ await evaluate('engine.setMoveAxis(null)');
  await evaluate('die()');await wait('hud.arenaSelf?.alive===false');
  await wait('hud.arenaSelf?.alive===true',20000);await wait('hud.weapon===0 && !hud.arenaSelf.weaponPickup');
  assert.equal(await evaluate('JSON.stringify(profile)===original'),true);
- assert.deepEqual(errors,[]);console.log('PASS '+mode+': keyboard, touch, full magazine/reserve, host receipt, original profile, respawn');
+ assert.deepEqual(errors,[]);console.log('PASS '+mode+': empty E and keyboard/touch pickup movement, full magazine/reserve, host receipt, original profile, respawn');
 } finally { ws.close();await fetch(chrome+'/json/close/'+tab.id); }
 }
