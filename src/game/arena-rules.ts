@@ -1,3 +1,4 @@
+import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
 import { createHardpoint, controlAt, controlGoal, inControlSite, HARDPOINT_RULES, type ControlSite, type HardpointSnapshot } from './hardpoint';
 import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
 import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
@@ -8,7 +9,7 @@ import { createMerlionController, inMerlionMist, mistBetween, nearMerlion, merli
 import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingShotDirection } from './swimming';
 import { isDragonBoat, canPaddle } from './marina-water';
 import { HELICOPTER_AI, chooseAirMission, createHelicopterMission, helicopterMissionControls, planAirRoute, returnHelicopter, updateBoardingReservations, type HelicopterMission } from './helicopter-autopilot';
-import { OICW_GRENADE, isLauncherMode, primaryWeaponFamily, withWeaponModes } from './weapon-modes';
+import { OICW_GRENADE, isLauncherMode, primaryWeaponFamily, withWeaponModes, launcherOf } from './weapon-modes';
 import { createProxyOperations, PROXY_IDS, PROXY_RULES, proxyName, type ProxyAction, type ProxyCampaign, type ProxyId, type ProxyOperation, type ProxyParticipant, type ProxyPoint, type ProxySnapshot } from './proxy-operations';
 import { PARATROOPERS, dropPoints, planParatroopers } from './paratroopers';
 import { NAVAL, navalRampPoint, planNavalLanding, validReinforcementClocks, type ReinforcementClocks } from './naval-landings';
@@ -34,7 +35,7 @@ import { applyArmorDamage } from './armory-state';
 import { insertTraits, sightRangeAgainst, smokeHides, type InsertTraits } from './armor-inserts';
 import { PRONE_EYE_HEIGHT, weaponBraced, unsupportedRecoilDamage } from './fps-stance';
 import { MARINA_BOUNDS, moveInMarina, type Obstacle } from './marina-collision';
-import { advanceWeapon, beginReload, createLoadout, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
+import { advanceWeapon, beginReload, createLoadout, DEFAULT_VARIANTS, FPS_WEAPONS, fireWeapon, hitDamage, interruptReload, reloadCommit, reloadProgress, roundReady, type WeaponSpec, type WeaponState } from './fps-rules';
 import { armamentFamilies, chooseArmament, getArenaRole, type ArenaRolePlugin } from './arena-roles';
 import { fittedVariantSpec } from './armory-state';
 import { BOT_AIM, BOT_FLINCH, BOT_HEAL, BOT_TURN, addBotFlinch, advanceBotAimFocus, botAimScale, botAligned, botTurn, botBurstLimit, botFireCadence, botFlinchSpread, botFlinchStrength, botShotSpread, botTransverseSpeed, botWantsHeal, type BotAimFocus, type BotFlinch } from './arena-bot-combat';
@@ -71,6 +72,7 @@ import { DEFAULT_RESPAWN_ZONE, type PlayerRespawnView } from './player-respawn';
 
 /** All coordinates use metres; actor y is eye height, not the feet. */
 export interface ArenaActor {
+  weaponPickup?: MatchWeaponPickup;
   team?: ArenaTeam;
   /** Host-carried passenger in an authored building lift. */
   lift?: string;
@@ -87,7 +89,7 @@ export interface ArenaActor {
   shots: number; role: string; prone?: boolean; vehicle?: VehicleKind; seat?: number;
   /** Who they fight for (arena-factions): players and friendly squads the armed forces, enemy squads the mercenaries, event crews their event's side. */
   faction: string;
-  /** Bots: the catalog variant in their hands, which is what they drop. */
+  /** The catalog variant in their hands, which is what they drop. */
   variant?: string;
   /** Share of a dressing applied while a bot patches up, or of a supply a player is using, so others see them busy. */
   healing?: number;
@@ -162,6 +164,7 @@ export interface ArenaBark {
 /** Barks a snapshot carries; screens keep the ones they have not shown yet. */
 export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
+  weaponDrops?: MatchWeaponDrop[];
   hardpoint?: HardpointSnapshot;
   teamDeathmatch?: { area: string; scores: Record<ArenaTeam, number> };
   merlion?: MerlionState;
@@ -194,7 +197,7 @@ export interface ArenaInput {
   /** Eye position relative to the shared car floor; avoids consuming walking budget on lift travel. */
   liftOffset?: number;
 }
-export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalRemainingMs?: number };
+export type ArenaWeapon = Pick<WeaponSpec, 'damage' | 'interval' | 'capacity' | 'reload' | 'requiresMount' | 'bolt'> & Partial<Pick<WeaponSpec, 'ballistics'>> & { accessories?: { muzzle?: MuzzleDevice }; rentalRemainingMs?: number; equipment?: { variant: string } };
 export interface ArenaPoint { x: number; y: number; z: number }
 export interface ArenaShot { hitId: string | null; killed: boolean; damage: number; /** The round went through the head, for the shooter's hit sound. */ headshot?: boolean }
 export interface ArenaVitals { health: number; armor: number }
@@ -327,6 +330,7 @@ export interface VehicleCrewTransfer {
   crew: Omit<InternalActor, 'role' | 'navigation' | 'spotting'>[];
 }
 interface InternalActor {
+  spawnWeapons?: { weapons: ArenaWeapon[]; allowed: number[] };
   swimBudget?:number; lastSwimInput?:number; swimmingUntil?:number;
   vehicleBoardAfter?: number;
   boatIslandUntil?: number; boatGuard?: number;
@@ -476,6 +480,8 @@ export function arenaNavigationAnchors(obstacles: readonly Obstacle[], environme
 export function createArena(obstacles: readonly Obstacle[], botCount: number, composition = 'mixed', environment?: ArenaEnvironment, vehicleOptions?: ArenaVehicleOptions, traversalWorld?: VerticalWorld, coverDistance?: ArenaCoverDistance, grenadeCoverTrace?: import('./grenade-flight').GrenadeTrace, sightDistance?: ArenaCoverDistance, difficulty: () => BotDifficulty = () => environment?.botDifficulty?.() ?? 'normal') {
   // Rendered cover stops every round, with or without vehicles in the match.
   const cover = coverDistance ?? vehicleOptions?.coverDistance;
+  const weaponDrops: MatchWeaponDrop[] = [];
+  let dropSerial = 0, pickupSerial = 0;
   const teamArea = environment?.teamDeathmatch ?? environment?.hardpoint?.area;
   const hardpoint = environment?.hardpoint ? createHardpoint(environment.hardpoint.sites) : undefined;
   const teamScores: Record<ArenaTeam, number> = {alpha:0,bravo:0};
@@ -676,6 +682,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const respawnChoice = respawnChoices.get(entry.actor.id);
     if (respawnChoice) respawnChoice.selected = null;
+    if (entry.spawnWeapons) {
+      entry.weapons = entry.spawnWeapons.weapons; entry.allowedWeapons = entry.spawnWeapons.allowed;
+      entry.actor.weapon = entry.allowedWeapons[0]; entry.spawnWeapons = undefined;
+    }
+    delete entry.actor.weaponPickup;
     if (entry.nextWeapons && !entry.actor.bot) {
       entry.weapons = entry.nextWeapons.weapons; entry.allowedWeapons = entry.nextWeapons.allowed;
       entry.actor.weapon = entry.allowedWeapons[0]; entry.nextWeapons = undefined;
@@ -696,6 +707,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function sanitizeWeapons(weapons: readonly ArenaWeapon[]) {
     return (weapons.length ? weapons : FPS_WEAPONS).slice(0, FPS_WEAPONS.length).map((w: ArenaWeapon, index): ArenaWeapon => ({
       ...(Number.isFinite(w.rentalRemainingMs) && w.rentalRemainingMs! >= 0 ? { rentalRemainingMs: w.rentalRemainingMs } : {}),
+      ...(itemById(w.equipment?.variant ?? '')?.category === 'weapon' ? { equipment: { variant: w.equipment!.variant } } : {}),
       requiresMount: w.requiresMount === true, bolt: w.bolt === 'open' ? 'open' : 'closed',
       damage: Number.isFinite(w.damage) ? clamp(w.damage, 1, 200) : 36,
       interval: Number.isFinite(w.interval) ? clamp(w.interval, 0.06, 3) : 0.12,
@@ -750,6 +762,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function setPlayerVitals(id: string, vitals: Partial<ArenaVitals>) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
     if (Number.isFinite(vitals.health)) {
+      if (entry.actor.alive && vitals.health! <= 0) dropMatchWeapon(entry);
       entry.actor.health = clamp(vitals.health!, 0, entry.healthMax);
       entry.actor.alive = entry.actor.health > 0; if (!entry.actor.alive) releaseSeat(id);
       entry.actor.respawnIn = entry.actor.alive ? 0 : playerRespawnSeconds;
@@ -992,6 +1005,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const damage = applyArmorDamage(entry.actor.health, entry.actor.armor, recoilDamage, entry.absorption);
       entry.actor.health = damage.health; entry.actor.armor = damage.armor;
       if (!entry.actor.health) {
+        dropMatchWeapon(entry);
         entry.actor.alive = false; entry.actor.deaths++; entry.actor.respawnIn = playerRespawnSeconds;
         announce(`${entry.actor.name} was defeated by unsupported .50 recoil`, undefined, id, undefined, 'Unsupported .50 recoil');
       }
@@ -1088,6 +1102,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const killed = victim.actor.health <= 0;
     if (killed && victim.actor.alive) {
       delete victim.actor.bailoutAt;
+      dropMatchWeapon(victim);
       victim.parachute = undefined; delete victim.actor.parachuting; victim.actor.alive = false; victim.actor.deaths++; victim.actor.respawnIn = victim.actor.bot ? ARENA_RESPAWN_SECONDS : playerRespawnSeconds; releaseSeat(victim.actor.id);
       victim.heal = undefined; delete victim.actor.conditions; delete victim.actor.markedBy; delete victim.actor.healing; victim.meals = undefined; delete victim.actor.food;
       if (attacker && attacker !== victim) attacker.actor.kills++;
@@ -2426,7 +2441,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     return facilities.request(site, id);
   }
   function facilityPresence() {
-    return [...members.values()].filter(m => !m.reserve && !m.temporary && !m.parachute).map(m => ({ ...m.actor, playing: m.playing, feet: floorAt(m.actor) }));
+    return [...members.values()].filter(m => !m.reserve && !m.temporary && !m.parachute).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), playing: m.playing, feet: floorAt(m.actor) }));
   }
   function stepFacilities(dt: number) {
     if (!facilities) return;
@@ -3814,7 +3829,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     dt = Math.min(dt, 0.25);
     for (const entry of members.values()) if (!entry.actor.bot && entry.actor.alive && entry.playing) {
       entry.actor.rentalTimeMs = (entry.actor.rentalTimeMs ?? 0) + dt * 1000;
-      for (const weapon of [...entry.weapons, ...(entry.nextWeapons?.weapons ?? [])]) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = Math.max(0, weapon.rentalRemainingMs - dt * 1000);
+      for (const weapon of new Set([...entry.weapons, ...(entry.spawnWeapons?.weapons ?? []), ...(entry.nextWeapons?.weapons ?? [])])) if (weapon.rentalRemainingMs !== undefined) weapon.rentalRemainingMs = Math.max(0, weapon.rentalRemainingMs - dt * 1000);
       for (const id of Object.keys(entry.equipmentRentals ?? {})) entry.equipmentRentals![id] = Math.max(0, entry.equipmentRentals![id] - dt * 1000);
     }
     const previousElapsed=elapsed;
@@ -3905,9 +3920,41 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       announce(`${winner === 'Draw' ? 'Draw' : `${winner} wins`} · time limit`);
     }
   }
+  function dropMatchWeapon(entry: InternalActor) {
+    if (environment?.endless || !entry.actor.alive) return;
+    const family = primaryWeaponFamily(entry.actor.weapon);
+    const catalogId = entry.actor.bot ? entry.actor.variant ?? DEFAULT_VARIANTS[family]
+      : entry.weapons[family]?.equipment?.variant ?? DEFAULT_VARIANTS[family];
+    if (itemById(catalogId)?.family !== family) return;
+    weaponDrops.push({ id: `match-drop-${++dropSerial}`, catalogId, x: entry.actor.x,
+      y: floorAt(entry.actor), z: entry.actor.z, expires: elapsed + MATCH_DROP_LIFETIME });
+    if (weaponDrops.length > MAX_MATCH_DROPS) weaponDrops.shift();
+  }
+  function pickupWeapon(id: string, dropId: string) {
+    const entry = members.get(id), drop = weaponDrops.find(d => d.id === dropId);
+    if (environment?.endless || !entry || entry.actor.bot || !entry.actor.alive || !entry.playing || finished || !drop || drop.expires <= elapsed
+      || entry.actor.vehicle || arenaConditionModifiers(entry.actor.conditions).frozen) return false;
+    const feet = floorAt(entry.actor), target = { x: drop.x, y: drop.y + .25, z: drop.z };
+    if (Math.abs(feet - drop.y) > 1.2 || Math.hypot(entry.actor.x - drop.x, feet - drop.y, entry.actor.z - drop.z) > 2.8) return false;
+    const d = distance(entry.actor, target), ray = { x: (target.x-entry.actor.x)/d, y: (target.y-entry.actor.y)/d, z: (target.z-entry.actor.z)/d };
+    if (worldWallDistance(entry.actor, ray, d) < d - .1) return false;
+    const item = itemById(drop.catalogId)!, family = item.family!, spec = fittedVariantSpec(item)!;
+    entry.spawnWeapons ??= { weapons: entry.weapons.slice(), allowed: [...entry.allowedWeapons] };
+    stopReload(entry, entry.actor.weapon);
+    entry.allowedWeapons = matchPickupCarry(entry.allowedWeapons, family, entry.actor.weapon);
+    entry.weapons[family] = sanitizeWeapons([{ ...spec, equipment: { variant: item.id } }])[0];
+    entry.ammo[family] = hostAmmo(entry.weapons[family]);
+    const launcher = launcherOf(family);
+    if (launcher !== undefined) entry.ammo[launcher] = hostAmmo(entry.weapons[launcher]);
+    entry.actor.weapon = family; entry.wasReloading = false;
+    entry.actor.weaponPickup = { serial: ++pickupSerial, catalogId: item.id, carried: [...entry.allowedWeapons],
+      variants: DEFAULT_VARIANTS.map((id, i) => entry.weapons[i]?.equipment?.variant ?? id) };
+    weaponDrops.splice(weaponDrops.indexOf(drop), 1);
+    return true;
+  }
   function snapshot(): ArenaSnapshot {
     const reinforcementClocks: ReinforcementClocks = { airborne: { mercenaries: Math.max(0, airborneAt.mercenaries - elapsed), 'armed-forces': Math.max(0, airborneAt['armed-forces'] - elapsed) }, naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
-    return { type: 'arena-snapshot', tick, elapsed, ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, ...(!environment?.endless ? { weaponDrops: weaponDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })) } : {}), ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
@@ -3916,6 +3963,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
+    weaponDrops.length = 0;
     hardpoint?.reset();
     teamScores.alpha=teamScores.bravo=0;
     merlion?.reset();boatSorties.clear();boatDecisionAt.clear();
@@ -4041,7 +4089,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id);
     if (entry && !entry.actor.bot && entry.actor.alive && Number.isFinite(seconds) && seconds >= 0) entry.shieldUntil = elapsed + seconds;
   }
-  return { holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { pickupWeapon, holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

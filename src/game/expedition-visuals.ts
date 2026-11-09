@@ -13,7 +13,7 @@ import { npcCharacterLook, npcIdleGesture } from './character-looks';
 import { LOOT_TIER_COLORS } from './loot-focus';
 import { buildFoodModel } from './food-models';
 
-export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
+export function createExpeditionMarkers(scene: THREE.Scene, zone: WorldZoneId | null, loot: readonly FieldLoot[], npcs: readonly ExpeditionNpc[] = []) {
   const root = new THREE.Group(); root.name = 'expedition-markers'; root.userData.fpsEffect = true; scene.add(root);
   const resources: { dispose(): void }[] = [];
   const pickups = new Map<string, THREE.Group>();

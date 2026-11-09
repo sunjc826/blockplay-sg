@@ -1,3 +1,4 @@
+import { MAX_MATCH_DROPS, validMatchDrop, validMatchPickup } from './match-weapon-drops';
 import { HARDPOINT_RULES, validHardpointSnapshot } from './hardpoint';
 import { TDM_RULES, teamFaction } from './arena-match';
 import { looksLikeSlide } from './fps-slide';
@@ -99,9 +100,14 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     if(value.actors.length!==TDM_RULES.teamSize*2 || value.facilities || value.vehicles || value.events || value.transports || value.heat || value.reinforcementClocks || value.raiders || value.proxies)return false;
     for(const team of ['alpha','bravo'])if(value.actors.filter(a=>object(a)&&a.team===team).length!==TDM_RULES.teamSize)return false;
   }
+  if (value.weaponDrops !== undefined && (environment?.endless || !Array.isArray(value.weaponDrops) || value.weaponDrops.length > MAX_MATCH_DROPS
+    || !value.weaponDrops.every(d => validMatchDrop(d, value.elapsed as number)
+      && d.x >= (environment?.bounds.minX ?? -500) && d.x <= (environment?.bounds.maxX ?? 500)
+      && d.z >= (environment?.bounds.minZ ?? -500) && d.z <= (environment?.bounds.maxZ ?? 500))
+    || new Set(value.weaponDrops.map(d => d.id)).size !== value.weaponDrops.length)) return false;
   const ids = new Set<string>();
   for (const actor of value.actors) {
-    if (!object(actor) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
+    if (!object(actor) || (actor.weaponPickup !== undefined && (environment?.endless || actor.bot || !validMatchPickup(actor.weaponPickup))) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
       (actor.controlSeconds!==undefined && (!environment?.hardpoint || !finite(actor.controlSeconds) || actor.controlSeconds<0 || actor.controlSeconds>HARDPOINT_RULES.duration)) ||
       (teamArea ? !['alpha','bravo'].includes(String(actor.team)) || actor.faction!==teamFaction(actor.team as 'alpha'|'bravo') : actor.team!==undefined) ||
@@ -560,6 +566,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
           acknowledgements.set(from, { sequence: payload.sequence as number, deaths: actor.deaths, vehicle: actor.vehicle });
         } else { simulation.setInput(from, payload.input); acknowledgements.delete(from); }
       }
+      else if (registered.has(from) && started && payload.type === 'arena-pickup' && typeof payload.id === 'string' && payload.id.length <= 40) { if (simulation.pickupWeapon(from, payload.id)) publish(); }
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon, typeof payload.capacity === 'number' ? payload.capacity : undefined);
       else if (registered.has(from) && started && payload.type === 'throwGrenade' && validThrowGrenade(payload.grenade)) {
         const accepted = simulation.throwGrenade(from, payload.grenade);
@@ -822,6 +829,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       session.send({ type: 'arena-shot', origin, direction, weapon, maxDistance });
     }
   }
+  function pickupWeapon(id: string) {
+    if (disposed || !started || !localAdopted || options.environment?.endless) return;
+    // Submit the latest legal movement before the reach check.
+    if (lastInput) { if (simulation) simulation.setInput(session.id, lastInput); else sendInput(lastInput); }
+    if (simulation) { if (simulation.pickupWeapon(session.id, id)) publish(); }
+    else session.send({ type: 'arena-pickup', id }, hostId);
+  }
   function reload(weapon: number, capacity?: number) {
     if (disposed || !localAdopted) return;
     const freshInput = lastInput ? { ...lastInput, weapon, reloading: true } : null;
@@ -915,6 +929,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
     },
-    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

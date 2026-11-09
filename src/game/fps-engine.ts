@@ -1,3 +1,4 @@
+import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
 import { SMITH_CONTROL_SITES } from './hardpoint';
@@ -653,7 +654,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     credits: fieldProfile.credits, tokens: fieldProfile.tokens };
   hud.npcs = npcs.map(npc => ({ ...npc }));
   if (expedition && zoneWorld) hud.fieldLoot = expedition.loot.enterZone({ id: expedition.zone, spawn: zoneWorld.zone.spawn, bounds: zoneWorld.bounds, obstacles: vehicles.footObstacles(), canStand: (x, z, radius) => footMovement.canOccupy(x, world.bounds.groundHeight?.(x,z) ?? 0, z, radius, 1.8), elevatedAnchors: elevatedLootAnchors(getWalkSurfaces(world.scene), footMovement), anchors: zoneWorld.zone.encounterSpawns, sectors: zoneSectors(expedition.zone) });
-  const markers = expedition ? createExpeditionMarkers(world.scene, expedition.zone, hud.fieldLoot, npcs) : null;
+  const matchDrops = !expedition && !!options.arena;
+  const markers = expedition || matchDrops ? createExpeditionMarkers(world.scene, expedition?.zone ?? null, hud.fieldLoot, npcs) : null;
+  let pickupSeen = 0;
+  const renderedDrops = new Set<string>();
   const lootGround = expedition ? createLootGround(world.scene) : undefined;
   let checkpointPending = expedition?.checkpoint;
   let resumeCrossing = !!checkpoint?.continuation;
@@ -1390,6 +1394,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let focusedLoot: FieldLoot | null = null, reachableLoot: FieldLoot | null = null, cardKey = '', lastCard: LootCard | null = null;
   const lookDirection = new THREE.Vector3();
   function updateExpeditionPrompts() {
+    if (matchDrops) {
+      focusedLoot = hud.phase === 'playing' && hud.arenaSelf?.alive && !vehicles.active
+        ? focusLoot(hud.fieldLoot, { ...position, y: vertical }, camera.position, camera.getWorldDirection(lookDirection)) : null;
+      if (focusedLoot) {
+        const item = itemById(focusedLoot.catalogId!)!, replaced = putDownFor(item.family!);
+        hud.lootCard = { id: focusedLoot.id, name: item.name, tier: item.tier, kind: 'weapon', type: 'Dropped weapon',
+          description: item.description, stats: [], action: 'Pick up', detail: `Replaces ${specs[replaced].name}`,
+          note: 'Full magazine + spare ammo · equipped until respawn' };
+      } else hud.lootCard = null;
+      hud.lootPrompt = focusedLoot ? `E · Pick up ${focusedLoot.name} + ammo` : '';
+      markers?.focus(focusedLoot?.id ?? null);
+      return;
+    }
     if (!expedition) return;
     const alive = !!hud.arenaSelf?.alive;
     // Crossing into a named place is worth saying once, so the district reads
@@ -1457,6 +1474,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return lastCard;
   }
   function interactLoot(action: ArmorPickupAction = 'collect') {
+    if (matchDrops) {
+      if (action === 'collect' && hud.phase === 'playing' && hud.arenaSelf?.alive && !vehicles.active && focusedLoot && !supplyUse && !grenadeHeld) arenaRuntime?.pickupWeapon(focusedLoot.id);
+      return;
+    }
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending) return;
     const target = (focusedLoot && hud.fieldLoot.some(item => item.id === focusedLoot!.id) ? focusedLoot : null) ?? (pilotEnabled ? reachableLoot : null);
     if (!target) return;
@@ -1525,6 +1546,30 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     comms.add('system', 'Supplies', hud.lootNotice); radioCall('pickup');
     markers?.remove(collected.id); hud.fieldLoot = expedition.loot.remaining(expedition.zone); lootNoticeTime = 4;
     updateExpeditionPrompts(); canvas.focus({ preventScroll: true }); publish();
+  }
+  function applyMatchPickup(receipt: MatchWeaponPickup) {
+    pickupSeen = receipt.serial;
+    const previousSpecs = specs, previousCarry = equipment.carriedFamilies;
+    const next = copyProfile(fieldProfile), physical = physicalWeaponFamilies(receipt.carried), family = itemById(receipt.catalogId)!.family!;
+    next.owned = [...new Set([...next.owned, ...receipt.carried.map(i => receipt.variants[i])])];
+    next.guns.forEach((gun, i) => { gun.variant = receipt.variants[i]; });
+    next.carry = { main: physical.find(f => f !== 2)!, extra: physical.filter(f => f !== 2)[1] ?? null };
+    fieldProfile = next; equipment = resolveLoadout(next, { deferRentalExpiry: true }); specs = equipment.weapons;
+    const received = [family, ...physical.filter(i => i !== family && (!previousCarry.includes(i) || previousSpecs[i].equipment.variant !== receipt.variants[i]))];
+    for (const [index, picked] of received.entries()) {
+      loadout = replacePooledWeapon(loadout, index ? specs : previousSpecs, index ? equipment.carriedFamilies : previousCarry, specs, equipment.carriedFamilies, picked);
+      addReserveRounds(loadout[picked], specs[picked].reserve);
+      const launcher = launcherOf(picked);
+      if (launcher !== undefined) addReserveRounds(loadout[launcher], specs[launcher].reserve);
+    }
+    weaponSwitch = null; clearInput(); supplyUse = null;
+    undress.splice(0).forEach(dispose => dispose());
+    weapons.forEach((model, i) => { undress.push(dressWeapon(model, specs[i])); model.visible = i === family; weaponStyles[i] = effectStyleForWeapon(specs[i]); });
+    hud.weapon = family;
+    effects.attachMuzzle(muzzleSocket(weapons[family], FPS_WEAPONS[family].id)); effects.setStyles(weaponStyles, family);
+    options.onLoadout?.(equipment);
+    pickupSound('combat-pickup-weapon'); hud.lootNotice = `${itemById(receipt.catalogId)!.name} equipped · ammo included`; lootNoticeTime = 3;
+    updateExpeditionPrompts();
   }
   function interactNpc() {
     if (!expedition || hud.phase !== 'playing' || !hud.arenaSelf?.alive || vehicles.active || !arenaRuntime || travelPending || vertical > .35) return;
@@ -1869,7 +1914,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (canResupply()) { resupplyRange(); return; }
     if (!vehicles.active && hud.facilityPrompt && !focusedLoot) { interactFacility(); return; }
     const npc = !!expedition && !vehicles.active && vertical <= .35 && !!nearestNpc(npcs, position);
-    const target = fpsInteractionTarget(!!vehicles.active, !!expedition && !!focusedLoot, npc);
+    const target = fpsInteractionTarget(!!vehicles.active, (!!expedition || matchDrops) && !!focusedLoot, npc);
     if (target === 'loot') interactLoot();
     else if (target === 'npc') interactNpc();
     else interactVehicle();
@@ -3672,6 +3717,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     facilityVisuals?.update(frame.snapshot?.facilities);
     if('controlStations' in world)(world as ReturnType<typeof buildHardpointWorld>).controlStations.update(frame.snapshot?.hardpoint);
     proxyVisuals.update(frame.snapshot?.proxies);
+    if (matchDrops) {
+      const drops = frame.snapshot?.weaponDrops ?? [], ids = new Set(drops.map(d => d.id));
+      for (const id of renderedDrops) if (!ids.has(id)) { markers?.remove(id); renderedDrops.delete(id); }
+      hud.fieldLoot = drops.map(drop => matchDropLoot(drop, region));
+      for (const item of hud.fieldLoot) if (!renderedDrops.has(item.id)) { markers?.addDrop(item); renderedDrops.add(item.id); }
+      if (!frame.self?.weaponPickup) pickupSeen = 0;
+    }
     hud.arena = frame.snapshot; hud.arenaSelf = frame.self; hud.arenaConnected = frame.connected; hud.arenaStarted = frame.started;
     if (frame.started && !wasStarted && hud.phase === 'playing' && !hud.muted) playTake('world-match-start', .7);
     wasStarted = frame.started;
@@ -3763,7 +3815,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
       if (frame.spawn) {
         weaponSwitch = null;
-        if (previousSelf && (!previousSelf.alive || frame.self.deaths > previousSelf.deaths) && !checkpointPending) {
+        if (previousSelf && (!previousSelf.alive || frame.self.deaths > previousSelf.deaths || matchDrops && !frame.self.weaponPickup) && !checkpointPending) {
           fieldProfile = respawnEquipment(fieldProfile, respawnProfile);
           equipment = resolveLoadout(fieldProfile, { deferRentalExpiry: true }); specs = equipment.weapons;
           vehicles.setSkins(equipment.vehicleSkins);
@@ -3793,6 +3845,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (frame.hardCorrection) { velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0); }
         updateCameras(0, false, false);
       }
+      if (matchDrops && frame.self.alive && frame.self.weaponPickup && frame.self.weaponPickup.serial !== pickupSeen) applyMatchPickup(frame.self.weaponPickup);
       rig.visible = frame.self.alive && (!vehicles.active || vehicles.canUseFirearm && firstPersonVehicle());
     }
     if (newRound) seenImpacts.clear();
@@ -4398,7 +4451,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     if (!arenaRuntime && (hud.phase === 'defeated' || hud.phase === 'complete')) vehicles.animateEffects(dt);
-    if (expedition) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
+    if (expedition || matchDrops) { updateExpeditionPrompts(); lootNoticeTime = Math.max(0, lootNoticeTime - realDt); if (!lootNoticeTime) hud.lootNotice = ''; }
     hurtTime = Math.max(0, hurtTime - dt); hud.hurt = hurtTime > 0;
     if (deathScene) { deathScene.age += realDt; if (expedition && deathScene.age >= DEATH_WINDOW_SECONDS) endDeathScene(); }
     hitDirections.advance(realDt);

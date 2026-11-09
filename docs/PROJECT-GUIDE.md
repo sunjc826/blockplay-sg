@@ -453,6 +453,16 @@ The key needs access to **gpt-5.6-luna** for request interpretation and **gpt-li
 
 “Closer” uses deterministic straight-line distance, not navigable route finding. Local game logic validates destination IDs, checks arrival and rejects stale responses after resets or region changes. See [companion architecture and tests](ADVENTURE.md).
 
+### Multiplayer weapon pickups
+
+Hardpoint, Team Deathmatch and Free for All let you pick up weapons dropped by
+fallen players and bots, including allies. Look at a nearby weapon and press E,
+or tap its pickup button. It replaces the appropriate carried weapon and comes
+with a full magazine plus compatible spare ammo, up to your rig’s capacity.
+Pickups last for the current life; respawning restores your chosen loadout.
+The host resolves competing claims. Drops expire after 45 seconds, with at most
+24 on the map. Open-world weapon and ammunition drops remain separate pickups.
+
 ### Optional LAN multiplayer
 
 ```sh
