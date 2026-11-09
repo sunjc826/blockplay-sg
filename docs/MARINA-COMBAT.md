@@ -336,10 +336,13 @@ fixture; output is in `.cache/merlion/`.
 In Marina combat sessions the central Merlion is a shared suppression station.
 The Marina Field Range also lets you practise with the station.
 On foot, approach the brass wheel on the south side of the plinth and press
-**E** or tap **Board Merlion**. Mouse or touch look rotates the statue (maximum 1.6 radians/second);
+**E** or tap **Board Merlion**. Mouse or touch look rotates the statue (players: 4.8 radians/second; bots: 1.6);
 hold **Fire** for the aimed water cannon, **Q** for a mist burst, and **E** to
 leave. Touch controls also provide mist and exit buttons. The operator's body
-stays exposed at the wheel; the camera looks from above the mouth. The statue's
+stays exposed at the wheel; the camera looks from above the mouth. Local steering
+is presented every rendered frame between authority updates, with shared turn
+limits and bounded prediction. The camera follows the aim direction so changing
+impact distance does not jerk the view; the world-space ring shows the impact. The statue's
 existing central movement-cover envelope stays fixed while its sculpture turns.
 
 The cannon reaches up to 65m, stops at rendered scenery, vehicle/transport hulls

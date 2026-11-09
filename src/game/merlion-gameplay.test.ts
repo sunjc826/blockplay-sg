@@ -28,7 +28,7 @@ describe('Merlion shared controls',()=>{
     expect(c.action({...p,x:50},'operate')).toBe(false);expect(c.action({...p,swimming:true},'operate')).toBe(false);
     expect(c.action(p,'operate')).toBe(true);expect(c.action(other,'operate')).toBe(false);
     p.yaw=Math.PI/2;c.input(p,true,true);const before=c.state.yaw;c.step(.05,[p],()=>{});
-    expect(Math.abs(c.state.yaw-before)).toBeLessThanOrEqual(MERLION.turnSpeed*.05+.001);
+    expect(Math.abs(c.state.yaw-before)).toBeLessThanOrEqual(MERLION.playerTurnSpeed*.05+.001);
     c.step(.4,[p],()=>{});expect(c.state.operator).toBeNull();expect(c.state.firing).toBe(false);
     c.action(p,'operate');c.input(p,true,true);c.step(.05,[{...p,alive:false}],()=>{});expect(c.state.operator).toBeNull();
   });

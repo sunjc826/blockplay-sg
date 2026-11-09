@@ -2,7 +2,7 @@
 export const MERLION = {
   x: 0, z: -12, mouthHeight: 3.222, mouthRadius: .966,
   console: { x: 0, z: -8.5 }, cache: { x: 3.1, z: -11.2 }, reach: 1.8,
-  range: 65, radius: .95, turnSpeed: 1.6, minPitch: -.75, maxPitch: .3,
+  range: 65, radius: .95, turnSpeed: 1.6, playerTurnSpeed: 4.8, playerPitchSpeed: 3, minPitch: -.75, maxPitch: .3,
   pressureSeconds: 7, rechargeSeconds: 18, recoverySeconds: 3,
   mistSeconds: 4.5, mistRange: 75, mistRadius: 18, mistCooldown: 22, mistCost: .4,
   packs: 3, packSeconds: 45, pickupSeconds: 8,
@@ -57,6 +57,20 @@ export function mistBetween(s: MerlionState | undefined, a: WaterPoint, b: Water
   const f=(t:number)=>(A*t+B)*t+C;
   return Math.min(f(lo),f(hi),A>1e-9?f(clamp(-B/(2*A),lo,hi)):Infinity)<=1e-8;
 }
+/** Shared rate limits for authoritative aim and local frame-rate presentation. */
+export function turnMerlionAim(pose: Pick<MerlionState,'yaw'|'pitch'>, target: Pick<WaterActor,'yaw'|'pitch'|'bot'>, dt:number) {
+  const turn=Math.atan2(Math.sin(target.yaw-pose.yaw),Math.cos(target.yaw-pose.yaw));
+  const yawStep=(target.bot?MERLION.turnSpeed:MERLION.playerTurnSpeed)*dt;
+  const pitchStep=(target.bot?1:MERLION.playerPitchSpeed)*dt;
+  pose.yaw=Math.atan2(Math.sin(pose.yaw+clamp(turn,-yawStep,yawStep)),Math.cos(pose.yaw+clamp(turn,-yawStep,yawStep)));
+  pose.pitch+=clamp(clamp(target.pitch,MERLION.minPitch,MERLION.maxPitch)-pose.pitch,-pitchStep,pitchStep);
+}
+export function merlionEndpoint(yaw:number,pitch:number,trace:Trace):WaterPoint {
+  const origin=merlionMouth(yaw),direction=merlionDirection(yaw,pitch);
+  const waterRange=direction.y<0?(origin.y+.24)/-direction.y:MERLION.range;
+  const range=Math.max(0,Math.min(MERLION.range,waterRange,trace(origin,direction,MERLION.range)));
+  return {x:origin.x+direction.x*range,y:origin.y+direction.y*range,z:origin.z+direction.z*range};
+}
 export function createMerlionController(trace: Trace, saved?: MerlionState) {
   const s: MerlionState={operator:null,yaw:-Math.PI/2,pitch:-.06,pressure:1,firing:false,recovering:0,mist:0,cooldown:0,packs:MERLION.packs,refill:MERLION.packSeconds,end:{x:0,y:0,z:0}};
   if(validMerlionState(saved))Object.assign(s,structuredClone(saved),{operator:null,firing:false});
@@ -85,19 +99,14 @@ export function createMerlionController(trace: Trace, saved?: MerlionState) {
     if(s.packs<MERLION.packs){s.refill-=dt;while(s.refill<=0&&s.packs<MERLION.packs){s.packs++;s.refill+=MERLION.packSeconds;}}
     const operator=actors.find(a=>a.id===s.operator);
     if(!operator||!eligible(operator)||!nearMerlion(operator,'console')||clock>expires){s.operator=null;held=false;}
-    if(s.operator&&operator){
-      const turn=Math.atan2(Math.sin(operator.yaw-s.yaw),Math.cos(operator.yaw-s.yaw));
-      s.yaw=Math.atan2(Math.sin(s.yaw+clamp(turn,-MERLION.turnSpeed*dt,MERLION.turnSpeed*dt)),Math.cos(s.yaw+clamp(turn,-MERLION.turnSpeed*dt,MERLION.turnSpeed*dt)));
-      s.pitch+=clamp(clamp(operator.pitch,MERLION.minPitch,MERLION.maxPitch)-s.pitch,-dt,dt);
-    }
+    if(s.operator&&operator)turnMerlionAim(s,operator,dt);
     s.firing=!!s.operator&&held&&s.recovering===0&&s.pressure>0;
     if(s.firing){s.pressure=Math.max(0,s.pressure-dt/MERLION.pressureSeconds);if(s.pressure===0)s.recovering=MERLION.recoverySeconds;}
     else s.pressure=Math.min(1,s.pressure+dt/MERLION.rechargeSeconds);
     const origin=merlionMouth(s.yaw),direction=merlionDirection(s.yaw,s.pitch);
     // Stop at solid scenery and the bay surface. The host publishes the same end for every renderer.
-    const waterRange=direction.y<0?(origin.y+.24)/-direction.y:MERLION.range;
-    const range=Math.max(0,Math.min(MERLION.range,waterRange,trace(origin,direction,MERLION.range)));
-    s.end={x:origin.x+direction.x*range,y:origin.y+direction.y*range,z:origin.z+direction.z*range};
+    s.end=merlionEndpoint(s.yaw,s.pitch,trace);
+    const range=Math.hypot(s.end.x-origin.x,s.end.y-origin.y,s.end.z-origin.z);
     for(const a of actors){
       if(!a.alive)continue;
       if(s.mist&&inMerlionMist(s,a))wet(a,.48);

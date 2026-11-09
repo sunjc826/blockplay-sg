@@ -17,6 +17,15 @@ async function enter(query=''){touchMode=query.includes('touch');await send('Emu
 try{
  await send('Runtime.enable');await send('Page.enable');await send('Page.bringToFront');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1100,height:850,deviceScaleFactor:1,mobile:false});
  await enter();await shot('controls');await key('e','KeyE');await wait('window.hud.arena.merlion.operator===window.hud.arenaSelf.id');
+ await wait('!!document.querySelector("canvas")?.dataset.merlionCamera');
+ const steering=await evaluate(`new Promise(resolve=>{const samples=[];let start;function sample(t){start??=t;const pose=JSON.parse(document.querySelector('canvas').dataset.merlionCamera);samples.push({t,...pose});if(t-start<1000){window.engine.lookBy(6,0);requestAnimationFrame(sample);}else resolve(samples);}requestAnimationFrame(sample);})`);
+ const angle=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
+ const viewTurns=steering.slice(1).filter((p,i)=>angle(p.yaw,steering[i].yaw)>1e-5).length;
+ const hostTurns=steering.slice(1).filter((p,i)=>angle(p.hostYaw,steering[i].hostYaw)>1e-5).length;
+ assert.ok(viewTurns>=(steering.length-1)*.8,JSON.stringify({viewTurns,hostTurns,frames:steering.length}));
+ await delay(250);const settled=await evaluate('JSON.parse(document.querySelector("canvas").dataset.merlionCamera)');
+ assert.ok(angle(settled.yaw,settled.inputYaw)<.02,'steering settles promptly when dragging stops');
+ await enter();await key('e','KeyE');await wait('window.hud.merlion.operating');
  await evaluate('window.engine.setInput("fire",true)');await wait('window.hud.arena.merlion.firing');await shot('cannon-operator');
  const firing=await evaluate('structuredClone(window.hud.arena.merlion)');assert.ok(firing.pressure<1);const oldYaw=firing.yaw;await evaluate('window.engine.lookBy(160,0)');await wait('Math.abs(window.hud.arena.merlion.yaw-('+oldYaw+'))>.1');await evaluate('window.engine.setInput("fire",false)');await wait('!window.hud.arena.merlion.firing');
  await key('q','KeyQ');await wait('window.hud.arena.merlion.mist>0');assert.equal(await evaluate('!!document.querySelector(".merlion-water-screen.mist")'),false);await shot('mist');
@@ -55,5 +64,5 @@ try{
  await click('[data-touch-action=aim]');await wait('window.hud.merlion.state.mist>0');
  await click('[data-touch-action=vehicle]');await wait('!window.hud.merlion.operating');
  await delay(900);assert.equal(await evaluate('window.hud.merlion.operating'),false);
- assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,firing,bot,distant,errors},null,2));console.log('PASS: real engine range approach and boarding, combat desktop/touch controls, rotating cannon, bot mist beyond cannon range, bot operation and player blindness/recovery, mist, finite supplies.');
+ assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,steering:{samples:steering,viewTurns,hostTurns},firing,bot,distant,errors},null,2));console.log('PASS: real engine range approach and boarding, combat desktop/touch controls, rotating cannon, bot mist beyond cannon range, bot operation and player blindness/recovery, mist, finite supplies.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}

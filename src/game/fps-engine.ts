@@ -11,6 +11,8 @@ import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
+import { transportRayDistance } from './combat-transports';
+import { createMerlionPresentation } from './merlion-presentation';
 import { createMerlionVisuals } from './merlion-visuals';
 import { createMerlionController, nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction, type MerlionState, type WaterActor } from './merlion-gameplay';
 import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
@@ -547,6 +549,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
   const merlionVisuals = createMerlionVisuals(world.scene);
+  let merlionRenderState: MerlionState | undefined;
+  const merlionPresentation = createMerlionPresentation((origin,direction,range)=>{
+    let end=facilityCover.distance(origin,direction,range);
+    for(const vehicle of Object.values(vehicles.states))if(!vehicle.despawned)end=Math.min(end,vehicleRayDistance(vehicle,origin,direction));
+    for(const transport of hud.arena?.transports??[])if(transport.visible)end=Math.min(end,transportRayDistance(transport,origin,direction));
+    return end;
+  });
   const rangeMerlion: ReturnType<typeof createMerlionController> | null = practiceRange && region === 'marina-bay' ? createMerlionController((origin, ray, range) => {
     if (!rangeMerlion?.state.operator) return range;
     let end = facilityCover.distance(origin, ray, range);
@@ -1991,9 +2000,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const look = (dx: number, dy: number, assisted = false) => {
     if (hud.phase !== 'playing' || hud.proxyMenu || hud.mapExpanded || arenaConditionModifiers(conditions).frozen) return;
     const wasYaw = yaw, wasPitch = pitch;
-    const aimingScale = scopeZoomLookScale(specs[hud.weapon], weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon])?.magnification ?? 6 : 6, actualAim);
+    const aimingScale = merlionOperating() ? 1 : scopeZoomLookScale(specs[hud.weapon], weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon])?.magnification ?? 6 : 6, actualAim);
     dx *= aimingScale; dy *= aimingScale;
-    ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, ads || touchAim));
+    ({ yaw, pitch } = turnFpsLook(yaw, pitch, dx, dy, !merlionOperating() && (ads || touchAim)));
     if(merlionOperating())pitch=THREE.MathUtils.clamp(pitch,MERLION.minPitch,MERLION.maxPitch);
     const contact = assisted && !merlionOperating() ? assistContact() : null;
     if (contact) {
@@ -2461,12 +2470,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
     lastLookYaw = yaw; lastLookPitch = pitch;
-    const merlion = merlionState();
+    const merlion = merlionRenderState ?? merlionState();
     if(merlionOperating()&&merlion){
       const s=merlion,at=merlionMouth(s.yaw),dir=merlionDirection(s.yaw,s.pitch);
       actualAim=false;aimProgress=0;rig.visible=false;playerBody.root.visible=false;supplyHands.update(null,0);
       camera.position.set(at.x+dir.x*.65,at.y+.45+dir.y*.65,at.z+dir.z*.65);
-      camera.lookAt(s.end.x,s.end.y,s.end.z);camera.fov=65;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
+      camera.lookAt(camera.position.x+dir.x,camera.position.y+dir.y,camera.position.z+dir.z);camera.fov=65;
+      canvas.dataset.merlionCamera=JSON.stringify({yaw:s.yaw,pitch:s.pitch,hostYaw:merlionState()?.yaw,inputYaw:yaw});camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
       return;
     }
     if (vehicles.mounted && !vehicles.canUseFirearm) {
@@ -3627,7 +3637,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if(gun&&ammo)addReserveMagazines(ammo,1);
       hud.message='Merlion cache · field dressing applied (+25 health) · one spare magazine if a pouch is free.';
     }
-    merlionVisuals.update(frame.snapshot?.merlion,dt);
+    merlionRenderState=merlionPresentation.update(frame.snapshot?.merlion,dt,frame.snapshot?.tick??0,
+      nowOperating&&hud.phase==='playing'&&frame.self?{id:frame.self.id,yaw,pitch}:undefined);
+    merlionVisuals.update(merlionRenderState,dt);
     const previousMatch = hud.arena;
     // Hosts already reset synchronously in reset(); only guests adopt a remote rematch.
     const newRound = options.arena?.session.role === 'guest' && previousMatch && frame.snapshot && (frame.snapshot.tick < previousMatch.tick || (previousMatch.finished && !frame.snapshot.finished));
