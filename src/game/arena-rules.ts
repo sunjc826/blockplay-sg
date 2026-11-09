@@ -1,5 +1,6 @@
 import { matchRegeneratedHealth, matchBotArmor, matchArmorGain, MAX_MATCH_ARMOR_DROPS, type MatchArmorDrop, type MatchArmorPickup } from './match-recovery';
 import { createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffect, type StreakSnapshot } from './match-streaks';
+import { guardianPlacement } from './guardian-placement';
 import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
 import { createHardpoint, controlAt, controlGoal, inControlSite, HARDPOINT_RULES, type ControlSite, type HardpointSnapshot } from './hardpoint';
 import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
@@ -496,6 +497,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
   const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
   const traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
+  const deviceMovement = traversal ?? createVerticalMovement({ bounds, obstacles, surfaces: [], traversalObstacles: [] });
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
   const navigationAnchors = arenaNavigationAnchors(obstacles, environment, vehicleOptions);
   const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors, environment?.bakedNavigation) : null;
@@ -1543,6 +1545,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const rise = Math.min(6, worldWallDistance(a, UP, 7) - 1);
       if (rise < 1) return false;
       at = { x: a.x, y: a.y + rise, z: a.z };
+    } else if (kind === 'interceptor') {
+      const placement = guardianPlacement(a, target ?? null, {
+        movement: deviceMovement, wallDistance: worldWallDistance,
+        enemySpawns: teamArea && a.team ? teamArea.spawns[a.team === 'alpha' ? 'bravo' : 'alpha'] : [],
+        protectedEnemies: [...members.values()].filter(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && streaks.enemy(a, m.actor)).map(m => m.actor),
+      });
+      if (!placement.at) return false;
+      at = placement.at;
     } else {
       if (!target || !finitePoint(target) || target.x < bounds.minX || target.x > bounds.maxX || target.z < bounds.minZ || target.z > bounds.maxZ || distance(a, target) > (kind === 'strike' ? 100 : 8)) return false;
       const floor = floorAt({ ...target, y: target.y + .8 });

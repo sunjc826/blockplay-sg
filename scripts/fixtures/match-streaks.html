@@ -16,25 +16,30 @@ import {SMITH_CONTROL_SITES} from '/src/game/hardpoint.ts';
 import {buildHardpointWorld} from '/src/game/hardpoint-world.ts';
 import {buildTeamDeathmatchWorld} from '/src/game/team-deathmatch-world.ts';
 import {validArenaSnapshot} from '/src/game/arena-runtime.ts';
+import {createSceneCover} from '/src/game/scene-cover.ts';
+import {getPhysicalWalkSurfaces,getTraversalObstacles} from '/src/game/vertical-routes.ts';
 const params=new URLSearchParams(location.search), mode=params.get('mode')??'ffa', support=params.has('support'), area=TDM_AREAS.find(a=>a.id==='smith-street');
 const environment={bounds:mode==='ffa'?{minX:-200,maxX:200,minZ:-200,maxZ:200}:area.bounds,move:(p,dx,dz)=>({x:p.x+dx,z:p.z+dz}),
  spawns:mode==='ffa'?[{x:-103,z:95.5},{x:-103,z:70}]:[...area.spawns.alpha,...area.spawns.bravo],
  ...(mode==='tdm'?{teamDeathmatch:area}:mode==='hardpoint'?{hardpoint:{area,sites:SMITH_CONTROL_SITES}}:{})};
 const authored=mode==='ffa'?null:mode==='hardpoint'?buildHardpointWorld():buildTeamDeathmatchWorld(area.id);if(authored)Object.assign(environment,authored.environment);
-let clear=false;
-window.sim=createArena(authored?.obstacles??[],0,'mixed',environment,undefined,undefined,()=>clear?Infinity:0);
+let clear=false,placing=false;
+if(authored)authored.stamps.forEach(s=>s.visible=false);
+const cover=authored?createSceneCover(authored.scene):null;
+const terrain=authored?{bounds:authored.bounds,obstacles:authored.obstacles,surfaces:getPhysicalWalkSurfaces(authored.scene),traversalObstacles:getTraversalObstacles(authored.scene)}:undefined;
+window.sim=createArena(authored?.obstacles??[],0,'mixed',environment,undefined,terrain,(...args)=>placing&&cover?cover.distance(...args):clear?Infinity:0);
 const profile=createProfile(),kit=resolveLoadout(profile);window.original=JSON.stringify(profile);
 sim.addPlayer('guest','Player',0,0,[{damage:200,interval:.06,capacity:100,reload:.4}],undefined,false,[0]);
 sim.addPlayer('donor','Enemy',0,0,[{damage:1,interval:5,capacity:100,reload:.4}]);
 sim.configureStreaks('guest',support?['interceptor','strike','sentry']:['recon','jammer','hunter']);
-if(support)for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-80)<.1)break;sim.setInput('guest',{...a,x:-30,z:80,playing:true});sim.step(.05)}
+if(support&&!params.has('spawn'))for(let i=0;i<300;i++){const a=sim.snapshot().actors.find(a=>a.id==='guest');if(Math.hypot(a.x+30,a.z-80)<.1)break;sim.setInput('guest',{...a,x:-30,z:80,playing:true});sim.step(.05)}
 const handlers=new Set();let started=false;
 window.publish=()=>{const snapshot=sim.snapshot();window.valid=validArenaSnapshot(snapshot,environment);const packet={type:'arena-state',snapshot,started,matchId:'fixture'};for(const cb of handlers)cb('host',structuredClone(packet));};
 const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',name:'Host'}],isConnected:()=>true,onPeers:()=>()=>{},close(){},
  subscribe:cb=>{handlers.add(cb);return()=>handlers.delete(cb)},send:p=>{
  if(p.type==='arena-input')sim.setInput('guest',p.input);
  if(p.type==='arena-shot')sim.shoot('guest',p.origin,p.direction,p.weapon,p.maxDistance);
- if(p.type==='streak-use'){window.lastStreakRequest={p,self:sim.snapshot().actors.find(a=>a.id==='guest')};clear=true;window.accepted=sim.activateStreak('guest',p.kind,p.at);clear=false;for(const cb of handlers)cb('host',{type:'streak-result',request:p.request,accepted:window.accepted});publish();}
+ if(p.type==='streak-use'){window.lastStreakRequest={p,self:sim.snapshot().actors.find(a=>a.id==='guest')};clear=true;placing=true;window.accepted=sim.activateStreak('guest',p.kind,p.at);placing=false;clear=false;for(const cb of handlers)cb('host',{type:'streak-result',request:p.request,accepted:window.accepted});publish();}
  if(p.type==='streak-loadout')sim.configureStreaks('guest',p.loadout);
  if(p.type==='arena-hello')publish();
  }};

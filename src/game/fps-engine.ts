@@ -1,5 +1,6 @@
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { STREAKS, type StreakId } from './match-streaks';
+import { guardianPlacement } from './guardian-placement';
 import { createStreakVisuals, streakReconMarkers, streakFriendly, streakHunterMarkers } from './match-streak-visuals';
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
@@ -4096,13 +4097,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     publish();
   }
+  function guardianPreview(target: THREE.Vector3 | null) {
+    const self = hud.arenaSelf!;
+    const area = tdmArea(hardpoint ? 'smith-street' : tdm?.area ?? '');
+    const result = guardianPlacement(camera.position, target, {
+      movement: footMovement, wallDistance: facilityCover.distance,
+      enemySpawns: area && self.team ? area.spawns[self.team === 'alpha' ? 'bravo' : 'alpha'] : [],
+      protectedEnemies: hud.arena?.actors.filter(a => a.alive && a.shield && !streakFriendly(a, self)) ?? [],
+    });
+    if (hud.arena?.streaks?.effects.some(e => e.kind === 'interceptor' && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
+      return { at: null, reason: 'Your team already has an active Guardian.' };
+    return result;
+  }
   function confirmStreak() {
     const kind = hud.streakPlacement;
     if (!kind || hud.phase !== 'playing' || !hud.arenaSelf?.alive) return;
     const at = placementPoint();
+    if (kind === 'interceptor') {
+      const placement = guardianPreview(at);
+      if (!placement.at) { hud.streakNotice = hud.message = `${placement.reason} Charge retained.`; publish(); return; }
+    }
     if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? 100 : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${kind === 'strike' ? 100 : 8}m, then deploy. Charge retained.`; publish(); return; }
     arenaRuntime?.activateStreak(kind, { x: at.x, y: at.y, z: at.z }, ok => {
-      hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
+      hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : kind === 'interceptor' ? 'Placement changed or a teammate deployed a Guardian. Try another clear spot. Charge retained.' : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
       if (ok) cancelStreak(); publish();
     });
   }
@@ -4167,7 +4184,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     streakVisuals.update(snapshot.streaks, snapshot.actors, hud.arenaSelf, snapshot.elapsed);
     if (hud.streakPlacement && (!hud.arenaSelf?.alive || snapshot.finished)) cancelStreak();
     if (hud.streakPlacement) {
-      const at = placementPoint(); streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= (hud.streakPlacement === 'strike' ? 100 : 8));
+      const at = placementPoint();
+      if (hud.streakPlacement === 'interceptor') {
+        const placement = guardianPreview(at);
+        streakVisuals.preview(placement.at ? { ...placement.at, y: placement.at.y - .7 } : at, hud.streakPlacement, !!placement.at);
+        hud.streakNotice = placement.reason;
+      } else streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= (hud.streakPlacement === 'strike' ? 100 : 8));
     } else streakVisuals.preview(null, null, false);
     const eventThreatens = (event: CombatEventDescriptor, plugin: NonNullable<ReturnType<typeof getCombatEvent>>) => {
       const reward = snapshot.streaks?.effects.find(e => e.event === event.id);

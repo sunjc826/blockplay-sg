@@ -134,20 +134,17 @@ try {
   await evaluate('engine.lookBy(0,hud.pitch/.0023)');
   await evaluate('engine.lookBy((hud.yaw+Math.PI/2)/.0023,0)');
   for(let i=0;i<12;i++){await evaluate('engine.lookBy(0,20)');await delay(40);}
+  await wait(`hud.streakNotice===''`);
   await screenshot('hardpoint-placement');
   await deploy();await delay(500);
-  // Authored spawn protection may reject this first point. Walk away from it, then retry with the real placement control.
-  if(!await evaluate('accepted')){
-    await evaluate('engine.cancelStreak();engine.lookBy((hud.yaw+Math.PI/2)/.0023,0);engine.setInput("w",true)');await delay(2500);await evaluate('engine.setInput("w",false);engine.useStreak(0)');await delay(100);
-    await deploy();await delay(300);
-  }
   assert.equal(await evaluate('accepted'),true,JSON.stringify(await evaluate('({request:lastStreakRequest,hud:{x:hud.x,z:hud.z,pitch:hud.pitch,message:hud.message}})')));
+  if(variant.includes('&spawn'))assert.equal(await evaluate(`(()=>{const {p,self}=lastStreakRequest;return Math.hypot(p.at.x-self.x,p.at.z-self.z)<5})()`),true,'Guardian deploys inside the allied spawn area');
   assert.equal(await evaluate('hud.streakPlacement'),null);
   assert.equal(await evaluate('hud.streakNotice'),'');
   assert.equal(await evaluate('hud.shots'),shotsBeforePlacement);
   assert.equal(await evaluate(`hud.arena.streaks.players.guest.ready.includes('interceptor')`),false);
   // Render the other authored devices through the same authority; the GUI path was verified above.
-  assert.equal(await evaluate('place("sentry")'),true);
+  if(!variant.includes('&spawn'))assert.equal(await evaluate('place("sentry")'),true);
   await evaluate('place("strike")');await delay(300);
   await screenshot('hardpoint-devices');
  }
