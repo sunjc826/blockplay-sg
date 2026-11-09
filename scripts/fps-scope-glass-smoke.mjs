@@ -5,6 +5,24 @@ import assert from 'node:assert/strict';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9228';
 const output = new URL('../.cache/reflex-review/', import.meta.url);
+const depthResults = {};
+async function verifyDepth(label) {
+  const depth = await evaluate('window.verifyScopeDepth()');
+  depthResults[label] = depth;
+  for (const [pose, result] of Object.entries(depth)) {
+    assert.equal(result.centralMax, 0, label+' '+pose+': central scene and reticle stay pixel-identical');
+    assert(result.darkLeft + result.darkRight > 100, label+' '+pose+': alignment visibly shadows the periphery');
+  }
+  assert(depth.left.darkRight > depth.left.darkLeft * 3, label+': left eye offset shadows the right edge');
+  assert(depth.right.darkLeft > depth.right.darkRight * 3, label+': right eye offset shadows the left edge');
+  assert(depth.up.darkBottom > depth.up.darkTop * 3, label+': upward offset shadows the bottom edge');
+  assert(depth.down.darkTop > depth.down.darkBottom * 3, label+': downward offset shadows the top edge');
+  for (const [pose, x, y] of [['centred',0,0],['shifted',.45,.15]]) {
+    await evaluate(`window.showScopeDepth(${x},${y})`);
+    const shot = await send('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile(new URL(label+'-depth-'+pose+'.png', output), Buffer.from(shot.data, 'base64'));
+  }
+}
 await fs.mkdir(output, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?about:blank`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl);
@@ -63,6 +81,7 @@ try {
     assert(coating.hip.changed>20,'Lowered lens visibly reflects scenery');
     assert.equal(coating.ads.outside+coating.hip.outside,0,'Both reflections stay within the lens');
     for(const result of Object.values(await evaluate('window.verifyScopeCoverage()'))) assert.equal(result.missing,0,optic+' reflects through the centre');
+    await verifyDepth(optic);
   }
   for(const variant of ['p30-kiasu','mag-lepak','g36-rifle','xm8-sharpshooter','ff-longwatch','ff-intervention','ff-oicw']) {
     await send('Page.navigate',{url:origin+'/scripts/fixtures/reflex-render.html?variant='+variant});
@@ -80,9 +99,11 @@ try {
     }
     const shot=await send('Page.captureScreenshot',{format:'png'});
     await fs.writeFile(new URL(variant+'-hip.png',output),Buffer.from(shot.data,'base64'));
+    await verifyDepth(variant);
   }
   assert.deepEqual(errors,[]);
-  console.log('PASS: clear SAR PiP and etched crosshairs; unbroken lowered-lens reflections across nine scope configurations');
+  await fs.writeFile(new URL('scope-depth-results.json',output),JSON.stringify(depthResults,null,2));
+  console.log('PASS: clear PiP and reticles, directional peripheral shadows and unbroken lowered-lens reflections across nine scope configurations');
 } finally {
   ws.close();await fetch(`${chrome}/json/close/${tab.id}`);
 }

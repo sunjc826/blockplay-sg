@@ -82,6 +82,31 @@ result[mode]={samples,missing,minDelta};sight.reflection.uniforms.reflectionMap.
 }
 maps.forEach(t=>t.dispose());window.show('hip');return result;
 };
+// Compare the moving shadow with a centred mask at exactly the same weapon
+// pose. Pixel equality in the centre also catches accidental UV/reticle drift.
+window.verifyScopeDepth=()=>{
+const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});
+const sample=()=>{renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,1200,800).data;};
+const results={};
+for(const [label,x,y,tilt] of [['left',-.45,0,0],['right',.45,0,0],['up',0,.45,0],['down',0,-.45,0],['tilt',0,0,.035]]){
+window.show('ads');model.position.x+=x*sight.radius;model.position.y+=y*sight.radius;model.rotation.y=tilt;viewScene.updateMatrixWorld(true);
+scope.render(world,camera,viewCamera,sight,true,1);
+const offset=sight.scopeEye.value.clone(),moving=sample();sight.scopeEye.value.set(0,0);const centred=sample();sight.scopeEye.value.copy(offset);
+let centralMax=0,darkLeft=0,darkRight=0,darkTop=0,darkBottom=0;
+for(let y=-.9;y<=.901;y+=.03)for(let x=-.9;x<=.901;x+=.03){
+const r=Math.hypot(x,y);if(r>.9)continue;
+const at=sight.lens.localToWorld(new THREE.Vector3(x*sight.radius,y*sight.radius,0)).project(viewCamera);
+const px=Math.round((at.x+1)*600),py=Math.round((1-at.y)*400),i=(py*1200+px)*4;
+const delta=[0,1,2].reduce((sum,k)=>sum+Math.abs(moving[i+k]-centred[i+k]),0);
+if(r<.36)centralMax=Math.max(centralMax,delta);
+const dark=[0,1,2].reduce((sum,k)=>sum+centred[i+k]-moving[i+k],0);
+if(dark>3){if(x<0)darkLeft+=dark;else darkRight+=dark;if(y>0)darkTop+=dark;else darkBottom+=dark;}
+}
+results[label]={centralMax,darkLeft,darkRight,darkTop,darkBottom,offset:offset.toArray()};
+}
+window.show('ads');return results;
+};
+window.showScopeDepth=(x=0,y=0)=>{window.show('ads');model.position.x+=x*sight.radius;model.position.y+=y*sight.radius;viewScene.updateMatrixWorld(true);scope.render(world,camera,viewCamera,sight,true,1);renderer.clear();renderer.render(world,camera);renderer.clearDepth();renderer.render(viewScene,viewCamera);};
 window.verifyBloom=()=>{
 const bloom=model.getObjectByName('fps-reflex-bloom');
 const c=document.createElement('canvas');c.width=1200;c.height=800;const ctx=c.getContext('2d',{willReadFrequently:true});

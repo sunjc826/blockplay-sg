@@ -75,6 +75,58 @@ describe('world field of view while aiming', () => {
   });
 });
 
+it('moves the scope shadow with the eye without steering the PiP camera or moving the reticle plane', () => {
+  const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
+  const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
+  const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
+  const view = new THREE.PerspectiveCamera(ADS_VIEW_FOV, 1, .01, 3), camera = new THREE.PerspectiveCamera(HIP_FOV, 1, .08, 800), world = new THREE.Scene();
+  camera.position.set(4, 1.6, -7); camera.rotation.set(.1, .3, 0);
+  root.position.set(0, -sight.aimHeight, sight.aimDepth);
+  const plane = sight.lens.position.clone();
+  const render = () => scope.render(world, camera, view, sight, true);
+  render();
+  const fov = scope.camera.fov;
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  root.position.x = .006; render();
+  const right = sight.scopeEye!.value.x;
+  expect(right).toBeGreaterThan(0);
+  expect(scope.camera.fov).toBeCloseTo(fov);
+  root.position.x = -.006; render();
+  expect(sight.scopeEye!.value.x).toBeCloseTo(-right);
+  root.position.x = 0; root.rotation.y = .025; render();
+  expect(Math.abs(sight.scopeEye!.value.x)).toBeGreaterThan(.001);
+  root.rotation.y = 0; root.position.x = 10; render();
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(.18);
+  expect(scope.camera.position.equals(camera.position)).toBe(true);
+  expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
+  expect(sight.lens.position.equals(plane)).toBe(true);
+  // A common transform of eye and optic cannot change their alignment.
+  root.position.x = .006;
+  const parent = new THREE.Group(); parent.add(root, view);
+  parent.position.set(7, -3, 2); parent.rotation.set(.2, .5, -.3); parent.scale.setScalar(2);
+  render(); expect(sight.scopeEye!.value.x).toBeCloseTo(right); expect(sight.scopeEye!.value.y).toBeCloseTo(0);
+  remove(); scope.dispose();
+});
+
+it('adds an open, recessed scope barrel and disposes it with the optic', () => {
+  const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
+  const barrel = root.getObjectByName('scope-inner-barrel') as THREE.Mesh;
+  root.updateMatrixWorld(true);
+  const eye = new THREE.Vector3(0, sight.aimHeight, .5);
+  for (const x of [-.4, 0, .4]) for (const y of [-.4, 0, .4]) {
+    const target = sight.lens.localToWorld(new THREE.Vector3(x * sight.radius, y * sight.radius, 0));
+    expect(new THREE.Raycaster(eye, target.sub(eye).normalize()).intersectObject(barrel)).toHaveLength(0);
+  }
+  const box = new THREE.Box3().setFromObject(barrel);
+  expect(box.min.z).toBeGreaterThan(sight.lens.position.z);
+  expect(box.max.z - sight.lens.position.z).toBeCloseTo(sight.radius * .4);
+  const geometry = vi.spyOn(barrel.geometry, 'dispose'), material = vi.spyOn(barrel.material as THREE.Material, 'dispose');
+  remove(); expect(geometry).toHaveBeenCalledOnce(); expect(material).toHaveBeenCalledOnce();
+  const removeDot = fitWeaponOptic(root, FPS_WEAPONS[1]);
+  expect(root.getObjectByName('scope-inner-barrel')).toBeUndefined();
+  expect(getWeaponSight(root)!.scopeEye).toBeUndefined(); removeDot();
+});
+
 it.each([1.5, 1.75])('keeps SAR %s× glass visible at hip and layers it over PiP without leaking resources', magnification => {
   const root = new THREE.Group(), native = new THREE.Group(); native.name = 'sar21-inspired__optic'; root.add(native);
   const remove = fitWeaponOptic(root, { ...FPS_WEAPONS[0], optic: magnification > 1.5 ? 'precision' : 'integrated', aimFov: magnifiedFov(magnification) });

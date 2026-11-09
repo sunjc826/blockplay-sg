@@ -7,6 +7,7 @@ import { createOpticGlass, createScopeBacking, type OpticGlass } from './weapon-
 import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
+import { createScopeBarrel } from './scope-barrel';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
@@ -17,6 +18,8 @@ export interface WeaponSight {
   reflection?: OpticGlass;
   /** The etched pattern, for magnified sights only. */
   reticle?: ScopeReticle;
+  /** Eye displacement in lens UVs, used only to shade the outer aperture. */
+  scopeEye?: { value: THREE.Vector2 };
   /** How far the lens sits off the bore line sideways, and the roll that stands it upright: both 0 but for an offset dot. */
   aimX: number; roll: number;
   /** A 1x dot at 45° beside a magnified sight, brought to the eye by canting the weapon over. */
@@ -35,12 +38,14 @@ export const getWeaponSight = (root: THREE.Object3D) => sights.get(root);
 function createLens(magnification: number, radius: number, reticle: ScopeReticle | undefined, ring: boolean, window?: SightWindow) {
   const magnified = magnification > 1.01;
   const visibility = { value: magnified ? 0 : 1 }, nightVision = { value: 0 };
+  const scopeEye = { value: new THREE.Vector2() };
   const lensMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', side: magnified ? THREE.DoubleSide : THREE.FrontSide, forceSinglePass: true, transparent: true, depthWrite: false });
   lensMaterial.toneMapped = magnified;
   // The etched scope uses lens UVs; the reflex uses a collimated ray. Both are
   // clipped by the recessed aperture and occluded by the physical housing.
   lensMaterial.onBeforeCompile = shader => {
     shader.uniforms.sightVisibility = visibility;
+    shader.uniforms.scopeEye = scopeEye;
     shader.uniforms.sightNightVision = nightVision;
     shader.uniforms.sightBloom = { value: 0 };
     // How far the dot may pin from the centre during the raise: a window's narrower half.
@@ -67,7 +72,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       shader.fragmentShader = 'varying vec3 sightRay;\nvarying vec3 sightCentre;\nvarying float sightWindow;\n' + shader.fragmentShader;
     }
     if (reticle) shader.fragmentShader = scopeReticleGlsl(reticle) + shader.fragmentShader;
-    shader.fragmentShader = 'varying vec2 sightUv;\nuniform float sightVisibility;\nuniform float sightBloom;\nuniform float sightNightVision;\n' + shader.fragmentShader;
+    shader.fragmentShader = 'varying vec2 sightUv;\nuniform vec2 scopeEye;\nuniform float sightVisibility;\nuniform float sightBloom;\nuniform float sightNightVision;\n' + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
       #include <map_fragment>
       vec2 p = sightUv - 0.5;
@@ -89,9 +94,12 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
       // The etching sits on a glass plate, so the periphery bend leaves it alone.
       float line = scopeReticle(p, aa) * (1.0 - smoothstep(0.47, 0.49, r));
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.035, 0.028), line);
-      // Soft eye-box shadow grows while the eye is coming into alignment.
+      // Alignment moves only the shadow, never the image UVs or the etching.
+      // Protect the central 44% of the radius even during recoil/raising.
       float edge = smoothstep(mix(0.12, 0.39, sightVisibility), 0.5, r);
-      diffuseColor.rgb *= 1.0 - edge * 0.9;
+      float crescent = smoothstep(0.38, 0.51, length(p - scopeEye));
+      float clearCentre = smoothstep(0.22, 0.36, r);
+      diffuseColor.rgb *= 1.0 - max(edge, crescent) * clearCentre * 0.9;
       diffuseColor.a = sightVisibility;
       ` : `
       ${ring ? `
@@ -181,7 +189,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
     `);
   };
   const outline = ring ? '-holo-v4-window' : window ? '-window' : '';
-  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v4-${reticle}` : `reflex-reticle-v7-nv${outline}`;
+  lensMaterial.customProgramCacheKey = () => magnified ? `scope-reticle-v5-depth-${reticle}` : `reflex-reticle-v7-nv${outline}`;
   const lensGeometry = window ? new THREE.ShapeGeometry(windowShape(window), 8) : new THREE.CircleGeometry(radius, 48);
   if (window) {
     const positions = lensGeometry.attributes.position, uvs = lensGeometry.attributes.uv;
@@ -204,7 +212,7 @@ function createLens(magnification: number, radius: number, reticle: ScopeReticle
     // Parenting shares the lens's visibility, clipping, and eye alignment.
     lens.add(bloom);
   }
-  return { lens, visibility, nightVision, dispose() { lensGeometry.dispose(); lensMaterial.dispose(); bloomMaterial?.dispose(); } };
+  return { lens, visibility, nightVision, scopeEye, dispose() { lensGeometry.dispose(); lensMaterial.dispose(); bloomMaterial?.dispose(); } };
 }
 
 /** Shared by the shop and the FPS: one housing per optic slot. */
@@ -262,6 +270,11 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   }
   const main = createLens(magnification, radius, reticle, fitted === 'holo', mount?.main.window ?? built?.window);
   main.lens.position.set(0, aimHeight, mount?.main.lensZ ?? built?.lens ?? (integrated ? rearZ + .001 : rearZ - .044)); group.add(main.lens);
+  const barrel = magnified ? createScopeBarrel(radius) : undefined;
+  if (barrel) {
+    barrel.surface.position.copy(main.lens.position);
+    group.add(barrel.surface);
+  }
   // These telescopes have open modelled eyepieces. Keep actual glass behind
   // the PiP plane, including in the shop and during hip/inspection animations.
   const backing = magnified && (weapon.id === 'xm8-inspired' || weapon.id === 'ff-longwatch' || weapon.id === 'ff-intervention') ? createScopeBacking(radius) : undefined;
@@ -269,7 +282,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
     backing.surface.position.copy(main.lens.position); backing.surface.position.z -= .003;
     group.add(backing.surface);
   }
-  const sight: WeaponSight = { reticle, aimHeight, aimDepth: mount?.main.aimDepth ?? built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens: main.lens, visibility: main.visibility, nightVision: main.nightVision,
+  const sight: WeaponSight = { reticle, scopeEye: magnified ? main.scopeEye : undefined, aimHeight, aimDepth: mount?.main.aimDepth ?? built?.aimDepth ?? (integrated ? -.36 : -.47), radius, magnification, lens: main.lens, visibility: main.visibility, nightVision: main.nightVision,
     reflection: scopeGlass?.reflection ?? housing?.reflection, aimX: 0, roll: 0 };
   // The offset dot is a second sight in its own right: its own lens, glass and
   // place for the eye, mounted turned over by the roll that stands it upright.
@@ -287,7 +300,7 @@ export function fitWeaponOptic(root: THREE.Object3D, weapon: WeaponSpec) {
   return () => {
     if (original) original.visible = wasVisible;
     folded.forEach(node => { node.visible = true; });
-    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); backing?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
+    sights.delete(root); group.removeFromParent(); housing?.dispose(); scopeGlass?.dispose(); backing?.dispose(); barrel?.dispose(); main.dispose(); dot?.dispose(); dotGlass?.dispose(); mount?.dispose();
   };
 }
 
@@ -313,7 +326,7 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   // is not upscaled in fullscreen or at high DPI. Lens reflections have their own pass.
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
-  const lensPosition = new THREE.Vector3(), buffer = new THREE.Vector2();
+  const lensPosition = new THREE.Vector3(), eyePosition = new THREE.Vector3(), buffer = new THREE.Vector2();
   /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
   function prepare(sight: WeaponSight) {
     if (sight.magnification <= 1.01 || sight.lens.material.map === target.texture) return;
@@ -332,6 +345,15 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
       if (sight.reflection) sight.reflection.uniforms.aiming.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       sight.lens.visible = active && sight.visibility.value > 0;
       if (!sight.lens.visible || sight.magnification <= 1.01) return false;
+      // The viewmodel camera is the eye. Lens-local coordinates include both
+      // translation and tilt from actual weapon sway/recoil, without adding any
+      // artificial motion or changing the world camera's aiming direction.
+      viewCamera.updateWorldMatrix(true, false);
+      if (sight.scopeEye) {
+        viewCamera.getWorldPosition(eyePosition);
+        sight.lens.worldToLocal(eyePosition);
+        sight.scopeEye.value.set(-eyePosition.x, -eyePosition.y).multiplyScalar(.28 / sight.radius).clampLength(0, .18);
+      }
       sight.lens.getWorldPosition(lensPosition);
       const depth = -lensPosition.applyMatrix4(viewCamera.matrixWorldInverse).z;
       const fraction = sight.radius / (Math.max(.01, depth) * Math.tan(THREE.MathUtils.degToRad(viewCamera.fov / 2)));
