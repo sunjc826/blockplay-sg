@@ -69,11 +69,14 @@ type Props = {
 
 export default function StartingPointPicker({ mode, initial, options, back, onDeploy }: Props) {
   const [selected, setSelected] = useState(initial);
-  const [view, setView] = useState<'map' | 'list'>(() => window.matchMedia('(max-width: 760px)').matches ? 'list' : 'map');
+  const [districtView, setView] = useState<'map' | 'list'>(() => window.matchMedia('(max-width: 760px)').matches ? 'list' : 'map');
   const [query, setQuery] = useState('');
   const matches = options.filter(option => `${option.name} ${option.district}`.toLowerCase().includes(query.toLowerCase().trim()));
   const clip = useId();
   const arenas = mode === 'team-deathmatch';
+  const view = arenas ? 'map' : districtView;
+  const mapRegions = arenas ? locations : options;
+  const availableRegions = new Set(options.map(option => option.id));
   const training = mode === 'training';
   const arenaName = (option: Location) => TDM_AREAS.find(area => area.region === option.id)?.name.split(' · ')[1];
   const optionDetail = (option: Location) => arenas ? arenaName(option) : training ? option.district : `${getWorldZone(option.id).risk} threat`;
@@ -114,13 +117,13 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   const hover = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== 'mouse') return;
     const control = (event.target as Element).closest('[data-start-region],button,a');
-    if (control && !(event.relatedTarget instanceof Node && control.contains(event.relatedTarget))) playMenuSound('hover');
+    if (control && control.getAttribute('aria-disabled') !== 'true' && !(event.relatedTarget instanceof Node && control.contains(event.relatedTarget))) playMenuSound('hover');
   };
   const focus = (event: React.FocusEvent<HTMLDivElement>) => {
     if (event.target.matches(':focus-visible') && event.target.closest('[data-start-region],button,a')) playMenuSound('hover');
   };
   const click = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (event.target as Element).closest('[data-start-region],button,a')) playMenuSound('click');
+    if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && (event.target as Element).closest('[data-start-region]:not([aria-disabled="true"]),button,a')) playMenuSound('click');
   };
 
   const keyboard = (event: React.KeyboardEvent<SVGGElement>, id: WorldZoneId) => {
@@ -136,26 +139,26 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   return <div className={`game-screen starting-picker${deploying ? ' is-deploying' : ''}`} data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
     <header className="starting-header">{back}<span>{arenas ? 'TEAM DEATHMATCH' : training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> {arenas ? 'SELECT ARENA' : 'SELECT DISTRICT'}</span><span className="starting-step">{arenas ? 'ARENA SELECTION' : '01 — STARTING POINT'}</span></header>
     <main className="starting-main" ref={main} aria-busy={deploying}>
-      <div className="starting-title"><span className="starting-eyebrow">{arenas ? 'TEAM DEATHMATCH' : 'THE ISLAND IS YOURS'}</span><h1>{arenas ? 'Choose an arena' : 'Choose a district'}</h1><p>{arenas ? 'Choose an arena from the map or list.' : training ? 'Choose where to set up your live-fire range.' : 'Choose where your open world journey begins.'}</p></div>
+      <div className="starting-title"><span className="starting-eyebrow">{arenas ? 'TEAM DEATHMATCH' : 'THE ISLAND IS YOURS'}</span><h1>{arenas ? 'Choose an arena' : 'Choose a district'}</h1><p>{arenas ? 'Choose an arena on the map. Grey regions are currently unavailable.' : training ? 'Choose where to set up your live-fire range.' : 'Choose where your open world journey begins.'}</p></div>
       <div className="starting-layout">
         <section className="starting-map" aria-label={arenas ? 'Arena locations' : 'Starting districts'}>
-          <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} {arenas ? 'ARENAS' : 'DISTRICTS'}</b></span><div className="starting-view" role="group" aria-label={arenas ? 'Arena view' : 'District view'}><button aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button><button aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div></div>
-          {view === 'list' && <div className="starting-list">{!arenas && <label>Find a district<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name" /></label>}<div className="starting-list-items" aria-label={arenas ? 'Arenas' : 'Districts'}>{matches.map(option => <button key={option.id} aria-pressed={place.id === option.id} onClick={() => setSelected(option.id)}><span>{option.name}{!arenas && option.id === initial && <small>Last selected</small>}</span><small>{optionDetail(option)}</small></button>)}{!matches.length && <p role="status">No districts match. Try another name.</p>}</div></div>}
+          <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} {arenas ? 'AVAILABLE ARENAS' : 'DISTRICTS'}</b></span>{!arenas && <div className="starting-view" role="group" aria-label="District view"><button aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button><button aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>}</div>
+          {view === 'list' && <div className="starting-list"><label>Find a district<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name" /></label><div className="starting-list-items" aria-label="Districts">{matches.map(option => <button key={option.id} aria-pressed={place.id === option.id} onClick={() => setSelected(option.id)}><span>{option.name}{option.id === initial && <small>Last selected</small>}</span><small>{optionDetail(option)}</small></button>)}{!matches.length && <p role="status">No districts match. Try another name.</p>}</div></div>}
           <div className="starting-map-viewport" ref={viewport} hidden={view !== 'map'}>
             <svg viewBox="45 65 940 540" role="group" aria-label={arenas ? 'Singapore arenas. Use arrow keys to browse and Enter or Space to select.' : 'Singapore districts. Use arrow keys to browse and Enter or Space to select.'}>
               <defs><clipPath id={clip}><path d={COAST} /></clipPath><pattern id={`${clip}-grid`} width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeWidth=".5" /></pattern></defs>
               <rect width="1000" height="620" fill={`url(#${clip}-grid)`} className="starting-grid" />
               <text x="110" y="180" className="starting-water">JOHOR STRAIT</text><text x="740" y="585" className="starting-water">SINGAPORE STRAIT</text>
               <path d="M416 518L430 550 M908 223L885 140" className="starting-crossings" />
-              {arenas && <path d={COAST} className="starting-arena-land" />}
-              {options.map((option, number) => {
+              {mapRegions.map((option, number) => {
+                const available = availableRegions.has(option.id);
                 const active = option.id === place.id;
                 const [x, y] = CENTRES[option.id];
                 const lines = LABELS[option.id] ?? [option.name];
-                return <g key={option.id} role="button" tabIndex={0} aria-label={arenas ? `${option.name}, ${arenaName(option)}` : option.name} aria-pressed={active}
-                  className={`starting-region${active ? ' is-selected' : ''}`} data-start-region={option.id}
-                  onClick={() => setSelected(option.id)} onKeyDown={event => keyboard(event, option.id)}>
-                  <title>{option.name} · {training ? 'Live-fire training' : optionDetail(option)}</title>
+                return <g key={option.id} role="button" tabIndex={available ? 0 : -1} aria-disabled={available ? undefined : true} aria-label={!available ? `${option.name}, arena currently unavailable` : arenas ? `${option.name}, ${arenaName(option)}` : option.name} aria-pressed={active}
+                  className={`starting-region${active ? ' is-selected' : ''}${available ? '' : ' is-unavailable'}`} data-start-region={option.id}
+                  onClick={available ? () => setSelected(option.id) : undefined} onKeyDown={available ? event => keyboard(event, option.id) : undefined}>
+                  <title>{option.name} · {!available ? 'Arena currently unavailable' : training ? 'Live-fire training' : optionDetail(option)}</title>
                   <path d={CELLS[option.id]} clipPath={OFFSHORE[option.id] ? undefined : `url(#${clip})`} />
                   <g className="starting-region-label" transform={`translate(${x} ${y})`}>
                     <circle cy={-18 - (lines.length - 1) * 7} r={active ? 5 : 3} />
@@ -167,10 +170,10 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
               <path d={COAST} className="starting-coast" />
             </svg>
           </div>
-          <div className="starting-map-footer"><span><i /> {arenas ? 'Selected arena' : 'Selected region'}</span><span>SCHEMATIC GAME REGIONS</span></div>
+          <div className="starting-map-footer"><span><i /> {arenas ? 'Selected arena' : 'Selected region'}</span>{arenas && <span><i className="starting-unavailable-key" /> Unavailable</span>}<span>SCHEMATIC GAME REGIONS</span></div>
         </section>
         <aside className="starting-details" aria-label={arenas ? 'Selected arena' : 'Selected starting point'}>
-          <div className="starting-detail-top"><span className="starting-detail-label"><MapPin size={16} />{arenas ? 'ARENA' : 'STARTING POINT'}</span>{!arenas && <nav className="starting-browse" aria-label="Browse starting districts"><button aria-label="Previous district" onClick={() => step(-1)}><ChevronLeft size={18} /></button><span>{String(index + 1).padStart(2, '0')} / {options.length}</span><button aria-label="Next district" onClick={() => step(1)}><ChevronRight size={18} /></button></nav>}</div>
+          <div className="starting-detail-top"><span className="starting-detail-label"><MapPin size={16} />{arenas ? 'ARENA' : 'STARTING POINT'}</span><nav className="starting-browse" aria-label={arenas ? "Browse available arenas" : "Browse starting districts"}><button aria-label={arenas ? "Previous arena" : "Previous district"} onClick={() => step(-1)}><ChevronLeft size={18} /></button><span>{String(index + 1).padStart(2, '0')} / {options.length}</span><button aria-label={arenas ? "Next arena" : "Next district"} onClick={() => step(1)}><ChevronRight size={18} /></button></nav></div>
           <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{arenas ? place.name : place.district}</span><h2>{arenas ? arenaName(place) : place.name}</h2>{!arenas && <p className="starting-subtitle">{place.subtitle}</p>}</div>
           {!arenas && <>
             <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
