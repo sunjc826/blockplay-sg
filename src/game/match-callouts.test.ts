@@ -133,12 +133,12 @@ describe('match calls on the Encik radio', () => {
     expect(radio.match('team-lead', 4, .2)).toBeNull();
     const said: MatchCallEvent[] = [], queue = createMatchCallQueue((event, now) => { const ok = !!radio.match(event, matchCallPriority(event), now); if (ok) said.push(event); return ok; });
     queue.push(['team-lead', 'one-minute'], .3);
-    // The streak line (49 characters) is still playing at 4.5 s.
-    queue.step(.3); queue.step(4.5);
+    // The streak line (41 characters) is still playing at 3.2 s.
+    queue.step(.3); queue.step(3.2);
     expect(said).toEqual([]);
-    queue.step(5.2);
+    queue.step(4.5);
     expect(said).toEqual(['one-minute']);
-    queue.step(9.5);
+    queue.step(8);
     expect(said).toEqual(['one-minute', 'team-lead']);
     // Lead calls have a cooldown, so a flip-flopping score stays quiet.
     queue.push(['team-lead'], 10); queue.step(20);
