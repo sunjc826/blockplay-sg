@@ -36,3 +36,12 @@
 .deployment-settings-panel>.deployment-settings-head{position:sticky;top:-16px;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-16px -16px 4px;padding:10px 10px 10px 16px;background:#132530;border-bottom:1px solid #73949d55}
 .deployment-settings-head strong{font-size:13px;color:#eef4ed}
 .expedition-deployment .deployment-settings-close{display:grid;place-items:center;width:36px;min-height:36px;padding:0;flex:none}
+
+.match-deployment-navigation{position:absolute;top:12px;left:22px;right:22px;pointer-events:auto}
+.match-deployment-navigation .play-nav{justify-content:space-between;margin:0}
+.match-deployment>header{max-width:min(600px,65%)}
+.match-deployment>header .range-drill-picker,.match-deployment>header .fps-drill-choice{pointer-events:auto}
+.match-deployment .deployment-actions{max-width:75%}
+.match-deployment .deployment-settings-panel .public-options{margin:12px 0}
+.fps-game[data-deployment-planning=true] .fps-top,.fps-game[data-deployment-planning=true] .fps-immersive-hint,.fps-game[data-deployment-planning=true] .fps-message{display:none}
+@media(max-width:700px){.match-deployment-navigation{left:12px;right:12px}.match-deployment .deployment-actions{max-width:none}.match-deployment .deployment-choice{display:none}.match-deployment>header{max-width:75%}.match-deployment>header>p{max-width:260px}}

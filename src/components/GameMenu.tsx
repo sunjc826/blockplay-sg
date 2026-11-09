@@ -293,7 +293,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     const arenaPicker = match?.mode === 'team-deathmatch';
     const parent = online ? arenaPicker ? 'host-team-deathmatch' : 'multiplayer-menu' : arenaPicker ? 'team-deathmatch' : 'single-player';
     return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
-      <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={() => returnToParent(parent)} armory={armory} suspended={install.updateReady} />
+      <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={approved => approved ? transitionTo(parent, true) : returnToParent(parent)} armory={armory} suspended={install.updateReady} />
     </div></SettingsStoreContext.Provider>;
   }
 

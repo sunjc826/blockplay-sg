@@ -179,6 +179,7 @@ describe('arena runtime authority and renderer bridge', () => {
       guestSession.send({ type: 'arena-hello', profile: createProfile() });
       const state = host.update(0.02, input(-44, 68, true));
       const shooter = state.self!; const target = state.snapshot!.actors.find(actor => actor.id === 'guest')!;
+      guestSession.send({ type: 'arena-input', input: { ...target, playing: true } });
       hiddenVehicle.position.set((shooter.x + target.x) / 2, 1.5, (shooter.z + target.z) / 2);
       visibleLabel.position.copy(hiddenVehicle.position);
       const direction = new THREE.Vector3(target.x - shooter.x, target.y - 0.65 - shooter.y, target.z - shooter.z).normalize();
@@ -335,4 +336,48 @@ it('does not let a guest reset an exhausted play-time rental by selecting it aga
     guestSession.send({ type: 'arena-loadout', request: 998, selection });
     expect(reply).toEqual({ type: 'arena-loadout-result', request: 998, accepted: false }); unsubscribe();
   } finally { guest.dispose(); host.dispose(); }
+});
+
+
+it('applies post-load starting choices for host and late guest, then locks them until rematch', async () => {
+  vi.useFakeTimers();
+  const [hostSession, guestSession] = localPair();
+  const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: hostSession });
+  let guest: ReturnType<typeof createArenaRuntime> | undefined;
+  try {
+    const selection = selectedRespawnLoadout(createProfile()); selection.carry.main = 1;
+    expect(await host.queueRespawnLoadout(selection, true)).toBe(true);
+    expect(host.update(.01, input()).self?.weapon).toBe(1);
+    host.update(.01, { ...input(), weapon: 1, playing: true });
+    vi.advanceTimersByTime(100);
+    guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: guestSession });
+    guest.update(.01, input());
+    expect(await guest.queueRespawnLoadout(selection, true)).toBe(true);
+    expect(guest.update(.01, input()).self?.weapon).toBe(1);
+    guest.update(.1, { ...input(), weapon: 1, playing: true });
+    guest.update(.1, { ...input(), weapon: 1, playing: false });
+    expect(await guest.queueRespawnLoadout(selectedRespawnLoadout(createProfile()), true)).toBe(false);
+    expect(await host.queueRespawnLoadout(selectedRespawnLoadout(createProfile()), true)).toBe(false);
+    expect(await guest.queueRespawnLoadout(selectedRespawnLoadout(createProfile()))).toBe(true);
+    host.reset();
+    expect(await guest.queueRespawnLoadout(selection, true)).toBe(true);
+  } finally { guest?.dispose(); host.dispose(); }
+});
+
+it('changes free-for-all bots after loading without replacing players, and locks settings at start', () => {
+  vi.useFakeTimers();
+  const runtime = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 3, session: createSoloSession('Operator') });
+  try {
+    const before = runtime.update(.01, input()).self!;
+    expect(runtime.configureBots(6, 'sniper')).toBe(true);
+    let frame = runtime.update(.01, input());
+    expect(frame.snapshot!.actors.filter(a => a.bot)).toHaveLength(6);
+    expect(frame.snapshot!.actors.filter(a => a.bot).every(a => a.role === 'sniper')).toBe(true);
+    expect(frame.self!.id).toBe(before.id);
+    expect(runtime.configureBots(0, 'mixed')).toBe(true);
+    frame = runtime.update(.01, input());
+    expect(frame.snapshot!.actors.filter(a => a.bot)).toHaveLength(0);
+    runtime.update(.01, input(before.x, before.z, true));
+    expect(runtime.configureBots(3, 'assault')).toBe(false);
+  } finally { runtime.dispose(); }
 });

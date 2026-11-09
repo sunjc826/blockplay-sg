@@ -1,12 +1,14 @@
-import { Menu } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { tapProps } from './touch-tap';
+import { DeploymentCameraControls } from './ExpeditionDeployment';
 import './play-panel.css';
 
 const isDirectPointer = (type: string) => type === 'touch' || type === 'pen';
 
 /** Open World's session layout, with the next action first when play is paused. */
-export function PlayPanel({ label, paused, primary, navigation, children, details, className = '', overlayClassName = '', debug = false }: {
+export function PlayPanel({ label, paused, primary, navigation, children, details, className = '', overlayClassName = '', debug = false, aerial }: {
+  aerial?: { zoom: number; onZoom: (factor: number) => void; onResetView: () => void; loadout: ReactNode };
   label: string;
   paused: boolean;
   primary: ReactNode;
@@ -27,6 +29,24 @@ export function PlayPanel({ label, paused, primary, navigation, children, detail
     });
     return () => cancelAnimationFrame(frame);
   }, [paused, debug]);
+  if (aerial && !debug) return <section className="expedition-deployment match-deployment" aria-label={`${label} aerial setup`}>
+    <div className="match-deployment-navigation">{navigation}</div>
+    <header>{children}</header>
+    <DeploymentCameraControls zoom={aerial.zoom} onZoom={aerial.onZoom} onResetView={aerial.onResetView} />
+    <footer className="deployment-dock">
+      <div className="deployment-choice"><span>PLAYABLE AREA</span><strong>{label}</strong><small>Drag to pan · Spawn assigned automatically</small></div>
+      <div className="deployment-actions">
+        {primary}{aerial.loadout}
+        <details className="deployment-settings" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+          <summary>Briefing &amp; settings</summary>
+          <div className="deployment-settings-panel" role="dialog" aria-label="Briefing and settings">
+            <header className="deployment-settings-head"><strong>Briefing &amp; settings</strong><button className="deployment-settings-close" aria-label="Close briefing and settings" onClick={event => { const details = event.currentTarget.closest('details')!; details.open = false; details.querySelector('summary')?.focus(); }}><X size={16} /></button></header>
+            {details}
+          </div>
+        </details>
+      </div>
+    </footer>
+  </section>;
   return <div className={`fps-overlay ${debug ? '' : 'play-panel-overlay'} ${overlayClassName}`}>
     <section ref={panel} aria-label={label} className={`fps-start-card ${debug ? '' : 'play-panel'} ${className}${paused ? ' is-paused-menu' : ''}`}
       onPointerDownCapture={event => {

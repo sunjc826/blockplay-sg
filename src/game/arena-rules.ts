@@ -864,6 +864,21 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     entry.allowedWeapons = allowedIndexes(next, allowed ?? entry.allowedWeapons);
     if (!entry.allowedWeapons.includes(entry.actor.weapon)) entry.actor.weapon = entry.allowedWeapons[0]; entry.wasReloading = false;
   }
+  // Match entrants choose their kit after terrain loading, before their first input.
+  const preparingPlayers = new Set<string>();
+  function preparePlayer(id: string) {
+    const entry = members.get(id);
+    if (!entry || entry.actor.bot || environment?.endless) return;
+    preparingPlayers.add(id); entry.playing = false; entry.shieldUntil = Infinity;
+  }
+  function setStartingWeapons(id: string, weapons: readonly ArenaWeapon[], allowed: readonly number[]) {
+    const entry = members.get(id);
+    if (!entry || !preparingPlayers.has(id) || !entry.actor.alive || finished) return false;
+    setPlayerLoadout(id, entry.armorMax, entry.absorption, weapons, allowed);
+    entry.actor.weapon = entry.allowedWeapons[0];
+    entry.nextWeapons = { weapons: entry.weapons, allowed: entry.allowedWeapons };
+    return true;
+  }
   function queuePlayerWeapons(id: string, weapons: readonly ArenaWeapon[], allowed: readonly number[]) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished) return false;
     const next = sanitizeWeapons(weapons);
@@ -900,12 +915,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   function removePlayer(id: string) {
     const entry = members.get(id); if (!entry || entry.actor.bot) return;
-    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`); if(teamArea) fillTeams();
+    grenadeSystem.removeCaller(id); releaseSeat(id); members.delete(id); preparingPlayers.delete(id); respawnChoices.delete(id); announce(`${entry.actor.name} left`); if(teamArea) fillTeams();
   }
   function setInput(id: string, input: ArenaInput) {
     const entry = members.get(id); if (!entry || entry.actor.bot || finished || !input || !finitePoint(input)) return;
     if (![input.yaw, input.pitch].every(Number.isFinite)) return;
     entry.playing = input.playing === true;
+    if (entry.playing && preparingPlayers.delete(id)) entry.shieldUntil = elapsed + (teamArea ? TDM_RULES.shieldSeconds : SPAWN_SHIELD_SECONDS);
     const actor = entry.actor; if (!actor.alive) return;
     if (arenaConditionModifiers(actor.conditions).frozen) { controls.delete(id); return; }
     // Using a supply shows: the same pose a bot takes to dress a wound.
@@ -1079,6 +1095,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
    * A round's `calibre` is held to the victim's insert rating (armor-inserts).
    */
   function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number, shred = 0) {
+    if (preparingPlayers.has(victim.actor.id)) return { hitId: victim.actor.id, killed: false, damage: 0 };
     if (teamArea && (finished || !victim.actor.alive || attacker && attacker!==victim && !hostile(attacker.actor,victim.actor) || attacker!==victim && elapsed<(victim.shieldUntil??0))) return {hitId:victim.actor.id,killed:false,damage:0};
     if (attacker && damage > 0 && isProxyFaction(victim.actor.faction) && !isProxyFaction(attacker.actor.faction)) {
       proxies?.provoke(victim.actor.faction as ProxyId, proxyParticipant(attacker)); syncProxyTargets();
@@ -3906,9 +3923,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepNavigation();
     stepBarks(dt);
     if(hardpoint && !finished) {
-      const actors=[...members.values()].filter(m=>!m.reserve).map(m=>m.actor);
+      const actors=[...members.values()].filter(m=>!m.reserve&&!preparingPlayers.has(m.actor.id)).map(m=>m.actor);
       const active=controlAt(elapsed,environment!.hardpoint!.sites).site;
-      for(const entry of members.values())if(inControlSite(entry.actor,active))entry.shieldUntil=0;
+      for(const entry of members.values())if(!preparingPlayers.has(entry.actor.id)&&inControlSite(entry.actor,active))entry.shieldUntil=0;
       hardpoint.step(previousElapsed,elapsed,actors,(actor,seconds)=>{const a=actor as ArenaActor;a.controlSeconds=Math.min(HARDPOINT_RULES.duration,(a.controlSeconds??0)+seconds);});
       const scores=hardpoint.scores();
       if(Math.max(scores.alpha,scores.bravo)>=HARDPOINT_RULES.scoreLimit){finished=true;winner=teamWinner(scores);announce(`${winner} wins · control limit`);}
@@ -3983,9 +4000,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (facilities) for (const v of vehicles) { if(isDragonBoat(v.kind)) continue; const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
     if(teamArea) for(const entry of members.values())entry.actor.alive=false;
     for (const entry of members.values()) { entry.actor.kills = 0; delete entry.actor.controlSeconds; entry.actor.deaths = 0; entry.actor.shots = 0; delete entry.actor.merlionSupply; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
+    for (const id of preparingPlayers) preparePlayer(id);
     announce('New arena match');
   }
-  const count = teamArea ? 0 : environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
+  let count = teamArea ? 0 : environment?.battlefield ? BATTLEFIELD_POPULATIONS[environment.battlefield.size].mercenaries : Number.isFinite(botCount) ? Math.floor(clamp(botCount, 0, 6)) : 0;
   const fixedPopulation = environment?.reinforcements && Number.isFinite(environment.population) ? Math.floor(clamp(environment.population!, count, regularLimit)) : count;
   let enlisted = 0, friendly = 0;
   /** Armed Forces bots carry issued rifles, Ultimax support weapons or FN MAGs in every mode. */
@@ -4018,6 +4036,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (facilities && !facilities.sites.some(s => s.kind === 'command' && facilityOperational(s, faction))) { entry.reserve = true; entry.actor.alive = false; entry.actor.respawnIn = 0; entry.waiting = elapsed; }
     if (recruit) { entry.recruit = true; entry.reserve = true; Object.assign(entry.actor, { alive: false, respawnIn: 0 }); entry.waiting = elapsed; }
     return entry;
+  }
+  function configureBots(nextCount: number, nextComposition: string) {
+    if (teamArea || environment?.endless || elapsed > 0 || !Number.isInteger(nextCount) || nextCount < 0 || nextCount > 6 || !['mixed', 'assault', 'tank', 'heavy', 'sniper'].includes(nextComposition)) return false;
+    for (const [id, entry] of members) if (entry.actor.bot) { releaseSeat(id); members.delete(id); }
+    count = nextCount; composition = nextComposition; enlisted = 0;
+    for (let i = 0; i < count; i++) enlist();
+    return true;
   }
   function fillTeams() {
     if(!teamArea) return;
@@ -4089,7 +4114,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id);
     if (entry && !entry.actor.bot && entry.actor.alive && Number.isFinite(seconds) && seconds >= 0) entry.shieldUntil = elapsed + seconds;
   }
-  return { pickupWeapon, holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { preparePlayer, setStartingWeapons, configureBots, pickupWeapon, holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

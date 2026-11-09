@@ -179,7 +179,7 @@ try {
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/training','/tutorial']);
   await modeArtworkFits(); await shot('desktop-training');
   await click('.activity-navigation a'); await wait(`location.pathname==='/play/single-player'`);
-  await click('.activity-card[href="/play/hardpoint"]'); await wait(`!!document.querySelector('.solo-setup')`);
+  await click('.activity-card[href="/play/hardpoint"]'); await wait(`!!document.querySelector('.play-loading,.fps-game')`);
   await go('/play/multiplayer', '.next-gen-panels');
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.activity-card')].map(a=>a.getAttribute('href'))`), ['/multiplayer','/play/multiplayer/team-deathmatch','/play/multiplayer/hardpoint','/play/multiplayer/free-for-all']);
   await modeArtworkFits(); await shot('desktop-multiplayer');
@@ -219,7 +219,7 @@ try {
     }
     await evaluate(`document.querySelector('.activity-card:last-child').scrollIntoView({block:'end'})`);
     await shot(`solo-last-${width}`);
-    await click('.activity-card[href="/play/free-for-all"]',mobile); await wait(`!!document.querySelector('.solo-setup')`);
+    await click('.activity-card[href="/play/free-for-all"]',mobile); await wait(`!!document.querySelector('.play-loading,.fps-game')`);
     await go('/play/multiplayer', '.next-gen-panels'); await fits(); await modeArtworkFits(); await shot(`multiplayer-${width}`);
   }
   // Simulate Safari's manual install capability without invoking a native install prompt.

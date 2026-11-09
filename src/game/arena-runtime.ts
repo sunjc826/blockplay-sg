@@ -525,7 +525,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     }
     session.send({ type: 'arena-state', snapshot, started, matchId, acknowledgedInputs });
   };
-  if (simulation) accept(simulation.snapshot());
+  if (simulation) { simulation.preparePlayer(session.id); accept(simulation.snapshot()); }
   const peersChanged = () => {
     if (!simulation) return;
     const present = new Set(session.getPeers().map(peer => peer.id));
@@ -544,13 +544,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
         const guest = restoreProfile(raw), loadout = resolveLoadout(guest);
         peerInventories.set(from, guest);
         simulation.addPlayer(from, peer.name, loadout.armor, loadout.absorption, loadout.weapons, undefined, false, loadout.carriedFamilies, loadout.insert);
+        simulation.preparePlayer(from);
         simulation.setPlayerEquipmentRentals(from, loadout.equipmentRentals);
         // The host spends a guest's supplies from what they brought, as it already trusts the kit they brought.
         simulation.setPlayerSupplies(from, loadout.supplies); registered.add(from); publish();
       } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
         const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(spendRentalTime(admitted, snapshot?.actors.find(actor => actor.id === from)?.rentalTimeMs ?? 0), payload.selection);
         const loadout = next && resolveLoadout(next);
-        const accepted = !!loadout && simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies);
+        const accepted = !!loadout && (payload.deployment === true ? simulation.setStartingWeapons(from, loadout.weapons, loadout.carriedFamilies) : simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies));
+        if (accepted && payload.deployment === true) publish();
         session.send({ type: 'arena-loadout-result', request: payload.request, accepted }, from);
       } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || isVehicleKind(payload.kind))) {
         const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
@@ -853,14 +855,18 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
     else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
   }
-  function reset() { if (!simulation || disposed) return; simulation.reset(); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
-  function queueRespawnLoadout(selection: RespawnLoadoutSelection): Promise<boolean> {
+  function reset() { if (!simulation || disposed) return; simulation.reset(); for (const actor of simulation.snapshot().actors) simulation.preparePlayer(actor.id); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
+  function queueRespawnLoadout(selection: RespawnLoadoutSelection, deployment = false): Promise<boolean> {
     const next = applyRespawnLoadout(spendRentalTime(inventory, snapshot?.actors.find(actor => actor.id === session.id)?.rentalTimeMs ?? 0), selection);
     if (disposed || !next) return Promise.resolve(false);
     const loadout = resolveLoadout(next);
-    if (simulation) return Promise.resolve(simulation.queuePlayerWeapons(session.id, loadout.weapons, loadout.carriedFamilies));
+    if (simulation) {
+      const accepted = deployment ? simulation.setStartingWeapons(session.id, loadout.weapons, loadout.carriedFamilies) : simulation.queuePlayerWeapons(session.id, loadout.weapons, loadout.carriedFamilies);
+      if (accepted && deployment) publish();
+      return Promise.resolve(accepted);
+    }
     if (!hostId || !snapshot?.actors.some(actor => actor.id === session.id) || !(session.isConnected?.() ?? true)) return Promise.resolve(false);
-    return new Promise(resolve => { const request = ++loadoutRequest; loadoutRequests.set(request, resolve); session.send({ type: 'arena-loadout', request, selection }, hostId); });
+    return new Promise(resolve => { const request = ++loadoutRequest; loadoutRequests.set(request, resolve); session.send({ type: 'arena-loadout', request, selection, deployment }, hostId); });
   }
   function updateLoadout(nextProfile: ArmoryProfile) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
@@ -928,6 +934,10 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       const accepted = session.role === 'solo' && simulation?.restoreVehicleTravel(transfer, session.id);
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
+    },
+    configureBots: (count: number, composition: string) => {
+      if (!simulation || disposed || started || !simulation.configureBots(count, composition)) return false;
+      publish(); return true;
     },
     merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }

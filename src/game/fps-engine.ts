@@ -321,6 +321,7 @@ export interface FpsHud {
   respawn: PlayerRespawnView | null;
   /** The scene of death, shown before the respawn map or the respawn. */
   deathRecap: DeathRecapView | null;
+  overviewZoom: number;
   deployment: DeploymentView | null;
   deploymentIntro: { stage: 'descent' | 'ready'; fade: number; /** Coming back from the respawn map, not arriving. */ respawn: boolean } | null;
   /** The mission feed, which outlives the descent while its letters leave. */
@@ -354,7 +355,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -370,7 +371,7 @@ function disposeAssets(roots: THREE.Object3D[]) {
   textures.forEach(t => { t.dispose(); if (typeof ImageBitmap !== 'undefined' && t.source.data instanceof ImageBitmap) t.source.data.close(); });
 }
 
-export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { armoryProfile?: () => ArmoryProfile; surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
+export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { armoryProfile?: () => ArmoryProfile; surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; deploymentIntro?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
   encik?: () => EncikAddress } = {}) {
   const expedition = options.expedition;
@@ -395,7 +396,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let rangeCompletionAge = 0;
   const currentLifeAccess = (profile: ArmoryProfile) => ({ ...profile, owned: [...profile.owned, ...Object.keys(profile.rentals)] });
   const copyProfile = (profile: ArmoryProfile): ArmoryProfile => JSON.parse(JSON.stringify(profile));
-  let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? createProfile());
+  let fieldProfile = copyProfile(expedition?.profile ?? options.arena?.profile ?? options.armoryProfile?.() ?? createProfile());
   const startingProfile = copyProfile(expedition?.startingProfile ?? fieldProfile);
   // District travel keeps weapon choices, but never reissues the entry-time rental balance.
   startingProfile.rentals = { ...fieldProfile.rentals };
@@ -490,9 +491,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let deploymentRoof: number | null = null, readySound = 0;
   const briefing = createBriefingClock();
   let respawnDescent = false;
-  const introEligible = !!expedition && !expedition.checkpoint && !expedition.spawn;
+  const introEligible = expedition ? !expedition.checkpoint && !expedition.spawn : !!options.deploymentIntro && !options.tutorial && !rangeTravel?.checkpoint;
   const overview = createDeploymentOverview(world.scene, deploymentPoints);
-  const overviewHighest = world.obstacles.reduce((height, o) => Math.max(height, o.maxY ?? 12), 80);
+  const overviewHighest = world.obstacles.filter(o => !teamMatch || o.maxX >= world.bounds.minX && o.minX <= world.bounds.maxX && o.maxZ >= world.bounds.minZ && o.minZ <= world.bounds.maxZ).reduce((height, o) => Math.max(height, o.maxY ?? 12), teamMatch ? 12 : 80);
   let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
   const initialOverviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
   const respawnOverviewActive = () => !!expedition && hud.phase === 'playing' && hud.arenaSelf?.alive === false && !!hud.respawn && !deathScene;
@@ -855,6 +856,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const introFrame = deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof);
     hud.deploymentIntro = hud.phase === 'deploying' ? { stage: introFrame.stage, fade: introFrame.fade, respawn: respawnDescent } : null;
     hud.deploymentBriefing = briefing.info;
+    hud.overviewZoom = overviewZoom;
     hud.respawn = arenaRuntime?.getRespawn() ?? null;
     hud.deathRecap = deathScene ? { ...deathScene.recap, windowLeft: expedition ? Math.max(0, DEATH_WINDOW_SECONDS - deathScene.age) : null } : null;
     if (hud.respawn) hud.respawn = { ...hud.respawn, markers: respawnOverviewActive() ? deploymentMarkers(respawnPoints(), camera) : [], zoom: overviewZoom };
@@ -3696,6 +3698,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Hosts already reset synchronously in reset(); only guests adopt a remote rematch.
     const newRound = options.arena?.session.role === 'guest' && previousMatch && frame.snapshot && (frame.snapshot.tick < previousMatch.tick || (previousMatch.finished && !frame.snapshot.finished));
     if (newRound) {
+      deploymentIntro.reset(); briefing.clear(); overviewZoom = 1; overviewPan = { x: 0, z: 0 };
       hud.phase = 'ready'; hud.shots = hud.landed = hud.earned = hud.earnedXp = hud.chain = 0;
       hud.callout = ''; hud.message = ''; calloutTime = 0; killChain = { count: 0, lastAt: -Infinity };
       clearInput(); vehicles.reset(); stopVoice(); encik.reset(); comms.clear(); hud.encikCallout = null; loadout = createPooledLoadout(specs, equipment.carriedFamilies);
@@ -4818,6 +4821,22 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       updateCameras(0, false, false); publish();
     },
     getLoadout: () => equipment,
+    configureMatchBots(count: number, composition: string) {
+      return hud.phase === 'ready' && !!arenaRuntime?.configureBots(count, composition);
+    },
+    async setStartingLoadout(selection: RespawnLoadoutSelection) {
+      if (disposed || hud.phase !== 'ready' || expedition) return false;
+      const next = applyRespawnLoadout(spendRentalTime(startingProfile, rentalTimeSpent), selection);
+      if (!next || (options.arena && !await arenaRuntime?.queueRespawnLoadout(selection, true)) || disposed || hud.phase !== 'ready') return false;
+      fieldProfile = next; respawnProfile = next;
+      equipment = resolveLoadout(next); specs = equipment.weapons;
+      hud.weapon = equipment.carriedFamilies[0];
+      loadout = createPooledLoadout(specs, equipment.carriedFamilies);
+      keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
+      weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+      effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
+      options.onLoadout?.(equipment); hud.message = ''; publish(); return true;
+    },
     async queueRespawnLoadout(selection: RespawnLoadoutSelection) {
       const next = applyRespawnLoadout(spendRentalTime(startingProfile, rentalTimeSpent), selection);
       if (!next || !arenaRuntime || disposed) return false;

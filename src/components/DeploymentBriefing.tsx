@@ -3,16 +3,16 @@ import { briefingGlyph, type BriefingInfo, type BriefingTime } from '../game/dep
 
 const LINE_NAMES = ['header', 'location', 'time', 'weather'];
 
-export function briefingLines({ location, respawn, time, weather }: { location: string; respawn: boolean; time: string; weather: string }) {
-  return [respawn ? 'OPERATOR / REDEPLOYMENT' : 'EXPEDITION / INSERTION', `LOCATION  ${location.toUpperCase()}, SINGAPORE`, `TIME      ${time} SGT`, `WEATHER   ${weather.toUpperCase()}`];
+export function briefingLines({ location, respawn, time, weather, operation = 'EXPEDITION' }: { operation?: string; location: string; respawn: boolean; time: string; weather: string }) {
+  return [respawn ? 'OPERATOR / REDEPLOYMENT' : `${operation} / INSERTION`, `LOCATION  ${location.toUpperCase()}, SINGAPORE`, `TIME      ${time} SGT`, `WEATHER   ${weather.toUpperCase()}`];
 }
 
 /**
  * The HUD only publishes ten times a second, which would type in clumps. Letters
  * are written straight to the DOM each frame from the engine's clock instead.
  */
-export default function DeploymentBriefing({ location, respawn, time, weather, reduced, clock }: BriefingInfo & { location: string; clock: () => BriefingTime | null }) {
-  const lines = briefingLines({ location, respawn, time, weather }), text = lines.join('\n');
+export default function DeploymentBriefing({ location, respawn, time, weather, reduced, clock, operation }: BriefingInfo & { operation?: string; location: string; clock: () => BriefingTime | null }) {
+  const lines = briefingLines({ location, respawn, time, weather, operation }), text = lines.join('\n');
   const root = useRef<HTMLDivElement>(null), latestClock = useRef(clock);
   useLayoutEffect(() => { latestClock.current = clock; });
   useLayoutEffect(() => {
@@ -47,8 +47,8 @@ type Stage = 'descent' | 'ready';
 const STATUS: Record<Stage, string> = { descent: 'Closing on entry point', ready: 'Ready your weapon' };
 
 /** Letterbox and feed. `intro` ends on landing, and the feed and bars then leave over the first moments of play. */
-export function DeploymentOverlay({ location, intro, briefing, clock, children }: {
-  location: string; intro: { stage: Stage; fade: number } | null; briefing: BriefingInfo | null; clock: () => BriefingTime | null; children?: ReactNode;
+export function DeploymentOverlay({ location, intro, briefing, clock, children, operation }: {
+  operation?: string; location: string; intro: { stage: Stage; fade: number } | null; briefing: BriefingInfo | null; clock: () => BriefingTime | null; children?: ReactNode;
 }) {
   const status = useRef<Stage>('descent');
   useEffect(() => { if (intro) status.current = intro.stage; }, [intro]);
@@ -56,7 +56,7 @@ export function DeploymentOverlay({ location, intro, briefing, clock, children }
     <div className="expedition-intro-shade" />
     <div className="expedition-intro-fade" style={{ opacity: intro?.fade ?? 0 }} />
     {briefing && <div className="expedition-intro-caption">
-      <DeploymentBriefing location={location} clock={clock} {...briefing} />
+      <DeploymentBriefing operation={operation} location={location} clock={clock} {...briefing} />
       <strong>{STATUS[intro?.stage ?? status.current]}</strong>
     </div>}
     {children}

@@ -406,6 +406,16 @@ Sentosa has [naval landing parties](NAVAL-LANDINGS.md): finite squads arrive by 
 
 The open world also has **combat events**, more often and more dangerous in higher-threat districts, each announced by a banner, the comms log and usually a ring on the ground and the map. Most land where the district is busy (wherever patrols have been fighting), not on you; anything more than 130 m away is news in the comms log rather than an alarm. Artillery mixes stationary strikes with three salvos advancing along a marked path; leave a moving barrage sideways. Stationary artillery and mortar fire land in a marked ring (get out, or go prone behind something solid; a mortar stops when you kill its two-man crew). An air raid's bombs come from straight above, so get under a roof. A raid helicopter has a shootable pilot controlling its mounted gun and zero to two optional rifle passengers. Kill a rifleman to remove that gun; pilot loss forces an emergency landing and survivors evacuate. Troop helicopters use the same crew rules but deliver their rappelling soldiers and leave. Break line of sight or shoot the hull down. A loitering drone circles, locks on (rapid beeps) and dives; shoot it or get out of its sight. A rooftop sniper's scope glints before each shot; it is always within rifle range of whoever it is watching, so you can shoot back. Tear gas hurts through armour, smoke blinds everyone, and a blackout jams the map and, at night, the lights. A supply drop is a race for the crate against the patrols. Fallen patrols return through operational command posts; factions without one receive slower reserve transports through authored outer entry points. **Debug survival** can switch random events off and call any of them in on demand. See [combat events](COMBAT-EVENTS.md).
 
+Match menus follow the Open World sequence: choose a map, load it, then choose
+settings and a starting loadout over an aerial view of the playable area.
+Team Deathmatch offers its arena picker; Hardpoint and Free for All load their
+fixed maps directly. Online players connect to a room before loading its arena.
+Free for All's host can adjust bots on the loaded ready screen. Starting gear
+choices apply to the first life and stay separate from the saved Store loadout.
+Match spawns are assigned automatically, with no landing-zone picker. Starting
+a match or range uses the aerial zoom-in and scrolling insertion briefing;
+reduced motion and Skip intro use the same behavior as Open World.
+
 **Solo arena** runs locally against up to six bots (Black Kite contractors, who fight only the player) with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
 Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.

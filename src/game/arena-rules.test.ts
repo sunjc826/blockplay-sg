@@ -371,3 +371,16 @@ it('spends rental time only during active play and applies issued damage after d
   arena.setPlayerVitals('one', { health: 0 }); advance(arena, 3.2);
   expect(fireAt(arena).damage).toBe(FPS_WEAPONS[0].damage);
 });
+
+
+it('protects automatic match entrants through setup and descent, then locks starting gear', () => {
+  const arena = pair();
+  arena.preparePlayer('two');
+  advance(arena, 5);
+  expect(fireAt(arena).damage).toBe(0);
+  expect(arena.setStartingWeapons('two', [weapon], [0])).toBe(true);
+  arena.setInput('two', { ...actor(arena, 'two'), playing: true });
+  advance(arena, 5);
+  expect(arena.setStartingWeapons('two', [weapon], [0])).toBe(false);
+  expect(fireAt(arena).damage).toBeGreaterThan(0);
+});

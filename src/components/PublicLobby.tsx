@@ -1,11 +1,8 @@
 import MatchSummary from './MatchSummary';
-import RespawnLoadoutSelector from './RespawnLoadoutSelector';
 import { connectArenaMatch } from '../game/arena-match-session';
 import { connectRoomPresence, type RoomPresence } from '../game/room-presence';
-import type { ArmoryProfile } from '../game/armory-state';
-import type { RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { DEFAULT_ARENA_MATCH, type ArenaMatch } from '../game/arena-match';
-import MatchBotSettings, { type MatchSquad } from './MatchBotSettings';
+import type { MatchSquad } from './MatchBotSettings';
 import { requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Copy, LoaderCircle, LockKeyhole, RefreshCw, Share2, Users } from 'lucide-react';
@@ -17,18 +14,17 @@ import './lan-lobby.css';
 import './public-lobby.css';
 
 const invitedRoom = () => new URLSearchParams(window.location.search).get('room')?.replace(/[^a-f0-9]/gi, '').slice(0, 6).toUpperCase() || '';
-export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisconnect, active=true, hasMatch=false, status='In room', profile, onLoadout, leaveRequest=0 }: {
+export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisconnect, active=true, hasMatch=false, status='In room', leaveRequest=0 }: {
  match?: ArenaMatch; backLabel: string;
  onLaunch:(session:LanSession,bots:number,squad:MatchSquad,match:ArenaMatch)=>void; onBack:()=>void; onDisconnect?:()=>void;
- leaveRequest?:number; active?:boolean;hasMatch?:boolean;status?:RoomPresence;profile?:ArmoryProfile;onLoadout?:(selection:RespawnLoadoutSelection)=>Promise<boolean>;
+ leaveRequest?:number; active?:boolean;hasMatch?:boolean;status?:RoomPresence;
 }) {
   const joining = !match;
   const [rooms, setRooms] = useState<PublicRoom[]>([]), [listError, setListError] = useState(''), [loading, setLoading] = useState(true);
   const [name, setName] = useState('Operator'), [title, setTitle] = useState(''), [password, setPassword] = useState(''), [code, setCode] = useState(() => joining ? invitedRoom() : '');
-  const [bots, setBots] = useState(3), [squad, setSquad] = useState<MatchSquad>('mixed');
   const [session, setSession] = useState<LanSession | null>(null), [peers, setPeers] = useState<{ id: string; name: string }[]>([]);
   const [connected, setConnected] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
-  const [resolved,setResolved]=useState<ArenaMatch>(),[presence,setPresence]=useState<Record<string,RoomPresence>>({}),[locker,setLocker]=useState(false);
+  const [resolved,setResolved]=useState<ArenaMatch>(),[presence,setPresence]=useState<Record<string,RoomPresence>>({});
   const root=useRef<HTMLElement>(null);
   const roomCode = useRef<HTMLInputElement>(null);
   const roomPassword = useRef<HTMLInputElement>(null);
@@ -83,9 +79,7 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
     try { await navigator.share({ title: 'Join my Blockplay room', url: invite.toString() }); }
     catch (failure) { if (!(failure instanceof Error && failure.name === 'AbortError')) await copy(); }
   };
-  const launch = () => { if (!session || !connected || !resolved) return; onLaunch(session, session.role !== 'guest' ? bots : 0, squad, resolved); };
-
-  const loadout = profile && onLoadout && !hasMatch && <div className="match-loadout"><strong>Starting loadout</strong><p>Choose weapons from your locker before entering. Your room stays connected.</p><button className="lan-secondary" onClick={()=>setLocker(true)}>Choose starting loadout</button></div>;
+  const launch = () => { if (!session || !connected || !resolved) return; onLaunch(session, session.role !== 'guest' ? 3 : 0, 'mixed', resolved); };
 
   return <section ref={root} className={`lan-lobby public-lobby ${session ? 'has-room' : ''}`} aria-label="Public multiplayer lobby">
     <nav className="lobby-navigation" aria-label="Multiplayer"><button className="play-nav-back" onClick={onBack}><ArrowLeft size={16} /> {backLabel}</button></nav>
@@ -95,7 +89,6 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
         <p>{session ? 'Online match' : joining ? 'Choose a room below or enter an invite code.' : 'Create a room and share its invite link with your squad.'}</p>
       </div>
     </header>
-    {locker && profile && onLoadout && <RespawnLoadoutSelector deployment inventory={profile} selected={profile} onSave={onLoadout} onClose={()=>setLocker(false)}/>}
     <div className="lan-layout"><div className="lan-main">
         {!session && <>
           {match && <MatchSummary match={match} />}
@@ -109,8 +102,6 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
             <label className="lan-field"><span>Room name <small>Optional</small></span><input maxLength={40} value={title} disabled={busy} placeholder={`${name.trim() || 'Operator'}'s room`} onChange={event => setTitle(event.target.value)} /></label>
             <label className="lan-field"><span>Password <small>Optional · 4–64 characters</small></span><input type="password" autoComplete="new-password" maxLength={64} value={password} disabled={busy} onChange={event => setPassword(event.target.value)} /></label>
           </details>}
-          {match?.mode === 'free-for-all' && <MatchBotSettings bots={bots} squad={squad} onBots={setBots} onSquad={setSquad} />}
-          {match && loadout}
         </>}
         {session && <>
           <div className="lan-invite"><span className="lan-kicker">ROOM CODE</span><div className="lan-room-code"><output aria-label="Room code">{code}</output><span className="public-room-capacity"><Users size={16} /> {1 + peers.length}/4</span></div>
@@ -118,7 +109,7 @@ export default function PublicLobby({ match, onLaunch, onBack, backLabel, onDisc
             <details className="public-invite-link"><summary>View invite link</summary><label className="lan-field"><span>Invite link</span><input aria-label="Invite link" value={invite.toString()} readOnly onFocus={event => event.target.select()} /></label></details>
           </div>
           {resolved?<MatchSummary match={resolved}/>:<p role="status">Receiving the host’s match details…</p>}
-          {hasMatch && <p className="match-choice-hint">Your match stays connected here. An active match keeps running and your operator remains on the field.</p>}{loadout}
+          {hasMatch && <p className="match-choice-hint">Your match stays connected here. An active match keeps running and your operator remains on the field.</p>}
         </>}
         {error && <p className="lan-error" role="alert">{error}</p>}{notice && <p className="lan-notice" role="status">{notice}</p>}
         <div className="public-actions">{session ? <>

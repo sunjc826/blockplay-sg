@@ -185,33 +185,36 @@ try {
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('.starting-list-items button')].map(e=>e.textContent)`), ['ChinatownSmith Street','Toa PayohDragon courtyard']);
     await click('.starting-list-items button:first-child', mobile);
     await click('.starting-deploy', mobile);
-    await wait(`document.querySelector('.solo-arena-name')?.textContent.includes('Smith Street')`);
+    await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`);
     assert(await evaluate(`!document.querySelector('.solo-setup input, .public-lobby, .starting-picker')`));
     await shot(`solo-setup-${width}`);
-    await click('.lobby-navigation button', mobile);
+    await wait(`!document.querySelector('.play-loading')`);
+    await click('.arena-leave', mobile);
     await wait(`document.querySelector('.starting-place h2')?.textContent==='Smith Street'`);
   }
   await size(1440,900);
   for (const [mode, venue] of [['hardpoint','Smith Street'], ['free-for-all','Marina Bay']]) {
     await go('/play/single-player', '.activity-grid');
     await click(`.activity-card[href="/play/${mode}"]`);
-    await wait(`document.querySelector('.solo-arena-name')?.textContent.includes(${JSON.stringify(venue)})`);
+    await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`);
     assert(await evaluate(`!document.querySelector('.starting-picker, .solo-setup input[autocomplete="nickname"], .public-lobby')`));
   }
-  await click('.solo-setup .public-options summary');
-  assert(await evaluate(`document.querySelector('.solo-setup input[type="range"]').value==='3'`));
+  await wait(`!document.querySelector('.play-loading')`);
+  await click('.deployment-settings > summary');
+  await click('.public-options summary');
+  assert(await evaluate(`document.querySelector('.match-deployment input[type="range"]').value==='3'`));
   await evaluate(`(() => {
-    const input = document.querySelector('.solo-setup input[type="range"]');
+    const input = document.querySelector('.match-deployment input[type="range"]');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0');
     input.dispatchEvent(new Event('input', { bubbles: true }));
   })()`);
-  assert(await evaluate(`document.querySelector('.solo-setup .public-options summary').textContent.includes('0 bots')`));
-  await click('.solo-setup .lan-deploy');
+  assert(await evaluate(`document.querySelector('.match-deployment .public-options summary').textContent.includes('0 bots')`));
+  await click('.deployment-settings > summary');
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`,60000);
   await assertLoader('SINGLE PLAYER · FREE FOR ALL', 'Marina Bay');
   assert(await evaluate(`document.querySelector('.fps-game').dataset.matchMode==='free-for-all'`));
   await size(390,844,true);
-  await click('.arena-start-card > .primary-button', true);
+  await click('.deployment-actions > .primary-button', true);
   if (await evaluate(`document.querySelector('.fps-game')?.dataset.phase==='paused'`)) await click('.pause-resume', true);
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
   await click('[data-touch-action="menu"]', true);
@@ -223,12 +226,10 @@ try {
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
   await click('[data-touch-action="menu"]', true);
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
-  await click('.arena-room-return');
-  await wait(`document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Return to match')`);
-  await click('.solo-setup .lan-cancel');
+  await click('.arena-leave');
   await wait(`!!document.querySelector('[role="alertdialog"]')`);
   await click('.confirm-leave');
-  await wait(`!document.querySelector('.fps-game') && document.querySelector('.solo-setup .lan-deploy')?.textContent.includes('Load arena')`);
+  await wait(`!document.querySelector('.fps-game') && document.querySelector('.activity-grid')`);
   assert.deepEqual(roomRequests, [], 'Single-player flows never contact the rooms API');
   await go('/play', '.activity-grid');
   await click('.activity-card[href="/play/multiplayer"]');

@@ -176,10 +176,10 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
             <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
             <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>
           </>}
-          <div className="starting-launch">{!arenas && <p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p>}<button className="starting-deploy" onClick={deploy}>{arenas ? 'Continue to match setup' : training ? 'Continue to training' : 'Choose landing zone'}<ArrowRight size={18} /></button></div>
+          <div className="starting-launch">{!arenas && <p>{training ? 'Your loadout comes with you.' : 'You can travel between districts after deploying.'}</p>}<button className="starting-deploy" onClick={deploy}>{arenas ? 'Load arena' : training ? 'Continue to training' : 'Choose landing zone'}<ArrowRight size={18} /></button></div>
         </aside>
       </div>
-      <footer className="starting-foot">{view === 'map' && <span><ArrowLeft size={13} /> <ArrowRight size={13} /> Browse {arenas ? 'arenas' : 'regions'} <kbd>Enter</kbd> Select</span>}<span>{arenas ? 'ARENA → MATCH SETUP' : training ? 'DISTRICT → RANGE SETUP → START' : 'DISTRICT → LANDING ZONE → DEPLOY'}</span></footer>
+      <footer className="starting-foot">{view === 'map' && <span><ArrowLeft size={13} /> <ArrowRight size={13} /> Browse {arenas ? 'arenas' : 'regions'} <kbd>Enter</kbd> Select</span>}<span>{arenas ? 'ARENA → LOAD → SETTINGS & LOADOUT' : training ? 'DISTRICT → RANGE SETUP → START' : 'DISTRICT → LANDING ZONE → DEPLOY'}</span></footer>
     </main>
   </div>;
 }
