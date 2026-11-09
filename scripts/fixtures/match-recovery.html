@@ -1,9 +1,10 @@
-<!doctype html><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative}#world{height:calc(100vh - 44px);width:100vw}button{padding:12px}</style>
+<!doctype html><style>body{margin:0;background:#17231e;color:white;font:16px sans-serif}.fps-game{position:relative}#world{height:calc(100vh - 44px);width:100vw}button{padding:12px}#hud{position:absolute;inset:0;pointer-events:none}#hud button{pointer-events:auto}</style>
 <button id="enter">Enter match</button><div class="fps-game"><div id="world"></div><div id="hud"></div></div><script type="module">
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+const {default:FpsDamageFeedback}=await import('/src/components/FpsDamageFeedback.tsx');
 const {default:FpsLootCard}=await import('/src/components/FpsLootCard.tsx');
 await import('/src/components/expedition.css');
 await import('/src/styles.css');
@@ -35,7 +36,7 @@ const session={id:'guest',name:'Player',role:'guest',getPeers:()=>[{id:'host',na
  if(p.type==='arena-hello'||p.type==='arena-pickup'||p.type==='arena-armor-pickup')publish();
  }};
 const root=ReactDOM.createRoot(document.querySelector('#hud'));window.touch=false;
-window.renderHud=()=>root.render(React.createElement(FpsLootCard,{hud:window.hud,touch:window.touch,actions:window.touch?{take:()=>engine.interactLoot()}:undefined}));
+window.renderHud=()=>root.render(React.createElement(React.Fragment,null,React.createElement(FpsDamageFeedback,{hud:window.hud}),React.createElement(FpsLootCard,{hud:window.hud,touch:window.touch,actions:window.touch?{take:()=>engine.interactLoot()}:undefined})));
 window.engine=createFpsEngine(document.querySelector('#world'),hud=>{window.hud=hud;window.renderHud();},{loadout:kit,arena:{session,profile,botCount:0,environment,
  ...(mode==='ffa'?{}:{match:{mode:mode==='tdm'?'team-deathmatch':'hardpoint',area:'smith-street'}})}});
 window.profile=profile;
@@ -55,7 +56,8 @@ window.makeArmorDrop=()=>{
  collecting=true;for(const weapon of sim.snapshot().weaponDrops)sim.pickupWeapon('guest',weapon.id);collecting=false;
  placement=null;publish();return drop;
 };
-window.hurt=()=>{sim.setPlayerVitals('guest',{health:20});publish()};
+window.hurt=(health=20)=>{sim.setPlayerVitals('guest',{health});publish()};
+window.breakArmor=()=>{sim.setPlayerVitals('guest',{armor:0,health:Math.max(1,hud.health-5)});publish()};
 window.advance=seconds=>{for(let i=0;i<seconds*20;i++)sim.step(.05);publish()};
 window.die=()=>{sim.setPlayerVitals('guest',{health:0});publish()};
 </script>

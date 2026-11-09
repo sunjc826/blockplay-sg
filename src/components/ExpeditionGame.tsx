@@ -1,3 +1,4 @@
+import FpsDamageFeedback from './FpsDamageFeedback';
 import { useNavigationGuard } from '../lib/navigation-guard';
 import MerlionHud from './MerlionHud';
 import type { PlayLoadScreen } from '../game/play-load-stages';
@@ -181,6 +182,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
+      <FpsDamageFeedback hud={hud} />
       {!debug && playing && !hud.pilotEnabled && (!touch || !alive && hud.deathRecap) && <PlayMenuButton compact={touch} onMenu={() => engine.current?.pause()} />}
       {loadoutOpen && <RespawnLoadoutSelector inventory={profile} selected={nextProfile} onSave={queueLoadout} onClose={() => setLoadoutOpen(false)} />}
       {(debug || fullscreen.notice || hud.message) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (touch ? 'The left stick moves, dragging the scene looks around, and holding FIRE keeps the aim correctable. The Menu button pauses you; the district stays active.' : 'Drag the scene to look on touchscreens. ESC opens the menu; the district remains active.')}</p>}

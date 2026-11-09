@@ -1,0 +1,14 @@
+/* Peripheral feedback leaves the aim point and HUD controls clear. */
+.fps-blood-border,.fps-armor-break{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.fps-blood-border{transition:opacity .45s ease;box-shadow:inset 0 0 clamp(35px,8vmin,95px) #79091699;background:radial-gradient(ellipse at center,transparent 48%,#63040b55 78%,#430208db 100%)}
+.fps-blood-border::before,.fps-blood-border::after{content:"";position:absolute;inset:0;pointer-events:none}
+.fps-blood-border::before{background:radial-gradient(ellipse 7% 19% at 0% 21%,#680413ba 30%,transparent 75%),radial-gradient(ellipse 5% 12% at 2% 75%,#790c1a99 35%,transparent 80%),radial-gradient(ellipse 14% 6% at 25% 0%,#790517bb 25%,transparent 78%),radial-gradient(ellipse 11% 5% at 72% 100%,#650612b5 30%,transparent 80%),radial-gradient(ellipse 6% 21% at 100% 65%,#770718bb 30%,transparent 75%),radial-gradient(ellipse 4% 10% at 97% 13%,#51040d99 35%,transparent 76%)}
+.fps-blood-border::after{opacity:.3;background:radial-gradient(ellipse at center,transparent 62%,#a3111b70 87%,#8a0616aa 100%)}
+.fps-blood-border[data-health-band=critical]::after{animation:fps-critical-blood 1.7s ease-in-out infinite}
+@keyframes fps-critical-blood{0%,100%{opacity:.25}40%{opacity:.7}62%{opacity:.4}76%{opacity:.58}}
+.fps-armor-break{animation:fps-armor-shatter .85s ease-out both;box-shadow:inset 0 0 clamp(25px,7vmin,85px) #a0dfffbb;background:radial-gradient(ellipse at center,transparent 59%,#acdfff32 83%,#d9f5ffad 100%)}
+.fps-armor-break svg{width:100%;height:100%;fill:none;stroke:#d6f5ff;stroke-width:2;stroke-linejoin:bevel;opacity:.85}
+.fps-armor-break path{vector-effect:non-scaling-stroke}
+@keyframes fps-armor-shatter{0%{opacity:1;transform:scale(1)}22%{opacity:.78}100%{opacity:0;transform:scale(1.035)}}
+@media(prefers-reduced-motion:reduce){.fps-blood-border{transition:none}.fps-blood-border[data-health-band=critical]::after{animation:none;opacity:.45}.fps-armor-break{animation:fps-armor-fade .85s linear both}}
+@keyframes fps-armor-fade{from{opacity:.8}to{opacity:0}}

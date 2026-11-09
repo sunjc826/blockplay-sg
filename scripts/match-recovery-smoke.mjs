@@ -34,6 +34,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function wait(expression, timeout = 20000) {
   const started = Date.now();
   while (Date.now() - started < timeout) { if (await evaluate(`Boolean(${expression})`)) return; await delay(100); }
+  console.error('TIMEOUT STATE',await evaluate(`({health:hud?.health,max:hud?.maxHealth,phase:hud?.phase,alive:hud?.arenaSelf?.alive,html:document.querySelector('#hud')?.innerHTML})`),errors);
   throw new Error('Timed out waiting for ' + expression);
 }
 async function key(key, code) {
@@ -58,13 +59,27 @@ try {
  await evaluate('advance(6)');assert.equal(await evaluate('hud.health'),20);
  await evaluate('advance(4)');await wait('hud.health>20 && hud.health<65');
  assert.equal(await evaluate('hud.armor'),0);
+ await evaluate('hurt(40)');await wait(`document.querySelector('.fps-blood-border')?.dataset.healthBand==='low'`);await delay(500);
+ const low=await evaluate(`Number(getComputedStyle(document.querySelector('.fps-blood-border')).opacity)`);await screenshot(mode+'-low-health');
+ await evaluate('hurt(5)');await wait(`document.querySelector('.fps-blood-border')?.dataset.healthBand==='critical'`);await delay(500);
+ assert(await evaluate(`Number(getComputedStyle(document.querySelector('.fps-blood-border')).opacity)>${low}`));await screenshot(mode+'-critical-health');
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.fps-blood-border'),'::after').animationName`),'none');
+ await send('Emulation.setEmulatedMedia',{features:[]});
+ await evaluate('hurt(100)');await wait(`getComputedStyle(document.querySelector('.fps-blood-border')).opacity==='0'`);
+
  const drop=await evaluate('makeArmorDrop()');assert(drop,'bot leaves armor');
  for(let i=0;i<35 && !await evaluate("hud.lootCard?.kind==='armor'");i++){await evaluate('engine.lookBy(0,5)');await delay(100);}
  await wait("hud.lootCard?.kind==='armor'");assert.equal(await evaluate('hud.lootCard.action'),'Equip');
  await screenshot(mode+'-armor-keyboard');await key('e','KeyE');
  await wait('hud.arenaSelf.armorPickup && hud.armor>0 && hud.fieldLoot.filter(l=>l.kind==="armor").length===0');
  assert.equal(await evaluate('JSON.stringify(profile)===original'),true);
+ await evaluate('breakArmor()');await wait(`!!document.querySelector('.fps-armor-break')`);await screenshot(mode+'-armor-break');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.fps-armor-break')).pointerEvents`),'none');
+ await wait(`!document.querySelector('.fps-armor-break')`);
  await evaluate('die()');await wait('hud.arenaSelf?.alive===false');
+ assert.equal(await evaluate(`!!document.querySelector('.fps-blood-border')`),false);
+
  await wait('hud.arenaSelf?.alive===true',20000);await wait('hud.armor===0 && !hud.arenaSelf.armorPickup');
  await evaluate('window.touch=true;makeArmorDrop();renderHud()');
  for(let i=0;i<35 && !await evaluate("hud.lootCard?.kind==='armor'");i++){await evaluate('engine.lookBy(0,5)');await delay(100);}
@@ -75,6 +90,6 @@ try {
  await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await wait('hud.arenaSelf.armorPickup && hud.armor>0');
  assert.equal(await evaluate('JSON.stringify(profile)===original'),true);
- assert.deepEqual(errors,[]);console.log('PASS '+mode+': delayed health regen, no armor regen, keyboard/touch armor pickup, host receipt, original profile and respawn armor');
+ assert.deepEqual(errors,[]);console.log('PASS '+mode+': delayed health regen, no armor regen, keyboard/touch armor pickup, host receipt, original profile, respawn armor, low/critical blood borders, reduced motion and armor-break flash');
 } finally { ws.close();await fetch(chrome+'/json/close/'+tab.id); }
 }
