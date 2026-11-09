@@ -153,6 +153,14 @@
 .next-gen-main .next-gen-equipment > .game-menu-item:first-child .next-gen-index { top:calc(var(--home-top) + 76px); }
 .next-gen-main .next-gen-home-panels > .game-menu-item,
 .next-gen-main .next-gen-equipment > .game-menu-item:last-child { padding-bottom:calc(var(--home-bottom) + 72px); }
+/* Filter each pane's slice of the shared panorama without muting its labels. */
+@media (hover:hover) and (pointer:fine) {
+  .next-gen-main .game-menu-item { backdrop-filter:saturate(1) brightness(1); -webkit-backdrop-filter:saturate(1) brightness(1); transition:flex-grow .48s cubic-bezier(.2,.75,.25,1),border-color .25s,box-shadow .25s,backdrop-filter .3s,-webkit-backdrop-filter .3s; }
+  .next-gen-home-panels:has(.game-menu-item:focus-visible) .game-menu-item:not(:focus-visible),
+  .next-gen-home-panels:has(.game-menu-item:hover) .game-menu-item:not(:hover) { backdrop-filter:saturate(.55) brightness(.85); -webkit-backdrop-filter:saturate(.55) brightness(.85); }
+  /* Pointer hover takes precedence over an earlier keyboard focus. */
+  .next-gen-home-panels:has(.game-menu-item:hover) .game-menu-item:hover { backdrop-filter:saturate(1) brightness(1); -webkit-backdrop-filter:saturate(1) brightness(1); }
+}
 @media (hover:hover) and (pointer:fine) and (min-width:701px) {
   .next-gen-main .game-menu-item:not(.is-tile):hover { flex-grow:1.2; }
   .next-gen-main:has(.game-menu-item:hover) .next-gen-panorama { transform:scale(1.025); filter:saturate(1.05); }
