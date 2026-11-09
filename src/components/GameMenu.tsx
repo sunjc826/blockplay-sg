@@ -6,7 +6,7 @@ import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Downloa
 import MatchGame from './MatchGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
-import ArmoryShop from './ArmoryShop';
+import LoadoutStore from './LoadoutStore';
 import ArmorySettings from './ArmorySettings';
 import { SettingsStoreContext } from './SettingsOverlay';
 import RankBadge from './RankBadge';
@@ -45,16 +45,16 @@ const MATCH_DISTRICTS = locations.filter(place => TDM_AREAS.some(area => area.re
 
 const ENTRIES = [
   { route: 'play', icon: Play, title: 'Play', detail: 'Explore, train or play a match.', mode: true },
-  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment and rental time', mode: false },
-  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear and supplies', mode: false },
+  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your locker and rental time', mode: false },
+  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Build a loadout. Browse and rent gear.', mode: false },
   { route: 'settings', icon: Settings, title: 'Settings', detail: 'Difficulty, display and profile', mode: false },
 ] as const;
 
 const NEXT_GEN_ENTRIES = [
   { route: 'single-player', icon: Play, title: 'Single Player', detail: 'Explore Singapore, train, or take on the bots.', mode: true },
   { route: 'multiplayer-menu', icon: Users, title: 'Multiplayer', detail: 'Host a match. Find your squad. Play together.', mode: true },
-  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Gear up for your next run.', mode: false },
-  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your equipment. Your loadout.', mode: false },
+  { route: 'store', icon: ShoppingBag, title: 'Store', detail: 'Build a loadout. Browse and rent gear.', mode: false },
+  { route: 'inventory', icon: Backpack, title: 'Inventory', detail: 'Your locker, rentals and supplies.', mode: false },
 ] as const;
 
 /** Remembers the last district picked on each screen; storage may be unavailable. */
@@ -305,7 +305,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     // The store's own header row carries the way back, so the screen has no bar.
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <ArmoryShop store={armory} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
+        <LoadoutStore store={armory} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
           <ReturnLink />
           <h1>Store</h1>
           <a className="game-back" {...link('inventory')}>Inventory</a>

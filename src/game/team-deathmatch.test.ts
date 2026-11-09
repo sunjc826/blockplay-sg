@@ -104,7 +104,12 @@ describe.each(TDM_AREAS)('$name real district',area=>{
       for(const team of ARENA_TEAMS)expect(s.teamDeathmatch!.scores[team]).toBeGreaterThan(0);
       expect(s.actors.every(a=>a.shots>0)).toBe(true);
       expect(s.actors.some(a=>Math.hypot(a.x-initial.actors.find(p=>p.id===a.id)!.x,a.z-initial.actors.find(p=>p.id===a.id)!.z)>20)).toBe(true);
-      for(const key of ['facilities','vehicles','events','transports','heat','reinforcementClocks','proxies'])expect(s).not.toHaveProperty(key);
+      for(const key of ['facilities','vehicles','transports','heat','reinforcementClocks','proxies'])expect(s).not.toHaveProperty(key);
+      // Match Hunter streaks use drone events; expedition's event director stays absent.
+      for(const event of s.events ?? []) {
+        expect(event.kind).toBe('drone');
+        expect(s.streaks?.effects.some(effect => effect.kind === 'hunter' && effect.event === event.id)).toBe(true);
+      }
       expect(a.facilityAction('bot-1','anything')).toBe(false);expect(a.triggerEvent('mortar')).toBeNull();
       expect(validArenaSnapshot(s,world.environment)).toBe(true);
       for(const bot of s.actors)expect(bot.x>=area.bounds.minX&&bot.x<=area.bounds.maxX&&bot.z>=area.bounds.minZ&&bot.z<=area.bounds.maxZ).toBe(true);

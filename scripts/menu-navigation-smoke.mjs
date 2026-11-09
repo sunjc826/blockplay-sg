@@ -61,7 +61,8 @@ try {
     });
     observer.observe(document, {childList:true, subtree:true, attributes:true, attributeFilter:['aria-valuenow','data-stage']});
   })()`});
-  await go('/store', '.armory');
+  await go('/store', '.loadout-store');
+  await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`);
   await click('#shop-tab-food');
   await click('.store-nav a[href="/inventory"]'); await wait(`!!document.querySelector('.inventory')`);
   assert.match(await evaluate(`document.querySelector('.context-back').textContent`), /Back to Store/);
@@ -270,7 +271,8 @@ try {
   }
   // Store geometry and sticky navigation across device sizes.
   for (const [name, width, height, mobile] of [['desktop',1440,900,false],['portrait',390,844,true],['landscape',844,390,true]]) {
-    await size(width,height,mobile); await go('/store','.shop');
+    await size(width,height,mobile); await go('/store','.loadout-store');
+    await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`);
     await click('#shop-tab-weapon');
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `${name}: no horizontal overflow`);
     const geometry = await evaluate(`(()=>{const nav=document.querySelector('.store-nav').getBoundingClientRect(),wallet=document.querySelector('.armory-wallet').getBoundingClientRect();return {nav:[nav.x,nav.y,nav.width,nav.height],wallet:[wallet.x,wallet.y,wallet.width,wallet.height],clear:nav.right<=wallet.left||wallet.right<=nav.left||nav.bottom<=wallet.top||wallet.bottom<=nav.top}})()`);
@@ -278,9 +280,9 @@ try {
     await shot(`${name}-store`);
     await evaluate(`window.scrollTo(0,document.documentElement.scrollHeight)`); await delay(250);
     assert(await evaluate(`document.querySelector('.context-back').getBoundingClientRect().top>=0`), `${name}: return stays visible`);
-    await click('.armory-item[data-item="sar-ranger"]'); await wait(`document.querySelector('.shop').classList.contains('is-inspecting')`);
+    await click('.armory-item[data-item="sar-ranger"]'); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='detail'`);
     await shot(`${name}-inspection`);
-    await click('.armory-inspect-back'); assert.equal(await evaluate(`document.querySelector('.shop').classList.contains('is-inspecting')`), false);
+    await click('[data-loadout-back]'); assert(await evaluate(`!!document.querySelector('.catalog-only')`));
   }
   for (const [name,width,height,mobile] of [['desktop',1440,900,false],['small-phone',320,568,true],['portrait',390,844,true],['landscape',844,390,true]]) {
     await size(width,height,mobile); await go('/', '.game-menu');

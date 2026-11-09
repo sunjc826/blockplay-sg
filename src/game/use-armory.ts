@@ -1,3 +1,4 @@
+import { equipLoadoutItem, purchaseLoadoutItem, type LoadoutTarget } from './loadout-store';
 import type { WeaponTerm } from './weapon-rentals';
 import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,6 +47,14 @@ export function useArmory() {
     return changed;
   }, [update]);
   const buy = useCallback((id: string, term?: WeaponTerm) => { const result = purchase(current.current, id, term); const changed = result.profile !== current.current; update(result.profile); setMessage(result.message); return changed; }, [update]);
+  const equipLoadout = useCallback((id: string, target: LoadoutTarget) => {
+    const result = equipLoadoutItem(current.current, id, target), changed = result.profile !== current.current;
+    update(result.profile); setMessage(result.message); return changed;
+  }, [update]);
+  const buyLoadout = useCallback((id: string, term?: WeaponTerm, target?: LoadoutTarget, quantity = 1) => {
+    const result = purchaseLoadoutItem(current.current, id, term, target, quantity), changed = result.profile !== current.current;
+    update(result.profile); setMessage(result.message); return changed;
+  }, [update]);
   const buyFromVendor = useCallback((id: string, price?: number) => { const result = purchaseFromVendor(current.current, id, price); update(result.profile); setMessage(result.message); return result; }, [update]);
   const buyLevel = useCallback(() => { const result = purchaseLevel(current.current); const changed = result.profile !== current.current; update(result.profile); setMessage(result.message); return changed; }, [update]);
   const wearRankSet = useCallback((id: string) => { const next = chooseRankSet(current.current, id); if (next === current.current) return; update(next); setMessage(`Insignia set to ${getRankSet(id).name}.`); }, [update]);
@@ -66,6 +75,6 @@ export function useArmory() {
     if (!added) { setMessage('Demo credits are already at the 1,000,000 CR cap.'); return false; }
     update({ ...current.current, credits }); setMessage(`${added.toLocaleString()} demo credits added. No payment was made.`); return true;
   }, [update]);
-  return { profile, bringSupply, discardWeaponRental, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
+  return { profile, equipLoadout, buyLoadout, bringSupply, discardWeaponRental, advanceRentalTime, selectCarrySlot, buy, buyFromVendor, buyLevel, wearRankSet, setEncikTone, equipItem, award, awardElimination, consume, demoTopUp, demoCreditTopUp, message, saveError };
 }
 export type ArmoryStore = ReturnType<typeof useArmory>;
