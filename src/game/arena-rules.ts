@@ -57,7 +57,7 @@ import type { PublishedRound } from './fps-projectiles';
 import { weaponRange } from './weapon-range';
 import { BOT_THREAT, nearBullet, type BotThreat } from './bot-threat';
 import type { BotDifficulty } from './bot-difficulty';
-import { createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
+import { BOT_INTEL, createBotSpotting, spottingStance, type BotSpotting, type SpottingCandidate } from './bot-spotting';
 import { objectiveApproach, objectiveStep, spacedObjectiveStep } from './bot-objectives';
 import { assignBattlefieldFronts, BATTLEFIELD_POPULATIONS, type BattlefieldSize } from './battlefield';
 import { commandPatrolStops, guardPatrolGoal, type GuardPatrol } from './command-camp';
@@ -3587,10 +3587,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const candidates = enemies.sort((a, b) => distance(actor, a.actor) * (a.actor.bot ? 1.1 : 1) - distance(actor, b.actor) * (b.actor.bot ? 1.1 : 1));
     for (const priority of [focused, confirmed]) if (priority && !candidates.includes(priority)) candidates.push(priority);
     const spotting = entry.spotting ??= createBotSpotting();
+    const recon = streaks?.reconContacts(actor, elapsed) ?? [];
+    const informed = (id: string, point: ArenaPoint) => recon.some(c => c.id === id && Math.hypot(c.x - point.x, c.z - point.z) <= BOT_INTEL.positionRadius);
     const observations: SpottingCandidate[] = candidates.map(m => ({ id: m.actor.id, life: m.actor.deaths,
       position: m.actor, distance: distance(actor, chestOf(m.actor)), referenceRange: sightRangeAgainst(role.sightRange, m.insert),
       speed: m.speed ?? 0, stance: m.actor.vehicle || m.actor.transport ? 'stand' : spottingStance(m.actor.prone, m.actor.y, m.actor.ground ?? floorAt(m.actor)),
-      flashAt: m.shotFlash?.at, flare: m.shotFlash?.flare }));
+      flashAt: m.shotFlash?.at, flare: m.shotFlash?.flare, informed: informed(m.actor.id, m.actor) }));
     const identified = spotting.update(observations, elapsed, dt, c => {
       const target = members.get(c.id);
       return !!target && seesThreat(entry, target, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), ARENA_SIGHT_RECHECK);
@@ -3614,7 +3616,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       // `strafe` is also the dodge direction: a new patrol point must not reverse a dodge under way.
       if (!(threat && elapsed < threat.evadeUntil)) entry.strafe *= -1;
     }
-    const searching = threat?.point ?? spotting.lastKnown(elapsed);
+    const ping = recon.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
+    // Recon has no elevation: use terrain at the reported position, never the hidden actor's height.
+    const reconPoint = ping ? { x: ping.x, y: floorAt({ ...ping, y: actor.y }) + 1.75, z: ping.z } : undefined;
+    const searching = threat?.point ?? spotting.lastKnown(elapsed, ping?.at) ?? reconPoint;
     const target: ArenaPoint = aircraft?.point ?? enemy?.actor ?? (searching ?? { ...(entry.mission ?? entry.patrol), y: 1.75 });
     const dx = target.x - actor.x; const dz = target.z - actor.z; const horizontal = Math.hypot(dx, dz);
     const direction = { x: dx / Math.max(horizontal, 0.01), y: 0, z: dz / Math.max(horizontal, 0.01) };
@@ -3770,9 +3775,14 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (escaping || !visible || !intent.fire || (entry.temporary && elapsed < entry.temporary.from) || (!aircraft && (!enemy || !takeTurn(entry, enemy)))) { entry.aimFocus = advanceBotAimFocus(entry.aimFocus, undefined, dt); entry.reaction = reaction; entry.target = ''; entry.burst = 0; return; }
     // Aim only settles while the muzzle is on the target: a long swing costs time, not just a turn.
     entry.aimFocus = advanceBotAimFocus(entry.aimFocus, focusKey, aligned ? dt : 0);
-    if (entry.target !== targetId) { entry.target = targetId!; entry.reaction = reaction + random() * 0.3; entry.burst = 0; }
+    if (entry.target !== targetId) {
+      const prepared = !aircraft && enemy && (confirmed?.actor.id === enemy.actor.id || informed(enemy.actor.id, enemy.actor));
+      entry.target = targetId!; entry.reaction = Math.max(.1, (reaction + random() * .3) * (prepared ? BOT_INTEL.reactionScale : 1)); entry.burst = 0;
+    }
     entry.reaction -= dt;
     if (entry.reaction <= 0 && aligned) {
+      // Recheck at the trigger: a cached visual sample or recon ping cannot authorize fire through new cover.
+      if (enemy && !aircraft && !seesThreat(entry, enemy, weaponRange(entry.spec ?? FPS_WEAPONS[actor.weapon]), ARENA_SIGHT_RECHECK)) return;
       // Bursts at the weapon's own cycle, then a pause the role decides.
       if (entry.burst <= 0) { const [low, high] = role.burst ?? [1, 1]; entry.burst = Math.min(botBurstLimit(role.id, horizontal), low + Math.floor(random() * (high - low + 1))); entry.burstFired = 0; }
       // The role's aim error, steadier with rank, wide on first sight and against a mover; recoil opens it through a burst.

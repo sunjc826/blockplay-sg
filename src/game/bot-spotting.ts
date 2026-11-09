@@ -6,11 +6,14 @@ export interface SpottingCandidate {
   /** The role's reference distance, including any target signature modifier. */
   referenceRange: number; speed: number; stance: SpottingStance;
   flashAt?: number; flare?: number;
+  /** Fresh friendly intel near this position helps recognition, only after a clear visual sample. */
+  informed?: boolean;
 }
 interface Contact {
   life: number; confidence: number; seenAt?: number; position?: SpottingPoint;
 }
 export const SPOTTING = { recheck: .2, memory: 6, forgetSeconds: .75, flashSeconds: .6, flashBoost: 3 } as const;
+export const BOT_INTEL = { recognitionGain: 2, reactionScale: .6, positionRadius: 12 } as const;
 const exposure = { stand: 1, crouch: .6, prone: .28 } as const;
 /** Stationary standing exposure: about .4 s at 20 m, 1.2 s at 65 m and 9 s at 250 m for assault infantry. */
 export function spottingSeconds(distance: number, referenceRange: number) {
@@ -79,14 +82,14 @@ export function createBotSpotting() {
     let contact = contacts.get(current.id);
     if (!contact) { contact = { life: current.life, confidence: 0 }; contacts.set(current.id, contact); }
     const remembered = contact.seenAt !== undefined && now - contact.seenAt <= SPOTTING.memory;
-    contact.confidence = urgent || remembered ? 1 : Math.min(1, contact.confidence + spottingGain(current, now, step));
+    contact.confidence = urgent || remembered ? 1 : Math.min(1, contact.confidence + spottingGain(current, now, step) * (current.informed ? BOT_INTEL.recognitionGain : 1));
     if (contact.confidence < 1) return undefined;
     contact.seenAt = now; contact.position = { x: current.position.x, y: current.position.y, z: current.position.z };
     return current.id;
   }
   /** Search only confirmed positions. Never return a partly spotted actor's location. */
-  function lastKnown(now: number): SpottingPoint | undefined {
-    let newest = -Infinity, point: SpottingPoint | undefined;
+  function lastKnown(now: number, since = -Infinity): SpottingPoint | undefined {
+    let newest = since, point: SpottingPoint | undefined;
     for (const contact of contacts.values()) if (contact.position && contact.seenAt !== undefined && now - contact.seenAt <= SPOTTING.memory && contact.seenAt > newest) {
       newest = contact.seenAt; point = contact.position;
     }

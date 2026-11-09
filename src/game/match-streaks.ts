@@ -38,6 +38,8 @@ interface Hooks {
 export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   const players = new Map<string, StreakProgress>(), effects: StreakEffect[] = [];
   const targeting = new Map<string, { victim: string; since: number; next: number }>();
+  // Host-only life stamps prevent an old ping identifying a respawned actor.
+  const reconLives = new Map<string, Map<string, number>>();
   let serial = 0;
   const state = (id: string) => {
     let p = players.get(id);
@@ -52,6 +54,7 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
     }
   }
   function remove(effect: StreakEffect) {
+    reconLives.delete(effect.id);
     if (effect.event) hooks.removeDrone(effect.event);
     targeting.delete(effect.id); const index = effects.indexOf(effect); if (index >= 0) effects.splice(index, 1);
   }
@@ -62,6 +65,20 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   }
   return {
     mode, state, effects, enemy, jammed,
+    /** Shared scan positions, never live coordinates. FFA intel belongs only to its caller. */
+    reconContacts(viewer: ArenaActor, now: number): (StreakContact & { at: number })[] {
+      if (!viewer.alive || jammed(viewer)) return [];
+      const actors = hooks.actors(), contacts = new Map<string, StreakContact & { at: number }>();
+      for (const effect of effects) {
+        const owner = actors.find(a => a.id === effect.owner);
+        if (effect.kind !== 'recon' || effect.health <= 0 || effect.until <= now || effect.pulse <= now || !owner || !sameSide(viewer, owner)) continue;
+        for (const contact of effect.contacts) {
+          const target = actors.find(a => a.id === contact.id);
+          if (target?.alive && enemy(viewer, target) && !hooks.protected(target) && reconLives.get(effect.id)?.get(target.id) === target.deaths) contacts.set(contact.id, { ...contact, at: effect.pulse - 3 });
+        }
+      }
+      return [...contacts.values()];
+    },
     configure(id: string, loadout: unknown) {
       if (!validStreakLoadout(loadout, mode)) return false;
       const p = state(id); if (p.charge || p.earned.length || p.ready.length) return false;
@@ -111,6 +128,7 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
         if (effect.kind === 'recon' && now >= effect.pulse) {
           effect.pulse = now + 3;
           effect.contacts = actors.filter(a => a.alive && enemy(owner, a) && !hooks.protected(a) && !effects.some(j => j.kind === 'jammer' && actors.some(other => other.id === j.owner && enemy(owner, other)) && Math.hypot(j.x - a.x, j.z - a.z) <= 20)).map(a => ({ id: a.id, x: a.x, z: a.z }));
+          reconLives.set(effect.id, new Map(effect.contacts.map(c => [c.id, actors.find(a => a.id === c.id)!.deaths])));
         }
         if (effect.kind !== 'sentry') continue;
         const candidates = actors.filter(a => a.alive && enemy(owner, a) && !hooks.protected(a) && Math.hypot(a.x - effect.x, a.z - effect.z) <= 25 && hooks.clear(effect, a)

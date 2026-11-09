@@ -13,6 +13,22 @@ function detectionTime(target: SpottingCandidate, dt = .02, flashes = false) {
 }
 
 describe('gradual visual spotting', () => {
+  it('recognizes a reported enemy faster but never identifies or remembers it through cover', () => {
+    const target = candidate({ informed: true });
+    expect(detectionTime(target)).toBeCloseTo(detectionTime(candidate()) / 2, 1);
+    const spotting = createBotSpotting();
+    for (let now = .02; now < 5; now += .02) expect(spotting.update([target], now, .02, () => false)).toBeUndefined();
+    expect(spotting.lastKnown(5)).toBeUndefined();
+    expect(spotting.update([target], 5, .02, () => true)).toBeUndefined();
+  });
+  it('lets newer recon supersede an old visual position while preserving newer sightings', () => {
+    const spotting = createBotSpotting(), target = candidate();
+    spotting.update([target], 1, .02, () => true, undefined, target.id);
+    expect(spotting.lastKnown(2, 0)).toEqual(target.position);
+    expect(spotting.lastKnown(2, 1.5)).toBeUndefined();
+    spotting.update([target], 2, .02, () => true);
+    expect(spotting.lastKnown(2, 1.5)).toEqual(target.position);
+  });
   it('takes longer as distance grows, preserving an advantage for marksmen', () => {
     const times = [20, 65, 150, 250].map(distance => detectionTime(candidate({ distance })));
     expect(times[0]).toBeGreaterThan(.3); expect(times[0]).toBeLessThan(.5);

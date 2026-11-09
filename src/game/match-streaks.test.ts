@@ -64,6 +64,39 @@ it('jamming blocks recon without removing objective or visual contact data', () 
   s.hurt(s.effects.find(e => e.kind === 'jammer')!, 100, a);
   expect(streakReconMarkers(s.snapshot(), actors, a)).toHaveLength(1);
 });
+it.each(['team-deathmatch', 'hardpoint', 'free-for-all'] as const)('serves bots only eligible sampled recon intel in %s', mode => {
+  const { system: s, a, b, ally, earn } = setup(mode);
+  ally.bot = true; a.bot = true;
+  earn('recon'); s.activate(a, 'recon', a, 0);
+  expect(s.reconContacts(a, 0)).toEqual([]);
+  s.step(0);
+  expect(s.reconContacts(b, 0)).toEqual([]);
+  expect(s.reconContacts(ally, 0).some(c => c.id === b.id)).toBe(mode !== 'free-for-all');
+  b.x = 50;
+  const ping = s.reconContacts(a, 1).find(c => c.id === b.id)!;
+  expect(ping.x).toBe(0); ping.x = 999;
+  expect(s.reconContacts(a, 1).find(c => c.id === b.id)?.x).toBe(0);
+  s.step(3); expect(s.reconContacts(a, 3).find(c => c.id === b.id)?.x).toBe(50);
+  b.alive = false; expect(s.reconContacts(a, 3).some(c => c.id === b.id)).toBe(false);
+  b.alive = true; b.deaths++;
+  expect(s.reconContacts(a, 4).some(c => c.id === b.id)).toBe(false);
+  s.step(6); expect(s.reconContacts(a, 6).some(c => c.id === b.id)).toBe(true);
+  expect(s.reconContacts(a, mode === 'free-for-all' ? 10 : 15)).toEqual([]);
+  s.hurt(s.effects[0], 100, b); expect(s.reconContacts(a, 6)).toEqual([]);
+});
+it('blocks bot recon reception in a jammer, omits jammed targets at the next scan and clears on departure/reset', () => {
+  const { system: s, a, b, ally, earn, setShield } = setup();
+  earn('recon'); earn('jammer', b); s.activate(a, 'recon', a, 0); s.step(0);
+  expect(s.reconContacts(ally, 0)).toHaveLength(1);
+  s.activate(b, 'jammer', b, 0); expect(s.reconContacts(ally, 0)).toEqual([]);
+  ally.x = 50; expect(s.reconContacts(ally, 1)).toHaveLength(1);
+  s.step(3); expect(s.reconContacts(ally, 3)).toEqual([]);
+  s.hurt(s.effects.find(e => e.kind === 'jammer')!, 100, a);
+  setShield(true); s.step(6); expect(s.reconContacts(ally, 6)).toEqual([]);
+  setShield(false); s.step(9); expect(s.reconContacts(ally, 9)).toHaveLength(1);
+  s.removePlayer(b.id); expect(s.reconContacts(ally, 9)).toEqual([]);
+  s.reset(); expect(s.reconContacts(ally, 9)).toEqual([]);
+});
 it('intercepts only enemy grenades in range and line of sight, at most three', () => {
   const { system: s, a, b, ally, earn, setClear } = setup(); earn('interceptor'); s.activate(a, 'interceptor', a, 0);
   expect(s.intercept(ally.id, a)).toBe(false); expect(s.intercept(b.id, b)).toBe(false);
