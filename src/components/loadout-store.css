@@ -84,3 +84,23 @@
 @media(max-width:1000px){.loadout-header .store-nav{flex-basis:100%}.loadout-header .armory-wallet{margin-left:0}.loadout-account{margin-left:auto}.loadout-workspace{grid-template-columns:225px minmax(0,1fr);padding:17px;gap:17px}.loadout-items>button{grid-template-columns:90px minmax(0,1fr) 16px}.loadout-terms{gap:6px}.loadout-terms>button{padding:10px;font-size:12px}.loadout-item-hero{grid-template-columns:1fr}.loadout-item-hero>img{height:170px}}
 @media(max-width:760px){.loadout-header{padding:12px;gap:8px}.loadout-header .armory-wallet>span{padding:6px}.loadout-header .armory-wallet b{font-size:13px}.loadout-header .armory-wallet small{font-size:11px}.loadout-account>summary{font-size:11px;padding:9px 6px}.loadout-steps{padding:12px;gap:8px}.loadout-workspace{grid-template-columns:1fr;padding:14px;gap:20px}.loadout-workspace.is-editing>aside{display:none}.loadout-slots{grid-template-columns:1fr 1fr}.loadout-slots>button{grid-template-columns:17px minmax(0,1fr);gap:8px;padding:10px}.loadout-slots>button>svg:last-child{display:none}.loadout-slots strong{font-size:12px}.loadout-slots small{font-size:11px}.loadout-panel{padding:16px}.loadout-item-hero{grid-template-columns:1fr;padding:13px;gap:10px}.loadout-item-hero>img{height:135px}.loadout-review-columns{grid-template-columns:1fr}.loadout-destinations{grid-template-columns:1fr}.loadout-destinations>button{padding:15px}.loadout-comparison{font-size:12px}.loadout-items strong{font-size:14px}.loadout-feedback{margin:14px 14px 0}.loadout-footer{padding:14px}.loadout-guide{margin:14px 14px 0}.loadout-field select{font-size:16px}.loadout-terms>button{font-size:12px;padding:9px 7px}.loadout-terms strong{font-size:13px}.loadout-actions>.loadout-primary{flex-basis:100%}}
 @media(max-width:360px){.loadout-header .armory-wallet{gap:4px}.loadout-header .armory-wallet>span{padding:6px 4px;gap:4px}.loadout-terms{grid-template-columns:1fr}.loadout-terms>button{grid-template-columns:1fr 1.5fr;align-items:center}.loadout-terms>button small{grid-column:2}.loadout-items>button{grid-template-columns:68px minmax(0,1fr) 12px;padding:10px;gap:10px}}
+.loadout-platforms{min-width:0}
+.loadout-platforms [role=tablist]{display:flex;gap:8px;overflow-x:auto;padding:4px 3px 10px;scroll-padding:3px}
+.loadout-platforms [role=tab]{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.loadout-platforms [role=tab][aria-selected=true]{background:var(--ls-accent);color:#1c271e;border-color:var(--ls-accent);font-weight:600}
+.loadout-platforms [aria-selected=true] small{color:#35402d}
+.loadout-comparison thead th:first-child{width:44%}
+.loadout-comparison .loadout-comparison-group th{padding-top:22px;color:var(--ls-accent);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--ls-panel)}
+.loadout-comparison small.loadout-delta{display:block;font-size:11px;margin-top:3px;color:var(--ls-soft)}
+.loadout-comparison small.better{color:#a8d8a6}
+.loadout-comparison small.worse{color:#f1b395}
+.loadout-item-hero{grid-template-columns:1fr;gap:14px}
+.loadout-item-hero .armory-preview{width:100%;height:300px;background:#12211c;border-radius:6px;overflow:hidden}
+.loadout-specifications{border-top:1px solid var(--ls-line);padding-top:20px}
+@media(max-width:760px){.loadout-item-hero .armory-preview{height:240px}.loadout-comparison th,.loadout-comparison td{padding:10px 4px}}
+.loadout-part-effect{display:block;margin:4px 0;color:var(--ls-accent)!important}
+.loadout-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.loadout-charts>.armory-curve,.loadout-charts>.armory-spray{min-width:0;margin:0}
+@media(max-width:1000px){.loadout-charts{grid-template-columns:1fr}}
+.loadout-rank{display:flex;align-items:center;gap:12px}
+.loadout-account progress{width:100%;height:6px;accent-color:var(--ls-accent)}

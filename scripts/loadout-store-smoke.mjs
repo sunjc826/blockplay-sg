@@ -13,7 +13,7 @@ async function evaluate(expression) { const r = await send('Runtime.evaluate', {
 const delay = ms => new Promise(r => setTimeout(r, ms));
 async function wait(expression, timeout = 30000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await evaluate(expression)) return; await delay(100); } throw Error(`Timed out: ${expression}`); }
 async function click(selector) { const p = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Missing or disabled '+${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();if(!r.width||!r.height)throw Error('Hidden '+${JSON.stringify(selector)});return {x:r.x+r.width/2,y:r.y+r.height/2}})()`); if (touch) { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{...p,id:1}] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); } else { await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...p, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...p, button: 'left', clickCount: 1 }); } await delay(100); }
-async function choose(selector, value) { await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`); await delay(100); }
+async function choose(selector, value) { if (selector === '[aria-label="Weapon platform"]') { await click(`[data-platform="${value}"]`); return; } await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`); await delay(100); }
 const view = name => `document.querySelector('.loadout-store')?.dataset.loadoutView===${JSON.stringify(name)}`;
 const wallet = `JSON.parse(localStorage.getItem('blockplay.armory.v1'))`;
 async function home() { if (!await evaluate(view('home'))) { await click('[data-loadout-home]'); await wait(view('home')); } }
@@ -31,7 +31,15 @@ try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable'); await send('Network.setBypassServiceWorker', { bypass: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   await seed(); await geometry('home'); await screenshot('desktop-home');
-  await slot('main'); await inspect('sar-ranger'); await screenshot('desktop-comparison');
+  await slot('main');
+  await send('Runtime.evaluate', {expression:`document.querySelector('[data-platform="0"]').focus()`});
+  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'}); await send('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight'});
+  assert(await evaluate(`document.querySelector('[data-platform="1"]').getAttribute('aria-selected')==='true'`));
+  await choose('[aria-label="Weapon platform"]','0'); await inspect('sar-ranger');
+  await wait(`!!document.querySelector('.armory-preview canvas') && !document.querySelector('.armory-preview-status')`);
+  assert(await evaluate(`!document.querySelector('.loadout-specifications').closest('details') && document.querySelector('.loadout-comparison').textContent.includes('Recoil recovery')`));
+  await screenshot('desktop-comparison');
+  console.log('PASS platform keyboard tabs, inline 3D preview and full visible specifications');
   await click('[data-choose-rental]'); await wait(view('rental')); await click('[data-rental-term="2h"]');
   const expected = await evaluate(`(async()=>{const {itemById}=await import('/src/game/armory-catalog.ts');const {weaponTermPrice}=await import('/src/game/weapon-rentals.ts');return weaponTermPrice(itemById('sar-ranger'),'2h')})()`);
   assert(await evaluate(`document.body.textContent.includes(${JSON.stringify((100000 - expected).toLocaleString() + ' credits')})`));
@@ -41,14 +49,14 @@ try {
   console.log('PASS weapon rental, exact cost and no-charge equipment changes');
   await slot('extra'); await click('.loadout-workspace .loadout-primary'); await click('[data-confirm-rental]'); await wait(view('browse'));
   assert.equal(await evaluate(`${wallet}.carry.main`), 0); assert.equal(await evaluate(`${wallet}.carry.extra`), null);
-  const extraFamily = await evaluate(`Number(document.querySelector('[aria-label="Weapon platform"]').value)`);
+  const extraFamily = await evaluate(`Number(document.querySelector('[aria-label="Weapon platform"] [aria-selected="true"]').dataset.platform)`);
   const extraItem = await evaluate(`${wallet}.guns[${extraFamily}].variant`);
   await inspect(extraItem); await click('[data-equip-item]'); await wait(`${wallet}.carry.extra===${extraFamily}`); assert.equal(await evaluate(`${wallet}.carry.main`), 0);
   await slot('extra'); await choose('[aria-label="Weapon platform"]', '0'); await inspect('sar-ranger'); assert(await evaluate(`document.querySelector('[data-equip-item]').disabled`));
   console.log('PASS explicit extra destination and duplicate-platform rejection');
   // Every gear family and both cosmetic destinations keep the same rental flow.
   for (const [name, item, expression] of [['rig','rig-lbs','rig'],['plate','plate-soft','plate'],['vision','nvg-gen1','vision'],['skin','skin-jungle','guns[0].skin'],['vehicleSkin','paint-jungle','vehicleSkins.car']]) {
-    await slot(name); if(name==='skin')await choose('.loadout-field select','0'); await inspect(item); await click('[data-choose-rental]');
+    await slot(name); if(name==='skin')await choose('[aria-label="Weapon platform"]','0'); await inspect(item); await click('[data-choose-rental]');
     await click('.loadout-checkbox input'); await click('[data-confirm-rental]'); await wait(view('detail')); assert.notEqual(await evaluate(`${wallet}.${expression}`), item);
     await click('[data-equip-item]'); await wait(`${wallet}.${expression}===${JSON.stringify(item)}`);
     await slot(name); await inspect(item); await click('[data-extend-rental]'); await click('[data-rental-term="4h"]'); await click('[data-confirm-rental]'); await wait(`${wallet}.rentals[${JSON.stringify(item)}]===5*3600000`);
@@ -71,7 +79,11 @@ try {
   for (const [name,width,height,mobile] of [['small',320,568,true],['phone',390,844,true],['landscape',844,390,true]]) {
     touch=mobile; await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile}); await send('Emulation.setTouchEmulationEnabled',{enabled:mobile,maxTouchPoints:5}); await seed();
     await geometry(name+' home'); await screenshot(name+'-home');
-    await slot('main'); await geometry(name+' list'); await inspect('sar-ranger'); await geometry(name+' detail');
+    await slot('main'); await geometry(name+' list'); await choose('[aria-label="Weapon platform"]','1'); await choose('[aria-label="Weapon platform"]','0'); await inspect('sar-ranger'); await geometry(name+' detail');
+    await wait(`!!document.querySelector('.armory-preview canvas') && !document.querySelector('.armory-preview-status')`);
+    await screenshot(name+'-inline-preview');
+    await evaluate(`document.querySelector('.loadout-comparison').scrollIntoView({block:'start'})`); await screenshot(name+'-full-comparison');
+    assert(await evaluate(`document.querySelector('.loadout-comparison').textContent.includes('Combined movement') && !document.querySelector('.loadout-specifications').closest('details')`));
     await click('[data-choose-rental]'); await geometry(name+' rental'); await screenshot(name+'-rental'); await click('[data-confirm-rental]'); await wait(view('home'));
     assert(await evaluate(`document.querySelector('.loadout-feedback').textContent.includes('rented and equipped')`));
     await click('[data-loadout-review]'); await geometry(name+' review'); await click('[data-choose-match]'); await geometry(name+' match'); await screenshot(name+'-match');

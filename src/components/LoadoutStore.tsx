@@ -1,22 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Backpack, Check, ChevronRight, Coins, Crosshair, Eye, Gem, Layers2, Package, Palette, Shield, ShoppingBag } from 'lucide-react';
 import { ARMORY_CATALOG, byUnlock, consumableLimit, isShopFamily, itemById, type ShopItem, type SupplyType } from '../game/armory-catalog';
-import { fittedVariantSpec, isSupplyCarried, resolveLoadout, type EquippedWeapon } from '../game/armory-state';
+import { fittedVariantSpec, isSupplyCarried, previewLoadout, resolveLoadout, type EquippedWeapon } from '../game/armory-state';
 import { EXTRA_SLOT_ID, SIDEARM_FAMILY, isMainWeapon, restoreCarrySlots } from '../game/armory-slots';
-import { deploymentRentals, equipLoadoutItem, itemFitsSlot, LOADOUT_SLOTS, loadoutEquipError, packedSupplyCount, slotItem, slotLabel, weaponSlot, type LoadoutSlot, type LoadoutTarget } from '../game/loadout-store';
+import { deploymentRentals, itemFitsSlot, LOADOUT_SLOTS, loadoutEquipError, packedSupplyCount, slotItem, slotLabel, weaponSlot, type LoadoutSlot, type LoadoutTarget } from '../game/loadout-store';
 import { canRentEquipment, hasItemAccess, rentalTimeLeft, WEAPON_TERMS, weaponTermPrice, weaponTermSavings, type WeaponTerm } from '../game/weapon-rentals';
-import { FPS_WEAPONS, hitDamage, opticMagnification } from '../game/fps-rules';
+import { FPS_WEAPONS } from '../game/fps-rules';
 import { equipmentMovement } from '../game/fps-encumbrance';
 import { armoryThumbnailFile } from '../game/armory-thumbnails';
-import { foodEffectLines } from '../game/food-effects';
-import { grenadeEffectLines } from '../game/grenade-catalog';
-import { THREAT_NAMES, insertTraits } from '../game/armor-inserts';
-import { visionSpec } from '../game/vision-devices';
-import { levelSkip, progression } from '../game/progression';
+import { bipodDescription } from '../game/weapon-support';
+import { FixedBuildDetails, SupplyDetails, VehicleFinishDetails, VisionDeviceDetails } from './EquipmentDossier';
+import { levelSkip, progression, skipCostFrom, xpForLevel } from '../game/progression';
+import { rankInsignia } from '../game/rank-insignia';
+import RankBadge from './RankBadge';
 import { MATCH_MODES } from '../game/match-menu';
 import type { ArmoryStore } from '../game/use-armory';
 import type { MotorVehicleKind } from '../game/vehicle-rules';
 import type { Route } from '../lib/routes';
+import { tabNavigation } from '../lib/tab-navigation';
+import LoadoutComparison from './LoadoutComparison';
 import { useScreenState } from '../lib/screen-state';
 import { prepareStoreAudio, stopStoreAudio, stopStoreHover, storeSoundEvents, storeWithAudio } from '../lib/store-audio';
 import ArmoryShop from './ArmoryShop';
@@ -41,7 +43,7 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
   const carry = restoreCarrySlots(profile.carry, profile.owned, profile.rentals);
   const [ui, setUi] = useScreenState<Selection>('loadout-store.selection', initialSelection(carry.main));
   const [term, setTerm] = useState<WeaponTerm>('1h'), [equipAfter, setEquipAfter] = useState(true), [renew, setRenew] = useState(false);
-  const [quantity, setQuantity] = useState(1), [modelOpen, setModelOpen] = useState(false), [tourStep, setTourStep] = useState(0);
+  const [quantity, setQuantity] = useState(1), [tourStep, setTourStep] = useState(0);
   const [destination, setDestination] = useState<Route>('team-deathmatch');
   const root = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), initialFocus = useRef(true), pending = useRef(false);
   const level = progression(profile.xp), skip = levelSkip(profile.xp), loadout = resolveLoadout(profile);
@@ -50,17 +52,22 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
   const equipped = item && (item.category === 'consumable' ? isSupplyCarried(profile, item.id) : current?.id === item.id && available);
   const equipError = item ? loadoutEquipError(profile, item, ui) : null;
   const expiredExtra = ui.slot === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID);
+  const rank = rankInsignia(level.level, profile.rankSet);
+  const nextUnlocks = ARMORY_CATALOG.filter(i => (i.requiredLevel ?? 0) > level.level);
+  const nextLevel = Math.min(...nextUnlocks.map(i => i.requiredLevel!));
+  const unlockNote = level.level >= 50 ? 'Maximum level reached · all equipment level requirements met.' : nextUnlocks.length ? `Level ${nextLevel} unlocks: ${nextUnlocks.filter(i => i.requiredLevel === nextLevel).map(i => i.name).join(' · ')}` : 'All equipment level requirements met.';
   const rentals = deploymentRentals(profile), shortRentals = rentals.filter(i => profile.rentals[i.id] < 15 * 60_000);
   const items = ARMORY_CATALOG.filter(i => itemFitsSlot(i, ui) && (!weaponSlot(ui.slot) || i.family === ui.family) && (ui.slot !== 'supplies' || ui.supplyType === 'all' || i.supplyType === ui.supplyType)).sort(byUnlock);
-  const go = (view: View) => { setUi(u => ({ ...u, view: view === 'browse' && u.fromCatalog ? 'catalog' : view })); setModelOpen(false); };
+  const platforms = FPS_WEAPONS.flatMap((weapon, family) => isShopFamily(family) && (ui.slot === 'skin' || isMainWeapon(family)) ? [{ weapon, family }] : []);
+  const go = (view: View) => { setUi(u => ({ ...u, view: view === 'browse' && u.fromCatalog ? 'catalog' : view })); };
   const openSlot = (slot: LoadoutSlot) => {
     const family = slot === 'main' ? carry.main : slot === 'extra' ? carry.extra ?? FPS_WEAPONS.findIndex((_, i) => isShopFamily(i) && isMainWeapon(i) && i !== carry.main) : slot === 'sidearm' ? SIDEARM_FAMILY : ui.family;
-    setUi(u => ({ ...u, slot, family, fromCatalog: false, item: '', view: slot === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID) ? 'extra' : 'browse' })); setModelOpen(false);
+    setUi(u => ({ ...u, slot, family, fromCatalog: false, item: '', view: slot === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID) ? 'extra' : 'browse' }));
   };
-  const inspect = (i: ShopItem) => { setUi(u => ({ ...u, item: i.id, view: 'detail' })); setQuantity(1); setModelOpen(false); };
+  const inspect = (i: ShopItem) => { setUi(u => ({ ...u, item: i.id, view: 'detail' })); setQuantity(1); };
   const inspectCatalog = (i: ShopItem, family: number, vehicle: MotorVehicleKind) => {
     const slot: LoadoutSlot = i.category === 'weapon' ? i.family === SIDEARM_FAMILY ? 'sidearm' : i.family === carry.extra ? 'extra' : 'main' : i.category === 'consumable' ? 'supplies' : i.category as LoadoutSlot;
-    setUi({ ...ui, fromCatalog: true, view: 'detail', item: i.id, slot, family: i.family ?? family, vehicle }); setQuantity(1); setModelOpen(false);
+    setUi({ ...ui, fromCatalog: true, view: 'detail', item: i.id, slot, family: i.family ?? family, vehicle }); setQuantity(1);
   };
   const rental = (extend = false, extra = false) => { setTerm('1h'); setRenew(extend); setEquipAfter(!extend); setUi(u => ({ ...u, view: 'rental', ...(extra ? { item: EXTRA_SLOT_ID, slot: 'extra', fromCatalog: false } : {}) })); };
   // Block repeated confirmation events until the updated wallet and destination render.
@@ -129,23 +136,22 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
   else if (ui.view === 'browse') content = <section className="loadout-stack">{title(`Choose ${slotLabel(ui.slot).toLowerCase()}`)}
     {expiredExtra ? <div className="loadout-notice"><p>Your extra slot rental has expired. Your main weapon remains equipped.</p><button onClick={() => go('extra')}>Rent extra slot</button></div> : <>
       <p>{ui.slot === 'supplies' ? 'Pack owned stock or buy more. Only packed supplies enter the field; they are spent when used.' : `Currently equipped: ${current?.name ?? 'Empty'}. Select an item to compare.`}</p>
-      {(weaponSlot(ui.slot) && ui.slot !== 'sidearm' || ui.slot === 'skin') && <label className="loadout-field">Weapon platform<select aria-label="Weapon platform" value={ui.family} onChange={e => setUi(u => ({ ...u, family: Number(e.target.value) }))}>{FPS_WEAPONS.map((w, family) => isShopFamily(family) && (ui.slot === 'skin' || isMainWeapon(family)) && <option value={family} key={w.id}>{w.name}{(ui.slot === 'extra' ? carry.main : carry.extra) === family ? ' · In other main slot' : ''}</option>)}</select></label>}
+      {(weaponSlot(ui.slot) && ui.slot !== 'sidearm' || ui.slot === 'skin') && <div className="loadout-platforms"><span className="loadout-eyebrow">Weapon platform</span><div role="tablist" aria-label="Weapon platform" onKeyDown={event => tabNavigation(event, index => setUi(u => ({ ...u, family: platforms[index].family })))}>{platforms.map(({ weapon, family }) => <button type="button" role="tab" id={`loadout-platform-${family}`} aria-controls="loadout-platform-items" data-platform={family} aria-selected={ui.family === family} tabIndex={ui.family === family ? 0 : -1} key={weapon.id} onClick={() => setUi(u => ({ ...u, family }))}>{weapon.name}{(ui.slot === 'extra' ? carry.main : carry.extra) === family && <small>In other main slot</small>}</button>)}</div></div>}
       {ui.slot === 'vehicleSkin' && <label className="loadout-field">Vehicle<select value={ui.vehicle} onChange={e => setUi(u => ({ ...u, vehicle: e.target.value as MotorVehicleKind }))}><option value="car">Utility 01 · 4×4</option><option value="helicopter">Falcon 01 · Helicopter</option></select></label>}
       {ui.slot === 'supplies' && <label className="loadout-field">Supply type<select value={ui.supplyType} onChange={e => setUi(u => ({ ...u, supplyType: e.target.value as Selection['supplyType'] }))}>{supplyTypes.map(([id, name]) => <option value={id} key={id}>{name}</option>)}</select></label>}
       {ui.slot === 'extra' && <div className="loadout-actions"><button data-store-outcome onClick={() => transact(() => store.selectCarrySlot('extra', null), 'home')}>Leave extra slot empty</button><button onClick={() => rental(true, true)}>Extend extra slot · {rentalTimeLeft(profile.rentals[EXTRA_SLOT_ID])}</button></div>}
-      <div className="loadout-items">{items.map(i => <button type="button" data-item={i.id} key={i.id} onClick={() => inspect(i)}><img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(i, i.family ?? ui.family, ui.vehicle)}`} alt="" width={480} height={240} loading="lazy" /><span><small>{i.category === 'consumable' ? `${profile.consumables[i.id] ?? 0} in stock${isSupplyCarried(profile, i.id) ? ' · Packed' : ''}` : current?.id === i.id ? 'Equipped' : hasItemAccess(profile, i.id) ? profile.rentals[i.id] ? `Rented · ${rentalTimeLeft(profile.rentals[i.id])}` : 'Issued · Available' : (i.requiredLevel ?? 1) > level.level ? `Level ${i.requiredLevel} required` : `${i.tier} · Available to rent`}</small><strong>{i.name}</strong><small>{i.category === 'consumable' ? `${priceLabel(i, i.price)} each` : canRentEquipment(i) ? `From ${priceLabel(i, weaponTermPrice(i, '1h'))} / gameplay hour` : 'Free · Always available'}</small></span><ChevronRight size={17} /></button>)}</div>
+      <div className="loadout-items" id="loadout-platform-items" role={weaponSlot(ui.slot) && ui.slot !== 'sidearm' || ui.slot === 'skin' ? 'tabpanel' : undefined} aria-labelledby={weaponSlot(ui.slot) && ui.slot !== 'sidearm' || ui.slot === 'skin' ? `loadout-platform-${ui.family}` : undefined}>{items.map(i => <button type="button" data-item={i.id} key={i.id} onClick={() => inspect(i)}><img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(i, i.family ?? ui.family, ui.vehicle)}`} alt="" width={480} height={240} loading="lazy" /><span><small>{i.category === 'consumable' ? `${profile.consumables[i.id] ?? 0} in stock${isSupplyCarried(profile, i.id) ? ' · Packed' : ''}` : current?.id === i.id ? 'Equipped' : hasItemAccess(profile, i.id) ? profile.rentals[i.id] ? `Rented · ${rentalTimeLeft(profile.rentals[i.id])}` : 'Issued · Available' : (i.requiredLevel ?? 1) > level.level ? `Level ${i.requiredLevel} required` : `${i.tier} · Available to rent`}</small><strong>{i.name}</strong><small>{i.category === 'consumable' ? `${priceLabel(i, i.price)} each` : canRentEquipment(i) ? `From ${priceLabel(i, weaponTermPrice(i, '1h'))} / gameplay hour` : 'Free · Always available'}</small></span><ChevronRight size={17} /></button>)}</div>
     </>}
   </section>;
   else if (ui.view === 'detail' && item) {
     const supply = item.category === 'consumable', held = profile.consumables[item.id] ?? 0, full = held >= consumableLimit(item), locked = !available && level.level < (item.requiredLevel ?? 1);
     content = <section className="loadout-stack">{title(item.name, 'browse')}
-      <div className="loadout-item-hero"><img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(item, item.family ?? ui.family, ui.vehicle)}`} alt={item.name} width={480} height={240} /><div><span className="loadout-eyebrow">{supply ? `${held} in stock · ${isSupplyCarried(profile, item.id) ? 'Packed' : 'In locker'}` : equipped ? 'Equipped' : available ? profile.rentals[item.id] ? `Rented · ${rentalTimeLeft(profile.rentals[item.id])}` : 'Issued · Always available' : locked ? `Level ${item.requiredLevel} required` : 'Available to rent'}</span><p>{item.description}</p></div></div>
+      <div className="loadout-item-hero"><ArmoryPreview item={item} weapon={dossierWeapon(item, profile, ui.family)} vehicle={ui.vehicle} /><div><span className="loadout-eyebrow">{supply ? `${held} in stock · ${isSupplyCarried(profile, item.id) ? 'Packed' : 'In locker'}` : equipped ? 'Equipped' : available ? profile.rentals[item.id] ? `Rented · ${rentalTimeLeft(profile.rentals[item.id])}` : 'Issued · Always available' : locked ? `Level ${item.requiredLevel} required` : 'Available to rent'}</span><p>{item.description}</p></div></div>
       {!supply && <div className="loadout-notice"><strong>{equipped ? 'Already in your loadout' : `Equip in ${slotLabel(ui.slot).toLowerCase()}`}</strong><p>{equipped ? `${current?.name} is ready for your next deployment.` : `Replaces ${current?.name ?? 'the empty slot'}. Previously rented gear stays in your locker.`}</p>{item.category === 'weapon' && item.family !== SIDEARM_FAMILY && hasItemAccess(profile, EXTRA_SLOT_ID) && <label className="loadout-field">Destination<select aria-label="Equip destination" value={ui.slot} onChange={e => setUi(u => ({ ...u, slot: e.target.value as 'main' | 'extra' }))}><option value="main">Main weapon</option><option value="extra">Extra main</option></select></label>}</div>}
-      <LoadoutComparison item={item} current={current} />
       {supply ? <div className="loadout-panel loadout-stack"><h3>Supply belt</h3><p>{held} in stock · Maximum {consumableLimit(item)} · {priceLabel(item, item.price)} each</p><button type="button" data-store-outcome data-pack-supply disabled={!held} aria-pressed={isSupplyCarried(profile, item.id)} onClick={() => transact(() => store.bringSupply(item.id, !isSupplyCarried(profile, item.id)))}>{isSupplyCarried(profile, item.id) ? 'Packed · Leave in locker' : 'Pack owned stock'}</button><div className="loadout-actions"><label className="loadout-field">Quantity to buy<select aria-label="Supply quantity" value={Math.min(quantity, Math.max(1, consumableLimit(item) - held))} disabled={full} onChange={e => setQuantity(Number(e.target.value))}>{Array.from({ length: Math.max(1, consumableLimit(item) - held) }, (_, n) => <option key={n} value={n + 1}>{n + 1}</option>)}</select></label><button type="button" data-store-outcome data-buy-supply className="loadout-primary" disabled={locked || full || held + quantity > consumableLimit(item) || item.price * quantity > profile[item.currency]} onClick={confirmSupply}>{full ? 'Stock full' : locked ? `Unlocks at level ${item.requiredLevel}` : `Buy & pack ${quantity} · ${priceLabel(item, item.price * quantity)}`}</button></div>{item.price * quantity > profile[item.currency] && <p className="loadout-warning">Need {priceLabel(item, item.price * quantity - profile[item.currency])} more.</p>}<small>Buying packs all stock of this supply type. Leaving it in your locker keeps your stock and removes its field weight.</small></div>
-      : locked ? <div className="loadout-notice"><p>Reach level {item.requiredLevel} to rent this item. You are level {level.level}. The item still costs its rental price after unlocking.</p><button onClick={() => go('browse')}>Choose available gear</button></div>
+      : locked ? <div className="loadout-notice"><p>Reach level {item.requiredLevel} to rent this item. You are level {level.level}. {Math.max(0, xpForLevel(item.requiredLevel ?? 1) - profile.xp).toLocaleString()} XP to unlock, or {skipCostFrom(profile.xp, item.requiredLevel ?? 1).toLocaleString()} tokens of levels. The rental price is separate.</p><button onClick={() => go('browse')}>Choose available gear</button></div>
       : <div className="loadout-stack">{equipError && <div className="loadout-notice loadout-warning">{equipError}{expiredExtra && <button onClick={() => go('extra')}>Rent extra slot</button>}</div>}<div className="loadout-actions">{available ? <button data-store-outcome data-equip-item className="loadout-primary" disabled={!!equipped || !!equipError} onClick={confirmEquip}>{equipped ? <><Check size={17} /> Equipped</> : 'Equip now'}</button> : <button className="loadout-primary" data-choose-rental onClick={() => rental()}>Choose rental duration <ArrowRight size={17} /></button>}{profile.rentals[item.id] > 0 && <button data-extend-rental onClick={() => rental(true)}>Extend rental</button>}</div>{profile.rentals[item.id] > 0 && <details><summary>Manage rental</summary><DiscardRental key={item.id} name={item.name} remainingMs={profile.rentals[item.id]} onDiscard={() => store.discardWeaponRental(item.id)} /></details>}</div>}
-      <details onToggle={e => setModelOpen(e.currentTarget.open)}><summary>Inspect 3D model</summary>{modelOpen && <ArmoryPreview item={item} weapon={dossierWeapon(item, profile, ui.family)} vehicle={ui.vehicle} />}</details>
+      <LoadoutComparison item={item} profile={profile} target={ui} />
       <LoadoutSpecifications item={item} profile={profile} target={ui} />
     </section>;
   } else if (ui.view === 'rental' && item) {
@@ -170,7 +176,7 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
     ['Pack, review and play', 'Pack owned supplies or buy more. Review your carried gear, then continue to your match setup.'],
   ];
   return <section ref={root} className="armory loadout-store" data-loadout-view={ui.view} aria-label="Loadout and store" {...storeSoundEvents}>
-    <header className="loadout-header">{nav}<div className="armory-wallet"><span><Coins size={16} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>credits</small></span><span className="premium"><Gem size={16} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>tokens</small></span></div><details className="loadout-account"><summary>Level {level.level} · Account</summary><div className="loadout-panel loadout-stack"><h3>Rank & demo wallet</h3><p>{level.xp.toLocaleString()} XP{level.level < 50 ? ` / ${level.next.toLocaleString()} XP` : ' · Maximum level reached'}</p>{!skip.atMax && <button data-store-outcome disabled={profile.tokens < skip.price} onClick={store.buyLevel}>Skip to level {skip.next} · {skip.price} tokens</button>}<button data-store-outcome onClick={store.demoCreditTopUp}>+1,000 demo credits</button><button data-store-outcome onClick={store.demoTopUp}>+250 demo tokens</button><small>Demo wallet · No real payments</small></div></details></header>
+    <header className="loadout-header">{nav}<div className="armory-wallet"><span><Coins size={16} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>credits</small></span><span className="premium"><Gem size={16} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>tokens</small></span></div><details className="loadout-account"><summary>Level {level.level} · Account</summary><div className="loadout-panel loadout-stack"><h3>Rank & demo wallet</h3><div className="loadout-rank"><RankBadge insignia={rank} size={36} /><strong>{rank.label}</strong></div><p>{level.xp.toLocaleString()} XP{level.level < 50 ? ` / ${level.next.toLocaleString()} XP` : ' · Maximum level reached'}</p><progress value={level.progress} max={1} aria-label={level.level >= 50 ? 'Maximum level reached' : 'Progress to next level'} /><p>{unlockNote}</p>{!skip.atMax && <button data-store-outcome disabled={profile.tokens < skip.price} onClick={store.buyLevel}>Skip to level {skip.next} · {skip.price} tokens</button>}<button data-store-outcome onClick={store.demoCreditTopUp}>+1,000 demo credits</button><button data-store-outcome onClick={store.demoTopUp}>+250 demo tokens</button><small>Demo wallet · No real payments</small></div></details></header>
     <nav className="loadout-steps" aria-label="Preparation progress"><span aria-current={!['review', 'match'].includes(ui.view) ? 'step' : undefined}>1 · Choose & equip</span><ChevronRight size={14} /><span aria-current={ui.view === 'review' ? 'step' : undefined}>2 · Review loadout</span><ChevronRight size={14} /><span aria-current={ui.view === 'match' ? 'step' : undefined}>3 · Choose match</span></nav>
     {tutorial && <section className="loadout-guide loadout-panel" aria-label="Store tour"><div><span className="loadout-eyebrow">Store tour · {tourStep + 1} / {tourStops.length}</span><h2>{tourStops[tourStep][0]}</h2><p>{tourStops[tourStep][1]}</p></div><div className="loadout-actions"><button onClick={tutorial.onExit}>Close tour</button><button disabled={tourStep === 0} onClick={() => setTourStep(n => n - 1)}>Back</button><button className="loadout-primary" onClick={() => tourStep === tourStops.length - 1 ? tutorial.onComplete() : setTourStep(n => n + 1)}>{tourStep === tourStops.length - 1 ? 'Finish tour' : 'Next'}</button></div></section>}
     {store.saveError && <div className="loadout-feedback loadout-warning" role="alert">Browser storage is unavailable. Purchases and equipment changes last for this session only.</div>}
@@ -180,18 +186,8 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
   </section>;
 }
 
-function LoadoutComparison({ item, current }: { item: ShopItem; current?: ShopItem }) {
-  const weapon = fittedVariantSpec(item), equipped = current && fittedVariantSpec(current);
-  const rows: [string, number | string | undefined, number | string][] = weapon ? [
-    ['Damage / hit', equipped?.damage, weapon.damage], ['Magazine', equipped?.capacity, weapon.capacity], ['Reload', equipped ? `${equipped.reload.toFixed(2)} s` : undefined, `${weapon.reload.toFixed(2)} s`], ['Weight', equipped ? `${equipped.weightKg ?? 0} kg` : undefined, `${weapon.weightKg ?? 0} kg`],
-  ] : item.category === 'plate' ? [['Armor points', current?.protection ?? 0, item.protection ?? 0], ['Rated for', current ? THREAT_NAMES[insertTraits(current).stops] : 'None', THREAT_NAMES[insertTraits(item).stops]], ['Weight', `${current?.weightKg ?? 0} kg`, `${item.weightKg ?? 0} kg`]]
-    : item.category === 'rig' ? [['Magazine pouches', current ? 6 + Math.ceil((current.carry ?? 0) / 30) : undefined, 6 + Math.ceil((item.carry ?? 0) / 30)], ['Weight', `${current?.weightKg ?? 0} kg`, `${item.weightKg ?? 0} kg`]]
-    : item.category === 'vision' ? [['Device', current?.name ?? 'None', item.name], ['Weight', `${current?.weightKg ?? 0} kg`, `${item.weightKg ?? 0} kg`]] : [];
-  if (!rows.length) return null;
-  return <table className="loadout-comparison"><caption>Compared with your equipped {current?.name ?? 'empty slot'}</caption><thead><tr><th>Specification</th><th>Current</th><th>Preview</th></tr></thead><tbody>{rows.map(([name, before, after]) => <tr key={name}><th scope="row">{name}</th><td>{before ?? '—'}</td><td>{after}</td></tr>)}</tbody></table>;
-}
-
 function dossierWeapon(item: ShopItem, profile: ArmoryStore['profile'], family: number): EquippedWeapon {
+  if (item.category === 'skin') return previewLoadout(profile, item, family).weapons[family];
   const spec = fittedVariantSpec(item);
   return spec ? { ...spec, traits: spec.traits ?? [], name: item.name, equipment: { ...profile.guns[item.family!], variant: item.id }, accent: item.accent } : resolveLoadout(profile).weapons[family];
 }
@@ -199,20 +195,14 @@ function dossierWeapon(item: ShopItem, profile: ArmoryStore['profile'], family: 
 function LoadoutSpecifications({ item, profile, target }: { item: ShopItem; profile: ArmoryStore['profile']; target: LoadoutTarget }) {
   const current = resolveLoadout(profile), worn = slotItem(profile, target);
   const weapon = item.category === 'weapon' ? dossierWeapon(item, profile, item.family!) : null;
-  const equipped = worn?.category === 'weapon' ? current.weapons[worn.family!] : current.weapons[target.family];
-  const preview = equipLoadoutItem({ ...profile, owned: [...profile.owned, item.id] }, item.id, target).profile;
-  const previewLoadout = resolveLoadout(preview), movement = equipmentMovement(previewLoadout, item.family ?? profile.carry.main);
-  const spec = visionSpec(item.id);
-  return <details className="loadout-specifications"><summary>Full specifications & equipment details</summary><div className="loadout-stack">
+  const equipped = worn?.category === 'weapon' ? current.weapons[worn.family!] : weapon;
+  return <section className="loadout-specifications" aria-label="Specifications and equipment details"><h3>Specifications & equipment details</h3><div className="loadout-stack">
     {item.flavorText && <p>“{item.flavorText}”</p>}
-    {weapon && <><FalloffCurve weapon={weapon} equipped={equipped ?? current.weapons[target.family]} /><SprayPattern weapon={weapon} equipped={equipped ?? current.weapons[target.family]} /><p>{(60 / weapon.interval).toFixed(0)} RPM · {weapon.caliberMm.toFixed(2)} mm · {hitDamage(weapon, 60)} damage at 60 m · {opticMagnification(weapon).toFixed(2)}× sight</p><p>Fixed weapon configuration. Choose another variant to change its fittings.</p></>}
-    {item.build?.map(part => <div key={part.id}><strong>{part.name}</strong><p>{part.description}</p></div>)}
-    {item.fitted?.map(part => <div key={part.slot}><strong>{part.name} · {part.slot}</strong><p>{part.description}</p></div>)}
-    {item.grenade && <ul>{grenadeEffectLines(item.grenade).map(line => <li key={line}>{line}</li>)}</ul>}
-    {item.foodEffects && <ul>{foodEffectLines(item.foodEffects).map(line => <li key={line}>{line}</li>)}</ul>}
-    {item.effect && <p>{[item.effect.health && `${item.effect.health} health`, item.effect.armor && `${item.effect.armor} armor points`, item.effect.reserve && '2 compatible magazines', item.effect.ammoRefill && 'Full weapon and empty rig pouches'].filter(Boolean).join(' · ')}</p>}
-    {spec && <p>{spec.kind.toUpperCase()} · {spec.warmup.toFixed(1)} s warm-up · N to switch on{spec.palettes.length > 1 ? ' · J to cycle palettes' : ''}. {spec.kind === 'thermal' ? 'Sees heat through smoke, but not glass.' : 'Uses available light; walls and smoke still hide people.'}</p>}
-    {item.category !== 'consumable' && item.category !== 'skin' && item.category !== 'vehicleSkin' && !loadoutEquipError(profile, item, target) && <p>With this equipped: {movement.totalKg.toFixed(1)} kg total carried · {(movement.movement * 100).toFixed(0)}% combined movement speed. Gear left in the locker adds no weight.</p>}
-    {(item.category === 'skin' || item.category === 'vehicleSkin') && <p>Cosmetic finish only. Performance stays unchanged.</p>}
-  </div></details>;
+    {weapon && <><div className="loadout-charts"><FalloffCurve weapon={weapon} equipped={equipped ?? weapon} /><SprayPattern weapon={weapon} equipped={equipped ?? weapon} /></div>{weapon.bipod && <p data-testid="bipod-policy">{bipodDescription(weapon.bipod)}</p>}</>}
+    <FixedBuildDetails item={item} />
+    {item.category === 'consumable' && <SupplyDetails item={item} />}
+    {item.category === 'vision' && <VisionDeviceDetails item={item} />}
+    {item.category === 'vehicleSkin' && <VehicleFinishDetails vehicle={target.vehicle} />}
+    {item.category === 'skin' && <p>Cosmetic finish only. Performance stays unchanged.</p>}
+  </div></section>;
 }
