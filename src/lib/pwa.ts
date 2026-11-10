@@ -87,6 +87,9 @@ export function createPwaStore(host: PwaHost) {
     setUpdateChecker(check: () => Promise<void>) {
       checkUpdate = check;
     },
+    dismissUpdateCheck() {
+      if (state.updateCheck !== 'checking') set({ updateCheck: 'idle' });
+    },
     async checkForUpdates() {
       if (state.updateCheck === 'checking' || state.updateReady) return;
       if (!checkUpdate) { set({ updateCheck: 'unavailable' }); return; }

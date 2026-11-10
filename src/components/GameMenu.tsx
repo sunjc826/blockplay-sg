@@ -370,11 +370,33 @@ function InstallCard({ install, onHide, sounds }: { install: PwaState; onHide: (
 /** Matches the logo's slide in game-menu.css. */
 const TITLE_LEAVE_MS = 900;
 
+function UpdateFeedback({ status, trigger }: { status: PwaState['updateCheck']; trigger: React.RefObject<HTMLButtonElement | null> }) {
+  const popup = useRef<HTMLSpanElement>(null);
+  const [fading, setFading] = useState(false);
+  const dismiss = () => {
+    if (popup.current?.contains(document.activeElement)) trigger.current?.focus();
+    pwa.dismissUpdateCheck();
+  };
+  useEffect(() => {
+    setFading(false);
+    if (status !== 'current') return;
+    const fade = setTimeout(() => setFading(true), 4000);
+    const hide = setTimeout(dismiss, 4250);
+    return () => { clearTimeout(fade); clearTimeout(hide); };
+  }, [status, trigger]);
+  const message = status === 'current' ? 'You’re up to date.' : status === 'error' ? 'Couldn’t check for updates. Check your connection and try again.' : status === 'unavailable' ? 'Update checks are unavailable right now. Try again shortly.' : '';
+  return <span ref={popup} className={`game-update-feedback${fading ? ' is-fading' : ''}`}>
+    <span role="status">{message}</span>
+    {message && <button type="button" className="game-update-dismiss" aria-label="Dismiss update status" onClick={dismiss}><X size={16} aria-hidden="true" /></button>}
+  </span>;
+}
+
 function MainMenu({ profile, install }: { profile: React.ReactNode; install: PwaState }) {
   const nextGen = useMenuDesign() === 'next-gen';
   const entries = nextGen ? NEXT_GEN_ENTRIES : ENTRIES;
   const [installExpanded, setInstallExpanded] = useState(false);
   const installButton = useRef<HTMLButtonElement>(null);
+  const updateButton = useRef<HTMLButtonElement>(null);
   const [installHidden, hideInstall] = useInstallCard();
   const installable = install.canInstall || install.manualInstall || install.openInApp;
   const items = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -522,12 +544,10 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       {!nextGen && <span className="game-menu-hint"><kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> select</span>}
       <span className="game-menu-edition">
         <span className="game-update-control">
-          <button type="button" className={`game-install game-update-check${nextGen ? ' next-gen-install' : ''}`} disabled={install.updateCheck === 'checking'} onPointerEnter={hover} onFocus={focus} onClick={() => {
+          <button ref={updateButton} type="button" className={`game-install game-update-check${nextGen ? ' next-gen-install' : ''}`} disabled={install.updateCheck === 'checking'} onPointerEnter={hover} onFocus={focus} onClick={() => {
             playMenuSound('click'); void pwa.checkForUpdates();
           }}><RefreshCw size={13} aria-hidden="true" />{install.updateCheck === 'checking' ? 'Checking…' : 'Check for updates'}</button>
-          <span className="game-update-feedback" role="status">
-            {install.updateCheck === 'current' ? 'You’re up to date.' : install.updateCheck === 'error' ? 'Couldn’t check for updates. Check your connection and try again.' : install.updateCheck === 'unavailable' ? 'Update checks are unavailable right now. Try again shortly.' : ''}
-          </span>
+          <UpdateFeedback status={install.updateCheck} trigger={updateButton} />
         </span>
         {nextGen && installable ? <button ref={installButton} className="game-install next-gen-install" aria-expanded={install.canInstall ? undefined : installExpanded} onPointerEnter={hover} onFocus={focus} onClick={() => {
           playMenuSound('click');

@@ -106,7 +106,13 @@
 .game-update-check { min-height:44px; white-space:nowrap; cursor:pointer; }
 .game-update-check:disabled { opacity:.65; cursor:wait; }
 .game-update-check:focus-visible { outline:2px solid var(--menu-gold); outline-offset:3px; }
-.game-update-feedback:not(:empty) { position:absolute; z-index:5; bottom:calc(100% + 8px); right:0; width:240px; max-width:calc(100vw - 40px); padding:12px; border:1px solid var(--menu-line); border-radius:5px; color:var(--menu-ink); background:#111d17; font-size:12px; line-height:1.5; box-shadow:0 6px 24px #0006; }
+.game-update-feedback:has(button) { position:absolute; z-index:5; bottom:calc(100% + 8px); right:0; display:flex; align-items:center; gap:8px; width:240px; max-width:calc(100vw - 40px); padding:8px 8px 8px 12px; border:1px solid var(--menu-line); border-radius:5px; color:var(--menu-ink); background:#111d17; font-size:12px; line-height:1.5; box-shadow:0 6px 24px #0006; opacity:1; transition:opacity .25s ease; }
+.game-update-feedback.is-fading { opacity:0; pointer-events:none; }
+.game-update-feedback > [role=status] { flex:1; }
+.game-update-dismiss { display:grid; place-items:center; flex-shrink:0; width:32px; height:32px; padding:0; border:0; border-radius:4px; color:var(--menu-dim); background:transparent; cursor:pointer; }
+.game-update-dismiss:hover { color:var(--menu-ink); background:#ffffff12; }
+.game-update-dismiss:focus-visible { outline:2px solid var(--menu-gold); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) { .game-update-feedback:has(button) { transition:none; } }
 
 /* Title screen: a gesture for the browser to allow sound. The menu waits behind it and enters as the logo slides home. */
 .game-title { position:absolute; inset:0; z-index:2; display:block; width:100%; padding:0; border:0; border-radius:0; background:transparent; color:var(--menu-ink); cursor:pointer; outline:none; -webkit-tap-highlight-color:transparent; }
