@@ -42,7 +42,14 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
     const key = new THREE.DirectionalLight('#fff1d9', 3.8); key.position.set(2, 3, 4); scene.add(key);
     const rim = new THREE.DirectionalLight('#88c4e0', 2); rim.position.set(-2, 1, -2); scene.add(rim);
     const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = .65; controls.maxDistance = 3.8;
-    const resize = () => { renderer.setSize(Math.max(1, node.clientWidth), Math.max(1, node.clientHeight)); camera.aspect = node.clientWidth / Math.max(1, node.clientHeight); camera.updateProjectionMatrix(); };
+    const fitCarrier = () => {
+      if (!item.reserveCarrier || !model) return;
+      const radius = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).length() / 2;
+      const halfFov = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.min(1, camera.aspect));
+      const distance = radius / Math.sin(halfFov) * 1.05;
+      camera.position.normalize().multiplyScalar(distance); controls.maxDistance = Math.max(3.8, distance * 2);
+    };
+    const resize = () => { renderer.setSize(Math.max(1, node.clientWidth), Math.max(1, node.clientHeight)); camera.aspect = node.clientWidth / Math.max(1, node.clientHeight); camera.updateProjectionMatrix(); fitCarrier(); };
     const observer = new ResizeObserver(resize); observer.observe(node); resize();
     const mount = (root: THREE.Object3D) => {
       if (disposed) { disposeModel(root); return; }
@@ -54,7 +61,7 @@ export default function ArmoryPreview({ item, weapon, vehicle = 'car' }: { item:
       const armor = item.category === 'rig' || item.category === 'plate';
       if (item.category === 'vehicleSkin') { const scale = vehicle === 'car' ? .22 : .10; root.scale.setScalar(scale); root.position.multiplyScalar(scale); }
       // Supplies are looked down on, as they would be set out on a table.
-      camera.position.set(food || kit ? .22 : armor ? .68 : .92, food || kit ? .5 : armor ? .3 : .30, food || kit ? .62 : armor ? 1.3 : .34); if (!armor && item.category !== 'vehicleSkin') { const size = bounds.getSize(new THREE.Vector3()).length(); camera.position.multiplyScalar(Math.max(.45, size / .85)); controls.minDistance = Math.max(.25, size * .6); } controls.target.set(0, 0, 0); controls.update(); setStatus('');
+      camera.position.set(food || kit ? .22 : armor ? .68 : .92, food || kit ? .5 : armor ? .3 : .30, food || kit ? .62 : armor ? 1.3 : .34); if (!armor && item.category !== 'vehicleSkin') { const size = bounds.getSize(new THREE.Vector3()).length(); camera.position.multiplyScalar(Math.max(.45, size / .85)); controls.minDistance = Math.max(.25, size * .6); } fitCarrier(); controls.target.set(0, 0, 0); controls.update(); setStatus('');
     };
     if (item.category === 'vehicleSkin') mount(buildVehicleModel(vehicle, item.id));
     else if (item.category === 'rig' || item.category === 'plate') mount(armorModel(item));
