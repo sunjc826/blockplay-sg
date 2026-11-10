@@ -1,5 +1,4 @@
 import { requestLeave } from '../lib/navigation-guard';
-import ArmoryInventory from './ArmoryInventory';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Play, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
@@ -301,22 +300,19 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     return <SettingsStoreContext.Provider value={armory}><PlaySession key={screen} mode={screen} initial={screen === 'training' ? training : worldStart} armory={armory} suspended={install.updateReady} onChoose={screen === 'training' ? setTraining : setWorldStart} /></SettingsStoreContext.Provider>;
   }
 
-  if (screen === 'store') {
-    // The store's own header row carries the way back, so the screen has no bar.
+  if (screen === 'store' || screen === 'inventory') {
+    // Both equipment routes keep one mounted shell, selection and wallet.
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <LoadoutStore store={armory} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Store">
-          <ReturnLink />
-          <h1>Store</h1>
-          <a className="game-back" {...link('inventory')}>Inventory</a>
-          <button className="store-tour-trigger" aria-label="Tour store" aria-pressed={storeTour} onClick={() => setStoreTour(true)}>Tour</button>
+        <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Loadout">
+          <a className="game-back" {...link('menu')}><ArrowLeft size={15} /> Main menu</a>
+          <h1>Loadout</h1>
+          <button className="store-tour-trigger" aria-label="Tour store" aria-pressed={storeTour} onClick={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}>Tour</button>
           <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
         </nav>} />
       </DebugMode.Provider></main>
     </div>;
   }
-
-  if (screen === 'inventory') return <div {...plainScreenSounds} className="game-screen game-screen-inventory"><main className="game-screen-body"><ArmoryInventory store={armory} nav={<nav className="store-nav" aria-label="Inventory"><ReturnLink /><h1>Inventory</h1><a className="game-back" {...link('store')}><ShoppingBag size={16} /> Store</a></nav>} /></main></div>;
 
   if (screen === 'settings') {
     return <div {...plainScreenSounds} className="game-screen game-screen-settings">

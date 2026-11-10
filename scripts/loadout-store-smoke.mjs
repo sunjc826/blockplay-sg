@@ -65,8 +65,8 @@ try {
   await slot('supplies'); await inspect('kit-bandage'); await choose('[aria-label="Supply quantity"]','2'); await click('[data-buy-supply]'); await wait(`${wallet}.consumables['kit-bandage']===2`);
   await click('[data-pack-supply]'); assert(await evaluate(`${wallet}.stowedSupplies.includes('kit-bandage')`));
   await click('[data-buy-supply]'); await wait(`${wallet}.consumables['kit-bandage']===3`); assert(!await evaluate(`${wallet}.stowedSupplies.includes('kit-bandage')`));
-  await click('.store-nav a[href="/inventory"]'); await wait(`!!document.querySelector('.inventory')`); await click('#inventory-tab-supply'); assert(await evaluate(`document.querySelector('[data-inventory-item="kit-bandage"]').textContent.includes('3 held')`));
-  await click('.inventory-header a[href="/store"]'); await wait(`!!document.querySelector('.loadout-store')`); await home();
+  await click('#equipment-tab-inventory'); await wait(`document.querySelector('.loadout-store')?.dataset.equipmentMode==='inventory'`); assert(await evaluate(`document.querySelector('.loadout-content').textContent.includes('3 in stock') && !!document.querySelector('[data-pack-supply]')`));
+  await click('#equipment-tab-store'); await wait(`!!document.querySelector('.loadout-store')`); await home();
   await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`); await click('#shop-tab-weapon'); await inspect('sar-ranger');
   assert(await evaluate(`!!document.querySelector('[data-extend-rental]')`)); await click('[data-loadout-back]'); await wait(`!!document.querySelector('.catalog-only')`); await inspect('sar-ranger'); await home();
   console.log('PASS stock/packs shared with Inventory and traditional catalog returns to shared details');

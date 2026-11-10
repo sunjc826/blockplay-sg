@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { isEquipmentRoute } from './equipment-navigation';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { hasNavigationGuard, requestLeave } from './navigation-guard';
 
 /**
@@ -130,7 +131,10 @@ export function useRoute(): Route {
     listeners.add(update); window.addEventListener('popstate', history);
     return () => { listeners.delete(update); window.removeEventListener('popstate', history); };
   }, []);
+  const displayedRoute = useRef(route);
   useLayoutEffect(() => {
+    const previous = displayedRoute.current; displayedRoute.current = route;
+    if (previous !== route && isEquipmentRoute(previous) && isEquipmentRoute(route)) return;
     const snapshot = views.get(route);
     const frame = requestAnimationFrame(() => {
       // Game screens own their start/pause focus. Never focus their canvas automatically.

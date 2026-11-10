@@ -69,7 +69,7 @@ describe('transitionTo', () => {
     transitionTo('settings');
     location.pathname = '/store';
     shiftAfterHistory('inventory');
-    expect(state()).toBe('entering-back');
+    expect(state()).toBeUndefined();
     vi.runAllTimers();
     expect(location.pathname).toBe('/store');
     expect(state()).toBeUndefined();

@@ -77,7 +77,7 @@ function Stat({ label, value, current, unit = '', lower = false, digits = 0 }: {
 /** A way out of the store into play: a mode and where it starts. */
 export type Deployment = { id: string; label: string; detail: string; onDeploy: () => void };
 
-export default function ArmoryShop({ store: sourceStore, nav, deployments, onEnterRange, rangeLabel = 'Marina FPS', tutorial, onInspectItem }: { onInspectItem?: (item: ShopItem, family: number, vehicle: MotorVehicleKind) => void; tutorial?: { onComplete: () => void; onExit: () => void }; store: ArmoryStore; nav?: ReactNode; deployments?: readonly Deployment[]; onEnterRange?: () => void; rangeLabel?: string }) {
+export default function ArmoryShop({ store: sourceStore, nav, deployments, onEnterRange, rangeLabel = 'Marina FPS', tutorial, onInspectItem, onBrowseContext }: { onBrowseContext?: (item: ShopItem, family: number, vehicle: MotorVehicleKind) => void; onInspectItem?: (item: ShopItem, family: number, vehicle: MotorVehicleKind) => void; tutorial?: { onComplete: () => void; onExit: () => void }; store: ArmoryStore; nav?: ReactNode; deployments?: readonly Deployment[]; onEnterRange?: () => void; rangeLabel?: string }) {
   const store = storeWithAudio(sourceStore);
   const stateKey = nav ? 'store' : 'debug-store';
   useEffect(() => {
@@ -112,6 +112,8 @@ export default function ArmoryShop({ store: sourceStore, nav, deployments, onEnt
   // Weapons are shelved by when they unlock, then by rarity; the other tabs keep the catalog's order.
   if (category === 'weapon') items.sort(byUnlock);
   const item = items.find(i => i.id === selectedId) || items[0];
+  // Keep the shared equipment view on the same category/platform when switching tabs.
+  useEffect(() => { onBrowseContext?.(item, family, vehicle); }, [category, family, vehicle]);
   const current = resolveLoadout(profile), preview = previewLoadout(profile, item, family), weapon = preview.weapons[family], equippedWeapon = current.weapons[family];
   // Supplies stack rather than unlocking, so they are held by count and the
   // purchase stays available until the carry limit.
@@ -140,7 +142,7 @@ export default function ArmoryShop({ store: sourceStore, nav, deployments, onEnt
     : { disabled: equipped || locked || (!owned && !affordable), run: () => owned ? store.equipItem(item.id, family, vehicle) : buyItem(), label: equipped ? <><Check size={15} /> Equipped</> : owned ? <>Equip {vehiclePaint ? (vehicle === 'car' ? 'on Utility 01' : 'on Falcon 01') : armor ? 'armor' : vision ? 'device' : `on ${FPS_WEAPONS[family].name}`} <ArrowRight size={15} /></> : locked ? `Unlocks at level ${item.requiredLevel}` : !affordable ? short : <>{buyLabel} <ArrowRight size={15} /></> };
   const packed = isSupplyCarried(profile, item.id);
   const quickSlot = { disabled: !held, run: () => store.bringSupply(item.id, !packed), label: packed ? 'Bringing along · Unequip' : held ? 'In locker · Bring along' : 'Buy one to carry it' };
-  return <><section ref={shopRef} className={`armory shop${onInspectItem ? ' catalog-only' : ''}${!onInspectItem && (inspecting || tutorial) ? ' is-inspecting' : ''}${tutorial ? ' is-touring' : ''}`} aria-label="Equipment shop" {...storeSoundEvents}>
+  return <><section ref={shopRef} className={`armory shop${onInspectItem ? ' catalog-only' : ''}${!onInspectItem && (inspecting || tutorial) ? ' is-inspecting' : ''}${tutorial ? ' is-touring' : ''}`} aria-label="Equipment shop" {...(onBrowseContext ? {} : storeSoundEvents)}>
     {/* One row: the way out, your level and your wallet. Profile settings
         (insignia, Encik) live on their own screen (ArmorySettings). */}
     <div className="armory-sticky">

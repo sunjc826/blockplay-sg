@@ -36,7 +36,7 @@ const results=[];
 try {
  await send('Runtime.enable');await send('Network.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
- await wait(`!!document.querySelector('.inventory')`);
+ await wait(`!!document.querySelector('[data-equipment-mode=inventory]')`);
  // A legacy save contains a permanent rifle, unrelated owned gear, supplies and an old calendar rental.
  await evaluate(`(()=>{const p=${wallet};delete p.rentalClock;p.xp=50000;p.credits=50000;p.tokens=3000;p.owned=[...new Set([...p.owned,'sar-vanguard','skin-gold','plate-ceramic'])];p.guns[0].variant='sar-vanguard';p.guns[0].skin='skin-gold';p.plate='plate-ceramic';p.consumables={'kit-bandage':2};p.rentals={'sar-ranger':Date.now()+600000};localStorage.setItem('blockplay.menu.training','queenstown');localStorage.setItem('blockplay.armory.v1',JSON.stringify(p));location.reload()})()`);
  await wait(`${wallet}.rentalClock==='playtime' && !!document.querySelector('[data-inventory-item="sar-ranger"]')`);
@@ -45,18 +45,18 @@ try {
  assert(!migrated.owned.includes('skin-gold'));assert.equal(migrated.rentals['skin-gold'],3600000);assert.equal(migrated.rentals['plate-ceramic'],3600000);
  assert.equal(migrated.credits,50000);assert.equal(migrated.tokens,3000);assert.equal(migrated.plate,'plate-ceramic');
  assert(migrated.rentals['sar-ranger']>590000&&migrated.rentals['sar-ranger']<=600000);
- const held=migrated.rentals['sar-ranger'];await delay(1800);await send('Page.reload');await wait(`!!document.querySelector('.inventory')`);
+ const held=migrated.rentals['sar-ranger'];await delay(1800);await evaluate('window.__inventoryReload=true');await send('Page.reload');await wait(`!window.__inventoryReload && !!document.querySelector('[data-equipment-mode=inventory]')`);
  assert.equal(await evaluate(`${wallet}.rentals['sar-ranger']`),held);
  results.push('Legacy permanent weapons cleared; active rental migrates once; balances, gear and supplies retained');
  results.push('Inventory and reload time do not spend rentals');
- await click(`document.querySelector('#inventory-tab-gear')`);assert(await evaluate(`!!document.querySelector('[data-inventory-item="skin-gold"]')`));
- await click(`document.querySelector('#inventory-tab-supply')`);assert(await evaluate(`document.querySelector('[data-inventory-item="kit-bandage"]').textContent.includes('2 held')`));
- await click(`document.querySelector('#inventory-tab-weapon')`);await click(`document.querySelector('[data-inventory-item="sar-ranger"] button')`);
+ await slot('skin');assert(await evaluate(`!!document.querySelector('[data-inventory-item="skin-gold"]')`));
+ await slot('supplies');assert(await evaluate(`document.querySelector('[data-inventory-item="kit-bandage"]').textContent.includes('2 in stock')`));
+ await slot('main');await inspect('sar-ranger');await click(`document.querySelector('[data-equip-item]')`);
  await wait(`${wallet}.guns[0].variant==='sar-ranger'`);await screenshot('inventory-desktop');
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});useTouch=true;await delay(500);
  assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));await screenshot('inventory-mobile');
- results.push('Inventory weapons/gear/supplies tabs, equip action and 390px layout pass');
- await click(`document.querySelector('.inventory-header a[href="/store"]')`);await wait(`!!document.querySelector('.loadout-store')`);
+ results.push('Shared Inventory slots, equipment details, equip action and 390px layout pass');
+ await click(`document.querySelector('#equipment-tab-store')`);await wait(`document.querySelector('.loadout-store')?.dataset.equipmentMode==='store'`);
  await slot('main');await inspect('sar-vanguard');await chooseRental();
  const term=id=>`document.querySelector('[data-rental-term="${id}"]')`;
  assert.equal(await evaluate(`!!document.querySelector('[data-rental-term="permanent"]')`),false);
@@ -65,8 +65,10 @@ try {
  assert(await evaluate(`${term('4h')}.textContent.includes('77 tokens') && ${term('4h')}.textContent.includes('Save 19 tokens')`));
  await click(term('2h'));await click(`document.querySelector('.loadout-checkbox input')`);await click(action);await wait(`!!${wallet}.rentals['sar-vanguard']`);
  assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),2*3600000);assert.equal(await evaluate(`${wallet}.tokens`),2956);
+ await click(`document.querySelector('#equipment-tab-inventory')`);await wait(`document.querySelector('.loadout-store')?.dataset.equipmentMode==='inventory'`);
  await chooseRental(true);await click(term('4h'));await click(action);await wait(`${wallet}.tokens===2879`);
  assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),6*3600000);
+ await click(`document.querySelector('#equipment-tab-store')`);await wait(`document.querySelector('.loadout-store')?.dataset.equipmentMode==='store'`);
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});useTouch=false;await screenshot('bulk-hour-rentals');
  const discard=`document.querySelector('[data-discard-rental]')`,confirm=`document.querySelector('[data-discard-confirm]')`;
  await showDiscard();await click(discard);assert.equal(await evaluate(`${wallet}.rentals['sar-vanguard']`),6*3600000);
@@ -75,16 +77,15 @@ try {
  await click(discard);await click(confirm);await wait(`!${wallet}.rentals['sar-vanguard']`);
  assert.equal(await evaluate(`${wallet}.tokens`),2879);assert.equal(await evaluate(`${wallet}.guns[0].variant`),'sar-ranger');
  await chooseRental();await click(action);await wait(`${wallet}.guns[0].variant==='sar-vanguard'`);
- await click(`document.querySelector('.store-nav a[href="/inventory"]')`);await wait(`!!document.querySelector('[data-inventory-item="sar-vanguard"]')`);
- const card=`document.querySelector('[data-inventory-item="sar-vanguard"]')`;
- await click(`${card}.querySelector('[data-discard-rental]')`);
- await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});useTouch=true;await evaluate(`document.querySelector('[data-inventory-item="sar-vanguard"] .rental-discard').scrollIntoView({block:'center'})`);await delay(500);await screenshot('discard-rental-mobile');
- await click(`${card}.querySelector('[data-discard-confirm]')`);await wait(`!${wallet}.rentals['sar-vanguard']`);
+ await click(`document.querySelector('#equipment-tab-inventory')`);await wait(`document.querySelector('.loadout-store')?.dataset.equipmentMode==='inventory'`);
+ await slot('main');await inspect('sar-vanguard');await showDiscard();await click(discard);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});useTouch=true;await evaluate(`document.querySelector('.rental-discard').scrollIntoView({block:'center'})`);await delay(500);await screenshot('discard-rental-mobile');
+ await click(confirm);await wait(`!${wallet}.rentals['sar-vanguard']`);
  assert.equal(await evaluate(`${wallet}.tokens`),2855);assert.equal(await evaluate(`${wallet}.guns[0].variant`),'sar-issued');
- assert.equal(await evaluate(`!!document.querySelector('[data-inventory-item="sar-issued"] [data-discard-rental]')`),false);
+ await slot('main');await inspect('sar-issued');assert.equal(await evaluate(`!!document.querySelector('[data-discard-rental]')`),false);
  results.push('1/2/4-hour terms, exact rounded savings, extensions, discard/cancel/no refunds and equipped issued fallback pass');
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});useTouch=false;
- await click(`document.querySelector('.inventory-header a[href="/store"]')`);await wait(`!!document.querySelector('.loadout-store')`);
+ await click(`document.querySelector('#equipment-tab-store')`);await wait(`!!document.querySelector('.loadout-store')`);
  for (const [category,item,selection] of [['rig','rig-lbs','rig'],['plate','plate-soft','plate'],['vision','nvg-gen1','vision'],['skin','skin-jungle','skin'],['vehicleSkin','paint-jungle','paint']]) {
    await slot(category);await inspect(item);await chooseRental();await click(term('2h'));await click(action);await wait(`${wallet}.rentals['${item}']===7200000`);
    const selected=selection==='skin'?`${wallet}.guns[0].skin`:selection==='paint'?`${wallet}.vehicleSkins.car`:`${wallet}.${selection}`;

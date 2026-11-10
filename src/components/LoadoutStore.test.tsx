@@ -46,3 +46,26 @@ it('shows supply effects and use instructions directly on the page', () => {
   expect(html).toContain('Hold F to choose recovery items');
   expect(html).toContain('data-buy-supply');
 });
+it('keeps the unowned Store selection in Inventory with a contextual return action', () => {
+  const html = renderToStaticMarkup(<LoadoutStore store={store} mode="inventory" onModeChange={vi.fn()} nav={<span>Loadout</span>} onPlay={vi.fn()} />);
+  expect(html).toContain('You don’t have this item');
+  expect(html).toContain('data-view-in-store'); expect(html).not.toContain('data-confirm-rental');
+  expect(html).toContain('id="equipment-tab-inventory" role="tab" aria-selected="true"');
+});
+it('filters Inventory to accessible equipment while Store retains the full listing', () => {
+  screen.view = 'browse';
+  const html = renderToStaticMarkup(<LoadoutStore store={store} mode="inventory" nav={<span>Loadout</span>} onPlay={vi.fn()} />);
+  expect(html).toContain('data-item="sar-issued"'); expect(html).not.toContain('data-item="sar-vanguard"');
+  expect(render()).toContain('data-item="sar-vanguard"');
+});
+it('uses the full shared details and renewal controls for rented Inventory equipment', () => {
+  const rented = { ...store, profile: { ...store.profile, rentals: { 'sar-vanguard': 3600000 } } };
+  const html = renderToStaticMarkup(<LoadoutStore store={rented} mode="inventory" nav={<span>Loadout</span>} onPlay={vi.fn()} />);
+  expect(html).toContain('data-extend-rental'); expect(html).toContain('Recoil recovery'); expect(html).toContain('data-discard-rental');
+});
+it('offers packing owned Inventory supplies and a contextual Store shortcut', () => {
+  Object.assign(screen, { slot: 'supplies', item: 'kit-bandage' });
+  const held = { ...store, profile: { ...store.profile, consumables: { 'kit-bandage': 2 } } };
+  const html = renderToStaticMarkup(<LoadoutStore store={held} mode="inventory" nav={<span>Loadout</span>} onPlay={vi.fn()} />);
+  expect(html).toContain('data-pack-supply'); expect(html).toContain('Buy more in Store'); expect(html).not.toContain('data-buy-supply');
+});

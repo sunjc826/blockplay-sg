@@ -1,3 +1,4 @@
+import { isEquipmentRoute } from './equipment-navigation';
 import { requestLeave } from './navigation-guard';
 import { useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
@@ -70,6 +71,7 @@ export function returnToParent(route: Route) {
 export function shiftAfterHistory(from: Route) {
   if (reducedMotion()) return;
   const route = routeFromPath(window.location.pathname);
+  if (isEquipmentRoute(from) && isEquipmentRoute(route)) { set(null); return; }
   if (route === 'debug' || route === from) return;
   const id = ++serial;
   set({ id, phase: 'entering', direction: directionBetween(from, route) });
