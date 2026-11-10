@@ -119,7 +119,6 @@
 .next-gen-main .game-menu-top { position:absolute; z-index:3; top:var(--home-top); left:var(--home-edge); right:var(--home-edge); padding:0; pointer-events:none; }
 .next-gen-main .game-menu-top .next-gen-account { pointer-events:auto; }
 .next-gen-account { display:flex; align-items:center; gap:12px; min-width:0; }
-.next-gen-main .game-profile { background:#111719e6; border-radius:2px; backdrop-filter:blur(12px); }
 .next-gen-settings { display:grid; place-items:center; flex:none; width:44px; height:44px; border:1px solid #ffffff26; border-radius:2px; color:#d5dbd6; background:#111719e6; backdrop-filter:blur(12px); transition:color .2s,border-color .2s; }
 .next-gen-settings:is(:hover,:focus-visible) { color:#f4ad61; border-color:#f4ad61; }
 .next-gen-settings:focus-visible { outline:2px solid #f4ad61; outline-offset:3px; }
@@ -194,10 +193,6 @@
   .game-menu.next-gen-main { --home-gap:8px; --home-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --home-top:max(12px,env(safe-area-inset-top)); --home-bottom:max(12px,env(safe-area-inset-bottom)); }
   .next-gen-main .game-menu-top { gap:8px; }
   .next-gen-account { gap:8px; }
-  .next-gen-main .game-profile { padding:5px 7px; }
-  .next-gen-main .game-profile .game-rank, .next-gen-main .game-profile .game-wallet, .next-gen-main .game-profile .game-rank-copy strong, .next-gen-main .game-profile-xp { display:none; }
-  .next-gen-main .game-profile .game-rank-copy { display:block; }
-  .next-gen-main .game-profile .game-rank-copy small { font-size:11px; }
   .next-gen-main .game-menu-list { display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,1fr) minmax(154px,.65fr); }
   .next-gen-equipment { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:minmax(0,1fr); }
   .next-gen-main .game-menu-item, .next-gen-main .game-menu-item.is-tile { padding:18px; gap:8px; }

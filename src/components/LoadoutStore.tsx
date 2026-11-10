@@ -1,6 +1,7 @@
+import ProfileBanner from './ProfileBanner';
 import { MenuButton, MenuSelect, MenuItemCard, MenuTabs } from './MenuControls';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Backpack, Check, ChevronRight, Coins, Crosshair, Eye, Gem, Layers2, Package, Palette, Shield, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Backpack, Check, ChevronRight, Crosshair, Eye, Layers2, Package, Palette, Shield, ShoppingBag } from 'lucide-react';
 import { ARMORY_CATALOG, byUnlock, consumableLimit, isShopFamily, itemById, type ShopItem } from '../game/armory-catalog';
 import { fittedVariantSpec, isSupplyCarried, previewLoadout, resolveLoadout, type EquippedWeapon } from '../game/armory-state';
 import { EXTRA_SLOT_ID, SIDEARM_FAMILY, isMainWeapon, restoreCarrySlots } from '../game/armory-slots';
@@ -11,9 +12,7 @@ import { equipmentMovement } from '../game/fps-encumbrance';
 import { armoryThumbnailFile } from '../game/armory-thumbnails';
 import { bipodDescription } from '../game/weapon-support';
 import { FixedBuildDetails, SupplyDetails, VehicleFinishDetails, VisionDeviceDetails } from './EquipmentDossier';
-import { levelSkip, progression, skipCostFrom, xpForLevel } from '../game/progression';
-import { rankInsignia } from '../game/rank-insignia';
-import RankBadge from './RankBadge';
+import { progression, skipCostFrom, xpForLevel } from '../game/progression';
 import { StoreMessage, StoreMoney, TierLabel } from './StoreLabels';
 import { MATCH_MODES } from '../game/match-menu';
 import type { ArmoryStore } from '../game/use-armory';
@@ -48,16 +47,12 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
   const inventory = mode === 'inventory';
   const [destination, setDestination] = useState<Route>('team-deathmatch');
   const root = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), initialFocus = useRef(true), pending = useRef(false);
-  const level = progression(profile.xp), skip = levelSkip(profile.xp), loadout = resolveLoadout(profile);
+  const level = progression(profile.xp), loadout = resolveLoadout(profile);
   const item = itemById(ui.item), current = slotItem(profile, ui), packed = packedSupplyCount(profile);
   const available = item && (item.category === 'consumable' ? (profile.consumables[item.id] ?? 0) > 0 : hasItemAccess(profile, item.id));
   const equipped = item && (item.category === 'consumable' ? isSupplyCarried(profile, item.id) : current?.id === item.id && available);
   const equipError = item ? loadoutEquipError(profile, item, ui) : null;
   const expiredExtra = ui.slot === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID);
-  const rank = rankInsignia(level.level, profile.rankSet);
-  const nextUnlocks = ARMORY_CATALOG.filter(i => (i.requiredLevel ?? 0) > level.level);
-  const nextLevel = Math.min(...nextUnlocks.map(i => i.requiredLevel!));
-  const unlockNote = level.level >= 50 ? 'Maximum level reached · all equipment level requirements met.' : nextUnlocks.length ? `Level ${nextLevel} unlocks: ${nextUnlocks.filter(i => i.requiredLevel === nextLevel).map(i => i.name).join(' · ')}` : 'All equipment level requirements met.';
   const rentals = deploymentRentals(profile), shortRentals = rentals.filter(i => profile.rentals[i.id] < 15 * 60_000);
   const allItems = ARMORY_CATALOG.filter(i => itemFitsSlot(i, ui) && (!weaponSlot(ui.slot) || i.family === ui.family) && (ui.slot !== 'supplies' || ui.supplyType === 'all' || i.supplyType === ui.supplyType)).sort(byUnlock);
   const items = inventory ? allItems.filter(i => i.category === 'consumable' ? (profile.consumables[i.id] ?? 0) > 0 : hasItemAccess(profile, i.id)) : allItems;
@@ -211,7 +206,7 @@ export default function LoadoutStore({ store: sourceStore, nav, onPlay, tutorial
     ['Pack, review and play', 'Pack owned supplies or buy more. Review your carried gear, then continue to your match setup.'],
   ];
   return <section ref={root} className="armory loadout-store" data-equipment-mode={mode} data-loadout-view={ui.view} aria-label="Loadout equipment" {...storeSoundEvents}>
-    <div className="equipment-shell-nav"><header className="loadout-header">{nav}<div className="armory-wallet"><span className="store-currency currency-credits"><Coins size={16} /><b data-testid="credits">{profile.credits.toLocaleString()}</b><small>credits</small></span><span className="premium store-currency currency-tokens"><Gem size={16} /><b data-testid="tokens">{profile.tokens.toLocaleString()}</b><small>tokens</small></span></div><details className="loadout-account"><summary><span className="equipment-account-full">Level {level.level} · Account</span><span className="equipment-account-short">Lv {level.level}</span></summary><div className="loadout-panel loadout-stack"><h3>Rank & demo wallet</h3><div className="loadout-rank"><RankBadge insignia={rank} size={36} /><strong>{rank.label}</strong></div><p>{level.xp.toLocaleString()} XP{level.level < 50 ? ` / ${level.next.toLocaleString()} XP` : ' · Maximum level reached'}</p><progress value={level.progress} max={1} aria-label={level.level >= 50 ? 'Maximum level reached' : 'Progress to next level'} /><p>{unlockNote}</p>{!skip.atMax && <MenuButton data-store-outcome disabled={profile.tokens < skip.price} onClick={store.buyLevel}>Skip to level {skip.next} · <StoreMoney amount={skip.price} currency="tokens" /></MenuButton>}<MenuButton data-store-outcome onClick={store.demoCreditTopUp}><span className="store-currency currency-credits">+1,000 demo credits</span></MenuButton><MenuButton data-store-outcome onClick={store.demoTopUp}><span className="store-currency currency-tokens">+250 demo tokens</span></MenuButton><small>Demo wallet · No real payments</small></div></details></header>
+    <div className="equipment-shell-nav"><header className="loadout-header">{nav}<ProfileBanner store={sourceStore} /></header>
     {onModeChange && <div className="equipment-view-bar"><MenuTabs aria-label="Equipment views" onKeyDown={event => tabNavigation(event, index => changeMode(index === 0 ? 'store' : 'inventory'))}>{(['store', 'inventory'] as const).map(view => <a key={view} id={`equipment-tab-${view}`} role="tab" aria-selected={mode === view} aria-controls="equipment-view-content" tabIndex={mode === view ? 0 : -1} href={`/${view}`} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (view !== mode) changeMode(view); }}>{view === 'store' ? <ShoppingBag size={17} /> : <Backpack size={17} />}{view === 'store' ? 'Store' : 'Inventory'}</a>)}</MenuTabs><MenuButton data-loadout-review onClick={() => go('review')}><span>Review<span className="equipment-review-full"> loadout</span></span> <ArrowRight size={16} /></MenuButton></div>}</div>
     <nav className="loadout-steps" aria-label="Preparation progress"><span aria-current={!['review', 'match'].includes(ui.view) ? 'step' : undefined}>1 · Choose & equip</span><ChevronRight size={14} /><span aria-current={ui.view === 'review' ? 'step' : undefined}>2 · Review loadout</span><ChevronRight size={14} /><span aria-current={ui.view === 'match' ? 'step' : undefined}>3 · Choose match</span></nav>
     {tutorial && <section className="loadout-guide loadout-panel" aria-label="Store tour"><div><span className="loadout-eyebrow">Store tour · {tourStep + 1} / {tourStops.length}</span><h2>{tourStops[tourStep][0]}</h2><p>{tourStops[tourStep][1]}</p></div><div className="loadout-actions"><MenuButton onClick={tutorial.onExit}>Close tour</MenuButton><MenuButton disabled={tourStep === 0} onClick={() => setTourStep(n => n - 1)}>Back</MenuButton><MenuButton variant="primary" className="loadout-primary" onClick={() => tourStep === tourStops.length - 1 ? tutorial.onComplete() : setTourStep(n => n + 1)}>{tourStep === tourStops.length - 1 ? 'Finish tour' : 'Next'}</MenuButton></div></section>}

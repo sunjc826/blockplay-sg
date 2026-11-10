@@ -1,0 +1,60 @@
+.profile-banner {
+  display:flex; align-items:center; flex:none; min-width:0; max-width:100%;
+  border:1px solid #52634c99; border-radius:6px; background:#14211ded;
+  color:#e9eddf; font-family:var(--ui-font); white-space:nowrap;
+  position:relative; backdrop-filter:blur(10px);
+}
+.profile-banner .profile-banner-rank {
+  display:flex; align-items:center; gap:8px; min-height:44px; min-width:0;
+  padding:6px 10px; margin:0; border:0; border-radius:5px 0 0 5px;
+  background:transparent; color:inherit; font:inherit; list-style:none;
+}
+.profile-banner .profile-banner-rank::-webkit-details-marker { display:none; }
+.profile-banner .game-rank { display:grid; place-items:center; flex:none; }
+.profile-banner .game-rank-copy { min-width:0; }
+.profile-banner .game-rank-copy strong { display:block; max-width:180px; overflow:hidden; text-overflow:ellipsis; font-size:12px; font-weight:600; line-height:1.4; }
+.profile-banner .game-rank-copy small { display:block; margin:0; color:#b1bfb0; font:11px/1.4 var(--ui-font); }
+.profile-banner .game-wallet { display:flex; align-items:center; gap:5px; flex:none; padding:0 10px; border-left:1px solid #52634c99; }
+.profile-banner .game-wallet b { color:inherit; font:600 13px/1.4 var(--ui-font); font-variant-numeric:tabular-nums; }
+.profile-banner .game-wallet small { display:inline; margin:0; color:inherit; font:600 11px/1.4 var(--ui-font); }
+.profile-banner-credits { color:#b9d6c4; }
+.profile-banner-tokens { color:#e3c07b; }
+.profile-banner-compact { display:none; }
+.profile-banner .profile-banner-account { position:static; margin:0; min-width:0; }
+.profile-banner-account > summary { cursor:pointer; }
+.profile-banner-account > summary:hover { background:#ffffff0a; }
+.profile-banner-account[open] .profile-banner-chevron { transform:rotate(180deg); }
+.loadout-header > .profile-banner { margin-left:auto; }
+.profile-banner .profile-banner-panel {
+  position:absolute; right:0; top:calc(100% + 8px); z-index:30;
+  width:min(360px,calc(100vw - 32px)); max-height:min(70dvh,calc(100dvh - 160px));
+  display:grid; gap:12px; padding:16px; overflow:auto; overscroll-behavior:contain;
+  border:1px solid var(--ui-border); border-radius:8px; background:var(--ui-surface);
+  box-shadow:0 16px 32px #0008; color:var(--ui-ink); white-space:normal;
+  text-align:left; font:14px/1.5 var(--ui-font);
+}
+.profile-banner .profile-banner-panel h2 { margin:0; font:600 18px/1.4 var(--ui-font); }
+.profile-banner .profile-banner-panel p { margin:0; color:var(--ui-muted); font-size:13px; overflow-wrap:anywhere; }
+.profile-banner .profile-banner-panel small { color:var(--ui-muted); font-size:12px; }
+.profile-banner-rank-detail { display:flex; align-items:center; gap:12px; }
+.profile-banner-panel progress { width:100%; height:6px; accent-color:var(--ui-action); }
+.profile-banner-panel .ui-button { width:100%; justify-content:flex-start; white-space:normal; }
+.game-menu-top:has(.profile-banner-account[open]) { z-index:10; }
+
+@media (max-width:720px) {
+  .profile-banner { width:100%; }
+  .profile-banner > .profile-banner-rank, .profile-banner > .profile-banner-account { flex:1; }
+  .profile-banner .game-rank-copy strong, .profile-banner .game-profile-xp, .profile-banner-full { display:none; }
+  .profile-banner-compact { display:inline; }
+  .profile-banner .game-wallet { gap:4px; padding:0 8px; }
+  .profile-banner .profile-banner-rank { gap:6px; padding:6px 8px; }
+  .game-menu-top { flex-wrap:wrap; }
+  .game-screen-bar > .profile-banner { flex-basis:100%; }
+  .next-gen-main .game-menu-top { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+  .next-gen-main .next-gen-account { display:contents; }
+  .next-gen-main .profile-banner { grid-column:1/-1; grid-row:2; pointer-events:auto; }
+  .next-gen-main .next-gen-settings { grid-column:2; grid-row:1; }
+  /* The account row replaces the first panel's decorative index on phones. */
+  .next-gen-main .next-gen-home-panels > .game-menu-item:first-child .next-gen-index,
+  .next-gen-main .next-gen-home-panels > .game-menu-item:first-child > svg { display:none; }
+}

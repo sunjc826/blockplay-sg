@@ -282,7 +282,7 @@ try {
     await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`);
     await click('#shop-tab-weapon');
     assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `${name}: no horizontal overflow`);
-    const geometry = await evaluate(`(()=>{const nav=document.querySelector('.store-nav').getBoundingClientRect(),wallet=document.querySelector('.armory-wallet').getBoundingClientRect();return {nav:[nav.x,nav.y,nav.width,nav.height],wallet:[wallet.x,wallet.y,wallet.width,wallet.height],clear:nav.right<=wallet.left||wallet.right<=nav.left||nav.bottom<=wallet.top||wallet.bottom<=nav.top}})()`);
+    const geometry = await evaluate(`(()=>{const nav=document.querySelector('.store-nav').getBoundingClientRect(),wallet=document.querySelector('.profile-banner').getBoundingClientRect();return {nav:[nav.x,nav.y,nav.width,nav.height],wallet:[wallet.x,wallet.y,wallet.width,wallet.height],clear:nav.right<=wallet.left||wallet.right<=nav.left||nav.bottom<=wallet.top||wallet.bottom<=nav.top}})()`);
     assert(geometry.clear, `${name}: header groups do not overlap ${JSON.stringify(geometry)}`);
     await shot(`${name}-store`);
     await evaluate(`window.scrollTo(0,document.documentElement.scrollHeight)`); await delay(250);

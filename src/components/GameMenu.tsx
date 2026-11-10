@@ -1,20 +1,18 @@
 import { requestLeave } from '../lib/navigation-guard';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { AppWindow, Backpack, ArrowLeft, ChevronRight, Coins, Crosshair, Download, Gem, GraduationCap, LogOut, Map as MapIcon, MapPin, Play, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
+import { AppWindow, Backpack, ArrowLeft, ChevronRight, Crosshair, Download, GraduationCap, LogOut, Map as MapIcon, MapPin, Play, Settings, Share, ShoppingBag, SquarePlus, Users, Wrench, X } from 'lucide-react';
 import MatchGame from './MatchGame';
 import FpsGame from './FpsGame';
 import ExpeditionGame from './ExpeditionGame';
 import LoadoutStore from './LoadoutStore';
 import ArmorySettings from './ArmorySettings';
 import { SettingsStoreContext } from './SettingsOverlay';
-import RankBadge from './RankBadge';
+import ProfileBanner from './ProfileBanner';
 import PlayLoading, { Skyline } from './PlayLoading';
 import StartingPointPicker from './StartingPointPicker';
 import { useArmory } from '../game/use-armory';
 import { hasRegionGame } from '../game/region-selection';
-import { progression } from '../game/progression';
-import { rankInsignia } from '../game/rank-insignia';
 import { REGIONS } from '../game/regions';
 import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
 import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
@@ -36,7 +34,7 @@ type Screen = Exclude<Route, 'debug' | 'faction-designs'>;
 const SOUNDING_CONTROL = 'button:not(:disabled), a[href]';
 /** The menu's sounds on screens with no sounds of their own: any control, by delegation, so new ones need no wiring. */
 const plainScreenSounds = {
-  onClickCapture: (event: ReactMouseEvent) => { if ((event.target as Element).closest?.(SOUNDING_CONTROL)) playMenuSound('click'); },
+  onClickCapture: (event: ReactMouseEvent) => { if ((event.target as Element).closest?.(SOUNDING_CONTROL) && !(event.target as Element).closest?.('[data-store-outcome]')) playMenuSound('click'); },
   onPointerOver: (event: ReactPointerEvent) => { const button = (event.target as Element).closest?.(SOUNDING_CONTROL); if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget as Node | null)) playMenuSound('hover'); },
 };
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
@@ -256,7 +254,6 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   }, [screen]);
   const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
   const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
-  const level = progression(armory.profile.xp), insignia = rankInsignia(level.level, armory.profile.rankSet);
   // Play screens set their own cues below; their effects run first, so this only speaks for the rest.
   useEffect(() => {
     if (hasMenuTheme(screen)) setMusicCue('menu');
@@ -265,12 +262,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   }, [screen]);
   useEffect(() => () => setMusicCue(null), []);
 
-  const profile = <div className="game-profile" aria-label="Your profile">
-    <span className="game-rank" style={{ color: insignia.accent }}><RankBadge insignia={insignia} size={30} /></span>
-    <span className="game-rank-copy"><strong>{insignia.label}</strong><small>LV {level.level}<span className="game-profile-xp"> · {level.xp.toLocaleString()} XP</span></small></span>
-    <span className="game-wallet" title="Credits"><Coins size={14} /><b>{armory.profile.credits.toLocaleString()}</b><small>CR</small></span>
-    <span className="game-wallet" title="Tokens"><Gem size={14} /><b>{armory.profile.tokens.toLocaleString()}</b><small>TK</small></span>
-  </div>;
+  const profile = <ProfileBanner store={armory} />;
 
   if (screen === 'tutorial') return <SettingsStoreContext.Provider value={armory}>
     <div className="game-screen game-screen-play"><main className="game-screen-body">
