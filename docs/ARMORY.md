@@ -33,7 +33,7 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 | 30 | Durian · Mao Shan Wang inserts (Legendary) |
 | 32 | CIS 50MG Merlion Roar |
 | 34 | Heavy · Pillbox inserts (Legendary) |
-| 36 | CIS 50MG Bukit Timah, Atlas rig (Mythic) |
+| 36 | CIS 50MG Bukit Timah, Maid rig (Mythic) |
 
 Ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old two-platform saves gain the three free baseline classes without changing balances or existing selections. Unknown IDs are sanitized and retired attachments are discarded without refunds. Clearing browser site data resets the profile.
 
@@ -868,7 +868,7 @@ the one GPMG that takes it on: the same rule, for the reach it buys.
 
 Spare ammunition is a physical magazine inventory, bounded by the worn rig:
 ILBV has six positions, Enhanced LBS eight, Sentinel nine, Pathfinder ten,
-Expedition eleven and Atlas twelve. The issued rifle and
+Expedition eleven and Maid twelve. The issued rifle and
 pistol start with four rifle magazines and two pistol magazines, plus the loaded
 magazine in each gun. A single drum/belt main starts with three spare containers;
 rig upgrades add positions. A second main divides the main's allocation rather
@@ -1049,7 +1049,7 @@ The rig slot supplies reserve capacity; the insert slot supplies armor points an
 | Sentinel | Elite / 4 | 9 | 1.5 kg | None | 18 TK |
 | Pathfinder | Ultra / 10 | 10 | 1.4 kg | None | 26 TK |
 | Expedition | Legendary / 22 | 11 | 1.3 kg | None | 36 TK |
-| Atlas | Mythic / 36 | 12 | 1.2 kg | None | 48 TK |
+| Maid | Mythic / 36 | 12 | 1.2 kg | None | 48 TK |
 
 All carried weapons share the pouch budget. Intervention magazines can stack two
 per pouch; other feeds occupy one. New pouches preserve the original front/rear
