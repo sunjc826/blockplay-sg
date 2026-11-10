@@ -32,3 +32,9 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
   .menu-header > .profile-banner { grid-column:1/-1; grid-row:2; width:100%; }
   .menu-header-action { grid-row:1; }
 }
+
+/* The same settings action in Home and equipment headers. */
+.menu-header-settings { display:grid; place-items:center; flex:none; width:44px; height:44px; border:1px solid #ffffff26; border-radius:2px; color:#d5dbd6; background:#111719e6; backdrop-filter:blur(12px); transition:color .2s,border-color .2s; }
+.menu-header-settings:is(:hover,:focus-visible) { color:#f4ad61; border-color:#f4ad61; }
+.menu-header-settings:focus-visible { outline:2px solid #f4ad61; outline-offset:3px; }
+.loadout-header .game-back { border-color:transparent; background:transparent; padding-left:0; }

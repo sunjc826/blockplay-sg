@@ -117,9 +117,6 @@
 .next-gen-main:has(.game-menu-item:focus-visible) .next-gen-panorama { transform:scale(1.025); filter:saturate(1.05); }
 .next-gen-main .game-menu-skyline { display:none; }
 .next-gen-main .game-menu-top { position:absolute; z-index:3; pointer-events:none; }
-.next-gen-settings { display:grid; place-items:center; flex:none; width:44px; height:44px; border:1px solid #ffffff26; border-radius:2px; color:#d5dbd6; background:#111719e6; backdrop-filter:blur(12px); transition:color .2s,border-color .2s; }
-.next-gen-settings:is(:hover,:focus-visible) { color:#f4ad61; border-color:#f4ad61; }
-.next-gen-settings:focus-visible { outline:2px solid #f4ad61; outline-offset:3px; }
 .next-gen-main .game-menu-main { position:relative; flex:1; min-height:0; max-width:none; width:100%; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; padding:0; }
 .next-gen-home-heading { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .next-gen-main .game-menu-list { display:flex; flex:1; flex-direction:row; flex-wrap:nowrap; gap:var(--home-gap); width:100%; min-height:0; }

@@ -148,7 +148,7 @@
 .loadout-empty{display:grid;gap:12px;padding:24px;border:1px dashed var(--ls-line);border-radius:6px}
 .loadout-empty>button{justify-self:start}
 .loadout-inventory-note{font-size:12px}
-@media(max-width:760px){.equipment-view-bar{padding:0 12px;gap:6px}.equipment-view-bar [role=tab]{padding:12px 10px;font-size:13px;gap:5px}.equipment-view-bar>button{font-size:11px;padding:8px;gap:4px}.equipment-view-bar>button svg{display:none}.loadout-store .loadout-section-heading h2{scroll-margin-top:180px}}
+@media(max-width:760px){.equipment-view-bar{padding:0 12px;gap:6px}.equipment-view-bar [role=tab]{padding:12px 10px;font-size:13px;gap:5px}.equipment-view-bar>button{font-size:11px;padding:8px;gap:4px}.loadout-store .loadout-section-heading h2{scroll-margin-top:180px}}
 
 .loadout-store .loadout-section-heading h2,.loadout-store .loadout-feedback{scroll-margin-top:calc(var(--equipment-header-height, 180px) + 16px)}
 @media(max-height:500px){.equipment-shell-nav{position:static}}
@@ -156,3 +156,13 @@
 @media(max-width:760px){.equipment-review-full{display:none}.equipment-view-bar [role=tab]{flex-shrink:0;padding:12px 8px}.equipment-view-bar>button{flex-shrink:0;min-height:44px}}
 
 .loadout-embedded-catalog{min-width:0;max-width:100%}
+
+/* Help belongs to equipment navigation; the global header stays quiet. */
+.equipment-view-bar .store-tour-trigger { margin-right:auto; }
+.loadout-store .equipment-view-bar .store-tour-trigger { border-color:transparent; background:transparent; }
+.loadout-store .equipment-view-bar .store-tour-trigger:hover { background:var(--ui-hover); }
+@media(max-width:760px) {
+  .equipment-help-label { display:none; }
+  .equipment-view-bar .store-tour-trigger { width:44px; min-width:44px; justify-content:center; padding:0; }
+  .equipment-view-bar > [data-loadout-review] > svg { display:none; }
+}

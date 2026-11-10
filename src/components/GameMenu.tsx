@@ -297,12 +297,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     // Both equipment routes keep one mounted shell, selection and wallet.
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined} nav={<nav className="store-nav" aria-label="Loadout">
-          <a className="game-back" {...link('menu')}><ArrowLeft size={15} /> Main menu</a>
-          <h1>Loadout</h1>
-          <button className="store-tour-trigger" aria-label="Tour store" aria-pressed={storeTour} onClick={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}>Tour</button>
-          <a className="game-back store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={15} /></a>
-        </nav>} />
+        <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
+          onHelp={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}
+          headerAction={<a className="menu-header-settings store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}
+          nav={<nav className="store-nav" aria-label="Equipment navigation"><a className="game-back" {...link('menu')}><ArrowLeft size={15} /> Main menu</a></nav>} />
       </DebugMode.Provider></main>
     </div>;
   }
@@ -511,7 +509,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
       <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>
     </button>}
-    <MenuHeader className="game-menu-top" profile={profile} action={nextGen && <a className="next-gen-settings" {...link('settings')} aria-label="Settings" title="Settings" onPointerEnter={hover} onFocus={focus} onClick={event => {
+    <MenuHeader className="game-menu-top" profile={profile} action={nextGen && <a className="menu-header-settings next-gen-settings" {...link('settings')} aria-label="Settings" title="Settings" onPointerEnter={hover} onFocus={focus} onClick={event => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       playMenuSound('click'); link('settings').onClick(event);
     }}><Settings size={20} aria-hidden="true" /></a>}>
