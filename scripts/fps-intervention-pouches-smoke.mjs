@@ -4,8 +4,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9228';
-const output = new URL('../.cache/intervention-pouches/browser/', import.meta.url); await fs.mkdir(output, { recursive: true });
-const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(`${origin}/scripts/fixtures/scope-zoom.html?weapon=ff-intervention`)}`, { method: 'PUT' })).json();
+const rig = process.env.FPS_TEST_RIG || 'rig-ilbv';
+const pouchCount = { 'rig-ilbv':6, 'rig-lbs':8, 'rig-sentinel':9, 'rig-pathfinder':10, 'rig-expedition':11, 'rig-atlas':12 }[rig];
+assert(pouchCount, 'known test rig');
+const initialSpares = (pouchCount - 2) * 2;
+const fixtureUrl = `${origin}/scripts/fixtures/scope-zoom.html?weapon=ff-intervention&rig=${rig}`;
+const output = new URL(`../.cache/intervention-pouches/${rig}/`, import.meta.url); await fs.mkdir(output, { recursive: true });
+const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(fixtureUrl)}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl); await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
 let id = 0; const pending = new Map(), errors = []; let mapRequests = 0;
 ws.onmessage = event => {
@@ -32,29 +37,42 @@ try {
  for(const [width,height,mobile,label] of [[1280,800,false,'desktop'],[844,390,true,'landscape'],[390,844,true,'portrait']]) {
   await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
   await send('Emulation.setTouchEmulationEnabled',{enabled:mobile,maxTouchPoints:5});
-  await send('Page.navigate',{url:origin+'/scripts/fixtures/scope-zoom.html?weapon=ff-intervention'});
+  await send('Page.navigate',{url:fixtureUrl});
   await wait("window.hud?.phase==='ready'",60000);
   if(mobile){const start=await point("document.querySelector('#start')");await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...start,id:1}]});await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
   else await click("document.querySelector('#start')");
   await wait("window.hud?.phase==='playing'");
-  assert.equal(await evaluate('window.hud.spareMagazines'),8);assert.equal(await evaluate('window.hud.reserve'),56);assert.equal(await evaluate('window.hud.magazineCapacity'),7);
+  assert.equal(await evaluate('window.hud.spareMagazines'),initialSpares);assert.equal(await evaluate('window.hud.reserve'),initialSpares*7);assert.equal(await evaluate('window.hud.magazineCapacity'),7);
   await evaluate('window.engine.lookBy(0,650)');await delay(1000);await screenshot(label+'-two-per-pouch');
   const draws=[];
-  for(const [n,slot] of [[0,0],[1,9]]) {
+  const slots=label==='desktop' && rig==='rig-atlas' ? [0,9,1,10,2,11,3,12,4,13,5,14,8,17,18,27,6,15,7,16] : [0,9];
+  for(const [n,slot] of slots.entries()) {
    const shots=await evaluate('window.hud.shots');await evaluate("window.engine.setInput('fire',true)");await wait(`window.hud.shots>${shots}`);await evaluate("window.engine.setInput('fire',false);window.engine.reload()");
    await wait(`JSON.parse(${canvas}.dataset.magazineInventory).pending!==null`);
    const snapshot=await evaluate(`JSON.parse(${canvas}.dataset.magazineInventory)`), reach=await evaluate(`JSON.parse(${canvas}.dataset.reloadReach)`);
    assert.equal(snapshot.reloadSlot,slot);assert.equal(snapshot.slots[slot],null);assert.equal(snapshot.pending.capacity,7);
    if(n===0)assert.equal(snapshot.slots[9].family,12);
-   draws.push({slot,reach});await screenshot(label+(n===0?'-front-extraction':'-rear-extraction'));
+   draws.push({slot,reach});await screenshot(`${label}-slot-${slot}-extraction`);
    await wait('window.hud.reloading===0',30000);await delay(400);
-   assert.equal(await evaluate('window.hud.spareMagazines'),7-n);assert.equal(await evaluate('window.hud.magazine'),8);
-   const body=await evaluate(`JSON.parse(${canvas}.dataset.body)`);assert.equal(body.slots,6);assert.equal(body.magazines,9-n);
-   await screenshot(label+(n===0?'-rear-remains':'-empty-pouch'));
+   assert.equal(await evaluate('window.hud.spareMagazines'),initialSpares-1-n);assert.equal(await evaluate('window.hud.magazine'),8);
+   const body=await evaluate(`JSON.parse(${canvas}.dataset.body)`);assert.equal(body.slots,pouchCount);assert.equal(body.magazines,initialSpares+1-n);
+   await screenshot(`${label}-slot-${slot}-drawn`);
+  }
+  if(label==='desktop' && rig==='rig-atlas') {
+   await evaluate('window.engine.switchWeapon(2)');await wait('window.hud.weapon===2');await delay(600);
+   for(const [n,slot] of [19,20].entries()) {
+    const shots=await evaluate('window.hud.shots');await evaluate("window.engine.setInput('fire',true)");await wait(`window.hud.shots>${shots}`);await evaluate("window.engine.setInput('fire',false);window.engine.reload()");
+    await wait(`JSON.parse(${canvas}.dataset.magazineInventory).pending!==null`);
+    const snapshot=await evaluate(`JSON.parse(${canvas}.dataset.magazineInventory)`),reach=await evaluate(`JSON.parse(${canvas}.dataset.reloadReach)`);
+    assert.equal(snapshot.reloadSlot,slot);assert.equal(snapshot.pending.capacity,15);draws.push({slot,reach});await screenshot(`desktop-pistol-${slot}-extraction`);
+    await wait('window.hud.reloading===0',30000);await delay(400);assert.equal(await evaluate('window.hud.spareMagazines'),1-n);
+    assert.equal((await evaluate(`JSON.parse(${canvas}.dataset.body)`)).magazines,1-n);
+   }
   }
   results.push({viewport:label,draws});
  }
+ for(const {draws} of results)for(const {slot,reach} of draws){assert(reach,`reload source at ${slot}`);assert([...reach.hand,...reach.source].every(Number.isFinite),`finite hand/source at ${slot}`);}
  assert.deepEqual(errors,[]);assert.equal(mapRequests,0);
  await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,results,errors,mapRequests},null,2));
- console.log('PASS: eight seven-round spares; front/rear extraction, stable six-pouch vest, empty-pouch states and reloads on desktop/landscape/portrait; no runtime/shader errors or map requests.');
+ console.log(`PASS: ${rig}, ${initialSpares} seven-round spares; front/rear extraction, ${pouchCount} distinct pouches, reloads on desktop/landscape/portrait; no runtime/shader errors or map requests.`);
 } finally {await evaluate('window.engine?.dispose()').catch(()=>{});ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

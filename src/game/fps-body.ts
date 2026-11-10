@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { itemById } from './armory-catalog';
+import { itemById, tierRank } from './armory-catalog';
 import type { ResolvedLoadout } from './armory-state';
 import type { WeaponState } from './fps-rules';
-import { doubleStackMagazine, magazinePouch, REAR_MAGAZINE_OFFSET, type RigMagazine } from './magazine-inventory';
+import { doubleStackMagazine, magazinePouch, frontMagazineSlot, rearMagazineSlot, isRearMagazineSlot, type RigMagazine } from './magazine-inventory';
 import { startingMagazineInventory } from './ammo-pools';
 import { arenaCharacterLook } from './character-looks';
 import { createCharacterRig, type CharacterDrive } from './character-rig';
@@ -25,6 +25,7 @@ const PLATE_COLORS: Record<string, string> = {
   'plate-soft': '#697559', 'plate-ceramic': '#454b49', 'plate-elite': '#343d4d',
   'plate-steel': '#60666a', 'plate-composite': '#756b4b', 'plate-pillbox': '#333940',
   'plate-pineapple': '#a58d36', 'plate-durian': '#707c32',
+  'plate-strider': '#406a73', 'plate-guardian': '#655a80',
 };
 
 type ReserveContainer = 'magazine' | 'sniper-magazine' | 'pistol-magazine' | 'drum' | 'ammo-box';
@@ -145,9 +146,9 @@ export function createFpsBody(scene: THREE.Scene) {
   function rebuild(equipment: ResolvedLoadout) {
     disposeModel(gear); gear.removeFromParent();
     gear = new THREE.Group(); gear.name = 'worn-equipment'; character.joints.chest.add(gear);
-    const elite = itemById(equipment.rigId)?.tier === 'Elite';
+    const tier = itemById(equipment.rigId)?.tier ?? 'Issued', elite = tierRank(tier) >= tierRank('Elite');
     const cloth = new THREE.MeshStandardMaterial({ color: elite ? '#384136' : '#626b47', roughness: .95 });
-    const trim = new THREE.MeshStandardMaterial({ color: elite ? '#ac945b' : '#303b2c', roughness: .8 });
+    const trim = new THREE.MeshStandardMaterial({ color: tier === 'Mythic' ? '#de967c' : tier === 'Legendary' ? '#b2a0d3' : tier === 'Ultra' ? '#77bcc8' : elite ? '#ac945b' : '#303b2c', roughness: .8 });
     const metal = new THREE.MeshStandardMaterial({ color: '#424b4d', metalness: .6, roughness: .4 });
     const box = (parent: THREE.Object3D, name: string, w: number, h: number, d: number, x: number, y: number, z: number, material = cloth) => {
       const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(.008, w / 5, h / 5, d / 5)), material);
@@ -196,7 +197,7 @@ export function createFpsBody(scene: THREE.Scene) {
     const plate = itemById(equipment.plateId);
     if (plate?.protection) {
       const material = new THREE.MeshStandardMaterial({ color: PLATE_COLORS[plate.id] ?? '#454b49', roughness: .7, metalness: plate.id === 'plate-steel' ? .7 : .1 });
-      const depth = plate.id === 'plate-soft' ? .015 : plate.id === 'plate-pillbox' ? .07 : .035;
+      const depth = plate.id === 'plate-soft' ? .015 : plate.id === 'plate-strider' ? .025 : plate.id === 'plate-pillbox' ? .07 : .035;
       for (const side of [-1, 1]) {
         const panel = box(gear, plate.id, .29, .32, depth, 0, .08, side * (.13 + depth / 2), material);
         if (plate.id === 'plate-pineapple' || plate.id === 'plate-durian') {
@@ -213,7 +214,7 @@ export function createFpsBody(scene: THREE.Scene) {
     for (let index = 0; index < count; index++) {
       const pouch = new THREE.Group(); pouch.name = `magazine-slot-${index}`;
       if (index < 6) pouch.position.set((index % 3 - 1) * .108, index < 3 ? .115 : -.065, -.19);
-      else { pouch.position.set(index % 2 ? .235 : -.235, index === 8 ? .1 : -.065, -.065); pouch.rotation.y = index % 2 ? -.65 : .65; }
+      else { pouch.position.set(index % 2 ? .235 : -.235, index < 8 ? -.065 : index < 10 ? .1 : -.23, -.065); pouch.rotation.y = index % 2 ? -.65 : .65; }
       gear.add(pouch);
       const sleeve = box(pouch, 'pouch', .094, .105, .06, 0, -.025, 0);
       const band = box(pouch, 'retention-band', .098, .018, .066, 0, .015, -.003, trim);
@@ -229,11 +230,11 @@ export function createFpsBody(scene: THREE.Scene) {
     magazinePosition(slot: number, target = new THREE.Vector3()) {
       const pouch = magazines[magazinePouch(slot)]?.root;
       if (!pouch) return null;
-      return pouch.localToWorld(target.set(0, slot >= REAR_MAGAZINE_OFFSET ? .052 : .04, 0));
+      return pouch.localToWorld(target.set(0, isRearMagazineSlot(slot) ? .052 : .04, 0));
     },
     magazineSource(slot: number, mag: RigMagazine) {
       const pouch = magazines[magazinePouch(slot)]; if (!pouch) return null;
-      const rear = slot >= REAR_MAGAZINE_OFFSET, kind = containerKind(mag), models = rear ? pouch.rearModels : pouch.models;
+      const rear = isRearMagazineSlot(slot), kind = containerKind(mag), models = rear ? pouch.rearModels : pouch.models;
       let model = models[kind];
       if (!model) { model = buildContainer(kind); model.visible = false; models[kind] = model; pouch.root.add(model); }
       positionMagazine(model, kind, mag, rear);
@@ -262,7 +263,7 @@ export function createFpsBody(scene: THREE.Scene) {
       const carried = bodyMagazines(equipment, states, pose.activeFamily);
       magazines.forEach((slot, index) => {
         [...Object.values(slot.models), ...Object.values(slot.rearModels)].forEach(model => { model.visible = false; });
-        const front = inventory.slots[index], rear = inventory.slots[index + REAR_MAGAZINE_OFFSET], mag = front ?? rear;
+        const front = inventory.slots[frontMagazineSlot(index)], rear = inventory.slots[rearMagazineSlot(index)], mag = front ?? rear;
         const kind = mag ? containerKind(mag) : 'magazine';
         const bulky = kind === 'ammo-box' || kind === 'drum';
         // Only the fabric collapses. Magazine models and pouch roots stay put,

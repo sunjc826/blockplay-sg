@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { itemById, type ShopItem } from './armory-catalog';
+import { itemById, tierRank, type ShopItem } from './armory-catalog';
 import type { EquippedWeapon } from './armory-state';
 import { fitWeaponOptic } from './weapon-optics';
 import { fitWeaponHardware } from './weapon-fittings';
@@ -76,13 +76,14 @@ export function disposeModel(root: THREE.Object3D) {
 }
 /** Visual game interpretation of a carrying rig and removable insert, not a protection specification. */
 export function armorModel(item: ShopItem) {
-  const group = new THREE.Group(), elite = item.tier === 'Elite' || item.tier === 'Ultra';
+  const group = new THREE.Group(), elite = tierRank(item.tier) >= tierRank('Elite');
+  const accent = item.tier === 'Mythic' ? '#de967c' : item.tier === 'Legendary' ? '#b2a0d3' : item.tier === 'Ultra' ? '#77bcc8' : elite ? '#b59856' : '#303b2c';
   const cloth = document.createElement('canvas'); cloth.width = cloth.height = 64;
   const ctx = cloth.getContext('2d')!; ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 64, 64);
   for (let i = 0; i < 64; i += 4) { ctx.fillStyle = '#9a9a9a'; ctx.fillRect(i, 0, 1, 64); ctx.fillStyle = '#666666'; ctx.fillRect(0, i, 64, 1); }
   const weave = new THREE.CanvasTexture(cloth); weave.wrapS = weave.wrapT = THREE.RepeatWrapping; weave.repeat.set(8, 8);
   const fabric = new THREE.MeshStandardMaterial({ color: elite ? '#383d35' : '#626b47', roughness: .95, bumpMap: weave, bumpScale: .002 });
-  const trim = new THREE.MeshStandardMaterial({ color: elite ? '#b59856' : '#303b2c', roughness: .7 });
+  const trim = new THREE.MeshStandardMaterial({ color: accent, roughness: .7 });
   const box = (w: number, h: number, d: number, x: number, y: number, z: number, material = fabric) => {
     const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(.012, w / 5, h / 5, d / 5)), material); mesh.position.set(x, y, z); group.add(mesh); return mesh;
   };
@@ -91,14 +92,24 @@ export function armorModel(item: ShopItem) {
   for (const x of [-.265, .265]) box(.09, .2, .23, x, -.06, -.09);
   for (let row = 0; row < 5; row++) for (let col = 0; col < 6; col++) box(.055, .014, .016, -.175 + col * .07, .18 - row * .065, .053, trim);
   if (item.category === 'rig') {
-    for (const x of [-.15, 0, .15]) { box(.12, .18, .08, x, -.16, .095); box(.126, .04, .085, x, -.08, .10, trim); }
-    if (item.id !== 'rig-ilbv') for (const x of [-.30, .30]) box(.10, .19, .10, x, -.17, .05);
+    const count = 6 + Math.ceil((item.carry ?? 0) / 30);
+    for (let i = 0; i < count; i++) {
+      const x = i < 6 ? (i % 3 - 1) * .14 : i % 2 ? .30 : -.30;
+      const y = i < 6 ? i < 3 ? .07 : -.12 : i < 8 ? -.12 : i < 10 ? .07 : -.31;
+      const z = i < 6 ? .095 : .05;
+      box(.11, .15, .08, x, y, z).name = `magazine-pouch-${i}`;
+      box(.116, .025, .085, x, y + .055, z + .005, trim);
+    }
   } else if (item.id !== 'plate-none') {
     const shape = new THREE.Shape(); shape.moveTo(-.13, -.20); shape.lineTo(.13, -.20); shape.lineTo(.14, .12); shape.lineTo(.075, .20); shape.lineTo(-.075, .20); shape.lineTo(-.14, .12); shape.closePath();
-    const material = new THREE.MeshStandardMaterial({ color: elite ? '#363c44' : item.id === 'plate-soft' ? '#788268' : '#393c3b', roughness: .78, metalness: .08 });
-    const plate = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: .026, bevelEnabled: true, bevelSize: .012, bevelThickness: .008, bevelSegments: 2, steps: 1 }), material);
+    const material = new THREE.MeshStandardMaterial({ color: item.id === 'plate-strider' ? '#406a73' : item.id === 'plate-guardian' ? '#655a80' : elite ? '#363c44' : item.id === 'plate-soft' ? '#788268' : '#393c3b', roughness: .78, metalness: .08 });
+    const depth = item.id === 'plate-strider' ? .018 : item.id === 'plate-pillbox' ? .06 : .026;
+    const plate = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: .012, bevelThickness: .008, bevelSegments: 2, steps: 1 }), material);
     plate.position.set(.36, .015, .30); plate.rotation.y = -.20; group.add(plate);
-    box(.15, .06, .004, .36, .07, .341, trim);
+    box(.15, .06, .004, .36, .07, .315 + depth, trim);
+    if (item.id === 'plate-strider' || item.id === 'plate-guardian') {
+      for (const x of [-.075, 0, .075]) box(.012, .15, .008, .36 + x, -.055, .32 + depth, trim);
+    }
   }
   return group;
 }

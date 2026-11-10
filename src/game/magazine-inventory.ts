@@ -5,21 +5,26 @@ export interface RigMagazine {
   group: string; capacity: number; family: number; caliberMm: number; feed: WeaponFeed;
 }
 export interface MagazineInventory { slots: (RigMagazine | null)[]; heldSlots?: number[]; pouchCount?: number }
-// Front addresses remain compatible with existing saves. Rear addresses never
-// move when a different rig adds side pouches.
+// Each block retains nine front addresses followed by nine rear addresses.
+// Pouches 0–8 keep their legacy slots 0–17; new fronts start at 18, rears at 27.
+// Upgrading a rig never moves a saved magazine or an interrupted reload.
 export const REAR_MAGAZINE_OFFSET = 9;
+export const MAX_RIG_POUCHES = 12;
+export const frontMagazineSlot = (pouch: number) => Math.floor(pouch / REAR_MAGAZINE_OFFSET) * REAR_MAGAZINE_OFFSET * 2 + pouch % REAR_MAGAZINE_OFFSET;
+export const rearMagazineSlot = (pouch: number) => frontMagazineSlot(pouch) + REAR_MAGAZINE_OFFSET;
+export const isRearMagazineSlot = (slot: number) => slot % (REAR_MAGAZINE_OFFSET * 2) >= REAR_MAGAZINE_OFFSET;
 export const doubleStackMagazine = (mag: RigMagazine | undefined | null) => mag?.family === 12 && mag.caliberMm === 10.36 && mag.feed === 'magazine';
 export const inventoryPouches = (inventory: MagazineInventory) => inventory.pouchCount ?? Math.min(9, inventory.slots.length);
-export const magazinePouch = (slot: number) => slot >= REAR_MAGAZINE_OFFSET ? slot - REAR_MAGAZINE_OFFSET : slot;
+export const magazinePouch = (slot: number) => Math.floor(slot / (REAR_MAGAZINE_OFFSET * 2)) * REAR_MAGAZINE_OFFSET + slot % REAR_MAGAZINE_OFFSET;
 export function magazineSlotOrder(inventory: MagazineInventory) {
-  return [0, 1, 2, 3, 4, 5, 8, 6, 7].filter(i => i < inventoryPouches(inventory))
-    .flatMap(i => i + REAR_MAGAZINE_OFFSET < inventory.slots.length ? [i, i + REAR_MAGAZINE_OFFSET] : [i]);
+  return [0, 1, 2, 3, 4, 5, 8, 9, 6, 7, 10, 11].filter(i => i < inventoryPouches(inventory))
+    .flatMap(i => [frontMagazineSlot(i), rearMagazineSlot(i)].filter(slot => slot < inventory.slots.length));
 }
 /** Rear pockets accept only Intervention magazines; a pouch never mixes feeds. */
 export function magazineSlotFits(inventory: MagazineInventory, slot: number, mag: RigMagazine) {
-  const pouch = magazinePouch(slot), rear = slot >= REAR_MAGAZINE_OFFSET;
-  if (pouch < 0 || pouch >= inventoryPouches(inventory) || slot >= inventory.slots.length) return false;
-  const other = inventory.slots[rear ? pouch : pouch + REAR_MAGAZINE_OFFSET];
+  const pouch = magazinePouch(slot), rear = isRearMagazineSlot(slot);
+  if (!Number.isInteger(slot) || pouch < 0 || pouch >= Math.min(MAX_RIG_POUCHES, inventoryPouches(inventory)) || slot >= inventory.slots.length) return false;
+  const other = inventory.slots[rear ? frontMagazineSlot(pouch) : rearMagazineSlot(pouch)];
   return rear ? doubleStackMagazine(mag) && (!other || doubleStackMagazine(other))
     : !other || doubleStackMagazine(mag) && doubleStackMagazine(other);
 }
@@ -31,7 +36,7 @@ export function availableMagazineSlots(state: WeaponState, mag = state.reserveMa
 }
 export type MagazineSpec = Pick<WeaponSpec, 'capacity' | 'caliberMm'> & Partial<Pick<WeaponSpec, 'feed' | 'rigSlots'>>;
 export const magazineGroup = (spec: MagazineSpec) => `${spec.caliberMm.toFixed(2)}:${spec.feed ?? 'magazine'}`;
-export const rigSlotCount = (specs: readonly MagazineSpec[]) => Math.max(6, Math.min(9, Math.floor(specs.find(s => s.rigSlots)?.rigSlots ?? 6)));
+export const rigSlotCount = (specs: readonly MagazineSpec[]) => Math.max(6, Math.min(MAX_RIG_POUCHES, Math.floor(specs.find(s => Number.isFinite(s.rigSlots))?.rigSlots ?? 6)));
 export const magazineCapacity = (state: WeaponState, spec: Pick<WeaponSpec, 'capacity'>) => state.loadedCapacity ?? spec.capacity;
 export const magazineOf = (spec: MagazineSpec, family: number): RigMagazine => ({ group: magazineGroup(spec), capacity: spec.capacity,
   family, caliberMm: spec.caliberMm, feed: spec.feed ?? 'magazine' });

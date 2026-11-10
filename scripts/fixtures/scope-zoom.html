@@ -10,7 +10,9 @@ import TouchControls from '/src/components/TouchControls.tsx';
 const root=createRoot(document.getElementById('overlay'));
 const requested=new URLSearchParams(location.search).get('weapon');
 const reward=['ff-longwatch','ff-oicw'].includes(requested)?requested:'ff-intervention';
-const equipment=resolveLoadout(recoverProxyWeapon(createProfile(),reward,0));
+const profile=createProfile(), rig=new URLSearchParams(location.search).get('rig');
+if(rig){profile.rig=rig;profile.owned.push(rig);}
+const equipment=resolveLoadout(recoverProxyWeapon(profile,reward,0));
 window.engine=createFpsEngine(document.getElementById('world'),hud=>{
   window.hud=structuredClone(hud);
   const touch=hud.inputMode==='touch';document.getElementById('stage').dataset.touch=touch?'on':'off';

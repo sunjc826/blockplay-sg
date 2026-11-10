@@ -109,6 +109,17 @@ export function biasedChances(rules: ZoneLootRules, tierBias: -1 | 0 | 1 = 0) {
   return { elite, field };
 }
 
+/** High-risk districts or exposed sectors can yield advanced inserts. Reuse
+ * the premium roll so adding armor never shifts the seeded content stream.
+ * Of premium rolls there, 5% are Guardian, 15% Tahan, 25% Strider, 55% Aegis. */
+export function rollZoneArmor(rules: ZoneLootRules, random: () => number, tierBias: -1 | 0 | 1 = 0): ShopItem {
+  const chance = biasedChances(rules, tierBias).elite, roll = random();
+  if (roll >= chance) return itemById(random() < .55 ? 'plate-soft' : 'plate-ceramic')!;
+  if (rules.eliteChance < .3 && tierBias <= 0) return itemById('plate-elite')!;
+  const premium = roll / chance;
+  return itemById(premium < .05 ? 'plate-guardian' : premium < .20 ? 'plate-composite' : premium < .45 ? 'plate-strider' : 'plate-elite')!;
+}
+
 /** Tier probabilities apply to each weapon crate, independently. CBD means Raffles Place. */
 export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRules>>> = {
   'pulau-ubin': { eliteChance: .18, fieldChance: .46, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 58, medicalAmount: 38 },
@@ -294,8 +305,7 @@ export function createExpeditionLoot(seed: string | number) {
         return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: 1 };
       }
       if (kind === 'armor') {
-        const elite = random() < biasedChances(rules, bias).elite;
-        const item = itemById(elite ? 'plate-elite' : random() < 0.55 ? 'plate-soft' : 'plate-ceramic')!;
+        const item = rollZoneArmor(rules, random, bias);
         return { ...common, catalogId: item.id, name: item.name, tier: item.tier, amount: 1 };
       }
       if (kind === 'ammo') {

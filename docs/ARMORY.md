@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, three carrying rigs, four insert choices, five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. All paid non-consumable equipment is rental-only; free issued equipment is always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, six carrying rigs, eleven insert choices (including no inserts), five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. All paid non-consumable equipment is rental-only; free issued equipment is always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -21,19 +21,19 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 | 7 | Fort Siloso |
 | 8 | P30 Kopi O Kosong, P30 Lights Out (Ultra), Pineapple · Ong Lai inserts |
 | 9 | Ultimax Lights Up (Ultra) |
-| 10 | FN MAG Tumpang |
+| 10 | FN MAG Tumpang, Pathfinder rig (Ultra) |
 | 12 | SAR 21 Night Owl (Legendary), Steel · Lao Jiao inserts |
-| 14 | FN MAG Chope, P30 Chiong Ah (Legendary) |
+| 14 | FN MAG Chope, P30 Chiong Ah (Legendary), Aegis II · Strider inserts (Ultra) |
 | 15 | P30 Kiasu Hunter (Ultra) |
 | 16 | P30 Bo Bo CANNOT |
 | 20 | P30 Atas Race Gun (Mythic) |
-| 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic), Composite · Tahan inserts |
+| 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic), Composite · Tahan inserts (Ultra), Expedition rig (Legendary) |
 | 24 | FN MAG Jaga Corner |
-| 28 | FN MAG Lepak Position |
-| 30 | Durian · Mao Shan Wang inserts |
+| 28 | FN MAG Lepak Position, Composite · Guardian inserts (Legendary) |
+| 30 | Durian · Mao Shan Wang inserts (Legendary) |
 | 32 | CIS 50MG Merlion Roar |
-| 34 | Heavy · Pillbox inserts |
-| 36 | CIS 50MG Bukit Timah |
+| 34 | Heavy · Pillbox inserts (Legendary) |
+| 36 | CIS 50MG Bukit Timah, Atlas rig (Mythic) |
 
 Ranks and XP continue to level 50. Purchases, XP and equipped items persist under `blockplay.armory.v1` in local storage. Old two-platform saves gain the three free baseline classes without changing balances or existing selections. Unknown IDs are sanitized and retired attachments are discarded without refunds. Clearing browser site data resets the profile.
 
@@ -867,7 +867,8 @@ the one GPMG that takes it on: the same rule, for the reach it buys.
 ## Carried weight
 
 Spare ammunition is a physical magazine inventory, bounded by the worn rig:
-ILBV has six positions, Enhanced LBS eight, Sentinel nine. The issued rifle and
+ILBV has six positions, Enhanced LBS eight, Sentinel nine, Pathfinder ten,
+Expedition eleven and Atlas twelve. The issued rifle and
 pistol start with four rifle magazines and two pistol magazines, plus the loaded
 magazine in each gun. A single drum/belt main starts with three spare containers;
 rig upgrades add positions. A second main divides the main's allocation rather
@@ -1041,23 +1042,51 @@ visually hidden table gives the same numbers to a screen reader.
 
 The rig slot supplies reserve capacity; the insert slot supplies armor points and absorption. Enhanced LBS adds two visible magazine positions at a 2% movement cost; Sentinel adds three without an extra rig handling penalty; the ammunition still adds carry weight. A bare ILBV-inspired carrying rig has zero armor points.
 
-| Insert | Level · price | Armor | Absorption while available | Rated for | Movement | Besides |
-| --- | --- | ---: | ---: | --- | ---: | --- |
-| None | 1 | 0 | 0% | — | 100% | |
-| Soft | 1 · 400 CR | 35 | 45% | rifle | 98% | |
-| Ceramic | 2 · 900 CR | 75 | 65% | rifle | 94% | |
-| Aegis ceramic | 4 · 160 TK | 100 | 72% | rifle | 97% | |
-| Pineapple · Ong Lai | 8 · 1,800 CR | 40 | 35% | rifle | 99% | One round in five glances off |
-| Steel · Lao Jiao | 12 · 2,400 CR | 90 | 55% | GPMG | 90% | |
-| Composite · Tahan | 22 · 260 TK | 110 | 72% | GPMG | 95% | |
-| Durian · Mao Shan Wang | 30 · 360 TK | 150 | 85% | GPMG | 93% | It smells |
-| Heavy · Pillbox | 34 · 420 TK | 150 | 80% | heavy MG | 84% | |
+| Rig | Tier / level | Pouches | Empty weight | Handling cost | 1-hour rental |
+| --- | --- | ---: | ---: | ---: | ---: |
+| ILBV | Issued / 1 | 6 | 1.5 kg | None | Free |
+| Enhanced LBS | Field / 2 | 8 | 1.8 kg | 2% | 100 CR |
+| Sentinel | Elite / 4 | 9 | 1.5 kg | None | 18 TK |
+| Pathfinder | Ultra / 10 | 10 | 1.4 kg | None | 26 TK |
+| Expedition | Legendary / 22 | 11 | 1.3 kg | None | 36 TK |
+| Atlas | Mythic / 36 | 12 | 1.2 kg | None | 48 TK |
+
+All carried weapons share the pouch budget. Intervention magazines can stack two
+per pouch; other feeds occupy one. New pouches preserve the original front/rear
+addresses in checkpoints, so upgrading does not move or refill existing magazines.
+Shrinking to a smaller rig retains only magazines in its available positions.
+Extra ammunition still weighs its full amount and rigs do not alter reload speed.
+
+| Insert | Tier / level | 1-hour rental | Armor | Absorption | Rating | Weight | Handling cost |
+| --- | --- | ---: | ---: | ---: | --- | ---: | ---: |
+| None | Issued / 1 | Free | 0 | 0% | — | 0 kg | None |
+| Soft | Field / 1 | 40 CR | 35 | 45% | Rifle | 2 kg | 2% |
+| Ceramic | Field / 2 | 90 CR | 75 | 65% | Rifle | 6 kg | 6% |
+| Aegis | Elite / 4 | 16 TK | 100 | 72% | Rifle | 4 kg | 3% |
+| Pineapple · Ong Lai | Field / 8 | 180 CR | 40 | 35% | Rifle | 1.5 kg | 1% |
+| Steel · Lao Jiao | Field / 12 | 240 CR | 90 | 55% | GPMG | 10 kg | 10% |
+| Aegis II · Strider | Ultra / 14 | 24 TK | 110 | 75% | Rifle | 3.5 kg | 2% |
+| Composite · Tahan | Ultra / 22 | 26 TK | 110 | 72% | GPMG | 5 kg | 5% |
+| Composite · Guardian | Legendary / 28 | 34 TK | 125 | 78% | GPMG | 4.5 kg | 4% |
+| Durian · Mao Shan Wang | Legendary / 30 | 36 TK | 150 | 85% | GPMG | 6.5 kg | 7% |
+| Heavy · Pillbox | Legendary / 34 | 42 TK | 150 | 80% | Heavy MG | 13 kg | 16% |
+
+Handling costs are separate from the weight penalty on movement. Strider is the
+lighter rifle upgrade; Guardian is the lighter GPMG upgrade. Durian retains the
+highest absorption and scent drawback; Pillbox alone retains full absorption
+against heavy rounds. Mythic inserts are reserved for a later balance pass.
+
+In districts with a base premium loot chance of at least 30%, or exposed sectors
+with positive tier bias, premium armor rolls yield 55% Aegis, 25% Strider,
+15% Tahan and 5% Guardian. Other armor rolls and ordinary fallen-soldier kits
+keep their existing pools. These percentages are conditional on a premium roll,
+not overall drop probabilities. No additional random draw shifts seeded loot.
 
 **Ratings** (`armor-inserts.ts`). Rounds come in four classes by calibre:
 pistol (9–12 mm), rifle (5.56), GPMG (7.62) and heavy (12.7 and up). An insert
 takes its full share of anything up to its rating and half as much for each
 class past it (`OVERMATCH`), so a .50 meets rifle plates at a quarter of their
-share and kills through the Aegis in one hit, and only the Pillbox holds it. A
+share and kills through the Aegis in one hit, and only the Pillbox retains its full absorption against it. A
 hit that is not a round (a blast, gas, the gun's own recoil) meets the full
 share. The four inserts from before ratings are all rifle-rated, so nothing
 changes for them against rifles and pistols; against a GPMG or a .50 they hold

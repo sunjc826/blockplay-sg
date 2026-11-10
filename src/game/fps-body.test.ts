@@ -4,8 +4,34 @@ import { bodyMagazines, bodyMagazineSlots, createFpsBody } from './fps-body';
 import { createProfile, resolveLoadout } from './armory-state';
 import { createPooledLoadout } from './ammo-pools';
 import { advanceWeapon, beginReload } from './fps-rules';
+import { frontMagazineSlot, rearMagazineSlot } from './magazine-inventory';
 
 const pose = { x: 0, y: 0, z: 0, yaw: 0, visible: true, activeFamily: 0 };
+it.each(['rig-pathfinder', 'rig-expedition', 'rig-atlas'])('renders distinct, reachable pouch positions on %s', rig => {
+  const kit = resolveLoadout({ ...createProfile(), rig }); kit.carriedFamilies = [12, 2];
+  const states = createPooledLoadout(kit.weapons, kit.carriedFamilies), body = createFpsBody(new THREE.Scene());
+  body.update(0, kit, states, { ...pose, activeFamily: 12 });
+  const positions: THREE.Vector3[] = [];
+  for (let pouch = 0; pouch < bodyMagazineSlots(rig); pouch++) {
+    const frontSlot = frontMagazineSlot(pouch), rearSlot = rearMagazineSlot(pouch);
+    const position = body.magazinePosition(frontSlot)!;
+    expect(position.toArray().every(Number.isFinite)).toBe(true);
+    for (const other of positions) expect(position.distanceTo(other)).toBeGreaterThan(.1);
+    positions.push(position);
+    const front = states[12].magazineInventory!.slots[frontSlot];
+    expect(body.magazineSource(frontSlot, front!)!.model.visible).toBe(true);
+    const rear = states[12].magazineInventory!.slots[rearSlot];
+    if (rear) {
+      const a = body.magazineSource(frontSlot, front!)!.model, b = body.magazineSource(rearSlot, rear)!.model;
+      expect(a).not.toBe(b); expect(b.visible).toBe(true);
+      // Compare in pouch space: world axis-aligned boxes overlap when side
+      // pouches rotate even though the actual magazines remain separated.
+      expect(new THREE.Box3().setFromObject(a.clone()).intersectsBox(new THREE.Box3().setFromObject(b.clone()))).toBe(false);
+    }
+  }
+  expect(body.root.userData.magazines).toBe((bodyMagazineSlots(rig) - 2) * 2 + 2);
+  body.dispose();
+});
 describe('first person worn equipment', () => {
   it('keeps rig capacity separate from protection and adds real carrying positions', () => {
     expect(['rig-ilbv', 'rig-lbs', 'rig-sentinel'].map(bodyMagazineSlots)).toEqual([6, 8, 9]);

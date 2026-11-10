@@ -1,5 +1,5 @@
 import { createLoadout, type AmmoSpec, type WeaponSpec, type WeaponState } from './fps-rules';
-import { addReserveMagazines, doubleStackMagazine, magazineGroup, magazineOf, magazineSlotFits, REAR_MAGAZINE_OFFSET, restoreMagazine, rigSlotCount, type MagazineInventory, type MagazineSpec } from './magazine-inventory';
+import { addReserveMagazines, doubleStackMagazine, frontMagazineSlot, rearMagazineSlot, magazineGroup, magazineOf, magazineSlotFits, restoreMagazine, rigSlotCount, type MagazineInventory, type MagazineSpec } from './magazine-inventory';
 import { launcherOf } from './weapon-modes';
 
 /** Legacy checkpoint/pickup API. Live reserves are whole magazines in rig slots. */
@@ -11,7 +11,7 @@ export const reservePoolOf = (state: WeaponState) => state.magazineInventory;
 const rounds = (value: number | undefined, fallback = 0) => Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : fallback;
 function emptyInventory(specs: readonly PoolSpec[], carried: readonly number[]): MagazineInventory {
   const pouchCount = rigSlotCount(specs), stacked = carried.some(i => doubleStackMagazine(magazineOf(specs[i], i)));
-  return { pouchCount, slots: Array.from({ length: stacked ? REAR_MAGAZINE_OFFSET + pouchCount : pouchCount }, () => null) };
+  return { pouchCount, slots: Array.from({ length: (stacked ? rearMagazineSlot(pouchCount - 1) : frontMagazineSlot(pouchCount - 1)) + 1 }, () => null) };
 }
 
 /** One physical carrying budget, including when two weapons share magazines. */
@@ -23,9 +23,9 @@ export function startingMagazineInventory(specs: readonly PoolSpec[], carried: r
   // guns divide this allocation, while upgraded rigs add real side pouches.
   const budget = mains.length > 1 ? mainPositions : Math.min(mainPositions, (specs[mains[0]]?.feed && specs[mains[0]].feed !== 'magazine' ? 3 : 4) + limit - 6);
   let cursor = 0;
-  for (; cursor < budget && mains.length; cursor++) slots[cursor] = magazineOf(specs[mains[cursor % mains.length]], mains[cursor % mains.length]);
-  if (pistol !== undefined) for (let i = 0; i < 2 && cursor < limit; i++) slots[cursor++] = magazineOf(specs[pistol], pistol);
-  for (let i = 0; i < limit; i++) if (doubleStackMagazine(slots[i])) slots[i + REAR_MAGAZINE_OFFSET] = { ...slots[i]! };
+  for (; cursor < budget && mains.length; cursor++) slots[frontMagazineSlot(cursor)] = magazineOf(specs[mains[cursor % mains.length]], mains[cursor % mains.length]);
+  if (pistol !== undefined) for (let i = 0; i < 2 && cursor < limit; i++) slots[frontMagazineSlot(cursor++)] = magazineOf(specs[pistol], pistol);
+  for (let i = 0; i < limit; i++) if (doubleStackMagazine(slots[frontMagazineSlot(i)])) slots[rearMagazineSlot(i)] = { ...slots[frontMagazineSlot(i)]! };
   return inventory;
 }
 export function startingAmmoPools(specs: readonly PoolSpec[], carried: readonly number[]): AmmoPools {

@@ -5,6 +5,8 @@ import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9224';
 const output = new URL('../public/images/armory/', import.meta.url);
+// Optional comma-separated item IDs for a bounded refresh of changed models.
+const items = process.argv.find(arg => arg.startsWith('--items='))?.slice(8).split(',');
 await fs.mkdir(output, { recursive: true });
 const tab = await (await fetch(`${chrome}/json/new?${encodeURIComponent(`${origin}/connection-check.html`)}`, { method: 'PUT' })).json();
 const ws = new WebSocket(tab.webSocketDebuggerUrl);
@@ -32,12 +34,14 @@ try {
   await send('Page.enable');
   await new Promise(resolve => setTimeout(resolve, 1000));
   const files = await evaluate(`(async()=>{window.studioModule=await import('/scripts/armory-thumbnail-studio.ts');window.studio=studioModule.createStudio();return studioModule.shots.map(s=>s.file)})()`);
+  let saved = 0;
   for (const [index, file] of files.entries()) {
+    if (items && !items.some(item => file === `${item}.webp` || file.startsWith(`${item}-`))) continue;
     const data = await evaluate(`studio.render(${index})`);
     await fs.writeFile(new URL(file, output), Buffer.from(data, 'base64'));
-    console.log(`${index + 1}/${files.length} ${file}`);
+    saved++; console.log(`${index + 1}/${files.length} ${file}`);
   }
-  console.log(`Saved ${files.length} model previews.`);
+  console.log(`Saved ${saved} model previews.`);
 } finally {
   await evaluate('window.studio?.dispose()').catch(() => {});
   ws.close(); await fetch(`${chrome}/json/close/${tab.id}`);
