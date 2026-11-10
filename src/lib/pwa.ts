@@ -24,6 +24,7 @@ export interface PwaState {
   openInApp: boolean;
   /** A newer build finished caching and is waiting for a reload. */
   updateReady: boolean;
+  updateApply: 'idle' | 'applying' | 'error';
   updateCheck: 'idle' | 'checking' | 'current' | 'error' | 'unavailable';
 }
 
@@ -47,9 +48,9 @@ export type PwaStore = ReturnType<typeof createPwaStore>;
 
 export function createPwaStore(host: PwaHost) {
   const installed = host.standalone();
-  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), openInApp: false, updateReady: false, updateCheck: 'idle' };
+  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), openInApp: false, updateReady: false, updateApply: 'idle', updateCheck: 'idle' };
   let prompt: InstallPromptEvent | null = null;
-  let activate: (() => void) | null = null;
+  let activate: (() => void | Promise<void>) | null = null;
   let checkUpdate: (() => Promise<void>) | null = null;
   const listeners = new Set<() => void>();
   const set = (patch: Partial<PwaState>) => {
@@ -114,12 +115,19 @@ export function createPwaStore(host: PwaHost) {
       return outcome;
     },
     /** Called by the registration when a new build has finished installing. */
-    offerUpdate(apply: () => void) {
+    offerUpdate(apply: () => void | Promise<void>) {
       activate = apply;
       set({ updateReady: true });
     },
-    applyUpdate() {
-      activate?.();
+    async applyUpdate() {
+      if (state.updateApply === 'applying') return;
+      set({ updateApply: 'applying' });
+      try {
+        if (!activate) throw new Error('No update available');
+        await activate();
+      } catch {
+        set({ updateApply: 'error' });
+      }
     },
   };
 }
@@ -174,6 +182,47 @@ export async function checkServiceWorkerUpdate(registration: ServiceWorkerRegist
   }
 }
 
+/** Wait for a usable new worker, including an update accepted by another tab. */
+export function activateServiceWorkerUpdate(
+  registration: ServiceWorkerRegistration,
+  container: ServiceWorkerContainer,
+  offered: ServiceWorker,
+  pageController: ServiceWorker | null,
+): Promise<void> {
+  // An offer may have been superseded while the app was in the background.
+  const worker = registration.waiting ?? offered;
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let poll: ReturnType<typeof setInterval>;
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      clearInterval(poll);
+      container.removeEventListener('controllerchange', changed);
+      worker.removeEventListener('statechange', changed);
+      if (error) reject(error); else resolve();
+    };
+    const changed = () => {
+      // Do not depend solely on controllerchange: it may predate this click,
+      // or be delayed after the installed app resumes from suspension.
+      if ((container.controller && container.controller !== pageController)
+        || (worker.state === 'activated' && registration.active === worker)) finish();
+      else if (worker.state === 'redundant') finish(new Error('Update was replaced; try again'));
+    };
+    container.addEventListener('controllerchange', changed);
+    worker.addEventListener('statechange', changed);
+    timer = setTimeout(() => finish(new Error('Update activation timed out')), 15_000);
+    poll = setInterval(changed, 250);
+    changed();
+    if (!finished) {
+      try { worker.postMessage({ type: 'SKIP_WAITING' }); }
+      catch { finish(new Error('Could not activate update')); }
+    }
+  });
+}
+
 /**
  * Registers the worker built by `scripts/service-worker-plugin.mjs`. Production
  * only: in development Vite serves unbundled modules, and a cache in front of
@@ -183,12 +232,16 @@ export function registerServiceWorker(store: PwaStore = pwa) {
   if (!import.meta.env.PROD) return;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   const container = navigator.serviceWorker;
-  let reloading = false;
+  let pageController = container.controller;
+  container.addEventListener('controllerchange', () => {
+    // First installation controls this same build; it is not an update.
+    if (!pageController) pageController = container.controller;
+  });
   window.addEventListener('load', () => {
     void container.register('/sw.js').then(registration => {
-      const offer = (worker: ServiceWorker) => store.offerUpdate(() => {
-        reloading = true;
-        worker.postMessage({ type: 'SKIP_WAITING' });
+      const offer = (worker: ServiceWorker) => store.offerUpdate(async () => {
+        await activateServiceWorkerUpdate(registration, container, worker, pageController);
+        window.location.reload();
       });
       // Only an update has something to offer: on a first visit the worker
       // installs into an uncontrolled page and there is nothing to reload for.
@@ -215,12 +268,5 @@ export function registerServiceWorker(store: PwaStore = pwa) {
     }).catch(() => {
       // An unavailable worker costs offline play, not the game; stay quiet.
     });
-  });
-  // Fires on the first install too, when the new worker claims this page —
-  // reload only for an update the player asked to apply.
-  container.addEventListener('controllerchange', () => {
-    if (!reloading) return;
-    reloading = false;
-    window.location.reload();
   });
 }

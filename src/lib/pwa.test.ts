@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { checkServiceWorkerUpdate, createPwaStore, type PwaHost } from './pwa';
+import { activateServiceWorkerUpdate, checkServiceWorkerUpdate, createPwaStore, type PwaHost } from './pwa';
 
 /** A window stand-in that records listeners so tests can fire browser events. */
 function fakeWindow(standalone = false, manualInstall = false, installedApps?: () => Promise<unknown[]>) {
@@ -188,4 +188,106 @@ it('times out stalled checks and removes installation listeners', async () => {
     await result;
     expect(remove).toHaveBeenCalledWith('statechange', expect.any(Function));
   } finally { vi.useRealTimers(); }
+});
+
+function fakeActivation() {
+  const previous = Object.assign(new EventTarget(), { state: 'activated' });
+  const worker = Object.assign(new EventTarget(), { state: 'installed', postMessage: vi.fn() });
+  const registration = { waiting: worker as typeof worker | null, active: previous };
+  const container = Object.assign(new EventTarget(), { controller: previous });
+  const apply = () => activateServiceWorkerUpdate(
+    registration as unknown as ServiceWorkerRegistration,
+    container as unknown as ServiceWorkerContainer,
+    worker as unknown as ServiceWorker,
+    previous as unknown as ServiceWorker,
+  );
+  const activate = () => {
+    registration.waiting = null;
+    registration.active = worker;
+    worker.state = 'activated';
+    container.controller = worker;
+  };
+  return { worker, previous, registration, container, apply, activate };
+}
+
+it('waits for acceptance and a new controller before completing activation', async () => {
+  const f = fakeActivation(), done = vi.fn();
+  const pending = f.apply().then(done);
+  expect(f.worker.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+  f.container.dispatchEvent(new Event('controllerchange'));
+  await Promise.resolve();
+  expect(done).not.toHaveBeenCalled();
+  f.activate();
+  f.container.dispatchEvent(new Event('controllerchange'));
+  await pending;
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it('completes when another tab already activated the offered update', async () => {
+  const f = fakeActivation();
+  f.activate();
+  await f.apply();
+  expect(f.worker.postMessage).not.toHaveBeenCalled();
+});
+
+it('uses the latest waiting worker when an old offer was replaced', async () => {
+  const f = fakeActivation();
+  f.worker.state = 'redundant';
+  const latest = Object.assign(new EventTarget(), { state: 'installed', postMessage: vi.fn() });
+  f.registration.waiting = latest;
+  const pending = f.apply();
+  expect(latest.postMessage).toHaveBeenCalledOnce();
+  expect(f.worker.postMessage).not.toHaveBeenCalled();
+  latest.state = 'activated';
+  f.registration.active = latest;
+  latest.dispatchEvent(new Event('statechange'));
+  await pending;
+});
+
+it('detects activation without a delivered controllerchange event', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fakeActivation();
+    const pending = f.apply();
+    f.activate();
+    await vi.advanceTimersByTimeAsync(250);
+    await pending;
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
+it('unlocks a stalled update for retry and removes listeners and timers', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fakeActivation(), store = createPwaStore(fakeWindow(true).host);
+    const remove = vi.spyOn(f.container, 'removeEventListener');
+    store.offerUpdate(f.apply);
+    const pending = store.applyUpdate();
+    expect(store.snapshot().updateApply).toBe('applying');
+    await store.applyUpdate();
+    expect(f.worker.postMessage).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await pending;
+    expect(store.snapshot()).toMatchObject({ updateReady: true, updateApply: 'error' });
+    expect(remove).toHaveBeenCalledWith('controllerchange', expect.any(Function));
+    expect(vi.getTimerCount()).toBe(0);
+    f.activate();
+    await store.applyUpdate();
+    expect(store.snapshot().updateApply).toBe('applying');
+  } finally { vi.useRealTimers(); }
+});
+
+it('recovers from a messaging exception without leaving the update disabled', async () => {
+  const f = fakeActivation(), store = createPwaStore(fakeWindow().host);
+  f.worker.postMessage.mockImplementation(() => { throw new Error('worker gone'); });
+  store.offerUpdate(f.apply);
+  await store.applyUpdate();
+  expect(store.snapshot().updateApply).toBe('error');
+});
+
+it('rejects a redundant update instead of reloading the old build', async () => {
+  const f = fakeActivation();
+  f.registration.waiting = null;
+  f.worker.state = 'redundant';
+  await expect(f.apply()).rejects.toThrow('replaced');
 });

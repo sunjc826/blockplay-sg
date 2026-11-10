@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw } from 'lucide-react';
 import { pwa, usePwa } from '../lib/pwa';
@@ -6,9 +6,9 @@ import './pwa-update-modal.css';
 
 /** One update prompt for every route, including fullscreen games. */
 export default function PwaUpdateModal() {
-  const { updateReady } = usePwa();
+  const { updateReady, updateApply } = usePwa();
   const dialog = useRef<HTMLDialogElement>(null);
-  const [applying, setApplying] = useState(false);
+  const applying = updateApply === 'applying';
 
   useEffect(() => {
     if (!updateReady) return;
@@ -35,9 +35,9 @@ export default function PwaUpdateModal() {
     <span className="eyebrow">UPDATE AVAILABLE</span>
     <h2 id="pwa-update-title">A new version is ready.</h2>
     <p id="pwa-update-description">Update now to get the latest improvements. Reloading will end your current session. Your armory, credits and XP will stay saved on this device.</p>
-    <button autoFocus type="button" disabled={applying} onClick={() => { setApplying(true); pwa.applyUpdate(); }}>
-      <RefreshCw size={17} aria-hidden="true" />{applying ? 'Updating…' : 'Update & reload'}
+    <button autoFocus type="button" disabled={applying} onClick={() => { void pwa.applyUpdate(); }}>
+      <RefreshCw size={17} aria-hidden="true" />{applying ? 'Updating…' : updateApply === 'error' ? 'Retry update' : 'Update & reload'}
     </button>
-    <span className="pwa-update-status" role="status">{applying ? 'Applying the update. The app will reload shortly.' : ''}</span>
+    <span className="pwa-update-status" role="status">{applying ? 'Applying the update. The app will reload shortly.' : updateApply === 'error' ? 'The update did not finish. Try again, or close and reopen the app.' : ''}</span>
   </dialog>, document.body);
 }

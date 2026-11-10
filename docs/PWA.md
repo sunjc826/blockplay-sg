@@ -115,7 +115,12 @@ the player updates; Escape and clicking outside do not dismiss it. FPS and
 expedition controls pause and release the mouse. The prompt explains that
 reloading ends the current session while saved armory and progression stay on
 the device. The worker only calls `skipWaiting()` when the player accepts, and
-the page reloads on the `controllerchange` that follows. A tab left open overnight
+the page reloads once a new worker is usable. Acceptance checks the current
+controller and worker state as well as listening for changes: another tab may
+already have activated the update while the installed app was in the background.
+A replaced offer uses the latest waiting worker. Activation is bounded to 15
+seconds; if it stalls or messaging fails, the modal enables **Retry update** and
+explains how to recover instead of leaving **Updating…** disabled forever. A tab left open overnight
 re-checks for a new worker when it becomes visible again, at most hourly.
 
 Browsers revalidate `sw.js` on their own (the default `updateViaCache: 'imports'`
@@ -148,7 +153,8 @@ paths fall back to the shell) and the check clears the origin's storage first,
 so its first load really is a first load; both were needed to catch the redirect
 bug above, since a kinder test server and a reused browser profile each hid it.
 
-It checks the manifest's fields, decodes every icon it declares at its declared
+It checks normal update acceptance, an update already activated by another client,
+and a stalled activation followed by a successful retry. It checks the manifest's fields, decodes every icon it declares at its declared
 size, confirms the shell cache holds the build and that its shell is not a
 redirect result, reloads once **with the server still running** (the load that
 broke), warms a model into the media cache, then with the server stopped

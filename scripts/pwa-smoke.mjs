@@ -143,6 +143,38 @@ try {
   await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
   await wait(`!document.querySelector('.pwa-update-modal')`);
 
+  // An update accepted in another client claims this page too. The event has
+  // already happened by the time this player clicks their still-visible offer.
+  updateVersion++;
+  await evaluate(`window.manualUpdateMarker = true; document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.pwa-update-modal')?.open`, 30000);
+  await evaluate(`(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    window.previousController = navigator.serviceWorker.controller;
+    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  })()`);
+  await wait(`navigator.serviceWorker.controller !== window.previousController`);
+  assert(await evaluate(`window.manualUpdateMarker`), 'another client activating does not force a reload');
+  await evaluate(`document.querySelector('.pwa-update-modal button').click()`);
+  await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
+  await wait(`!document.querySelector('.pwa-update-modal')`);
+
+  // Drop the activation message to reproduce a stalled worker. The modal must
+  // recover and let the player retry successfully, without clearing saved data.
+  updateVersion++;
+  await evaluate(`window.manualUpdateMarker = true; document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.pwa-update-modal')?.open`, 30000);
+  await evaluate(`window.originalPostMessage = ServiceWorker.prototype.postMessage;
+    ServiceWorker.prototype.postMessage = () => {};
+    document.querySelector('.pwa-update-modal button').click()`);
+  await wait(`document.querySelector('.pwa-update-modal button')?.textContent.includes('Retry update')`, 20000);
+  assert.equal(await evaluate(`document.querySelector('.pwa-update-modal button').disabled`), false);
+  assert(await evaluate(`window.manualUpdateMarker`), 'stalled activation does not reload the old build');
+  await evaluate(`ServiceWorker.prototype.postMessage = window.originalPostMessage;
+    document.querySelector('.pwa-update-modal button').click()`);
+  await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
+  await wait(`!document.querySelector('.pwa-update-modal')`);
+
   // Media is cached on use, not on install: open the model the FPS range loads.
   await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.arrayBuffer())`);
   await wait(`caches.open('blockplay-media').then(c=>c.match('/models/field-kit/sar21-inspired.glb')).then(Boolean)`);
@@ -183,7 +215,7 @@ try {
   assert.deepEqual(errors, [], 'no uncaught errors offline');
   assert.equal(served, before, 'nothing was requested from the server after it stopped');
 
-  console.log('PASS PWA: manual current/update/offline checks, explicit update-and-reload, manifest/icons, precache, repeat loads, media cache and offline menu/district selection. No paid API requests.');
+  console.log('PASS PWA: manual current/update/offline checks, explicit update-and-reload, already-activated update, stalled activation/retry, manifest/icons, precache, repeat loads, media cache and offline menu/district selection. No paid API requests.');
 } finally {
   ws.close();
   await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});
