@@ -1,6 +1,6 @@
 # Field exchange, progression and FPS equipment
 
-The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, six carrying rigs, eleven insert choices (including no inserts), five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. All paid non-consumable equipment is rental-only; free issued equipment is always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
+The Armory sidebar offers twenty-six fixed weapon variants across five platforms, five cosmetic finishes, seven carrying rigs, eleven insert choices (including no inserts), five vehicle wraps, repeatable food and field supplies, and a token-priced level skip. Weapon performance changes only by buying and equipping a complete variant. Optics, magazines, ammunition, handling hardware and [accessories](#accessories) cannot be bought or swapped separately. All prices and stats are original arcade balancing. The prototype starts with 1,600 credits and 300 tokens. The explicit +250 demo-token and +1,000 demo-credit buttons do not charge money. All paid non-consumable equipment is rental-only; free issued equipment is always available. There is no checkout or random purchase. Three further platforms are carried only by the enemy and taken in the field; see [enemy-issue weapons](#enemy-issue-weapons).
 
 ## Play loop
 
@@ -30,7 +30,7 @@ The Armory sidebar offers twenty-six fixed weapon variants across five platforms
 | 22 | CIS 50MG Tuas Shift, SAR 21 Two Eyes Open (Mythic), Composite · Tahan inserts (Ultra), Expedition rig (Legendary) |
 | 24 | FN MAG Jaga Corner |
 | 28 | FN MAG Lepak Position, Composite · Guardian inserts (Legendary) |
-| 30 | Durian · Mao Shan Wang inserts (Legendary) |
+| 30 | Durian · Mao Shan Wang inserts (Legendary), Encik’s 10-pack (Legendary) |
 | 32 | CIS 50MG Merlion Roar |
 | 34 | Heavy · Pillbox inserts (Legendary) |
 | 36 | CIS 50MG Bukit Timah, Maid rig (Mythic) |
@@ -868,7 +868,7 @@ the one GPMG that takes it on: the same rule, for the reach it buys.
 
 Spare ammunition is a physical magazine inventory, bounded by the worn rig:
 ILBV has six positions, Enhanced LBS eight, Sentinel nine, Pathfinder ten,
-Expedition eleven and Maid twelve. The issued rifle and
+Expedition and Encik’s 10-pack eleven, and Maid twelve. The issued rifle and
 pistol start with four rifle magazines and two pistol magazines, plus the loaded
 magazine in each gun. A single drum/belt main starts with three spare containers;
 rig upgrades add positions. A second main divides the main's allocation rather
@@ -1049,13 +1049,43 @@ The rig slot supplies reserve capacity; the insert slot supplies armor points an
 | Sentinel | Elite / 4 | 9 | 1.5 kg | None | 18 TK |
 | Pathfinder | Ultra / 10 | 10 | 1.4 kg | None | 26 TK |
 | Expedition | Legendary / 22 | 11 | 1.3 kg | None | 36 TK |
-| Maid | Mythic / 36 | 12 | 1.2 kg | None | 48 TK |
+| Encik’s 10-pack | Legendary / 30 | 11 + 24 reserve slots | 3.8 kg | Weight of the entire pack | 40 TK |
+| Maid | Mythic / 36 | 12 + 48 companion reserve slots | 1.2 kg | Wait for the walking companion | 48 TK |
 
 All carried weapons share the pouch budget. Intervention magazines can stack two
 per pouch; other feeds occupy one. New pouches preserve the original front/rear
 addresses in checkpoints, so upgrading does not move or refill existing magazines.
 Shrinking to a smaller rig retains only magazines in its available positions.
-Extra ammunition still weighs its full amount and rigs do not alter reload speed.
+Ammunition on the player weighs its full amount and rigs do not alter reload speed.
+
+Encik’s 10-pack and Maid are alternative rig-slot setups. The 10-pack is a
+Legendary level-30 endurance sidegrade to Expedition: 24 reserve slots in a
+visible backpack, in addition to eleven ready pouches. Its empty pack and all
+ammunition count toward encumbrance. Maid remains Mythic level 36, adding a
+personal non-combat companion with 48 reserve slots to twelve ready pouches.
+She walks at a fixed 2.4 m/s through the infantry collision/navigation system;
+she cannot sprint or teleport to catch up. Her stock has no weight on the player.
+The companion is currently rendered locally for her owner, not replicated as an
+actor to other multiplayer clients.
+
+Hold E away from other interaction prompts, or hold **Transfer** on touch,
+to move a compatible container into an empty rig pouch. Each completed container
+takes one second. Maid must be within 2.8 m, on the same level and reachable
+without a wall between you. Release, firing, sprinting, reloading, switching
+weapons, opening a menu or mounting a vehicle cancels the unfinished container;
+completed transfers stay in the rig. R still reloads exclusively from the rig.
+The HUD shows reserve slots, compatible containers, distance and transfer progress.
+A standard magazine uses one reserve slot, a drum two, a belt box three. All
+carried feeds share one finite stock; common feeds are counted once. New stock is
+issued on deployment/respawn, with a 4:1 main-to-sidearm container allocation
+before slot costs. Supply stations top it up; Maid must be nearby to refill her
+stock. Travel preserves stock. Weapon changes preserve compatible stock and leave
+incompatible containers behind, freeing space for the new feed at resupply.
+Ammo consumables fill ready pouches only. Transfers from Maid add weight; transfers from the 10-pack merely
+move existing carried weight. District crossings preserve her remaining catch-up
+time and she arrives at the fixed entry, not wherever the player has run to.
+Old checkpoints with no carrier stock restore it empty until resupply. Rental
+expiry removes the carrier with the rig.
 
 | Insert | Tier / level | 1-hour rental | Armor | Absorption | Rating | Weight | Handling cost |
 | --- | --- | ---: | ---: | ---: | --- | ---: | ---: |

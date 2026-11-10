@@ -185,3 +185,7 @@
 .fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:154px;right:12px}
 @media(max-width:520px){.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:234px}}
 @media(min-width:521px) and (min-height:561px){.fps-game[data-touch=on]:not(.tutorial-game):has(.fps-weapon-slider) .expedition-route-hud{top:252px}}
+
+.fps-weapon-hud .fps-ammo p.fps-carrier-status { display: flex; flex-direction: column; gap: 3px; max-width: 340px; font-size: 10px; line-height: 1.35; letter-spacing: 0; color: #c6d4c4; }
+.fps-carrier-status b { color: #ebdfc7; letter-spacing: .04em; }
+@media (max-height: 500px) { .fps-weapon-hud .fps-ammo p.fps-carrier-status { font-size: 8px; gap: 1px; margin: 2px 0; } }

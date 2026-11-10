@@ -1,10 +1,11 @@
+import type { ReserveCarrier } from './reserve-carrier';
 import { validWeaponIndex } from './fps-rules';
 import type { WeaponSpec, WeaponState, WeaponFeed } from './fps-rules';
 
 export interface RigMagazine {
   group: string; capacity: number; family: number; caliberMm: number; feed: WeaponFeed;
 }
-export interface MagazineInventory { slots: (RigMagazine | null)[]; heldSlots?: number[]; pouchCount?: number }
+export interface MagazineInventory { carrier?: ReserveCarrier; slots: (RigMagazine | null)[]; heldSlots?: number[]; pouchCount?: number }
 // Each block retains nine front addresses followed by nine rear addresses.
 // Pouches 0–8 keep their legacy slots 0–17; new fronts start at 18, rears at 27.
 // Upgrading a rig never moves a saved magazine or an interrupted reload.

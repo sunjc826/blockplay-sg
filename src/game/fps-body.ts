@@ -1,3 +1,4 @@
+import { createTenPack } from './carrier-models';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { itemById, tierRank } from './armory-catalog';
@@ -193,6 +194,7 @@ export function createFpsBody(scene: THREE.Scene) {
       return model;
     };
     box(gear, equipment.rigId, .37, .39, .25, 0, .06, 0);
+    if (itemById(equipment.rigId)?.reserveCarrier === 'pack') { const pack = createTenPack(); pack.position.set(0, 0, .26); gear.add(pack); }
     for (const x of [-.125, .125]) box(gear, 'shoulder-strap', .055, .13, .24, x, .28, 0, trim);
     const plate = itemById(equipment.plateId);
     if (plate?.protection) {

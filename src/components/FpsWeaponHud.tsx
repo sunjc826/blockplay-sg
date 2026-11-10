@@ -86,6 +86,10 @@ export default function FpsWeaponHud({ hud, weapon, canFight, onUtility, onPickR
             {hud.rail && hud.rail.kind !== 'laser' && <>{hint('L ')}LIGHT {(hud.rail.lightOn ?? hud.rail.on) ? 'ON' : 'OFF'}</>}
             {hud.rail && hud.offsetDot && ' · '}{hud.offsetDot && <>{hint('X ')}{hud.canted ? 'OFFSET DOT' : 'PRIMARY SIGHT'}</>}
           </p>}
+          {hud.reserveCarrier && <p className="fps-carrier-status" data-carrier={hud.reserveCarrier.kind}>
+            <b>{hud.reserveCarrier.name} · {hud.reserveCarrier.used}/{hud.reserveCarrier.capacity} SLOTS</b>
+            <span>{hud.reserveCarrier.compatible} compatible{hud.reserveCarrier.kind === 'maid' && !hud.reserveCarrier.arriving ? ` · ${Math.round(hud.reserveCarrier.distance)} m away` : ''} · {touch && hud.reserveCarrier.canTransfer ? 'Hold Transfer' : hud.reserveCarrier.status}</span>
+          </p>}
           <p className="fps-ammo-detail fps-hud-hint">{hud.carriedKg.toFixed(1)} KG CARRIED · {Math.round(hud.movementScale * 100)}% MOVEMENT</p>
           {canFight && onToggleMode && hasLauncherMode(hud.weapon) && <button type="button" className="fps-mode-select" disabled={reloading} onClick={onToggleMode} aria-label="Switch rifle and grenade launcher">{!touch && 'U · '}{isLauncherMode(hud.weapon) ? 'SELECT RIFLE' : 'SELECT LAUNCHER'}</button>}
           {touch && onInspect && hud.vehicle === 'on-foot' && <button type="button" className="fps-inspect-button" aria-label={hud.inspecting ? 'Stop inspecting weapon' : 'Inspect weapon'} aria-pressed={hud.inspecting}

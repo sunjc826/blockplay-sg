@@ -338,7 +338,7 @@ export function resolveLoadout(profile: ArmoryProfile, options: { deferRentalExp
     const fittings = variant.fitted ?? [];
     const built = variantSpec(variant)!;
     const spec: EquippedWeapon = { ...built, name: variant.name, equipment: { ...gun, attachments: {} }, rentalRemainingMs: !profile.owned.includes(gun.variant) ? profile.rentals?.[gun.variant] : undefined, accent: variant.accent,
-      rigSlots: 6 + Math.ceil((rig.carry || 0) / 30),
+      reserveCarrier: rig.reserveCarrier, rigSlots: 6 + Math.ceil((rig.carry || 0) / 30),
       reserve: built.capacity * (i === 2 ? 2 : built.feed && built.feed !== 'magazine' ? 3 : 4),
       traits: collectTraits(built.traits, ...fittings.map(part => part.traits)) };
     return applyFixedFittings(spec, fittings);
@@ -372,7 +372,7 @@ export function expireLoadoutRentals(equipment: ResolvedLoadout): ResolvedLoadou
     const skinExpired = expired.includes(weapon.equipment.skin);
     if (!variantExpired && !skinExpired && !rigExpired) return weapon;
     const fallback = variantExpired ? issued.weapons[family] : weapon;
-    return { ...fallback, rigSlots: rigExpired ? issued.weapons[family].rigSlots : weapon.rigSlots,
+    return { ...fallback, reserveCarrier: rigExpired ? undefined : weapon.reserveCarrier, rigSlots: rigExpired ? issued.weapons[family].rigSlots : weapon.rigSlots,
       equipment: { ...fallback.equipment, skin: skinExpired ? 'skin-issued' : weapon.equipment.skin } };
   });
   return { ...equipment, equipmentRentals, weapons,

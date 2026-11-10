@@ -1,3 +1,4 @@
+import { refillCarrier } from './reserve-carrier';
 import { startingMagazineInventory } from './ammo-pools';
 import { consumableLimit, itemById } from './armory-catalog';
 import type { WeaponSpec, WeaponState } from './fps-rules';
@@ -38,10 +39,13 @@ function refillPouches(states: WeaponState[], specs: readonly WeaponSpec[], carr
   return rounds;
 }
 /** Refill physical pouches, preserving loaded magazines, chambers and reload progress. */
-export function resupplyEquipment(states: WeaponState[], specs: readonly WeaponSpec[], carried: readonly number[], supplies: Record<string, number>, stock: EquipmentStock) {
+export function resupplyEquipment(states: WeaponState[], specs: readonly WeaponSpec[], carried: readonly number[], supplies: Record<string, number>, stock: EquipmentStock, carrierAvailable = true) {
   let rounds = 0, items = 0;
   const inventory = states[carried[0]]?.magazineInventory;
-  if (stock.ammunition && inventory) rounds = refillPouches(states, specs, carried, inventory);
+  if (stock.ammunition && inventory) {
+    rounds = refillPouches(states, specs, carried, inventory);
+    if (inventory.carrier && (inventory.carrier.kind === 'pack' || carrierAvailable)) rounds += refillCarrier(inventory.carrier, specs, carried);
+  }
   for (const [id, amount] of Object.entries(stock.supplies)) {
     const item = itemById(id); if (item?.category !== 'consumable' || !Number.isFinite(amount) || amount < 0) continue;
     const goal = Math.min(consumableLimit(item), Math.floor(amount)), held = supplies[id] ?? 0;

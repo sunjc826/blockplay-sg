@@ -27,6 +27,7 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
     if (inventory && !inventories.has(inventory)) {
       inventories.add(inventory);
       reserve = inventory.slots.reduce((sum, mag) => sum + (mag ? mag.capacity * roundWeightKg(mag.caliberMm) : 0), 0);
+      if (inventory.carrier?.kind === 'pack') reserve += inventory.carrier.magazines.reduce((sum, mag) => sum + mag.capacity * roundWeightKg(mag.caliberMm), 0);
     } else if (!inventory) reserve = bounded(state?.reserve, weapon.reserve, Number.MAX_SAFE_INTEGER) * roundWeightKg(weapon.caliberMm);
     const pending = state?.pendingMagazine;
     return kg + bounded(state?.magazine, weapon.capacity, 201) * roundWeightKg(weapon.caliberMm) + reserve +

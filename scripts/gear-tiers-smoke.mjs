@@ -30,6 +30,7 @@ async function geometry(name) { const result = await evaluate(`(()=>{const root=
 const items = [
   ['rig', 'rig-pathfinder', 'Ultra', 10, 26],
   ['rig', 'rig-expedition', 'Legendary', 22, 36],
+  ['rig', 'rig-encik', 'Legendary', 30, 40],
   ['rig', 'rig-atlas', 'Mythic', 36, 48],
   ['plate', 'plate-strider', 'Ultra', 14, 24],
   ['plate', 'plate-guardian', 'Legendary', 28, 34],
@@ -79,5 +80,5 @@ try {
   }
   assert.deepEqual(errors,[]);
   await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,results,errors},null,2));
-  console.log('PASS: five new items and three reclassified inserts; unlocks, tier labels, thumbnails, hourly rent/equip and wallet charges at desktop, 390, 320 and landscape; no overflow or runtime exceptions.');
+  console.log('PASS: six expanded gear items and three reclassified inserts; unlocks, tier labels, thumbnails, hourly rent/equip and wallet charges at desktop, 390, 320 and landscape; no overflow or runtime exceptions.');
 } catch(error) { await screenshot('failure'); console.log(await evaluate(`({width:innerWidth,view:document.querySelector('.loadout-store')?.dataset.loadoutView,text:document.querySelector('.loadout-store')?.textContent})`)); throw error; } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }

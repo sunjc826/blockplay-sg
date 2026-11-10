@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5175';
 const chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9228';
 const rig = process.env.FPS_TEST_RIG || 'rig-ilbv';
-const pouchCount = { 'rig-ilbv':6, 'rig-lbs':8, 'rig-sentinel':9, 'rig-pathfinder':10, 'rig-expedition':11, 'rig-atlas':12 }[rig];
+const pouchCount = { 'rig-ilbv':6, 'rig-lbs':8, 'rig-sentinel':9, 'rig-pathfinder':10, 'rig-expedition':11, 'rig-encik':11, 'rig-atlas':12 }[rig];
 assert(pouchCount, 'known test rig');
 const initialSpares = (pouchCount - 2) * 2;
 const fixtureUrl = `${origin}/scripts/fixtures/scope-zoom.html?weapon=ff-intervention&rig=${rig}`;

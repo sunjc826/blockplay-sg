@@ -1,3 +1,6 @@
+import { CARRIER_CAPACITY, CARRIER_NAME, carrierUsed, stepCarrierTransfer, transferCandidate, type ReserveCarrierKind } from './reserve-carrier';
+import { createMaidFollower } from './maid-companion';
+import { createMaidModel } from './carrier-models';
 import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { STREAKS, type StreakId } from './match-streaks';
@@ -227,6 +230,7 @@ export interface FpsCheckpoint { health: number; armor: number; weapon: number; 
   /** Legacy calibre pools, read only when migrating an older checkpoint. */
   ammoPools?: AmmoPools;
   magazineInventory?: MagazineInventory;
+  maidTravelSeconds?: number;
   /** The head-mounted device was switched on, so it stays on across the gateway. */
   vision?: boolean;
   /** Supplies picked up on this expedition and still on the belt; they never touch the saved profile. */
@@ -267,6 +271,7 @@ export interface ChatterLine { id: number; source: string; text: string; tone: '
 const CHATTER_SECONDS = 6, CHATTER_LINES = 4;
 const ahMaLine = (health: number) => `Ah Ma: "Not yet! You haven't finished eating." Back up on ${Math.round(health)} HP.`;
 export interface FpsHud {
+  reserveCarrier?: { kind: ReserveCarrierKind; name: string; used: number; capacity: number; magazines: number; compatible: number; distance: number; arriving: boolean; canTransfer: boolean; progress: number; status: string };
   streakPlacement: StreakId | null;
   streakNotice: string;
   /** Live movement telemetry for the guided recruit course. */
@@ -711,6 +716,63 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (equipment.carriedFamilies.includes(rangeTravel.checkpoint.weapon)) hud.weapon = rangeTravel.checkpoint.weapon;
   }
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
+  let reserveTransferHeld = false, reserveTransferProgress = 0, reserveTransferWeapon = -1;
+  let maid: ReturnType<typeof createMaidFollower> | undefined, maidModel: ReturnType<typeof createMaidModel> | undefined;
+  let carrierInventory: MagazineInventory | undefined, maidArrivalSeconds = checkpoint?.maidTravelSeconds ?? 0;
+  const carrierStaticObstacles = new Set(world.obstacles);
+  let carrierObstacles: import('./region-collision').Obstacle[] = [];
+  const carrierStock = () => loadout[hud.weapon]?.magazineInventory?.carrier;
+  const playerFeet = () => ({ x: position.x, y: vertical, z: position.z });
+  const cancelCarrierTransfer = () => { reserveTransferHeld = false; reserveTransferProgress = 0; reserveTransferWeapon = -1; };
+  function carrierAccessible() {
+    const stock = carrierStock();
+    return !!stock && (stock.kind === 'pack' || !!maid?.reachable(playerFeet(), carrierObstacles));
+  }
+  function carrierEligible() {
+    return hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false && !vehicles.active && !swimming() && grounded() &&
+      !supplyUse && !grenadeHeld && !grenadeAfter && !hud.mapExpanded && !hud.proxyMenu && !merlionOperating() &&
+      !loadout[hud.weapon].reloadRemaining && !weaponSwitch && !pilotEnabled && !wheel && !recoveryPicker && !grenadePicker && !trigger && pullBuffer <= 0 && !keys.has('shift') && !stickRunning &&
+      !arenaConditionModifiers(conditions).frozen && carrierAccessible();
+  }
+  function carrierCanTransfer() { return carrierEligible() && transferCandidate(loadout[hud.weapon]) >= 0; }
+  function carrierHud(): FpsHud['reserveCarrier'] {
+    const stock = carrierStock(); if (!stock) return;
+    const compatible = stock.magazines.filter(mag => mag.group === loadout[hud.weapon].magazineGroup).length;
+    const nearby = carrierAccessible(), room = transferCandidate(loadout[hud.weapon]) >= 0;
+    return { kind: stock.kind, name: CARRIER_NAME[stock.kind], used: carrierUsed(stock), capacity: CARRIER_CAPACITY[stock.kind],
+      magazines: stock.magazines.length, compatible, distance: maid?.distance ?? 0, arriving: maid?.arriving ?? false,
+      canTransfer: carrierCanTransfer(), progress: reserveTransferProgress,
+      status: !nearby ? maid?.arriving ? 'Catching up from previous district' : 'Walking to you' : !compatible ? 'No compatible stock' : !room ? 'Rig full' : 'Hold E · 1 container / sec' };
+  }
+  function stepCarrier(dt: number) {
+    const inventory = loadout[hud.weapon]?.magazineInventory;
+    if (carrierInventory !== inventory) {
+      maidModel?.dispose(); maidModel = undefined; maid = undefined; cancelCarrierTransfer(); carrierInventory = inventory;
+      if (inventory?.carrier?.kind === 'maid') {
+        const behind = { x: position.x + Math.sin(yaw) * 2, y: vertical, z: position.z + Math.cos(yaw) * 2 };
+        const entry = footMovement.canOccupy(behind.x, behind.y, behind.z, .4, 1.8, vehicles.footObstacles()) && Math.abs((footMovement.supportHeight(behind.x, behind.z, behind.y + .1) ?? -100) - vertical) < .2 ? behind : playerFeet();
+        maid = createMaidFollower({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene),
+          traversalObstacles: getTraversalObstacles(world.scene) }, entry, maidArrivalSeconds,
+          options.arena?.environment?.navigationAnchors ?? zoneWorld.environment.navigationAnchors, options.arena?.environment?.bakedNavigation);
+        maidModel = createMaidModel(); world.scene.add(maidModel.root);
+      }
+      maidArrivalSeconds = 0;
+    }
+    if (maid && maidModel) {
+      carrierObstacles = vehicles.footObstacles().filter(o => !carrierStaticObstacles.has(o));
+      maid.update(dt, playerFeet(), carrierObstacles);
+      maidModel.root.visible = !maid.arriving;
+      maidModel.root.position.set(maid.position.x, maid.position.y, maid.position.z);
+      maidModel.root.rotation.y = maid.facing;
+      maidModel.update(Math.min(.1, dt), { velocity: { x: 0, z: -maid.walking }, sprint: 0, gesture: reserveTransferHeld ? 'offer' : 'clasp' });
+    }
+    if (reserveTransferHeld && (!carrierEligible() || reserveTransferWeapon !== hud.weapon)) cancelCarrierTransfer();
+    const result = stepCarrierTransfer(reserveTransferProgress, dt, reserveTransferHeld, carrierEligible(), loadout[hud.weapon]);
+    reserveTransferProgress = result.progress;
+    if (result.completed) handsSound('world-aim', .1, 1);
+    if (debugDatasets) canvas.dataset.reserveCarrier = JSON.stringify({ ...carrierHud(), position: maid?.position, walking: maid?.walking,
+      stock: carrierStock()?.magazines, held: reserveTransferHeld });
+  }
   let triggerSpent = false, dryFireSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
@@ -907,8 +969,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
     if (hud.proxyMenu && (!hud.proxyReach || hud.phase !== 'playing')) { closeProxyMenu(false); return; }
-    onHud({ ...hud, swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, reserveCarrier: carrierHud(), swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : reserveTransferProgress > 0 ? { name: CARRIER_NAME[carrierStock()!.kind], verb: 'TRANSFERRING AMMUNITION', progress: reserveTransferProgress, style: 'ammo', fromBelt: false } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
+        ...(maid && !maid.arriving ? [{ id: 'personal-maid', ...maid.position, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Maid · reserve ammunition' }] : []),
         ...(hud.arena?.hardpoint ? SMITH_CONTROL_SITES.map((site,i):MinimapMarker=>({id:`control-${site.id}`,x:site.x,z:site.z,kind:'control',number:i+1,
           active:hud.arena!.hardpoint!.active===site.id,inactive:hud.arena!.hardpoint!.active!==site.id,
           label:`${i+1}. ${site.name} · ${hud.arena!.hardpoint!.active===site.id?(hud.arena!.hardpoint!.contested?'Contested':'Active'):hud.arena!.hardpoint!.next===site.id?'Next':'Inactive'}`})):[]),
@@ -956,7 +1019,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     minimapSeen = minimapSightings(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
     return minimapMarkers(hud.arenaSelf, hud.arena?.actors ?? [], minimapSeen);
   };
-  const clearInput = () => { bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { cancelCarrierTransfer(); bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -1664,6 +1727,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
+    checkpoint.maidTravelSeconds = maid?.travelSeconds(playerFeet()) ?? maidArrivalSeconds;
     checkpoint.vehicleDepartures = structuredClone((expedition?.checkpoint ?? rangeTravel?.checkpoint)?.vehicleDepartures ?? {});
     if (physical && vehicles.mounted) {
       const source = { ...vehicles.mounted };
@@ -1692,6 +1756,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (held && (hud.proxyMenu || hud.mapExpanded && !mapMovementKeys.has(key))) return;
     if (hud.phase !== 'playing' || (options.arena && !hud.arenaSelf?.alive)) return;
     if (merlionOperating() && key !== 'fire') return;
+    if (key === 'reserve-transfer') {
+      if (!held) cancelCarrierTransfer();
+      else if (carrierCanTransfer()) { stopInspect(); ads = touchAim = false; reserveTransferHeld = true; reserveTransferWeapon = hud.weapon; }
+      publish(); return;
+    }
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
     if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keyboardCrouch.clear(); keys.delete('c'); publish(); } return; }
@@ -1971,6 +2040,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const target = fpsInteractionTarget(!!vehicles.active, (!!expedition || matchDrops) && !!focusedLoot, npc);
     if (target === 'loot') interactLoot();
     else if (target === 'npc') interactNpc();
+    else if (!vehicles.hud(position).interact && carrierCanTransfer()) setInput('reserve-transfer', true);
     else interactVehicle();
   }
   /** X: roll over onto the offset dot beside a magnified sight, and back. */
@@ -2060,6 +2130,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const pilotEscape = (event: KeyboardEvent) => { if (pilotEnabled && event.key === 'Escape') { event.preventDefault(); pause(); } };
   const keyup = (event: KeyboardEvent) => {
     const key = fpsControlKey(event, true); if (!key) return;
+    if (key === 'e') cancelCarrierTransfer();
     crossingKeys.delete(key);
     if (key === 'tab' && hud.scoreboardHeld) { hud.scoreboardHeld = false; publish(); }
     if (key === 'control') {
@@ -2744,7 +2815,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ? { id: grenadeHeld.id, hold: { ready: grenadeHeld.ready, cooked: grenadeHeld.cooked, pinned: grenadeHeld.pinned, swingAt: grenadeHeld.swingAt, under: grenadeUnder, fuseLeft: itemById(grenadeHeld.id)!.grenade!.fuse - grenadeHeld.cooked } }
       : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null);
     if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
-    const supply = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
+    const supply = supplyHands.update(rig.visible ? supplyUse ? supplyUse.profile.style : reserveTransferProgress > 0 ? 'ammo' : null : null, supplyUse ? supplyProgress(supplyUse) : reserveTransferProgress, supplyUse?.id);
     // Both sets of hands ride the same sway as the weapon.
     const itemRun = grenadeHeld && !grenadeHeld.pinned ? .45 : 0;
     grenadeHands.root.position.set(sway + lookLagX + run.x * itemRun, Math.abs(sway) + bodyFollow + lookLagY + run.y * itemRun, run.z * itemRun);
@@ -3276,9 +3347,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function resupplyRange() {
     if (!canResupply()) return;
     stopInspect(); endSupply();
-    const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock);
+    const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock, carrierAccessible());
     if (refill.rounds || refill.items) pickupSound('combat-pickup-ammo');
-    hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig magazines · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
+    hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig / reserve stock · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
     comms.add('system', 'Range', hud.message); publish(); canvas.focus({ preventScroll: true });
   }
   /** The rack gun under the crosshair, its card, and what E would do with it. */
@@ -3314,7 +3385,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const previousSpecs = specs, previousCarry = equipment.carriedFamilies, sameHand = family === hud.weapon;
     equipment = next; specs = next.weapons;
     loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
-    resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} });
+    resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} }, carrierAccessible());
     if (comesWithCargoKit(item.id)) supplyProxyMagazines(loadout, family);
     keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
     weapons.forEach((model, index) => { undress.push(dressWeapon(model, specs[index])); weaponStyles[index] = effectStyleForWeapon(specs[index]); });
@@ -3888,6 +3959,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         position = { x: frame.self.x, z: frame.self.z }; vertical = Math.max(0, frame.self.y - 1.75); velocityY = 0;
         yaw = frame.self.yaw; pitch = frame.self.pitch; loadout = createPooledLoadout(specs, equipment.carriedFamilies); clearInput(); supplyUse = null;
         if (checkpointPending) {
+          maidArrivalSeconds = checkpointPending.maidTravelSeconds ?? 0;
           loadout = createPooledLoadout(specs, equipment.carriedFamilies, checkpointPending);
           hud.weapon = equipment.carriedFamilies.includes(checkpointPending.weapon) ? checkpointPending.weapon : equipment.carriedFamilies[0]; checkpointPending = undefined;
           weapons.forEach((weapon, index) => weapon.visible = index === hud.weapon);
@@ -4368,7 +4440,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
       hud.lootNotice = `Supply drop open: ${items.map(item => item.name).join(', ')}. E to take.`; lootNoticeTime = 5;
     } else {
-      resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} });
+      resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} }, carrierAccessible());
       hud.health = hud.maxHealth; hud.armor = equipment.armor; arenaRuntime?.setVitals({ health: hud.health, armor: hud.armor });
       hud.lootNotice = 'Supply drop open: ammunition topped up, health and plates restored.'; lootNoticeTime = 5;
     }
@@ -4587,6 +4659,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // has to settle at its real rate too or it piles up.
       firearmShake.advance(realDt); flinch.advance(realDt); shoulderMotion.advance(realDt);
       advanceRecoil(kick, realDt); applyAimPush();
+      stepCarrier(realDt);
       updateCameras(Math.min(realDt, .25), moving, sprinting);
       refreshAimAssist(realDt); trackAimAssist();
       resolveVehicleDestruction();
@@ -4596,7 +4669,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       stepSupply(realDt);
       stepFood(realDt);
       wasSprinting = sprinting;
-      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && !grenadeHeld && !grenadeAfter && !arenaConditionModifiers(conditions).frozen && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
+      if ((trigger || pullBuffer > 0) && fireReady && !supplyUse && !reserveTransferProgress && !grenadeHeld && !grenadeAfter && !arenaConditionModifiers(conditions).frozen && hud.phase === 'playing') { if (vehicles.active && !vehicles.canUseFirearm) shootVehicle(); else shoot(); }
       pullBuffer = Math.max(0, pullBuffer - realDt);
       if (hud.phase === 'playing' && options.combat && !options.arena) counterFire(realDt);
     } else { endSlide(slide); advanceRecoil(kick, realDt); applyAimPush(); carry.set(0, 0, 0); updateCameras(dt, false, false); }
@@ -5050,6 +5123,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       window.removeEventListener('keydown', proxyKeydown, true);
       window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility);
       // First, so every mesh has its own material back before anything else restores or disposes them.
+      maidModel?.dispose();
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       wetView.dispose();merlionVisuals.dispose();
       void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();

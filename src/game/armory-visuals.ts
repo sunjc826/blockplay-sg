@@ -1,3 +1,4 @@
+import { createMaidModel, createTenPack } from './carrier-models';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { itemById, tierRank, type ShopItem } from './armory-catalog';
@@ -110,6 +111,11 @@ export function armorModel(item: ShopItem) {
     if (item.id === 'plate-strider' || item.id === 'plate-guardian') {
       for (const x of [-.075, 0, .075]) box(.012, .15, .008, .36 + x, -.055, .32 + depth, trim);
     }
+  }
+  if (item.reserveCarrier === 'pack') {
+    const pack = createTenPack(); pack.position.set(.65, -.04, .02); pack.rotation.y = -.3; group.add(pack);
+  } else if (item.reserveCarrier === 'maid') {
+    const maid = createMaidModel(); maid.root.scale.setScalar(.72); maid.root.position.set(.62, -.5, .03); maid.root.rotation.y = Math.PI - .25; group.add(maid.root);
   }
   return group;
 }
