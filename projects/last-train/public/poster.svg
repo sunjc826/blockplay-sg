@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 690" role="img" aria-label="Last Train station illustration">
+          <defs>
+            <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#101f26"/><stop offset="1" stop-color="#36545a"/></linearGradient>
+            <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#263c40"/><stop offset="1" stop-color="#10181c"/></linearGradient>
+            <linearGradient id="train" x2="1" y2=".3"><stop stop-color="#788e8b"/><stop offset=".5" stop-color="#354e50"/><stop offset="1" stop-color="#132b30"/></linearGradient>
+            <linearGradient id="window" x2="0" y2="1"><stop stop-color="#f1ca85"/><stop offset="1" stop-color="#92734c"/></linearGradient>
+            <radialGradient id="glow"><stop stop-color="#edc789" stop-opacity=".45"/><stop offset="1" stop-color="#edc789" stop-opacity="0"/></radialGradient>
+            <filter id="blur"><feGaussianBlur stdDeviation="12"/></filter>
+            <pattern id="rain" width="43" height="89" patternUnits="userSpaceOnUse" patternTransform="rotate(12)"><path d="M2 0v23M29 47v16" stroke="#b2d3ce" stroke-opacity=".12"/></pattern>
+          </defs>
+          <path fill="url(#sky)" d="M0 0h600v690H0z"/>
+          <path fill="#11282e" d="M0 155h45V70h31v108h20V105h66v89h28v-53h54v90h26v-95h45v88h45v-40h54v-84h31v109h37v-62h59v83h59v460H0z"/>
+          <path fill="#15292d" d="M0 0h600v65L0 213z"/><path d="M0 209 600 64M0 181 600 48M32 0l289 132M311 0l139 96" stroke="#5d7775" stroke-width="2"/>
+          <path d="m22 172 339-83m93-23 110-27" stroke="#efd09d" stroke-width="5"/><path d="m22 172 339-83m93-23 110-27" stroke="#efd09d" stroke-width="18" opacity=".18" filter="url(#blur)"/>
+          <path fill="url(#floor)" d="M0 410 600 300v390H0z"/>
+          <path d="m223 690 329-376M336 690l239-376" stroke="#637372" stroke-width="4"/><path d="m240 690 316-376M358 690l224-376" stroke="#090f12" stroke-width="9"/>
+          <path d="m0 441 543-129L174 690H0z" fill="#3d5151"/><path d="m0 475 512-149L137 690H0z" fill="#283c40"/>
+          <path d="m163 690 375-373" stroke="#cfa858" stroke-width="9"/><path d="m135 690 390-369" stroke="#bba475" stroke-width="8" stroke-dasharray="2 9" opacity=".5"/>
+          <ellipse cx="338" cy="516" rx="165" ry="100" fill="url(#glow)"/>
+          <path d="M236 282q0-29 28-34l80-15q21-3 40 11l151 65v83L383 550q-13 14-34 9l-90-24q-23-5-23-29z" fill="url(#train)" stroke="#7b938c" stroke-width="2"/>
+          <path d="m384 260 143 57v64L384 506z" fill="#193136"/>
+          <path d="m400 279 26 11v137l-26 23zm35 14 21 9v98l-21 20zm29 12 16 7v64l-16 17zm23 10 13 6v38l-13 12zm19 8 12 5v16l-12 10z" fill="url(#window)" opacity=".75"/>
+          <path d="M249 293q0-10 11-12l94-16q15-3 15 13v115l-120 18z" fill="#10272c" stroke="#9ca997" stroke-width="3"/>
+          <path d="m258 295 45-7v101l-45 7zm54-9 47-8v104l-47 7z" fill="url(#window)"/>
+          <path d="m262 298 36-6v89l-36 6z" fill="#b6ab7d" opacity=".3"/>
+          <path d="M249 438 370 421v23l-121 14z" fill="#d5a95e"/>
+          <rect x="269" y="253" width="69" height="18" rx="3" fill="#111f22" transform="rotate(-9 269 253)"/><text x="275" y="265" fill="#ecc276" font-family="monospace" font-size="8" transform="rotate(-9 275 265)">LAST TRAIN</text>
+          <path d="m258 490 25 3m56 7 23-3" stroke="#fff0c9" stroke-width="9"/><circle cx="271" cy="495" r="48" fill="url(#glow)"/><circle cx="350" cy="498" r="48" fill="url(#glow)"/>
+          <path d="m281 528 56 13v12l-56-13z" fill="#13252b"/>
+          <path d="M52 131v401m8-403v402" stroke="#1a2a2d" stroke-width="12"/><path d="m45 529 26-8" stroke="#76827a" stroke-width="3"/>
+          <path d="M72 185h88v47H72z" fill="#101d22" stroke="#7e8d82"/><text x="84" y="205" fill="#d5c7a0" font-family="monospace" font-size="9">MARINA BAY</text><text x="84" y="221" fill="#9ca99b" font-family="monospace" font-size="8">PLATFORM 02 →</text>
+          <path d="m168 437 5 53m-1-15-12 24m13-23 10 18" stroke="#131f23" stroke-width="7" stroke-linecap="round"/><circle cx="169" cy="419" r="8" fill="#152327"/>
+          <path d="M138 413q27-42 58-5l-13 1-10-2-11 5-11-2z" fill="#e4b455"/><path d="m168 407 5 40" stroke="#e5ba68" stroke-width="2"/>
+          <path d="m260 556-70 134m151-124-40 124M54 550 8 675" stroke="#d2b885" stroke-width="15" opacity=".1" filter="url(#blur)"/>
+          <path fill="url(#rain)" d="M0 0h600v690H0z"/>
+        </svg>

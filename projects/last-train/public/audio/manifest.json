@@ -1,0 +1,67 @@
+{
+  "provider": "ElevenLabs",
+  "model": "eleven_multilingual_v2",
+  "voice": "George",
+  "voiceId": "JBFqnCBsd6RMkjVDRZzb",
+  "clips": [
+    {
+      "id": "arrival",
+      "text": "The last train arrives without a sound. Every carriage is empty, except for a woman holding a yellow umbrella. Your phone lights up. A message from your own number: whatever you do, do not miss this train. The doors begin to close.",
+      "sha256": "97ab5e842801855fe7b41d76329ce84dbe75926a0920e6777f243bd375cb0d62",
+      "bytes": 238279
+    },
+    {
+      "id": "carriage",
+      "text": "The woman smiles. You are late, she says. Outside, the city runs backwards: rain rises into clouds, a fallen cup becomes whole. She offers you the umbrella. At the far end of the carriage, the driver is calling your name.",
+      "sha256": "ef59ebbcafd8287f7c452cc2fb5f96f0a3517633722010f7ee1df01b2136f709",
+      "bytes": 246221
+    },
+    {
+      "id": "platform",
+      "text": "The train leaves. Your phone rings from inside the station intercom. Your own voice whispers: I waited too. Then the departure board changes. One train remaining. Destination: the day you wish you could change. A service door clicks open.",
+      "sha256": "65ce68ae70afed9aa88eda65d0478a5732a1099e7b274ab2082782e75add3fee",
+      "bytes": 256670
+    },
+    {
+      "id": "stranger",
+      "text": "Years ago, you lent this umbrella to a stranger in the rain. You never got it back. I was on my way to say goodbye, she says. Your kindness gave me the courage to go. Tonight, I can take you back to one moment. Or I can take you home.",
+      "sha256": "c4fd199dfab8a8e8ca0067951f8cf52dabf71bee75171262e12298bd544f5df7",
+      "bytes": 227830
+    },
+    {
+      "id": "signal",
+      "text": "There is no driver. Only a microphone, a yellow umbrella, and a recording of your voice. You sent the warning. You brought yourself here. A switch has two positions: send the message again, or let the next morning arrive.",
+      "sha256": "13f11b361c34bd7ac235d2d287fc037c9de287f6d0ccd8f87b77e864a36bb7d4",
+      "bytes": 227830
+    },
+    {
+      "id": "daybreak",
+      "text": "You climb the stairs into morning. A cleaner waves. The city smells of coffee and wet pavement. Your phone holds one new message: good choice. You delete it, buy two coffees, and give one away. Some mysteries are invitations to keep living.",
+      "sha256": "b0b20082307d6c22de53505a64af90fc63c2982c728e75672e569747f35f5667",
+      "bytes": 258341
+    },
+    {
+      "id": "memory",
+      "text": "You stand at the old bus stop. Your younger self offers a yellow umbrella to a crying stranger. She catches her bus. Through its window, someone reaches for her hand. You cannot change the past. But now you know: you made a difference. You always did.",
+      "sha256": "41964a5f342e71090e06e8f8e9496fbde7b2dc520923564d9da7e60a00bcbd8a",
+      "bytes": 247892
+    },
+    {
+      "id": "home",
+      "text": "You close your eyes. When you open them, sunlight fills an ordinary train. A yellow umbrella rests beside you. Your phone is quiet. At your stop, someone is waiting in the rain. This time, you know exactly what to do.",
+      "sha256": "1f5532dcb8571ee3993bdd7cc8e7de1132ec3075db6eed9cf908095d71bd96c6",
+      "bytes": 225323
+    },
+    {
+      "id": "loop",
+      "text": "You press record. Whatever you do, do not miss this train. The room dissolves into platform lights. Somewhere, your phone lights up. The last train arrives without a sound. This time, you are the one holding the yellow umbrella.",
+      "sha256": "4755483fe74c25fddc841e059b09ff5eca765adec9826cb600fd36d8bf5d28b3",
+      "bytes": 215710
+    }
+  ],
+  "atmosphere": {
+    "sha256": "28e7e6e622302b065494f80ecbfeac7ff94f628e8ba187248451198d22458645",
+    "bytes": 129192,
+    "model": "eleven_text_to_sound_v2"
+  }
+}
