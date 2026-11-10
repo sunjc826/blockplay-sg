@@ -1,6 +1,14 @@
-# Last Train
+# ElevenLabs hackathon — exploratory workspace
 
-A phone-first branching audio mystery made for an ElevenLabs hackathon. Nine narrated scenes, four endings, one empty station after midnight.
+**The actual hackathon project has not been chosen. Last Train is only an exploratory demo created by an assistant so the owner could review something from their phone. It is not the owner's selected product, approved direction, or committed hackathon submission.**
+
+The owner may choose a completely different idea. Preserve Last Train as a reference unless asked otherwise. Future agents should first ask what the owner wants to build; do not infer a roadmap from the existing story, branding, pitch, assets, or deployment. Setup and inspection are fine, but do not extend Last Train, spend audio credits, redesign the project, or deploy a new concept without direction.
+
+Starter prompts: [Codex on this Mac](prompts/codex.txt) · [pi.dev on another machine](prompts/pi-dev.txt).
+
+## Existing demo: Last Train
+
+A phone-first branching audio mystery demonstrating ElevenLabs narration, generated ambience, and Cloudflare hosting. Nine narrated scenes and four endings. These demonstrate a possible format, not a product commitment.
 
 **[Play](https://last-train-elevenlabs.sunjc826.workers.dev)** · **[Pitch and demo guide](https://last-train-elevenlabs.sunjc826.workers.dev/review)**
 
@@ -20,9 +28,9 @@ pnpm dev
 
 Open http://127.0.0.1:5188. On a remote development host, use its authenticated port preview or SSH forwarding for port 5188. The dev server binds to loopback by default. Serve over HTTP rather than opening index.html directly; the app uses ES modules.
 
-## Review
+## Review the exploratory demo
 
-Tap **Catch the last train**. Try **Step inside → Take the umbrella → Visit that rainy day**. Other routes reveal different endings. `/review.html` contains the pitch, a judging demo sequence, architecture, and scope. `pnpm build` also creates the downloadable review kit and copies it into `dist/`.
+Tap **Catch the last train**. Try **Step inside → Take the umbrella → Visit that rainy day**. Other routes reveal different endings. `/review.html` contains an illustrative demo pitch, a playback walkthrough, architecture, and scope. The pitch is an example for Last Train, not an approved hackathon proposal. `pnpm build` also creates the downloadable review kit and copies it into `dist/`.
 
 ## Source map
 

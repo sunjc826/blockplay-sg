@@ -5,6 +5,8 @@ root = Path(__file__).resolve().parent.parent
 public = root / 'public'
 with ZipFile(public / 'last-train-review.zip', 'w', ZIP_DEFLATED) as archive:
     archive.write(root / 'README.md', 'README.md')
+    for name in ['codex.txt', 'pi-dev.txt']:
+        archive.write(root / 'prompts' / name, 'prompts/' + name)
     for name in ['index.html', 'app.js', 'story.js', 'style.css', 'review.html', 'poster.svg', '_headers']:
         archive.write(public / name, 'site/' + name)
     for path in sorted((public / 'audio').iterdir()):

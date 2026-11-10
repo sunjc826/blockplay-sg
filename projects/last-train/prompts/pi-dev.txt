@@ -1,0 +1,9 @@
+Set up an exploratory ElevenLabs hackathon workspace on this machine by cloning https://github.com/sunjc826/elevenlabs-hackathon.git. Use the standalone repository root as the working directory.
+
+IMPORTANT: The owner has NOT chosen the actual hackathon project. Last Train is only an assistant-created demo to review audio and web capabilities. It is NOT the selected product, an approved roadmap, or a committed submission. The owner may choose an entirely different idea.
+
+Read README.md and inspect Git status. Preserve existing work and the demo as reference. Requirements: Node.js 22.12+, pnpm 11.22.0, Python 3. Run pnpm install --frozen-lockfile, pnpm test, pnpm typecheck, pnpm build, and pnpm dev. If possible, provide an authenticated preview for port 5188. Report the checked-out commit and verification results honestly. If access fails, state the exact blocker.
+
+Bundled audio requires no ElevenLabs or Cloudflare credentials. Do not regenerate paid audio, extend or redesign Last Train, or deploy during setup. Never commit secrets, private receipts, caches, dependencies, or build output.
+
+After setup, summarize reusable components and ask the owner what they actually want to build. Offer brainstorming only if useful; keep the direction open. Wait for their decision before implementing product features.

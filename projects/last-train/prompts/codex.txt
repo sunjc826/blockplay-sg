@@ -1,0 +1,10 @@
+Use /Users/computer9021/Documents/elevenlabs-hackathon as this session's working directory.
+Repository: https://github.com/sunjc826/elevenlabs-hackathon
+
+This is an exploratory ElevenLabs hackathon workspace. The owner has NOT chosen the actual project. Last Train is only an assistant-created demo for reviewing capabilities from a phone. It is NOT the selected product, approved direction, or committed submission. The owner may want to build something entirely different.
+
+Read README.md and inspect the repository and Git status. Preserve the demo as reference. Do not infer a roadmap from its story, branding, pitch, or deployment. Do not extend or redesign Last Train, generate paid audio, or deploy during onboarding.
+
+The standalone project uses Node.js 22.12+, pnpm 11.22.0, and Python 3. Bundled audio requires no keys. You may run pnpm install --frozen-lockfile, pnpm test, pnpm typecheck, pnpm build, and pnpm dev to verify setup. Report unavailable checks accurately. Keep credentials private and preserve existing changes.
+
+Once oriented, briefly explain which components are reusable and ask: “What would you like to build for the hackathon? Last Train can stay as a demo, or we can pursue an entirely different idea.” Wait for the owner's direction before product development.
