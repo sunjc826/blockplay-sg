@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, Backpack, Check, ChevronRight, CircleHelp, Cross
 import { ARMORY_CATALOG, byUnlock, consumableLimit, isShopFamily, itemById, type ShopItem } from '../game/armory-catalog';
 import { fittedVariantSpec, isSupplyCarried, previewLoadout, resolveLoadout, type EquippedWeapon } from '../game/armory-state';
 import { EXTRA_SLOT_ID, SIDEARM_FAMILY, isMainWeapon, restoreCarrySlots } from '../game/armory-slots';
-import { deploymentRentals, itemFitsSlot, LOADOUT_SLOTS, loadoutEquipError, packedSupplyCount, slotItem, slotLabel, weaponSlot, type LoadoutSlot, type LoadoutTarget } from '../game/loadout-store';
+import { deploymentRentals, itemFitsSlot, loadoutEquipError, packedSupplyCount, slotItem, slotLabel, weaponSlot, type LoadoutSlot, type LoadoutTarget } from '../game/loadout-store';
 import { canRentEquipment, hasItemAccess, rentalTimeLeft, WEAPON_TERMS, weaponTermPrice, weaponTermSavings, type WeaponTerm } from '../game/weapon-rentals';
 import { FPS_WEAPONS } from '../game/fps-rules';
 import { equipmentMovement } from '../game/fps-encumbrance';
@@ -143,13 +143,14 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
   const slotButton = (id: LoadoutSlot, review = false) => {
     const target = { ...ui, slot: id }, worn = slotItem(profile, target), Icon = icons[id];
     const slotLocked = id === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID);
-    const selected = ui.slot === id && ui.view !== 'home';
+    const selected = ui.slot === id && ui.view !== 'home' && ui.view !== 'review';
     const rental = worn && profile.rentals[worn.id];
     return <MenuButton type="button" key={id} data-loadout-slot={id} aria-current={selected ? 'true' : undefined} className={selected ? 'selected' : ''} onClick={() => openSlot(id)}><Icon size={19} aria-hidden="true" /><span><small>{slotLabel(id)}</small><strong>{id === 'supplies' ? `${packed} packed` : slotLocked ? 'Optional · Rent slot' : worn ? <TierLabel tier={worn.tier}>{worn.name}</TierLabel> : 'Empty · Travel lighter'}</strong>{(review || slotLocked || !!rental) && <small>{id === 'supplies' ? 'Buy or pack supplies' : slotLocked ? 'Weapon rental is separate' : rental ? `${rentalTimeLeft(rental)} · play time` : worn ? <><TierLabel tier={worn.tier} /> · Always available</> : 'No extra carried weight'}</small>}</span><ChevronRight size={15} aria-hidden="true" /></MenuButton>;
   };
-  const slotButtons = (review = false) => review
-    ? <div className="loadout-review-list">{LOADOUT_SLOTS.map(({ id }) => slotButton(id, true))}</div>
-    : <div className="loadout-slots"><h2 id="deployment-loadout-heading">Your deployment loadout</h2>{slotGroups.map(group => <section key={group.label} aria-label={group.label} className="loadout-slot-group"><h3>{group.label}</h3>{group.slots.map(id => slotButton(id))}</section>)}</div>;
+  const slotButtons = (review = false) => <div className={`loadout-slots${review ? ' loadout-review-list' : ''}`}>
+    {!review && <h2 id="deployment-loadout-heading">Your deployment loadout</h2>}
+    {slotGroups.map(group => <section key={group.label} aria-label={group.label} className="loadout-slot-group"><h3>{group.label}</h3>{group.slots.map(id => slotButton(id, review))}</section>)}
+  </div>;
   const confirmEquip = () => { if (item) transact(() => store.equipLoadout(item.id, ui), 'home'); };
   const confirmRental = () => {
     if (!item) return;
@@ -204,7 +205,7 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
       {(short > 0 || blocked) && <p role="alert" className="loadout-warning">{blocked || <>You need {priceLabel(item, short)} more. Choose a shorter rental or use <TierLabel tier="Issued">issued</TierLabel> equipment.</>}</p>}
       <div className="loadout-actions"><MenuButton onClick={() => go(extra ? 'extra' : 'detail')}>Cancel</MenuButton><MenuButton variant="primary" className="loadout-primary" data-store-outcome data-confirm-rental disabled={short > 0 || !!blocked || level.level < (item.requiredLevel ?? 1)} onClick={confirmRental}>{renew ? 'Extend' : extra ? 'Rent slot' : equipAfter ? 'Rent & equip' : 'Rent to locker'} · {priceLabel(item, cost)}</MenuButton></div>
     </div></section>;
-  } else if (ui.view === 'review') content = <section className="loadout-stack">{title('Review your deployment loadout')}<p>Only slotted gear and packed supplies come with you. This step spends no currency.</p><div className="loadout-review-columns">{slotButtons(true)}<div className="loadout-stack"><div className="loadout-panel loadout-stack"><h3>Readiness</h3><p><Check size={16} /> Main weapon and sidearm equipped</p><p>{packed ? `${packed} supplies packed.` : 'No supplies packed. You can still play.'}</p>{shortRentals.map(i => <div className="loadout-notice loadout-warning" key={i.id}><strong><TierLabel tier={i.tier}>{i.name}</TierLabel> · {rentalTimeLeft(profile.rentals[i.id])}</strong><p>May expire during your match. Extending is optional.</p><MenuButton onClick={() => {
+  } else if (ui.view === 'review') content = <section className="loadout-stack">{title('Review your deployment loadout')}<p>Only slotted gear and packed supplies come with you. This step spends no currency.</p><div className="loadout-review-columns">{slotButtons(true)}<div className="loadout-review-summary loadout-stack"><div className="loadout-stack"><h3>Readiness</h3><p><Check size={16} /> Main weapon and sidearm equipped</p><p>{packed ? `${packed} supplies packed.` : 'No supplies packed. You can still play.'}</p>{shortRentals.map(i => <div className="loadout-notice loadout-warning" key={i.id}><strong><TierLabel tier={i.tier}>{i.name}</TierLabel> · {rentalTimeLeft(profile.rentals[i.id])}</strong><p>May expire during your match. Extending is optional.</p><MenuButton onClick={() => {
           const slot: LoadoutSlot = i.id === EXTRA_SLOT_ID ? 'extra' : i.category === 'weapon' ? i.family === SIDEARM_FAMILY ? 'sidearm' : i.family === carry.extra ? 'extra' : 'main' : i.category as LoadoutSlot;
           setUi(u => ({ ...u, fromCatalog: false, item: i.id, slot, family: i.family ?? u.family, view: 'rental' })); setRenew(true); setTerm('1h'); setEquipAfter(false);
         }}>Extend rental</MenuButton></div>)}<p>Expired rentals return to issued equipment after death or game end. Rental time counts down only during active play.</p><strong>{equipmentMovement(loadout, carry.main).totalKg.toFixed(1)} kg carried</strong></div><MenuButton variant="primary" className="loadout-primary" data-choose-match onClick={() => go('match')}>Choose where to play <ArrowRight size={16} /></MenuButton></div></div></section>;
