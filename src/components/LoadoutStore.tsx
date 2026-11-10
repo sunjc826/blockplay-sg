@@ -33,6 +33,11 @@ import './loadout-store.css';
 
 type Tour = { onComplete: () => void; onExit: () => void };
 const icons = { main: Crosshair, extra: Layers2, sidearm: Crosshair, rig: Backpack, plate: Shield, vision: Eye, supplies: Package, skin: Palette, vehicleSkin: Palette };
+const slotGroups: { label: string; slots: readonly LoadoutSlot[] }[] = [
+  { label: 'Weapons', slots: ['main', 'extra', 'sidearm', 'skin'] },
+  { label: 'Protection & equipment', slots: ['rig', 'plate', 'vision', 'vehicleSkin'] },
+  { label: 'Supplies', slots: ['supplies'] },
+];
 const supplyTypes = [['all', 'All supplies'], ['medical', 'Recovery'], ['field-utility', 'Field utilities'], ['grenade', 'Grenades'], ['food', 'Food']] as const;
 const initialSelection = (family: number): Selection => ({ view: 'home', slot: 'main', family, vehicle: 'car', item: '', supplyType: 'all' });
 const priceLabel = (item: ShopItem, amount: number) => <StoreMoney amount={amount} currency={item.currency} />;
@@ -135,11 +140,16 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
   }, [ui.view, ui.item, tutorial]);
 
   const title = (text: ReactNode, back: View = 'home') => <div className="loadout-section-heading"><MenuButton data-loadout-back type="button" onClick={() => go(back)}><ArrowLeft size={16} /> {back === 'home' ? 'Your loadout' : back === 'browse' ? ui.fromCatalog ? 'Browse store' : 'Choose gear' : back === 'review' ? 'Review loadout' : 'Item details'}</MenuButton><h2 ref={heading} tabIndex={-1}>{text}</h2></div>;
-  const slotButtons = (review = false) => <div className={review ? 'loadout-review-list' : 'loadout-slots'}>{LOADOUT_SLOTS.map(({ id, label }) => {
+  const slotButton = (id: LoadoutSlot, review = false) => {
     const target = { ...ui, slot: id }, worn = slotItem(profile, target), Icon = icons[id];
     const slotLocked = id === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID);
-    return <MenuButton type="button" key={id} data-loadout-slot={id} className={ui.slot === id && ui.view !== 'home' ? 'selected' : ''} onClick={() => openSlot(id)}><Icon size={19} /><span><small>{label}</small><strong>{id === 'supplies' ? `${packed} packed` : slotLocked ? 'Optional · Rent slot' : worn ? <TierLabel tier={worn.tier}>{worn.name}</TierLabel> : 'Empty · Travel lighter'}</strong><small>{id === 'supplies' ? 'Buy or pack supplies' : slotLocked ? 'Weapon rental is separate' : worn && profile.rentals[worn.id] ? `${rentalTimeLeft(profile.rentals[worn.id])} · play time` : worn ? <><TierLabel tier={worn.tier} /> · Always available</> : 'No extra carried weight'}</small></span><ChevronRight size={15} /></MenuButton>;
-  })}</div>;
+    const selected = ui.slot === id && ui.view !== 'home';
+    const rental = worn && profile.rentals[worn.id];
+    return <MenuButton type="button" key={id} data-loadout-slot={id} aria-current={selected ? 'true' : undefined} className={selected ? 'selected' : ''} onClick={() => openSlot(id)}><Icon size={19} aria-hidden="true" /><span><small>{slotLabel(id)}</small><strong>{id === 'supplies' ? `${packed} packed` : slotLocked ? 'Optional · Rent slot' : worn ? <TierLabel tier={worn.tier}>{worn.name}</TierLabel> : 'Empty · Travel lighter'}</strong>{(review || slotLocked || !!rental) && <small>{id === 'supplies' ? 'Buy or pack supplies' : slotLocked ? 'Weapon rental is separate' : rental ? `${rentalTimeLeft(rental)} · play time` : worn ? <><TierLabel tier={worn.tier} /> · Always available</> : 'No extra carried weight'}</small>}</span><ChevronRight size={15} aria-hidden="true" /></MenuButton>;
+  };
+  const slotButtons = (review = false) => review
+    ? <div className="loadout-review-list">{LOADOUT_SLOTS.map(({ id }) => slotButton(id, true))}</div>
+    : <div className="loadout-slots"><h2 id="deployment-loadout-heading">Your deployment loadout</h2>{slotGroups.map(group => <section key={group.label} aria-label={group.label} className="loadout-slot-group"><h3>{group.label}</h3>{group.slots.map(id => slotButton(id))}</section>)}</div>;
   const confirmEquip = () => { if (item) transact(() => store.equipLoadout(item.id, ui), 'home'); };
   const confirmRental = () => {
     if (!item) return;
@@ -213,7 +223,7 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     {tutorial && <section id="equipment-help" className="loadout-guide loadout-panel" aria-label="Store tour"><div><span className="loadout-eyebrow">Store tour · {tourStep + 1} / {tourStops.length}</span><h2>{tourStops[tourStep][0]}</h2><p>{tourStops[tourStep][1]}</p></div><div className="loadout-actions"><MenuButton onClick={tutorial.onExit}>Close tour</MenuButton><MenuButton disabled={tourStep === 0} onClick={() => setTourStep(n => n - 1)}>Back</MenuButton><MenuButton variant="primary" className="loadout-primary" onClick={() => tourStep === tourStops.length - 1 ? tutorial.onComplete() : setTourStep(n => n + 1)}>{tourStep === tourStops.length - 1 ? 'Finish tour' : 'Next'}</MenuButton></div></section>}
     {store.saveError && <div className="loadout-feedback loadout-warning" role="alert">Browser storage is unavailable. Purchases and equipment changes last for this session only.</div>}
     <div className={`loadout-feedback${store.message ? '' : ' is-empty'}`} role="status" aria-live="polite"><StoreMessage text={store.message} /></div>
-    <div className={`loadout-workspace${['review', 'match'].includes(ui.view) ? ' is-wide' : ''}${ui.view !== 'home' ? ' is-editing' : ''}`}><div className="loadout-content" id="equipment-view-content" role={onModeChange ? 'tabpanel' : undefined} aria-labelledby={onModeChange ? `equipment-tab-${mode}` : undefined}>{content}</div>{!['review', 'match'].includes(ui.view) && <aside><span className="loadout-eyebrow">Your deployment loadout</span>{slotButtons()}</aside>}</div>
+    <div className={`loadout-workspace${['review', 'match'].includes(ui.view) ? ' is-wide' : ''}${ui.view !== 'home' ? ' is-editing' : ''}`}><div className="loadout-content" id="equipment-view-content" role={onModeChange ? 'tabpanel' : undefined} aria-labelledby={onModeChange ? `equipment-tab-${mode}` : undefined}>{content}</div>{!['review', 'match'].includes(ui.view) && <aside aria-labelledby="deployment-loadout-heading">{slotButtons()}</aside>}</div>
     <footer className="loadout-footer"><small>Rental timers are paused here. Purchases save immediately.</small>{ui.view !== 'home' && <MenuButton data-loadout-home onClick={() => go('home')}>Your loadout</MenuButton>}{!['review', 'match', 'home'].includes(ui.view) && <MenuButton data-loadout-review onClick={() => go('review')}>Review loadout <ArrowRight size={16} /></MenuButton>}</footer>
   </section>;
 }

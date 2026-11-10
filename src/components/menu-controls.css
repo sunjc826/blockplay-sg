@@ -116,7 +116,6 @@
 
 /* Keep navigation shortcuts secondary even while the page scrolls. */
 .loadout-choose-main { justify-content: center; }
-.loadout-slots > button.ui-button.selected { border-color: var(--ui-action); }
 @media (max-width:380px) {
   .armory-settings .settings-tabs > [role=tab] svg { display: none; }
 }
