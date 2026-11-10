@@ -22,6 +22,7 @@ const TYPES = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.glb': 'model/gltf-binary',
 };
 let served = 0;
+let updateVersion = 0;
 const server = createServer(async (request, response) => {
   const path = decodeURIComponent(new URL(request.url, origin).pathname);
   if (path.startsWith('/api/')) { // Mirrors the Worker: JSON, never a cached answer.
@@ -42,7 +43,7 @@ const server = createServer(async (request, response) => {
     const body = await readFile(file);
     served++;
     response.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream' });
-    response.end(body);
+    response.end(path === '/sw.js' ? Buffer.concat([body, Buffer.from(`\n// Smoke update ${updateVersion}\n`)]) : body);
   } catch {
     response.writeHead(404, { 'Content-Type': 'text/plain' }); response.end('not found');
   }
@@ -127,6 +128,21 @@ try {
   assert(await evaluate(`!!navigator.serviceWorker.controller`), 'the worker controls the reloaded page');
   assert.deepEqual(errors, [], 'no uncaught errors on a worker-served load');
 
+  // A manual check must fetch a worker without navigating away, wait for its
+  // installation, and only reload after the player accepts the existing prompt.
+  await evaluate(`document.querySelector('.game-title')?.click()`);
+  await wait(`!document.querySelector('.game-title')`);
+  await evaluate(`window.manualUpdateMarker = true; document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.game-update-feedback')?.textContent.includes('up to date')`);
+  assert(await evaluate(`window.manualUpdateMarker`), 'checking does not reload');
+  updateVersion++;
+  await evaluate(`document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.pwa-update-modal')?.open`, 30000);
+  assert(await evaluate(`window.manualUpdateMarker`), 'a ready update waits for approval');
+  await evaluate(`document.querySelector('.pwa-update-modal button').click()`);
+  await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
+  await wait(`!document.querySelector('.pwa-update-modal')`);
+
   // Media is cached on use, not on install: open the model the FPS range loads.
   await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.arrayBuffer())`);
   await wait(`caches.open('blockplay-media').then(c=>c.match('/models/field-kit/sar21-inspired.glb')).then(Boolean)`);
@@ -145,6 +161,11 @@ try {
   await reload();
   await wait(`document.querySelector('.brand')?.textContent.includes('blockplaySG')`);
   await wait(`document.querySelectorAll('.game-menu-item').length>0`);
+  await evaluate(`document.querySelector('.game-title')?.click()`);
+  await wait(`!document.querySelector('.game-title')`);
+  await evaluate(`document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.game-update-feedback')?.textContent.includes('Couldn’t check')`);
+  assert.equal(await evaluate(`document.querySelector('.game-update-check').disabled`), false, 'failed checks allow retry');
   await send('Page.navigate', { url: `${origin}/world` });
   await wait(`!!document.querySelector('.starting-picker')`);
   assert.equal(await evaluate(`document.querySelectorAll('[data-start-region]').length`), 23, 'every district listed offline');
@@ -162,7 +183,7 @@ try {
   assert.deepEqual(errors, [], 'no uncaught errors offline');
   assert.equal(served, before, 'nothing was requested from the server after it stopped');
 
-  console.log('PASS PWA: manifest and icons install-ready, build precached, repeat loads served by the worker, media cached on use, and offline menu/district selection plus visited navigation data work with the server stopped. No map or companion requests.');
+  console.log('PASS PWA: manual current/update/offline checks, explicit update-and-reload, manifest/icons, precache, repeat loads, media cache and offline menu/district selection. No paid API requests.');
 } finally {
   ws.close();
   await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});

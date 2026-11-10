@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createPwaStore, type PwaHost } from './pwa';
+import { checkServiceWorkerUpdate, createPwaStore, type PwaHost } from './pwa';
 
 /** A window stand-in that records listeners so tests can fire browser events. */
 function fakeWindow(standalone = false, manualInstall = false, installedApps?: () => Promise<unknown[]>) {
@@ -115,4 +115,77 @@ it('keeps offering an install when the app is not found or the lookup fails', as
   await new Promise(resolve => setTimeout(resolve));
   expect(none.snapshot().openInApp).toBe(false);
   expect(failed.snapshot().openInApp).toBe(false);
+});
+
+it('checks on demand, ignores duplicate clicks, and reports the result', async () => {
+  const store = createPwaStore(fakeWindow().host);
+  let finish!: () => void;
+  const check = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+  store.setUpdateChecker(check);
+  const pending = store.checkForUpdates();
+  expect(store.snapshot().updateCheck).toBe('checking');
+  await store.checkForUpdates();
+  expect(check).toHaveBeenCalledOnce();
+  finish(); await pending;
+  expect(store.snapshot().updateCheck).toBe('current');
+});
+
+it('reports unavailable and failed checks and allows a retry', async () => {
+  const store = createPwaStore(fakeWindow().host);
+  await store.checkForUpdates();
+  expect(store.snapshot().updateCheck).toBe('unavailable');
+  store.setUpdateChecker(async () => { throw new Error('offline'); });
+  await store.checkForUpdates();
+  expect(store.snapshot().updateCheck).toBe('error');
+  store.setUpdateChecker(async () => {});
+  await store.checkForUpdates();
+  expect(store.snapshot().updateCheck).toBe('current');
+});
+
+it('offers a discovered update without declaring it current or reloading', async () => {
+  const store = createPwaStore(fakeWindow().host), apply = vi.fn();
+  store.setUpdateChecker(async () => { store.offerUpdate(apply); });
+  await store.checkForUpdates();
+  expect(store.snapshot()).toMatchObject({ updateReady: true, updateCheck: 'idle' });
+  expect(apply).not.toHaveBeenCalled();
+  store.applyUpdate();
+  expect(apply).toHaveBeenCalledOnce();
+});
+
+function fakeRegistration() {
+  const worker = Object.assign(new EventTarget(), { state: 'installing' });
+  const registration = { update: vi.fn(async () => {}), installing: worker };
+  return { worker, registration: registration as unknown as ServiceWorkerRegistration };
+}
+
+it('waits for the worker to finish caching before completing a check', async () => {
+  const { worker, registration } = fakeRegistration();
+  const done = vi.fn();
+  const checking = checkServiceWorkerUpdate(registration).then(done);
+  await new Promise(resolve => setTimeout(resolve));
+  expect(done).not.toHaveBeenCalled();
+  worker.state = 'installed'; worker.dispatchEvent(new Event('statechange'));
+  await checking;
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it('rejects failed installations instead of reporting up to date', async () => {
+  const { worker, registration } = fakeRegistration();
+  const checking = checkServiceWorkerUpdate(registration);
+  const result = expect(checking).rejects.toThrow('installation failed');
+  await new Promise(resolve => setTimeout(resolve));
+  worker.state = 'redundant'; worker.dispatchEvent(new Event('statechange'));
+  await result;
+});
+
+it('times out stalled checks and removes installation listeners', async () => {
+  vi.useFakeTimers();
+  try {
+    const { worker, registration } = fakeRegistration();
+    const remove = vi.spyOn(worker, 'removeEventListener');
+    const result = expect(checkServiceWorkerUpdate(registration)).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(60_000);
+    await result;
+    expect(remove).toHaveBeenCalledWith('statechange', expect.any(Function));
+  } finally { vi.useRealTimers(); }
 });

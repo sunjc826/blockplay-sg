@@ -102,6 +102,11 @@
 /* A phone's width goes to the words; the orange button carries the card. */
 @media (max-width:440px) { .game-install-icon { display:none; } }
 .game-install { display:flex; align-items:center; gap:6px; border:1px solid var(--menu-line); background:transparent; color:var(--menu-ink); border-radius:5px; padding:6px 10px; font-size:10px; }
+.game-update-control { display:flex; letter-spacing:0; }
+.game-update-check { min-height:44px; white-space:nowrap; cursor:pointer; }
+.game-update-check:disabled { opacity:.65; cursor:wait; }
+.game-update-check:focus-visible { outline:2px solid var(--menu-gold); outline-offset:3px; }
+.game-update-feedback:not(:empty) { position:absolute; z-index:5; bottom:calc(100% + 8px); right:0; width:240px; max-width:calc(100vw - 40px); padding:12px; border:1px solid var(--menu-line); border-radius:5px; color:var(--menu-ink); background:#111d17; font-size:12px; line-height:1.5; box-shadow:0 6px 24px #0006; }
 
 /* Title screen: a gesture for the browser to allow sound. The menu waits behind it and enters as the logo slides home. */
 .game-title { position:absolute; inset:0; z-index:2; display:block; width:100%; padding:0; border:0; border-radius:0; background:transparent; color:var(--menu-ink); cursor:pointer; outline:none; -webkit-tap-highlight-color:transparent; }
@@ -259,7 +264,8 @@
   .game-menu-title h1 { margin:0; }
 }
 @media (max-height:480px) {
-  .game-menu-title, .game-menu-foot { display:none; }
+  .game-menu-title, .game-menu-foot .game-menu-hint { display:none; }
+  .game-menu-foot { padding-top:0; padding-bottom:env(safe-area-inset-bottom,0px); }
   /* A phone on its side: the install offer shrinks to one slim line. */
   .game-install-card { padding-top:5px; padding-bottom:5px; }
   .game-install-icon { display:none; }
@@ -289,7 +295,8 @@
   .game-menu-hint { display:none; }
   .game-menu-top .game-brand { font-size:clamp(17px,5.4vw,20px); }
   .game-brand .brand-mark { width:22px; height:22px; margin-right:7px; }
-  .game-menu-edition > :not(button) { display:none; }
+  .game-menu-edition > :not(button, .game-update-control) { display:none; }
+  .game-menu-edition { gap:6px; }
   .game-menu-item { padding:clamp(10px,1.8vh,15px) 14px; gap:12px; }
   .game-menu-item.is-tile { padding:clamp(9px,1.5vh,12px) 12px; }
   .game-menu-item.is-tile .game-menu-copy small { display:none; }

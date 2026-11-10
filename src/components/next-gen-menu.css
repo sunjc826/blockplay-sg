@@ -219,7 +219,7 @@
   .next-gen-main .game-menu-item.is-tile .next-gen-enter { margin-top:10px; padding-top:8px; }
   .next-gen-main .game-menu-item.is-tile .game-menu-copy strong { font-size:clamp(18px,11cqw,26px); }
   .next-gen-main .next-gen-index { top:16px; left:16px; }
-  .next-gen-main .game-menu-edition > span { display:none; }
+  .next-gen-main .game-menu-edition > span:not(.game-update-control) { display:none; }
 }
 @media (prefers-reduced-motion:reduce) {
   .next-gen-main .game-menu-item:not(.is-tile):is(:hover,:focus-visible) { flex-grow:1; }

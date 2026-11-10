@@ -24,6 +24,7 @@ export interface PwaState {
   openInApp: boolean;
   /** A newer build finished caching and is waiting for a reload. */
   updateReady: boolean;
+  updateCheck: 'idle' | 'checking' | 'current' | 'error' | 'unavailable';
 }
 
 /** Chromium's install prompt; not in the DOM types because it is not standard. */
@@ -46,9 +47,10 @@ export type PwaStore = ReturnType<typeof createPwaStore>;
 
 export function createPwaStore(host: PwaHost) {
   const installed = host.standalone();
-  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), openInApp: false, updateReady: false };
+  let state: PwaState = { canInstall: false, installed, manualInstall: !installed && (host.manualInstall?.() ?? false), openInApp: false, updateReady: false, updateCheck: 'idle' };
   let prompt: InstallPromptEvent | null = null;
   let activate: (() => void) | null = null;
+  let checkUpdate: (() => Promise<void>) | null = null;
   const listeners = new Set<() => void>();
   const set = (patch: Partial<PwaState>) => {
     state = { ...state, ...patch };
@@ -82,6 +84,20 @@ export function createPwaStore(host: PwaHost) {
       return () => { listeners.delete(listener); };
     },
     snapshot: () => state,
+    setUpdateChecker(check: () => Promise<void>) {
+      checkUpdate = check;
+    },
+    async checkForUpdates() {
+      if (state.updateCheck === 'checking' || state.updateReady) return;
+      if (!checkUpdate) { set({ updateCheck: 'unavailable' }); return; }
+      set({ updateCheck: 'checking' });
+      try {
+        await checkUpdate();
+        set({ updateCheck: state.updateReady ? 'idle' : 'current' });
+      } catch {
+        set({ updateCheck: state.updateReady ? 'idle' : 'error' });
+      }
+    },
     /** Shows the browser's install dialog. A prompt can only be used once. */
     async install(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
       const pending = prompt;
@@ -129,6 +145,32 @@ export function usePwa(store: PwaStore = pwa): PwaState {
 /** Check for a new build when a tab comes back after being left open. */
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000;
 
+/** An update check is not complete until any new worker has finished caching. */
+export async function checkServiceWorkerUpdate(registration: ServiceWorkerRegistration) {
+  let cleanup = () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Update check timed out')), 60_000);
+  });
+  try {
+    await Promise.race([registration.update(), timeout]);
+    const worker = registration.installing;
+    if (!worker) return;
+    await Promise.race([new Promise<void>((resolve, reject) => {
+      const changed = () => {
+        if (worker.state === 'installed' || worker.state === 'activated') resolve();
+        else if (worker.state === 'redundant') reject(new Error('Update installation failed'));
+      };
+      cleanup = () => worker.removeEventListener('statechange', changed);
+      worker.addEventListener('statechange', changed);
+      changed();
+    }), timeout]);
+  } finally {
+    clearTimeout(timer);
+    cleanup();
+  }
+}
+
 /**
  * Registers the worker built by `scripts/service-worker-plugin.mjs`. Production
  * only: in development Vite serves unbundled modules, and a cache in front of
@@ -155,11 +197,17 @@ export function registerServiceWorker(store: PwaStore = pwa) {
           if (installing.state === 'installed' && container.controller) offer(installing);
         });
       });
+      store.setUpdateChecker(async () => {
+        // A previously downloaded update can be ready before this check starts.
+        if (registration.waiting && container.controller) { offer(registration.waiting); return; }
+        await checkServiceWorkerUpdate(registration);
+        if (registration.waiting && container.controller) offer(registration.waiting);
+      });
       let checked = Date.now();
       document.addEventListener('visibilitychange', () => {
         if (document.hidden || Date.now() - checked < UPDATE_CHECK_INTERVAL) return;
         checked = Date.now();
-        void registration.update();
+        void registration.update().catch(() => { /* Offline: try again next time. */ });
       });
     }).catch(() => {
       // An unavailable worker costs offline play, not the game; stay quiet.
