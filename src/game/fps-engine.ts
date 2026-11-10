@@ -1,3 +1,5 @@
+import { createAmmoPlacementQueue, type AmmoPlacement, type AmmoPlacementSource } from './ammo-placement';
+import { createAmmoPlacementViewmodel } from './fps-ammo-placement';
 import { CARRIER_CAPACITY, CARRIER_NAME, carrierUsed, stepCarrierTransfer, transferCandidate, type ReserveCarrierKind } from './reserve-carrier';
 import { createMaidFollower } from './maid-companion';
 import { createMaidModel } from './carrier-models';
@@ -563,6 +565,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const playerBody = createFpsBody(world.scene);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
+  const ammoPlacementHands = createAmmoPlacementViewmodel(viewScene);
   const merlionVisuals = createMerlionVisuals(world.scene);
   let merlionRenderState: MerlionState | undefined;
   const merlionPresentation = createMerlionPresentation((origin,direction,range)=>{
@@ -716,6 +719,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (equipment.carriedFamilies.includes(rangeTravel.checkpoint.weapon)) hud.weapon = rangeTravel.checkpoint.weapon;
   }
   let yaw: number = spawn.yaw, pitch: number = spawn.pitch, vertical = 0, velocityY = 0;
+  const ammoPlacements = createAmmoPlacementQueue();
+  let ammoPlacement: AmmoPlacement | undefined, ammoPlacementSource: AmmoPlacementSource = 'pickup';
   let reserveTransferHeld = false, reserveTransferProgress = 0, reserveTransferWeapon = -1;
   let maid: ReturnType<typeof createMaidFollower> | undefined, maidModel: ReturnType<typeof createMaidModel> | undefined;
   let carrierInventory: MagazineInventory | undefined, maidArrivalSeconds = checkpoint?.maidTravelSeconds ?? 0;
@@ -767,8 +772,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       maidModel.update(Math.min(.1, dt), { velocity: { x: 0, z: -maid.walking }, sprint: 0, gesture: reserveTransferHeld ? 'offer' : 'clasp' });
     }
     if (reserveTransferHeld && (!carrierEligible() || reserveTransferWeapon !== hud.weapon)) cancelCarrierTransfer();
+    ammoPlacements.observe(inventory, ammoPlacementSource); ammoPlacementSource = 'pickup';
+    const candidateIndex = transferCandidate(loadout[hud.weapon]);
+    const candidate = carrierStock()?.magazines[candidateIndex];
+    const destination = candidate ? availableMagazineSlots(loadout[hud.weapon], candidate)[0] : undefined;
     const result = stepCarrierTransfer(reserveTransferProgress, dt, reserveTransferHeld, carrierEligible(), loadout[hud.weapon]);
     reserveTransferProgress = result.progress;
+    if (result.completed) ammoPlacements.observe(inventory, carrierStock()?.kind, destination);
+    const interrupt = hud.phase !== 'playing' || hud.health <= 0 || hud.arenaSelf?.alive === false || !!vehicles.active || swimming() ||
+      !!loadout[hud.weapon].reloadRemaining || !!weaponSwitch || trigger || pullBuffer > 0 || ads || touchAim || keys.has('shift') || stickRunning ||
+      !!grenadeHeld || !!grenadeAfter || hud.mapExpanded || hud.proxyMenu || !!wheel || !!recoveryPicker || !!grenadePicker || pilotEnabled;
+    if (interrupt || reserveTransferHeld) ammoPlacements.clear();
+    else if (!supplyUse) ammoPlacements.step(dt, true);
+    ammoPlacement = reserveTransferProgress > 0 && candidate && destination !== undefined
+      ? { slot: destination, magazine: candidate, source: carrierStock()!.kind, progress: reserveTransferProgress }
+      : !interrupt && !supplyUse ? ammoPlacements.current : undefined;
     if (result.completed) handsSound('world-aim', .1, 1);
     if (debugDatasets) canvas.dataset.reserveCarrier = JSON.stringify({ ...carrierHud(), position: maid?.position, walking: maid?.walking,
       stock: carrierStock()?.magazines, held: reserveTransferHeld });
@@ -969,7 +987,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const proxy = hud.arena?.proxies?.operation;
     hud.proxyReach = !!proxy && proxy.phase === 'contested' && proxy.cargo === 'sealed' && !proxy.decision && !vehicles.active && hud.arenaSelf?.alive === true && Math.hypot(proxy.at.x-position.x,proxy.at.z-position.z)<=4 && Math.abs(proxy.at.y-vertical)<2;
     if (hud.proxyMenu && (!hud.proxyReach || hud.phase !== 'playing')) { closeProxyMenu(false); return; }
-    onHud({ ...hud, reserveCarrier: carrierHud(), swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : reserveTransferProgress > 0 ? { name: CARRIER_NAME[carrierStock()!.kind], verb: 'TRANSFERRING AMMUNITION', progress: reserveTransferProgress, style: 'ammo', fromBelt: false } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
+    onHud({ ...hud, reserveCarrier: carrierHud(), swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : reserveTransferProgress > 0 ? { name: CARRIER_NAME[carrierStock()!.kind], verb: 'TRANSFERRING AMMUNITION', progress: reserveTransferProgress, style: 'ammo', fromBelt: false } : ammoPlacement ? { name: `Rig pouch ${Math.floor(ammoPlacement.slot / 18) * 9 + ammoPlacement.slot % 9 + 1}`, verb: 'STOWING AMMUNITION', progress: ammoPlacement.progress, style: 'ammo', fromBelt: false } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(maid && !maid.arriving ? [{ id: 'personal-maid', ...maid.position, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Maid · reserve ammunition' }] : []),
         ...(hud.arena?.hardpoint ? SMITH_CONTROL_SITES.map((site,i):MinimapMarker=>({id:`control-${site.id}`,x:site.x,z:site.z,kind:'control',number:i+1,
@@ -1019,7 +1037,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     minimapSeen = minimapSightings(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
     return minimapMarkers(hud.arenaSelf, hud.arena?.actors ?? [], minimapSeen);
   };
-  const clearInput = () => { cancelCarrierTransfer(); bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { cancelCarrierTransfer(); ammoPlacements.clear(); ammoPlacement = undefined; bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -1588,6 +1606,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (armorResult?.blocked) { pickupSound('combat-denied'); hud.lootNotice = `${armorResult.blocked}. ${target.name} stays here.`; lootNoticeTime = 3; publish(); return; }
     // Loose rounds go into the calibre pool shared by matching carried guns.
     if (target.kind === 'ammo') {
+      ammoPlacementSource = 'pickup';
       const gun = ammoTarget(target.caliberMm, carriedGuns(), hud.weapon);
       if (!gun) { pickupSound('combat-denied'); hud.lootNotice = `${ammoBlocked(target.caliberMm, carriedGuns(), hud.weapon)}. ${target.name} stay here.`; lootNoticeTime = 3; publish(); return; }
       const taken = expedition.loot.collect(expedition.zone, target.id, { ...position, y: vertical }); if (!taken) return;
@@ -2578,6 +2597,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.vehicleCamera = JSON.stringify({ x: camera.position.x, y: camera.position.y, z: camera.position.z, pitch: camera.rotation.x, yaw: camera.rotation.y, roll: camera.rotation.z });
   }
   function updateCameras(dt: number, moving: boolean, sprinting: boolean) {
+    ammoPlacementHands.update();
     if (weaponSwitch && (hud.health <= 0 || hud.arenaSelf?.alive === false || vehicles.active || swimming() || hud.phase !== 'playing' && hud.phase !== 'paused')) weaponSwitch = null;
     if (weaponSwitch && hud.phase === 'playing') {
       const was = weaponSwitch.elapsed;
@@ -2672,7 +2692,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
     const step = advanceBodyMotion(bodyMotion, eyeHeight(), poseStance, slide.active ? 0 : speed, onGround, sprinting && speed > .2, sideSpeed, forwardSpeed, dt);
     playerBody.update(dt, equipment, loadout, {
-      x: position.x, y: vertical, z: position.z, yaw, activeFamily: heldFamily,
+      x: position.x, y: vertical, z: position.z, yaw, activeFamily: heldFamily, hiddenMagazineSlots: ammoPlacements.hiddenSlots,
       velocity: { x: sideSpeed, z: -forwardSpeed }, turn: dt > 0 ? yawDelta / dt : 0,
       crouch: poseStance === 'crouch' ? 1 : 0, prone: poseStance === 'prone', airborne: !onGround && !slide.active, slide: slide.active ? 1 : 0,
       bailoutAge, gaitPhase: bodyMotion.gait, sprint: bodyMotion.sprint,
@@ -2815,7 +2835,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ? { id: grenadeHeld.id, hold: { ready: grenadeHeld.ready, cooked: grenadeHeld.cooked, pinned: grenadeHeld.pinned, swingAt: grenadeHeld.swingAt, under: grenadeUnder, fuseLeft: itemById(grenadeHeld.id)!.grenade!.fuse - grenadeHeld.cooked } }
       : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null);
     if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
-    const supply = supplyHands.update(rig.visible ? supplyUse ? supplyUse.profile.style : reserveTransferProgress > 0 ? 'ammo' : null : null, supplyUse ? supplyProgress(supplyUse) : reserveTransferProgress, supplyUse?.id);
+    const supplyMotion = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
+    const placementTarget = rig.visible && ammoPlacement ? playerBody.magazineSource(ammoPlacement.slot, ammoPlacement.magazine) : null;
+    const packing = placementTarget && ammoPlacement ? ammoPlacementHands.update(ammoPlacement, { ...placementTarget, reachScale: Math.min(1, viewCamera.aspect),
+      worldToView: new THREE.Matrix4().makeScale(projectionScale, projectionScale, 1).multiply(camera.matrixWorldInverse) }) : null;
+    const supply = packing ?? supplyMotion;
+    if (debugDatasets) canvas.dataset.ammoPlacement = JSON.stringify({ animation: ammoPlacementHands.debug, queued: ammoPlacements.count, hiddenSlots: ammoPlacements.hiddenSlots });
     // Both sets of hands ride the same sway as the weapon.
     const itemRun = grenadeHeld && !grenadeHeld.pinned ? .45 : 0;
     grenadeHands.root.position.set(sway + lookLagX + run.x * itemRun, Math.abs(sway) + bodyFollow + lookLagY + run.y * itemRun, run.z * itemRun);
@@ -3281,6 +3306,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (supply.foodEffects?.length) applyFoodEffects(foodEffects, supply.foodEffects);
     }
     if (health) recoveryDelay = 0;
+    if (reserve || ammoRefill) ammoPlacementSource = 'pack';
     if (reserve) addReserveMagazines(loadout[hud.weapon], 2);
     if (ammoRefill) refillAmmo(loadout[hud.weapon], specs[hud.weapon]);
     if (supplies[supply.id] > 1) supplies[supply.id]--; else delete supplies[supply.id];
@@ -3347,6 +3373,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function resupplyRange() {
     if (!canResupply()) return;
     stopInspect(); endSupply();
+    ammoPlacementSource = 'supply';
     const refill = resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, rangeStock, carrierAccessible());
     if (refill.rounds || refill.items) pickupSound('combat-pickup-ammo');
     hud.message = refill.rounds || refill.items ? `Range resupply · +${refill.rounds} rounds in rig / reserve stock · +${refill.items} grenades / utilities. Free practice stock; reload to load ammunition.` : 'Range equipment already stocked. Reload to load ammunition.';
@@ -3385,6 +3412,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const previousSpecs = specs, previousCarry = equipment.carriedFamilies, sameHand = family === hud.weapon;
     equipment = next; specs = next.weapons;
     loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
+    ammoPlacementSource = 'supply';
     resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} }, carrierAccessible());
     if (comesWithCargoKit(item.id)) supplyProxyMagazines(loadout, family);
     keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
@@ -4440,6 +4468,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       items.forEach(item => markers.addDrop(item)); hud.fieldLoot = expedition.loot.remaining(expedition.zone);
       hud.lootNotice = `Supply drop open: ${items.map(item => item.name).join(', ')}. E to take.`; lootNoticeTime = 5;
     } else {
+      ammoPlacementSource = 'supply';
       resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} }, carrierAccessible());
       hud.health = hud.maxHealth; hud.armor = equipment.armor; arenaRuntime?.setVitals({ health: hud.health, armor: hud.armor });
       hud.lootNotice = 'Supply drop open: ammunition topped up, health and plates restored.'; lootNoticeTime = 5;
@@ -5133,7 +5162,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       targets.forEach(target => target.label?.dispose());
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();
-      scopeRenderer.dispose(); opticReflections.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
+      scopeRenderer.dispose(); opticReflections.dispose(); ammoPlacementHands.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
       renderer.setRenderTarget(null); renderer.renderLists.dispose();
       if (!options.surface) fpsSurface.dispose();
     },

@@ -242,7 +242,7 @@ export function createFpsBody(scene: THREE.Scene) {
       positionMagazine(model, kind, mag, rear);
       return { model, shoulder: character.joints.upperArmL.getWorldPosition(new THREE.Vector3()) };
     },
-    update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number }) {
+    update(dt: number, equipment: ResolvedLoadout, states: readonly WeaponState[], pose: CharacterDrive & { x: number; y: number; z: number; yaw: number; visible: boolean; activeFamily?: number; hiddenMagazineSlots?: readonly number[] }) {
       if (identity !== `${equipment.rigId}|${equipment.plateId}`) rebuild(equipment);
       const key = physicalWeaponFamilies(equipment.carriedFamilies).map(f => `${f}:${equipment.weapons[f].equipment.variant}:${equipment.weapons[f].equipment.skin}`).join('|');
       if (weaponModels.length && key !== weaponIdentity) rebuildWeapons(equipment, key);
@@ -265,7 +265,8 @@ export function createFpsBody(scene: THREE.Scene) {
       const carried = bodyMagazines(equipment, states, pose.activeFamily);
       magazines.forEach((slot, index) => {
         [...Object.values(slot.models), ...Object.values(slot.rearModels)].forEach(model => { model.visible = false; });
-        const front = inventory.slots[frontMagazineSlot(index)], rear = inventory.slots[rearMagazineSlot(index)], mag = front ?? rear;
+        const front = pose.hiddenMagazineSlots?.includes(frontMagazineSlot(index)) ? null : inventory.slots[frontMagazineSlot(index)],
+          rear = pose.hiddenMagazineSlots?.includes(rearMagazineSlot(index)) ? null : inventory.slots[rearMagazineSlot(index)], mag = front ?? rear;
         const kind = mag ? containerKind(mag) : 'magazine';
         const bulky = kind === 'ammo-box' || kind === 'drum';
         // Only the fabric collapses. Magazine models and pouch roots stay put,

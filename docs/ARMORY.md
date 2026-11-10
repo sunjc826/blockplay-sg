@@ -1075,6 +1075,13 @@ without a wall between you. Release, firing, sprinting, reloading, switching
 weapons, opening a menu or mounting a vehicle cancels the unfinished container;
 completed transfers stay in the rig. R still reloads exclusively from the rig.
 The HUD shows reserve slots, compatible containers, distance and transfer progress.
+Transfers now reach for the source, grip the matching magazine/drum/belt box,
+and guide it into the actual empty front, rear or side pouch. Field ammunition
+pickups and station refills also populate the rig one container at a time visually,
+with each pouch expanding as it is filled. Newly collected ammunition remains
+immediately available: firing, aiming or reloading interrupts the packing display
+without losing the collected stock. Deployment and district travel do not replay
+pickup animations for magazines already in the rig.
 A standard magazine uses one reserve slot, a drum two, a belt box three. All
 carried feeds share one finite stock; common feeds are counted once. New stock is
 issued on deployment/respawn, with a 4:1 main-to-sidearm container allocation

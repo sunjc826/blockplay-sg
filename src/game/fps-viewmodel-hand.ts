@@ -47,5 +47,5 @@ export function createViewmodelHand(left: boolean, { glove, pad, sleeve, mesh }:
     thumbTip.rotation.x = -closed * .55 - pinch * .25;
   };
   setGrip(.8);
-  return { group, setGrip };
+  return { group, arm, setGrip };
 }
