@@ -1,3 +1,4 @@
+import { MenuButton, MenuSelect } from './MenuControls';
 import { useSyncExternalStore } from 'react';
 import { getEnvironmentSettings, setEnvironmentSettings, subscribeEnvironment } from '../game/environment-settings';
 import './graphics-settings.css';
@@ -19,32 +20,32 @@ export default function GraphicsSettings() {
     <h2>Graphics</h2>
     <p>Saved on this device only, so a phone can run lighter than a computer. Changes apply immediately, including mid-game, except hardware antialiasing.</p>
     <div role="group" aria-label="Graphics preset" className="graphics-presets">{GRAPHICS_PRESETS.map(p =>
-      <button key={p.id} data-preset={p.id} aria-pressed={preset === p.id} onClick={() => {
+      <MenuButton key={p.id} data-preset={p.id} aria-pressed={preset === p.id} onClick={() => {
         const { shadows, occlusion, reducedEffects, ...rest } = p.values;
         setEnvironmentSettings({ shadows, occlusion, reducedEffects }); setGraphicsSettings(rest);
-      }}><span><strong>{p.name}</strong><small>{p.description}</small></span></button>)}
+      }}><span><strong>{p.name}</strong><small>{p.description}</small></span></MenuButton>)}
     </div>
     <small className="graphics-preset-note">{preset ? 'Preset in use. Change anything below to make your own mix.' : 'Custom mix.'}</small>
     <div className="graphics-rows">
       <label><span>Resolution<small>Below 100% renders fewer pixels and upscales: the biggest saving on a phone.</small></span>
-        <select value={graphics.scale} onChange={e => setGraphicsSettings({ scale: Number(e.target.value) as RenderScale })}>
-          {RENDER_SCALES.map(s => <option key={s.value} value={s.value}>{s.name}</option>)}</select></label>
+        <MenuSelect value={graphics.scale} onChange={e => setGraphicsSettings({ scale: Number(e.target.value) as RenderScale })}>
+          {RENDER_SCALES.map(s => <option key={s.value} value={s.value}>{s.name}</option>)}</MenuSelect></label>
       <label><span>First-person pixel density<small>Higher limits sharpen high-density screens at a higher GPU cost. 1.35× saves power; 2× favors quality.</small></span>
-        <select value={graphics.pixelDensity} onChange={e => setGraphicsSettings({ pixelDensity: Number(e.target.value) as PixelDensity })}>
-          {PIXEL_DENSITIES.map(value => <option key={value} value={value}>{value}×</option>)}</select></label>
+        <MenuSelect value={graphics.pixelDensity} onChange={e => setGraphicsSettings({ pixelDensity: Number(e.target.value) as PixelDensity })}>
+          {PIXEL_DENSITIES.map(value => <option key={value} value={value}>{value}×</option>)}</MenuSelect></label>
       <label><span>Frame rate limit<small>A cap keeps a phone cooler and its battery going longer.</small></span>
-        <select value={graphics.frameCap} onChange={e => setGraphicsSettings({ frameCap: Number(e.target.value) as FrameCap })}>
-          {FRAME_CAPS.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}</select></label>
+        <MenuSelect value={graphics.frameCap} onChange={e => setGraphicsSettings({ frameCap: Number(e.target.value) as FrameCap })}>
+          {FRAME_CAPS.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}</MenuSelect></label>
       <label><span>Sun shadows<small>Ultra sharpens fine details and uses more graphics memory.</small></span>
-        <select value={shadows} onChange={e => {
+        <MenuSelect value={shadows} onChange={e => {
           const value = e.target.value;
           if (value === 'off') setEnvironmentSettings({ shadows: false });
           else { setEnvironmentSettings({ shadows: true }); setGraphicsSettings({ shadowDetail: value === 'ultra' ? 'ultra' : value === 'low' ? 'low' : 'high' }); }
-        }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
+        }}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></MenuSelect></label>
       <label><span>God rays<small>Sunlight shafts through trees and buildings. High draws finer rays at a higher GPU cost.</small></span>
-        <select value={graphics.godRays} onChange={e => setGraphicsSettings({ godRays: e.target.value as SunRayQuality })}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option></select></label>
+        <MenuSelect value={graphics.godRays} onChange={e => setGraphicsSettings({ godRays: e.target.value as SunRayQuality })}><option value="off">Off</option><option value="low">Low</option><option value="high">High</option></MenuSelect></label>
       {(['rainDetail', 'grassDetail', 'waterDetail'] as const).map(key => <label key={key}><span>{key === 'rainDetail' ? 'Rain distance' : key === 'waterDetail' ? 'Water detail' : 'Grass detail'}<small>{key === 'rainDetail' ? 'Show rain farther into the scene.' : key === 'waterDetail' ? 'Raised ripple rings from rain and bullet impacts.' : 'Denser nearby grass and longer coverage.'}</small></span>
-        <select value={graphics[key]} onChange={e => setGraphicsSettings({ [key]: e.target.value as WorldDetail })}><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>)}
+        <MenuSelect value={graphics[key]} onChange={e => setGraphicsSettings({ [key]: e.target.value as WorldDetail })}><option value="low">Low</option><option value="high">High</option><option value="ultra">Ultra</option></MenuSelect></label>)}
     </div>
     <label><input type="checkbox" checked={graphics.waterReflections} onChange={e => setGraphicsSettings({ waterReflections: e.target.checked })} /> Bay reflections (nearby scenery reflected in Marina Bay water)</label>
     <label><input type="checkbox" checked={graphics.rainReflections} onChange={e => setGraphicsSettings({ rainReflections: e.target.checked })} /> Wet-ground reflections (visible scenery reflected in rain-soaked pavement)</label>

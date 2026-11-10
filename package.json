@@ -42,6 +42,7 @@
     "test:tutorial": "node --experimental-strip-types scripts/tutorial-smoke.mjs",
     "test:menu-navigation": "node scripts/menu-navigation-smoke.mjs",
     "test:menu-design": "node scripts/next-gen-menu-smoke.mjs",
+    "test:menu-system": "node scripts/menu-system-smoke.mjs",
     "test:equipment-navigation": "node scripts/equipment-navigation-smoke.mjs",
     "test:loadout-store": "node scripts/loadout-store-smoke.mjs",
     "test:store-tour": "node scripts/store-tour-smoke.mjs",

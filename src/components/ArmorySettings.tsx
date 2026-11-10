@@ -1,3 +1,4 @@
+import { MenuButton, MenuTabs } from './MenuControls';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { Gamepad2, Monitor, UserRound, Volume2 } from 'lucide-react';
 import RankBadge from './RankBadge';
@@ -57,9 +58,9 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
   const encikSample = (tone: EncikTone) => addressLine(encikLines('kill', { level: level.level, rank: insignia.title, tone })[0], insignia.title);
   const encikNow = encikRegister({ level: level.level, rank: insignia.title, tone: profile.encikTone });
   return <section className="armory-settings" aria-label="Settings">
-    <div className="settings-tabs" role="tablist" aria-label="Settings categories" onKeyDown={onTabKey}>{SETTINGS_TABS.map(({ id, name, icon: Icon }, i) =>
+    <MenuTabs className="settings-tabs" aria-label="Settings categories" onKeyDown={onTabKey}>{SETTINGS_TABS.map(({ id, name, icon: Icon }, i) =>
       <button key={id} ref={el => { tabButtons.current[i] = el; }} type="button" role="tab" id={`settings-tab-${id}`} data-tab={id} aria-selected={tab === id} aria-controls={`settings-panel-${id}`} tabIndex={tab === id ? 0 : -1} onClick={() => choose(id)}><Icon size={15} aria-hidden /> {name}</button>)}
-    </div>
+    </MenuTabs>
     <div className="settings-panel" role="tabpanel" id={`settings-panel-${tab}`} aria-labelledby={`settings-tab-${tab}`} data-panel={tab}>
       {tab === 'gameplay' && <>
         <BotDifficultySettings />
@@ -73,13 +74,13 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
         </div>
         <div className="armory-settings-group">
           <h2>Reload animation</h2><p>How your hands change a magazine. Only the look differs: every gun reloads in the same time either way.</p>
-          <div role="group" aria-label="Reload animation">{RELOAD_STYLES.map(style => <button key={style.id} data-reload-style={style.id} aria-pressed={reloadStyle === style.id} onClick={() => setReloadStyle(style.id)}><span><strong>{style.name}{style.id === 'improved' ? ' · Default' : ''}</strong><small>{style.description}</small></span></button>)}</div>
+          <div role="group" aria-label="Reload animation">{RELOAD_STYLES.map(style => <MenuButton variant="choice" key={style.id} data-reload-style={style.id} aria-pressed={reloadStyle === style.id} onClick={() => setReloadStyle(style.id)}><span><strong>{style.name}{style.id === 'improved' ? ' · Default' : ''}</strong><small>{style.description}</small></span></MenuButton>)}</div>
         </div>
       </>}
       {tab === 'video' && <>
         <div className="armory-settings-group">
-          <h2>Menu design</h2><p>Compare the main menu and Play selectors. Applies immediately and is remembered on this device.</p>
-          <div role="group" aria-label="Menu design">{MENU_DESIGNS.map(design => <button key={design.id} data-menu-design={design.id} aria-pressed={menuDesign === design.id} onClick={() => setMenuDesign(design.id)}><span><strong>{design.name}</strong><small>{design.description}</small></span></button>)}</div>
+          <h2>Menu layout</h2><p>Classic groups modes under Play. Next-gen puts Single Player and Multiplayer on the home screen. Saved on this device.</p>
+          <div role="group" aria-label="Menu layout">{MENU_DESIGNS.map(design => <MenuButton variant="choice" key={design.id} data-menu-design={design.id} aria-pressed={menuDesign === design.id} onClick={() => setMenuDesign(design.id)}><span><strong>{design.name}</strong><small>{design.description}</small></span></MenuButton>)}</div>
         </div>
         <GraphicsSettings />
         <PerfOverlaySettings />
@@ -94,13 +95,13 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
           <h2>Rank insignia</h2><p>The badge your rank is drawn with, previewed at your level.</p>
           <div role="group" aria-label="Rank insignia set">{rankSets().map(set => {
             const preview = rankInsignia(level.level, set.id);
-            return <button key={set.id} data-set={set.id} aria-pressed={profile.rankSet === set.id} title={set.description} onClick={() => store.wearRankSet(set.id)}><RankBadge insignia={preview} size={26} /><span><strong>{set.name}</strong><small>{preview.label}</small></span></button>;
+            return <MenuButton variant="choice" key={set.id} data-set={set.id} aria-pressed={profile.rankSet === set.id} title={set.description} onClick={() => store.wearRankSet(set.id)}><RankBadge insignia={preview} size={26} /><span><strong>{set.name}</strong><small>{preview.label}</small></span></MenuButton>;
           })}</div>
         </div>
         <div className="armory-settings-group armory-encik">
           <h2>Encik</h2><p>How the range instructor talks to you.</p>
           <div role="group" aria-label="Encik tone">
-            {TONES.map(tone => <button key={tone.id} data-tone={tone.id} aria-pressed={profile.encikTone === tone.id} onClick={() => store.setEncikTone(tone.id)}><span><strong>{tone.name}</strong><small>“{encikSample(tone.id)}”</small></span></button>)}
+            {TONES.map(tone => <MenuButton variant="choice" key={tone.id} data-tone={tone.id} aria-pressed={profile.encikTone === tone.id} onClick={() => store.setEncikTone(tone.id)}><span><strong>{tone.name}</strong><small>“{encikSample(tone.id)}”</small></span></MenuButton>)}
           </div>
           <small className="armory-encik-note">{profile.encikTone === 'recruit' ? 'Recorded pack, every level.' : `${encikNow.name} · ${encikNow.description}`}{profile.encikTone === 'rank' && encikNow.id !== 'recruit' ? ' Not voiced yet, so he subtitles.' : ''}</small>
         </div>

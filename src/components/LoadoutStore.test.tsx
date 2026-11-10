@@ -26,7 +26,8 @@ it('exposes the model, full comparison, charts and build details without disclos
 it('provides a platform tablist with one focusable active tab and its labeled panel', () => {
   screen.view = 'browse';
   const html = render();
-  expect(html).toContain('role="tablist" aria-label="Weapon platform"');
+  const platforms = html.match(/<div\b[^>]*aria-label="Weapon platform"[^>]*>/)?.[0];
+  expect(platforms).toContain('role="tablist"');
   expect(html).toContain('id="loadout-platform-0"');
   expect(html).toContain('aria-selected="true" tabindex="0"');
   expect(html).toContain('role="tabpanel" aria-labelledby="loadout-platform-0"');
