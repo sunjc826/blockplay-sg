@@ -1,1 +1,12 @@
+node_modules/
+dist/
+.cache/
+.wrangler/
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+*.tsbuildinfo
+.DS_Store
 public/last-train-review.zip

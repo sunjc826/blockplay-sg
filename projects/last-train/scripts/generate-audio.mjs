@@ -1,10 +1,11 @@
 // Explicit, bounded generation. Uses the repository's once-only paid request ledger.
-import { once, usage } from '../../../scripts/encik-batch.mjs';
+import { once, usage } from './elevenlabs-once.mjs';
 import { scenes } from '../public/story.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 const root = fileURLToPath(new URL('../',import.meta.url));
 const directory=path.join(root,'.cache/audio-v1');
 const output=path.join(root,'public/audio');
@@ -26,6 +27,22 @@ globalThis.fetch=proxyFetch;
 const voice='JBFqnCBsd6RMkjVDRZzb'; // George, ElevenLabs premade narrator (official API example).
 const lines=Object.entries(scenes).map(([id,scene])=>({id,text:scene.text}));
 if(!process.argv.includes('--generate')) { console.log(JSON.stringify({mode:'dry-run',clips:lines.length,characters:lines.reduce((n,l)=>n+l.text.length,0),soundSeconds:8})); process.exit(0); }
+// A fresh clone already contains the completed pack. Never spend to recreate it.
+try {
+  const manifest=JSON.parse(await fs.readFile(path.join(output,'manifest.json'),'utf8'));
+  const checksum=async id=>createHash('sha256').update(await fs.readFile(path.join(output,id+'.mp3'))).digest('hex');
+  let complete=manifest.provider==='ElevenLabs' && manifest.model==='eleven_multilingual_v2' && manifest.voiceId===voice;
+  for(const line of lines) {
+    const clip=manifest.clips.find(item=>item.id===line.id);
+    if(!clip || clip.text!==line.text || await checksum(line.id)!==clip.sha256) complete=false;
+  }
+  if(complete && await checksum('atmosphere')===manifest.atmosphere.sha256) {
+    console.log('Complete published audio pack verified and reused. No API requests or credits spent.');
+    process.exit(0);
+  }
+} catch(error) {
+  if(error.code!=='ENOENT') throw error;
+}
 const key=process.env.ELEVENLABS_API_KEY;
 if(!key) throw new Error('ELEVENLABS_API_KEY required');
 await fs.mkdir(directory,{recursive:true}); await fs.mkdir(output,{recursive:true});
