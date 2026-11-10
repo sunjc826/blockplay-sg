@@ -24,7 +24,6 @@
 .profile-banner-account > summary { cursor:pointer; }
 .profile-banner-account > summary:hover { background:#ffffff0a; }
 .profile-banner-account[open] .profile-banner-chevron { transform:rotate(180deg); }
-.loadout-header > .profile-banner { margin-left:auto; }
 .profile-banner .profile-banner-panel {
   position:absolute; right:0; top:calc(100% + 8px); z-index:30;
   width:min(360px,calc(100vw - 32px)); max-height:min(70dvh,calc(100dvh - 160px));
@@ -41,19 +40,16 @@
 .profile-banner-panel .ui-button { width:100%; justify-content:flex-start; white-space:normal; }
 .game-menu-top:has(.profile-banner-account[open]) { z-index:10; }
 
-@media (max-width:720px) {
-  .profile-banner { width:100%; }
+@media (max-width:1000px) {
   .profile-banner > .profile-banner-rank, .profile-banner > .profile-banner-account { flex:1; }
   .profile-banner .game-rank-copy strong, .profile-banner .game-profile-xp, .profile-banner-full { display:none; }
   .profile-banner-compact { display:inline; }
   .profile-banner .game-wallet { gap:4px; padding:0 8px; }
   .profile-banner .profile-banner-rank { gap:6px; padding:6px 8px; }
-  .game-menu-top { flex-wrap:wrap; }
-  .game-screen-bar > .profile-banner { flex-basis:100%; }
-  .next-gen-main .game-menu-top { display:grid; grid-template-columns:minmax(0,1fr) auto; }
-  .next-gen-main .next-gen-account { display:contents; }
-  .next-gen-main .profile-banner { grid-column:1/-1; grid-row:2; pointer-events:auto; }
-  .next-gen-main .next-gen-settings { grid-column:2; grid-row:1; }
+}
+
+@media (max-width:720px) {
+  .profile-banner { width:100%; }
   /* The account row replaces the first panel's decorative index on phones. */
   .next-gen-main .next-gen-home-panels > .game-menu-item:first-child .next-gen-index,
   .next-gen-main .next-gen-home-panels > .game-menu-item:first-child > svg { display:none; }

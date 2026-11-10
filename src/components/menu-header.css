@@ -1,0 +1,34 @@
+/* Reserve the same scrollbar space on short and scrollable menu pages. */
+html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
+:root {
+  --menu-header-top:max(12px,env(safe-area-inset-top));
+  --menu-header-left:max(24px,env(safe-area-inset-left));
+  --menu-header-right:max(24px,env(safe-area-inset-right));
+}
+/* Every menu reserves the same rows and anchors the account to the same edge. */
+.menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) {
+  display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:start;
+  gap:12px; padding:var(--menu-header-top) var(--menu-header-right) 12px var(--menu-header-left);
+  flex:none;
+}
+.menu-header-leading { display:flex; align-items:center; gap:12px; min-width:0; min-height:46px; }
+.menu-header-action { grid-column:2; display:flex; align-items:center; }
+.menu-header > .profile-banner { grid-column:3; margin:0; justify-self:end; }
+.menu-header .store-nav { flex-basis:auto; }
+/* Classic content retains its wider editorial gutter; its header uses the shared one. */
+.game-menu:not(.next-gen-main) { padding-top:0; }
+.game-menu:not(.next-gen-main) > .menu-header {
+  margin-left:calc(-1 * max(clamp(16px,5vw,64px),env(safe-area-inset-left)));
+  margin-right:calc(-1 * max(clamp(16px,5vw,64px),env(safe-area-inset-right)));
+}
+.next-gen-main .menu-header.game-menu-top { top:0; left:0; right:0; }
+.next-gen-main .menu-header-action, .next-gen-main .profile-banner { pointer-events:auto; }
+.next-gen-main.is-title-shown .menu-header-action, .next-gen-main.is-title-shown .profile-banner { visibility:hidden; }
+
+@media (max-width:720px) {
+  :root { --menu-header-left:max(12px,env(safe-area-inset-left)); --menu-header-right:max(12px,env(safe-area-inset-right)); }
+  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) { grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+  .menu-header-leading { min-height:44px; gap:10px; }
+  .menu-header > .profile-banner { grid-column:1/-1; grid-row:2; width:100%; }
+  .menu-header-action { grid-row:1; }
+}

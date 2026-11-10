@@ -1,11 +1,13 @@
-/* Screen change (lib/route-transition). The whole screen moves a short way and
+/* Shared headers stay anchored while pages transition.
+   Screen change (lib/route-transition). Content moves a short way and
    fades, forward to the left and back to the right, while a thin line crosses
    the top the same way. Transforms and opacity only. LEAVE_MS and ENTER_MS
    match the two animations; the line runs for both. */
 html[data-route-shift] { background:#0b1211; }
 html[data-route-shift] body { overflow-x:clip; }
-html[data-route-shift^='leaving'] :is(.game-menu,.game-screen) { pointer-events:none; animation:route-shift-leave 80ms cubic-bezier(.4,0,1,1) forwards; }
-html[data-route-shift^='entering'] :is(.game-menu,.game-screen) { animation:route-shift-enter 170ms cubic-bezier(.16,1,.3,1) backwards; }
+html[data-route-shift^='leaving'] :is(.game-menu,.game-screen) { pointer-events:none; }
+html[data-route-shift^='leaving'] :is(.game-menu:not(:has(.menu-header)),.game-screen:not(:has(.menu-header)),.game-menu:has(.menu-header) > .game-menu-main,.game-menu:has(.menu-header) > .game-menu-foot,.game-screen-settings > .game-screen-body,.loadout-store > :not(.equipment-shell-nav),.equipment-view-bar) { animation:route-shift-leave 80ms cubic-bezier(.4,0,1,1) forwards; }
+html[data-route-shift^='entering'] :is(.game-menu:not(:has(.menu-header)),.game-screen:not(:has(.menu-header)),.game-menu:has(.menu-header) > .game-menu-main,.game-menu:has(.menu-header) > .game-menu-foot,.game-screen-settings > .game-screen-body,.loadout-store > :not(.equipment-shell-nav),.equipment-view-bar) { animation:route-shift-enter 170ms cubic-bezier(.16,1,.3,1) backwards; }
 html[data-route-shift$='forward'] { --shift-leave:-28px; --shift-enter:44px; }
 html[data-route-shift$='back'] { --shift-leave:28px; --shift-enter:-44px; }
 @keyframes route-shift-leave { to { opacity:0; transform:translateX(var(--shift-leave)); } }

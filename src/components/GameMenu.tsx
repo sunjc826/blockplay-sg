@@ -9,6 +9,7 @@ import LoadoutStore from './LoadoutStore';
 import ArmorySettings from './ArmorySettings';
 import { SettingsStoreContext } from './SettingsOverlay';
 import ProfileBanner from './ProfileBanner';
+import MenuHeader from './MenuHeader';
 import PlayLoading, { Skyline } from './PlayLoading';
 import StartingPointPicker from './StartingPointPicker';
 import { useArmory } from '../game/use-armory';
@@ -308,11 +309,10 @@ export default function GameMenu({ screen }: { screen: Screen }) {
 
   if (screen === 'settings') {
     return <div {...plainScreenSounds} className="game-screen game-screen-settings">
-      <header className="game-screen-bar">
+      <MenuHeader className="game-screen-bar" profile={profile}>
         <ReturnLink />
         <h1>Settings</h1>
-        {profile}
-      </header>
+      </MenuHeader>
       <main className="game-screen-body"><ArmorySettings store={armory} /></main>
     </div>;
   }
@@ -489,13 +489,12 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
       <span className="game-title-prompt" aria-hidden="true">{titleTap ? 'TAP TO START' : 'PRESS ANY KEY'}</span>
     </button>}
-    <header className="game-menu-top">
+    <MenuHeader className="game-menu-top" profile={profile} action={nextGen && <a className="next-gen-settings" {...link('settings')} aria-label="Settings" title="Settings" onPointerEnter={hover} onFocus={focus} onClick={event => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      playMenuSound('click'); link('settings').onClick(event);
+    }}><Settings size={20} aria-hidden="true" /></a>}>
       <span ref={brand} className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
-      {nextGen ? <div className="next-gen-account">{profile}<a className="next-gen-settings" {...link('settings')} aria-label="Settings" title="Settings" onPointerEnter={hover} onFocus={focus} onClick={event => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        playMenuSound('click'); link('settings').onClick(event);
-      }}><Settings size={20} aria-hidden="true" /></a></div> : profile}
-    </header>
+    </MenuHeader>
 
     <main className="game-menu-main">
       {nextGen ? <>

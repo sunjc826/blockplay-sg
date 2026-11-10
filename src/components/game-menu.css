@@ -17,7 +17,6 @@
   background:repeating-linear-gradient(0deg,transparent 0 9px,#ffffff0d 9px 11px),linear-gradient(180deg,#24402f,#16291f); }
 .game-menu-skyline i.lit { background:repeating-linear-gradient(0deg,transparent 0 9px,#e0bb7238 9px 11px),linear-gradient(180deg,#2c4a36,#16291f); }
 .game-menu-top, .game-menu-main, .game-menu-foot { position:relative; z-index:1; }
-.game-menu-top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:clamp(12px,3vh,24px) 0; }
 .game-brand { min-width:0; flex-shrink:1; overflow:hidden; white-space:nowrap; }
 .game-brand { color:var(--menu-ink); }
 .game-brand .brand-mark span { background:var(--menu-ink); }
@@ -151,9 +150,8 @@
   .activity-grid { grid-template-columns:1fr; gap:8px; }
   .activity-card { min-height:64px; padding:10px 12px; }
 }
-.game-screen-bar { display:flex; align-items:center; gap:18px; padding:10px clamp(12px,2vw,24px); border-bottom:1px solid var(--menu-line); background:#0d1712; }
+.game-screen-bar { border-bottom:1px solid var(--menu-line); background:#0d1712; }
 .game-screen-bar h1 { font:700 18px 'Manrope',sans-serif; letter-spacing:-.4px; margin:0; }
-.game-screen-bar .game-profile { margin-left:auto; }
 .game-back { display:flex; align-items:center; gap:6px; padding:7px 11px; border:1px solid var(--menu-line); border-radius:6px; color:var(--menu-ink); text-decoration:none; font-size:11px; }
 .game-back:hover { background:#ffffff10; }
 /* The store's way back sits at the start of its own header row. */
@@ -298,7 +296,6 @@
   .game-install-card { gap:10px; padding-left:14px; padding-right:6px; }
   .game-install-go { padding:0 14px; }
   .game-install-copy small { font-size:11px; }
-  .game-screen-bar { flex-wrap:wrap; gap:10px; }
   .game-screen-bar h1 { font-size:15px; }
   .store-nav { gap:6px; }
   .store-nav .game-back > span { display:none; }
@@ -308,7 +305,6 @@
 
 /* Keep the whole wordmark on the narrowest phones. */
 @media (max-width:360px) {
-  .game-menu-top { gap:8px; }
   .game-menu-top .game-brand { font-size:17px; }
   .game-brand .brand-mark { width:18px; height:18px; margin-right:5px; }
 }
