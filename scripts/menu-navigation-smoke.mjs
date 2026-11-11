@@ -108,7 +108,7 @@ try {
   await click('[data-touch-action="menu"]', true); await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
   await assertSessionMenu('Training menu', 'Resume exercise');
   await evaluate(`document.exitFullscreen?.().catch(()=>{})`);
-  await evaluate(`window.navigationTestCanvas=document.querySelector('.world canvas')`);
+  await evaluate(`void(window.navigationTestCanvas=document.querySelector('.world canvas'))`);
   // Destructive store detour: cancel retains the exact mounted renderer.
   await click('.fps-shop-link'); await wait(`!!document.querySelector('[role="alertdialog"]')`);
   assert.match(await evaluate(`document.querySelector('[role="alertdialog"]').textContent`), /End this exercise/);

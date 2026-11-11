@@ -83,4 +83,7 @@ try {
   await back('/play/training');
   console.log('PASS active native Back: Cancel retains the exact renderer and URL; confirm returns to districts; next Back returns to Training.');
   assert.deepEqual(errors, []);
+} catch (error) {
+  console.error(await evaluate(`JSON.stringify({path:location.pathname,state:history.state,scripts:[...document.scripts].map(s=>s.src),update:document.querySelector('.pwa-update-modal')?.textContent})`));
+  throw error;
 } finally { ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }
