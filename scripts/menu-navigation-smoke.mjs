@@ -50,6 +50,7 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument', {source: `(() => {
     // Compare the menus with touch input independent of native fullscreen prompts.
     Object.defineProperty(Element.prototype, 'requestFullscreen', {value: undefined, configurable: true});
+    localStorage.setItem('blockplay-sg-menu-design-v1', 'classic');
     window.loadingSamples = [];
     const observer = new MutationObserver(() => {
       const loader = document.querySelector('.play-loading');
@@ -90,6 +91,7 @@ try {
   await click('.starting-deploy'); await wait(`document.querySelector('.fps-game')?.dataset.phase==='ready'`, 60000);
   await assertLoader('TRAINING · LIVE-FIRE RANGE', rangeDistrict);
   // Settings traps focus in both directions and restores the opener.
+  await click('.deployment-settings > summary');
   await click('.fps-settings-button'); await key('Tab', 8);
   assert(await evaluate(`!!document.activeElement.closest('.settings-overlay')`));
   for (let i = 0; i < 14; i++) await key('Tab');
@@ -98,8 +100,9 @@ try {
   await key('Escape'); await wait(`!document.querySelector('.settings-overlay')`);
   assert(await evaluate(`document.activeElement.matches('.fps-settings-button')`));
   assert.equal(await evaluate(`document.querySelector('#root').inert`), false);
+  await click('.deployment-settings > summary');
   await size(844, 390, true); await delay(500);
-  await click('.fps-start-card > .primary-button:not([hidden])', true);
+  await click('.deployment-actions > .primary-button', true);
   if (await evaluate(`document.querySelector('.fps-game')?.dataset.phase==='paused'`)) await click('.pause-resume', true);
   await wait(`document.querySelector('.fps-game')?.dataset.phase==='playing'`);
   await click('[data-touch-action="menu"]', true); await wait(`document.querySelector('.fps-game')?.dataset.phase==='paused'`);
@@ -120,9 +123,9 @@ try {
   assert(await evaluate(`window.navigationTestCanvas===document.querySelector('.world canvas')`));
   await shot('training-pause');
   await evaluate(`history.back()`); await wait(`!!document.querySelector('[role="alertdialog"]')`);
-  await click('.confirm-leave'); await wait(`location.pathname==='/play/training' && !!document.querySelector('.activity-grid')`);
+  await click('.confirm-leave'); await wait(`location.pathname==='/training' && !!document.querySelector('.starting-picker')`);
   assert.equal(await evaluate(`!!document.querySelector('.fps-game')`), false);
-  await evaluate(`history.forward()`); await wait(`!!document.querySelector('.starting-picker')`);
+  await evaluate(`history.back()`); await wait(`location.pathname==='/play/training' && !!document.querySelector('.activity-grid')`);
   assert.equal(await evaluate(`!!document.querySelector('.fps-game')`), false);
   // Tutorial cancellation and restart keep the course and profile semantics explicit.
   await size(844, 390, true); await go('/tutorial', '.tutorial-card');

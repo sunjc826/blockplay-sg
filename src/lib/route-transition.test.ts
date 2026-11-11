@@ -112,4 +112,12 @@ describe('transitionTo', () => {
     expect(location.pathname).toBe('/store');
     expect(state()).toBeUndefined();
   });
+
+  it('native Back to the title cancels a pending route change at the same URL', () => {
+    transitionTo('store');
+    shiftAfterHistory('menu');
+    vi.runAllTimers();
+    expect(location.pathname).toBe('/');
+    expect(state()).toBeUndefined();
+  });
 });

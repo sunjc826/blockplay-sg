@@ -19,7 +19,7 @@ import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
 import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
-import { enterMainMenu, getMenuPage, initializeMenuHistory, navigate, returnToTitleScreen, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
+import { enterMainMenu, getMenuPage, initializeMenuHistory, navigate, parentRoute, useBackAction, returnToTitleScreen, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
 import { returnToParent, transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa, type PwaState } from '../lib/pwa';
@@ -91,25 +91,25 @@ const SOLO_ACTIVITIES = [
   ...MATCH_MODES.map(mode => ({ route: mode.mode, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
 ] as const;
 const ACTIVITY_MENUS = {
-  play: { back: 'menu', title: 'Choose how to play', activities: [
+  play: { title: 'Choose how to play', activities: [
     { route: 'single-player', title: 'Single Player', detail: 'Explore Singapore, train, or play matches with bots.', icon: Play },
     { route: 'multiplayer-menu', title: 'Multiplayer', detail: 'Host a match or join an online room.', icon: Users },
   ] },
-  'single-player': { back: 'play', title: 'Single Player', activities: SOLO_ACTIVITIES },
-  'multiplayer-menu': { back: 'play', title: 'Multiplayer', activities: [
+  'single-player': { title: 'Single Player', activities: SOLO_ACTIVITIES },
+  'multiplayer-menu': { title: 'Multiplayer', activities: [
     { route: 'multiplayer', title: 'Find a Room', detail: 'Browse online rooms or enter a room code.', icon: Users },
     ...MATCH_MODES.map(mode => ({ route: `host-${mode.mode}` as const, title: mode.name, detail: mode.description, format: mode.format, icon: Crosshair })),
   ] },
-  'training-menu': { back: 'single-player', title: 'Training', activities: [
+  'training-menu': { title: 'Training', activities: [
     { route: 'training', title: 'Live-fire range', detail: 'Practise with your equipped loadout in any district.', icon: Crosshair },
     { route: 'tutorial', title: 'Tutorial', detail: 'Learn movement and weapon controls in a guided course.', icon: GraduationCap },
   ] },
 } as const;
 
 function ActivityMenu({ screen, profile }: { screen: ActivityScreen; profile: React.ReactNode }) {
-  const { back, title, activities } = ACTIVITY_MENUS[screen];
+  const { title, activities } = ACTIVITY_MENUS[screen];
   const nextGen = useMenuDesign() === 'next-gen';
-  const parent = nextGen && (screen === 'single-player' || screen === 'multiplayer-menu') ? 'menu' : back;
+  const parent = parentRoute(screen);
   return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <MenuHeader className="activity-navigation" profile={profile} action={nextGen && <a className="menu-header-settings next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}>
       <BackLink to={parent} />{nextGen && <span className="next-gen-mode-title" aria-hidden="true">{title}</span>}
@@ -216,10 +216,11 @@ function ReturnLink() {
 function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'training' | 'world'; initial: WorldZoneId; armory: ReturnType<typeof useArmory>; suspended: boolean; onChoose: (id: WorldZoneId) => void }) {
   const [start, setStart] = useState<WorldZoneId | null>(null);
   const [zone, setZone] = useState(initial);
+  useBackAction(start ? () => setStart(null) : null);
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
   useEffect(() => () => setMusicCue(null), []);
-  const back = <BackLink to={mode === 'training' ? 'training-menu' : 'single-player'} />;
+  const back = <BackLink to={parentRoute(mode)} />;
   if (!start) return <StartingPointPicker mode={mode} initial={zone} options={mode === 'training' ? TRAINING_DISTRICTS : locations} back={back} onDeploy={id => { onChoose(id); setZone(id); setStart(id); }} />;
   const nav = <PlayNav value={zone} onChoose={() => setStart(null)} />;
   return <div className={`game-screen game-screen-play game-screen-${mode}`}>
@@ -279,7 +280,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   const online = !!hosted || screen === 'multiplayer';
   if (match || online) {
     const arenaPicker = match?.mode === 'team-deathmatch';
-    const parent = online ? arenaPicker ? 'host-team-deathmatch' : 'multiplayer-menu' : arenaPicker ? 'team-deathmatch' : 'single-player';
+    const parent = parentRoute(screen);
     return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
       <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={approved => approved ? transitionTo(parent, true) : returnToParent(parent)} armory={armory} suspended={install.updateReady} />
     </div></SettingsStoreContext.Provider>;

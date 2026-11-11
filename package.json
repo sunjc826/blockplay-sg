@@ -42,6 +42,7 @@
     "test:fps": "node scripts/fps-smoke.mjs",
     "test:tutorial": "node --experimental-strip-types scripts/tutorial-smoke.mjs",
     "test:menu-navigation": "node scripts/menu-navigation-smoke.mjs",
+    "test:native-back": "node scripts/native-back-smoke.mjs",
     "test:menu-design": "node scripts/next-gen-menu-smoke.mjs",
     "test:menu-system": "node scripts/menu-system-smoke.mjs",
     "test:equipment-navigation": "node scripts/equipment-navigation-smoke.mjs",

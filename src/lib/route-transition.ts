@@ -67,6 +67,8 @@ export function returnToParent(route: Route) {
 
 /** The browser's own Back and Forward have already changed the route, so only the entrance is left to play. */
 export function shiftAfterHistory(from: Route) {
+  // A native Back can interrupt a pending click transition, even at the same URL.
+  set(null);
   if (reducedMotion()) return;
   const route = routeFromPath(window.location.pathname);
   if (isEquipmentRoute(from) && isEquipmentRoute(route)) { set(null); return; }
