@@ -71,21 +71,33 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
   .next-gen-activity .activity-card > svg:first-of-type { top:calc(var(--menu-header-top) + 44px + 46px + var(--menu-bar-padding) + 12px); }
 }
 
-/* Portrait phones anchor the account/action row above navigation.
-   Reserve the gear column even on Settings so the banner never shifts. */
+/* One portrait header row: navigation, account, then settings.
+   Keep both 44px end columns reserved so account coordinates match every menu. */
 @media (max-width:720px) and (orientation:portrait) {
   .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header,.activity-navigation) {
-    grid-template-columns:minmax(0,1fr) 44px;
+    grid-template-columns:44px minmax(0,1fr) 44px; column-gap:6px; align-items:center;
   }
-  .menu-header-leading { grid-column:1/-1; grid-row:2; }
-  .menu-header > .profile-banner { grid-column:1; grid-row:1; }
-  .menu-header-action { grid-column:2; grid-row:1; align-self:center; }
-  .menu-header .profile-banner-rank { padding-inline:6px; gap:4px; }
-  .menu-header .game-wallet { padding-inline:6px; gap:3px; }
+  .menu-header-leading { grid-column:1; grid-row:1; gap:0; }
+  .menu-header > .profile-banner { grid-column:2; grid-row:1; }
+  .menu-header-action { grid-column:3; grid-row:1; align-self:center; }
+  .menu-header :is(.game-back,.play-nav-back) { width:44px; min-width:44px; height:44px; padding:0; justify-content:center; gap:0; }
+  .menu-header :is(.game-back,.play-nav-back) > span,
+  .menu-header .next-gen-mode-title { display:none; }
+  .menu-header-leading > h1 { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .menu-header .game-brand { flex:none; overflow:visible; margin-left:9px; pointer-events:none; }
+  .menu-header .game-brand .brand-mark { flex:none; width:26px; margin-right:7px; }
+  .game-menu:not(.is-title-shown) .game-brand .brand-name { opacity:0; }
+  .game-brand .brand-name { transition:opacity .2s; }
+  .menu-header .profile-banner-rank { padding-inline:4px; gap:3px; }
+  .menu-header .profile-banner-rank .rank-badge { width:20px; height:20px; }
+  .menu-header .game-wallet { display:grid; justify-items:center; align-content:center; padding-inline:5px; gap:0; }
   .menu-header .game-wallet > svg { display:none; }
   .menu-header .game-wallet b { font-size:12px; }
+  .menu-header .game-wallet > small { font-size:10px; }
   .menu-header .profile-banner-panel {
-    left:0; right:auto;
+    left:-50px; right:auto;
     width:min(360px,calc(100vw - var(--menu-header-left) - var(--menu-header-right)));
   }
+  .next-gen-activity .next-gen-index,
+  .next-gen-activity .activity-card > svg:first-of-type { top:calc(var(--menu-header-top) + 46px + var(--menu-bar-padding) + 12px); }
 }

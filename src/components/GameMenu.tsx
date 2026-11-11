@@ -77,7 +77,7 @@ function link(route: Route, plain = false) {
 }
 
 function BackLink({ to, className = 'play-nav-back' }: { to: Route; className?: string }) {
-  return <a className={className} href={ROUTE_PATHS[to]} onClick={event => {
+  return <a className={className} href={ROUTE_PATHS[to]} aria-label={`Back to ${routeLabel(to)}`} title={`Back to ${routeLabel(to)}`} onClick={event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     returnToParent(to);
@@ -296,7 +296,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
           onHelp={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}
           headerAction={<a className="menu-header-settings store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}
-          nav={<nav className="store-nav" aria-label="Equipment navigation"><a className="game-back" {...link('menu')}><ArrowLeft size={15} /> Main menu</a></nav>} />
+          nav={<nav className="store-nav" aria-label="Equipment navigation"><a className="game-back" {...link('menu')} aria-label="Back to Main menu" title="Back to Main menu"><ArrowLeft size={15} /><span>Main menu</span></a></nav>} />
       </DebugMode.Provider></main>
     </div>;
   }
@@ -534,7 +534,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       playMenuSound('click'); link('settings').onClick(event);
     }}><Settings size={20} aria-hidden="true" /></a>}>
-      <span ref={brand} className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span>blockplaySG<span className="brand-dot">.</span></span>
+      <span ref={brand} className="brand game-brand"><span className="brand-mark"><span /><span /><span /></span><span className="brand-name">blockplaySG<span className="brand-dot">.</span></span></span>
     </MenuHeader>
 
     <main className="game-menu-main">
