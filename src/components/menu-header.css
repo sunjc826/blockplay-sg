@@ -2,13 +2,14 @@
 html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
 :root {
   --menu-header-top:max(12px,env(safe-area-inset-top));
+  --menu-bar-padding:12px;
   --menu-header-left:max(24px,env(safe-area-inset-left));
   --menu-header-right:max(24px,env(safe-area-inset-right));
 }
 /* Every menu reserves the same rows and anchors the account to the same edge. */
 .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) {
   display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:start;
-  gap:12px; padding:var(--menu-header-top) var(--menu-header-right) 12px var(--menu-header-left);
+  gap:12px; padding:var(--menu-header-top) var(--menu-header-right) var(--menu-bar-padding) var(--menu-header-left);
   flex:none;
 }
 .menu-header-leading { display:flex; align-items:center; gap:12px; min-width:0; min-height:46px; }
@@ -38,3 +39,25 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
 .menu-header-settings:is(:hover,:focus-visible) { color:#f4ad61; border-color:#f4ad61; }
 .menu-header-settings:focus-visible { outline:2px solid #f4ad61; outline-offset:3px; }
 .loadout-header .game-back { border-color:transparent; background:transparent; padding-left:0; }
+
+/* Compact phone chrome shares spacing across Home, Settings and equipment.
+   Keep controls at 44px; reclaim surrounding space instead of tap targets. */
+@media (max-width:760px), (max-width:1000px) and (max-height:500px) {
+  :root {
+    --menu-bar-padding:4px;
+    --menu-header-top:max(var(--menu-bar-padding),env(safe-area-inset-top));
+    --menu-header-left:max(12px,env(safe-area-inset-left));
+    --menu-header-right:max(12px,env(safe-area-inset-right));
+    --menu-footer-bottom:max(var(--menu-bar-padding),env(safe-area-inset-bottom));
+  }
+  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) { row-gap:0; }
+  .equipment-view-bar { padding-inline:var(--menu-header-left) var(--menu-header-right); }
+  .equipment-view-bar > button { min-height:44px; margin-block:0; }
+  .equipment-view-bar [role=tab], .armory-settings .settings-tabs > [role=tab] { min-height:44px; padding-block:6px; }
+  .loadout-footer { padding:var(--menu-bar-padding) var(--menu-header-right) var(--menu-footer-bottom) var(--menu-header-left); gap:8px; }
+  .loadout-footer:has(button) > small { display:none; }
+  .loadout-store > .loadout-save-note { display:block; padding:0 var(--menu-header-right) 8px var(--menu-header-left); }
+  .game-menu .game-menu-foot { padding-block:var(--menu-bar-padding) var(--menu-footer-bottom); }
+  .next-gen-main .game-menu-foot { bottom:0; right:var(--menu-header-right); }
+  .game-menu.next-gen-main { --home-bottom:var(--menu-footer-bottom); }
+}

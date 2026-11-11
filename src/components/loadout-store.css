@@ -74,6 +74,7 @@
 .loadout-destinations>button{display:grid;gap:10px;align-content:start;padding:20px}
 .loadout-footer{position:sticky;bottom:0;z-index:24;flex-shrink:0;background:#121f1b;padding:12px max(22px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));border-top:1px solid var(--ls-line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .loadout-footer>small{flex:1}
+.loadout-save-note{display:none}
 .loadout-guide{margin:18px 22px 0;display:grid;gap:16px;border-color:var(--ls-accent)}
 .catalog-only .armory-dock{display:block;position:static}.catalog-only .armory-dock-item,.catalog-only .armory-loadout-toggle{display:none}.catalog-only .armory-dock>[role=status]{display:block}
 @media(max-width:1000px){.loadout-workspace{grid-template-columns:225px minmax(0,1fr);padding:17px;gap:17px}.loadout-items>button{grid-template-columns:90px minmax(0,1fr) 16px}.loadout-terms{gap:6px}.loadout-terms>button{padding:10px;font-size:12px}.loadout-item-hero{grid-template-columns:1fr}.loadout-item-hero>img{height:170px}}

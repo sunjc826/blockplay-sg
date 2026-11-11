@@ -244,6 +244,7 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     {store.saveError && <div className="loadout-feedback loadout-warning" role="alert">Browser storage is unavailable. Purchases and equipment changes last for this session only.</div>}
     <div className={`loadout-feedback${store.message ? '' : ' is-empty'}`} role="status" aria-live="polite"><StoreMessage text={store.message} /></div>
     <div className={`loadout-workspace${['review', 'match'].includes(ui.view) ? ' is-wide' : ''}${ui.view !== 'home' ? ' is-editing' : ''}`}><div className="loadout-content" id="equipment-view-content" role={onModeChange ? 'tabpanel' : undefined} aria-labelledby={onModeChange ? `equipment-tab-${mode}` : undefined}>{content}</div>{!['review', 'match'].includes(ui.view) && <aside aria-labelledby="deployment-loadout-heading">{slotButtons()}</aside>}</div>
+    {ui.view !== 'home' && <small className="loadout-save-note">Rental timers paused · Purchases save immediately.</small>}
     <footer className="loadout-footer"><small>Rental timers paused · Purchases save immediately.</small>{ui.view !== 'home' && <MenuButton data-loadout-home onClick={() => go('home')}>Your loadout</MenuButton>}{!['review', 'match', 'home'].includes(ui.view) && <MenuButton data-loadout-review onClick={() => go('review')}>Review loadout <ArrowRight size={16} /></MenuButton>}</footer>
   </section>;
 }
