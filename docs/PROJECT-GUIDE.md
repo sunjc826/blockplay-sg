@@ -644,6 +644,7 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
   maps use numbered regions with previous/next district buttons. Hover,
   selection and deployment reuse the published ElevenLabs glass menu cues.
 - `src/components/*Game.tsx`: game views and HUDs; `SingaporeMap.tsx`: island locator.
+- `src/game/street-props.ts`: twelve reusable street decorations, with fixed fixtures and cosmetic break/tip reactions. `/prop-designs` previews them; `district-street-props.ts` places themed collections on clear roadside ground. See [street props](STREET-PROPS.md).
 - `src/game/*-scene.ts` and `*-collision.ts`: authored worlds and deterministic collisions.
 - `src/game/fps-engine.ts`: shared FPS rendering/input; `arena-*.ts`: bots and match rules.
 - `src/game/character-rig.ts`: articulated, procedurally animated humanoid (IK limbs, gait, stances, gestures) shared by arena bots, remote players and expedition NPCs; `character-looks.ts` dresses them by role, in their faction's uniform from `arena-factions.ts`, including shader-printed camouflage and sewn badges. Pose review: `scripts/fixtures/character-render.html`, uniforms: `faction-uniforms.html`, in-district: `character-world.html`.

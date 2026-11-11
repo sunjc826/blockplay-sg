@@ -1418,6 +1418,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
   }
   function reset() {
+    world.streetProps?.reset();
     weaponSwitch = null; rig.scale.set(1, 1, 1);
     mapReturnStance = null; mapCaptureUntil = 0;
     gunshotSpaces.clear();
@@ -3492,6 +3493,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           practiceRange || skipActor ? root => !gameplayRoot(root) || (!!skipActor && root.userData.arenaActorId === skipActor) : undefined);
         if (round.vehicleDamage !== undefined) {
           const hit = firstVisibleHit(roundRay, from, false, false, recursive);
+          world.streetProps?.shoot(step.from, hit?.point ?? step.to);
           hearRoundPass(round, step.from, hit?.point ?? step.to);
           effects.smokeTrail(step.from, hit?.point ?? step.to, round.travelled - step.distance + (hit?.distance ?? step.distance));
           if (hit) { vehicleImpact(hit, roundDirection, round.skipVehicle ?? 'car', round.vehicleDamage); rounds.splice(i, 1); struck = true; continue; }
@@ -3503,6 +3505,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const lastHit = segmentHits[segmentHits.length - 1];
         const stopped = segmentHits.length > round.pierced || isWaterHit(lastHit);
         const stop = round.cosmetic ? segmentHits[0] : stopped ? lastHit : undefined;
+        world.streetProps?.shoot(step.from, stop?.point ?? step.to);
         hearRoundPass(round, step.from, stop?.point ?? step.to);
         effects.smokeTrail(step.from, stop?.point ?? step.to, round.travelled - step.distance + (stop?.distance ?? step.distance));
         if (segmentHits.length && round.cosmetic) {

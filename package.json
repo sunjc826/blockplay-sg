@@ -28,6 +28,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --testTimeout=60000",
+    "test:props": "node scripts/street-props-smoke.mjs",
     "test:browser": "node scripts/smoke-regions.mjs",
     "test:pwa": "node scripts/pwa-smoke.mjs",
     "test:adventure": "node scripts/smoke-adventure.mjs",

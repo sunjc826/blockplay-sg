@@ -22,7 +22,7 @@ export const ROUTE_PATHS = {
   'host-free-for-all': '/play/multiplayer/free-for-all',
   multiplayer: '/multiplayer',
   store: '/store', inventory: '/inventory', settings: '/settings', debug: '/debug',
-  'faction-designs': '/faction-designs',
+  'faction-designs': '/faction-designs', 'prop-designs': '/prop-designs',
 } as const;
 
 export type Route = keyof typeof ROUTE_PATHS;
@@ -72,7 +72,7 @@ export const routeLabel = (route: Route) => ({
   hardpoint: 'Hardpoint', 'free-for-all': 'Free for All', multiplayer: 'Find a Room',
   'host-team-deathmatch': 'Team Deathmatch', 'host-dragon-courtyard': 'Dragon Courtyard', 'host-smith-street': 'Smith Street',
   'host-hardpoint': 'Hardpoint', 'host-free-for-all': 'Free for All',
-  store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs',
+  store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs', 'prop-designs': 'Street props',
 })[route];
 
 /** The title and main menu share a URL but are distinct navigation steps. */
