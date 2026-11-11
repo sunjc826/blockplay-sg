@@ -7,7 +7,7 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
   --menu-header-right:max(24px,env(safe-area-inset-right));
 }
 /* Every menu reserves the same rows and anchors the account to the same edge. */
-.menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) {
+.menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header,.activity-navigation) {
   display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:start;
   gap:12px; padding:var(--menu-header-top) var(--menu-header-right) var(--menu-bar-padding) var(--menu-header-left);
   flex:none;
@@ -28,7 +28,7 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
 
 @media (max-width:720px) {
   :root { --menu-header-left:max(12px,env(safe-area-inset-left)); --menu-header-right:max(12px,env(safe-area-inset-right)); }
-  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) { grid-template-columns:minmax(0,1fr) auto; gap:8px; }
+  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header,.activity-navigation) { grid-template-columns:minmax(0,1fr) auto; gap:8px; }
   .menu-header-leading { min-height:44px; gap:10px; }
   .menu-header > .profile-banner { grid-column:1/-1; grid-row:2; width:100%; }
   .menu-header-action { grid-row:1; }
@@ -50,7 +50,7 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
     --menu-header-right:max(12px,env(safe-area-inset-right));
     --menu-footer-bottom:max(var(--menu-bar-padding),env(safe-area-inset-bottom));
   }
-  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header) { row-gap:0; }
+  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header,.activity-navigation) { row-gap:0; }
   .equipment-view-bar { padding-inline:var(--menu-header-left) var(--menu-header-right); }
   .equipment-view-bar > button { min-height:44px; margin-block:0; }
   .equipment-view-bar [role=tab], .armory-settings .settings-tabs > [role=tab] { min-height:44px; padding-block:6px; }
@@ -60,4 +60,13 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
   .game-menu .game-menu-foot { padding-block:var(--menu-bar-padding) var(--menu-footer-bottom); }
   .next-gen-main .game-menu-foot { bottom:0; right:var(--menu-header-right); }
   .game-menu.next-gen-main { --home-bottom:var(--menu-footer-bottom); }
+}
+
+/* Mode selectors use the same fixed account/gear anchor as Home. */
+.activity-screen > .menu-header { position:relative; z-index:10; }
+.next-gen-activity > .menu-header { position:absolute; top:0; left:0; right:0; }
+.activity-navigation .play-nav-back { flex-shrink:0; }
+@media (max-width:720px) {
+  .next-gen-activity .next-gen-index,
+  .next-gen-activity .activity-card > svg:first-of-type { top:calc(var(--menu-header-top) + 44px + 46px + var(--menu-bar-padding) + 12px); }
 }

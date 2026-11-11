@@ -10,14 +10,11 @@
   opacity:.7;
 }
 
-.next-gen-activity { --mode-edge:max(24px,env(safe-area-inset-left),env(safe-area-inset-right)); --mode-top:max(20px,env(safe-area-inset-top)); position:relative; isolation:isolate; }
+.next-gen-activity { --mode-top:max(20px,env(safe-area-inset-top)); position:relative; isolation:isolate; }
 .next-gen-activity::before { z-index:-1; opacity:.32; background-position:center; }
 .next-gen-activity .activity-main { width:100%; max-width:none; height:100dvh; min-height:0; display:flex; flex-direction:column; padding:0; overflow:hidden; }
-.activity-navigation { display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.next-gen-mode-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font:800 clamp(14px,2vw,24px) 'Manrope',sans-serif; text-shadow:0 2px 16px #000; }
-.next-gen-activity .activity-navigation { position:absolute; z-index:3; top:var(--mode-top); left:var(--mode-edge); right:var(--mode-edge); display:grid; grid-template-columns:1fr auto 1fr; padding:0; border:0; pointer-events:none; }
+.next-gen-mode-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; font:800 clamp(14px,2vw,24px) 'Manrope',sans-serif; text-shadow:0 2px 16px #000; }
 .next-gen-activity .play-nav-back { justify-self:start; min-height:44px; color:#d5dbd6; background:#111719e6; border-radius:2px; backdrop-filter:blur(12px); pointer-events:auto; }
-.next-gen-activity .next-gen-mode-settings { justify-self:end; justify-content:center; width:44px; padding:0; }
 .next-gen-activity .starting-eyebrow { color:var(--menu-accent); font:10px ui-monospace,monospace; letter-spacing:2.5px; }
 .next-gen-activity .activity-main > header { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .next-gen-activity .activity-main h1 { font-size:clamp(32px,4.5vw,64px); letter-spacing:-.05em; }
@@ -79,8 +76,7 @@
   .next-gen-activity .activity-card { padding-left:20px; padding-right:20px; }
 }
 @media (max-width:900px) {
-  .next-gen-activity { --mode-edge:max(16px,env(safe-area-inset-left),env(safe-area-inset-right)); --mode-top:max(12px,env(safe-area-inset-top)); }
-  .next-gen-activity .activity-navigation { grid-template-columns:auto minmax(0,1fr) auto; gap:8px; }
+  .next-gen-activity { --mode-top:max(12px,env(safe-area-inset-top)); }
   .next-gen-panels { gap:8px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; scrollbar-width:none; }
   .next-gen-panels::-webkit-scrollbar { display:none; }
   .next-gen-activity .activity-card { flex:0 0 min(82vw,420px); scroll-snap-align:start; touch-action:pan-x pan-y; }

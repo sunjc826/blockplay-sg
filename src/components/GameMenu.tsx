@@ -106,13 +106,15 @@ const ACTIVITY_MENUS = {
   ] },
 } as const;
 
-function ActivityMenu({ screen }: { screen: ActivityScreen }) {
+function ActivityMenu({ screen, profile }: { screen: ActivityScreen; profile: React.ReactNode }) {
   const { back, title, activities } = ACTIVITY_MENUS[screen];
   const nextGen = useMenuDesign() === 'next-gen';
   const parent = nextGen && (screen === 'single-player' || screen === 'multiplayer-menu') ? 'menu' : back;
   return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
+    <MenuHeader className="activity-navigation" profile={profile} action={nextGen && <a className="menu-header-settings next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}>
+      <BackLink to={parent} />{nextGen && <span className="next-gen-mode-title" aria-hidden="true">{title}</span>}
+    </MenuHeader>
     <main className="activity-main">
-      <div className="activity-navigation"><BackLink to={parent} />{nextGen && <><span className="next-gen-mode-title" aria-hidden="true">{title}</span><a className="play-nav-back next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} /></a></>}</div>
       <header><span className="starting-eyebrow">{nextGen ? 'SINGAPORE / OPERATIONS' : 'PLAY'}</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}{nextGen && screen === 'play' && <p>Your city. Your rules. Choose your next move.</p>}</header>
       <nav className={`activity-grid${nextGen ? ' next-gen-panels' : ''}`} aria-label={title} onKeyDown={nextGen ? panelKeys : undefined}>
         {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
@@ -268,7 +270,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     </main></div>
   </SettingsStoreContext.Provider>;
 
-  if (screen === 'play' || screen === 'single-player' || screen === 'multiplayer-menu' || screen === 'training-menu') return <ActivityMenu screen={screen} />;
+  if (screen === 'play' || screen === 'single-player' || screen === 'multiplayer-menu' || screen === 'training-menu') return <ActivityMenu screen={screen} profile={profile} />;
   if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} online={screen === 'host-team-deathmatch'} />;
 
   const solo = SOLO_MATCH_BY_SCREEN[screen];
