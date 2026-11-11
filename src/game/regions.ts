@@ -1,4 +1,5 @@
 import { withStreetProps, type StreetPropSystem } from './district-street-props';
+import { withAnimals } from './district-animals';
 import { MARINA_CAMP_DECKS } from './marina-water';
 import { MARINA_LAYOUT_SCALE as MARINA_SCALE } from './marina-layout';
 import { buildLittleIndiaScene, LITTLE_INDIA_BOUNDS, LITTLE_INDIA_MAP_ROADS, LITTLE_INDIA_SPAWN } from './little-india-scene';
@@ -528,7 +529,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
 // Every district is built with its set pieces, whatever mode builds it.
 for (const id of REGION_IDS) {
   const { build, bounds } = definitions[id];
-  definitions[id] = { ...definitions[id], build: options => withDistrictBoundaries(id, withSetPieces(id, withStreetProps(withSurfaceOwnership(withGroundCover(build(), bounds)), definitions[id])), bounds, options?.barricades) };
+  definitions[id] = { ...definitions[id], build: options => withAnimals(withDistrictBoundaries(id, withSetPieces(id, withStreetProps(withSurfaceOwnership(withGroundCover(build(), bounds)), definitions[id])), bounds, options?.barricades), definitions[id]) };
 }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);

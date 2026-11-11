@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Singapore habitat animals</title><style>body{margin:0;background:#dce1d4;font:14px system-ui}header{position:absolute;top:16px;left:16px;padding:12px;background:#fffff0e8;color:#263c35}canvas{display:block}</style></head><body><header id="label"></header><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { OrbitControls } from '/node_modules/three/examples/jsm/controls/OrbitControls.js';
+import { getRegion } from '/src/game/regions.ts';
+import { ANIMALS,createAnimalKit,animateAnimal } from '/src/game/singapore-animals.ts';
+const params=new URLSearchParams(location.search),kind=params.get('animal')||'javan-myna',kit=createAnimalKit();
+const world=params.has('region')?getRegion(params.get('region')).build():null;
+const scene=world?.scene||new THREE.Scene();
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.01,1000),controls=new OrbitControls(camera,renderer.domElement);
+let model,focus=new THREE.Vector3(),distance=2;
+if(world){const p=world.scene.userData.animalPlacements.find(p=>p.site===params.get('site'))||world.scene.userData.animalPlacements[0];if(p){focus.set(p.x,p.y+.2,p.z);distance=Number(params.get('distance'))||5;}else focus.set(0,1,0);}
+else {scene.background=new THREE.Color('#dce1d4');scene.add(new THREE.HemisphereLight('#f6f7ef','#687157',2));const sun=new THREE.DirectionalLight('#fff4dd',3);sun.position.set(2,4,3);sun.castShadow=true;scene.add(sun);const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:'#a9b69a',roughness:1}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);model=kit.create(kind);scene.add(model);const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());focus.set(0,size.y*.45,0);distance=Math.max(size.y,size.z)*2.5;}
+camera.position.copy(focus).add(new THREE.Vector3(distance*.72,distance*.42,distance));controls.target.copy(focus);controls.update();
+document.querySelector('#label').textContent=world?params.get('region')+' / '+(params.get('site')||'habitat animals'):ANIMALS.find(a=>a.id===kind).name+' · natural scale · drag to orbit';
+let time=0,last=performance.now();function render(now){time+=Math.min(.05,(now-last)/1000);last=now;if(!params.has('freeze')){world?.animate(time);if(model)animateAnimal(model,kind,time);}renderer.render(scene,camera);window.ready=true;requestAnimationFrame(render);}requestAnimationFrame(render);
+window.review={world,model,scene,renderer,camera,controls,THREE,kit,ANIMALS,getRegion};
+window.addEventListener('pagehide',()=>{world?.dispose();kit.dispose();renderer.dispose();controls.dispose();});
+</script></body></html>
