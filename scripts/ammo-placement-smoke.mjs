@@ -40,8 +40,9 @@ try{
   const shots=await evaluate('window.hud.shots');await evaluate("window.engine.setInput('fire',true)");await wait(`window.hud.shots>${shots}`);await evaluate("window.engine.setInput('fire',false);window.engine.reload()");await wait('window.hud.reloading>0');await wait('window.hud.reloading===0',30000);await delay(350);
   const before=await evaluate('window.hud.reserveCarrier.used');
   const emptySlots=await evaluate(`JSON.parse(${canvas}.dataset.magazineInventory).slots.flatMap((slot,i)=>slot?[]:[i])`);
+  await evaluate('window.capturePlacement=true');
   if(mobile){await wait("!!document.querySelector('[data-touch-action=reserve-transfer]')");const p=await point("document.querySelector('[data-touch-action=reserve-transfer]')");await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});}else await evaluate("window.engine.setInput('reserve-transfer',true)");
-  await wait(`${animation}.animation?.phase==='carry' && window.hud.reserveCarrier.progress>.47 && window.hud.reserveCarrier.progress<.6`);
+  await wait(`${animation}.animation?.phase==='carry' && window.freezeMotion`);
   const middle=await evaluate(animation);assert(middle.animation.hand.every(Number.isFinite));assert(middle.animation.magazine.every(Number.isFinite));assert(emptySlots.includes(middle.animation.slot),'container goes into a previously empty compatible pouch');
   await evaluate('window.freezeMotion=true');await screenshot(label+'-placing');await evaluate('window.freezeMotion=false');
   await wait(`window.hud.reserveCarrier.used<${before}`);
@@ -53,9 +54,9 @@ try{
  await start(1280,800,false,`${origin}/scripts/fixtures/ammo-placement.html?rig=rig-atlas&pickup=1`);
  await wait('window.hud.arenaSelf?.alive && window.hud.fieldLoot.some(l=>l.kind==="ammo" && l.caliberMm===5.56)',90000);
  await evaluate(`(()=>{const h=window.hud,p=h.fieldLoot.find(l=>l.kind==='ammo'&&l.caliberMm===5.56),dx=p.x-h.x,dz=p.z-h.z,yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(-1.5,Math.hypot(dx,dz));window.engine.lookBy(-(yaw-h.yaw)/(.0023*2.6),(h.pitch-pitch)/(.0023*2.6*620/900));})()`);
- await wait('window.hud.lootCard?.kind==="ammo"');await evaluate('window.engine.interactLoot()');await wait(`${animation}.queued>0`);
+ await wait('window.hud.lootCard?.kind==="ammo"');await evaluate('window.capturePlacement=true;window.engine.interactLoot()');await wait(`${animation}.queued>0`);
  const batch=await evaluate(animation);assert(batch.queued>=2);assert(batch.hiddenSlots.length>=2);
- await screenshot('pickup-reaching');await wait(`${animation}.animation?.phase==='carry'`);await screenshot('pickup-to-rig');
+ await screenshot('pickup-reaching');await wait(`${animation}.animation?.phase==='carry'`);await screenshot('pickup-to-rig');await evaluate('window.freezeMotion=false');
  await wait(`${animation}.queued===0`,15000);assert.equal(await evaluate('window.hud.spareMagazines'),10);await evaluate('window.engine.lookBy(0,80)');await delay(250);await screenshot('pickup-rig-filled');
  results.push({label:'field-pickup',batch});}
  assert.deepEqual(errors,[]);

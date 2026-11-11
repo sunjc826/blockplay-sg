@@ -14,7 +14,7 @@ const profile=createProfile(); profile.rig=params.get('rig')||'rig-atlas';profil
 const family=Number(params.get('family')||0);profile.carry.main=family;
 // Freeze only the fixture clock while a screenshot captures a short gesture.
 const nativeFrame=window.requestAnimationFrame.bind(window);let frameTime=0;
-window.requestAnimationFrame=callback=>nativeFrame(time=>{if(!window.freezeMotion)frameTime=time;callback(frameTime);});
+window.requestAnimationFrame=callback=>nativeFrame(time=>{if(!window.freezeMotion)frameTime=time;callback(frameTime);if(window.capturePlacement && JSON.parse(document.querySelector('#world canvas')?.dataset.ammoPlacement||'{}').animation?.phase==='carry'){window.freezeMotion=true;window.capturePlacement=false;}});
 const equipment=resolveLoadout(profile), pickup=params.has('pickup');
 const ammunition=createPooledLoadout(equipment.weapons,equipment.carriedFamilies);
 if(pickup) for(const slot of [0,1,3]) ammunition[family].magazineInventory.slots[slot]=null;
