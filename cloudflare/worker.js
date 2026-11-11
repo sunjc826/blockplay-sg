@@ -3,6 +3,8 @@ import { handleAsNodeRequest } from 'cloudflare:node';
 import { env } from 'cloudflare:workers';
 import { createCloudflareAdventureHandler } from '../server/cloudflare-api.ts';
 import { readRoomBody, roomOriginAllowed } from '../server/public-rooms.js';
+import { handleLevelReviews } from '../server/level-reviews.ts';
+export { LevelReviews } from '../server/level-reviews.ts';
 export { PublicRooms } from '../server/public-rooms.js';
 
 // One handler per isolate preserves the existing concurrency/request guards.
@@ -20,6 +22,7 @@ createServer(companion).listen(3001);
 export default {
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path === '/api/level-review' || path.startsWith('/api/level-review/')) return handleLevelReviews(request, env);
     if (path === '/api/rooms' || path.startsWith('/api/rooms/')) {
       if (!env.PUBLIC_ROOMS || env.PUBLIC_ROOMS_ENABLED === 'false') return Response.json({ error: 'Public rooms are unavailable.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
       if (!roomOriginAllowed(request)) return Response.json({ error: 'Unexpected origin.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
