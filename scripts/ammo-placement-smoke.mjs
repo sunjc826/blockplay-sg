@@ -39,13 +39,14 @@ try{
   await evaluate('window.engine.lookBy(0,230)');
   const shots=await evaluate('window.hud.shots');await evaluate("window.engine.setInput('fire',true)");await wait(`window.hud.shots>${shots}`);await evaluate("window.engine.setInput('fire',false);window.engine.reload()");await wait('window.hud.reloading>0');await wait('window.hud.reloading===0',30000);await delay(350);
   const before=await evaluate('window.hud.reserveCarrier.used');
+  const emptySlots=await evaluate(`JSON.parse(${canvas}.dataset.magazineInventory).slots.flatMap((slot,i)=>slot?[]:[i])`);
   if(mobile){await wait("!!document.querySelector('[data-touch-action=reserve-transfer]')");const p=await point("document.querySelector('[data-touch-action=reserve-transfer]')");await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});}else await evaluate("window.engine.setInput('reserve-transfer',true)");
   await wait(`${animation}.animation?.phase==='carry' && window.hud.reserveCarrier.progress>.47 && window.hud.reserveCarrier.progress<.6`);
-  const middle=await evaluate(animation);assert(middle.animation.hand.every(Number.isFinite));assert(middle.animation.magazine.every(Number.isFinite));assert.equal(middle.animation.slot,0);
+  const middle=await evaluate(animation);assert(middle.animation.hand.every(Number.isFinite));assert(middle.animation.magazine.every(Number.isFinite));assert(emptySlots.includes(middle.animation.slot),'container goes into a previously empty compatible pouch');
   await evaluate('window.freezeMotion=true');await screenshot(label+'-placing');await evaluate('window.freezeMotion=false');
   await wait(`window.hud.reserveCarrier.used<${before}`);
   if(mobile)await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});else await evaluate("window.engine.setInput('reserve-transfer',false)");
-  await wait(`!${animation}.animation`);await screenshot(label+'-filled');results.push({label,middle});
+  await wait(`!${animation}.animation`);assert.equal(await evaluate(`${animation}.visible`),false);await screenshot(label+'-filled');results.push({label,middle});
  }
  if(!process.env.FPS_AMMO_VIEW){
  console.log('Checking actual field pickup');
