@@ -10,9 +10,9 @@ describe('model review anchors', () => {
     const root = new THREE.Group(), parent = new THREE.Group(), mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial());
     root.add(parent); parent.add(mesh); parent.position.set(2, 1, 0);
     const camera = new THREE.PerspectiveCamera(45, 1, .01, 100); camera.position.set(2, 1, 5); camera.lookAt(2, 1, 0);
-    const view = { yaw: .7, pitch: .2, zoom: 1 }, anchor = pickModelAnchor(root, camera, new THREE.Vector2(), view)!;
+    const view = { yaw: .7, pitch: .2, zoom: 1, pan: { x: .1, y: .2 } }, anchor = pickModelAnchor(root, camera, new THREE.Vector2(), view)!;
     expect(anchor.surface!.meshPath).toEqual([0, 0]); expect(anchor.x).toBeCloseTo(0); expect(anchor.surface!.y).toBeCloseTo(0); expect(anchor.z).toBeCloseTo(.5);
-    view.yaw = 2; expect(anchor.surface!.view.yaw).toBe(.7);
+    view.yaw = 2; view.pan.x = 3; expect(anchor.surface!.view.yaw).toBe(.7); expect(anchor.surface!.view.pan!.x).toBe(.1);
     root.rotation.y = 1; root.scale.setScalar(2); root.position.set(-3, 4, 5); root.updateMatrixWorld(true);
     expect(modelAnchorWorld(root, anchor)!.distanceTo(mesh.localToWorld(new THREE.Vector3(0, 0, .5)))).toBeLessThan(1e-9);
     expect(pickModelAnchor(root, camera, new THREE.Vector2(20, 20), view)).toBeNull();
@@ -40,6 +40,18 @@ describe('model review anchors', () => {
     for (const thread of parseReview(JSON.stringify(notes)).threads) {
       const asset = getReviewAsset(thread.asset!)!, model = asset.build();
       try { expect(modelRevision(model.root)).toBe(thread.mapRevision); } finally { model.dispose(); }
+    }
+  });
+  it('preserves old immutable headers and round-trips optional camera pan', () => {
+    const doc = parseReview(JSON.stringify(notes));
+    doc.threads[0].anchor = { x: .1, z: .2, level: 'Surface', surface: { y: 1, meshPath: [0], view: { yaw: .3, pitch: .1, zoom: 2 } } };
+    const original = JSON.stringify(doc);
+    expect(JSON.stringify(parseReview(original))).toBe(original);
+    doc.threads[0].anchor.surface!.view.pan = { x: -.7, y: .4 };
+    expect(parseReview(JSON.stringify(doc))).toEqual(doc);
+    for (const pan of [null, { x: 11, y: 0 }, { x: 0 }, { x: '1', y: 0 }]) {
+      const invalid = JSON.parse(JSON.stringify(doc)); invalid.threads[0].anchor.surface.view.pan = pan;
+      expect(() => parseReview(JSON.stringify(invalid))).toThrow('camera pan');
     }
   });
   it('round-trips model surfaces and prevents map/model collection mixing', () => {

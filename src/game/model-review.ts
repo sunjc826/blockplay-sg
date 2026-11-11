@@ -31,7 +31,7 @@ export function pickModelAnchor(root: THREE.Object3D, camera: THREE.Camera, ndc:
   const mesh = hit.object as THREE.Mesh;
   const material = Array.isArray(mesh.material) ? mesh.material[hit.face?.materialIndex ?? 0] : mesh.material;
   const label = (hit.object.name || material?.name || `Surface ${path.join('.') || 'root'}`).slice(0, 100);
-  return { x: point.x, z: point.z, level: label, surface: { y: point.y, meshPath: path, view: { ...view } } };
+  return { x: point.x, z: point.z, level: label, surface: { y: point.y, meshPath: path, view: { ...view, ...(view.pan ? { pan: { ...view.pan } } : {}) } } };
 }
 /** Geometry, local transforms and material settings; never transient UUIDs or camera state. */
 export function modelRevision(root: THREE.Object3D) {

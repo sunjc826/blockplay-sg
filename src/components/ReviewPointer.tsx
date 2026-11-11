@@ -3,11 +3,11 @@ import type { ReviewAnchor } from '../game/level-review';
 import './review-pointer.css';
 
 /** A screen-space handle backed by the map transform or a real model raycast. */
-export default function ReviewPointer({ pick, onConfirm, onCancel, surface = 'surface' }: {
+export default function ReviewPointer({ pick, onConfirm, onCancel, surface = 'surface', resetKey = '', gesturing = false }: {
   pick(x: number, y: number): ReviewAnchor | null;
   onConfirm(anchor: ReviewAnchor): void;
   onCancel(): void;
-  surface?: string;
+  surface?: string; resetKey?: string; gesturing?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null), handle = useRef<HTMLButtonElement>(null);
   const activePointer = useRef<number | null>(null);
@@ -15,6 +15,7 @@ export default function ReviewPointer({ pick, onConfirm, onCancel, surface = 'su
   const [candidate, setCandidate] = useState<ReviewAnchor | null>(null);
   const [positioned, setPositioned] = useState(false), [dragging, setDragging] = useState(false);
   const reset = () => { activePointer.current = null; setDragging(false); setCandidate(null); setPositioned(false); };
+  useEffect(reset, [resetKey, gesturing]);
   useEffect(() => {
     handle.current?.focus({ preventScroll: true });
     // Resizing changes the projection: require a fresh placement instead of reusing a stale screen point.
@@ -31,7 +32,7 @@ export default function ReviewPointer({ pick, onConfirm, onCancel, surface = 'su
     const rect = host.current!.getBoundingClientRect();
     position((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
   }
-  return <div ref={host} className={`lr-placement ${dragging ? 'is-dragging' : ''}`} data-positioned={positioned} data-valid={!!candidate}
+  return <div ref={host} className={`lr-placement ${dragging ? 'is-dragging' : ''}`} data-positioned={positioned} data-valid={!!candidate} data-gesturing={gesturing}
     onClick={event => { event.preventDefault(); event.stopPropagation(); }}
     onPointerDown={event => {
       if ((event.target as HTMLElement).closest('.lr-pointer-actions') || event.button !== 0 || !event.isPrimary || activePointer.current !== null) return;
@@ -49,9 +50,9 @@ export default function ReviewPointer({ pick, onConfirm, onCancel, surface = 'su
         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); position(point.x, point.y); }
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
       }}><span aria-hidden="true">＋</span></button>
-    {!dragging && positioned && candidate && <div className={`lr-pointer-actions ${point.y > .5 ? 'above' : 'below'}`} style={{ left: `clamp(72px, ${point.x * 100}%, calc(100% - 72px))`, top: `${point.y * 100}%` }}>
+    {!gesturing && !dragging && positioned && candidate && <div className={`lr-pointer-actions ${point.y > .5 ? 'above' : 'below'}`} style={{ left: `clamp(72px, ${point.x * 100}%, calc(100% - 72px))`, top: `${point.y * 100}%` }}>
       <button type="button" className="lr-primary" onClick={event => { event.stopPropagation(); onConfirm(candidate); }}>Pin here</button>
     </div>}
-    <span className="lr-pointer-status" role="status">{dragging ? candidate ? 'Surface found · release to position' : `Move onto the ${surface}` : positioned ? candidate ? 'Drag again to adjust · Pin here to continue' : `No ${surface} here · drag to another point` : 'Drag the pointer, then release'}</span>
+    <span className="lr-pointer-status" role="status">{gesturing ? 'Two fingers · pan and zoom' : dragging ? candidate ? 'Surface found · release to position' : `Move onto the ${surface}` : positioned ? candidate ? 'Drag again to adjust · Pin here to continue' : `No ${surface} here · drag to another point` : 'Drag the pointer, then release'}</span>
   </div>;
 }

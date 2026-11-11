@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import ReviewPointer from './ReviewPointer';
+import { useReviewGestures } from './use-review-gestures';
+import { gestureModelView, reviewCameraDistance } from '../lib/review-gestures';
 import { getReviewAsset } from '../game/review-assets';
 import { modelAnchorWorld, modelRevision, pickModelAnchor } from '../game/model-review';
-import type { ReviewAnchor, ReviewThread } from '../game/level-review';
+import type { ReviewAnchor, ReviewThread, ReviewView } from '../game/level-review';
 
 export default function ModelReviewViewer({ assetId, placing, draft, threads, numbers, selected, onPick, onSelect, onRevision, onCancel }: {
   assetId: string; placing: boolean; draft: ReviewAnchor | null; threads: ReviewThread[]; selected?: ReviewThread; numbers: Record<string, number>;
@@ -12,10 +14,12 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
   const [movingView, setMovingView] = useState(false), [placementVersion, setPlacementVersion] = useState(0);
   const pickSurface = useRef<(x: number, y: number) => ReviewAnchor | null>(() => null);
   useEffect(() => { setMovingView(false); }, [placing]);
-  const changeView = (next: { yaw: number; pitch: number; zoom: number }) => { view.current = next; setPlacementVersion(n => n + 1); };
+  const changeView = (next: ReviewView) => { view.current = next; setPlacementVersion(n => n + 1); };
   const lastPlacement = useRef(-Infinity);
   const frontYaw = getReviewAsset(assetId)?.frontYaw ?? 0;
-  const host = useRef<HTMLDivElement>(null), view = useRef({ yaw: frontYaw + .7, pitch: .22, zoom: 1 });
+  const host = useRef<HTMLDivElement>(null), view = useRef<ReviewView>({ yaw: frontYaw + .7, pitch: .22, zoom: 1 });
+  const stage = useRef<HTMLDivElement>(null), cancelOrbit = useRef(() => {});
+  const gestures = useReviewGestures(stage, gesture => { const rect = stage.current!.getBoundingClientRect(); view.current = gestureModelView(view.current, rect.width / Math.max(1, rect.height), gesture); }, () => cancelOrbit.current());
   const pins = useRef<HTMLDivElement>(null), latest = useRef({ placing, movingView, draft, threads, onRevision }); latest.current = { placing, movingView, draft, threads, onRevision };
   const [error, setError] = useState('');
   const restore = () => { if (selected?.anchor.surface) changeView({ ...selected.anchor.surface.view }); };
@@ -45,10 +49,10 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     const observer = new ResizeObserver(resize); observer.observe(node); resize();
     let frame = 0, drag: { x: number; y: number; startX: number; startY: number; moved: boolean } | null = null;
     pickSurface.current = (x, y) => pickModelAnchor(model.root, camera, new THREE.Vector2(x * 2 - 1, 1 - y * 2), view.current);
-    const down = (e: PointerEvent) => { if (e.button !== 0) return; e.preventDefault(); renderer.domElement.focus({ preventScroll: true }); drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }; renderer.domElement.setPointerCapture(e.pointerId); };
+    const down = (e: PointerEvent) => { if (e.button !== 0 || !e.isPrimary) return; e.preventDefault(); renderer.domElement.focus({ preventScroll: true }); drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }; renderer.domElement.setPointerCapture(e.pointerId); };
     const move = (e: PointerEvent) => { if (!drag) return; drag.moved ||= Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 5; if (drag.moved) { view.current.yaw -= (e.clientX - drag.x) * .01; view.current.pitch = THREE.MathUtils.clamp(view.current.pitch + (e.clientY - drag.y) * .007, -1.35, 1.35); } drag.x = e.clientX; drag.y = e.clientY; };
     const up = () => { drag = null; };
-    const cancel = () => { drag = null; };
+    const cancel = () => { drag = null; }; cancelOrbit.current = cancel;
     const wheel = (e: WheelEvent) => { e.preventDefault(); view.current.zoom = THREE.MathUtils.clamp(view.current.zoom * Math.exp(-e.deltaY * .001), .4, 8); };
     const key = (e: KeyboardEvent) => {
       if (latest.current.placing && !latest.current.movingView && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); node.parentElement?.querySelector<HTMLButtonElement>('.lr-pointer-handle')?.focus(); return; }
@@ -61,8 +65,9 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     const render = () => {
       if (!node.clientWidth || !node.clientHeight || document.hidden) { frame = requestAnimationFrame(render); return; }
       const v = view.current; v.yaw = THREE.MathUtils.euclideanModulo(v.yaw + Math.PI, Math.PI * 2) - Math.PI;
-      const distance = radius / Math.sin(Math.atan(Math.tan(35 * Math.PI / 360) * Math.min(1, camera.aspect))) * 1.13 / v.zoom;
-      camera.position.copy(center).add(new THREE.Vector3(Math.sin(v.yaw) * Math.cos(v.pitch), Math.sin(v.pitch), Math.cos(v.yaw) * Math.cos(v.pitch)).multiplyScalar(distance)); camera.lookAt(center); camera.updateMatrixWorld();
+      const distance = radius * reviewCameraDistance(camera.aspect, v.zoom);
+      const target = center.clone().addScaledVector(new THREE.Vector3(Math.cos(v.yaw), 0, -Math.sin(v.yaw)), (v.pan?.x ?? 0) * radius).addScaledVector(new THREE.Vector3(-Math.sin(v.yaw) * Math.sin(v.pitch), Math.cos(v.pitch), -Math.cos(v.yaw) * Math.sin(v.pitch)), (v.pan?.y ?? 0) * radius);
+      camera.position.copy(target).add(new THREE.Vector3(Math.sin(v.yaw) * Math.cos(v.pitch), Math.sin(v.pitch), Math.cos(v.yaw) * Math.cos(v.pitch)).multiplyScalar(distance)); camera.lookAt(target); camera.updateMatrixWorld();
       renderer.render(scene, camera);
       for (const el of pins.current?.querySelectorAll<HTMLElement>('[data-model-pin]') ?? []) {
         const id = el.dataset.modelPin, thread = latest.current.threads.find(t => t.id === id);
@@ -85,17 +90,17 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     return () => { pickSurface.current = () => null; cancelAnimationFrame(frame); observer.disconnect(); model.dispose(); renderer.dispose(); canvas.remove(); delete node.dataset.ready; };
   }, [assetId]);
   return <div className="lr-model-review">
-    <div className={`lr-model-stage ${placing ? 'is-placing' : ''}`} onClickCapture={event => { /* A touch can synthesize a click after pinning changes the visible panel. */ if (!(event.target as HTMLElement).closest('.lr-placement') && (placing || performance.now() - lastPlacement.current < 400)) { event.preventDefault(); event.stopPropagation(); } }}>
+    <div ref={stage} className={`lr-model-stage ${placing ? 'is-placing' : ''}`} onClickCapture={event => { /* A touch can synthesize a click after pinning changes the visible panel. */ if (!(event.target as HTMLElement).closest('.lr-placement') && (placing || performance.now() - lastPlacement.current < 400)) { event.preventDefault(); event.stopPropagation(); } }}>
       <div className="lr-model-canvas" ref={host} />
       <div className="lr-model-pins" ref={pins}>{threads.filter(t => t.anchor.surface).map(thread => <button hidden key={thread.id} data-model-pin={thread.id} aria-label={`Open model thread: ${thread.title}`} aria-pressed={selected?.id === thread.id} onClick={() => onSelect(thread)}>{numbers[thread.id]}</button>)}{draft?.surface && <span hidden data-model-pin="draft">＋</span>}</div>
-      {placing && !movingView && !error && <ReviewPointer key={placementVersion} pick={(x, y) => pickSurface.current(x, y)} onConfirm={point => { lastPlacement.current = performance.now(); onPick(point); }} onCancel={onCancel} surface="model" />}
+      {placing && !movingView && !error && <ReviewPointer key={placementVersion} resetKey={String(gestures.version)} gesturing={gestures.active} pick={(x, y) => pickSurface.current(x, y)} onConfirm={point => { lastPlacement.current = performance.now(); onPick(point); }} onCancel={onCancel} surface="model" />}
       {error && <p className="lr-model-error" role="status">{error}</p>}
     </div>
     {placing && <div className="lr-placement-mode" role="group" aria-label="Pin interaction"><button aria-pressed={!movingView} onClick={() => setMovingView(false)}>Position pin</button><button aria-pressed={movingView} onClick={() => setMovingView(true)}>Move view</button></div>}
     <div className="lr-map-navigation" role="group" aria-label="Model view">
       <button onClick={() => { changeView({ yaw: frontYaw, pitch: .15, zoom: 1 }); }}>Front</button><button onClick={() => { changeView({ yaw: frontYaw + Math.PI / 2, pitch: .15, zoom: 1 }); }}>Side</button><button onClick={() => { changeView({ yaw: frontYaw + Math.PI, pitch: .15, zoom: 1 }); }}>Rear</button>
-      <button aria-label="Zoom in" onClick={() => { changeView({ ...view.current, zoom: Math.min(8, view.current.zoom * 1.25) }); }}>＋</button><button aria-label="Zoom out" onClick={() => { changeView({ ...view.current, zoom: Math.max(.4, view.current.zoom / 1.25) }); }}>−</button><button disabled={!selected?.anchor.surface} onClick={restore}>Restore pin view</button>
+      <button aria-label="Zoom in" onClick={() => { changeView({ ...view.current, zoom: Math.min(8, view.current.zoom * 1.25) }); }}>＋</button><button aria-label="Zoom out" onClick={() => { changeView({ ...view.current, zoom: Math.max(.4, view.current.zoom / 1.25) }); }}>−</button><button onClick={() => changeView({ yaw: frontYaw + .7, pitch: .22, zoom: 1 })}>Reset view</button><button disabled={!selected?.anchor.surface} onClick={restore}>Restore pin view</button>
     </div>
-    <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit. Choose Position pin when the detail is in view.' : 'Drag or tap to position the pointer, release, then choose Pin here. Move view rotates the model.' : 'Drag to orbit · scroll or buttons to zoom. Hidden-side pins appear when visible. Select a thread to restore its viewing angle.'}</p>
+    <p className="lr-map-hint" role="status">{placing ? movingView ? 'One finger orbits; two fingers pan and pinch to zoom. Choose Position pin when ready.' : 'Drag or tap to position the pointer, release, then choose Pin here. Two fingers pan and zoom; Move view rotates the model.' : 'One finger orbits · two fingers pan and pinch to zoom · scroll or buttons also zoom. Hidden-side pins appear when visible. Select a thread to restore its viewing angle.'}</p>
   </div>;
 }

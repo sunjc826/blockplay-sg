@@ -128,7 +128,11 @@ catalog currently includes 25 street props, 8 proxy weapons and 4 proxy operator
 Choose an asset, drag to orbit, then choose **Pin a comment**. Drag the visible
 pointer onto the desired surface and release; choose **Pin here** at that point
 to open the editor. A tap also positions the pointer. The camera stays still in
-**Position pin** mode; **Move view** lets you orbit before positioning again.
+**Position pin** mode for one-finger placement; **Move view** lets you orbit before positioning again.
+In both map and model views, pinch with two fingers to zoom and move both fingers
+together to pan, including while placing a pin. Adding a second finger clears the
+pending point; lift both fingers before positioning a new pin. Zoom follows the
+point between your fingers. **Fit** (map) or **Reset view** (model) restores framing.
 Background releases and interrupted touches clear the pending point. Camera
 presets, zoom and resizing require a fresh placement. Maps use the same
 drag/release/confirm gesture. Keyboard: focus the pointer, use arrows for fine
@@ -137,7 +141,7 @@ Escape cancels placement. Neither a drag nor a release creates a thread.
 **Comment on whole model** handles proportions, silhouette and broader intent.
 
 A surface thread saves mesh-local XYZ, a child-index path, the viewing angle and
-zoom. Selecting it restores that view; pins on the hidden side appear when the
+zoom, plus any camera pan. Selecting it restores that view; pins on the hidden side appear when the
 surface faces the camera. Developer context links to the source and explains
 intent/tradeoffs. AI notes and replies use the same append-only workflow as maps.
 The workspace does not automatically summon an AI: ask the coding agent to pull
@@ -154,7 +158,9 @@ collections. Published model notes live in `docs/level-reviews/asset-notes.json`
 
 For compatibility with the common thread contract, `mapRevision` holds a model
 fingerprint and `anchor.level` holds a readable part label. `anchor.surface`
-contains `y`, `meshPath` and `view: {yaw, pitch, zoom}`; `x` and `z` are mesh-local
+contains `y`, `meshPath` and `view: {yaw, pitch, zoom, pan?: {x, y}}`; optional pan uses model bounding-radius
+units along the camera screen-right/up axes. Old views omit pan and remain
+byte-compatible with immutable thread headers; `x` and `z` are mesh-local
 coordinates. Whole-model anchors omit `surface` and use `x=z=0`. The fingerprint
 covers hierarchy, transforms, geometry and basic material properties. When it
 changes, the thread requests review and its surface pin is hidden until a new
@@ -177,6 +183,8 @@ node --experimental-strip-types scripts/level-review-cloud.mjs push --assets --f
 `--assets` also works with `link` and `--verification`. Vite proxies both review
 endpoints to local Wrangler. `scripts/asset-review-smoke.mjs` checks all models,
 surface placement, restored views, stale/hidden pins, reload, keyboard and touch.
+`scripts/review-gesture-smoke.mjs` checks pinch/pan in both views, interrupted
+pinning, remaining-finger suppression, saved pan and reset controls.
 `scripts/level-review-cloud-smoke.mjs --assets` checks two-browser synchronization,
 offline recovery, concurrent replies and authentication on the model test board.
 

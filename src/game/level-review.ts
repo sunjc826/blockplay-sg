@@ -4,7 +4,8 @@ import type { MapBounds } from './minimap';
 export const REVIEW_STORAGE_KEY = 'blockplay.level-review.v1';
 export const MAX_REVIEW_BYTES = 2_000_000;
 export type ReviewCollection = 'level' | 'asset';
-export interface ReviewSurface { y: number; meshPath: number[]; view: { yaw: number; pitch: number; zoom: number } }
+export interface ReviewView { yaw: number; pitch: number; zoom: number; pan?: { x: number; y: number } }
+export interface ReviewSurface { y: number; meshPath: number[]; view: ReviewView }
 export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface }
 export type ReviewAuthor = 'designer' | 'ai';
 export type ReviewStatus = 'open' | 'resolved';
@@ -39,7 +40,9 @@ export function parseReview(raw: string): ReviewDocument {
     if (t.anchor.surface !== undefined) {
       const p = t.anchor.surface;
       if (!assets || !record(p) || typeof p.y !== 'number' || !Number.isFinite(p.y) || Math.abs(p.y) > 100000 || !Array.isArray(p.meshPath) || p.meshPath.length > 32 || !p.meshPath.every(i => Number.isInteger(i) && i >= 0 && i <= 100000) || !record(p.view) || !['yaw', 'pitch', 'zoom'].every(k => typeof p.view === 'object' && p.view !== null && typeof (p.view as Record<string, unknown>)[k] === 'number' && Number.isFinite((p.view as Record<string, number>)[k])) || Math.abs(Number(p.view.yaw)) > 1000 || Math.abs(Number(p.view.pitch)) > Math.PI / 2 || Number(p.view.zoom) < .4 || Number(p.view.zoom) > 8) throw new Error('Invalid model surface or saved view.');
-      surface = { y: p.y, meshPath: [...p.meshPath], view: { yaw: Number(p.view.yaw), pitch: Number(p.view.pitch), zoom: Number(p.view.zoom) } };
+      const pan = p.view.pan;
+      if (pan !== undefined && (!record(pan) || !['x', 'y'].every(k => typeof pan[k] === 'number' && Number.isFinite(pan[k]) && Math.abs(Number(pan[k])) <= 10))) throw new Error('Invalid model camera pan.');
+      surface = { y: p.y, meshPath: [...p.meshPath], view: { yaw: Number(p.view.yaw), pitch: Number(p.view.pitch), zoom: Number(p.view.zoom), ...(record(pan) ? { pan: { x: Number(pan.x), y: Number(pan.y) } } : {}) } };
     }
     if (assets && !surface && (t.anchor.x !== 0 || t.anchor.z !== 0)) throw new Error('Whole-model notes must use a zero anchor.');
     threadIds.add(t.id);
