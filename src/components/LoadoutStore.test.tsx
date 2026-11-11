@@ -4,7 +4,7 @@ import LoadoutStore from './LoadoutStore';
 import { createProfile } from '../game/armory-state';
 import type { ArmoryStore } from '../game/use-armory';
 const screen = vi.hoisted(() => ({ view: 'detail', slot: 'main', family: 0, vehicle: 'car', item: 'sar-vanguard', supplyType: 'all' }));
-vi.mock('../lib/screen-state', () => ({ useScreenState: () => [screen, vi.fn()] }));
+vi.mock('../lib/screen-state', () => ({ useScreenState: (key: string, initial: unknown) => [key === 'loadout-store.selection' ? screen : initial, vi.fn()] }));
 vi.mock('./ArmoryPreview', () => ({ default: ({ item }: { item: { id: string } }) => <div data-preview={item.id}>3D preview</div> }));
 const store: ArmoryStore = { profile: createProfile(), equipLoadout: vi.fn(), buyLoadout: vi.fn(), bringSupply: vi.fn(), selectCarrySlot: vi.fn(), buy: vi.fn(), buyFromVendor: vi.fn(), buyLevel: vi.fn(), wearRankSet: vi.fn(), setEncikTone: vi.fn(), equipItem: vi.fn(), award: vi.fn(), awardElimination: vi.fn(), consume: vi.fn(), demoTopUp: vi.fn(), discardWeaponRental: vi.fn(), advanceRentalTime: vi.fn(), demoCreditTopUp: vi.fn(), message: '', saveError: false };
 const render = () => renderToStaticMarkup(<LoadoutStore store={store} nav={<span>Store</span>} onPlay={vi.fn()} />);
@@ -69,4 +69,41 @@ it('offers packing owned Inventory supplies and a contextual Store shortcut', ()
   const held = { ...store, profile: { ...store.profile, consumables: { 'kit-bandage': 2 } } };
   const html = renderToStaticMarkup(<LoadoutStore store={held} mode="inventory" nav={<span>Loadout</span>} onPlay={vi.fn()} />);
   expect(html).toContain('data-pack-supply'); expect(html).toContain('Buy more in Store'); expect(html).not.toContain('data-buy-supply');
+});
+it('repeats the open item’s primary action in the sticky footer beside Play, with no stepper', () => {
+  const rentable = { ...store, profile: { ...store.profile, xp: 1_000_000 } };
+  const html = renderToStaticMarkup(<LoadoutStore store={rentable} nav={<span>Store</span>} onPlay={vi.fn()} />);
+  const footer = html.slice(html.indexOf('<footer'));
+  expect(html).toContain('data-choose-rental');
+  expect(footer).toContain('data-footer-action'); expect(footer).toContain('Choose rental duration');
+  expect(footer).toContain('data-loadout-play'); expect(footer).toContain('kg carried');
+  expect(html).not.toContain('Review loadout'); expect(html).not.toContain('Choose match'); expect(html).not.toContain('data-choose-match');
+  // The action sits in the hero, before the comparison and specifications.
+  expect(html.indexOf('data-choose-rental')).toBeLessThan(html.indexOf('class="loadout-comparison"'));
+  expect(html.match(/Rental timers paused/g)).toBeNull();
+});
+it('warns in the footer when an equipped rental has under 15 minutes left', () => {
+  Object.assign(screen, { view: 'home', item: '' });
+  const profile = { ...store.profile, xp: 1_000_000, rentals: { 'sar-ranger': 10 * 60_000 }, guns: store.profile.guns.map((gun, i) => i === 0 ? { ...gun, variant: 'sar-ranger' } : gun) };
+  const html = renderToStaticMarkup(<LoadoutStore store={{ ...store, profile }} nav={<span>Store</span>} onPlay={vi.fn()} />);
+  const footer = html.slice(html.indexOf('<footer'));
+  expect(footer).toContain('data-extend-short="sar-ranger"'); expect(footer).toContain('10m left');
+  expect(footer).not.toContain('data-footer-action');
+});
+it('lists everything owned in Inventory on one grouped locker page', () => {
+  Object.assign(screen, { view: 'home', item: '' });
+  const profile = { ...store.profile, xp: 1_000_000, rentals: { 'sar-ranger': 3_600_000 }, consumables: { 'kit-bandage': 2 } };
+  const html = renderToStaticMarkup(<LoadoutStore store={{ ...store, profile }} mode="inventory" nav={<span>Inventory</span>} onPlay={vi.fn()} />);
+  for (const shelf of ['Weapons', 'Protection &amp; equipment', 'Supplies', 'Cosmetics']) expect(html).toContain(`>${shelf}</h3>`);
+  expect(html).toContain('data-inventory-item="sar-issued"'); expect(html).toContain('data-inventory-item="sar-ranger"');
+  expect(html).toContain('Rented · 1h 0m left'); expect(html).toContain('2 in stock · Packed');
+  expect(html).toContain('Equipped'); expect(html).not.toContain('data-item="sar-vanguard"');
+  expect(html).toContain('data-loadout-play'); expect(html).not.toContain('data-owned-filter');
+});
+it('narrows Store browsing to owned gear with the Owned filter, in the shared card vocabulary', () => {
+  screen.view = 'browse';
+  const all = render();
+  expect(all).toContain('data-owned-filter'); expect(all).toContain('aria-pressed="false"');
+  expect(all).toContain('class="ui-item-card equipment-card'); expect(all).toContain('Level 3 required');
+  expect(all).toContain('/ play hour'); expect(all).not.toContain('gameplay hour');
 });

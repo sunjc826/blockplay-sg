@@ -26,7 +26,7 @@ async function key(key, code, held = 0) { await send('Input.dispatchKeyEvent', {
 async function screenshot(name) { const shot = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(shot.data, 'base64')); }
 const wallet = `JSON.parse(localStorage.getItem('blockplay.armory.v1'))`;
 const action = `document.querySelector('[data-confirm-rental]')`;
-const home = async () => { if(await evaluate(`document.querySelector('[data-loadout-home]')!==null`)) await click(`document.querySelector('[data-loadout-home]')`); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='home'`); };
+const home = async () => { const tab=`document.querySelector('#equipment-tab-'+document.querySelector('.loadout-store').dataset.equipmentMode)`; if(await evaluate(`document.querySelector('.loadout-store')?.dataset.loadoutView!=='home'`)) await click(tab); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='home'`); };
 const slot = async name => { await home(); await click(`document.querySelector('[data-loadout-slot="${name}"]')`); };
 const inspect = async id => { await click(`document.querySelector('[data-item="${id}"]')`); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='detail'`); };
 const chooseRental = async (extend=false) => { await click(`document.querySelector('${extend?'[data-extend-rental]':'[data-choose-rental]'}')`); await wait(`!!${action}`); };

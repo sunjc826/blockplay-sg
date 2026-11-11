@@ -16,7 +16,8 @@ async function click(selector) { const p = await evaluate(`(()=>{const e=documen
 async function choose(selector, value) { if (selector === '[aria-label="Weapon platform"]') { await click(`[data-platform="${value}"]`); return; } await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`); await delay(100); }
 const view = name => `document.querySelector('.loadout-store')?.dataset.loadoutView===${JSON.stringify(name)}`;
 const wallet = `JSON.parse(localStorage.getItem('blockplay.armory.v1'))`;
-async function home() { if (!await evaluate(view('home'))) { await click('[data-loadout-home]'); await wait(view('home')); } }
+// Selecting the active Store/Inventory tab returns to its home (slots or locker).
+async function home() { if (!await evaluate(view('home'))) { await click(`#equipment-tab-${await evaluate(`document.querySelector('.loadout-store').dataset.equipmentMode`)}`); await wait(view('home')); } }
 async function slot(name) { await home(); await click(`[data-loadout-slot="${name}"]`); }
 async function inspect(name) { await click(`[data-item="${name}"]`); await wait(view('detail')); }
 async function screenshot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${name}.png`, output), Buffer.from(r.data, 'base64')); }

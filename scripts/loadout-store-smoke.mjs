@@ -16,7 +16,8 @@ async function click(selector) { const p = await evaluate(`(()=>{const e=documen
 async function choose(selector, value) { if (selector === '[aria-label="Weapon platform"]') { await click(`[data-platform="${value}"]`); return; } await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`); await delay(100); }
 const view = name => `document.querySelector('.loadout-store')?.dataset.loadoutView===${JSON.stringify(name)}`;
 const wallet = `JSON.parse(localStorage.getItem('blockplay.armory.v1'))`;
-async function home() { if (!await evaluate(view('home'))) { await click('[data-loadout-home]'); await wait(view('home')); } }
+// Selecting the active Store/Inventory tab returns to its home (slots or locker).
+async function home() { if (!await evaluate(view('home'))) { await click(`#equipment-tab-${await evaluate(`document.querySelector('.loadout-store').dataset.equipmentMode`)}`); await wait(view('home')); } }
 async function slot(name) { await home(); await click(`[data-loadout-slot="${name}"]`); }
 async function inspect(name) { await click(`[data-item="${name}"]`); await wait(view('detail')); }
 async function screenshot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${name}.png`, output), Buffer.from(r.data, 'base64')); }
@@ -70,8 +71,9 @@ try {
   await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`); await click('#shop-tab-weapon'); await inspect('sar-ranger');
   assert(await evaluate(`!!document.querySelector('[data-extend-rental]')`)); await click('[data-loadout-back]'); await wait(`!!document.querySelector('.catalog-only')`); await inspect('sar-ranger'); await home();
   console.log('PASS stock/packs shared with Inventory and traditional catalog returns to shared details');
-  await click('[data-loadout-review]'); await wait(view('review')); await screenshot('desktop-review'); await click('[data-choose-match]'); await click('[data-match-mode="team-deathmatch"]'); await click('[data-loadout-play]'); await wait(`location.pathname==='/play/team-deathmatch'`);
-  console.log('PASS readiness to actual match setup');
+  await screenshot('desktop-footer'); await click('[data-loadout-play]'); await wait(`location.pathname==='/play'`);
+  await send('Page.navigate', { url: origin + '/store' }); await wait(`!!document.querySelector('.loadout-store')`);
+  console.log('PASS footer Play opens the Play menu');
   await seed({ xp: 0, credits: 0, tokens: 0 }); await slot('main'); await inspect('sar-ranger'); assert(!await evaluate(`!!document.querySelector('[data-choose-rental]')`));
   await slot('plate'); await inspect('plate-soft'); await click('[data-choose-rental]'); assert(await evaluate(`document.querySelector('[data-confirm-rental]').disabled`));
   const before=await evaluate(`${wallet}.credits`); await click('[data-loadout-back]'); assert.equal(await evaluate(`${wallet}.credits`),before);
@@ -86,7 +88,7 @@ try {
     assert(await evaluate(`document.querySelector('.loadout-comparison').textContent.includes('Combined movement') && !document.querySelector('.loadout-specifications').closest('details')`));
     await click('[data-choose-rental]'); await geometry(name+' rental'); await screenshot(name+'-rental'); await click('[data-confirm-rental]'); await wait(view('home'));
     assert(await evaluate(`document.querySelector('.loadout-feedback').textContent.includes('rented and equipped')`));
-    await click('[data-loadout-review]'); await geometry(name+' review'); await click('[data-choose-match]'); await geometry(name+' match'); await screenshot(name+'-match');
+    await geometry(name+' footer'); assert(await evaluate(`!!document.querySelector('.loadout-footer [data-loadout-play]')`)); await screenshot(name+'-footer');
     await home(); await click('.store-tour-trigger'); await wait(`!!document.querySelector('.loadout-guide')`);
     for(let step=0;step<4;step++)await click('.loadout-guide .loadout-primary');await wait(`!document.querySelector('.loadout-guide')`);
     console.log(`PASS ${name}: touch purchase, visible feedback, layout and tour`);

@@ -1,0 +1,51 @@
+/* Shared equipment cards: Store slots, the catalog grid and the Inventory locker. */
+.equipment-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(186px,1fr)); gap:12px; min-width:0; }
+button.ui-item-card.equipment-card {
+  display:flex; flex-direction:column; align-items:stretch; gap:10px; width:100%; min-width:0; height:100%;
+  padding:12px; border:1px solid var(--ui-border); border-radius:var(--ui-panel-radius);
+  background:var(--ui-surface); color:var(--ui-ink); text-align:left; cursor:pointer;
+  font:500 var(--ui-label)/1.45 var(--ui-font); box-shadow:none; animation:none;
+}
+button.ui-item-card.equipment-card:hover { background:var(--ui-hover); }
+button.ui-item-card.equipment-card.selected { border-color:var(--ui-action); box-shadow:inset 0 0 0 1px var(--ui-action); }
+button.ui-item-card.equipment-card[data-tier=elite] { border-top:2px solid #dfbd7699; }
+button.ui-item-card.equipment-card[data-tier=ultra] { border-top:2px solid #7fd6e299; }
+button.ui-item-card.equipment-card[data-tier=legendary] { border-top:2px solid #c3a3ff99; }
+button.ui-item-card.equipment-card[data-tier=mythic] { border-top:2px solid #ffb49a99; }
+.equipment-card-art { display:grid; place-items:center; width:100%; height:96px; object-fit:contain; background:#12211c; border-radius:5px; color:var(--ui-muted); }
+.equipment-card-body { display:grid; gap:4px; min-width:0; }
+.equipment-card .equipment-card-kind, .equipment-card .equipment-card-price { display:block; font-size:var(--ui-caption); line-height:1.5; color:var(--ui-muted); }
+.equipment-card .equipment-card-name { display:block; font-size:var(--ui-title); font-weight:600; line-height:1.35; color:var(--ui-ink); overflow-wrap:anywhere; }
+.equipment-status { display:inline-flex; align-items:center; gap:4px; justify-self:start; max-width:100%; padding:2px 7px; border-radius:4px; font-size:var(--ui-caption); font-weight:600; line-height:1.5; background:#ffffff0f; color:var(--ui-muted); }
+.equipment-status.is-equipped { background:#d8bd8326; color:var(--ui-action); }
+.equipment-status.is-rented { background:#a8d8a61f; color:#a8d8a6; }
+.equipment-status.is-owned { color:var(--ui-ink); }
+.equipment-status.is-locked { background:#ecc28c1a; color:#ecc28c; }
+.equipment-card .store-tier.tier-issued { color:#cdd7d1; }
+.equipment-card .store-tier.tier-field { color:#a8d8a6; }
+.equipment-card .store-tier.tier-elite { color:#dfbd76; }
+.equipment-card .store-tier.tier-ultra { color:#7fd6e2; }
+.equipment-card .store-tier.tier-legendary { color:#c3a3ff; }
+.equipment-card .store-tier.tier-mythic { color:#ffb49a; }
+
+/* Platform and vehicle picker: one underline tablist, scrollable on phones. */
+.equipment-picker[role=tablist] { gap:0; border-bottom:1px solid var(--ui-border); scrollbar-width:none; }
+.equipment-picker[role=tablist]::-webkit-scrollbar { display:none; }
+.equipment-picker > [role=tab] { flex:1 0 auto; gap:6px; }
+.equipment-picker > [role=tab]:focus-visible { outline:2px solid var(--ui-focus); outline-offset:-4px; }
+.equipment-picker-note { display:inline-flex; padding:2px 6px; border:1px solid var(--ui-border); border-radius:4px; font-size:11px; font-weight:500; line-height:1.2; color:var(--ui-muted); }
+
+/* List toolbar: picker on its own row, filters together. */
+.equipment-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.equipment-toolbar > .loadout-field { flex:1 1 180px; }
+button.ui-button.equipment-owned-filter { gap:8px; min-height:var(--ui-control-height); }
+button.ui-button.equipment-owned-filter[aria-pressed=true] { justify-content:flex-start; }
+.equipment-owned-box { display:inline-grid; place-items:center; width:18px; height:18px; border:1px solid var(--ui-border); border-radius:4px; background:#14241c; color:var(--ui-action); }
+.equipment-owned-filter[aria-pressed=true] .equipment-owned-box { border-color:var(--ui-action); }
+
+@media (max-width:760px) {
+  .equipment-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  button.ui-item-card.equipment-card { padding:10px; gap:8px; }
+  .equipment-card-art { height:76px; }
+}
+@media (max-width:340px) { .equipment-grid { grid-template-columns:1fr; } }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { switchEquipmentView, type EquipmentSelection } from './equipment-navigation';
+import { knownEquipmentView, switchEquipmentView, type EquipmentSelection } from './equipment-navigation';
 const selection: EquipmentSelection = { view: 'browse', slot: 'main', family: 1, vehicle: 'car', item: '', supplyType: 'all' };
 describe('shared equipment navigation', () => {
   it('preserves the selected slot, platform and item, including an unowned item', () => {
@@ -27,7 +27,17 @@ describe('shared equipment navigation', () => {
   it('leaves a pending rental at item details without confirming it', () => {
     expect(switchEquipmentView({ ...selection, view: 'rental', item: 'sar-ranger' }, 'inventory').selection.view).toBe('detail');
   });
-  it('keeps the shared home and readiness views in place', () => {
-    for (const view of ['home', 'review', 'match'] as const) expect(switchEquipmentView({ ...selection, view }, 'inventory').selection.view).toBe(view);
+  it('keeps the shared home in place; it is the locker in Inventory and the slots in Store', () => {
+    expect(switchEquipmentView({ ...selection, view: 'home' }, 'inventory').selection.view).toBe('home');
+    expect(switchEquipmentView({ ...selection, view: 'home' }, 'store').selection.view).toBe('home');
+  });
+  it('returns an item opened from the locker to the slot list in Store', () => {
+    const fromLocker = { ...selection, view: 'detail' as const, item: 'sar-issued', fromLocker: true };
+    expect(switchEquipmentView(fromLocker, 'store').selection.fromLocker).toBeUndefined();
+    expect(switchEquipmentView(fromLocker, 'inventory').selection.fromLocker).toBe(true);
+  });
+  it('sends retired review and match steps home', () => {
+    for (const view of ['review', 'match']) expect(knownEquipmentView({ ...selection, view } as unknown as EquipmentSelection).view).toBe('home');
+    expect(knownEquipmentView(selection)).toBe(selection);
   });
 });

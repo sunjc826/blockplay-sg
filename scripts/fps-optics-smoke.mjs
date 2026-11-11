@@ -87,7 +87,7 @@ try {
   await key('Escape','Escape');
   await wait(phase('paused'));
   await click(`document.querySelector('.fps-shop-link')`); await wait(`!!document.querySelector('.armory')`);
-  await click(`[...document.querySelectorAll('.armory-family button')].find(b=>b.textContent==='Ultimax')`);
+  await click(`[...document.querySelectorAll('[aria-label="Weapon platform"] [role=tab]')].find(b=>b.textContent==='Ultimax')`);
   await wait(`!!document.querySelector('[data-item="ult-issued"]')`);
   await click(`document.querySelector('[data-item="ult-issued"]')`);
   await click(action);

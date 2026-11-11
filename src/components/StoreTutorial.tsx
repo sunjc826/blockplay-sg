@@ -42,7 +42,7 @@ export default function StoreTutorial({ category, rootRef, onComplete, onExit }:
       wallet: '.armory-wallet',
       categories: '#shop-tab-armor',
       carry: '.armory-carry select[aria-label="Main weapon slot"]',
-      compare: !ready ? '#shop-tab-weapon' : inspected ? '.armory-purchase' : '.armory-item',
+      compare: !ready ? '#shop-tab-weapon' : inspected ? '.armory-purchase' : '.equipment-card',
       supplies: '#shop-tab-utility',
       deploy: '.armory-deploy',
     };

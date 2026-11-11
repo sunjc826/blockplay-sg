@@ -40,20 +40,20 @@ try {
   }
   async function checkCards(label) {
     await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
-    await evaluate(`Promise.all([...document.querySelectorAll('.armory-item-preview')].map(i=>{i.loading='eager';return i.decode().catch(()=>{throw new Error('Image failed: '+i.src)})}))`);
-    const result = await evaluate(`({cards:document.querySelectorAll('.armory-item').length,images:[...document.querySelectorAll('.armory-item-preview')].filter(i=>i.complete&&i.naturalWidth===480).length,canvases:document.querySelectorAll('canvas').length,overflow:document.documentElement.scrollWidth>innerWidth+1})`);
+    await evaluate(`Promise.all([...document.querySelectorAll('.equipment-card-art')].map(i=>{i.loading='eager';return i.decode().catch(()=>{throw new Error('Image failed: '+i.src)})}))`);
+    const result = await evaluate(`({cards:document.querySelectorAll('.equipment-card').length,images:[...document.querySelectorAll('.equipment-card-art')].filter(i=>i.complete&&i.naturalWidth===480).length,canvases:document.querySelectorAll('canvas').length,overflow:document.documentElement.scrollWidth>innerWidth+1})`);
     if(!result.cards || result.cards!==result.images || result.canvases!==1 || result.overflow) throw new Error(label+JSON.stringify(result));
     console.log(label, result);
   }
-  await wait(`!!document.querySelector('.armory-item-preview')`);
+  await wait(`!!document.querySelector('.equipment-card-art')`);
   await wait(`!!document.querySelector('.armory-preview canvas')`);
   for(const category of ['weapon','skin','armor','vision','food','utility','vehicleSkin']) {
     await evaluate(`document.querySelector('#shop-tab-${category}').click()`);
     await checkCards(category);
     if(category==='weapon'||category==='skin'||category==='vehicleSkin') {
-      const count=await evaluate(`document.querySelectorAll('.armory-family button').length`);
+      const count=await evaluate(`document.querySelectorAll('[aria-label="Weapon platform"] [role=tab]').length`);
       for(let i=0;i<count;i++) {
-        await evaluate(`document.querySelectorAll('.armory-family button')[${i}].click()`);
+        await evaluate(`document.querySelectorAll('[aria-label="Weapon platform"] [role=tab]')[${i}].click()`);
         await checkCards(category+' platform '+i);
       }
     }
@@ -61,10 +61,10 @@ try {
     const shot=await send('Page.captureScreenshot',{format:'png'});
     await fs.writeFile(new URL(category+'.png',output),Buffer.from(shot.data,'base64'));
   }
-  await evaluate(`document.querySelector('#shop-tab-weapon').click();document.querySelectorAll('.armory-family button')[0].click()`);
+  await evaluate(`document.querySelector('#shop-tab-weapon').click();document.querySelectorAll('[aria-label="Weapon platform"] [role=tab]')[0].click()`);
   const wallet=await evaluate(`localStorage.getItem('blockplay.armory.v1')`);
-  const selected=await evaluate(`(()=>{const card=document.querySelectorAll('.armory-item')[1];card.click();return card.dataset.item})()`);
-  await wait(`document.querySelector('.armory-item.selected').dataset.item===${JSON.stringify(selected)}`);
+  const selected=await evaluate(`(()=>{const card=document.querySelectorAll('.equipment-card')[1];card.click();return card.dataset.item})()`);
+  await wait(`document.querySelector('.equipment-card.selected').dataset.item===${JSON.stringify(selected)}`);
   if(await evaluate(`localStorage.getItem('blockplay.armory.v1')`)!==wallet) throw new Error('Selecting a preview changed the wallet');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await checkCards('mobile');

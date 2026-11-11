@@ -293,7 +293,7 @@ try {
     await shot(`${name}-store`);
     await evaluate(`window.scrollTo(0,document.documentElement.scrollHeight)`); await delay(250);
     assert(await evaluate(`document.querySelector('.context-back').getBoundingClientRect().top>=0`), `${name}: return stays visible`);
-    await click('.armory-item[data-item="sar-ranger"]'); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='detail'`);
+    await click('.equipment-card[data-item="sar-ranger"]'); await wait(`document.querySelector('.loadout-store')?.dataset.loadoutView==='detail'`);
     await shot(`${name}-inspection`);
     await click('[data-loadout-back]'); assert(await evaluate(`!!document.querySelector('.catalog-only')`));
   }

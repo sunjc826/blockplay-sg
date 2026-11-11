@@ -171,3 +171,16 @@ it('sorts settings into gameplay, video, audio and profile tabs', () => {
   expect(audio).not.toContain('Rank insignia');
   expect(panel('profile')).toContain('Rank insignia');
 });
+
+it('uses the shared cards, picker and Owned filter, and leaves the dossier to the standalone shop', () => {
+  const store = storeFor(createProfile());
+  const embedded = (ownedOnly: boolean) => renderToStaticMarkup(<ArmoryShop store={store} nav={<></>} ownedOnly={ownedOnly} onOwnedOnlyChange={() => {}} onInspectItem={() => {}} />);
+  const all = embedded(false), owned = embedded(true);
+  expect(all).toContain('data-item="sar-vanguard"'); expect(owned).not.toContain('data-item="sar-vanguard"');
+  expect(owned).toContain('data-item="sar-issued"'); expect(owned).toContain('data-owned-filter="true" aria-pressed="true"');
+  expect(all).toContain('equipment-card'); expect(all).toContain('aria-label="Weapon platform" role="tablist"');
+  expect(all).toContain('Level 3 required'); expect(all).not.toMatch(/(CR|TK) \/ hour/);
+  expect(all).not.toContain('EQUIPMENT DOSSIER');
+  const standalone = renderToStaticMarkup(<ArmoryShop store={store} onEnterRange={() => {}} />);
+  expect(standalone).toContain('EQUIPMENT DOSSIER'); expect(standalone).toContain('equipment-card');
+});

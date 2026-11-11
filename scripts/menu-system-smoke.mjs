@@ -30,17 +30,16 @@ try {
   for (const [width,height] of [[1440,900],[390,844],[320,568],[844,390]]) {
     await size(width,height,width<900);
     await go('/store','.loadout-store');
-    if(await evaluate(`!!document.querySelector('[data-loadout-home]')`))await click('[data-loadout-home]');
     await shot(`home-${width}`); await noOverflow();
-    assert(await evaluate(`document.querySelectorAll('.loadout-workspace .ui-button-primary').length===1`), 'One primary action on the home task');
+    assert(await evaluate(`document.querySelectorAll('.loadout-store .ui-button-primary').length===1 && !!document.querySelector('.loadout-footer [data-loadout-play].ui-button-primary')`), 'Play is the one primary action at home');
     assert(await evaluate(`document.querySelector('.loadout-workspace').firstElementChild.classList.contains('loadout-content')`),'Task precedes the overview in keyboard order');
     if(width<=760) assert(await evaluate(`document.querySelector('.loadout-content').getBoundingClientRect().top < document.querySelector('.loadout-workspace > aside').getBoundingClientRect().top`),'Phone task precedes the equipment overview');
-    else assert(await evaluate(`document.querySelector('.loadout-content').getBoundingClientRect().left > document.querySelector('.loadout-workspace > aside').getBoundingClientRect().left`),'Desktop retains sidebar');
+    else assert(await evaluate(`document.querySelector('.loadout-content').getBoundingClientRect().bottom <= document.querySelector('.loadout-workspace > aside').getBoundingClientRect().top + 1`),'Store home shows the slots below the heading');
     await click('[data-browse-store]'); await wait(`!!document.querySelector('.armory-grid')`);
     await shot(`catalog-${width}`); await noOverflow();
-    assert(await evaluate(`Array.from(document.querySelectorAll('.armory-item-top,.armory-item-top>span,.armory-item-bottom,.armory-item-bottom b')).every(e=>parseFloat(getComputedStyle(e).fontSize)>=12)`),'Readable catalog metadata');
-    assert(await evaluate(`Array.from(document.querySelectorAll('.armory-item>strong')).every(e=>parseFloat(getComputedStyle(e).fontSize)>=16)`),'Shared item-title scale');
-    await assertControls('.ui-tabs [role=tab],.armory-family button','Catalog');
+    assert(await evaluate(`Array.from(document.querySelectorAll('.equipment-card-kind,.equipment-card-price,.equipment-status')).every(e=>parseFloat(getComputedStyle(e).fontSize)>=12)`),'Readable catalog metadata');
+    assert(await evaluate(`Array.from(document.querySelectorAll('.equipment-card-name')).every(e=>parseFloat(getComputedStyle(e).fontSize)>=16)`),'Shared item-title scale');
+    await assertControls('.ui-tabs [role=tab],[data-owned-filter]','Catalog');
     await evaluate(`document.querySelector('#shop-tab-weapon').focus()`); await key('ArrowRight');
     assert.equal(await evaluate(`document.activeElement.id`),'shop-tab-skin');
     await key('Home');
