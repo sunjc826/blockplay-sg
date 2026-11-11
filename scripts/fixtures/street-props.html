@@ -4,19 +4,20 @@ import { getRegion } from '/src/game/regions.ts';
 const params=new URLSearchParams(location.search),region=getRegion(params.get('region')||'chinatown'),world=region.build();
 const placements=world.scene.userData.streetPropPlacements;
 const clusters=[...new Set(placements.filter(p=>p.cluster.startsWith(params.get('cluster')+':')).map(p=>p.cluster))].map(id=>placements.filter(p=>p.cluster===id)).sort((a,b)=>b.length-a.length);
-const cluster=params.has('cluster')?clusters[0]:null;
+let cluster=params.has('site')?placements.filter(p=>p.site===params.get('site')):params.has('cluster')?clusters[0]:null;
+if(cluster?.length&&params.get('focus')==='first')cluster=cluster.filter(p=>p.cluster===cluster[0].cluster);
 const wanted=params.get('prop')||cluster?.[0].kind||'crate';
 const root=[...world.scene.getObjectByName('District street props').children,...world.scene.getObjectByName('Reactive street decorations').children].find(p=>p.userData.streetProp===wanted);
 if(!root)throw Error('Missing prop '+wanted);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(1);renderer.setSize(innerWidth,innerHeight);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.append(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.05,600),direction=new THREE.Vector3(0,0,1).applyQuaternion(root.quaternion);
 camera.position.copy(root.position).addScaledVector(direction,4).add(new THREE.Vector3(1,2,0));camera.lookAt(root.position.clone().add(new THREE.Vector3(0,.65,0)));
-if(cluster){const center=cluster.reduce((v,p)=>v.add(new THREE.Vector3(p.x,p.y,p.z)),new THREE.Vector3()).multiplyScalar(1/cluster.length);camera.position.copy(center).add(new THREE.Vector3(7,6,9));camera.lookAt(center.clone().add(new THREE.Vector3(0,.8,0)));}
+if(cluster?.length){const center=cluster.reduce((v,p)=>v.add(new THREE.Vector3(p.x,p.y,p.z)),new THREE.Vector3()).multiplyScalar(1/cluster.length);const distance=Number(params.get('distance'))||14,angle=Number(params.get('angle'))||0;camera.position.copy(center).add(new THREE.Vector3(Math.sin(angle)*distance,Number(params.get('height'))||5,Math.cos(angle)*distance));camera.lookAt(center.clone().add(new THREE.Vector3(0,.8,0)));}
 world.scene.updateMatrixWorld(true);
-document.querySelector('#label').textContent=region.name+' / '+(cluster?cluster[0].cluster:root.name)+' / '+world.scene.userData.streetPropPlacements.length+' props';
+document.querySelector('#label').textContent=region.name+' / '+(cluster?.length?cluster[0].feature:root.name)+' / '+world.scene.userData.streetPropPlacements.length+' props';
 let last=performance.now(),time=0;
 function render(now){time+=Math.min(.05,(now-last)/1000);last=now;world.animate(time);renderer.render(world.scene,camera);requestAnimationFrame(render);window.ready=true;}
 requestAnimationFrame(render);
-window.review={region:region.id,world,root,renderer,camera,THREE};
+window.review={region:region.id,site:params.get('site'),world,root,renderer,camera,THREE};
 window.addEventListener('pagehide',()=>{world.dispose();renderer.dispose();});
 </script></body></html>

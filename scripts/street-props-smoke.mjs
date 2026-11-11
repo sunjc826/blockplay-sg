@@ -20,9 +20,9 @@ async function go(path, selector) { await send('Page.navigate', { url: origin + 
 try {
   await send('Runtime.enable'); await send('Page.enable');
   await size(1440,1050);await go('/prop-designs','.pd-library');await wait("document.querySelector('.pd-canvas')?.dataset.ready==='true'");
-  assert.equal(await evaluate("document.querySelectorAll('.pd-library button').length"),20);
+  assert.equal(await evaluate("document.querySelectorAll('.pd-library button').length"),25);
   await shot('gallery-desktop');
-  for(let i=0;i<20;i++){
+  for(let i=0;i<25;i++){
     await click(`.pd-library button:nth-of-type(${i+1})`);
     await wait("document.querySelector('.pd-canvas')?.dataset.ready==='true'");
     assert(await evaluate("Number(document.querySelector('.pd-canvas').dataset.draws)>0"));
@@ -41,7 +41,7 @@ try {
   await click('.pd-controls>div:first-child button:last-child',true);assert(await evaluate("!!document.querySelector('.pd-stage.is-night')"));await shot('gallery-night-mobile');
   await size(320,780,true);assert(await evaluate("document.documentElement.scrollWidth<=innerWidth+1"));
   await size(1280,900);
-  if(!process.env.PROPS_SKIP_WORLD)for(const [region,prop] of [['chinatown','crate'],['marina-bay','planter'],['tuas','cabinet'],['queenstown','vending']]){
+  if(!process.env.PROPS_SKIP_WORLD)for(const [region,prop] of [['chinatown','crate'],['marina-bay','bench'],['tuas','drum'],['queenstown','chess-table']]){
     await send('Page.navigate',{url:origin+'/scripts/fixtures/street-props.html?region='+region+'&prop='+prop});
     await wait(`window.ready===true&&window.review?.region===${JSON.stringify(region)}`);await delay(300);await shot('world-'+region);
     assert(await evaluate('window.review.world.scene.userData.streetPropPlacements.length>0'));
@@ -50,5 +50,5 @@ try {
       await wait('JSON.stringify(window.review.root.children.map(p=>p.position.toArray()))!==window.before');await delay(700);await shot('world-crate-broken');
     }
   }
-  assert.deepEqual(errors,[]);console.log('Street prop gallery: all 20 models, fixed/moving/break/reset, lighting, desktop and mobile passed.');
+  assert.deepEqual(errors,[]);console.log('Street prop gallery: all 25 models, fixed/moving/break/reset, lighting, desktop and mobile passed.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

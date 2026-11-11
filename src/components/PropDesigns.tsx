@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createPropMotion, createStreetPropKit, STREET_PROPS, type PropMotion, type StreetPropKind } from '../game/street-props';
+import { STREET_PROP_RESEARCH } from '../game/street-prop-research';
 import { navigate } from '../lib/routes';
 import './prop-designs.css';
 
 export default function PropDesigns() {
   const [selected,setSelected]=useState<StreetPropKind>('vending'),[status,setStatus]=useState(''),[night,setNight]=useState(false);
   const host=useRef<HTMLDivElement>(null),motion=useRef<PropMotion|null>(null),yaw=useRef(.5);
-  const spec=STREET_PROPS.find(p=>p.kind===selected)!;
+  const spec=STREET_PROPS.find(p=>p.kind===selected)!,research=STREET_PROP_RESEARCH[selected];
   useEffect(()=>{
     const node=host.current!;let renderer:THREE.WebGLRenderer;
     try{renderer=new THREE.WebGLRenderer({antialias:true});}catch{setStatus('3D preview unavailable. All model descriptions remain available below.');return;}
@@ -38,7 +39,7 @@ export default function PropDesigns() {
   const react=()=>{if(motion.current?.hit(new THREE.Vector3(-.8,.1,-.6)))setStatus(spec.behavior==='breakable'?'Broken into fragments. Reset to rebuild.':'Knocked over. Reset to stand it up.');};
   return <main className="prop-designs">
     <header className="pd-header"><a href="/" onClick={e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();navigate('menu');}}>← Back to game</a><span>BLOCKPLAY SG <b>/ OBJECT LIBRARY</b></span><a href="/world">Explore maps ↗</a></header>
-    <section className="pd-intro"><div><p className="pd-eyebrow">STREET LIFE / COLLECTION 01</p><h1>The everyday city.</h1></div><p>{STREET_PROPS.length} pieces of everyday Singapore.<br/> Built for the corners between the landmarks.</p></section>
+    <section className="pd-intro"><div><p className="pd-eyebrow">STREET LIFE / COLLECTION 01</p><h1>The everyday city.</h1></div><p>{STREET_PROPS.length} pieces of everyday Singapore.<br/> Furniture for dining, gathering and daily routines.</p></section>
     <div className="pd-workbench">
       <aside className="pd-library" aria-label="Choose a prop"><div className="pd-library-title">THE COLLECTION <span>{STREET_PROPS.length} OBJECTS</span></div>
         {STREET_PROPS.map((p,i)=><button key={p.kind} aria-pressed={selected===p.kind} onClick={()=>setSelected(p.kind)}><span className="pd-number">{String(i+1).padStart(2,'0')}</span><span>{p.name}<small>{p.behavior==='fixed'?'Solid scenery':p.behavior==='breakable'?'Breakable decoration':'Movable decoration'}</small></span><i className={`pd-dot ${p.behavior}`} /></button>)}
@@ -46,9 +47,9 @@ export default function PropDesigns() {
       <section className="pd-preview" aria-label="Interactive prop preview">
         <div className={`pd-stage${night?' is-night':''}`}><div className="pd-stage-label"><span>OBJECT {String(STREET_PROPS.indexOf(spec)+1).padStart(2,'0')}</span><strong>{spec.behavior==='fixed'?'FIXED':spec.behavior==='breakable'?'BREAKABLE':'PHYSICS'}</strong></div><div ref={host} className="pd-canvas"/><div className="pd-stage-note">DRAG TO ORBIT <span>1 GRID SQUARE = 30 CM</span></div></div>
         <div className="pd-controls"><div><button onClick={()=>{yaw.current=.5;}}>Front</button><button onClick={()=>{yaw.current=Math.PI+.5;}}>Rear</button><button aria-pressed={night} onClick={()=>setNight(v=>!v)}>Night lighting</button></div><div><button className="pd-impact" disabled={spec.behavior==='fixed'} onClick={react}>{spec.behavior==='breakable'?'Break prop':'Knock over'}</button><button onClick={()=>{motion.current?.reset();setStatus('Prop reset.');}}>Reset</button></div></div>
-        <div className="pd-description"><div><p className="pd-eyebrow">{spec.setting}</p><h2>{spec.name}</h2><p>{spec.detail}</p><p role="status" className="pd-status">{status||'Select a model to inspect its details and try its reaction.'}</p></div><dl><div><dt>FOOTPRINT</dt><dd>{spec.width.toFixed(2)} × {spec.depth.toFixed(2)} m</dd></div><div><dt>HEIGHT</dt><dd>{spec.height.toFixed(2)} m</dd></div><div><dt>IN THE MAPS</dt><dd>{spec.behavior==='fixed'?'Solid fixture':'Cosmetic reaction'}</dd></div></dl></div>
+        <div className="pd-description"><div><p className="pd-eyebrow">{spec.setting}</p><h2>{spec.name}</h2><p>{spec.detail}</p>{research&&<p className="pd-reference"><a href={research.url} target="_blank" rel="noreferrer">{research.label} ↗</a></p>}<p role="status" className="pd-status">{status||'Select a model to inspect its details and try its reaction.'}</p></div><dl><div><dt>FOOTPRINT</dt><dd>{spec.width.toFixed(2)} × {spec.depth.toFixed(2)} m</dd></div><div><dt>HEIGHT</dt><dd>{spec.height.toFixed(2)} m</dd></div><div><dt>IN THE MAPS</dt><dd>{spec.behavior==='fixed'?'Solid fixture':'Cosmetic reaction'}</dd></div></dl></div>
       </section>
     </div>
-    <footer className="pd-footer"><span>MADE FOR THE NEIGHBOURHOOD</span><p>Districts receive themed roadside decorations where there is clear, level ground. Heavy fixtures are solid. Small props react to visible gunfire with local breakage or bounded floor physics; they do not block movement or stop bullets. Reset the world to restore them.</p></footer>
+    <footer className="pd-footer"><span>MADE FOR THE NEIGHBOURHOOD</span><p>Furniture follows each place’s use: dining beside food stalls, communal seating in sheltered estates, deliveries at service edges and rest stops along paths. Heavy fixtures are solid. Small props react to visible gunfire with local breakage or bounded floor physics; they do not block movement or stop bullets. Reset the world to restore them.</p></footer>
   </main>;
 }

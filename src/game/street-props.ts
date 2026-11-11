@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { batchRigidMeshes } from './rigid-batches';
 
-export type StreetPropKind = 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley' | 'picnic-table' | 'cafe-table' | 'parasol' | 'pallet-stack' | 'sack-stack' | 'drum' | 'notice-board' | 'recycling-station';
+export type StreetPropKind = 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley' | 'picnic-table' | 'cafe-table' | 'parasol' | 'pallet-stack' | 'sack-stack' | 'drum' | 'notice-board' | 'recycling-station' | 'hawker-table' | 'tray-return' | 'chess-table' | 'letterboxes' | 'park-bin';
 export type PropBehavior = 'fixed' | 'breakable' | 'movable';
 export interface StreetPropSpec { kind: StreetPropKind; name: string; behavior: PropBehavior; setting: string; detail: string; width: number; depth: number; height: number }
 export const STREET_PROPS: readonly StreetPropSpec[] = [
@@ -24,7 +24,13 @@ export const STREET_PROPS: readonly StreetPropSpec[] = [
   { kind: 'sack-stack', name: 'Bagged supplies', behavior: 'fixed', setting: 'Nurseries & service yards', detail: 'Offset rows of sand-coloured sacks with stitched seams and green bands.', width: 1.25, depth: .95, height: .8 },
   { kind: 'drum', name: 'Workshop drum', behavior: 'movable', setting: 'Maintenance & industrial corners', detail: 'Blue steel drum, reinforcing hoops, sealed lid and offset bung. Non-explosive.', width: .6, depth: .6, height: .9 },
   { kind: 'notice-board', name: 'Community noticeboard', behavior: 'fixed', setting: 'Estate paths & park entrances', detail: 'A framed board with layered coloured notices, two posts and a rain hood.', width: 1.35, depth: .38, height: 1.85 },
-  { kind: 'recycling-station', name: 'Recycling station', behavior: 'fixed', setting: 'Town centres & gardens', detail: 'Three colour-coded bins with inset openings on a concrete base.', width: 1.7, depth: .6, height: 1.08 },
+  { kind: 'recycling-station', name: 'Blue commingled recycling bin', behavior: 'fixed', setting: 'Open HDB collection points', detail: 'One blue body for mixed recyclables, a rain hood, broad opening and guidance panel. Placed outside void decks.', width: 1.32, depth: .85, height: 1.58 },
+  { kind: 'hawker-table', name: 'Fixed hawker dining set', behavior: 'fixed', setting: 'Hawker dining bays', detail: 'Laminate table, steel pedestal and four anchored round stools. A clear aisle separates each dining row.', width: 2.35, depth: 1.85, height: .78 },
+  { kind: 'tray-return', name: 'Tray-return rack', behavior: 'fixed', setting: 'Visible edges of hawker dining areas', detail: 'Open stainless-steel shelves, return-point header and neatly stacked trays and crockery.', width: 1.35, depth: .65, height: 1.9 },
+  { kind: 'chess-table', name: 'Mosaic chess-table set', behavior: 'fixed', setting: 'Sheltered HDB communal bays', detail: 'Blue mosaic border, a playable-looking checkerboard and four concrete stools. Inspired by older estate furniture.', width: 2.3, depth: 2.3, height: .78 },
+  { kind: 'letterboxes', name: 'Communal letterbox bank', behavior: 'fixed', setting: 'Residential ground-floor lobbies', detail: 'A sheltered bank of individual metal doors, posting slots, name plates and locks.', width: 2.05, depth: .45, height: 1.7 },
+  { kind: 'park-bin', name: 'Hooded park litter bin', behavior: 'fixed', setting: 'Path-side rest bays', detail: 'Ground-mounted slatted casing with a rain hood and open disposal slot, separated from nearby seating.', width: .65, depth: .65, height: 1.13 },
+
 ];
 export const streetPropSpec = (kind: StreetPropKind) => STREET_PROPS.find(p => p.kind === kind)!;
 
@@ -149,8 +155,38 @@ export function createStreetPropKit() {
       box(0,1.31,0,1.3,.87,.1,'wood');box(0,1.31,.061,1.16,.73,.025,'cream');box(0,1.8,0,1.35,.08,.38,'green');
       for(let i=0;i<5;i++){const x=-.43+(i%3)*.34,y=1.47-Math.floor(i/3)*.32;box(x,y,.082,.25,.26,.018,i%2?'yellow':'teal');for(let j=0;j<3;j++)box(x,y+.05-j*.05,.094,.16,.013,.005,'cream');}
     } else if(kind==='recycling-station') {
-      box(0,.045,0,1.7,.09,.6,'concrete');
-      for(let i=0;i<3;i++){const x=(i-1)*.55,c=(['blue','yellow','green'] as const)[i];box(x,.55,0,.49,.94,.52,c);box(x,1.04,0,.51,.07,.54,'dark');box(x,.82,.266,.29,.14,.012,'dark');box(x,.48,.268,.22,.2,.016,'cream');}
+      box(0,.08,0,1.3,.16,.82,'dark');box(0,.64,0,1.28,1.02,.8,'blue');
+      box(0,1.14,-.3,1.3,.12,.22,'blue');box(0,1.43,-.12,1.32,.14,.62,'blue');
+      for(const x of [-.59,.59])box(x,1.27,-.12,.12,.27,.62,'blue');
+      box(0,.71,.407,1.05,.62,.018,'cream');box(0,.94,.419,.91,.045,.015,'blue');
+      for(let row=0;row<2;row++)for(let col=0;col<4;col++){const x=-.36+col*.24;box(x,.73-row*.21,.425,.13,.14,.025,row?'green':'blue');box(x,.62-row*.21,.427,.15,.018,.028,'dark');}
+      box(0,1.52,-.13,.56,.11,.04,'cream');
+    } else if(kind==='hawker-table') {
+      box(0,.74,0,1.35,.08,.8,'cream');box(0,.69,0,1.39,.035,.84,'green');
+      round(0,.35,0,.12,.7,'dark');round(0,.035,0,.55,.07,'dark');
+      for(const x of [-.88,.88])for(const z of [-.52,.52]){round(x,.025,z,.36,.05,'dark');round(x,.23,z,.065,.46,'dark');round(x,.47,z,.43,.07,'green');}
+    } else if(kind==='tray-return') {
+      for(const x of [-.63,.63])for(const z of [-.28,.28])box(x,.91,z,.045,1.82,.045,'steel');
+      for(const y of [.12,.46,.8,1.14,1.48]){box(0,y,0,1.3,.035,.63,'steel');box(0,y+.04,-.29,1.3,.08,.025,'steel');}
+      box(0,1.76,0,1.35,.28,.08,'teal');
+      // Simple tray/bowl pictograms remain legible at world scale, without baked text.
+      box(-.26,1.75,.051,.28,.025,.012,'cream');box(-.26,1.8,.051,.17,.06,.012,'cream');
+      box(.22,1.76,.051,.32,.035,.012,'cream');
+      for(const y of [.16,.5,.84])for(let i=0;i<3;i++){box(-.29,y+i*.025,.02,.48,.018,.37,'dark');round(.29,y+.018+i*.025,.04,.3,.025,'cream');}
+    } else if(kind==='chess-table') {
+      box(0,.37,0,.43,.74,.43,'concrete');box(0,.74,0,1.22,.08,1.22,'teal');
+      for(let x=0;x<8;x++)for(let z=0;z<8;z++)box((x-3.5)*.125,.786,(z-3.5)*.125,.124,.012,.124,(x+z)%2?'cream':'dark');
+      // Fine grout on the border and seats makes the mosaic read beyond colour.
+      for(let i=-6;i<=6;i++)for(const side of [-1,1]){box(i*.09,.787,side*.56,.006,.009,.11,'cream');box(side*.56,.787,i*.09,.11,.009,.006,'cream');}
+      for(const [x,z] of [[-.92,0],[.92,0],[0,-.92],[0,.92]]){box(x,.22,z,.32,.44,.32,'concrete');box(x,.46,z,.46,.08,.46,'teal');for(let i=-2;i<=2;i++){box(x+i*.08,.505,z,.005,.01,.44,'cream');box(x,.505,z+i*.08,.44,.01,.005,'cream');}}
+    } else if(kind==='letterboxes') {
+      for(const x of [-.8,.8])box(x,.42,0,.08,.84,.34,'steel');box(0,1.12,0,2.05,1.13,.4,'dark');
+      for(let row=0;row<4;row++)for(let col=0;col<6;col++){const x=(col-2.5)*.325,y=.72+row*.26;box(x,y,.21,.31,.245,.035,'steel');box(x,y+.065,.233,.23,.02,.012,'dark');box(x-.065,y-.045,.234,.1,.035,.014,'cream');round(x+.09,y-.055,.24,.025,.025,'dark').rotation.x=Math.PI/2;}
+      box(0,1.7,0,2.05,.06,.45,'steel');
+    } else if(kind==='park-bin') {
+      round(0,.04,0,.65,.08,'concrete');round(0,.47,0,.54,.87,'dark');
+      for(let i=0;i<12;i++){const a=i*Math.PI/6,m=box(Math.sin(a)*.285,.46,Math.cos(a)*.285,.115,.75,.035,'wood');m.rotation.y=a;}
+      for(const x of [-.22,.22])box(x,.98,0,.045,.28,.045,'steel');round(0,1.1,0,.65,.07,'dark');
     }
     // Breakables retain their authored fragments. Other props use merged material draws.
     root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(root);

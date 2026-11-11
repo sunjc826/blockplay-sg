@@ -5,3 +5,4 @@
 .pd-library button{scroll-margin:10px}.pd-library{scroll-padding:10px}
 
 @media(min-width:601px){.pd-library{max-height:730px;overflow:auto}}
+.pd-reference{font-size:11px}.pd-reference a{color:inherit;text-underline-offset:3px}
