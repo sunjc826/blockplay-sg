@@ -3,12 +3,12 @@ import * as THREE from 'three';
 import { createPropMotion, createStreetPropKit, STREET_PROPS } from './street-props';
 import { getRegion, REGION_IDS } from './regions';
 import { createSceneCover } from './scene-cover';
-import { streetPropPlacements } from './district-street-props';
+import { streetPropPlacements, STREET_PROP_LIMIT } from './district-street-props';
 import { createGameplayRayIndex } from './gameplay-ray-index';
 import { firstVisibleHit } from './fps-raycast';
 
 describe('street prop models and motion',()=>{
-  it('builds twelve finite, grounded models with shared resources',()=>{
+  it('builds twenty finite, grounded models with shared resources',()=>{
     const kit=createStreetPropKit();
     try{for(const spec of STREET_PROPS){
       const root=kit.create(spec.kind),copy=kit.create(spec.kind);root.updateMatrixWorld(true);
@@ -40,17 +40,22 @@ describe('district dressing',()=>{
     for(const id of REGION_IDS){const region=getRegion(id),world=region.build();
       try{
         const placed=world.scene.userData.streetPropPlacements;counts[id]=placed.length;
-        expect(placed.length,id).toBeGreaterThan(0);expect(placed.length,id).toBeLessThanOrEqual(24);
+        expect(placed.length,id).toBeGreaterThan(100);expect(placed.length,id).toBeLessThanOrEqual(STREET_PROP_LIMIT);
         for(const p of placed){expect(Math.hypot(p.x-region.spawn.x,p.z-region.spawn.z),id).toBeGreaterThanOrEqual(10);expect(Number.isFinite(p.y)).toBe(true);}
         const root=world.scene.getObjectByName('District street props')!,dynamic=world.scene.getObjectByName('Reactive street decorations')!;
         expect(root.children.length+dynamic.children.length).toBe(placed.length);
         // All decoration is outside the collision authority unless it is a fixed fixture.
         expect(dynamic.userData.fpsEffect).toBe(true);
+        expect(new Set(placed.map((p:{cluster:string})=>p.cluster)).size,id).toBeGreaterThan(25);
+        expect(new Set(placed.map((p:{kind:string})=>p.kind)).size,id).toBeGreaterThanOrEqual(10);
+        const batchRoot=world.scene.getObjectByName('Street fixture instances')!;
+        expect(batchRoot.children.every(m=>m instanceof THREE.InstancedMesh)).toBe(true);
+        expect(world.scene.getObjectByName('Reactive prop instances')!.userData.fpsEffect).toBe(true);
         for(const p of dynamic.children){const spec=STREET_PROPS.find(s=>s.kind===p.userData.streetProp)!;expect(spec.behavior).not.toBe('fixed');}
         world.animate(0);world.animate(.05);
       }finally{world.dispose();}
     }
-    expect(Object.values(counts).reduce((a,b)=>a+b,0)).toBeGreaterThan(100);
+    expect(Object.values(counts).reduce((a,b)=>a+b,0)).toBeGreaterThan(3000);
   });
   it('reacts to a clipped shot without becoming ballistic cover, then resets',()=>{
     const region=getRegion('chinatown'),world=region.build();

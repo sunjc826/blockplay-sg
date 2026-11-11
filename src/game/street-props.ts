@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { batchRigidMeshes } from './rigid-batches';
 
-export type StreetPropKind = 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley';
+export type StreetPropKind = 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley' | 'picnic-table' | 'cafe-table' | 'parasol' | 'pallet-stack' | 'sack-stack' | 'drum' | 'notice-board' | 'recycling-station';
 export type PropBehavior = 'fixed' | 'breakable' | 'movable';
 export interface StreetPropSpec { kind: StreetPropKind; name: string; behavior: PropBehavior; setting: string; detail: string; width: number; depth: number; height: number }
 export const STREET_PROPS: readonly StreetPropSpec[] = [
@@ -17,6 +17,14 @@ export const STREET_PROPS: readonly StreetPropSpec[] = [
   { kind: 'stool', name: 'Kopitiam stool', behavior: 'movable', setting: 'Hawker centres & shopfronts', detail: 'A red plastic seat with a carry slot, splayed legs and cross braces.', width: .48, depth: .48, height: .48 },
   { kind: 'wheelie-bin', name: 'Estate wheelie bin', behavior: 'movable', setting: 'Service alleys & food courts', detail: 'Green moulded body, hinged lid, grab handle and two rear wheels.', width: .62, depth: .72, height: 1.1 },
   { kind: 'trolley', name: 'Delivery hand trolley', behavior: 'movable', setting: 'Shop deliveries & workshops', detail: 'Blue tubular frame, rubber grips, a toe plate and chunky wheels.', width: .65, depth: .62, height: 1.25 },
+  { kind: 'picnic-table', name: 'Park picnic set', behavior: 'fixed', setting: 'Gardens & estate greens', detail: 'Timber table and paired benches on a braced steel frame.', width: 2.1, depth: 1.75, height: .78 },
+  { kind: 'cafe-table', name: 'Kopitiam table', behavior: 'fixed', setting: 'Market seating corners', detail: 'Cream laminate top, green rim and a four-foot pedestal.', width: .95, depth: .95, height: .76 },
+  { kind: 'parasol', name: 'Market parasol', behavior: 'fixed', setting: 'Outdoor seating & promenades', detail: 'Eight striped canvas panels, radial ribs and a weighted pole. Walk underneath the canopy.', width: 2.9, depth: 2.9, height: 2.7 },
+  { kind: 'pallet-stack', name: 'Delivery pallets', behavior: 'fixed', setting: 'Loading corners & workshops', detail: 'Three staggered wooden pallets with open fork channels and end blocks.', width: 1.3, depth: 1.05, height: .48 },
+  { kind: 'sack-stack', name: 'Bagged supplies', behavior: 'fixed', setting: 'Nurseries & service yards', detail: 'Offset rows of sand-coloured sacks with stitched seams and green bands.', width: 1.25, depth: .95, height: .8 },
+  { kind: 'drum', name: 'Workshop drum', behavior: 'movable', setting: 'Maintenance & industrial corners', detail: 'Blue steel drum, reinforcing hoops, sealed lid and offset bung. Non-explosive.', width: .6, depth: .6, height: .9 },
+  { kind: 'notice-board', name: 'Community noticeboard', behavior: 'fixed', setting: 'Estate paths & park entrances', detail: 'A framed board with layered coloured notices, two posts and a rain hood.', width: 1.35, depth: .38, height: 1.85 },
+  { kind: 'recycling-station', name: 'Recycling station', behavior: 'fixed', setting: 'Town centres & gardens', detail: 'Three colour-coded bins with inset openings on a concrete base.', width: 1.7, depth: .6, height: 1.08 },
 ];
 export const streetPropSpec = (kind: StreetPropKind) => STREET_PROPS.find(p => p.kind === kind)!;
 
@@ -33,9 +41,9 @@ export function createStreetPropKit() {
   const leaf = keep(new THREE.IcosahedronGeometry(.5, 1));
   const palette = { concrete: '#aaa99b', dark: '#263734', steel: '#728985', wood: '#aa7950', woodLight: '#c49865', green: '#356c44', leaf: '#5c9250', soil: '#443c30', teal: '#248887', cream: '#e6e5ce', yellow: '#e9b442', orange: '#ea682b', red: '#b74336', clay: '#ba7250', blue: '#39829e' };
   type Color = keyof typeof palette;
-  const mat = (color: Color) => {
-    let m = materials.get(color);
-    if (!m) { m = new THREE.MeshStandardMaterial({ color: palette[color], roughness: color === 'steel' ? .4 : .82, metalness: color === 'steel' ? .65 : 0 }); materials.set(color, m); }
+  const mat = (color: Color, doubleSided=false) => {
+    const key=`${color}:${doubleSided}`;let m = materials.get(key);
+    if (!m) { m = new THREE.MeshStandardMaterial({ color: palette[color], roughness: color === 'steel' ? .4 : .82, metalness: color === 'steel' ? .65 : 0, side:doubleSided?THREE.DoubleSide:THREE.FrontSide }); materials.set(key, m); }
     return m;
   };
   function build(kind: StreetPropKind) {
@@ -99,10 +107,50 @@ export function createStreetPropKit() {
       add(taper,0,.53,0,.6,.94,.65,'green');box(0,1.02,0,.62,.09,.72,'green');box(0,.66,.3,.21,.22,.025,'cream');
       bar([-.22,.95,-.37],[.22,.95,-.37],.055,'dark');
       for(const x of [-.25,.25]){const wheel=round(x,.14,-.25,.26,.09,'dark');wheel.rotation.z=Math.PI/2;}
-    } else {
+    } else if(kind==='trolley') {
       for(const x of [-.24,.24]){bar([x,.15,.13],[x,1.2,-.15],.055,'blue');bar([x,1.2,-.15],[x,1.2,-.3],.065,'dark');const wheel=round(x,.16,.13,.3,.1,'dark');wheel.rotation.z=Math.PI/2;}
       for(const y of [.35,.65,.95])bar([-.24,y,.13-(y-.15)*.27],[.24,y,.13-(y-.15)*.27],.045,'blue');
       box(0,.1,.27,.62,.055,.36,'blue');
+    }
+    if(kind==='picnic-table') {
+      for(let i=0;i<6;i++)box(0,.74,-.36+i*.145,2.1,.08,.125,i%2?'wood':'woodLight');
+      for(const z of [-.7,.7])for(const dz of [-.08,.08])box(0,.43,z+dz,2.1,.08,.14,'wood');
+      for(const x of [-.74,.74]){bar([x,.05,-.7],[x,.7,-.25],.075,'dark');bar([x,.05,.7],[x,.7,.25],.075,'dark');box(x,.36,0,.07,.07,1.7,'dark');}
+      bar([-.74,.3,0],[.74,.3,0],.055,'steel');
+    } else if(kind==='cafe-table') {
+      round(0,.7,0,.95,.09,'green');round(0,.755,0,.91,.025,'cream');round(0,.36,0,.09,.7,'steel');
+      for(let i=0;i<4;i++){const a=i*Math.PI/2;bar([0,.13,0],[Math.sin(a)*.37,.035,Math.cos(a)*.37],.055,'dark');}
+    } else if(kind==='parasol') {
+      round(0,.065,0,.55,.13,'concrete');round(0,1.32,0,.055,2.55,'wood');
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4,b=(i+1)*Math.PI/4;
+        const geometry=keep(new THREE.BufferGeometry());geometry.setAttribute('position',new THREE.Float32BufferAttribute([0,2.65,0,Math.sin(a)*1.45,2.17,Math.cos(a)*1.45,Math.sin(b)*1.45,2.17,Math.cos(b)*1.45],3));geometry.computeVertexNormals();
+        const panel=new THREE.Mesh(geometry,mat(i%2?'cream':'teal',true));panel.castShadow=panel.receiveShadow=true;root.add(panel);
+        bar([0,2.61,0],[Math.sin(a)*1.43,2.15,Math.cos(a)*1.43],.018,'wood');
+      }
+      round(0,2.68,0,.11,.06,'wood');
+      root.userData.streetPropColliders=[{min:[-.28,0,-.28],max:[.28,2.14,.28]},{min:[-1.45,2.15,-1.45],max:[1.45,2.71,1.45]}];
+    } else if(kind==='pallet-stack') {
+      for(let row=0;row<3;row++){
+        const off=row%2?.07:-.03;
+        for(const x of [-.45,0,.45])for(const z of [-.35,.35])box(x+off,.07+row*.15,z,.16,.1,.18,'wood');
+        for(let i=0;i<5;i++)box(-.5+i*.25+off,.13+row*.15,0,.2,.055,1.05,i%2?'woodLight':'wood');
+      }
+    } else if(kind==='sack-stack') {
+      for(let row=0;row<3;row++)for(let i=0;i<2;i++){
+        const x=(i-.5)*.55+(row%2?.06:-.06),y=.14+row*.24;
+        add(leaf,x,y,0,.72,.31,.95,'cream');box(x,y+.14,0,.055,.012,.61,'green');box(x,y,.42,.38,.025,.02,'wood');
+      }
+    } else if(kind==='drum') {
+      round(0,.45,0,.58,.87,'blue');for(const y of [.07,.3,.62,.88])round(0,y,0,.605,.035,'steel');
+      round(.13,.9,.09,.08,.025,'dark');round(-.14,.9,-.1,.04,.025,'steel');box(0,.47,.296,.22,.14,.012,'cream');
+    } else if(kind==='notice-board') {
+      for(const x of [-.52,.52])box(x,.89,0,.075,1.78,.075,'steel');
+      box(0,1.31,0,1.3,.87,.1,'wood');box(0,1.31,.061,1.16,.73,.025,'cream');box(0,1.8,0,1.35,.08,.38,'green');
+      for(let i=0;i<5;i++){const x=-.43+(i%3)*.34,y=1.47-Math.floor(i/3)*.32;box(x,y,.082,.25,.26,.018,i%2?'yellow':'teal');for(let j=0;j<3;j++)box(x,y+.05-j*.05,.094,.16,.013,.005,'cream');}
+    } else if(kind==='recycling-station') {
+      box(0,.045,0,1.7,.09,.6,'concrete');
+      for(let i=0;i<3;i++){const x=(i-1)*.55,c=(['blue','yellow','green'] as const)[i];box(x,.55,0,.49,.94,.52,c);box(x,1.04,0,.51,.07,.54,'dark');box(x,.82,.266,.29,.14,.012,'dark');box(x,.48,.268,.22,.2,.016,'cream');}
     }
     // Breakables retain their authored fragments. Other props use merged material draws.
     root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(root);

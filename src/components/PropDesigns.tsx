@@ -28,19 +28,19 @@ export default function PropDesigns() {
     const up=()=>{drag=null;};
     renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointermove',move);renderer.domElement.addEventListener('pointerup',up);renderer.domElement.addEventListener('pointercancel',up);renderer.domElement.addEventListener('lostpointercapture',up);
     const render=(time:number)=>{motion.current?.update((time-last)/1000);last=time;
-      const distance=Math.max(4.8,3.4/camera.aspect);camera.position.set(Math.sin(yaw.current)*distance,2.65,Math.cos(yaw.current)*distance);camera.lookAt(0,.75,0);renderer.render(scene,camera);
+      const focus=Math.max(.6,spec.height*.5),distance=Math.max(4.8,spec.height*2.4,Math.max(3.4,spec.width*1.9)/camera.aspect);camera.position.set(Math.sin(yaw.current)*distance,focus+1.9,Math.cos(yaw.current)*distance);camera.lookAt(0,focus,0);renderer.render(scene,camera);
       node.dataset.ready='true';node.dataset.kind=selected;node.dataset.broken=String(motion.current?.broken);node.dataset.active=String(motion.current?.active);node.dataset.draws=String(renderer.info.render.calls);
       frame=requestAnimationFrame(render);
     };
     setStatus('');frame=requestAnimationFrame(render);
     return()=>{cancelAnimationFrame(frame);observer.disconnect();motion.current=null;kit.dispose();floorGeometry.dispose();floorMaterial.dispose();grid.geometry.dispose();(grid.material as THREE.Material).dispose();sun.shadow.dispose();renderer.dispose();renderer.domElement.remove();delete node.dataset.ready;};
-  },[selected,night,spec.name]);
+  },[selected,night,spec]);
   const react=()=>{if(motion.current?.hit(new THREE.Vector3(-.8,.1,-.6)))setStatus(spec.behavior==='breakable'?'Broken into fragments. Reset to rebuild.':'Knocked over. Reset to stand it up.');};
   return <main className="prop-designs">
     <header className="pd-header"><a href="/" onClick={e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();navigate('menu');}}>← Back to game</a><span>BLOCKPLAY SG <b>/ OBJECT LIBRARY</b></span><a href="/world">Explore maps ↗</a></header>
-    <section className="pd-intro"><div><p className="pd-eyebrow">STREET LIFE / COLLECTION 01</p><h1>The everyday city.</h1></div><p>Twelve small pieces of Singapore.<br/> Built for the corners between the landmarks.</p></section>
+    <section className="pd-intro"><div><p className="pd-eyebrow">STREET LIFE / COLLECTION 01</p><h1>The everyday city.</h1></div><p>{STREET_PROPS.length} pieces of everyday Singapore.<br/> Built for the corners between the landmarks.</p></section>
     <div className="pd-workbench">
-      <aside className="pd-library" aria-label="Choose a prop"><div className="pd-library-title">THE COLLECTION <span>12 OBJECTS</span></div>
+      <aside className="pd-library" aria-label="Choose a prop"><div className="pd-library-title">THE COLLECTION <span>{STREET_PROPS.length} OBJECTS</span></div>
         {STREET_PROPS.map((p,i)=><button key={p.kind} aria-pressed={selected===p.kind} onClick={()=>setSelected(p.kind)}><span className="pd-number">{String(i+1).padStart(2,'0')}</span><span>{p.name}<small>{p.behavior==='fixed'?'Solid scenery':p.behavior==='breakable'?'Breakable decoration':'Movable decoration'}</small></span><i className={`pd-dot ${p.behavior}`} /></button>)}
       </aside>
       <section className="pd-preview" aria-label="Interactive prop preview">

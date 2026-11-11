@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { expect, it } from 'vitest';
 import { REGIONS } from './regions';
 import { auditMapCover } from './map-cover-audit';
@@ -53,4 +54,13 @@ it('Raffles: a host round crosses above the lawn bed and damages a target; the s
     expect(arena.snapshot().actors.find(a => a.id === 'two')!.health).toBeLessThan(100);
     expect(arena.snapshot().impacts).toHaveLength(1);
   } finally { world.dispose(); }
+});
+
+it('compares authority against gameplay scenery, excluding cosmetic prop instances',()=>{
+  const scene=new THREE.Scene(),geometry=new THREE.BoxGeometry(1,3,1),material=new THREE.MeshBasicMaterial();
+  const wall=new THREE.Mesh(geometry,material);wall.position.set(3.5,1.5,0);scene.add(wall);
+  const cosmetic=new THREE.Group();cosmetic.userData.fpsEffect=true;
+  const effect=new THREE.InstancedMesh(geometry,material,1);effect.setMatrixAt(0,new THREE.Matrix4().makeTranslation(2.3,1.5,0));cosmetic.add(effect);scene.add(cosmetic);
+  try{expect(auditMapCover(scene,[{minX:3,maxX:4,minZ:-.5,maxZ:.5}]).authorityMismatches).toBe(0);}
+  finally{effect.dispose();geometry.dispose();material.dispose();}
 });

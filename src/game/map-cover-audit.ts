@@ -22,7 +22,9 @@ export function auditMapCover(scene: THREE.Scene, obstacles: readonly Obstacle[]
       const to = new THREE.Vector3(axis === 'x' ? box.maxX + .3 : x, base + height, axis === 'z' ? box.maxZ + .3 : z);
       const range = from.distanceTo(to), direction = to.clone().sub(from).normalize();
       ray.set(from, direction); ray.near = 0; ray.far = range;
-      const visible = firstVisibleHit(ray, scene.children), rendered = visible?.distance ?? range;
+      // Match the FPS candidate filter: cosmetic particles and reactive decorations
+      // are rendered, but deliberately never participate in ballistic cover.
+      const visible = firstVisibleHit(ray, scene.children.filter(root=>!root.userData.fpsEffect)), rendered = visible?.distance ?? range;
       const authority = cover.distance(from, direction, range);
       const movement = Math.min(range, arenaWallDistance(from, direction, boxes));
       probes++;

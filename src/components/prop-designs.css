@@ -3,3 +3,5 @@
 .pd-stage.is-night .pd-stage-label,.pd-stage.is-night .pd-stage-note{color:#ced8c7}
 
 .pd-library button{scroll-margin:10px}.pd-library{scroll-padding:10px}
+
+@media(min-width:601px){.pd-library{max-height:730px;overflow:auto}}
