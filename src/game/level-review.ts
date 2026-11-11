@@ -3,20 +3,24 @@ import type { MapBounds } from './minimap';
 
 export const REVIEW_STORAGE_KEY = 'blockplay.level-review.v1';
 export const MAX_REVIEW_BYTES = 2_000_000;
+export type ReviewCollection = 'level' | 'asset';
+export interface ReviewSurface { y: number; meshPath: number[]; view: { yaw: number; pitch: number; zoom: number } }
+export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface }
 export type ReviewAuthor = 'designer' | 'ai';
 export type ReviewStatus = 'open' | 'resolved';
 export type ReviewEvent = { id: string; at: string; author: ReviewAuthor; body: string; status?: ReviewStatus };
 export interface ReviewThread {
   id: string;
-  district: RegionId;
+  district?: RegionId;
+  asset?: string;
   title: string;
   kind: 'discussion' | 'design-note';
-  anchor: { x: number; z: number; level: string };
+  anchor: ReviewAnchor;
   mapRevision: string;
   events: ReviewEvent[];
 }
-export interface ReviewDocument { format: 'blockplay-level-review'; version: 1; threads: ReviewThread[] }
-export const emptyReview = (): ReviewDocument => ({ format: 'blockplay-level-review', version: 1, threads: [] });
+export interface ReviewDocument { format: 'blockplay-level-review' | 'blockplay-asset-review'; version: 1; threads: ReviewThread[] }
+export const emptyReview = (collection: ReviewCollection = 'level'): ReviewDocument => ({ format: collection === 'asset' ? 'blockplay-asset-review' : 'blockplay-level-review', version: 1, threads: [] });
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const string = (value: unknown, max: number): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const id = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
@@ -26,25 +30,35 @@ const author = (value: unknown): value is ReviewAuthor => value === 'designer' |
 export function parseReview(raw: string): ReviewDocument {
   if (raw.length > MAX_REVIEW_BYTES || new TextEncoder().encode(raw).byteLength > MAX_REVIEW_BYTES) throw new Error('Review file is too large (2 MB maximum).');
   const data: unknown = JSON.parse(raw);
-  if (!record(data) || data.format !== 'blockplay-level-review' || data.version !== 1 || !Array.isArray(data.threads) || data.threads.length > 500) throw new Error('Expected a version 1 Blockplay level review with at most 500 threads.');
+  if (!record(data) || !['blockplay-level-review', 'blockplay-asset-review'].includes(String(data.format)) || data.version !== 1 || !Array.isArray(data.threads) || data.threads.length > 500) throw new Error('Expected a version 1 Blockplay level review with at most 500 threads.');
+  const assets = data.format === 'blockplay-asset-review';
   const threadIds = new Set<string>(), eventIds = new Set<string>();
   const threads = data.threads.map((t): ReviewThread => {
-    if (!record(t) || !id(t.id) || threadIds.has(t.id) || !isRegionId(t.district) || !string(t.title, 160) || !['discussion', 'design-note'].includes(String(t.kind)) || !string(t.mapRevision, 100) || !record(t.anchor) || typeof t.anchor.x !== 'number' || typeof t.anchor.z !== 'number' || !Number.isFinite(t.anchor.x) || !Number.isFinite(t.anchor.z) || Math.abs(t.anchor.x) > 100000 || Math.abs(t.anchor.z) > 100000 || !string(t.anchor.level, 100) || !Array.isArray(t.events) || !t.events.length || t.events.length > 500) throw new Error('Invalid or duplicate thread, anchor, or event list.');
+    if (!record(t) || !id(t.id) || threadIds.has(t.id) || !(assets ? t.district === undefined && typeof t.asset === 'string' && /^[a-z][a-z0-9-]{0,39}\/[a-z0-9-]{1,80}$/.test(t.asset) : isRegionId(t.district) && t.asset === undefined) || !string(t.title, 160) || !['discussion', 'design-note'].includes(String(t.kind)) || !string(t.mapRevision, 100) || !record(t.anchor) || typeof t.anchor.x !== 'number' || typeof t.anchor.z !== 'number' || !Number.isFinite(t.anchor.x) || !Number.isFinite(t.anchor.z) || Math.abs(t.anchor.x) > 100000 || Math.abs(t.anchor.z) > 100000 || !string(t.anchor.level, 100) || !Array.isArray(t.events) || !t.events.length || t.events.length > 500) throw new Error('Invalid or duplicate thread, anchor, or event list.');
+    let surface: ReviewSurface | undefined;
+    if (t.anchor.surface !== undefined) {
+      const p = t.anchor.surface;
+      if (!assets || !record(p) || typeof p.y !== 'number' || !Number.isFinite(p.y) || Math.abs(p.y) > 100000 || !Array.isArray(p.meshPath) || p.meshPath.length > 32 || !p.meshPath.every(i => Number.isInteger(i) && i >= 0 && i <= 100000) || !record(p.view) || !['yaw', 'pitch', 'zoom'].every(k => typeof p.view === 'object' && p.view !== null && typeof (p.view as Record<string, unknown>)[k] === 'number' && Number.isFinite((p.view as Record<string, number>)[k])) || Math.abs(Number(p.view.yaw)) > 1000 || Math.abs(Number(p.view.pitch)) > Math.PI / 2 || Number(p.view.zoom) < .4 || Number(p.view.zoom) > 8) throw new Error('Invalid model surface or saved view.');
+      surface = { y: p.y, meshPath: [...p.meshPath], view: { yaw: Number(p.view.yaw), pitch: Number(p.view.pitch), zoom: Number(p.view.zoom) } };
+    }
+    if (assets && !surface && (t.anchor.x !== 0 || t.anchor.z !== 0)) throw new Error('Whole-model notes must use a zero anchor.');
     threadIds.add(t.id);
     const events = t.events.map((e): ReviewEvent => {
       if (!record(e) || !id(e.id) || eventIds.has(e.id) || !author(e.author) || !string(e.body, 8000) || typeof e.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(e.at) || !Number.isFinite(Date.parse(e.at)) || (e.status !== undefined && e.status !== 'open' && e.status !== 'resolved')) throw new Error('Invalid or duplicate comment. Comments need an author, UTC date and text.');
       eventIds.add(e.id);
       return { id: e.id, at: e.at, author: e.author, body: e.body, ...(e.status ? { status: e.status } : {}) };
     });
-    return { id: t.id, district: t.district, title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level }, events: sortEvents(events) };
+    return { id: t.id, ...(assets ? { asset: t.asset as string } : { district: t.district as RegionId }), title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level, ...(surface ? { surface } : {}) }, events: sortEvents(events) };
   });
-  return { format: 'blockplay-level-review', version: 1, threads };
+  return { format: assets ? 'blockplay-asset-review' : 'blockplay-level-review', version: 1, threads };
 }
 export const sortEvents = (events: readonly ReviewEvent[]) => [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 export const threadStatus = (thread: ReviewThread): ReviewStatus => sortEvents(thread.events).reduce<ReviewStatus>((status, event) => event.status ?? status, 'open');
 
 /** Append-only union: repeat imports are harmless; edits to existing IDs are rejected. */
 export function mergeReviews(...documents: ReviewDocument[]): ReviewDocument {
+  const format = documents[0]?.format ?? 'blockplay-level-review';
+  if (documents.some(d => d.format !== format)) throw new Error('Map and model reviews use separate collections. Import this file in the matching workspace.');
   const threads = new Map<string, ReviewThread>();
   for (const document of documents) for (const thread of parseReview(JSON.stringify(document)).threads) {
     const previous = threads.get(thread.id);
@@ -60,7 +74,7 @@ export function mergeReviews(...documents: ReviewDocument[]): ReviewDocument {
     }
     threads.set(thread.id, { ...previous, events: sortEvents([...combined.values()]) });
   }
-  return parseReview(JSON.stringify({ ...emptyReview(), threads: [...threads.values()] }));
+  return parseReview(JSON.stringify({ format, version: 1, threads: [...threads.values()] }));
 }
 
 /** Revision describes the schematic, not all geometry or gameplay in the level. */
@@ -73,6 +87,6 @@ export function mapRevision(map: { bounds: MapBounds; mapRoads: unknown; decor: 
 export function reviewPoint(x: number, z: number, bounds: MapBounds) {
   return { x: Math.round(Math.max(bounds.minX, Math.min(bounds.maxX, x)) * 10) / 10, z: Math.round(Math.max(bounds.minZ, Math.min(bounds.maxZ, z)) * 10) / 10 };
 }
-export function reviewBrief(document: ReviewDocument, district: RegionId) {
-  return [`Level review: ${district}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => t.district === district).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
+export function reviewBrief(document: ReviewDocument, target: string) {
+  return [`Design review: ${target}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => (t.asset ?? t.district) === target).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z}${t.anchor.surface ? ` · y=${t.anchor.surface.y} · mesh path ${t.anchor.surface.meshPath.join("/")} · view ${JSON.stringify(t.anchor.surface.view)}` : ""} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
 }

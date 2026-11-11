@@ -119,3 +119,56 @@ file for local credentials; no production credential is embedded in the client.
 Validation: `pnpm test`, `pnpm typecheck`, `scripts/level-review-smoke.mjs`, and
 `scripts/level-review-cloud-smoke.mjs` (local Wrangler or deployed HTTPS plus
 Chrome CDP). The cloud smoke uses the verification board only.
+
+## 3D model discussions
+
+Open `/debug?asset=prop/vending` or choose **3D model review**. The prop,
+weapon and faction galleries also have **Discuss this model** links. The shared
+catalog currently includes 25 street props, 8 proxy weapons and 4 proxy operators.
+Choose an asset, drag to orbit, then **Pin a comment** and click its surface.
+Touch works the same way; keyboard arrows orbit and Enter pins the center.
+**Comment on whole model** handles proportions, silhouette and broader intent.
+
+A surface thread saves mesh-local XYZ, a child-index path, the viewing angle and
+zoom. Selecting it restores that view; pins on the hidden side appear when the
+surface faces the camera. Developer context links to the source and explains
+intent/tradeoffs. AI notes and replies use the same append-only workflow as maps.
+The workspace does not automatically summon an AI: ask the coding agent to pull
+and respond, or share **Copy AI brief**. Responses can explain the decision,
+reference a source change, and propose a visual/gameplay check before resolution.
+
+Models use format `blockplay-asset-review`, version 1, with `asset` (for example
+`weapon/ff-oicw`) instead of `district`. Their separate cache is
+`blockplay.asset-review.v1`; their private endpoint is `/api/asset-review`.
+The existing credential grants access to both collections. The existing Durable
+Object namespace stores models in `assets-v1`, with `assets-verification-v1` for
+isolated tests. Maps and models cannot accidentally merge into each other's
+collections. Published model notes live in `docs/level-reviews/asset-notes.json`.
+
+For compatibility with the common thread contract, `mapRevision` holds a model
+fingerprint and `anchor.level` holds a readable part label. `anchor.surface`
+contains `y`, `meshPath` and `view: {yaw, pitch, zoom}`; `x` and `z` are mesh-local
+coordinates. Whole-model anchors omit `surface` and use `x=z=0`. The fingerprint
+covers hierarchy, transforms, geometry and basic material properties. When it
+changes, the thread requests review and its surface pin is hidden until a new
+thread anchors the updated model. Old discussion history remains available.
+Operators are reviewed in a frozen pose; animation timelines and arbitrary model
+uploads are not yet supported. Texture/shader changes are not fully fingerprinted.
+
+The catalog in `src/game/review-assets.ts` adapts each source to `build/dispose`,
+stable ID, description, rationale and source/gallery links. Add future model types
+there; keep stable IDs and never silently reinterpret an old surface anchor.
+Other media can reuse the event history and cloud merge with an appropriate
+anchor contract (for example image coordinates or animation timestamps).
+
+```sh
+node --experimental-strip-types scripts/level-review-cloud.mjs pull --assets --out .cache/model-review.json
+node --experimental-strip-types scripts/level-review-cloud.mjs reply --assets --thread THREAD_ID --body-file .cache/reply.txt --id UNIQUE_REPLY_ID
+node --experimental-strip-types scripts/level-review-cloud.mjs push --assets --file .cache/model-review.json
+```
+
+`--assets` also works with `link` and `--verification`. Vite proxies both review
+endpoints to local Wrangler. `scripts/asset-review-smoke.mjs` checks all models,
+surface placement, restored views, stale/hidden pins, reload, keyboard and touch.
+`scripts/level-review-cloud-smoke.mjs --assets` checks two-browser synchronization,
+offline recovery, concurrent replies and authentication on the model test board.

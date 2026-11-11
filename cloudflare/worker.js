@@ -22,7 +22,7 @@ createServer(companion).listen(3001);
 export default {
   async fetch(request) {
     const path = new URL(request.url).pathname;
-    if (path === '/api/level-review' || path.startsWith('/api/level-review/')) return handleLevelReviews(request, env);
+    if (path === '/api/level-review' || path.startsWith('/api/level-review/') || path === '/api/asset-review' || path.startsWith('/api/asset-review/')) return handleLevelReviews(request, env);
     if (path === '/api/rooms' || path.startsWith('/api/rooms/')) {
       if (!env.PUBLIC_ROOMS || env.PUBLIC_ROOMS_ENABLED === 'false') return Response.json({ error: 'Public rooms are unavailable.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
       if (!roomOriginAllowed(request)) return Response.json({ error: 'Unexpected origin.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

@@ -87,7 +87,7 @@ function OperatorDesigns() {
     <div className="fd-factions">{PROXY_FACTIONS.map((faction, index) => <section key={faction.id} className="fd-faction" aria-labelledby={`${faction.id}-heading`}>
       <p className="fd-eyebrow">0{index + 1} / {faction.influence}</p><h2 id={`${faction.id}-heading`}>{faction.name}</h2><p>{faction.premise}</p>
       <div className="fd-swatches">{faction.swatches.map(swatch => <div key={swatch.hex}><i style={{ background: swatch.hex }} /><strong>{swatch.name}</strong><code>{swatch.hex.toUpperCase()}</code></div>)}</div>
-      <p className="fd-silhouette">{faction.silhouette}</p><div className="fd-operators">{faction.operators.map(operator => <article key={operator.id}><h3>{operator.name}</h3><span>{operator.concept}</span><p>{operator.equipment}</p></article>)}</div>
+      <p className="fd-silhouette">{faction.silhouette}</p><div className="fd-operators">{faction.operators.map(operator => <article key={operator.id}><h3>{operator.name}</h3><span>{operator.concept}</span><p>{operator.equipment}</p><a href={`/debug?asset=operator/${operator.id}`}>Discuss this model ↗</a></article>)}</div>
     </section>)}</div>
     <footer className="fd-footer">Original fictional factions. Western and Eastern influences guide equipment and visual language; faces are varied independently of faction. Weapon, shield and sensor models are visual studies with no new combat behavior.</footer>
   </main>;

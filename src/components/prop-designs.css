@@ -6,3 +6,5 @@
 
 @media(min-width:601px){.pd-library{max-height:730px;overflow:auto}}
 .pd-reference{font-size:11px}.pd-reference a{color:inherit;text-underline-offset:3px}
+
+.pd-review-link{display:inline-block;padding:9px 12px;border:1px solid #738c79;border-radius:6px;color:#244e43;text-decoration:none;font-size:12px;font-weight:600}

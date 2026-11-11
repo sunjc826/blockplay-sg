@@ -1,9 +1,9 @@
-import { mergeReviews, parseReview, REVIEW_STORAGE_KEY, type ReviewDocument } from '../game/level-review';
+import { mergeReviews, parseReview, REVIEW_STORAGE_KEY, type ReviewCollection, type ReviewDocument } from '../game/level-review';
 
 export const REVIEW_ACCESS_KEY = 'blockplay.level-review.access.v1';
 export const validReviewToken = (token: string) => /^[a-f0-9]{64}$/.test(token);
-export const reviewCacheKey = () => REVIEW_STORAGE_KEY + (new URLSearchParams(window.location.search).has('reviewCloudTest') ? '.verification' : '');
-export const reviewEndpoint = () => '/api/level-review' + (new URLSearchParams(window.location.search).has('reviewCloudTest') ? '/verification' : '');
+export const reviewCacheKey = (collection: ReviewCollection = 'level') => (collection === 'asset' ? 'blockplay.asset-review.v1' : REVIEW_STORAGE_KEY) + (new URLSearchParams(window.location.search).has('reviewCloudTest') ? '.verification' : '');
+export const reviewEndpoint = (collection: ReviewCollection = 'level') => `/api/${collection}-review` + (new URLSearchParams(window.location.search).has('reviewCloudTest') ? '/verification' : '');
 export function tokenFromLink(value: string) {
   if (validReviewToken(value.trim())) return value.trim();
   try { const token = new URLSearchParams(new URL(value.trim()).hash.slice(1)).get('review-key') ?? ''; return validReviewToken(token) ? token : ''; }

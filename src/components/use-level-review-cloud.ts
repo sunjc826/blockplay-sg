@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ReviewDocument } from '../game/level-review';
+import type { ReviewCollection, ReviewDocument } from '../game/level-review';
 import { readReviewAccess, REVIEW_ACCESS_KEY, ReviewCloudError, reviewEndpoint, syncReview, tokenFromLink } from '../lib/level-review-cloud';
 import { IS_STATIC_SITE } from '../lib/deployment';
 
-export function useLevelReviewCloud(document: ReviewDocument, read: () => ReviewDocument, apply: (document: ReviewDocument) => void, blocked: boolean) {
+export function useLevelReviewCloud(document: ReviewDocument, read: () => ReviewDocument, apply: (document: ReviewDocument) => void, blocked: boolean, collection: ReviewCollection = 'level') {
   const [token, setToken] = useState(() => IS_STATIC_SITE ? '' : readReviewAccess());
   const [status, setStatus] = useState('Browser only');
   const [problem, setProblem] = useState('');
@@ -24,7 +24,7 @@ export function useLevelReviewCloud(document: ReviewDocument, read: () => Review
       if (running) { again = true; return; }
       running = true; setStatus('Syncing…');
       try {
-        const result = await syncReview({ token, endpoint: reviewEndpoint(), signal: controller.signal,
+        const result = await syncReview({ token, endpoint: reviewEndpoint(collection), signal: controller.signal,
           read: () => latest.current.read(), apply: data => latest.current.apply(data) });
         if (!stopped) { setProblem(''); setStatus(result.pending ? 'Saved locally · sync pending' : `Cloud saved · revision ${result.revision}`); again ||= result.pending; }
       } catch (error) {
@@ -45,7 +45,7 @@ export function useLevelReviewCloud(document: ReviewDocument, read: () => Review
     window.document.addEventListener('visibilitychange', wake);
     void run();
     return () => { stopped = true; controller.abort(); clearInterval(timer); trigger.current = () => {}; window.removeEventListener('online', wake); window.removeEventListener('focus', wake); window.document.removeEventListener('visibilitychange', wake); };
-  }, [token]);
+  }, [token, collection]);
   useEffect(() => {
     if (!token) return;
     const timer = setTimeout(() => trigger.current(), 500);

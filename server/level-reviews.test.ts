@@ -20,6 +20,20 @@ const token = 'a'.repeat(64);
 const request = (body?: unknown, headers: Record<string, string> = {}, path = '') => new Request(`https://example.com/api/level-review${path}`, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 function reply(id: string) { const data = parseReview(JSON.stringify(notes)); data.threads[0].events.push({ id, author: 'ai', at: '2026-11-11T12:00:00.000Z', body: `Review ${id}` }); return data; }
 describe('private Cloudflare level review', () => {
+  it('keeps model data separate from legacy map data using the same private access', async () => {
+    const objects = new Map<string, LevelReviews>();
+    const env = { LEVEL_REVIEW_TOKEN: token, LEVEL_REVIEWS: { getByName: (name: string) => {
+      if (!objects.has(name)) objects.set(name, new LevelReviews(context())); return objects.get(name)!;
+    } } };
+    const models = (body?: unknown) => new Request('https://example.com/api/asset-review/verification', { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const assets = await (await handleLevelReviews(models(), env)).json();
+    expect(assets.document.format).toBe('blockplay-asset-review'); expect(assets.document.threads.every((t: { asset: string }) => !!t.asset)).toBe(true);
+    expect((await handleLevelReviews(models(emptyReview()), env)).status).toBe(400);
+    expect((await handleLevelReviews(request(assets.document), env)).status).toBe(400);
+    const maps = await (await handleLevelReviews(request(), env)).json(); expect(maps.document.format).toBe('blockplay-level-review');
+    expect(objects.has('assets-verification-v1')).toBe(true); expect(objects.has('design-v1')).toBe(true);
+  });
+
   it('blocks unauthenticated and cross-origin reads/writes before accessing storage', async () => {
     const fetch = vi.fn(), getByName = vi.fn(() => ({ fetch }));
     const env = { LEVEL_REVIEW_TOKEN: token, LEVEL_REVIEWS: { getByName } };

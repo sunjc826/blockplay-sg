@@ -1,12 +1,13 @@
 import { emptyReview, MAX_REVIEW_BYTES, mergeReviews, parseReview, type ReviewDocument } from '../src/game/level-review';
 import notes from '../docs/level-reviews/developer-notes.json';
+import modelNotes from '../docs/level-reviews/asset-notes.json';
 
 export interface ReviewSnapshot { document: ReviewDocument; revision: number; updatedAt: string }
 interface Sql { exec<T extends Record<string, unknown>>(query: string, ...bindings: unknown[]): { toArray(): T[] } }
 export interface ReviewContext { storage: { sql: Sql; transactionSync<T>(work: () => T): T } }
 interface ReviewBinding { getByName(name: string): { fetch(request: Request): Promise<Response> } }
 export interface ReviewEnvironment { LEVEL_REVIEWS?: ReviewBinding; LEVEL_REVIEW_TOKEN?: string }
-const seeds = parseReview(JSON.stringify(notes));
+const seeds = parseReview(JSON.stringify(notes)), assetSeeds = parseReview(JSON.stringify(modelNotes));
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
 export async function readReviewBody(request: Request) {
@@ -34,7 +35,7 @@ async function authorized(request: Request, secret: string) {
 /** One private project. Authorization happens before touching storage or reading bodies. */
 export async function handleLevelReviews(request: Request, env: ReviewEnvironment): Promise<Response> {
   const path = new URL(request.url).pathname;
-  if (!['/api/level-review', '/api/level-review/verification'].includes(path)) return json({ error: 'Not found.' }, 404);
+  if (!['/api/level-review', '/api/level-review/verification', '/api/asset-review', '/api/asset-review/verification'].includes(path)) return json({ error: 'Not found.' }, 404);
   if (!['GET', 'POST'].includes(request.method)) return json({ error: 'Use GET to read or POST to append.' }, 405);
   if (!env.LEVEL_REVIEWS || !env.LEVEL_REVIEW_TOKEN) return json({ error: 'Cloud review is not configured. Your browser copy is still available.' }, 503);
   const origin = request.headers.get('Origin');
@@ -49,7 +50,7 @@ export async function handleLevelReviews(request: Request, env: ReviewEnvironmen
   try {
     // Strip credentials before the internal request. The verification board is isolated
     // from real discussions and only accessible with the same private credential.
-    return await env.LEVEL_REVIEWS.getByName(path.endsWith('/verification') ? 'verification-v1' : 'design-v1').fetch(new Request(request.url, {
+    return await env.LEVEL_REVIEWS.getByName(path.startsWith('/api/asset-review') ? (path.endsWith('/verification') ? 'assets-verification-v1' : 'assets-v1') : (path.endsWith('/verification') ? 'verification-v1' : 'design-v1')).fetch(new Request(request.url, {
       method: request.method, headers: { 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body }),
     }));
   } catch { return json({ error: 'Cloud review is temporarily unavailable. Keep working locally and retry sync.' }, 503); }
@@ -60,10 +61,10 @@ export class LevelReviews {
   constructor(private ctx: ReviewContext) {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS review_state (id INTEGER PRIMARY KEY CHECK (id = 1), document TEXT NOT NULL, revision INTEGER NOT NULL, updated_at TEXT NOT NULL)');
   }
-  private merge(incoming = emptyReview()): ReviewSnapshot {
+  private merge(incoming: ReviewDocument, assets: boolean): ReviewSnapshot {
     return this.ctx.storage.transactionSync(() => {
       const previous = this.ctx.storage.sql.exec<{ document: string; revision: number; updated_at: string }>('SELECT document, revision, updated_at FROM review_state WHERE id = 1').toArray()[0];
-      const document = mergeReviews(previous ? parseReview(previous.document) : emptyReview(), seeds, incoming);
+      const document = mergeReviews(previous ? parseReview(previous.document) : emptyReview(assets ? 'asset' : 'level'), assets ? assetSeeds : seeds, incoming);
       const raw = JSON.stringify(document), changed = raw !== previous?.document;
       const revision = (previous?.revision ?? 0) + (changed ? 1 : 0);
       const updatedAt = changed ? new Date().toISOString() : previous.updated_at;
@@ -72,12 +73,14 @@ export class LevelReviews {
     });
   }
   async fetch(request: Request) {
-    let incoming = emptyReview();
+    const assets = new URL(request.url).pathname.startsWith('/api/asset-review');
+    let incoming = emptyReview(assets ? 'asset' : 'level');
     if (request.method === 'POST') {
       try { incoming = parseReview(await readReviewBody(request)); }
       catch { return json({ error: 'Invalid review document. Check the version, IDs, comments and 2 MB limit.' }, 400); }
     } else if (request.method !== 'GET') return json({ error: 'Method not allowed.' }, 405);
-    try { return json(this.merge(incoming)); }
+    if ((incoming.format === 'blockplay-asset-review') !== assets) return json({ error: 'Use the matching map or model review endpoint.' }, 400);
+    try { return json(this.merge(incoming, assets)); }
     catch (error) {
       // Schema/merge errors are safe, bounded messages; unexpected storage errors escape
       // to the Worker and become a retryable 503, never a successful acknowledgement.

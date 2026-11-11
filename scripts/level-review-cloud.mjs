@@ -10,7 +10,7 @@ const credentials = new URL('.env.level-review', root);
 const [command] = process.argv.slice(2);
 const flag = name => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
 const origin = process.env.LEVEL_REVIEW_ORIGIN || 'https://blockplaysg.fun';
-const endpoint = new URL('/api/level-review' + (process.argv.includes('--verification') ? '/verification' : ''), origin);
+const endpoint = new URL((process.argv.includes('--assets') ? '/api/asset-review' : '/api/level-review') + (process.argv.includes('--verification') ? '/verification' : ''), origin);
 async function token() {
   const value = process.env.LEVEL_REVIEW_TOKEN || (await fs.readFile(credentials, 'utf8')).match(/^LEVEL_REVIEW_TOKEN=([a-f0-9]{64})$/m)?.[1];
   if (!/^[a-f0-9]{64}$/.test(value || '')) throw new Error('Missing private access. Run init once, or provide LEVEL_REVIEW_TOKEN privately.');
@@ -47,13 +47,13 @@ try {
     try { document = parseReview(await fs.readFile(receipt, 'utf8')); const previous = document.threads.find(t => t.id === thread.id)?.events.find(e => e.id === eventId); if (!previous || previous.body !== body || previous.author !== 'ai') throw new Error('Receipt ID already belongs to a different reply. Use a new ID.'); }
     catch (error) {
       if (error.code !== 'ENOENT') throw error;
-      document = mergeReviews(emptyReview(), { ...emptyReview(), threads: [{ ...thread, events: [...thread.events, { id: eventId, at: new Date().toISOString(), author: 'ai', body }] }] });
+      document = mergeReviews(emptyReview(process.argv.includes('--assets') ? 'asset' : 'level'), { ...emptyReview(process.argv.includes('--assets') ? 'asset' : 'level'), threads: [{ ...thread, events: [...thread.events, { id: eventId, at: new Date().toISOString(), author: 'ai', body }] }] });
       await write(receipt, JSON.stringify(document, null, 2));
     }
     const next = await call(document); console.log(`AI reply saved at revision ${next.revision}. Receipt: .cache/level-review-reply-${eventId}.json`);
   } else if (command === 'link') {
-    const link = `${origin}/debug?review=marina-bay#review-key=${await token()}`;
+    const link = `${origin}/debug?${process.argv.includes('--assets') ? 'asset=prop/vending' : 'review=marina-bay'}${process.argv.includes('--verification') ? '&reviewCloudTest=1' : ''}#review-key=${await token()}`;
     await write(new URL('.cache/level-review-private-link.txt', root), link + '\n');
     console.log('Private collaboration link saved to .cache/level-review-private-link.txt. Anyone with it can read and edit.');
-  } else throw new Error('Use init, pull [--out file], push --file file, reply --thread ID --body-file file, or link. Add --verification for the isolated test board.');
+  } else throw new Error('Use init, pull [--out file], push --file file, reply --thread ID --body-file file, or link. Add --assets for model discussions; --verification selects the isolated test board.');
 } catch (error) { console.error(error.message); process.exitCode = 1; }

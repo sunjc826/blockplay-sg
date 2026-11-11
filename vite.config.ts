@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
   return {
   plugins: [react(), navigationBake(), serviceWorker()],
   test: { setupFiles: ['src/test-event-loop-yield.ts'], exclude: [...configDefaults.exclude, 'projects/**'] },
-  server: { proxy: { '/api/adventure': 'http://127.0.0.1:3001', '/api/level-review': {
+  server: { proxy: { '/api/adventure': 'http://127.0.0.1:3001', '^/api/(level|asset)-review': {
     target: 'http://127.0.0.1:8787', changeOrigin: true,
     configure(proxy) { proxy.on('proxyReq', (outgoing, request) => {
       // The local Worker sees port 8787. Translate only a same-origin Vite

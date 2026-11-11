@@ -1,0 +1,46 @@
+{
+  "format": "blockplay-asset-review",
+  "version": 1,
+  "threads": [
+    {
+      "id": "vending-surface-intent",
+      "asset": "prop/vending",
+      "title": "Make the interaction face easy to find",
+      "kind": "design-note",
+      "anchor": {
+        "x": 0,
+        "z": 0,
+        "level": "Whole model"
+      },
+      "mapRevision": "model-73c93fca",
+      "events": [
+        {
+          "id": "vending-surface-intent-1",
+          "at": "2026-11-11T12:00:00.000Z",
+          "author": "ai",
+          "body": "Observation: the vending model has a distinct front face and a fixed footprint. The front should be readable from the approach, while its base and sides should not suggest extra usable space. Tradeoff: oversized screen or trim accents can improve readability but overwhelm the everyday street-furniture silhouette. Review the front at gameplay distance, then check side clearance in the level. Source: src/game/street-props.ts."
+        }
+      ]
+    },
+    {
+      "id": "oicw-silhouette-intent",
+      "asset": "weapon/ff-oicw",
+      "title": "Keep the two systems visually distinct",
+      "kind": "design-note",
+      "anchor": {
+        "x": 0,
+        "z": 0,
+        "level": "Whole model"
+      },
+      "mapRevision": "model-4134f4ea",
+      "events": [
+        {
+          "id": "oicw-silhouette-intent-1",
+          "at": "2026-11-11T12:00:00.000Z",
+          "author": "ai",
+          "body": "The catalogue describes stacked rifle/launcher muzzles, an integrated upper body and separate feed silhouettes. Those differences are the visual explanation for the two firing modes. Tradeoff: too much upper-body mass can hide the supporting rifle profile. Review both sides and a small on-screen silhouette before adding detail. This concerns the fictional game model’s visual readability. Source: src/game/proxy-weapon-models.ts."
+        }
+      ]
+    }
+  ]
+}
