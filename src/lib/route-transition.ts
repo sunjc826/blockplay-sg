@@ -2,7 +2,7 @@ import { isEquipmentRoute } from './equipment-navigation';
 import { requestLeave } from './navigation-guard';
 import { useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
-import { getBackRoute, goBack, navigate, ROUTE_PATHS, routeFromPath, type Route } from './routes';
+import { navigate, ROUTE_PATHS, routeFromPath, type Route } from './routes';
 
 /**
  * A quick shift between screens: the old one slips away, the route changes,
@@ -60,11 +60,9 @@ export function transitionTo(route: Route, approved = false): boolean {
   return true;
 }
 
-/** Use history when coming from this parent, with an explicit parent for direct links. */
+/** In-game Back follows the menu hierarchy, independent of browser history. */
 export function returnToParent(route: Route) {
-  if (current?.phase === 'leaving') return;
-  if (getBackRoute() === route) goBack();
-  else transitionTo(route);
+  transitionTo(route);
 }
 
 /** The browser's own Back and Forward have already changed the route, so only the entrance is left to play. */

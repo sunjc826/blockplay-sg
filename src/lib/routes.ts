@@ -41,7 +41,7 @@ export function canonicalUrl(pathname: string, search: string): string | null {
   return null;
 }
 
-type Entry = { index: number; from?: Route };
+type Entry = { index: number };
 const listeners = new Set<() => void>();
 const views = new Map<Route, { scroll: number; focus?: string }>();
 let current: Entry = { index: 0 };
@@ -65,10 +65,6 @@ function saveView() {
   }
   views.set(routeFromPath(acceptedPath || window.location.pathname), { scroll: window.scrollY, focus: active === document.body ? undefined : parts.join(' > ') });
 }
-export function getBackRoute(): Route { return entry()?.from ?? 'menu'; }
-export function goBack() {
-  if (entry()?.from) window.history.back(); else navigate('menu');
-}
 export const routeLabel = (route: Route) => ({
   menu: 'Main menu', play: 'Play', 'single-player': 'Single Player', 'multiplayer-menu': 'Multiplayer',
   'training-menu': 'Training', training: 'Live-fire range', tutorial: 'Tutorial',
@@ -79,19 +75,13 @@ export const routeLabel = (route: Route) => ({
   store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs',
 })[route];
 
-/** Returning from a utility screen must not appear to resume a closed session. */
-export const isPlaySession = (route: Route) => (
-  ['training', 'world', 'tutorial', 'multiplayer', 'dragon-courtyard', 'smith-street', 'hardpoint', 'free-for-all',
-    'host-dragon-courtyard', 'host-smith-street', 'host-hardpoint', 'host-free-for-all'].includes(route)
-);
-
 /** Callers that already obtained permission (animated navigation) pass approved. */
 export function navigate(route: Route, approved = false) {
   if (!approved) { requestLeave(() => navigate(route, true)); return; }
   const path = ROUTE_PATHS[route];
   saveView();
   if (window.location.pathname !== path || window.location.search) {
-    current = { index: (entry()?.index ?? current.index) + 1, from: routeFromPath(window.location.pathname) };
+    current = { index: (entry()?.index ?? current.index) + 1 };
     window.history.pushState({ blockplayNavigation: current }, '', path);
   }
   acceptedPath = path;

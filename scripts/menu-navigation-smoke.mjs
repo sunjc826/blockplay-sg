@@ -70,8 +70,11 @@ try {
   assert.equal(await evaluate(`document.querySelector('#shop-tab-food').getAttribute('aria-selected')`), 'true');
   assert.equal(await evaluate(`document.activeElement?.id`), 'equipment-tab-store');
   await click('.store-settings'); await wait(`!!document.querySelector('.armory-settings')`);
-  assert.match(await evaluate(`document.querySelector('.context-back').textContent`), /Back to Store/);
-  await click('.context-back'); await wait(`!!document.querySelector('#shop-tab-food')`);
+  assert.match(await evaluate(`document.querySelector('.context-back').textContent`), /Main menu/);
+  await click('.context-back'); await wait(`location.pathname==='/'`);
+  await go('/store', '.loadout-store');
+  await click('[data-browse-store]'); await wait(`!!document.querySelector('.catalog-only')`);
+  await click('#shop-tab-food');
   await evaluate(`document.querySelector('#shop-tab-food').focus()`); await key('ArrowRight');
   assert.equal(await evaluate(`document.activeElement.id`), 'shop-tab-utility');
   assert.equal(await evaluate(`document.querySelectorAll('.armory-navigation [tabindex="0"]').length`), 1);

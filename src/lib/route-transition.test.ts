@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ENTER_MS, LEAVE_MS, directionBetween, shiftAfterHistory, transitionTo } from './route-transition';
+import { ENTER_MS, LEAVE_MS, directionBetween, returnToParent, shiftAfterHistory, transitionTo } from './route-transition';
 import { ROUTE_PATHS, type Route } from './routes';
+import { registerNavigationGuard, resolveConfirmation } from './navigation-guard';
 
 const ROUTES = Object.keys(ROUTE_PATHS) as Route[];
 const dataset: Record<string, string> = {};
@@ -62,6 +63,43 @@ describe('transitionTo', () => {
     vi.runAllTimers();
     expect(location.pathname).toBe('/inventory');
     expect(state()).toBeUndefined();
+  });
+
+  it('returns to the menu parent without traversing a matching history entry', () => {
+    location.pathname = '/play/training';
+    Object.defineProperty(window.history, 'state', { value: { blockplayNavigation: { index: 4, from: 'single-player' } } });
+    const back = vi.fn();
+    window.history.back = back;
+    returnToParent('single-player');
+    vi.runAllTimers();
+    expect(location.pathname).toBe('/play/single-player');
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it('returns directly to a parent with no in-app history', () => {
+    location.pathname = '/play/team-deathmatch/smith-street';
+    returnToParent('team-deathmatch');
+    vi.runAllTimers();
+    expect(location.pathname).toBe('/play/team-deathmatch');
+  });
+
+  it('preserves the active-run guard for menu Back', () => {
+    location.pathname = '/training';
+    const unregister = registerNavigationGuard({ title: 'End exercise?', detail: 'Progress will be lost.' });
+    try {
+      returnToParent('training-menu');
+      vi.runAllTimers();
+      expect(location.pathname).toBe('/training');
+      resolveConfirmation(false);
+      expect(location.pathname).toBe('/training');
+      returnToParent('training-menu');
+      resolveConfirmation(true);
+      vi.runAllTimers();
+      expect(location.pathname).toBe('/play/training');
+    } finally {
+      resolveConfirmation(false);
+      unregister();
+    }
   });
 
   it('browser history cancels a change that has not happened yet', () => {

@@ -19,7 +19,7 @@ import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
 import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
-import { navigate, ROUTE_PATHS, getBackRoute, goBack, isPlaySession, routeLabel, type Route } from '../lib/routes';
+import { navigate, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
 import { returnToParent, transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa, type PwaState } from '../lib/pwa';
@@ -207,13 +207,7 @@ function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void
 }
 
 function ReturnLink() {
-  const destination = getBackRoute();
-  // A finished game cannot be resumed by returning to its URL.
-  const game = isPlaySession(destination);
-  return <a className="game-back context-back" href={ROUTE_PATHS[game ? 'menu' : destination]} onClick={event => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault(); if (game) transitionTo('menu'); else goBack();
-  }}><ArrowLeft size={16} /><span>{game || destination === 'menu' ? 'Main menu' : `Back to ${routeLabel(destination)}`}</span></a>;
+  return <BackLink to="menu" className="game-back context-back" />;
 }
 
 /** A fresh route visit always starts at the map, including direct URLs. */
@@ -248,7 +242,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
       const open = document.querySelector<HTMLDetailsElement>('details[open]');
       event.preventDefault();
       if (open) { open.open = false; open.querySelector('summary')?.focus(); return; }
-      if (isPlaySession(getBackRoute())) transitionTo('menu'); else goBack();
+      returnToParent('menu');
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
