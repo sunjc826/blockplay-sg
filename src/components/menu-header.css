@@ -70,3 +70,22 @@ html:has(.menu-header) { scrollbar-gutter:stable; background:#0d1712; }
   .next-gen-activity .next-gen-index,
   .next-gen-activity .activity-card > svg:first-of-type { top:calc(var(--menu-header-top) + 44px + 46px + var(--menu-bar-padding) + 12px); }
 }
+
+/* Portrait phones keep navigation above one shared account/action row.
+   Reserve the gear column even on Settings so the banner never shifts. */
+@media (max-width:720px) and (orientation:portrait) {
+  .menu-header:is(.game-menu-top,.game-screen-bar,.loadout-header,.activity-navigation) {
+    grid-template-columns:minmax(0,1fr) 44px;
+  }
+  .menu-header-leading { grid-column:1/-1; grid-row:1; }
+  .menu-header > .profile-banner { grid-column:1; grid-row:2; }
+  .menu-header-action { grid-column:2; grid-row:2; align-self:center; }
+  .menu-header .profile-banner-rank { padding-inline:6px; gap:4px; }
+  .menu-header .game-wallet { padding-inline:6px; gap:3px; }
+  .menu-header .game-wallet > svg { display:none; }
+  .menu-header .game-wallet b { font-size:12px; }
+  .menu-header .profile-banner-panel {
+    left:0; right:auto;
+    width:min(360px,calc(100vw - var(--menu-header-left) - var(--menu-header-right)));
+  }
+}
