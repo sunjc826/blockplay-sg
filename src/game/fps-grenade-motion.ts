@@ -100,6 +100,8 @@ export function heldGrenadeMotion({ ready, cooked, pinned, swingAt, under, fuseL
   let left = pinned
     ? mix(mix(mix(LEFT_STOW, take, between(at, 0, .085)), pulled, between(at, .09, .16)), guide, between(at, .15, .3))
     : LEFT_STOW;
+  // Pinless props go straight to the guiding pose: no grasping an imaginary ring.
+  if (!ring) left = pinned ? mix(LEFT_STOW, guide, between(at, .04, .3)) : LEFT_STOW;
   let grip = 1, view = { pitch: KICK_BACK.pitch * cocking, roll: KICK_BACK.roll * cocking };
   const swing = swingAt === null ? 0 : clamp01((cooked - swingAt) / GRENADE_SWING_SECONDS);
   if (swing > 0) {
@@ -110,7 +112,7 @@ export function heldGrenadeMotion({ ready, cooked, pinned, swingAt, under, fuseL
     grip = 1 - between(swing, .68, 1) * .8;
     view = { pitch: view.pitch + (KICK_THROW.pitch - view.pitch) * drive, roll: view.roll + (KICK_THROW.roll - view.roll) * drive };
   }
-  return { right, left, grip, leftGrip: pinned ? .5 : .8, leftPinch: pinned && at > .06 ? 1 : 0, itemVisible: true, pinOut: pinned && at >= GRENADE_PIN_OUT && !!ring, spoon: null,
+  return { right, left, grip, leftGrip: pinned ? .5 : .8, leftPinch: pinned && !!ring && at > .06 ? 1 : 0, itemVisible: true, pinOut: pinned && at >= GRENADE_PIN_OUT && !!ring, spoon: null,
     weaponDown: between(ready, 0, GRENADE_READY_SECONDS * .5), view };
 }
 

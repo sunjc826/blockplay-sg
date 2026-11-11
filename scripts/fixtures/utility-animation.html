@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+body{margin:0;background:#253541;color:#f1e5d1;font:14px system-ui}canvas{display:block}#controls{position:absolute;top:18px;left:18px;right:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}select,button{font:inherit;padding:8px}input{flex:1;min-width:140px}
+</style></head><body><div id="controls"><select id="food"></select><button id="play">Play</button><input id="progress" type="range" min="0" max="1" step=".001" value=".2"><output id="time"></output></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {UTILITY_MODEL_IDS} from '/src/game/utility-models.ts';
+import {GRENADE_CATALOG} from '/src/game/grenade-catalog.ts';
+import {createGrenadeViewmodel} from '/src/game/grenade-models.ts';
+const ids=[...UTILITY_MODEL_IDS,...GRENADE_CATALOG.map(item=>item.id)];
+import {createSupplyViewmodel} from '/src/game/fps-supply-viewmodel.ts';
+import {itemById} from '/src/game/armory-catalog.ts';
+import {supplyProfile} from '/src/game/fps-healing.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(innerWidth,innerHeight);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#8196a0');scene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const key=new THREE.DirectionalLight('#fff4dd',2.5);key.position.set(1,2,1);scene.add(key);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,3),supply=createSupplyViewmodel(scene),grenades=createGrenadeViewmodel(scene);
+const food=document.querySelector('#food'),progress=document.querySelector('#progress'),time=document.querySelector('#time');
+ids.forEach(id=>food.add(new Option(itemById(id).name,id)));
+function frame(id,p){
+ food.value=id;progress.value=p;let motion;
+ if(id.startsWith('grenade-')){
+  supply.update(null,0);const hold={ready:Math.min(.35,p/.2*.35),cooked:Math.max(0,p<.65?(p-.2)/.45*.4:.4+(p-.65)/.15*.1),pinned:p>=.2,swingAt:p>=.65?.4:null,under:0,fuseLeft:2};
+  motion=grenades.update(p<.8?{id,hold}:{id,release:{thrown:true,elapsed:(p-.8)/.2*.46,under:0}},camera.aspect);
+ }else{grenades.update(null);motion=supply.update(supplyProfile(itemById(id)).style,p,id,camera.aspect);}
+ time.value=Number(p).toFixed(3);renderer.render(scene,camera);return motion;
+}
+let playing=false,last=performance.now();document.querySelector('#play').onclick=()=>{playing=!playing;if(playing)progress.value=0;};food.onchange=()=>frame(food.value,Number(progress.value));progress.oninput=()=>{playing=false;frame(food.value,Number(progress.value));};
+function tick(now){if(playing){const p=Number(progress.value)+(now-last)/1000/supplyProfile(itemById(food.value)).seconds;frame(food.value,Math.min(p,1));if(p>=1)playing=false;}last=now;requestAnimationFrame(tick);}requestAnimationFrame(tick);
+window.onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);frame(food.value,Number(progress.value));};
+window.review={frame,supply,grenades,scene,camera,renderer,ids};frame(food.value,.2);window.ready=true;
+</script></body></html>

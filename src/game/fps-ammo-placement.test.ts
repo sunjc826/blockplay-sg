@@ -32,6 +32,7 @@ it.each([0, 1, 2, 4, 12])('carries the actual family %s container to its exact p
       }
     }
   }
+  view.update(); expect(view.root.visible).toBe(false); expect(view.debug).toBeNull();
   const target = body.magazineSource(0, magazine)!.model;
   const mesh = target.children.find(c => c instanceof THREE.Mesh) as THREE.Mesh;
   const dispose = vi.spyOn(mesh.geometry, 'dispose'); view.dispose(); expect(dispose).not.toHaveBeenCalled(); body.dispose();

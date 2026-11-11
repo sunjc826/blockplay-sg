@@ -2834,19 +2834,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     grenadeUnder = THREE.MathUtils.damp(grenadeUnder, (grenadeHeld?.under ?? (ads || touchAim)) ? 1 : 0, 14, dt);
     const grenadeMotion = grenadeHands.update(grenadeHeld
       ? { id: grenadeHeld.id, hold: { ready: grenadeHeld.ready, cooked: grenadeHeld.cooked, pinned: grenadeHeld.pinned, swingAt: grenadeHeld.swingAt, under: grenadeUnder, fuseLeft: itemById(grenadeHeld.id)!.grenade!.fuse - grenadeHeld.cooked } }
-      : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null);
+      : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null, viewCamera.aspect);
     if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
     const supplyMotion = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id, viewCamera.aspect);
     const placementTarget = rig.visible && ammoPlacement ? playerBody.magazineSource(ammoPlacement.slot, ammoPlacement.magazine) : null;
     const packing = placementTarget && ammoPlacement ? ammoPlacementHands.update(ammoPlacement, { ...placementTarget, reachScale: Math.min(1, viewCamera.aspect),
       worldToView: new THREE.Matrix4().makeScale(projectionScale, projectionScale, 1).multiply(camera.matrixWorldInverse) }) : null;
     const supply = packing ?? supplyMotion;
-    if (debugDatasets) canvas.dataset.ammoPlacement = JSON.stringify({ animation: ammoPlacementHands.debug, queued: ammoPlacements.count, hiddenSlots: ammoPlacements.hiddenSlots });
+    if (debugDatasets) canvas.dataset.ammoPlacement = JSON.stringify({ animation: ammoPlacementHands.debug, visible: ammoPlacementHands.root.visible, queued: ammoPlacements.count, hiddenSlots: ammoPlacements.hiddenSlots });
     // Both sets of hands ride the same sway as the weapon.
     const itemRun = grenadeHeld && !grenadeHeld.pinned ? .45 : 0;
-    grenadeHands.root.position.set(sway + lookLagX + run.x * itemRun, Math.abs(sway) + bodyFollow + lookLagY + run.y * itemRun, run.z * itemRun);
+    grenadeHands.root.position.set(sway + lookLagX + run.x * itemRun, Math.abs(sway) + bodyFollow + lookLagY + run.y * itemRun, grenadeHands.framingDepth + run.z * itemRun);
     grenadeHands.root.rotation.set(run.pitch * itemRun, run.yaw * itemRun, run.roll * itemRun);
-    supplyHands.root.position.set(sway + lookLagX, Math.abs(sway) + bodyFollow + lookLagY, 0);
+    supplyHands.root.position.x = sway + lookLagX; supplyHands.root.position.y = Math.abs(sway) + bodyFollow + lookLagY;
+    if (debugDatasets) canvas.dataset.utilityView = JSON.stringify({ supplyVisible: supplyHands.root.visible, supplyDepth: supplyHands.root.position.z, grenadeVisible: grenadeHands.root.visible, grenadeDepth: grenadeHands.root.position.z });
     handsView = grenadeMotion?.view ?? supply?.view ?? { pitch: 0, roll: 0 };
     const tucked = supply && supply.weaponTuck > 0 ? handling[hud.weapon] ?? null : null;
     if (tuckedHandling !== tucked) { tuckedHandling?.setSupportHand(true); tucked?.setSupportHand(false); tuckedHandling = tucked; }

@@ -70,30 +70,41 @@ export function createGrenadeViewmodel(parent: THREE.Object3D) {
     model.root.position.set(0, .03, -.026 - reach); right.group.add(model.root);
     const parts = { ring: model.root.getObjectByName('grenade-pin') ?? null, spoon: model.root.getObjectByName('grenade-spoon') ?? null };
     const ring: Point | null = parts.ring && { x: parts.ring.position.x, y: parts.ring.position.y + .03, z: parts.ring.position.z - .026 - reach };
-    return { ...model, ...parts, ringAt: ring, closed: Math.max(.2, Math.min(.85, .92 - reach * 9)) };
+    return { ...model, ...parts, ringAt: ring, width: size.x, closed: Math.max(.2, Math.min(.85, .92 - reach * 9)) };
   });
   // The pin once it's out, on the left finger and thumb; the lever once it's off.
   const steel = material('#8b9490', .4, .7), pulled = new THREE.Group(); pulled.position.set(HAND_PINCH.x, HAND_PINCH.y, HAND_PINCH.z); left.group.add(pulled);
-  mesh(pulled, new THREE.TorusGeometry(.017, .0032, 6, 20), steel, .012, .006, 0);
-  mesh(pulled, new THREE.CylinderGeometry(.0018, .0018, .038, 6), steel, .031, -.012, 0).rotation.z = .9;
+  pulled.name = 'pulled-grenade-pin';
+  const pulledParts = models.map(model => {
+    const group = new THREE.Group(); group.name = `pulled-${model.root.name}`; pulled.add(group);
+    if (model.ring) { const ring = model.ring.clone(); ring.position.set(.012, .006, 0); group.add(ring); }
+    if (model.spoon) mesh(group, new THREE.CylinderGeometry(.0018, .0018, .038, 6), steel, .031, -.012, 0).rotation.z = .9;
+    return group;
+  });
+  let framingDepth = 0;
   const spoon = mesh(root, new THREE.BoxGeometry(.015, .09, .006), steel);
   const place = (object: THREE.Object3D, p: Pose) => { object.position.set(p.x, p.y, p.z); object.rotation.set(p.rx, p.ry, p.rz); };
   return {
-    root,
+    root, get framingDepth() { return framingDepth; },
     /** Which of the parts that make a sound this item actually has. */
     parts(id: string) { const model = models.find(m => m.root.name === id); return { pin: !!model?.ring, spoon: !!model?.spoon }; },
     /** Poses the hands for this frame, or hides them with null; the motion tells the engine where the weapon and view should be. */
-    update(view: GrenadeView | null): GrenadeMotion | null {
+    update(view: GrenadeView | null, aspect = 1): GrenadeMotion | null {
       root.visible = !!view;
-      if (!view) return null;
+      if (!view) { framingDepth = 0; root.position.z = 0; return null; }
       const model = models.find(m => m.root.name === view.id);
-      const motion = 'hold' in view ? heldGrenadeMotion({ ...view.hold, ring: model?.ringAt ?? null }) : releasedGrenadeMotion(view.release);
+      if (!model) { root.visible = false; return null; }
+      framingDepth = -.95 * (1 - Math.min(1, Math.max(.3, aspect) / .8)) - Math.max(0, model.width - .16) * .45;
+      root.position.z = framingDepth;
+      const raw = 'hold' in view ? heldGrenadeMotion({ ...view.hold, ring: model.ringAt }) : releasedGrenadeMotion(view.release);
+      const motion = { ...raw, pinOut: raw.pinOut && !!model.ring, leftPinch: model.ring ? raw.leftPinch : 0, spoon: model.spoon ? raw.spoon : null };
       models.forEach(m => m.root.visible = m === model && motion.itemVisible);
       place(right.group, motion.right); place(left.group, motion.left);
-      right.setGrip((model?.closed ?? .6) * motion.grip); left.setGrip(motion.leftGrip, motion.leftPinch);
+      right.setGrip((model?.closed ?? .6) * motion.grip); left.setGrip(motion.leftGrip, model.ring ? motion.leftPinch : 0);
       if (model?.ring) model.ring.visible = !motion.pinOut;
       const hasPin = !!model?.ring;
       pulled.visible = motion.pinOut && hasPin;
+      pulledParts.forEach((part, i) => { part.visible = models[i] === model; });
       left.group.visible = 'hold' in view ? true : view.release.thrown;
       spoon.visible = !!motion.spoon && !!model?.spoon;
       if (motion.spoon) place(spoon, motion.spoon);

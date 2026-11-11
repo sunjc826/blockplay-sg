@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Utility wheels</title><style>html,body,#stage{margin:0;height:100%;overflow:hidden}#world,#overlay{position:absolute;inset:0}#world{height:100%!important}#overlay{pointer-events:none;z-index:2}#start{position:absolute;z-index:20;left:16px;top:16px;padding:16px}</style></head><body><div id="stage" class="fps-game"><div id="world" class="fps-viewport"><div id="overlay"></div></div><button id="start">Enter utility test</button></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import '/src/styles.css';
+import { createFpsEngine } from '/src/game/fps-engine.ts';
+import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
+import { utilityKind } from '/src/game/utility-belt.ts';
+import { UTILITY_MODEL_IDS } from '/src/game/utility-models.ts';
+import { createPooledLoadout } from '/src/game/ammo-pools.ts';
+import { ARMORY_CATALOG } from '/src/game/armory-catalog.ts';
+import FpsWeaponHud from '/src/components/FpsWeaponHud.tsx';
+import FpsUtilityPicker from '/src/components/FpsUtilityPicker.tsx';
+import TouchControls from '/src/components/TouchControls.tsx';
+const root=createRoot(document.getElementById('overlay'));
+const profile=createProfile();profile.plate='plate-ceramic';profile.owned.push('plate-ceramic');profile.consumables=Object.fromEntries(ARMORY_CATALOG.filter(i=>i.category==='consumable'&&!i.specialist).map(i=>[i.id,2]));profile.consumables['grenade-smoke']=1;
+profile.stowedSupplies=[];
+window.utilityMeta=UTILITY_MODEL_IDS.map(id=>{const item=ARMORY_CATALOG.find(i=>i.id===id);return{id,kind:utilityKind(item),effect:item.effect};});
+window.equipment=resolveLoadout(profile);window.consumed=[];
+const ammunition=createPooledLoadout(window.equipment.weapons,window.equipment.carriedFamilies);for(const state of ammunition){state.magazine=1;state.reserve=0;if(state.magazineInventory)state.magazineInventory.slots.fill(null);}
+// Small magazines shorten the reload integration regression without bypassing the real engine.
+if(new URLSearchParams(location.search).has('ammo')) window.equipment.weapons=window.equipment.weapons.map(spec=>({...spec,capacity:2,reload:.4,interval:.07}));
+window.engine=createFpsEngine(document.getElementById('world'),hud=>{
+  window.hud=structuredClone(hud);
+  const touch=hud.inputMode==='touch';document.getElementById('stage').dataset.touch=touch?'on':'off';document.getElementById('stage').dataset.phase=hud.phase;
+  root.render(React.createElement(React.Fragment,null,
+    React.createElement(FpsWeaponHud,{hud,weapon:window.equipment.weapons[hud.weapon],canFight:hud.phase==='playing',touch,onUtility:group=>window.engine.useSelectedUtility(group),onPickRecovery:()=>window.engine.toggleRecoveryPicker(),onPickGrenade:()=>window.engine.toggleGrenadePicker()}),
+    React.createElement(FpsUtilityPicker,{hud,engine:window.engine??null}),
+    touch?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));
+},{loadout:window.equipment,combat:false,region:'queenstown',deploymentIntro:false,rangeTravel:{checkpoint:{health:10,armor:0,weapon:0,ammunition},onTravel:()=>{}},onConsume:id=>window.consumed.push(id)});
+document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').style.display='none';};
+</script></body></html>
