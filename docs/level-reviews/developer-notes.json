@@ -1,0 +1,24 @@
+{
+  "format": "blockplay-level-review",
+  "version": 1,
+  "threads": [
+    {
+      "id": "marina-islet-access",
+      "district": "marina-bay",
+      "title": "Make the islet landing choices readable",
+      "kind": "design-note",
+      "anchor": { "x": 0, "z": -12, "level": "Islet / water level" },
+      "mapRevision": "schematic-4d33aa67",
+      "events": [{ "id": "marina-islet-rationale-1", "at": "2026-11-11T00:00:00.000Z", "author": "ai", "body": "Observation: the Merlion islet has three swim exits and two shore jetties in src/game/marina-water.ts. Design reading: separate approaches can give players a choice between a direct crossing and a safer landing. Tradeoff: water exposure can make the island feel like a trap if exits are hard to spot. Proposal: review sightlines from both jetties before adding more cover. Verify: approach each ladder from water and each jetty by boat; check that exits are visible and usable. This is a review hypothesis, not a measured balance result." }]
+    },
+    {
+      "id": "marina-skypark-arrival",
+      "district": "marina-bay",
+      "title": "Protect the arrival, preserve rooftop choices",
+      "kind": "design-note",
+      "anchor": { "x": 90.6, "z": -36, "level": "SkyPark / y=66.4" },
+      "mapRevision": "schematic-4d33aa67",
+      "events": [{ "id": "marina-skypark-rationale-1", "at": "2026-11-11T00:00:00.000Z", "author": "ai", "body": "Observation: two express lifts arrive on the SkyPark, with rooftop planters and benches defined in src/game/marina-landmarks.ts. Design reading: two arrivals can keep a single defender from controlling every approach. Tradeoff: protection at a lift can become strong camping cover facing the other lift. Proposal: inspect arrival-to-cover and cross-deck sightlines before moving furniture. Verify: test both arrivals against a defender on the deck and record time to first cover. The pin names the rooftop; the schematic alone cannot show vertical occlusion." }]
+    }
+  ]
+}
