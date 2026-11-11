@@ -1,8 +1,9 @@
 # Menu design comparison
 
-Settings → Video → Menu design switches between Classic (the default) and
-Next-gen. The choice is local to the browser and survives reloads. Both designs
-use the same routes, saved profile and game setup. The setting is also available
+Settings → Video → Menu design switches between Classic and Next-gen (the
+default). The choice is local to the browser and survives reloads; existing
+Classic choices are preserved. Both designs use the same routes, saved profile
+and game setup. The setting is also available
 in the existing in-game Settings overlay.
 
 Next-gen puts Single Player and Multiplayer directly on the home screen in

@@ -123,6 +123,13 @@ async function checkEquipmentExpansion() {
 try {
   await send('Page.enable'); await send('Runtime.enable'); await size(1440,900);
   await send('Page.bringToFront'); await send('Emulation.setFocusEmulationEnabled', {enabled:true});
+  await go('/settings', '.armory-settings');
+  await evaluate(`localStorage.removeItem('blockplay-sg-menu-design-v1')`);
+  await home();
+  assert(await evaluate(`!!document.querySelector('.next-gen-main')`), 'Fresh preference defaults to Next-gen');
+  await go('/settings', '.armory-settings');
+  await click('#settings-tab-video');
+  assert.equal(await evaluate(`document.querySelector('[data-menu-design="next-gen"]').getAttribute('aria-pressed')`), 'true');
   await selectDesign('classic'); await home();
   assert(await evaluate(`!document.querySelector('.next-gen-main')`));
   assert.deepEqual(await evaluate(`[...document.querySelectorAll('.game-menu-item')].map(a=>a.getAttribute('href'))`), ['/play','/inventory','/store','/settings']);
@@ -165,10 +172,10 @@ try {
   assert.equal(await evaluate(`document.querySelector('.activity-navigation a').getAttribute('href')`), '/');
   await click('.activity-navigation a'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
   assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), '/play/single-player');
-  for (const [route,selector] of [['/store','.armory'],['/inventory','.inventory'],['/settings','.armory-settings']]) {
+  for (const [route,selector] of [['/store','.armory'],['/inventory','.armory'],['/settings','.armory-settings']]) {
     await click(route==='/settings' ? '.next-gen-settings' : `.game-menu-item[href="${route}"]`);
     await wait(`location.pathname===${JSON.stringify(route)} && !!document.querySelector(${JSON.stringify(selector)})`);
-    await click('.context-back'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
+    await click('.game-back[href="/"]'); await wait(`location.pathname==='/' && !!document.querySelector('.next-gen-main')`);
     assert.equal(await evaluate(`document.activeElement.getAttribute('href')`), route);
   }
   await click('.game-menu-item[href="/play/multiplayer"]'); await wait(`location.pathname==='/play/multiplayer'`);
@@ -226,7 +233,7 @@ try {
   const manual = await send('Page.addScriptToEvaluateOnNewDocument', {source:`Object.defineProperty(navigator,'standalone',{value:false,configurable:true});window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();e.stopImmediatePropagation()})`});
   for (const [width,height] of [[320,568],[844,390]]) {
     await size(width,height,true); await home();
-    await click('.next-gen-install',true); await wait(`!!document.querySelector('.game-install-card')`);
+    await click('.next-gen-install[aria-expanded]',true); await wait(`!!document.querySelector('.game-install-card')`);
     assert(await evaluate(`document.querySelector('.next-gen-home-panels').getBoundingClientRect().height===innerHeight`), 'Install help overlays rather than shrinking the panels');
     await click('.game-install-go',true);
     assert(await evaluate(`document.querySelector('.game-install-copy').textContent.includes('Add to Home Screen')`));

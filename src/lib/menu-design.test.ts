@@ -11,18 +11,18 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
-it('starts classic, and retains a choice after reloading the setting', async () => {
+it.each(['classic', 'next-gen'] as const)('starts next-gen, and retains a %s choice after reloading the setting', async design => {
   const settings = await import('./menu-design');
-  expect(settings.getMenuDesign()).toBe('classic');
-  settings.setMenuDesign('next-gen');
+  expect(settings.getMenuDesign()).toBe('next-gen');
+  settings.setMenuDesign(design);
   vi.resetModules();
   const reloaded = await import('./menu-design');
-  expect(reloaded.getMenuDesign()).toBe('next-gen');
+  expect(reloaded.getMenuDesign()).toBe(design);
 });
 
 it('treats an unknown stored value as the default', async () => {
   saved.set('blockplay-sg-menu-design-v1', 'experimental');
-  expect((await import('./menu-design')).getMenuDesign()).toBe('classic');
+  expect((await import('./menu-design')).getMenuDesign()).toBe('next-gen');
 });
 
 it('tells subscribers, and stops once they leave', async () => {
@@ -42,7 +42,7 @@ it('still allows a session choice when browser storage is blocked', async () => 
     setItem: () => { throw new Error('Storage blocked'); },
   });
   const settings = await import('./menu-design');
-  expect(settings.getMenuDesign()).toBe('classic');
-  settings.setMenuDesign('next-gen');
   expect(settings.getMenuDesign()).toBe('next-gen');
+  settings.setMenuDesign('classic');
+  expect(settings.getMenuDesign()).toBe('classic');
 });
