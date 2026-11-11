@@ -110,13 +110,32 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     document.addEventListener('visibilitychange', visibility);
     return () => { stopStoreHover(); document.removeEventListener('visibilitychange', visibility); };
   }, []);
+  // Keep native focus/scrollIntoView clear of both sticky bars after resizing or changing views.
+  useLayoutEffect(() => {
+    const header = root.current?.querySelector<HTMLElement>('.equipment-shell-nav');
+    const footer = root.current?.querySelector<HTMLElement>('.loadout-footer');
+    if (!header || !footer) return;
+    const style = document.documentElement.style;
+    const names = ['--equipment-header-height', '--equipment-footer-height'];
+    const previous = names.map(name => style.getPropertyValue(name));
+    const measure = () => {
+      style.setProperty(names[0], `${header.getBoundingClientRect().height}px`);
+      style.setProperty(names[1], `${footer.getBoundingClientRect().height}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header); observer.observe(footer);
+    return () => {
+      observer.disconnect();
+      names.forEach((name, index) => previous[index] ? style.setProperty(name, previous[index]) : style.removeProperty(name));
+    };
+  }, []);
   useLayoutEffect(() => {
     if (switchingMode.current) return;
     if (initialFocus.current) { initialFocus.current = false; return; }
     // Catalog filters update the shared selection; keep focus on their tab/control.
     if (ui.view === 'catalog' && root.current?.querySelector('.loadout-embedded-catalog')?.contains(document.activeElement)) return;
     heading.current?.focus({ preventScroll: true });
-    root.current?.style.setProperty('--equipment-header-height', `${root.current.querySelector('.equipment-shell-nav')?.getBoundingClientRect().height ?? 0}px`);
     if (window.matchMedia('(max-width: 760px)').matches) (root.current?.querySelector('.loadout-feedback:not(.is-empty)') ?? heading.current)?.scrollIntoView({ block: 'start' });
   }, [ui.view, ui.slot, ui.item]);
   useEffect(() => {
@@ -219,13 +238,13 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
   ];
   return <section ref={root} className="armory loadout-store" data-equipment-mode={mode} data-loadout-view={ui.view} aria-label="Loadout equipment" {...storeSoundEvents}>
     <div className="equipment-shell-nav"><MenuHeader className="loadout-header" action={headerAction} profile={<ProfileBanner store={sourceStore} />}>{nav}</MenuHeader>
-    {onModeChange && <div className="equipment-view-bar"><MenuTabs aria-label="Equipment views" onKeyDown={event => tabNavigation(event, index => changeMode(index === 0 ? 'store' : 'inventory'))}>{(['store', 'inventory'] as const).map(view => <a key={view} id={`equipment-tab-${view}`} role="tab" aria-selected={mode === view} aria-controls="equipment-view-content" tabIndex={mode === view ? 0 : -1} href={`/${view}`} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (view !== mode) changeMode(view); }}>{view === 'store' ? <ShoppingBag size={17} /> : <Backpack size={17} />}{view === 'store' ? 'Store' : 'Inventory'}</a>)}</MenuTabs>{onHelp && <MenuButton className="store-tour-trigger" aria-label="Help: tour the store" title="Help: tour the store" aria-expanded={!!tutorial} aria-controls="equipment-help" onClick={onHelp}><CircleHelp size={20} aria-hidden="true" /><span className="equipment-help-label">Help</span></MenuButton>}<MenuButton aria-label="Review loadout" data-loadout-review onClick={() => go('review')}><span className="equipment-review-label">Review<span className="equipment-review-full"> loadout</span></span> <ArrowRight size={16} /></MenuButton></div>}</div>
+    {onModeChange && <div className="equipment-view-bar"><MenuTabs aria-label="Equipment views" onKeyDown={event => tabNavigation(event, index => changeMode(index === 0 ? 'store' : 'inventory'))}>{(['store', 'inventory'] as const).map(view => <a key={view} id={`equipment-tab-${view}`} role="tab" aria-selected={mode === view} aria-controls="equipment-view-content" tabIndex={mode === view ? 0 : -1} href={`/${view}`} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (view !== mode) changeMode(view); }}>{view === 'store' ? <ShoppingBag size={17} /> : <Backpack size={17} />}{view === 'store' ? 'Store' : 'Inventory'}</a>)}</MenuTabs>{onHelp && <MenuButton className="store-tour-trigger" aria-label="Help: tour the store" title="Help: tour the store" aria-expanded={!!tutorial} aria-controls="equipment-help" onClick={onHelp}><CircleHelp size={20} aria-hidden="true" /><span className="equipment-help-label">Help</span></MenuButton>}</div>}</div>
     <nav className="loadout-steps" aria-label="Preparation progress"><span aria-current={!['review', 'match'].includes(ui.view) ? 'step' : undefined}>1 · Choose & equip</span><ChevronRight size={14} /><span aria-current={ui.view === 'review' ? 'step' : undefined}>2 · Review loadout</span><ChevronRight size={14} /><span aria-current={ui.view === 'match' ? 'step' : undefined}>3 · Choose match</span></nav>
     {tutorial && <section id="equipment-help" className="loadout-guide loadout-panel" aria-label="Store tour"><div><span className="loadout-eyebrow">Store tour · {tourStep + 1} / {tourStops.length}</span><h2>{tourStops[tourStep][0]}</h2><p>{tourStops[tourStep][1]}</p></div><div className="loadout-actions"><MenuButton onClick={tutorial.onExit}>Close tour</MenuButton><MenuButton disabled={tourStep === 0} onClick={() => setTourStep(n => n - 1)}>Back</MenuButton><MenuButton variant="primary" className="loadout-primary" onClick={() => tourStep === tourStops.length - 1 ? tutorial.onComplete() : setTourStep(n => n + 1)}>{tourStep === tourStops.length - 1 ? 'Finish tour' : 'Next'}</MenuButton></div></section>}
     {store.saveError && <div className="loadout-feedback loadout-warning" role="alert">Browser storage is unavailable. Purchases and equipment changes last for this session only.</div>}
     <div className={`loadout-feedback${store.message ? '' : ' is-empty'}`} role="status" aria-live="polite"><StoreMessage text={store.message} /></div>
     <div className={`loadout-workspace${['review', 'match'].includes(ui.view) ? ' is-wide' : ''}${ui.view !== 'home' ? ' is-editing' : ''}`}><div className="loadout-content" id="equipment-view-content" role={onModeChange ? 'tabpanel' : undefined} aria-labelledby={onModeChange ? `equipment-tab-${mode}` : undefined}>{content}</div>{!['review', 'match'].includes(ui.view) && <aside aria-labelledby="deployment-loadout-heading">{slotButtons()}</aside>}</div>
-    <footer className="loadout-footer"><small>Rental timers are paused here. Purchases save immediately.</small>{ui.view !== 'home' && <MenuButton data-loadout-home onClick={() => go('home')}>Your loadout</MenuButton>}{!['review', 'match', 'home'].includes(ui.view) && <MenuButton data-loadout-review onClick={() => go('review')}>Review loadout <ArrowRight size={16} /></MenuButton>}</footer>
+    <footer className="loadout-footer"><small>Rental timers paused · Purchases save immediately.</small>{ui.view !== 'home' && <MenuButton data-loadout-home onClick={() => go('home')}>Your loadout</MenuButton>}{!['review', 'match', 'home'].includes(ui.view) && <MenuButton data-loadout-review onClick={() => go('review')}>Review loadout <ArrowRight size={16} /></MenuButton>}</footer>
   </section>;
 }
 
