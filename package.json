@@ -91,6 +91,7 @@
     "test:fps:utility-belt": "node scripts/fps-utility-belt-smoke.mjs",
     "test:fps:grenades": "node scripts/fps-grenades-smoke.mjs",
     "test:fps:food": "node scripts/fps-food-smoke.mjs",
+    "test:fps:food-animation": "node scripts/food-animation-smoke.mjs",
     "test:fps:lens": "node scripts/fps-lens-vision-smoke.mjs",
     "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
     "audit:map-cover": "node --experimental-strip-types scripts/map-cover-audit.mjs",

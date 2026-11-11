@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+body{margin:0;background:#253541;color:#f1e5d1;font:14px system-ui}canvas{display:block}#controls{position:absolute;top:18px;left:18px;right:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}select,button{font:inherit;padding:8px}input{flex:1;min-width:140px}
+</style></head><body><div id="controls"><select id="food"></select><button id="play">Play</button><input id="progress" type="range" min="0" max="1" step=".001" value=".2"><output id="time"></output></div><script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {FOOD_MODEL_IDS} from '/src/game/food-models.ts';
+import {createSupplyViewmodel} from '/src/game/fps-supply-viewmodel.ts';
+import {itemById} from '/src/game/armory-catalog.ts';
+import {supplyProfile} from '/src/game/fps-healing.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(innerWidth,innerHeight);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#8196a0');scene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const key=new THREE.DirectionalLight('#fff4dd',2.5);key.position.set(1,2,1);scene.add(key);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,3),supply=createSupplyViewmodel(scene);
+const food=document.querySelector('#food'),progress=document.querySelector('#progress'),time=document.querySelector('#time');
+FOOD_MODEL_IDS.forEach(id=>food.add(new Option(itemById(id).name,id)));
+function frame(id,p){food.value=id;progress.value=p;const motion=supply.update('eat',p,id,camera.aspect);time.value=Number(p).toFixed(3);renderer.render(scene,camera);return motion;}
+let playing=false,last=performance.now();document.querySelector('#play').onclick=()=>{playing=!playing;if(playing)progress.value=0;};food.onchange=()=>frame(food.value,Number(progress.value));progress.oninput=()=>{playing=false;frame(food.value,Number(progress.value));};
+function tick(now){if(playing){const p=Number(progress.value)+(now-last)/1000/supplyProfile(itemById(food.value)).seconds;frame(food.value,Math.min(p,1));if(p>=1)playing=false;}last=now;requestAnimationFrame(tick);}requestAnimationFrame(tick);
+window.onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);frame(food.value,Number(progress.value));};
+window.review={frame,supply,scene,camera,renderer,ids:FOOD_MODEL_IDS};frame(food.value,.2);window.ready=true;
+</script></body></html>

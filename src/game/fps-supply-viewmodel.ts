@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { supplyMotion, type Pose, type SupplyStyle } from './fps-healing';
-import { FOOD_MODEL_IDS, buildFoodModel } from './food-models';
+import { createFoodViewmodel } from './fps-food-viewmodel';
 import { createViewmodelHand } from './fps-viewmodel-hand';
 
 /**
@@ -25,12 +25,7 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
   // Items, one group per style; only the one in use is shown.
   const items: Record<SupplyStyle, THREE.Group> = { eat: new THREE.Group(), bandage: new THREE.Group(), medkit: new THREE.Group(), plates: new THREE.Group(), ammo: new THREE.Group() };
   Object.values(items).forEach(group => { group.visible = false; root.add(group); });
-  // Food: the item itself (food-models), shrinking with every bite; a plain packed meal for anything else.
-  const food = new THREE.Group(); items.eat.add(food);
-  const models = FOOD_MODEL_IDS.map(foodId => buildFoodModel(foodId, 'held')!);
-  const foods = new Map<string, THREE.Object3D>(models.map((model, i) => [FOOD_MODEL_IDS[i], model.root]));
-  const packet = new THREE.Group(); box(packet, .11, .05, .09, material('#b48a5a', .95)); box(packet, .112, .006, .03, material('#e9e2cf', .9), 0, .026, 0);
-  foods.set('', packet); foods.forEach(g => food.add(g));
+  const food = createFoodViewmodel(root);
   // Dressing: a roll in the hand and the wrap growing round the left forearm.
   const gauze = material('#ebe7dc', .95);
   const roll = mesh(items.bandage, new THREE.CylinderGeometry(.03, .03, .065, 14), gauze); roll.rotation.z = Math.PI / 2;
@@ -69,11 +64,14 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
   return {
     root,
     /** Shows `style` at `progress` (0..1) for the item `id`, or hides everything with null; the motion tells the engine where the weapon and view should be. */
-    update(next: SupplyStyle | null, progress: number, id = '') {
+    update(next: SupplyStyle | null, progress: number, id = '', aspect = 1) {
       root.visible = next !== null;
+      // Move the whole eating rig back on narrow screens; preserve grips and proportions.
+      root.position.z = next === 'eat' ? -.35 * (1 - Math.min(1, Math.max(.3, aspect) / .8)) : 0;
       if (style !== next) { Object.entries(items).forEach(([key, group]) => group.visible = key === next); style = next; }
+      food.root.visible = next === 'eat';
       if (!next) return null;
-      const motion = supplyMotion(next, progress);
+      const motion = next === 'eat' ? food.update(id, progress) : supplyMotion(next, progress);
       place(right.group, motion.right); place(left.group, motion.left); place(items[next], motion.item);
       right.setGrip(motion.rightGrip); left.setGrip(motion.leftGrip);
       right.group.visible = next !== 'plates';
@@ -82,11 +80,6 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
       if (next === 'plates') items.plates.visible = progress < .8;
       wrap.visible = next === 'bandage' && motion.action > .02;
       injector.visible = next === 'medkit'; magazine.visible = next === 'ammo';
-      if (next === 'eat') {
-        const kind = foods.has(id) ? id : '';
-        foods.forEach((g, key) => g.visible = key === kind);
-        food.scale.set(motion.remaining, 1, .4 + motion.remaining * .6);
-      }
       if (next === 'bandage') {
         roll.scale.set(1, .5 + motion.remaining * .5, .5 + motion.remaining * .5);
         place(wrap, { ...motion.left, z: motion.left.z + .1, y: motion.left.y - .05 });
@@ -96,6 +89,6 @@ export function createSupplyViewmodel(parent: THREE.Object3D) {
       if (next === 'ammo') place(magazine, { ...motion.right, y: motion.right.y + .05 });
       return motion;
     },
-    dispose() { models.forEach(model => model.dispose()); root.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
+    dispose() { food.dispose(); root.removeFromParent(); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); },
   };
 }

@@ -2836,7 +2836,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       ? { id: grenadeHeld.id, hold: { ready: grenadeHeld.ready, cooked: grenadeHeld.cooked, pinned: grenadeHeld.pinned, swingAt: grenadeHeld.swingAt, under: grenadeUnder, fuseLeft: itemById(grenadeHeld.id)!.grenade!.fuse - grenadeHeld.cooked } }
       : grenadeAfter ? { id: grenadeAfter.id, release: grenadeAfter } : null);
     if (grenadeHeld && (grenadeMotion?.weaponDown ?? 1) >= 1) rig.visible = false;
-    const supplyMotion = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id);
+    const supplyMotion = supplyHands.update(rig.visible && supplyUse ? supplyUse.profile.style : null, supplyUse ? supplyProgress(supplyUse) : 0, supplyUse?.id, viewCamera.aspect);
     const placementTarget = rig.visible && ammoPlacement ? playerBody.magazineSource(ammoPlacement.slot, ammoPlacement.magazine) : null;
     const packing = placementTarget && ammoPlacement ? ammoPlacementHands.update(ammoPlacement, { ...placementTarget, reachScale: Math.min(1, viewCamera.aspect),
       worldToView: new THREE.Matrix4().makeScale(projectionScale, projectionScale, 1).multiply(camera.matrixWorldInverse) }) : null;
