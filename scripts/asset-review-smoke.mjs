@@ -74,9 +74,10 @@ try {
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
   await delay(200); assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));
   await clickText('＋ Pin a comment');
+  assert(await evaluate(`document.querySelector('.lr-model-stage').classList.contains('is-placing') && document.querySelector('.level-review').dataset.reviewPanel==='canvas'`),'Pin mode exposes canvas');
   const tap=await evaluate(`(()=>{const e=document.querySelector('.lr-model-canvas canvas');e.scrollIntoView({block:'center',behavior:'instant'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...tap,id:1}]}); await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await wait(`!!document.querySelector('.lr-compose')`); await shot('model-mobile', '.lr-model-stage');
+  await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`); await shot('model-mobile', '.lr-discussion');
   assert.deepEqual(errors,[]);
   console.log('PASS asset review: all 37 models render, surface raycasting, saved view, hidden-side/stale pins, whole-model threads, replies/resolve/reload, collection isolation, keyboard and touch.');
 } catch(error) { await shot('failure', '.lr-model-stage').catch(()=>{}); console.error('Browser errors:',errors, 'Model hint:', await evaluate(`document.querySelector('.lr-map-hint')?.textContent`).catch(()=>'')); throw error; } finally { await send('Target.disposeBrowserContext',{browserContextId}); ws.close(); }

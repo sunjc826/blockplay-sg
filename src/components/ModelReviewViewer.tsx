@@ -8,6 +8,7 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
   assetId: string; placing: boolean; draft: ReviewAnchor | null; threads: ReviewThread[]; selected?: ReviewThread; numbers: Record<string, number>;
   onPick(anchor: ReviewAnchor): void; onSelect(thread: ReviewThread): void; onRevision(revision: string): void;
 }) {
+  const lastPlacement = useRef(-Infinity);
   const frontYaw = getReviewAsset(assetId)?.frontYaw ?? 0;
   const host = useRef<HTMLDivElement>(null), view = useRef({ yaw: frontYaw + .7, pitch: .22, zoom: 1 });
   const pins = useRef<HTMLDivElement>(null), latest = useRef({ placing, draft, threads, onPick, onRevision }); latest.current = { placing, draft, threads, onPick, onRevision };
@@ -41,9 +42,9 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     const point = (x: number, y: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
       const anchor = pickModelAnchor(model.root, camera, new THREE.Vector2((x - rect.left) / rect.width * 2 - 1, 1 - (y - rect.top) / rect.height * 2), view.current);
-      if (anchor) { setHint(''); latest.current.onPick(anchor); } else setHint('That point missed the model. Choose a visible surface or use a whole-model comment.');
+      if (anchor) { lastPlacement.current = performance.now(); setHint(''); latest.current.onPick(anchor); } else setHint('That point missed the model. Choose a visible surface or use a whole-model comment.');
     };
-    const down = (e: PointerEvent) => { if (e.button !== 0) return; drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }; renderer.domElement.setPointerCapture(e.pointerId); };
+    const down = (e: PointerEvent) => { if (e.button !== 0) return; e.preventDefault(); renderer.domElement.focus({ preventScroll: true }); drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false }; renderer.domElement.setPointerCapture(e.pointerId); };
     const move = (e: PointerEvent) => { if (!drag) return; drag.moved ||= Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 5; if (drag.moved) { view.current.yaw -= (e.clientX - drag.x) * .01; view.current.pitch = THREE.MathUtils.clamp(view.current.pitch + (e.clientY - drag.y) * .007, -1.35, 1.35); } drag.x = e.clientX; drag.y = e.clientY; };
     const up = (e: PointerEvent) => { if (drag && !drag.moved && latest.current.placing) point(e.clientX, e.clientY); drag = null; };
     const cancel = () => { drag = null; };
@@ -56,6 +57,7 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', cancel); canvas.addEventListener('lostpointercapture', cancel); canvas.addEventListener('wheel', wheel, { passive: false }); canvas.addEventListener('keydown', key);
     const ray = new THREE.Raycaster();
     const render = () => {
+      if (!node.clientWidth || !node.clientHeight || document.hidden) { frame = requestAnimationFrame(render); return; }
       const v = view.current; v.yaw = THREE.MathUtils.euclideanModulo(v.yaw + Math.PI, Math.PI * 2) - Math.PI;
       const distance = radius / Math.sin(Math.atan(Math.tan(35 * Math.PI / 360) * Math.min(1, camera.aspect))) * 1.13 / v.zoom;
       camera.position.copy(center).add(new THREE.Vector3(Math.sin(v.yaw) * Math.cos(v.pitch), Math.sin(v.pitch), Math.cos(v.yaw) * Math.cos(v.pitch)).multiplyScalar(distance)); camera.lookAt(center); camera.updateMatrixWorld();
@@ -81,7 +83,7 @@ export default function ModelReviewViewer({ assetId, placing, draft, threads, nu
     return () => { cancelAnimationFrame(frame); observer.disconnect(); model.dispose(); renderer.dispose(); canvas.remove(); delete node.dataset.ready; };
   }, [assetId]);
   return <div className="lr-model-review">
-    <div className={`lr-model-stage ${placing ? 'is-placing' : ''}`}>
+    <div className={`lr-model-stage ${placing ? 'is-placing' : ''}`} onClickCapture={event => { /* A touch can synthesize a click after pinning changes the visible panel. */ if (placing || performance.now() - lastPlacement.current < 400) { event.preventDefault(); event.stopPropagation(); } }}>
       <div className="lr-model-canvas" ref={host} />
       <div className="lr-model-pins" ref={pins}>{threads.filter(t => t.anchor.surface).map(thread => <button hidden key={thread.id} data-model-pin={thread.id} aria-label={`Open model thread: ${thread.title}`} aria-pressed={selected?.id === thread.id} onClick={() => onSelect(thread)}>{numbers[thread.id]}</button>)}{draft?.surface && <span hidden data-model-pin="draft">＋</span>}</div>
       {placing && <span className="lr-model-cross" aria-hidden="true">＋</span>}

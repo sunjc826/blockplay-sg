@@ -57,7 +57,7 @@ try {
   const reply = async (client, body) => { await client.click('.lr-thread textarea'); await client.cdp('Input.insertText', { text: body }); await client.button('Reply'); };
   await reply(a, 'Device A shared response');
   await a.wait(`document.querySelector('[data-cloud-status]')?.textContent.includes('Cloud saved')`);
-  await b.click('.lr-cloud summary'); await b.button('Sync now');
+  await b.click('.lr-local'); await b.button('Sync now');
   await b.wait(`document.querySelector('.lr-messages')?.textContent.includes('Device A shared response')`);
   // Drop the network on A, save a reply, and independently append from B.
   await a.cdp('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
@@ -67,7 +67,7 @@ try {
   await reply(b, 'Device B concurrent response');
   await b.wait(`document.querySelector('[data-cloud-status]')?.textContent.includes('Cloud saved')`);
   await a.cdp('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-  await a.click('.lr-cloud summary'); await a.button('Sync now');
+  await a.click('.lr-local'); await a.button('Sync now');
   await a.wait(`document.querySelector('[data-cloud-status]')?.textContent.includes('Cloud saved') && document.querySelector('.lr-messages')?.textContent.includes('Device B concurrent response')`);
   await b.button('Sync now'); await b.wait(`document.querySelector('.lr-messages')?.textContent.includes('Device A offline response')`);
   const saved = (await api()).data.document.threads.find(t => t.id === id);
@@ -76,7 +76,7 @@ try {
   await b.wait(`document.querySelector('.lr-messages')?.textContent.includes('Device A offline response')`);
   await b.evaluate(`document.querySelector('.level-review').scrollIntoView({block:'start',behavior:'instant'})`); await delay(200);
   const shot = await b.cdp('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${collection}-cloud-synced.png`, output), Buffer.from(shot.data, 'base64'));
-  await b.click('.lr-cloud summary'); await b.button('Disconnect');
+  await b.click('.lr-local'); await b.button('Disconnect');
   await b.wait(`document.querySelector('[data-cloud-status]')?.textContent==='Browser only'`);
   assert.equal(await b.evaluate(`localStorage.getItem('blockplay.level-review.access.v1')`), null);
   assert.equal((await api()).data.document.threads.find(t => t.id === id).events.length, 6, 'Disconnect retains cloud history');

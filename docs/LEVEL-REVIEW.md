@@ -172,3 +172,18 @@ endpoints to local Wrangler. `scripts/asset-review-smoke.mjs` checks all models,
 surface placement, restored views, stale/hidden pins, reload, keyboard and touch.
 `scripts/level-review-cloud-smoke.mjs --assets` checks two-browser synchronization,
 offline recovery, concurrent replies and authentication on the model test board.
+
+## Daily debug workspace
+
+`/debug` now opens the last design workspace (map/model) without starting a game.
+Use the left tool rail and district selector to switch tasks, or **Focus
+workspace** to hide the desktop rail. On a small screen, **Tools** opens the
+navigation and **Map/Model · Discussion** switches panels. Placing a pin opens
+its editor directly; a shared thread link opens its discussion. The canvas and
+thread history scroll independently when needed, without moving the page header.
+
+The visible sync status opens cloud access controls. **Share & files** contains
+export, import and **Copy AI brief**. Unposted comments/replies warn before being
+discarded by navigation; they are not automatically saved. Posted data and cloud
+sync semantics are unchanged. See [the debug UX audit](DEBUG-WORKSPACE-AUDIT.md)
+for measured before/after results, verification scope and remaining limitations.

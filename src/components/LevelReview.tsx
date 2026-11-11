@@ -11,6 +11,7 @@ import { reviewCacheKey } from '../lib/level-review-cloud';
 import { useLevelReviewCloud } from './use-level-review-cloud';
 import { getReviewAsset, REVIEW_ASSETS } from '../game/review-assets';
 import ModelReviewViewer from './ModelReviewViewer';
+import { requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 
 const seeds = parseReview(JSON.stringify(developerNotes)), assetSeeds = parseReview(JSON.stringify(modelNotes));
 function loadReview(collection: ReviewCollection): { document: ReviewDocument; error: string } {
@@ -27,7 +28,7 @@ function Shapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
     ? <rect key={i} x={shape.x} y={shape.z} width={shape.width} height={shape.depth} rx={shape.radius} fill={shape.fill} />
     : <path key={i} d={`M${shape.from.x},${shape.from.z}L${shape.to.x},${shape.to.z}`} fill="none" stroke={shape.stroke} strokeWidth={shape.width} />)}</>;
 }
-export default function LevelReview({ district, assetId, onAssetChange }: { district: RegionId; assetId?: string; onAssetChange?: (id: string) => void }) {
+export default function LevelReview({ district, assetId, onAssetChange, onWorkspaceChange }: { district: RegionId; assetId?: string; onAssetChange?: (id: string) => void; onWorkspaceChange?: (tool: 'maps' | 'models') => void }) {
   const collection: ReviewCollection = assetId ? 'asset' : 'level';
   const asset = assetId ? getReviewAsset(assetId) : undefined;
   const target = assetId ?? district;
@@ -48,6 +49,8 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
       localStorage.setItem(reviewCacheKey(collection), JSON.stringify(merged)); current.current = merged; setDocument(merged);
     }
   }, !!initial.error, collection);
+  const [panel, setPanel] = useState<'canvas' | 'discussion'>(() => new URLSearchParams(window.location.search).has('thread') ? 'discussion' : 'canvas');
+  const [cloudOpen, setCloudOpen] = useState(false);
   const [selected, setSelected] = useState(() => new URLSearchParams(window.location.search).get('thread') ?? '');
   const [filter, setFilter] = useState<'all' | 'open' | 'resolved' | 'design-note'>('all');
   const [search, setSearch] = useState('');
@@ -56,7 +59,11 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
   const [title, setTitle] = useState(''), [body, setBody] = useState(''), [level, setLevel] = useState('Ground / unspecified');
   const [kind, setKind] = useState<ReviewThread['kind']>('discussion');
   const [reply, setReply] = useState('');
+  useNavigationGuard(!!((anchor && (title.trim() || body.trim())) || reply.trim()), { title: 'Leave this draft?', detail: 'This comment has not been posted. Stay to finish it, or leave and discard the draft. Saved threads are unaffected.', confirmLabel: 'Discard draft & leave' });
   const [zoom, setZoom] = useState(1), [center, setCenter] = useState<{ x: number; z: number } | null>(null);
+  const more = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { const close = (event: PointerEvent) => { if (more.current && !more.current.contains(event.target as Node)) more.current.open = false; }; window.document.addEventListener('pointerdown', close); return () => window.document.removeEventListener('pointerdown', close); }, []);
+  const discussion = useRef<HTMLElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 560 });
   const { width: WIDTH, height: HEIGHT } = size;
@@ -71,15 +78,18 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
   useEffect(() => {
     if (!frame.current) return;
     const observer = new ResizeObserver(([entry]) => {
-      const width = Math.max(240, Math.min(800, entry.contentRect.width));
-      setSize({ width, height: Math.max(300, width * .7) });
+      const width = Math.max(240, entry.contentRect.width);
+      const controls = frame.current?.querySelector('.lr-map-navigation')?.getBoundingClientRect().height ?? 0;
+      const height = frame.current?.closest('.debug-shell') ? Math.max(160, entry.contentRect.height - controls) : Math.max(300, width * .7);
+      setSize({ width, height });
     });
     observer.observe(frame.current); return () => observer.disconnect();
   }, []);
   const threads = document.threads.filter(t => assetId ? t.asset === assetId : t.district === district);
   const visible = threads.filter(t => (filter === 'all' || (filter === 'design-note' ? t.kind === filter : threadStatus(t) === filter)) && `${t.title} ${t.anchor.level} ${t.events.map(e => e.body).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
   const active = threads.find(t => t.id === selected);
-  const select = (thread: ReviewThread) => { setSelected(thread.id); setAnchor(null); setPlacing(false); setReply(''); if (!assetId) setCenter(reviewPoint(thread.anchor.x, thread.anchor.z, bounds)); };
+  useEffect(() => { if (active && panel === 'discussion') { discussion.current?.scrollTo(0, 0); discussion.current?.focus({ preventScroll: true }); } }, [active?.id, panel]);
+  const select = (thread: ReviewThread) => requestLeave(() => { setPanel('discussion'); setSelected(thread.id); setAnchor(null); setPlacing(false); setReply(''); if (!assetId) setCenter(reviewPoint(thread.anchor.x, thread.anchor.z, bounds)); });
   // Refreshes and other tabs merge their append-only histories before any write.
   useEffect(() => {
     const sync = (event: StorageEvent) => {
@@ -89,7 +99,8 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
     };
     window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync);
   }, []);
-  useEffect(() => { if (anchor) titleInput.current?.focus(); }, [anchor]);
+  useEffect(() => { if (anchor) setPanel('discussion'); }, [anchor]);
+  useEffect(() => { if (anchor && panel === 'discussion') titleInput.current?.focus({ preventScroll: true }); }, [anchor, panel]);
   function save(next: ReviewDocument) {
     try {
       if (initial.error) throw new Error(initial.error);
@@ -125,31 +136,33 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
     setAnchor({ ...reviewPoint(x, z, bounds), level: 'Ground / unspecified' }); setSelected(''); setPlacing(false);
   }
   const pan = (dx: number, dz: number) => setCenter(reviewPoint(focus.x + dx * spanX * .2, focus.z + dz * spanZ * .2, bounds));
-  return <section className={`level-review ${assetId ? "asset-review" : ""}`} aria-label={assetId ? "3D asset review" : "Level design review"} data-map-revision={revision}>
-    <header className="lr-header"><div><span className="lr-eyebrow">DESIGN WORKSPACE / {assetId ? asset?.category ?? "ASSET" : region.shortName}</span><h2>{assetId ? "Model review" : "Level review"}<span>●</span></h2><p>{assetId ? "Point to a surface. Discuss the detail. Revisit the same view." : "Point to a place. Discuss the intent. Test the change."}</p></div><span className="lr-local" data-cloud-status aria-live="polite">{cloud.status}</span></header>
-    <nav className="lr-workspaces" aria-label="Design review workspaces"><a href={`/debug?review=${district}${testQuery}`} aria-current={!assetId ? 'page' : undefined}>Maps</a><a href={`/debug?asset=prop/vending${testQuery}`} aria-current={assetId ? 'page' : undefined}>3D models</a></nav>
+  return <section className={`level-review ${assetId ? "asset-review" : ""}`} aria-label={assetId ? "3D asset review" : "Level design review"} data-map-revision={revision} data-review-panel={panel}>
+    <header className="lr-header"><div><span className="lr-eyebrow">DESIGN WORKSPACE / {assetId ? asset?.category ?? "ASSET" : region.shortName}</span><h2>{assetId ? "Model review" : "Level review"}<span>●</span></h2><p>{assetId ? "Point to a surface. Discuss the detail. Revisit the same view." : "Point to a place. Discuss the intent. Test the change."}</p></div><button className="lr-local" aria-live="polite" aria-expanded={cloudOpen} aria-controls="review-cloud-panel" disabled={!cloud.available} onClick={() => setCloudOpen(!cloudOpen)}><span data-cloud-status>{cloud.status}</span> · Sync</button></header>
+    <nav className="lr-workspaces" aria-label="Design review workspaces"><a onClick={e => { if (onWorkspaceChange) { e.preventDefault(); onWorkspaceChange('maps'); } }} href={`/debug?review=${district}${testQuery}`} aria-current={!assetId ? 'page' : undefined}>Maps</a><a onClick={e => { if (onWorkspaceChange) { e.preventDefault(); onWorkspaceChange('models'); } }} href={`/debug?asset=prop/vending${testQuery}`} aria-current={assetId ? 'page' : undefined}>3D models</a></nav>
     {assetId && <label className="lr-asset-picker">Review asset<select value={assetId} onChange={e => onAssetChange ? onAssetChange(e.target.value) : window.location.assign(`/debug?asset=${encodeURIComponent(e.target.value)}${testQuery}`)}>{!asset && <option value={assetId}>Unavailable asset: {assetId}</option>}{(['Street props', 'Weapons', 'Operators'] as const).map(category => <optgroup key={category} label={category}>{REVIEW_ASSETS.filter(a => a.category === category).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>)}</select></label>}
     <div className="lr-tools">
-      <button className="lr-primary" aria-pressed={placing} onClick={() => { setPlacing(!placing); setAnchor(null); setSelected(''); setTitle(''); setBody(''); setLevel('Ground / unspecified'); }}>＋ {placing ? 'Cancel pin' : 'Pin a comment'}</button>
-      {assetId && <button onClick={() => { setPlacing(false); setSelected(''); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(''); setBody(''); }}>Comment on whole model</button>}
-      <button onClick={() => download(JSON.stringify(document, null, 2), `blockplay-${collection}-review.json`)}>Export review</button>
+      <button className="lr-primary" aria-pressed={placing} onClick={() => requestLeave(() => { setPanel('canvas'); setKind('discussion'); setReply(''); setPlacing(!placing); setAnchor(null); setSelected(''); setTitle(''); setBody(''); setLevel('Ground / unspecified'); })}>＋ {placing ? 'Cancel pin' : 'Pin a comment'}</button>
+      {assetId && <button onClick={() => requestLeave(() => { setKind('discussion'); setReply(''); setPlacing(false); setSelected(''); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(''); setBody(''); })}>Comment on whole model</button>}
+      <details ref={more} className="lr-more" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }} onClick={e => { if ((e.target as HTMLElement).closest('button')) e.currentTarget.open = false; }}><summary>Share & files</summary><div className="lr-more-actions"><button onClick={() => download(JSON.stringify(document, null, 2), `blockplay-${collection}-review.json`)}>Export review</button>
       <button onClick={() => file.current?.click()}>Import replies</button>
       <button onClick={() => void copy(reviewBrief(document, target), 'Review brief copied. Attach the exported JSON for editable replies.', `${target.replace("/", "-")}-review.txt`)}>Copy AI brief</button>
+      </div></details>
       <input ref={file} hidden type="file" accept=".json,application/json" aria-label="Import review JSON" onChange={e => { const upload = e.target.files?.[0]; if (upload) void importFile(upload); e.target.value = ''; }} />
     </div>
-    {cloud.available && <details className="lr-cloud" open={cloud.token ? undefined : true}>
+    {cloud.available && <details id="review-cloud-panel" className="lr-cloud" open={cloudOpen} onToggle={e => setCloudOpen(e.currentTarget.open)}>
       <summary>{cloud.token ? 'Private cloud workspace' : 'Connect cloud sync'}</summary>
       <p>{cloud.token ? 'Connected to the shared board. Changes sync automatically; other devices refresh within 15 seconds. Anyone with the private link can read and edit.' : 'Open your private collaboration link, or paste it below. Connecting merges this browser’s threads into the shared board.'}</p>
       {cloud.token ? <div className="lr-actions"><button onClick={cloud.retry}>Sync now</button><button onClick={() => void copy(`${window.location.origin}/debug?${targetQuery}${testQuery}#review-key=${cloud.token}`, 'Private collaboration link copied. Anyone with it can read and edit this board.', 'private-level-review-link.txt')}>Copy private link</button><button onClick={cloud.disconnect}>Disconnect</button></div> : <form onSubmit={event => { event.preventDefault(); if (cloud.connect(access)) setAccess(''); }}><label>Private collaboration link<input type="password" autoComplete="off" value={access} onChange={event => setAccess(event.target.value)} /></label><button type="submit">Connect & sync threads</button></form>}
       {cloud.problem && <p role="alert" className="lr-warning">{cloud.problem} <button onClick={cloud.retry}>Retry sync</button></p>}
       <small>Cloud threads remain saved when you disconnect. A copy stays in this browser; export it before clearing site data while offline.</small>
     </details>}
-    <div className="lr-feedback" aria-live="polite">{error ? <><strong role="alert">{error}</strong><button onClick={() => { try { download(localStorage.getItem(reviewCacheKey(collection)) ?? '', 'level-review-storage-backup.txt', 'text/plain'); } catch { setNotice('Browser storage is unavailable. Export review still downloads the loaded threads.'); } }}>Export saved backup</button></> : notice || (cloud.token ? 'Cloud sync is connected. Keep the private collaboration link to use the same board on another device.' : 'Browser-only storage until you connect cloud sync. Export remains available for backups and file handoffs.')}</div>
+    {(error || notice || cloud.problem) && <div className="lr-feedback" aria-live="polite">{error ? <><strong role="alert">{error}</strong><button onClick={() => { try { download(localStorage.getItem(reviewCacheKey(collection)) ?? '', 'level-review-storage-backup.txt', 'text/plain'); } catch { setNotice('Browser storage is unavailable. Export review still downloads the loaded threads.'); } }}>Export saved backup</button></> : cloud.problem || notice}<button className="lr-dismiss" aria-label="Dismiss notification" onClick={() => setNotice('')} hidden={!notice || !!error || !!cloud.problem}>×</button></div>}
+    <div className="lr-panel-switch" role="group" aria-label="Review panels"><button aria-pressed={panel === 'canvas'} onClick={() => setPanel('canvas')}>{assetId ? 'Model' : 'Map'}</button><button aria-pressed={panel === 'discussion'} onClick={() => setPanel('discussion')}>Discussion · {threads.length}{anchor ? ' · Draft' : ''}</button></div>
     <div className="lr-layout">
       <div className="lr-map-column">
         <div className="lr-map-heading"><strong>{assetId ? asset?.name ?? assetId : region.name}</strong><span>{assetId ? '3D / STATIC STUDY' : '↑ N · SCHEMATIC'}</span></div>
         {assetId ? <><ModelReviewViewer assetId={assetId} placing={placing} draft={anchor} threads={visible} numbers={Object.fromEntries(threads.map((thread, i) => [thread.id, i + 1]))} selected={active} onPick={point => { setAnchor(point); setLevel(point.level); setSelected(''); setPlacing(false); }} onSelect={select} onRevision={setAssetRevision} />
-          {asset && <details className="lr-method"><summary>Developer context · {asset.name}</summary><p>{asset.description}</p><p>{asset.rationale}</p><p>Source: <code>{asset.source}</code> · <a href={asset.gallery}>Original gallery ↗</a></p><button onClick={() => { setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(`Design intent: ${asset.name}`.slice(0, 160)); setBody(''); setKind('design-note'); setSelected(''); }}>Discuss the design intent</button></details>}</> : <>
+          {asset && <details className="lr-method"><summary>Developer context · {asset.name}</summary><p>{asset.description}</p><p>{asset.rationale}</p><p>Source: <code>{asset.source}</code> · <a href={asset.gallery}>Original gallery ↗</a></p><button onClick={() => requestLeave(() => { setReply(''); setPlacing(false); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(`Design intent: ${asset.name}`.slice(0, 160)); setBody(''); setKind('design-note'); setSelected(''); })}>Discuss the design intent</button></details>}</> : <>
         <div ref={frame} className={`lr-map ${placing ? 'is-placing' : ''}`}>
           <svg ref={svg} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} tabIndex={0} role="group" aria-label="Review map. In pin mode, click a place or use arrows to position the map and Enter to pin its center." onClick={e => pick(e.clientX, e.clientY)} onKeyDown={e => {
             if (e.target !== e.currentTarget) return;
@@ -184,16 +197,16 @@ export default function LevelReview({ district, assetId, onAssetChange }: { dist
         </>}
         <details className="lr-method"><summary>How we collaborate</summary><ol><li><strong>You point and explain.</strong> Pin a place, name the floor, describe the problem or desired experience.</li><li><strong>Sync the discussion.</strong> Connect your private cloud workspace. The AI can fetch its threads and reply to the same IDs with intent, alternatives, tradeoffs and a test plan.</li><li><strong>Read replies here.</strong> Connected boards refresh automatically. Export/import is still available for backups and offline handoffs.</li><li><strong>Review in game, then resolve.</strong> Record what changed and how it played. Reopen with a comment if the result misses the intent.</li></ol><p>Connected threads are stored on Cloudflare. This board does not call an AI automatically. Author labels describe contributors, not verified identities. Map pins use world X/Z plus a floor label. Model pins store a mesh-local surface point and viewing angle in the frozen study pose; changed geometry asks for re-verification.</p></details>
       </div>
-      <aside className="lr-discussion" aria-label="Review threads">
+      <aside ref={discussion} className="lr-discussion" aria-label="Review threads" tabIndex={-1}>
         {anchor ? <form className="lr-compose" onSubmit={e => { e.preventDefault(); if (!title.trim() || !body.trim() || !level.trim()) return; const thread: ReviewThread = { id: crypto.randomUUID(), ...(assetId ? { asset: assetId } : { district }), title: title.trim(), kind, anchor: { ...anchor, level: level.trim() }, mapRevision: revision, events: [event(body)] }; if (save({ ...emptyReview(collection), threads: [thread] })) { setSelected(thread.id); setAnchor(null); setFilter('all'); setSearch(''); } }}>
           <span className="lr-eyebrow">NEW THREAD · {assetId && !anchor.surface ? "WHOLE MODEL" : `${anchor.x.toFixed(2)}, ${anchor.z.toFixed(2)}${anchor.surface ? ` · Y ${anchor.surface.y.toFixed(2)}` : ""}`}</span><h3>{assetId ? "What should we refine?" : "What should happen here?"}</h3>
           <label>Title<input ref={titleInput} required maxLength={160} value={title} onChange={e => setTitle(e.target.value)} placeholder={assetId ? "e.g. This edge needs a softer profile" : "e.g. This crossing feels too exposed"} /></label>
           <label>{assetId ? "Part / detail" : "Floor / height"}<input required maxLength={100} value={level} onChange={e => setLevel(e.target.value)} /></label>
           <label>Thread type<select value={kind} onChange={e => setKind(e.target.value as ReviewThread['kind'])}><option value="discussion">Discussion</option><option value="design-note">Design rationale</option></select></label>
           <label>Comment<textarea required maxLength={8000} rows={5} value={body} onChange={e => setBody(e.target.value)} placeholder="What you notice, what you want, and how we could test it…" /></label>
-          <div className="lr-actions"><button className="lr-primary" type="submit">Post comment</button><button type="button" onClick={() => setAnchor(null)}>Cancel</button></div>
+          <div className="lr-actions"><button className="lr-primary" type="submit">Post comment</button><button type="button" onClick={() => requestLeave(() => { setAnchor(null); setTitle(''); setBody(''); })}>Cancel</button></div>
         </form> : active ? <div className="lr-thread">
-          <button className="lr-back" onClick={() => setSelected('')}>← All threads</button><div className="lr-thread-meta">{active.kind === 'design-note' ? 'DESIGN NOTE' : 'DISCUSSION'} · {threadStatus(active).toUpperCase()}</div><h3>{active.title}</h3>
+          <button className="lr-back" onClick={() => requestLeave(() => { setReply(''); setSelected(''); })}>← All threads</button><div className="lr-thread-meta">{active.kind === 'design-note' ? 'DESIGN NOTE' : 'DISCUSSION'} · {threadStatus(active).toUpperCase()}</div><h3>{active.title}</h3>
           <p className="lr-coordinate">{assetId ? active.anchor.surface ? `Surface · X ${active.anchor.x.toFixed(3)} · Y ${active.anchor.surface.y.toFixed(3)} · Z ${active.anchor.z.toFixed(3)}` : "Whole model" : `X ${active.anchor.x} · Z ${active.anchor.z}`}<br />{active.anchor.level}</p>
           {active.mapRevision !== revision && <p className="lr-warning">{assetId ? "The model changed or this note predates a verified model revision. Verify the part before acting; stale surface pins are hidden." : "The schematic has changed or this pin has not been checked against it. Verify the location in game before acting."}</p>}
           <button onClick={() => void copy(`${window.location.origin}/debug?${targetQuery}${testQuery}&thread=${encodeURIComponent(active.id)}`, 'Thread link copied. Other devices need cloud access or the exported review file.', 'review-link.txt')}>Copy thread link</button>
