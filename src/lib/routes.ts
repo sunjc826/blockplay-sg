@@ -41,7 +41,7 @@ export function canonicalUrl(pathname: string, search: string): string | null {
   return null;
 }
 
-type Entry = { index: number };
+type Entry = { index: number; menuPage?: 'title' | 'main' };
 const listeners = new Set<() => void>();
 const views = new Map<Route, { scroll: number; focus?: string }>();
 let current: Entry = { index: 0 };
@@ -75,6 +75,27 @@ export const routeLabel = (route: Route) => ({
   store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs',
 })[route];
 
+/** The title and main menu share a URL but are distinct navigation steps. */
+export function getMenuPage() { return entry()?.menuPage; }
+
+export function enterMainMenu() {
+  if (getMenuPage() === 'main') return;
+  current = { index: (entry()?.index ?? current.index) + 1, menuPage: 'main' };
+  window.history.pushState({ blockplayNavigation: current }, '', ROUTE_PATHS.menu);
+}
+
+/** Every main-menu visit has a title screen immediately behind it. */
+export function initializeMenuHistory(showTitle: boolean) {
+  if (getMenuPage()) return;
+  current = { index: entry()?.index ?? current.index, menuPage: 'title' };
+  window.history.replaceState({ ...window.history.state, blockplayNavigation: current }, '', ROUTE_PATHS.menu);
+  if (!showTitle) enterMainMenu();
+}
+
+export function returnToTitleScreen() {
+  if (getMenuPage() === 'main') window.history.back();
+}
+
 /** Callers that already obtained permission (animated navigation) pass approved. */
 export function navigate(route: Route, approved = false) {
   if (!approved) { requestLeave(() => navigate(route, true)); return; }
@@ -84,6 +105,7 @@ export function navigate(route: Route, approved = false) {
     current = { index: (entry()?.index ?? current.index) + 1 };
     window.history.pushState({ blockplayNavigation: current }, '', path);
   }
+  if (route === 'menu') initializeMenuHistory(false);
   acceptedPath = path;
   listeners.forEach(listener => listener());
 }

@@ -19,7 +19,7 @@ import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
 import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
-import { navigate, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
+import { enterMainMenu, getMenuPage, initializeMenuHistory, navigate, returnToTitleScreen, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
 import { returnToParent, transitionTo, useShift } from '../lib/route-transition';
 import { DebugMode } from '../lib/debug-mode';
 import { pwa, usePwa, type PwaState } from '../lib/pwa';
@@ -399,7 +399,30 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
   const shift = useShift();
   const [arriving] = useState(() => shift?.phase === 'entering');
   const [ripple, setRipple] = useState<{ index: number; x: number; y: number; key: number } | null>(null);
-  const [title, setTitle] = useState<'shown' | 'leaving' | 'gone'>(() => needsTitleScreen() ? 'shown' : 'gone');
+  const [title, setTitle] = useState<'shown' | 'leaving' | 'gone'>(() => (getMenuPage() ? getMenuPage() === 'title' : needsTitleScreen()) ? 'shown' : 'gone');
+  useLayoutEffect(() => { initializeMenuHistory(title === 'shown'); }, []);
+  useEffect(() => {
+    const syncTitle = () => {
+      if (window.location.pathname === ROUTE_PATHS.menu) {
+        setTitle(getMenuPage() === 'title' ? 'shown' : 'gone');
+        setChosen(null);
+      }
+    };
+    const back = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat || title !== 'gone') return;
+      if (event.target instanceof Element && event.target.matches('input, select, textarea')) return;
+      const open = document.querySelector<HTMLDetailsElement>('details[open]');
+      event.preventDefault();
+      if (open) { open.open = false; open.querySelector('summary')?.focus(); return; }
+      returnToTitleScreen();
+    };
+    window.addEventListener('blockplay:history', syncTitle);
+    window.addEventListener('keydown', back);
+    return () => {
+      window.removeEventListener('blockplay:history', syncTitle);
+      window.removeEventListener('keydown', back);
+    };
+  }, [title]);
   const brand = useRef<HTMLSpanElement>(null);
   const [titleTap] = useState(() => window.matchMedia?.('(pointer: coarse)').matches ?? false);
   // Measured with the logo at its natural place, so the slide ends exactly where the header puts it.
@@ -440,6 +463,8 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [title]);
   const leaveTitle = () => {
+    if (title !== 'shown') return;
+    enterMainMenu();
     playMenuSound('click');
     setTitle(current => current === 'shown' ? 'leaving' : current);
   };

@@ -120,7 +120,7 @@
 .game-title:focus-visible .game-title-prompt { text-decoration:underline; text-underline-offset:.5em; }
 .game-menu.is-title-shown .game-brand { transform:translate(var(--title-x,0),var(--title-y,0)) scale(var(--title-scale,1)); transform-origin:0 0; }
 .game-menu.is-title-leaving .game-brand { transform:none; transform-origin:0 0; transition:transform .9s cubic-bezier(.65,0,.15,1); }
-.game-menu.is-title-shown .game-menu-main, .game-menu.is-title-shown .game-menu-foot, .game-menu.is-title-shown .game-profile { visibility:hidden; }
+.game-menu.is-title-shown .game-menu-main, .game-menu.is-title-shown .game-menu-foot, .game-menu.is-title-shown .game-profile, .game-menu.is-title-shown .menu-header-action { visibility:hidden; }
 .game-menu.is-title-shown .game-menu-item, .game-menu.is-title-shown .game-menu-title { animation:none; }
 .game-menu.is-title-leaving { --arrive:420ms; }
 .game-menu.is-title-leaving .game-title { pointer-events:none; }
