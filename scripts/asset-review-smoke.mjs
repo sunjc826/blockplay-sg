@@ -34,7 +34,7 @@ try {
   assert.equal(await evaluate(`document.querySelector('.lr-map svg')`),null,'Model reviews do not render a district map');
   await shot('model-desktop');
   await clickText('＋ Pin a comment');
-  await click('.lr-model-canvas canvas'); await wait(`!!document.querySelector('.lr-compose')`);
+  await click('.lr-model-canvas canvas'); await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose')`);
   await input('.lr-compose input[maxlength="160"]','Review this model surface');
   await input('.lr-compose textarea','This front detail needs clearer contrast at gameplay distance.');
   await clickText('Post comment');
@@ -50,9 +50,9 @@ try {
   await input('.lr-thread textarea','Verified from both sides.'); await clickText('Reply & resolve');
   await cdp('Page.reload'); await delay(500); await wait(`document.querySelector('.lr-model-canvas')?.dataset.ready==='true' && !!document.querySelector('[data-model-pin="${thread.id}"]')`);
   await click(`[data-model-pin="${thread.id}"]`); assert(await evaluate(`document.querySelector('.lr-thread-meta').textContent.includes('RESOLVED')`));
-      await clickText('＋ Pin a comment'); await evaluate(`document.querySelector('.lr-model-canvas canvas').focus()`);
+      await clickText('＋ Pin a comment'); await evaluate(`document.querySelector('.lr-pointer-handle').focus()`);
       await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter'}); await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter'});
-      await wait(`!!document.querySelector('.lr-compose')`); await clickText('Cancel');
+      await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose')`); await clickText('Cancel');
   await clickText('Comment on whole model'); await input('.lr-compose input[maxlength="160"]','Overall proportions'); await input('.lr-compose textarea','Discuss the entire silhouette.'); await clickText('Post comment');
   assert(await evaluate(`document.querySelector('.lr-coordinate').textContent.includes('Whole model')`));
   const ids = await evaluate(`[...document.querySelectorAll('.lr-asset-picker option')].map(e=>e.value)`);
@@ -77,7 +77,7 @@ try {
   assert(await evaluate(`document.querySelector('.lr-model-stage').classList.contains('is-placing') && document.querySelector('.level-review').dataset.reviewPanel==='canvas'`),'Pin mode exposes canvas');
   const tap=await evaluate(`(()=>{const e=document.querySelector('.lr-model-canvas canvas');e.scrollIntoView({block:'center',behavior:'instant'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...tap,id:1}]}); await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`); await shot('model-mobile', '.lr-discussion');
+  await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`); await shot('model-mobile', '.lr-discussion');
   assert.deepEqual(errors,[]);
   console.log('PASS asset review: all 37 models render, surface raycasting, saved view, hidden-side/stale pins, whole-model threads, replies/resolve/reload, collection isolation, keyboard and touch.');
 } catch(error) { await shot('failure', '.lr-model-stage').catch(()=>{}); console.error('Browser errors:',errors, 'Model hint:', await evaluate(`document.querySelector('.lr-map-hint')?.textContent`).catch(()=>'')); throw error; } finally { await send('Target.disposeBrowserContext',{browserContextId}); ws.close(); }

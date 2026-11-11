@@ -11,6 +11,7 @@ import { reviewCacheKey } from '../lib/level-review-cloud';
 import { useLevelReviewCloud } from './use-level-review-cloud';
 import { getReviewAsset, REVIEW_ASSETS } from '../game/review-assets';
 import ModelReviewViewer from './ModelReviewViewer';
+import ReviewPointer from './ReviewPointer';
 import { requestLeave, useNavigationGuard } from '../lib/navigation-guard';
 
 const seeds = parseReview(JSON.stringify(developerNotes)), assetSeeds = parseReview(JSON.stringify(modelNotes));
@@ -127,14 +128,12 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
     try { await navigator.clipboard.writeText(text); setNotice(message); }
     catch { download(text, filename, 'text/plain'); setNotice('Clipboard unavailable. Downloaded the text instead.'); }
   }
-  function pick(clientX: number, clientY: number) {
-    if (!placing || !svg.current) return;
-    const matrix = svg.current.getScreenCTM(); if (!matrix) return;
-    const point = new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse());
-    const x = (point.x - map.offsetX) / map.scale, z = (point.y - map.offsetY) / map.scale;
-    if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) { setNotice('Choose a point inside the district boundary.'); return; }
-    setAnchor({ ...reviewPoint(x, z, bounds), level: 'Ground / unspecified' }); setSelected(''); setPlacing(false);
+  function pickMap(u: number, v: number): ReviewAnchor | null {
+    const x = (u * WIDTH - map.offsetX) / map.scale, z = (v * HEIGHT - map.offsetY) / map.scale;
+    if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) return null;
+    return { ...reviewPoint(x, z, bounds), level: 'Ground / unspecified' };
   }
+  const confirmPin = (point: ReviewAnchor) => { setAnchor(point); setLevel(point.level); setSelected(''); setPlacing(false); };
   const pan = (dx: number, dz: number) => setCenter(reviewPoint(focus.x + dx * spanX * .2, focus.z + dz * spanZ * .2, bounds));
   return <section className={`level-review ${assetId ? "asset-review" : ""}`} aria-label={assetId ? "3D asset review" : "Level design review"} data-map-revision={revision} data-review-panel={panel}>
     <header className="lr-header"><div><span className="lr-eyebrow">DESIGN WORKSPACE / {assetId ? asset?.category ?? "ASSET" : region.shortName}</span><h2>{assetId ? "Model review" : "Level review"}<span>●</span></h2><p>{assetId ? "Point to a surface. Discuss the detail. Revisit the same view." : "Point to a place. Discuss the intent. Test the change."}</p></div><button className="lr-local" aria-live="polite" aria-expanded={cloudOpen} aria-controls="review-cloud-panel" disabled={!cloud.available} onClick={() => setCloudOpen(!cloudOpen)}><span data-cloud-status>{cloud.status}</span> · Sync</button></header>
@@ -161,14 +160,14 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
     <div className="lr-layout">
       <div className="lr-map-column">
         <div className="lr-map-heading"><strong>{assetId ? asset?.name ?? assetId : region.name}</strong><span>{assetId ? '3D / STATIC STUDY' : '↑ N · SCHEMATIC'}</span></div>
-        {assetId ? <><ModelReviewViewer assetId={assetId} placing={placing} draft={anchor} threads={visible} numbers={Object.fromEntries(threads.map((thread, i) => [thread.id, i + 1]))} selected={active} onPick={point => { setAnchor(point); setLevel(point.level); setSelected(''); setPlacing(false); }} onSelect={select} onRevision={setAssetRevision} />
+        {assetId ? <><ModelReviewViewer assetId={assetId} placing={placing} draft={anchor} threads={visible} numbers={Object.fromEntries(threads.map((thread, i) => [thread.id, i + 1]))} selected={active} onPick={confirmPin} onCancel={() => setPlacing(false)} onSelect={select} onRevision={setAssetRevision} />
           {asset && <details className="lr-method"><summary>Developer context · {asset.name}</summary><p>{asset.description}</p><p>{asset.rationale}</p><p>Source: <code>{asset.source}</code> · <a href={asset.gallery}>Original gallery ↗</a></p><button onClick={() => requestLeave(() => { setReply(''); setPlacing(false); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(`Design intent: ${asset.name}`.slice(0, 160)); setBody(''); setKind('design-note'); setSelected(''); })}>Discuss the design intent</button></details>}</> : <>
         <div ref={frame} className={`lr-map ${placing ? 'is-placing' : ''}`}>
-          <svg ref={svg} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} tabIndex={0} role="group" aria-label="Review map. In pin mode, click a place or use arrows to position the map and Enter to pin its center." onClick={e => pick(e.clientX, e.clientY)} onKeyDown={e => {
+          <div className="lr-map-surface"><svg ref={svg} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} tabIndex={0} role="group" aria-label="Review map. In pin mode drag the pointer, then choose Pin here. Enter focuses the pointer. Arrows pan the map." onKeyDown={e => {
             if (e.target !== e.currentTarget) return;
             const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
             if (directions[e.key]) { e.preventDefault(); pan(...directions[e.key]); }
-            if (e.key === 'Enter' && placing) { e.preventDefault(); setAnchor({ ...reviewPoint(focus.x, focus.z, bounds), level: 'Ground / unspecified' }); setSelected(''); setPlacing(false); }
+            if (e.key === 'Enter' && placing) { e.preventDefault(); frame.current?.querySelector<HTMLButtonElement>('.lr-pointer-handle')?.focus(); }
             if (e.key === 'Escape') setPlacing(false);
           }}>
             <defs><clipPath id={clip}><rect width={WIDTH} height={HEIGHT} /></clipPath></defs>
@@ -185,15 +184,14 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
               </g>)}
               {anchor && <g transform={`translate(${map.x(anchor.x)},${map.y(anchor.z)})`} className="lr-draft-pin"><circle r="17" /><text textAnchor="middle" dy="5">＋</text></g>}
             </g>
-            {placing && <g className="lr-cross" pointerEvents="none"><path d={`M${WIDTH / 2 - 10} ${HEIGHT / 2}h20M${WIDTH / 2} ${HEIGHT / 2 - 10}v20`} /></g>}
             <path d={`M24 ${HEIGHT - 34}v6h${50 * map.scale}v-6`} stroke="#344b45" fill="none" /><text x="24" y={HEIGHT - 42} fontSize="12" fill="#344b45">50 world units</text>
-          </svg>
+          </svg>{placing && <ReviewPointer key={`${zoom}:${focus.x}:${focus.z}`} pick={pickMap} onConfirm={confirmPin} onCancel={() => setPlacing(false)} surface="map" />}</div>
           <div className="lr-map-navigation" role="group" aria-label="Map navigation">
             <button aria-label="Zoom in" disabled={zoom >= 8} onClick={() => setZoom(Math.min(8, zoom * 1.5))}>＋</button><button aria-label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom(Math.max(1, zoom / 1.5))}>−</button><button onClick={() => { setZoom(1); setCenter(null); }}>Fit</button>
             <button aria-label="Pan left" onClick={() => pan(-1, 0)}>←</button><button aria-label="Pan north" onClick={() => pan(0, -1)}>↑</button><button aria-label="Pan south" onClick={() => pan(0, 1)}>↓</button><button aria-label="Pan right" onClick={() => pan(1, 0)}>→</button>
           </div>
         </div>
-        <p className="lr-map-hint">{placing ? 'Click or tap inside the map to place a pin. Keyboard: focus map, arrows to move, Enter to pin center.' : 'Select a numbered pin to read its thread. Gold: discussion · Teal: design note · ✓: resolved.'}</p>
+        <p className="lr-map-hint">{placing ? 'Drag the pointer, release, then choose Pin here. Arrow keys move the pointer; Enter offers Pin here. Zoom/pan controls move the map.' : 'Select a numbered pin to read its thread. Gold: discussion · Teal: design note · ✓: resolved.'}</p>
         </>}
         <details className="lr-method"><summary>How we collaborate</summary><ol><li><strong>You point and explain.</strong> Pin a place, name the floor, describe the problem or desired experience.</li><li><strong>Sync the discussion.</strong> Connect your private cloud workspace. The AI can fetch its threads and reply to the same IDs with intent, alternatives, tradeoffs and a test plan.</li><li><strong>Read replies here.</strong> Connected boards refresh automatically. Export/import is still available for backups and offline handoffs.</li><li><strong>Review in game, then resolve.</strong> Record what changed and how it played. Reopen with a comment if the result misses the intent.</li></ol><p>Connected threads are stored on Cloudflare. This board does not call an AI automatically. Author labels describe contributors, not verified identities. Map pins use world X/Z plus a floor label. Model pins store a mesh-local surface point and viewing angle in the frozen study pose; changed geometry asks for re-verification.</p></details>
       </div>

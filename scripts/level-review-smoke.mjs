@@ -39,7 +39,7 @@ try {
   const point = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(svg.viewBox.baseVal.width/2,svg.viewBox.baseVal.height/2).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
   await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
   await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
-  await wait(`!!document.querySelector('.lr-compose')`);
+  await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose')`);
   await input('.lr-compose input[maxlength="160"]', 'Review the crossing');
   await input('.lr-compose textarea', 'Could we add a safer route here?');
   await clickText('Post comment');
@@ -49,8 +49,8 @@ try {
   assert(thread); const expected = await evaluate(`(()=>{const r=document.querySelector('[data-review-bounds]');return {x:Number(r.getAttribute('x'))+Number(r.getAttribute('width'))/2,z:Number(r.getAttribute('y'))+Number(r.getAttribute('height'))/2}})()`); assert(Math.abs(thread.anchor.x-expected.x)<1, 'Pointer X matches world coordinates within pixel rounding'); assert(Math.abs(thread.anchor.z-expected.z)<1, 'Pointer Z matches world coordinates within pixel rounding');
   await input('.lr-thread textarea', 'Tested the approach; this works.'); await clickText('Reply & resolve');
   assert(await evaluate(`document.querySelector('.lr-thread-meta').textContent.includes('RESOLVED')`));
-  await cdp('Page.reload'); await wait(`document.querySelectorAll('[data-review-pin]').length===3`);
-  await click(`[data-review-pin="${thread.id}"]`);
+  await cdp('Page.reload'); await delay(500); await wait(`document.querySelectorAll('[data-review-pin]').length===3`);
+  await click(`[data-review-pin="${thread.id}"]`); await wait(`!!document.querySelector('.lr-thread-meta')`);
   assert(await evaluate(`document.querySelector('.lr-thread-meta').textContent.includes('RESOLVED')`));
   await input('.lr-thread textarea', 'The other direction still needs a playtest.'); await clickText('Reply & reopen');
   const response = structuredClone(stored);
@@ -67,9 +67,9 @@ try {
   await cdp('Page.navigate', { url: `${origin}/debug?review=queenstown` });
   await wait(`document.querySelector('.lr-empty')?.textContent.includes('Start with a place')`);
   // Keyboard pin placement and persistence across district switches.
-  await clickText('＋ Pin a comment'); await evaluate(`document.querySelector('.lr-map svg').focus()`);
+  await clickText('＋ Pin a comment'); await evaluate(`document.querySelector('.lr-pointer-handle').focus()`);
   await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight' }); await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter' });
-  await wait(`!!document.querySelector('.lr-compose')`); await clickText('Cancel');
+  await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose')`); await clickText('Cancel');
   await cdp('Page.navigate', { url: `${origin}/debug?review=marina-bay&thread=${thread.id}` });
   await wait(`document.querySelector('.lr-thread h3')?.textContent==='Review the crossing'`);
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -80,7 +80,7 @@ try {
   await clickText('← All threads'); await clickText('＋ Pin a comment');
   const tap = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(svg.viewBox.baseVal.width*.62,svg.viewBox.baseVal.height*.57).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
   await cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...tap, id: 1 }] }); await cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await wait(`!!document.querySelector('.lr-compose')`);
+  await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose')`);
   await shot('mobile-compose');
   // Corrupt saved data is recoverable and cannot be silently replaced by a new post.
   await evaluate(`localStorage.setItem('blockplay.level-review.v1','broken-json')`);

@@ -125,8 +125,15 @@ Chrome CDP). The cloud smoke uses the verification board only.
 Open `/debug?asset=prop/vending` or choose **3D model review**. The prop,
 weapon and faction galleries also have **Discuss this model** links. The shared
 catalog currently includes 25 street props, 8 proxy weapons and 4 proxy operators.
-Choose an asset, drag to orbit, then **Pin a comment** and click its surface.
-Touch works the same way; keyboard arrows orbit and Enter pins the center.
+Choose an asset, drag to orbit, then choose **Pin a comment**. Drag the visible
+pointer onto the desired surface and release; choose **Pin here** at that point
+to open the editor. A tap also positions the pointer. The camera stays still in
+**Position pin** mode; **Move view** lets you orbit before positioning again.
+Background releases and interrupted touches clear the pending point. Camera
+presets, zoom and resizing require a fresh placement. Maps use the same
+drag/release/confirm gesture. Keyboard: focus the pointer, use arrows for fine
+movement (Shift for larger steps), Enter to offer **Pin here**, then Tab to it.
+Escape cancels placement. Neither a drag nor a release creates a thread.
 **Comment on whole model** handles proportions, silhouette and broader intent.
 
 A surface thread saves mesh-local XYZ, a child-index path, the viewing angle and

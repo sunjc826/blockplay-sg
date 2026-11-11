@@ -54,7 +54,7 @@ try {
  assert(await evaluate(`(()=>{const r=document.querySelector('.lr-model-stage').getBoundingClientRect();return r.top<350&&r.bottom<innerHeight&&r.height>180})()`));
  await clickText('＋ Pin a comment');
  const tap=await evaluate(`(()=>{const r=document.querySelector('.lr-model-canvas canvas').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
- await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...tap,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`);
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...tap,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await clickText('Pin here');await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`);
  await wait(`document.activeElement===document.querySelector('.lr-compose input')`);
  await input('.lr-compose input','Keep this draft');await capture('after-mobile-draft');await button('Model');await button('Discussion · 1 · Draft');assert.equal(await evaluate(`document.querySelector('.lr-compose input').value`),'Keep this draft');
  await button('Tools');await click('.mode-card:first-child');await wait(`!!document.querySelector('.navigation-confirm')`);await button('Stay here');assert.equal(await evaluate(`document.querySelector('.lr-compose input').value`),'Keep this draft');
