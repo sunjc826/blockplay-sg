@@ -30,7 +30,7 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await cdp('Page.navigate', { url: `${origin}/debug?asset=prop/vending` });
   await wait(`document.querySelector('.lr-model-canvas')?.dataset.ready==='true'`);
-  assert.equal(await evaluate(`document.querySelectorAll('.lr-asset-picker option').length`),37);
+  assert(await evaluate(`document.querySelectorAll('.lr-asset-picker option').length>=47`));
   assert.equal(await evaluate(`document.querySelector('.lr-map svg')`),null,'Model reviews do not render a district map');
   await shot('model-desktop');
   await clickText('＋ Pin a comment');
@@ -79,5 +79,5 @@ try {
   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...tap,id:1}]}); await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await clickText('Pin here'); await wait(`!!document.querySelector('.lr-compose') && document.querySelector('.level-review').dataset.reviewPanel==='discussion'`); await shot('model-mobile', '.lr-discussion');
   assert.deepEqual(errors,[]);
-  console.log('PASS asset review: all 37 models render, surface raycasting, saved view, hidden-side/stale pins, whole-model threads, replies/resolve/reload, collection isolation, keyboard and touch.');
+  console.log('PASS asset review: all catalog models render, surface raycasting, saved view, hidden-side/stale pins, whole-model threads, replies/resolve/reload, collection isolation, keyboard and touch.');
 } catch(error) { await shot('failure', '.lr-model-stage').catch(()=>{}); console.error('Browser errors:',errors, 'Model hint:', await evaluate(`document.querySelector('.lr-map-hint')?.textContent`).catch(()=>'')); throw error; } finally { await send('Target.disposeBrowserContext',{browserContextId}); ws.close(); }

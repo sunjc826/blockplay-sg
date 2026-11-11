@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing-layout';
 import { batchStreetProps } from './street-prop-batches';
 import { getWorldZone, WORLD_GATEWAYS } from './world-zones';
 import { getVerticalPlaces } from './vertical-places';
@@ -19,7 +20,16 @@ export const SITE_FURNITURE: Record<Furnishing,Arrangement> = {
   'tray-return': [['tray-return',0,0]],
   kopitiam: [['cafe-table',0,0],['stool',-1.05,0],['stool',1.05,0],['stool',0,-1.05]],
   'outdoor-dining': [['cafe-table',0,0],['stool',-1.05,0],['stool',1.05,0],['stool',0,-1.05],['parasol',0,1.25]],
-  shopfront: [['flower-pot',0,0]],
+  shopfront: [['snake-pot',0,0]],
+  'home-plants': [['money-pot',0,0],['bird-nest-pot',2.2,0]],
+  'dry-trough': [['snake-trough',0,0]],
+  'climbing-pot': [['money-pole',0,0]],
+  'fern-pot': [['bird-nest-pot',0,0]],
+  'fern-bed': [['bird-nest-fern',0,0],['sword-fern',2.9,0]],
+  'forest-ferns': [['sword-fern',0,0],['bird-nest-fern',0,2.9]],
+  'shade-tree': [['rain-tree',0,0]],
+  'coastal-tree': [['sea-almond',0,0]],
+  'native-tree': [['sea-apple',0,0]],
   loading: [['pallet-stack',0,0],['crate',1.5,0],['crate',1.5,1.2],['trolley',-1.4,0]],
   workshop: [['pallet-stack',0,0],['sack-stack',1.6,0],['drum',-1.3,0],['trolley',2.5,0],['cone',-2.2,1]],
   rest: [['bench',0,0],['park-bin',4,0]],
@@ -44,6 +54,9 @@ export function streetPropPlacements(region:DressingRegion,world:RegionWorld) {
     const a=route.points[i-1],b=route.points[i],r=route.width/2+1.5;
     access.push({minX:Math.min(a.x,b.x)-r,maxX:Math.max(a.x,b.x)+r,minZ:Math.min(a.z,b.z)-r,maxZ:Math.max(a.z,b.z)+r});
   }
+  // The ground lift door is decorative geometry, not a stair connection.
+  // Preserve its entire approach as well as the connected east/west stair cores.
+  if(region.id==='queenstown')for(const b of QUEENSTOWN_HDB_BLOCKS)access.push({minX:b.x+16,maxX:b.x+22,minZ:b.z+1.8,maxZ:b.z+8.5});
   const traversal=getTraversalObstacles(world.scene),zone=getWorldZone(region.id);
   const protectedPoints=[region.spawn,zone.spawn,...region.stamps,...zone.encounterSpawns,...zoneSectors(region.id).flatMap(s=>[...s.anchors,...s.foodAnchors??[]]),...(region.id==='chinatown'?SMITH_CONTROL_SITES:[]),...WORLD_GATEWAYS.filter(g=>g.from===region.id).map(g=>g.position)];
   const segments=region.mapRoads.flatMap(r=>r.points.slice(1).map((b,i)=>{const a=r.points[i],dx=b.x-a.x,dz=b.z-a.z;return {a,dx,dz,length:Math.hypot(dx,dz)};}));

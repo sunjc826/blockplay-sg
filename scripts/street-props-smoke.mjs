@@ -20,9 +20,9 @@ async function go(path, selector) { await send('Page.navigate', { url: origin + 
 try {
   await send('Runtime.enable'); await send('Page.enable');
   await size(1440,1050);await go('/prop-designs','.pd-library');await wait("document.querySelector('.pd-canvas')?.dataset.ready==='true'");
-  assert.equal(await evaluate("document.querySelectorAll('.pd-library button').length"),25);
+  assert.equal(await evaluate("document.querySelectorAll('.pd-library button').length"),35);
   await shot('gallery-desktop');
-  for(let i=0;i<25;i++){
+  for(let i=0;i<35;i++){
     await click(`.pd-library button:nth-of-type(${i+1})`);
     await wait("document.querySelector('.pd-canvas')?.dataset.ready==='true'");
     assert(await evaluate("Number(document.querySelector('.pd-canvas').dataset.draws)>0"));
@@ -50,5 +50,5 @@ try {
       await wait('JSON.stringify(window.review.root.children.map(p=>p.position.toArray()))!==window.before');await delay(700);await shot('world-crate-broken');
     }
   }
-  assert.deepEqual(errors,[]);console.log('Street prop gallery: all 25 models, fixed/moving/break/reset, lighting, desktop and mobile passed.');
+  assert.deepEqual(errors,[]);console.log('Street prop gallery: all 35 models, fixed/moving/break/reset, lighting, desktop and mobile passed.');
 }finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}

@@ -1,6 +1,6 @@
 # Street props
 
-The [object library](https://blockplaysg.fun/prop-designs) previews twenty-five original,
+The [object library](https://blockplaysg.fun/prop-designs) previews thirty-five original,
 procedural models at game scale. Drag to orbit, switch lighting, and try the
 break/knock-over and reset controls. The gallery is also linked from faction
 studies.
@@ -55,3 +55,10 @@ models and their reactions, reset, lighting, phone layouts and actual district
 renders. `scripts/fixtures/street-props.html?region=chinatown&prop=crate` is a
 local world review fixture; `&site=complex-dining-0&focus=first` frames a specific furnishing bay. Unit tests additionally cover every district,
 placement exclusions and ballistic-cover isolation.
+
+## Species-specific vegetation
+
+The library includes ten plant variants covering seven Singapore species.
+[Vegetation research and placement](SINGAPORE-VEGETATION.md) records native status,
+visual references, inferred habitats and accepted-site rules. Ground ferns and
+new foliage are non-solid; tree wood and concrete troughs are fixed.

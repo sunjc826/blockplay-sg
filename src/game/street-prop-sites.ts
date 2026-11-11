@@ -1,3 +1,4 @@
+import { VEGETATION_SITES } from './vegetation-sites';
 import type { RegionId } from './region-ids';
 import { MARINA_LAYOUT_SCALE } from './marina-layout';
 import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing-layout';
@@ -5,7 +6,7 @@ import { QUEENSTOWN_HDB_BLOCKS } from './queenstown-housing-layout';
 /** These are furnishing strips attached to existing authored places, not
  * surveyed Singapore coordinates. Read docs/SINGAPORE-PROP-RESEARCH.md for
  * typology evidence; each feature names the source geometry in its scene. */
-export type Furnishing = 'hawker' | 'tray-return' | 'kopitiam' | 'outdoor-dining' | 'shopfront' | 'loading' | 'workshop' | 'rest' | 'picnic' | 'chess' | 'mail' | 'estate-collection' | 'cycle-parking';
+export type Furnishing = 'home-plants' | 'dry-trough' | 'climbing-pot' | 'fern-pot' | 'fern-bed' | 'forest-ferns' | 'shade-tree' | 'coastal-tree' | 'native-tree' | 'hawker' | 'tray-return' | 'kopitiam' | 'outdoor-dining' | 'shopfront' | 'loading' | 'workshop' | 'rest' | 'picnic' | 'chess' | 'mail' | 'estate-collection' | 'cycle-parking';
 export interface StreetPropSite {
   id: string; feature: string; furnishing: Furnishing;
   from: readonly [number,number]; to: readonly [number,number];
@@ -161,3 +162,5 @@ export const STREET_PROP_SITES: Record<RegionId,readonly StreetPropSite[]> = {
     strip('pond-rest','Yishun Pond north path edge','rest',[52,60],[108,60],20,pi),
   ],
 };
+
+for(const [id,sites] of Object.entries(VEGETATION_SITES))STREET_PROP_SITES[id as RegionId]=[...STREET_PROP_SITES[id as RegionId],...sites];

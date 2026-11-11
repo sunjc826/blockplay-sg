@@ -11,14 +11,14 @@ export function batchStreetProps(models: readonly THREE.Group[], name: string, r
     model.updateMatrixWorld(true);
     model.traverse(node=>{
       if(!(node instanceof THREE.Mesh)||Array.isArray(node.material))return;
-      const key=`${Math.floor(model.position.x/256)},${Math.floor(model.position.z/256)}:${node.geometry.uuid}:${node.material.uuid}`;
+      const key=`${Math.floor(model.position.x/256)},${Math.floor(model.position.z/256)}:${node.geometry.uuid}:${node.material.uuid}:${!!node.userData.fpsEffect}`;
       const bucket=buckets.get(key)??[];bucket.push({model,mesh:node});buckets.set(key,bucket);
     });
     model.visible=false;
   }
   for(const bucket of buckets.values()){
     const first=bucket[0].mesh,batch=new THREE.InstancedMesh(first.geometry,first.material,bucket.length);
-    batch.name=name;batch.castShadow=first.castShadow;batch.receiveShadow=first.receiveShadow;
+    batch.userData.fpsEffect=reactive||!!first.userData.fpsEffect;batch.name=name;batch.castShadow=first.castShadow;batch.receiveShadow=first.receiveShadow;
     batch.instanceMatrix.setUsage(reactive?THREE.DynamicDrawUsage:THREE.StaticDrawUsage);
     const flight:THREE.Box3[]=[];
     bucket.forEach(({model,mesh},index)=>{

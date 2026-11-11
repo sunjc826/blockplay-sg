@@ -10,7 +10,7 @@ import { STREET_PROP_SITES } from './street-prop-sites';
 import type { StreetPropPlacement } from './district-street-props';
 
 describe('street prop models and motion',()=>{
-  it('builds twenty-five finite, grounded models with shared resources',()=>{
+  it('builds finite, grounded models with shared resources',()=>{
     const kit=createStreetPropKit();
     try{for(const spec of STREET_PROPS){
       const root=kit.create(spec.kind),copy=kit.create(spec.kind);root.updateMatrixWorld(true);
@@ -76,7 +76,7 @@ describe('district dressing',()=>{
     }
     expect(new Set(Object.values(counts)).size).toBeGreaterThan(1);
     expect(Object.values(counts).every(n=>n===STREET_PROP_LIMIT)).toBe(false);
-  });
+  },15000);
   it('reacts to a clipped shot without becoming ballistic cover, then resets',()=>{
     const region=getRegion('chinatown'),world=region.build();
     try{

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { batchRigidMeshes } from './rigid-batches';
+import { createVegetationKit, isVegetationKind, VEGETATION_PROPS, type VegetationKind } from './vegetation-props';
 
-export type StreetPropKind = 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley' | 'picnic-table' | 'cafe-table' | 'parasol' | 'pallet-stack' | 'sack-stack' | 'drum' | 'notice-board' | 'recycling-station' | 'hawker-table' | 'tray-return' | 'chess-table' | 'letterboxes' | 'park-bin';
+export type StreetPropKind = VegetationKind | 'planter' | 'bench' | 'bollard' | 'cabinet' | 'vending' | 'bike-rack' | 'crate' | 'flower-pot' | 'cone' | 'stool' | 'wheelie-bin' | 'trolley' | 'picnic-table' | 'cafe-table' | 'parasol' | 'pallet-stack' | 'sack-stack' | 'drum' | 'notice-board' | 'recycling-station' | 'hawker-table' | 'tray-return' | 'chess-table' | 'letterboxes' | 'park-bin';
 export type PropBehavior = 'fixed' | 'breakable' | 'movable';
 export interface StreetPropSpec { kind: StreetPropKind; name: string; behavior: PropBehavior; setting: string; detail: string; width: number; depth: number; height: number }
 export const STREET_PROPS: readonly StreetPropSpec[] = [
@@ -31,11 +32,13 @@ export const STREET_PROPS: readonly StreetPropSpec[] = [
   { kind: 'letterboxes', name: 'Communal letterbox bank', behavior: 'fixed', setting: 'Residential ground-floor lobbies', detail: 'A sheltered bank of individual metal doors, posting slots, name plates and locks.', width: 2.05, depth: .45, height: 1.7 },
   { kind: 'park-bin', name: 'Hooded park litter bin', behavior: 'fixed', setting: 'Path-side rest bays', detail: 'Ground-mounted slatted casing with a rain hood and open disposal slot, separated from nearby seating.', width: .65, depth: .65, height: 1.13 },
 
+  ...VEGETATION_PROPS,
 ];
 export const streetPropSpec = (kind: StreetPropKind) => STREET_PROPS.find(p => p.kind === kind)!;
 
 /** Shared geometry/material pool. One kit per world, disposed after its models. */
 export function createStreetPropKit() {
+  const vegetation=createVegetationKit();
   const geometries: THREE.BufferGeometry[] = [], materials = new Map<string, THREE.MeshStandardMaterial>();
   const keep = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
   const cube = keep(new THREE.BoxGeometry(1, 1, 1)), cylinder = keep(new THREE.CylinderGeometry(.5, .5, 1, 12));
@@ -197,8 +200,8 @@ export function createStreetPropKit() {
   }
   const templates = new Map<StreetPropKind, THREE.Group>();
   return {
-    create(kind:StreetPropKind) { let template=templates.get(kind);if(!template){template=build(kind);templates.set(kind,template);}return template.clone(true); },
-    dispose(){geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());templates.clear();},
+    create(kind:StreetPropKind) { if(isVegetationKind(kind))return vegetation.create(kind);let template=templates.get(kind);if(!template){template=build(kind);templates.set(kind,template);}return template.clone(true); },
+    dispose(){vegetation.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());templates.clear();},
   };
 }
 

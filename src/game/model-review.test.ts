@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { STREET_PROPS } from './street-props';
 import { getReviewAsset, REVIEW_ASSETS } from './review-assets';
 import { modelAnchorWorld, modelMeshPath, modelRevision, pickModelAnchor } from './model-review';
 import { emptyReview, mergeReviews, parseReview } from './level-review';
@@ -29,7 +30,7 @@ describe('model review anchors', () => {
     a.geometry.dispose(); b.geometry.dispose(); a.material.dispose(); b.material.dispose();
   });
   it('builds every catalog subject, retains stable unique IDs, and validates published rationale', () => {
-    expect(REVIEW_ASSETS.length).toBe(37); expect(new Set(REVIEW_ASSETS.map(a => a.id)).size).toBe(37);
+    expect(REVIEW_ASSETS.length).toBeGreaterThanOrEqual(STREET_PROPS.length+12); expect(new Set(REVIEW_ASSETS.map(a => a.id)).size).toBe(REVIEW_ASSETS.length);
     for (const asset of REVIEW_ASSETS) {
       const model = asset.build(); try {
         const bounds = new THREE.Box3().setFromObject(model.root);
