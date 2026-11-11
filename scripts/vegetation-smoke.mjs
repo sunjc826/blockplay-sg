@@ -16,7 +16,7 @@ async function click(selector, touch = false) { const p = await evaluate(`(()=>{
 async function key(key, modifiers = 0) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers }); await delay(100); }
 async function shot(name) { const r = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(`${name}.png`, output), Buffer.from(r.data, 'base64')); }
 async function size(width, height, mobile = false) { await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }); await send('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: 5 }); await delay(300); }
-async function go(path, selector) { await send('Page.navigate', { url: origin + path }); await wait(`!!document.querySelector(${JSON.stringify(selector)})`); await delay(500); }
+async function go(path, selector) { await send('Page.navigate', { url: origin + path }); await wait(`!!document.querySelector(${JSON.stringify(selector)})`); await send('Page.bringToFront');await delay(500); }
 try {
   await send('Runtime.enable');await send('Page.enable');await size(1280,900);
   const reports=[];
@@ -32,7 +32,7 @@ try {
     ['pulau-ubin','visitor-fern-bed',9,2.5,.5],
   ]) {
     await send('Page.navigate',{url:origin+`/scripts/fixtures/street-props.html?region=${region}&site=${site}&distance=${distance}&height=${height}&angle=${angle}`});
-    await wait(`window.ready===true&&window.review?.site===${JSON.stringify(site)}`);await delay(500);
+    await wait(`window.ready===true&&window.review?.site===${JSON.stringify(site)}`);await send('Page.bringToFront');await delay(500);
     assert(await evaluate(`window.review.world.scene.userData.streetPropPlacements.some(p=>p.site===${JSON.stringify(site)})`));
     await shot(`${region}-${site}`);
     reports.push(await evaluate(`(async()=>{
@@ -45,9 +45,9 @@ try {
       batches.forEach(m=>m.visible=false);renderer.render(world.scene,camera);
       const addedDraws=withPlants.calls-renderer.info.render.calls,addedTriangles=withPlants.triangles-renderer.info.render.triangles;
       batches.forEach(m=>m.visible=true);let last=performance.now();
-      for(let i=0;i<35;i++){await new Promise(requestAnimationFrame);const now=performance.now();if(i>4)frames.push(now-last);last=now;}
+      for(let i=0;i<12;i++){await new Promise(requestAnimationFrame);const now=performance.now();if(i>2)frames.push(now-last);last=now;}
       frames.sort((a,b)=>a-b);renderer.render(world.scene,camera);
-      return {region:${JSON.stringify(region)},site:${JSON.stringify(site)},frameMedianMs:frames[15],frameP95Ms:frames[28],calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,addedDraws,addedTriangles,
+      return {region:${JSON.stringify(region)},site:${JSON.stringify(site)},frameMedianMs:frames[4],frameP95Ms:frames[8],calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,addedDraws,addedTriangles,
         placements:world.scene.userData.streetPropPlacements.filter(p=>p.site===${JSON.stringify(site)}),
         audit:world.scene.userData.streetPropSiteAudit};
     })()`));

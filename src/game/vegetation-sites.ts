@@ -15,8 +15,8 @@ export const VEGETATION_SITES: Partial<Record<RegionId,readonly StreetPropSite[]
     site('pavilion-fern-bowls','Neighbourhood pavilion eave: tended moist fern bowl','fern-pot',-80,140),
   ],
   changi:[
-    ...[-67,-43,-19,5].map((z,i)=>site(`jewel-fern-${i}`,'Jewel central garden beside existing planting: humid filtered light, clear of radial approaches','fern-bed',-77,z)),
-    ...[-80,-30,20].map((z,i)=>site(`coastal-almond-${i}`,'Changi coastal lawn inland of the pedestrian rest strip: sunny, salt-exposed tree site','coastal-tree',221,z)),
+    ...[-67,-43,-19,5].map((z,i)=>site(`jewel-fern-${i}`,'Jewel garden-edge containers: tended fern bowls in humid filtered light, clear of radial approaches','fern-pot',-77,z)),
+    ...[-80,-30,20].map((z,i)=>site(`coastal-almond-${i}`,'Changi coastal sandy planting strip inland of the pedestrian rest strip: sunny, salt-exposed tree site','coastal-tree',221,z)),
   ],
   bishan:[
     site('park-umbrella-west','Bishan river-park west lawn: broad shade canopy set back from path and flood channel','shade-tree',-169,-59),
