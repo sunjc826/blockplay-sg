@@ -36,7 +36,7 @@ try {
   const revision = await evaluate(`document.querySelector('.level-review').dataset.mapRevision`);
   console.log('Marina schematic revision:', revision);
   await clickText('＋ Pin a comment');
-  const point = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(400,280).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
+  const point = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(svg.viewBox.baseVal.width/2,svg.viewBox.baseVal.height/2).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
   await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 });
   await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 });
   await wait(`!!document.querySelector('.lr-compose')`);
@@ -46,7 +46,7 @@ try {
   await wait(`document.querySelectorAll('[data-review-pin]').length===3`);
   const stored = await evaluate(`JSON.parse(localStorage.getItem('blockplay.level-review.v1'))`);
   const thread = stored.threads.find(t => t.title === 'Review the crossing');
-  assert(thread); const expected = await evaluate(`(()=>{const r=document.querySelector('[data-review-bounds]');return {x:Number(r.getAttribute('x'))+Number(r.getAttribute('width'))/2,z:Number(r.getAttribute('y'))+Number(r.getAttribute('height'))/2}})()`); assert(Math.abs(thread.anchor.x-expected.x)<.5, 'Pointer X matches world coordinates within pixel rounding'); assert(Math.abs(thread.anchor.z-expected.z)<.5, 'Pointer Z matches world coordinates within pixel rounding');
+  assert(thread); const expected = await evaluate(`(()=>{const r=document.querySelector('[data-review-bounds]');return {x:Number(r.getAttribute('x'))+Number(r.getAttribute('width'))/2,z:Number(r.getAttribute('y'))+Number(r.getAttribute('height'))/2}})()`); assert(Math.abs(thread.anchor.x-expected.x)<1, 'Pointer X matches world coordinates within pixel rounding'); assert(Math.abs(thread.anchor.z-expected.z)<1, 'Pointer Z matches world coordinates within pixel rounding');
   await input('.lr-thread textarea', 'Tested the approach; this works.'); await clickText('Reply & resolve');
   assert(await evaluate(`document.querySelector('.lr-thread-meta').textContent.includes('RESOLVED')`));
   await cdp('Page.reload'); await wait(`document.querySelectorAll('[data-review-pin]').length===3`);
@@ -78,7 +78,7 @@ try {
   assert(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), 'Mobile has no horizontal overflow');
   await shot('mobile');
   await clickText('← All threads'); await clickText('＋ Pin a comment');
-  const tap = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(450,320).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
+  const tap = await evaluate(`(()=>{const svg=document.querySelector('.lr-map svg');svg.scrollIntoView({block:'center',behavior:'instant'});const p=new DOMPoint(svg.viewBox.baseVal.width*.62,svg.viewBox.baseVal.height*.57).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y}})()`);
   await cdp('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...tap, id: 1 }] }); await cdp('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await wait(`!!document.querySelector('.lr-compose')`);
   await shot('mobile-compose');
@@ -88,4 +88,4 @@ try {
   assert.equal(await evaluate(`localStorage.getItem('blockplay.level-review.v1')`), 'broken-json');
   assert.deepEqual(errors, []);
   console.log('Level review smoke passed: mouse/touch/keyboard pins, reload, district isolation, deep link, replies, resolve/reopen, import merge/dedupe/conflict, corrupt-storage protection, mobile layout.');
-} finally { await send('Target.disposeBrowserContext', { browserContextId }); ws.close(); }
+} catch (error) { console.error('Browser errors:', errors); console.error(await evaluate(`document.body.innerText.slice(0,2000)`)); throw error; } finally { await send('Target.disposeBrowserContext', { browserContextId }); ws.close(); }

@@ -2,12 +2,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { getRegion, type RegionMapShape } from '../game/regions';
 import type { RegionId } from '../game/region-ids';
 import { minimapProjection } from '../game/minimap';
+import { minimapLabels } from '../game/minimap-presentation';
 import { emptyReview, mapRevision, MAX_REVIEW_BYTES, mergeReviews, parseReview, REVIEW_STORAGE_KEY, reviewBrief, reviewPoint, sortEvents, threadStatus, type ReviewDocument, type ReviewEvent, type ReviewThread } from '../game/level-review';
 import developerNotes from '../../docs/level-reviews/developer-notes.json';
 import './level-review.css';
 
 const seeds = parseReview(JSON.stringify(developerNotes));
-const WIDTH = 800, HEIGHT = 560;
 function loadReview(): { document: ReviewDocument; error: string } {
   try { const raw = localStorage.getItem(REVIEW_STORAGE_KEY); return { document: mergeReviews(seeds, raw ? parseReview(raw) : emptyReview()), error: '' }; }
   catch { return { document: seeds, error: 'Saved review could not be loaded. Export the saved backup before repairing browser storage; writing is blocked to protect it.' }; }
@@ -36,6 +36,9 @@ export default function LevelReview({ district }: { district: RegionId }) {
   const [kind, setKind] = useState<ReviewThread['kind']>('discussion');
   const [reply, setReply] = useState('');
   const [zoom, setZoom] = useState(1), [center, setCenter] = useState<{ x: number; z: number } | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 800, height: 560 });
+  const { width: WIDTH, height: HEIGHT } = size;
   const file = useRef<HTMLInputElement>(null), titleInput = useRef<HTMLInputElement>(null), svg = useRef<SVGSVGElement>(null);
   const clip = useId();
   const region = getRegion(district), bounds = region.bounds, revision = mapRevision(region);
@@ -43,6 +46,15 @@ export default function LevelReview({ district }: { district: RegionId }) {
   const focus = center ?? middle, spanX = (bounds.maxX - bounds.minX) / zoom, spanZ = (bounds.maxZ - bounds.minZ) / zoom;
   const view = { minX: focus.x - spanX / 2, maxX: focus.x + spanX / 2, minZ: focus.z - spanZ / 2, maxZ: focus.z + spanZ / 2 };
   const map = minimapProjection(view, WIDTH, HEIGHT, 24);
+  const labels = minimapLabels(region.stamps.map((stamp, i) => ({ id: String(i), name: stamp.name, x: map.x(stamp.x), y: map.y(stamp.z) - 8, priority: 1 })).filter(p => p.x > 0 && p.x < WIDTH && p.y > 0 && p.y < HEIGHT), WIDTH, HEIGHT);
+  useEffect(() => {
+    if (!frame.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.max(240, Math.min(800, entry.contentRect.width));
+      setSize({ width, height: Math.max(300, width * .7) });
+    });
+    observer.observe(frame.current); return () => observer.disconnect();
+  }, []);
   const threads = document.threads.filter(t => t.district === district);
   const visible = threads.filter(t => (filter === 'all' || (filter === 'design-note' ? t.kind === filter : threadStatus(t) === filter)) && `${t.title} ${t.anchor.level} ${t.events.map(e => e.body).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
   const active = threads.find(t => t.id === selected);
@@ -104,7 +116,7 @@ export default function LevelReview({ district }: { district: RegionId }) {
     <div className="lr-layout">
       <div className="lr-map-column">
         <div className="lr-map-heading"><strong>{region.name}</strong><span>↑ N · SCHEMATIC</span></div>
-        <div className={`lr-map ${placing ? 'is-placing' : ''}`}>
+        <div ref={frame} className={`lr-map ${placing ? 'is-placing' : ''}`}>
           <svg ref={svg} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} tabIndex={0} role="group" aria-label="Review map. In pin mode, click a place or use arrows to position the map and Enter to pin its center." onClick={e => pick(e.clientX, e.clientY)} onKeyDown={e => {
             if (e.target !== e.currentTarget) return;
             const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -120,14 +132,14 @@ export default function LevelReview({ district }: { district: RegionId }) {
                 {region.mapRoads.map((road, i) => <polyline key={i} points={road.points.map(p => `${p.x},${p.z}`).join(' ')} fill="none" stroke={region.roadStroke} strokeWidth={region.roadWidth} />)}
                 <Shapes shapes={region.decor.filter(s => s.layer !== 'under')} />
               </g>
-              {region.stamps.map((stamp, i) => <g key={i} transform={`translate(${map.x(stamp.x)},${map.y(stamp.z)})`} className="lr-landmark" pointerEvents="none"><circle r="3" /><text y="-8" textAnchor="middle">{stamp.name}</text></g>)}
-              {visible.map((thread) => <g key={thread.id} className={`lr-pin ${threadStatus(thread)} ${thread.kind}`} data-review-pin={thread.id} transform={`translate(${map.x(thread.anchor.x)},${map.y(thread.anchor.z)})`} role="button" tabIndex={0} aria-label={`${thread.title}, ${threadStatus(thread)}`} aria-pressed={selected === thread.id} onClick={e => { e.stopPropagation(); select(thread); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select(thread); } }}>
+              {region.stamps.map((stamp, i) => <g key={i} className="lr-landmark" pointerEvents="none"><circle cx={map.x(stamp.x)} cy={map.y(stamp.z)} r="3" />{labels.has(String(i)) && <text x={labels.get(String(i))!.x} y={labels.get(String(i))!.y} textAnchor="middle">{stamp.name}</text>}</g>)}
+              {visible.map((thread) => <g key={thread.id} className={`lr-pin ${threadStatus(thread)} ${thread.kind}`} data-review-pin={thread.id} transform={`translate(${map.x(thread.anchor.x)},${map.y(thread.anchor.z)})`} role="button" tabIndex={placing ? -1 : 0} pointerEvents={placing ? "none" : undefined} aria-label={`${thread.title}, ${threadStatus(thread)}`} aria-pressed={selected === thread.id} onClick={e => { e.stopPropagation(); select(thread); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select(thread); } }}>
                 <title>{thread.title} · {thread.anchor.level}</title><circle className="lr-pin-ring" r="20" /><circle r="14" /><text textAnchor="middle" dy="5">{threadStatus(thread) === 'resolved' ? '✓' : threads.indexOf(thread) + 1}</text>
               </g>)}
               {anchor && <g transform={`translate(${map.x(anchor.x)},${map.y(anchor.z)})`} className="lr-draft-pin"><circle r="17" /><text textAnchor="middle" dy="5">＋</text></g>}
             </g>
-            {placing && <g className="lr-cross" pointerEvents="none"><path d="M390 280h20M400 270v20" /></g>}
-            <path d={`M24 526v6h${50 * map.scale}v-6`} stroke="#344b45" fill="none" /><text x="24" y="518" fontSize="12" fill="#344b45">50 world units</text>
+            {placing && <g className="lr-cross" pointerEvents="none"><path d={`M${WIDTH / 2 - 10} ${HEIGHT / 2}h20M${WIDTH / 2} ${HEIGHT / 2 - 10}v20`} /></g>}
+            <path d={`M24 ${HEIGHT - 34}v6h${50 * map.scale}v-6`} stroke="#344b45" fill="none" /><text x="24" y={HEIGHT - 42} fontSize="12" fill="#344b45">50 world units</text>
           </svg>
           <div className="lr-map-navigation" role="group" aria-label="Map navigation">
             <button aria-label="Zoom in" disabled={zoom >= 8} onClick={() => setZoom(Math.min(8, zoom * 1.5))}>＋</button><button aria-label="Zoom out" disabled={zoom <= 1} onClick={() => setZoom(Math.max(1, zoom / 1.5))}>−</button><button onClick={() => { setZoom(1); setCenter(null); }}>Fit</button>
