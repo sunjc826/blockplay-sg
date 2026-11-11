@@ -126,7 +126,7 @@ export function createVegetationKit() {
       if(spec.behavior!=='breakable')batchRigidMeshes(group,{trackGeometry:keep});
       // Flatten so existing fragment motion can handle pots, and preserve the
       // foliage/wood distinction through district instancing and cover indexing.
-      for(const child of [...group.children]){if(group===foliage)child.userData.fpsEffect=true;root.add(child);}root.remove(group);
+      for(const child of [...group.children]){if(group===foliage)(child as THREE.Mesh<THREE.BufferGeometry,THREE.Material>).material.userData.visualCover=true;root.add(child);}root.remove(group);
     }
     return root;
   }

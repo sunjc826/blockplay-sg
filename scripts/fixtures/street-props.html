@@ -16,7 +16,7 @@ if(cluster?.length){const center=cluster.reduce((v,p)=>v.add(new THREE.Vector3(p
 world.scene.updateMatrixWorld(true);
 document.querySelector('#label').textContent=region.name+' / '+(cluster?.length?cluster[0].feature:root.name)+' / '+world.scene.userData.streetPropPlacements.length+' props';
 let last=performance.now(),time=0;
-function render(now){time+=Math.min(.05,(now-last)/1000);last=now;world.animate(time);renderer.render(world.scene,camera);requestAnimationFrame(render);window.ready=true;}
+function render(now){time+=Math.max(0,Math.min(.05,(now-last)/1000));last=now;world.animate(time);renderer.render(world.scene,camera);requestAnimationFrame(render);window.ready=true;}
 requestAnimationFrame(render);
 window.review={region:region.id,site:params.get('site'),world,root,renderer,camera,THREE};
 window.addEventListener('pagehide',()=>{world.dispose();renderer.dispose();});

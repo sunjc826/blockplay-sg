@@ -26,10 +26,13 @@ describe('species-specific vegetation',()=>{
     try{
       const cover=createSceneCover(scene);
       expect(cover.trace(new THREE.Vector3(0,2,2),new THREE.Vector3(0,0,-1),4)).toBeTruthy();
-      expect(batches.root.children.some(m=>m.userData.fpsEffect)).toBe(true);
+      expect(batches.root.children.some(m=>(m as THREE.Mesh<THREE.BufferGeometry,THREE.Material>).material.userData.visualCover)).toBe(true);
       const fern=kit.create('sword-fern');expect(fern.userData.streetPropColliders).toEqual([]);
       const f=batchStreetProps([fern],'Fern test'),s=new THREE.Scene();s.add(f.root);s.updateMatrixWorld(true);
-      expect(createSceneCover(s).trace(new THREE.Vector3(0,.5,3),new THREE.Vector3(0,0,-1),6)).toBeUndefined();f.dispose();
+      const from=new THREE.Vector3(0,.5,3),direction=new THREE.Vector3(0,0,-1);
+      expect(createSceneCover(s).trace(from,direction,6)).toBeUndefined();
+      expect(firstVisibleHit(new THREE.Raycaster(from,direction,0,6),s.children)).toBeUndefined();
+      f.dispose();
     }finally{batches.dispose();kit.dispose();}
   });
   it('audits named planting sites and actual supporting floors',()=>{
