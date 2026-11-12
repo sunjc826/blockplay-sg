@@ -17,6 +17,7 @@ import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } fr
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 import { MARINA_LOOK } from './district-look';
+import { createAmbientDrift } from './ambient-drift';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -802,11 +803,14 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
+  // Leaves and sunlit dust drifting round the camera, driven by the weather in world-atmosphere.
+  const drift = createAmbientDrift(scene, { leafColors: ['#5d8a3c', '#7e9c40', '#b19a45', '#8b6b3c', '#4f7d3d'] });
+  scene.userData.ambientDrift = drift;
   return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { animateTrees(scene, time); water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
-    dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
+    dispose() { drift.dispose(); merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
   }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]),MARINA_LIFTS));
 }

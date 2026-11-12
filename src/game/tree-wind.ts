@@ -34,7 +34,11 @@ vec3 treePoint = (instanceMatrix * vec4(transformed, 1.0)).xyz;
 float treeHeight = treeRootHeight.w;
 float treeLevel = clamp((treePoint.y - treeRootHeight.y) / treeHeight, 0.0, 1.35);
 float treePhase = dot(treeRootHeight.xz, vec2(.173, .291));
-float treeGust = .65 + .35 * sin(treeTime * .73 + treePhase * .19);
+// Gusts travel downwind as fronts (about 7 m/s), so neighbouring trees lean
+// one after another instead of each on its own clock. Same mean as before.
+float treeFront = dot(treeRootHeight.xz, vec2(.984, .177)) - treeTime * 7.0;
+float treeWave = .5 + .5 * sin(treeFront * .045 + 1.5 * sin(treeFront * .017 + treeTime * .11));
+float treeGust = .55 + .45 * treeWave * treeWave * treeWave + .08 * sin(treeTime * .73 + treePhase * .19);
 float treeSway = .48 + .38 * sin(treeTime * 1.35 + treePhase) + .14 * sin(treeTime * 2.31 + treePhase * 1.7);
 float treeBend = treeHeight * treeLevel * treeLevel * treeStrength * treeGust * treeSway;
 vec3 treeOffset = vec3(treeBend, 0.0, treeBend * .18);
@@ -42,7 +46,7 @@ vec3 treeOffset = vec3(treeBend, 0.0, treeBend * .18);
 float treeRipple = sin(treeTime * 8.3 + dot(treePoint, vec3(2.7, 1.3, 3.1)))
                  + .45 * sin(treeTime * 13.7 + dot(treePoint, vec3(-3.1, 2.4, 1.7)));
 float treeTip = clamp(length(treePoint.xz - treeRootHeight.xz) / 4.0, .1, 1.0);
-treeOffset += vec3(.35, .7, .5) * treeRipple * treeFlutter * treeTip * treeStrength * treeRustle;
+treeOffset += vec3(.35, .7, .5) * treeRipple * treeFlutter * treeTip * treeStrength * treeRustle * (.5 + treeWave);
 transformed += vec3(dot(treeOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz),
                     dot(treeOffset, instanceMatrix[1].xyz) / dot(instanceMatrix[1].xyz, instanceMatrix[1].xyz),
                     dot(treeOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));
@@ -61,7 +65,7 @@ function patch(material: THREE.Material, uniforms: WindState) {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + declarations)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + deformation);
   };
-  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v1'; };
+  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v2'; };
 }
 
 /** Keep trees instanced, with one root/height per part. The scene builder owns all returned resources. */

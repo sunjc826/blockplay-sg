@@ -90,6 +90,63 @@ describe('articulated characters', () => {
     });
     expect(max - min).toBeGreaterThan(.65); rig.dispose();
   });
+  it('keeps a planted foot still on the ground while the body walks or runs over it', () => {
+    for (const speed of [1.6, 3.1, 6]) {
+      const rig = soldier(), drive: CharacterDrive = { velocity: { x: 0, z: -speed }, aim: .15 };
+      // The root travels as the game moves it; the rig only sees body-local velocity.
+      const travel = (seconds: number, each?: () => void) => run(rig, drive, seconds, () => { rig.root.position.z -= speed / 60; each?.(); });
+      travel(1.5);
+      let slip = 0, frames = 0;
+      const last = { L: worldOf(rig.joints.footL), R: worldOf(rig.joints.footR) };
+      travel(2, () => {
+        for (const side of ['L', 'R'] as const) {
+          const now = worldOf(rig.joints[`foot${side}`]);
+          if (sole(rig, side) < .01) { slip += Math.hypot(now.x - last[side].x, now.z - last[side].z) * 60; frames++; }
+          last[side] = now;
+        }
+      });
+      rig.dispose();
+      expect(frames).toBeGreaterThan(20);
+      // The old sine stride slid planted feet at 10–35 % of body speed; a sprint still skids briefly at touchdown.
+      expect(slip / frames).toBeLessThan(speed * (speed > 4 ? .1 : .06));
+    }
+  });
+  it('swings each empty hand with the opposite leg', () => {
+    const rig = createCharacterRig(npcCharacterLook({ id: 'npc-test-walker', role: 'Visitor', interaction: { kind: 'dialogue' } }));
+    let agree = 0, frames = 0;
+    run(rig, { velocity: { x: 0, z: -1.4 } }, 1);
+    run(rig, { velocity: { x: 0, z: -1.4 } }, 2, () => {
+      const local = (name: 'footL' | 'handR') => rig.root.worldToLocal(worldOf(rig.joints[name])).z;
+      const foot = local('footL'), hand = local('handR');
+      if (Math.abs(foot) > .15) { frames++; if (Math.sign(foot) === Math.sign(hand + .02)) agree++; }
+    });
+    rig.dispose();
+    expect(frames).toBeGreaterThan(30); expect(agree / frames).toBeGreaterThan(.8);
+  });
+  it('poses identically for identical input, so replays and tests are deterministic', () => {
+    const a = soldier(), b = soldier();
+    const script: CharacterDrive[] = [{ aim: 1 }, { velocity: { x: 0, z: -3.1 }, aim: .15 }, { velocity: { x: 0, z: -6 }, aim: 0 }, { aim: 1, turn: 2 }];
+    for (const drive of script) { run(a, drive, .7); run(b, drive, .7); }
+    for (const name of Object.keys(a.joints) as (keyof typeof a.joints)[]) {
+      expect(a.joints[name].quaternion.toArray()).toEqual(b.joints[name].quaternion.toArray());
+      expect(a.joints[name].position.toArray()).toEqual(b.joints[name].position.toArray());
+    }
+    a.dispose(); b.dispose();
+  });
+  it('sways a shouldered weapon no more after a sprint than when standing calmly', () => {
+    const sway = (sprint: boolean) => {
+      const rig = soldier();
+      if (sprint) run(rig, { velocity: { x: 0, z: -6 }, aim: 0 }, 2);
+      run(rig, { aim: 1 }, sprint ? 1.2 : 3);
+      const direction = () => new THREE.Vector3(0, 0, -1).applyQuaternion(rig.weapon!.getWorldQuaternion(new THREE.Quaternion()));
+      const first = direction(); let drift = 0;
+      run(rig, { aim: 1 }, 5, () => { drift = Math.max(drift, direction().angleTo(first)); });
+      rig.dispose();
+      return drift;
+    };
+    // Deeper breathing and the settle after a stop move the body, not the sight line.
+    expect(sway(true)).toBeLessThan(sway(false) + THREE.MathUtils.degToRad(.4));
+  });
   it('sidesteps without crossing the feet', () => {
     const rig = soldier();
     run(rig, { velocity: { x: 2.6, z: 0 }, aim: 1 }, 2.5, () => {
