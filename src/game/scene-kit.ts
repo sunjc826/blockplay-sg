@@ -2,6 +2,7 @@ import { treePart, batchTrees, animateTrees } from './tree-wind';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
+import type { DistrictLook } from './district-look';
 
 export interface SceneKitOptions {
   /** Sky and fog colour; districts pick their own daylight. */
@@ -11,6 +12,8 @@ export interface SceneKitOptions {
   sun?: { x: number; y: number; z: number; color?: string; intensity?: number };
   shadow?: { extent: number; far: number };
   hemisphere?: { sky: string; ground: string; intensity: number };
+  /** Opt in to a gradient sky, clouds, height haze, baked indirect light and a colour grade (`district-look`). */
+  look?: DistrictLook;
 }
 
 /**
@@ -22,6 +25,7 @@ export function createSceneKit(options: SceneKitOptions) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(options.background);
   scene.fog = new THREE.Fog(options.background, options.fogNear, options.fogFar);
+  if (options.look) scene.userData.districtLook = options.look;
   const sky = options.hemisphere ?? { sky: '#f1f8ff', ground: '#787366', intensity: 1.8 };
   scene.add(new THREE.HemisphereLight(sky.sky, sky.ground, sky.intensity));
   const sunOptions = options.sun ?? { x: -110, y: 190, z: 100 };

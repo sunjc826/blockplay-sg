@@ -6933,3 +6933,38 @@ Owner asked for these on every preset. Same probe and view as the entry above (T
 - Tried and dropped: skipping casters smaller than one high-detail shadow texel (6.25 cm). It removed 27 draws (pistol serrations, sights, feed lips) with no measurable change in alternating A/B runs (10.8 vs 10.9 ms); a shadow draw costs about 5 µs at 4x here. The first-person body's 66 shadow draws (9 body, the rest pouches, magazines and the holstered pistol, whose visibility changes with reloads) are therefore worth about 0.3 ms; left as is.
 Validation: tsc, vitest 3,465 (new `shadow-proxy.test.ts`), fps-pilot smoke. `vehicle-smoke` fails at "One wrap purchase fits both vehicles" (1535 vs 950 tokens) identically with these changes stashed.
 Not covered: real phone; production build; arena/expedition vehicle scenes by eye (same model builder).
+
+
+## 2026-11-12 — Marina Bay look trial (sky, haze, baked indirect light, grade)
+
+Committed locally at the owner's request after reviewing the screenshots; no
+push, no deploy. Dusk haze (too pink) and rain cloud gaps still need tuning. New
+`src/game/district-look.ts` (+ test) holds an opt-in per-district look
+(`scene.userData.districtLook`, or the scene kit's `look` option); only
+`buildMarinaScene` opts in (`MARINA_LOOK`). Other districts are unchanged.
+
+- Sky: gradient dome with sun glow, dusk horizon tint, dark night and blocky
+  three-tone cloud cells that follow weather. Display colours, like the old
+  clear-colour sky: in the post chain it is drawn on the canvas under the
+  scene picture (`scene.userData.skyDome`, world-occlusion), so no bloom or ACES
+  greying; on the plain path it is drawn first in the scene, untone-mapped.
+- Haze: lit materials (the night-exposure patch) replace three's fog with
+  height-aware exponential haze before tone mapping, towards the same sky turned
+  into scene values by inverse ACES. Density follows the scene fog near/far.
+- Indirect: daytime sky visibility (12 cosine rays, 70 m reach) baked into the
+  blue channel of the existing night-exposure field after load, 4 ms per frame
+  (~1 s total here), solid cells dilated from open neighbours, fades in over
+  1.5 s. Scales ambient only; ground-coloured bounce in occluded places and on
+  lower walls; wall-foot darkening reduced while GTAO runs.
+- Grade: split tone, saturation and contrast in the output pass after ACES;
+  the plain one-render path has none. `fps-engine` lens flare now compares
+  against `atmosphere.lensSky(gradeApplied)` since the sky is no longer flat.
+- Software renderers: no material splice and no daytime bake (three's fog towards
+  the displayed horizon), clouds without edge filtering. Reduced effects (Low,
+  Battery presets) turn clouds and baked indirect light off.
+
+Evidence `.cache/marina-lighting/`: before-*/after-* (overview, street, dusk,
+night, rain, canyon, towers, towers-dusk), indirect-on/off-*, sw-*, timing
+reports, capture.mjs/probe.mjs/look.html. Real-GPU frame time +0.3–0.6 ms at
+1600×900 (overview/street), rain/towers within noise. Not checked: phones,
+MarinaGame walk/drive UI in a live session, LAN, thermal view by eye.

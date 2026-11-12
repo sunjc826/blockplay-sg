@@ -14,10 +14,14 @@ import { getGraphicsSettings } from './graphics-settings';
 import { createWaterRipples } from './water-ripples';
 import { createRainReceivers } from './rain-receivers';
 import { createVehicleRain } from './vehicle-rain';
+import { blendGrade, createDistrictLook, type ColorGrade, type DistrictLook } from './district-look';
+import { softwareRenderer } from './fps-sun-shadows';
 
 /**
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
  * Given the renderer, the district's hemisphere light hands over to a sky light (`world-sky-light`).
+ * A scene with `userData.districtLook` also gets its gradient sky, clouds, height haze, baked
+ * daytime indirect light and colour grade (`district-look`); other districts are unchanged.
  */
 export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x: number; z: number }[], obstacles: readonly Obstacle[], multiplayer = false, renderer?: THREE.WebGLRenderer, tutorialDaylight = false, groundHeight?: (x: number, z: number) => number) {
   const originalBackground = scene.background, originalFog = scene.fog;
@@ -40,7 +44,12 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const sunLight = lights.find(l => l.sun)?.light as THREE.DirectionalLight | undefined;
   const skyFill = lights.find(l => !l.sun)?.light as THREE.HemisphereLight | undefined;
   const skyLight = renderer && skyFill ? createSkyLight(renderer, scene) : null;
-  const exposure = createNightExposure(scene);
+  const lookOptions = scene.userData.districtLook as DistrictLook | undefined;
+  const look = lookOptions ? createDistrictLook(lookOptions, { software: !!renderer && softwareRenderer(renderer) }) : null;
+  const gtaoCapable = !!renderer && !softwareRenderer(renderer) && renderer.capabilities.isWebGL2;
+  const exposure = createNightExposure(scene, look?.extension);
+  const sunIrradiance = new THREE.Color(), keyColor = new THREE.Color(), groundColor = new THREE.Color(), lensSky = new THREE.Color();
+  let lookDay = 0;
   // The sky light replaces the hemisphere's lighting; the hemisphere keeps being driven so its colours and intensity feed the sky.
   if (skyLight && skyFill) skyFill.visible = false;
   const rgb = (c: THREE.Color): Rgb => [c.r, c.g, c.b];
@@ -56,6 +65,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** Eased air conditions around the camera, shared with lens and audio effects. */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
+  look?.attach(scene, root);
   const receivers = createRainReceivers(scene), rainGround = scene.userData.rainGroundHeight ?? groundHeight ?? (() => 0);
   const columns = createRainSurface(obstacles, (x,z) => receivers.water(x,z) ?? rainGround(x,z));
   const staticHit = { height: 0, normal: new THREE.Vector3(0,1,0) };
@@ -121,6 +131,13 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     get air() { return air; },
     /** Static natural-light visibility, also useful for renderer-independent review. */
     get exposure() { return exposure; },
+    /** The district look, when the scene has one. */
+    get look() { return look; },
+    /**
+     * For the lens flare: the colour clear sky round the sun reaches the canvas as,
+     * when this district draws a gradient sky; null otherwise (the plain clear colour applies).
+     */
+    lensSky(graded: boolean) { return look ? look.skyAtSun(graded ? scene.userData.colorGrade as ColorGrade : null, lensSky) : null; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
       const settings = getEnvironmentSettings();
@@ -137,7 +154,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       lighting = dayLighting(active.hour, singaporeDayOfYear(now));
       const night = nightExposureAmount(lighting.elevation);
       const cloudFill = 1 - night * .55 * (1 - preset.sun);
-      exposure.update(night, lighting.key, step);
+      exposure.update(night, lighting.key, step, lookDay);
       const local = exposure.sample(camera.getWorldPosition(exposurePoint));
       output.skyVisibility = 1 - night * (1 - skyVisibility(local.sky));
       output.moonVisibility = 1 - night * .975 * (1 - local.moon);
@@ -163,6 +180,14 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
           light.color.copy(color).lerp(shiftColor.set(lighting.skyFill), lighting.shift);
           light.groundColor.copy(ground).lerp(shiftColor.set(lighting.groundFill), lighting.shift);
         }
+      }
+      if (look && lookOptions) {
+        sunIrradiance.copy(sunLight?.color ?? keyColor.setRGB(1, 1, 1)).multiplyScalar(sunLight?.intensity ?? 0);
+        lookDay = look.update({ background, keyColor: keyColor.set(lighting.keyColor), keyDirection: lighting.key, elevation: lighting.elevation, shift: lighting.shift,
+          night, sun: sunlight, rain: wetness, haze, wind, exposure: lighting.exposure, sunIrradiance, groundColor: groundColor.set(lighting.groundFill), dt: step, reduced, lowDetail: active.reducedEffects, gtao: active.occlusion && gtaoCapable });
+        // Materials that keep three's fog (water, grass, glows) fade to the haze's average horizon.
+        fog.color.copy(look.horizon);
+        scene.userData.colorGrade = blendGrade(lookOptions.grade, lighting.shift, night, Math.max(0, Math.min(1, (.6 - sunlight) / .45)));
       }
       for (const material of water) { material.userData.setLighting(lighting, background, fog.color, preset.sun + lightning, blend); material.userData.setRain(wetness, reduced); }
       if (skyLight && skyFill) {
@@ -210,6 +235,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       bulbs.forEach(mesh => mesh.dispose());
       rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
+      look?.dispose(); delete scene.userData.colorGrade;
       exposure.dispose();
       for (const material of water) material.userData.resetLighting();
       scene.remove(root); scene.background = originalBackground; scene.fog = originalFog;

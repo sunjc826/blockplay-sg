@@ -4875,7 +4875,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (getGraphicsSettings().lensEffects) lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
         sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
         swimming: hud.phase==='playing'&&swimming(), swimSpeed:carry.length(),
-        sky: world.scene.background instanceof THREE.Color ? world.scene.background : null, thermal: vision.thermal,
+        sky: atmosphere.lensSky(occlusion.gradeApplied) ?? (world.scene.background instanceof THREE.Color ? world.scene.background : null), thermal: vision.thermal,
         sunRayOverlay: occlusion.sunRayOverlay,
         reduced: getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
       else lens.clear();

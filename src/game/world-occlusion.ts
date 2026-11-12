@@ -8,6 +8,7 @@ import { softwareRenderer } from './fps-sun-shadows';
 import { getGraphicsSettings } from './graphics-settings';
 import { createWaterReflections } from './water-reflections';
 import { createRainReflections, type WetGround } from './rain-reflections';
+import { createGradeUniforms, GRADE_GLSL, type ColorGrade, type SkyDome } from './district-look';
 
 /**
  * Ambient occlusion for the world view: corners, gaps under ledges and the
@@ -23,6 +24,10 @@ import { createRainReflections, type WetGround } from './rain-reflections';
  * selects bright light sources; the plain sky never enters the extraction.
  * The weapon, scope image and reticle are drawn afterwards and stay crisp.
  * Ultra wet-ground reflections also reuse this scene colour and depth.
+ * A district look's colour grade (`scene.userData.colorGrade`) runs in the
+ * output pass, after tone mapping; the plain one-render path has no grade.
+ * Its gradient sky (`scene.userData.skyDome`) takes the plain sky's place:
+ * left out of the HDR picture and drawn on the canvas under it.
  * Off (one plain render to the canvas) when no effect is wanted, or on software
  * renderers (SwiftShader, llvmpipe).
  */
@@ -40,12 +45,17 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let waterReflectionsEnabled = false;
   let sunRays: ReturnType<typeof createSunRays> | null = null, godRaysEnabled = false;
   const sunUv = new THREE.Vector2();
+  const grade = createGradeUniforms();
+  let gradeApplied = false;
   const size = new THREE.Vector2();
   function build() {
     renderer.getDrawingBufferSize(size);
     const width = Math.max(1, size.x), height = Math.max(1, size.y);
     sceneTarget = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(width, height) });
     output = new OutputPass(); output.renderToScreen = true;
+    Object.assign(output.material.uniforms, grade.uniforms);
+    output.material.fragmentShader = output.material.fragmentShader.replace('varying vec2 vUv;', `varying vec2 vUv;\n${GRADE_GLSL}`)
+      .replace('#ifdef SRGB_TRANSFER', 'if (gradeAmount > 0.0) gl_FragColor.rgb = lookGrade(gl_FragColor.rgb);\n#ifdef SRGB_TRANSFER');
     // The scene arrives premultiplied over a transparent sky, which is already on the canvas.
     Object.assign(output.material, { transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
       blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor });
@@ -79,6 +89,8 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     get sunRayOverlay() { return godRaysEnabled ? sunRays?.overlay ?? null : null; },
     get godRaysSize() { return sunRays?.size ?? null; },
     get bloomEnabled() { return bloomEnabled; },
+    /** Whether the last frame went out with the scene's colour grade. */
+    get gradeApplied() { return gradeApplied; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
@@ -103,7 +115,10 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloomEnabled = supported && wantBloom;
       const ground = scene.userData.wetGround as WetGround | undefined;
       rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
+      gradeApplied = false;
+      const dome = scene.userData.skyDome as SkyDome | undefined;
       if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled && !smaaEnabled)) {
+        dome?.setGrade(null);
         renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera);
         return false;
       }
@@ -115,7 +130,9 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       const sky = scene.background instanceof THREE.Color ? scene.background : null;
       renderer.getClearColor(clearColor); const clearAlpha = renderer.getClearAlpha();
       if (sky) { scene.background = null; renderer.setClearColor(0x000000, 0); }
+      if (dome) dome.mesh.visible = false;
       renderer.setRenderTarget(sceneTarget); renderer.clear(); renderer.render(scene, camera);
+      if (dome) dome.mesh.visible = true;
       scene.background = sky ?? scene.background;
       if (want) gtao!.render(renderer, aoTarget!, sceneTarget!, 0, false);
       let picture = want ? aoTarget! : sceneTarget!;
@@ -140,6 +157,9 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       renderer.setClearColor(clearColor, clearAlpha);
       // Writes to the canvas (renderToScreen ignores the write buffer) without auto-clearing the sky just put there.
       const autoClear = renderer.autoClear; renderer.autoClear = false;
+      const colorGrade = scene.userData.colorGrade as ColorGrade | undefined;
+      gradeApplied = grade.set(colorGrade);
+      dome?.draw(renderer, camera, gradeApplied ? colorGrade! : null);
       output!.render(renderer, picture, picture, 0, false);
       if (godRaysEnabled) sunRays!.render(picture, sceneTarget!.depthTexture!, wantGodRays as Exclude<SunRayQuality, 'off'>, sun!, sunUv, rayStrength);
       renderer.autoClear = autoClear;

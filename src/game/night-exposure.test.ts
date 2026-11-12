@@ -65,6 +65,41 @@ describe('natural night visibility', () => {
     while (!next()) { /* complete the bounded update */ }
     expect(field.sample({ x: 0, y: 1.5, z: 0 }).moon).toBe(0);
   });
+  it('bakes daytime sky visibility in bounded steps, with walls and roofs reading the open air beside them', () => {
+    const scene = new THREE.Scene();
+    box(scene, 0, 12, 0, 16, 24, 16); // a tower
+    box(scene, 40, 4, 0, 20, .4, 20); // a deck on stilts
+    const blockers = collectNightBlockers(scene), bounds = new THREE.Box3(new THREE.Vector3(-64, 0, -64), new THREE.Vector3(64, 60, 64));
+    const field = bakeNightExposure(blockers, bounds, { x: 0, y: 1, z: 0 }), step = field.prepareDay();
+    expect(step(0)).toBe(false);
+    while (!step(50)) { /* bounded steps */ }
+    const day = (x: number, y: number, z: number) => field.sample({ x, y, z }).day;
+    expect(day(-50, 1, -50)).toBeGreaterThan(.9);
+    expect(day(40, 1.5, 0)).toBeLessThan(.4);          // under the deck
+    expect(day(40, 1.5, 0)).toBeLessThan(day(-50, 1.5, -50));
+    // Beside the tower's wall, and on its roof, the solid inside never pulls the value to zero.
+    expect(day(8.4, 2.5, 0)).toBeGreaterThan(.25);
+    expect(day(0, 24.4, 0)).toBeGreaterThan(.8);
+    // The foot of a wall sees less sky than its top.
+    expect(day(12, .5, 0)).toBeLessThan(day(12, 23.5, 0));
+    // Moonlight updates leave the daytime channel alone.
+    const before = field.data.filter((_, i) => i % 4 === 2), moon = field.prepareMoon({ x: .6, y: .8, z: 0 });
+    while (!moon()) { /* complete */ }
+    expect(field.data.filter((_, i) => i % 4 === 2)).toEqual(before);
+  });
+  it('splices a district look into lit materials only when asked', () => {
+    const scene = new THREE.Scene(), mesh = box(scene, 0, 4, 0, 10, .3, 10), material = mesh.material as THREE.MeshStandardMaterial;
+    const extension = { uniforms: { lookTest: { value: 1 } }, declarations: 'uniform float lookTest;', indirect: '/*indirect*/', specular: '/*specular*/', fog: '/*fog*/' };
+    const shader = () => ({ uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader } as unknown as THREE.WebGLProgramParametersWithUniforms);
+    const plain = createNightExposure(scene), a = shader(); material.onBeforeCompile(a, {} as THREE.WebGLRenderer); plain.dispose();
+    expect(a.fragmentShader).toContain('#include <fog_fragment>'); expect(a.fragmentShader).not.toContain('/*fog*/');
+    const look = createNightExposure(scene, extension), b = shader(); material.onBeforeCompile(b, {} as THREE.WebGLRenderer);
+    expect(b.fragmentShader).not.toContain('#include <fog_fragment>');
+    expect(b.fragmentShader.indexOf('/*fog*/')).toBeLessThan(b.fragmentShader.indexOf('#include <tonemapping_fragment>'));
+    expect(b.fragmentShader).toContain('/*indirect*/'); expect(b.uniforms).toHaveProperty('lookTest');
+    expect(look.dayReady).toBe(false); look.finishDay(); expect(look.dayReady).toBe(true);
+    look.dispose();
+  });
   it('chains and restores existing material hooks without modifying emission', () => {
     const scene = new THREE.Scene(), mesh = box(scene, 0, 4, 0, 10, .3, 10), material = mesh.material as THREE.Material;
     const compile = material.onBeforeCompile, key = material.customProgramCacheKey;

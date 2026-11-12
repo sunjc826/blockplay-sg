@@ -76,6 +76,10 @@ smoke all read the registry.
    and materials, `box`/`cylinder`/`beam`/`blob`, canvas signs, trees, walkers,
    a car, stamp rings, a street grid, and the instanced-batch/dispose pass.
    Marina, Raffles and Queenstown predate the kit and keep their own copies.
+   Optionally pass `look` (a `DistrictLook` from `src/game/district-look.ts`)
+   for the gradient sky, blocky clouds, height haze, baked daytime indirect
+   light and colour grade; Marina (`MARINA_LOOK`, set on
+   `scene.userData.districtLook`) is the only district that opts in so far.
 2. **Stamps** — add the collectible list to `src/data/region-stamps.ts`.
 3. **Registry** — add the id to `src/game/region-ids.ts` and the descriptor to
    `src/game/regions.ts`: bounds and movement (`createRegionMovement`), spawn,

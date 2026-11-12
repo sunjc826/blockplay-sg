@@ -16,6 +16,7 @@ import { captureRainReceivers } from './rain-receivers';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
+import { MARINA_LOOK } from './district-look';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -86,6 +87,8 @@ export const MARINA_VERTICAL_PLACES: VerticalPlace[] = AUTHORED_PLACES.map(p => 
 
 export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#a8cde8');
+  // The trial district for the deliberate look: gradient sky, haze, baked indirect light and grade.
+  scene.userData.districtLook = MARINA_LOOK;
   scene.fog = new THREE.Fog('#b8cfdf', 290, 850);
   scene.add(new THREE.HemisphereLight('#e4efff', '#71746e', 1.65));
   const sun = new THREE.DirectionalLight('#fff5e7', 2.1);
