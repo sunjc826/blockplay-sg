@@ -42,7 +42,8 @@ export interface DistrictLook {
   /** Ground-coloured light bounced into sky-occluded places and onto the lower walls, as a share of the sun's horizontal irradiance. */
   bounce: number;
   /**
-   * Walls near the ground: ambient darkens over the first `fade` metres above `base` (by `darken`,
+   * Walls near the ground: ambient darkens over the first `fade` metres above `base` over the local
+   * ground (graded districts' `groundHeight`, carried by the exposure field; 0 elsewhere) (by `darken`,
    * less where GTAO already darkens corners) and ground bounce warms them over `reach` metres.
    */
   contact: { base: number; darken: number; fade: number; reach: number };
@@ -52,6 +53,14 @@ export interface DistrictLook {
   grade: { amount: number; day: GradeStop; dusk: GradeStop; night: GradeStop; storm: GradeStop };
   /** Procedural surface variation on lit materials; none when absent. See `SurfaceVariation`. */
   surface?: SurfaceVariation;
+  /**
+   * The district's own daylight: a hue (unit luminance, display-linear) multiplied into the weather's
+   * flat sky before the palette is built, so the dome, haze and clouds lean towards the sky the district
+   * was authored with. None keeps the weather's sky as it is (Marina). See `skyTintFrom`.
+   */
+  skyTint?: Rgb;
+  /** Which preset the look derives from: a label for review and docs, never read by the renderer. */
+  preset?: LookPresetId;
 }
 
 /**
@@ -85,7 +94,11 @@ export interface SurfaceVariation {
   wall: { grime: number; grimeHeight: number; lift: number; liftHeight: number; panel: [number, number]; value: number; roughness: number };
 }
 
-export const MARINA_LOOK: DistrictLook = {
+/**
+ * Shared defaults every preset derives from: the values tuned on Marina Bay, the trial district.
+ * Presets change only the fields where their kind of place differs.
+ */
+export const LOOK_DEFAULTS: DistrictLook = {
   indirect: 1, indirectFloor: .4, bounce: .22,
   surface: {
     building: { cell: 8, value: .12, hue: .035, roughness: .15 },
@@ -104,6 +117,116 @@ export const MARINA_LOOK: DistrictLook = {
     storm: { shadows: [.96, 1.0, 1.04], highlights: [1.0, 1.0, .99], saturation: .92, contrast: 1.04 },
   },
 };
+
+/** Nested optional parts of a look; tuples (colours, panel sizes) are replaced whole. */
+export type LookPatch<T = DistrictLook> = { [K in keyof T]?: T[K] extends readonly unknown[] ? T[K] : T[K] extends object | undefined ? LookPatch<NonNullable<T[K]>> : T[K] };
+
+/** A look from a base and only the fields that differ, merged field by field. Pure: the base is never changed. */
+export function extendLook(base: DistrictLook, patch: LookPatch = {}): DistrictLook {
+  const merge = (a: unknown, b: unknown): unknown => {
+    if (b === undefined) return a;
+    if (Array.isArray(b) || typeof b !== 'object' || b === null || typeof a !== 'object' || a === null || Array.isArray(a)) return b;
+    const out: Record<string, unknown> = { ...(a as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(b)) out[key] = merge(out[key], value);
+    return out;
+  };
+  return merge(base, patch) as DistrictLook;
+}
+
+export type LookPresetId = 'city' | 'heartland' | 'heritage' | 'nature' | 'coast' | 'industrial';
+
+/**
+ * Named looks for kinds of place, each the shared defaults plus what differs. Districts pick one
+ * (`districtLook`), keep their own sky hue through `skyTint`, and override a field only where the
+ * preset clearly does not fit.
+ */
+export const LOOK_PRESETS: Readonly<Record<LookPresetId, DistrictLook>> = {
+  // The business district: glass and stone towers, the trial look as tuned.
+  city: extendLook(LOOK_DEFAULTS, { preset: 'city' }),
+  // HDB estates: tall slab blocks on a storey-and-bay rhythm, painted walls, softer and warmer shade.
+  heartland: extendLook(LOOK_DEFAULTS, {
+    preset: 'heartland',
+    surface: { building: { value: .1, hue: .03 }, wall: { grime: .3, lift: .07, liftHeight: 45, panel: [3.6, 2.8], value: .05 } },
+    grade: {
+      day: { shadows: [.97, 1.0, 1.03], highlights: [1.035, 1.0, .955], saturation: 1.06, contrast: 1.07 },
+      dusk: { shadows: [.97, .97, 1.06], highlights: [1.05, 1.0, .94], saturation: 1.03, contrast: 1.03 },
+      night: { shadows: [.94, .98, 1.08], highlights: [1.05, 1.0, .93], saturation: 1.04, contrast: 1.04 },
+      storm: { shadows: [.97, 1.0, 1.03], highlights: [1.0, 1.0, .99], saturation: .93, contrast: 1.03 },
+    },
+  }),
+  // Shophouse streets: low, painted, close-set; warm light, five-foot ways in deep shade, more grime.
+  heritage: extendLook(LOOK_DEFAULTS, {
+    preset: 'heritage', bounce: .24,
+    contact: { darken: .5 },
+    surface: { building: { cell: 6, value: .14, hue: .05 }, wall: { grime: .32, lift: .04, liftHeight: 20, panel: [5, 3.6], value: .05 } },
+    grade: {
+      day: { shadows: [.99, .99, 1.02], highlights: [1.05, 1.0, .93], saturation: 1.12, contrast: 1.06 },
+      dusk: { shadows: [.98, .96, 1.04], highlights: [1.07, 1.0, .92], saturation: 1.06, contrast: 1.04 },
+      night: { shadows: [.95, .97, 1.07], highlights: [1.06, 1.0, .92], saturation: 1.06, contrast: 1.05 },
+      storm: { shadows: [.97, 1.0, 1.03], highlights: [1.01, 1.0, .98], saturation: .94, contrast: 1.03 },
+    },
+  }),
+  // Forest, reservoir and island: humid air that never fully clears, green-tinted shade, greens kept rich.
+  nature: extendLook(LOOK_DEFAULTS, {
+    preset: 'nature', bounce: .18,
+    contact: { darken: .4 },
+    haze: { floor: .25 },
+    surface: { building: { hue: .04 }, ground: { coarse: 7, fine: 2, value: .12, hue: .09 }, wall: { grime: .3, lift: .05, liftHeight: 30 } },
+    grade: {
+      day: { shadows: [.96, 1.02, 1.02], highlights: [1.03, 1.01, .95], saturation: 1.08, contrast: 1.06 },
+      dusk: { shadows: [.96, .98, 1.06], highlights: [1.05, 1.0, .94], saturation: 1.04, contrast: 1.03 },
+      night: { shadows: [.92, .99, 1.09], highlights: [1.03, 1.0, .96], saturation: 1.03, contrast: 1.04 },
+      storm: { shadows: [.96, 1.01, 1.03], highlights: [.99, 1.0, 1.0], saturation: .9, contrast: 1.04 },
+    },
+  }),
+  // Sea front, beaches and the airport by the sea: bright open air, sand bounce, cool sea-blue shade.
+  coast: extendLook(LOOK_DEFAULTS, {
+    preset: 'coast', bounce: .25,
+    haze: { height: 80, floor: .18 },
+    surface: { ground: { value: .08 }, wall: { grime: .2, lift: .08 } },
+    grade: {
+      day: { shadows: [.95, 1.0, 1.06], highlights: [1.04, 1.01, .94], saturation: 1.09, contrast: 1.07 },
+      dusk: { shadows: [.96, .97, 1.07], highlights: [1.06, 1.0, .93], saturation: 1.05, contrast: 1.04 },
+      night: { shadows: [.92, .98, 1.1], highlights: [1.04, 1.0, .94], saturation: 1.04, contrast: 1.05 },
+      storm: { shadows: [.96, 1.0, 1.04], highlights: [1.0, 1.0, .99], saturation: .92, contrast: 1.04 },
+    },
+  }),
+  // Yards, sheds and plants: flatter colour, harder contrast, dustier haze, larger panels and grimier feet.
+  industrial: extendLook(LOOK_DEFAULTS, {
+    preset: 'industrial',
+    haze: { height: 55, floor: .24 },
+    surface: { building: { value: .1, hue: .02 }, ground: { coarse: 12, fine: 3, value: .12, hue: .03, roughness: .35 },
+      wall: { grime: .35, grimeHeight: 1.6, lift: .04, panel: [6, 4], value: .06, roughness: .3 } },
+    grade: {
+      day: { shadows: [.97, 1.0, 1.04], highlights: [1.025, 1.0, .965], saturation: 1.0, contrast: 1.09 },
+      dusk: { shadows: [.97, .97, 1.05], highlights: [1.05, 1.0, .94], saturation: 1.0, contrast: 1.06 },
+      night: { shadows: [.92, .97, 1.1], highlights: [1.06, 1.0, .9], saturation: 1.0, contrast: 1.06 },
+      storm: { shadows: [.97, 1.0, 1.03], highlights: [1.0, 1.0, 1.0], saturation: .88, contrast: 1.05 },
+    },
+  }),
+};
+
+/** Marina Bay: the city preset, with the weather's own sky (no tint). Pinned by test to its tuned values. */
+export const MARINA_LOOK: DistrictLook = LOOK_PRESETS.city;
+
+/** The weather's clear sky that districts' authored skies are measured against (`WEATHER.sunny.sky`). */
+const REFERENCE_SKY = '#b9dcea';
+/**
+ * A district's authored sky colour as a hue on the weather's sky: the ratio of the two (linear),
+ * at unit luminance, eased towards no tint by `strength`, so it shifts the sky's hue but never its brightness.
+ */
+export function skyTintFrom(sky: string, strength = .5): Rgb {
+  const a = new THREE.Color(sky), b = new THREE.Color(REFERENCE_SKY);
+  const ratio: Rgb = [a.r / b.r, a.g / b.g, a.b / b.b];
+  const l = .2126 * ratio[0] + .7152 * ratio[1] + .0722 * ratio[2];
+  const tint = ratio.map(v => 1 + (v / l - 1) * strength) as unknown as Rgb;
+  const u = .2126 * tint[0] + .7152 * tint[1] + .0722 * tint[2];
+  return tint.map(v => v / u) as unknown as Rgb;
+}
+/** A district's look: a preset, its authored sky's hue, and any fields the preset does not fit. */
+export function districtLook(preset: LookPresetId, sky: string, overrides: LookPatch = {}): DistrictLook {
+  return extendLook(LOOK_PRESETS[preset], { skyTint: skyTintFrom(sky), ...overrides });
+}
 
 export interface LookPalette {
   zenith: Rgb; horizon: Rgb; ground: Rgb; sunGlow: Rgb; duskTint: Rgb;
@@ -385,7 +508,7 @@ export const LOOK_SURFACE_ALBEDO = /* glsl */`
       lookPanelMix = ((lookAlongZ * lookFace.x + lookAlongX * lookFace.z) / max(lookFace.x + lookFace.z, 1e-3) - 0.5) * 2.0 * lookSide;
     }
     lookTint *= 1.0 + lookPanels.z * lookPanelMix;
-    float lookHeight = max(vExposureWorld.y - lookContact.x, 0.0);
+    float lookHeight = max(vExposureWorld.y - lookContact.x - nightExposureGround(vExposureWorld), 0.0);
     float lookGrime = lookWallTone.x * lookSide * exp(-lookHeight / lookWallTone.y) * (1.0 - lookContact.y);
     float lookLift = lookWallTone.z * lookSide * smoothstep(0.0, lookWallTone.w, lookHeight);
     lookTint *= mix(vec3(1.0), vec3(0.86, 0.84, 0.8), lookGrime) * (1.0 + lookLift);
@@ -432,7 +555,7 @@ export const LOOK_INDIRECT_GLSL = /* glsl */`
   vec3 lookNormal = normalize(vExposureNormal);
   float lookSky = clamp(naturalVisibility.b / mix(0.5, 1.0, abs(lookNormal.y)), 0.0, 1.0);
   // Walls near the ground: a darker foot, then ground-coloured bounce fading up the wall.
-  float lookWall = 1.0 - abs(lookNormal.y), lookAbove = max(vExposureWorld.y - lookContact.x, 0.0);
+  float lookWall = 1.0 - abs(lookNormal.y), lookAbove = max(vExposureWorld.y - lookContact.x - nightExposureGround(vExposureWorld), 0.0);
   float lookFoot = lookWall * exp(-lookAbove / lookContact.z), lookWarm = lookWall * exp(-lookAbove / lookContact.w);
   float lookOcclusion = mix(1.0, (lookIndirectFloor + (1.0 - lookIndirectFloor) * pow(lookSky, 1.2)) * (1.0 - lookContact.y * lookFoot), nightExposureDay);
   irradiance *= lookOcclusion; iblIrradiance *= lookOcclusion;
@@ -634,7 +757,8 @@ export function createDistrictLook(look: DistrictLook, options: { software?: boo
     /** Puts the dome in the scene's atmosphere root and hands world-occlusion the sky. */
     attach(scene: THREE.Scene, root: THREE.Object3D) { world = scene; root.add(dome); scene.userData.skyDome = skyDome; },
     update(frame: LookFrame) {
-      palette = lookPalette({ background: rgb(frame.background), keyColor: rgb(frame.keyColor), keyDirection: frame.keyDirection, elevation: frame.elevation,
+      const sky = rgb(frame.background), tint = look.skyTint;
+      palette = lookPalette({ background: tint ? times(sky, tint) : sky, keyColor: rgb(frame.keyColor), keyDirection: frame.keyDirection, elevation: frame.elevation,
         shift: frame.shift, night: frame.night, sun: frame.sun, rain: frame.rain, haze: frame.haze });
       set(domeUniforms.lookZenith, palette.zenith); set(domeUniforms.lookHorizon, palette.horizon); set(domeUniforms.lookGround, palette.ground);
       set(domeUniforms.lookSunGlow, palette.sunGlow); set(domeUniforms.lookDuskTint, palette.duskTint);

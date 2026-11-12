@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { acesFilmic, blendGrade, buildingSeed, createDistrictLook, DAY_SKY_RAYS, gradeColor, groundCells, hazeAmount, inverseAcesFilmic, lookPalette, MARINA_LOOK, skyColorAt,
+import { acesFilmic, blendGrade, buildingSeed, createDistrictLook, DAY_SKY_RAYS, districtLook, extendLook, gradeColor, groundCells, hazeAmount, inverseAcesFilmic, LOOK_DEFAULTS, LOOK_PRESETS,
+  lookPalette, MARINA_LOOK, skyColorAt, skyTintFrom,
   surfaceHash, surfaceShade, wallPanels, type DistrictLook, type LookPaletteInput, type SurfacePoint } from './district-look';
 import { dayLighting } from './world-lighting';
 import { WEATHER } from './world-events';
@@ -181,5 +182,97 @@ describe('district look surface variation', () => {
     expect(plain.extension?.albedo).toBeUndefined(); expect(plain.extension?.declarations).not.toContain('lookCellValue');
     plain.update(frame); expect(plain.uniforms.lookSurface.value.x).toBe(0);
     marina.dispose(); plain.dispose();
+  });
+});
+
+describe('district look presets', () => {
+  /** Marina's tuned values as they stood before the look moved onto shared defaults. */
+  const MARINA_TUNED: DistrictLook = {
+    indirect: 1, indirectFloor: .4, bounce: .22,
+    surface: {
+      building: { cell: 8, value: .12, hue: .035, roughness: .15 },
+      ground: { coarse: 9, fine: 2.25, value: .1, hue: .06, roughness: .3 },
+      wall: { grime: .25, grimeHeight: 1.2, lift: .1, liftHeight: 60, panel: [4.5, 3.3], value: .04, roughness: .25 },
+    },
+    contact: { base: 0, darken: .45, fade: 3, reach: 9 },
+    clouds: { height: 900, cell: 70 },
+    haze: { base: 0, height: 60, floor: .22 },
+    grade: {
+      amount: 1,
+      day: { shadows: [.95, 1.0, 1.06], highlights: [1.04, 1.0, .94], saturation: 1.1, contrast: 1.1 },
+      dusk: { shadows: [.96, .97, 1.07], highlights: [1.05, 1.0, .94], saturation: 1.04, contrast: 1.04 },
+      night: { shadows: [.92, .98, 1.1], highlights: [1.04, 1.0, .94], saturation: 1.05, contrast: 1.05 },
+      storm: { shadows: [.96, 1.0, 1.04], highlights: [1.0, 1.0, .99], saturation: .92, contrast: 1.04 },
+    },
+  };
+
+  it('keeps Marina exactly as tuned: the city preset, with no sky tint', () => {
+    const { preset, ...values } = MARINA_LOOK;
+    expect(preset).toBe('city');
+    expect(values).toEqual(MARINA_TUNED);
+    expect(MARINA_LOOK.skyTint).toBeUndefined();
+    expect(LOOK_DEFAULTS).toEqual(MARINA_TUNED);
+  });
+
+  it('merges a patch field by field, replacing tuples and never touching the base', () => {
+    const before = JSON.stringify(LOOK_DEFAULTS);
+    const look = extendLook(LOOK_DEFAULTS, { haze: { floor: .3 }, surface: { wall: { panel: [6, 4] } }, grade: { day: { saturation: 1.2 } } });
+    expect(look.haze).toEqual({ ...LOOK_DEFAULTS.haze, floor: .3 });
+    expect(look.surface!.wall.panel).toEqual([6, 4]);
+    expect(look.surface!.wall.grime).toBe(LOOK_DEFAULTS.surface!.wall.grime);
+    expect(look.grade.day.shadows).toEqual(LOOK_DEFAULTS.grade.day.shadows);
+    expect(look.grade.day.saturation).toBe(1.2);
+    expect(JSON.stringify(LOOK_DEFAULTS)).toBe(before);
+  });
+
+  it('labels each preset, keeps the shared structure and stays a subtle grade', () => {
+    for (const [id, look] of Object.entries(LOOK_PRESETS)) {
+      expect(look.preset).toBe(id);
+      expect(Object.keys(look).sort()).toEqual([...Object.keys(LOOK_DEFAULTS), 'preset'].sort());
+      for (const stop of [look.grade.day, look.grade.dusk, look.grade.night, look.grade.storm]) {
+        expect(stop.saturation).toBeGreaterThan(.85); expect(stop.saturation).toBeLessThan(1.2);
+        expect(stop.contrast).toBeGreaterThanOrEqual(1); expect(stop.contrast).toBeLessThan(1.15);
+        for (const c of [...stop.shadows, ...stop.highlights]) { expect(c).toBeGreaterThan(.85); expect(c).toBeLessThan(1.15); }
+      }
+      expect(look.haze.floor).toBeLessThanOrEqual(.25);
+    }
+    // Presets differ from one another, not only in name.
+    const grades = new Set(Object.values(LOOK_PRESETS).map(look => JSON.stringify(look.grade.day)));
+    expect(grades.size).toBe(Object.keys(LOOK_PRESETS).length);
+  });
+
+  it('turns an authored sky into a hue on the weather sky: unit luminance, none for the weather sky itself', () => {
+    skyTintFrom('#b9dcea').forEach(v => expect(v).toBeCloseTo(1, 6));
+    for (const sky of ['#c8d8dc', '#e2e5d9', '#c6ced3', '#b8d1da']) {
+      const tint = skyTintFrom(sky);
+      expect(luminance(tint)).toBeCloseTo(1, 6);
+      for (const v of tint) { expect(v).toBeGreaterThan(.8); expect(v).toBeLessThan(1.2); }
+    }
+    // A warm authored sky leans warm; a full-strength tint leans further.
+    const warm = skyTintFrom('#e2e5d9');
+    expect(warm[0]).toBeGreaterThan(warm[2]);
+    expect(skyTintFrom('#e2e5d9', 1)[0]).toBeGreaterThan(warm[0]);
+    const look = districtLook('heritage', '#e2e5d9', { bounce: .3 });
+    expect(look.preset).toBe('heritage'); expect(look.skyTint).toEqual(warm); expect(look.bounce).toBe(.3);
+    expect(LOOK_PRESETS.heritage.skyTint).toBeUndefined();
+  });
+
+  it('tints the dome and haze by the district sky, without changing the flat sky the thermal test compares', () => {
+    const frame = { background: new THREE.Color('#b9dcea'), keyColor: new THREE.Color('#fff3e2'), keyDirection: { x: .3, y: .9, z: .1 }, elevation: 64, shift: 0, night: 0, sun: 1, rain: 0, haze: 0, wind: 0,
+      exposure: .9, sunIrradiance: new THREE.Color(2, 2, 2), groundColor: new THREE.Color('#707060'), dt: .1, reduced: false, lowDetail: false, gtao: false };
+    const plain = createDistrictLook(MARINA_LOOK), warm = createDistrictLook(districtLook('city', '#e2e5d9'));
+    plain.update(frame); warm.update(frame);
+    const a = plain.palette!.horizon, b = warm.palette!.horizon;
+    expect(b[0] / b[2]).toBeGreaterThan(a[0] / a[2]);
+    expect(luminance(b)).toBeCloseTo(luminance(a), 1);
+    expect(frame.background.getHexString()).toBe('b9dcea');
+    plain.dispose(); warm.dispose();
+  });
+
+  it('measures wall feet from the ground under them, so graded districts keep their contact shade', () => {
+    const look = createDistrictLook(MARINA_LOOK);
+    expect(look.extension!.indirect).toContain('nightExposureGround(vExposureWorld)');
+    expect(look.extension!.albedo).toContain('nightExposureGround(vExposureWorld)');
+    look.dispose();
   });
 });
