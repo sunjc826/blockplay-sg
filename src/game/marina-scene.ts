@@ -18,7 +18,7 @@ import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } fr
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 import { MARINA_LOOK } from './district-look';
-import { createAmbientDrift } from './ambient-drift';
+import { createAmbientDrift, type DriftSource } from './ambient-drift';
 import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
@@ -101,6 +101,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.3; scene.add(sun);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
   const instances: THREE.InstancedMesh[] = [];
+  const leafSources: DriftSource[] = [];
   const qualityDetails = { esplanadeSunshades: 0, wheelCapsules: 0, conservatoryGlazingSegments: 0, sandsMullions: 0 };
   const obstacles: Obstacle[] = [{ minX: -80, maxX: 80, minZ: -90, maxZ: 50, maxY: 2 }];
   const geo = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
@@ -607,6 +608,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const roofPlantGeo = geo(new THREE.IcosahedronGeometry(1, 1));
   for (const x of [-185, -133, -81, 67, 119, 171]) for (const side of [-1, 1]) {
     const px = x + side * 11;
+    leafSources.push({ x: px * S, y: 12.02 * S, z: 200 * S, height: .65 });
     box(px, 12.02, 200, 6.7, .05, 1.7, gardenSoil);
     for (const dz of [201.25, 201.6, 201.95, 202.3, 202.65]) box(px, 11.38, dz, 6.6, .12, .25, wood);
     for (const dx of [-2.4, -1.2, 0, 1.2, 2.4]) {
@@ -733,6 +735,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
       box(x+(alongZ?-.63:offset),height/2,z+(alongZ?offset:-.73),alongZ?.08:.14,height-.25,alongZ?.14:.08,wood);
     for(let offset=-length/2+1;offset<length/2;offset+=2){
       const plant=new THREE.Mesh(shrubGeo,offset%3?leaf:hedge);
+      leafSources.push({ x: px+(alongZ?0:offset), y: .62, z: pz+(alongZ?offset:0), height: 1 });
       plant.position.set(px+(alongZ?0:offset),1.05,pz+(alongZ?offset:0));plant.scale.set(1.1,.65,1.1);plant.castShadow=true;scene.add(plant);
     }
   }
@@ -838,6 +841,15 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   scene.userData.rainReceivers.push(...camp.root.userData.rainReceivers);
   // Repeated façade/paving/railing and palm details share batched draw calls.
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
+  // Capture compacted tree roots before batching removes the individual parts.
+  const leafRoots = new Set<string>();
+  scene.traverse(object => {
+    const part = object.userData.treePart;
+    if (!part) return;
+    const { x, y, z } = part.root;
+    const key = `${x}:${y}:${z}`;
+    if (!leafRoots.has(key)) { leafRoots.add(key); leafSources.push({ x, y, z, height: part.height }); }
+  });
   instances.push(...batchTrees(scene, geo, m => materials.push(m)));
   const batches = new Map<string, THREE.Mesh[]>();
   for (const child of [...scene.children]) {
@@ -852,8 +864,8 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  // Leaves and sunlit dust drifting round the camera, driven by the weather in world-atmosphere.
-  const drift = createAmbientDrift(scene, { leafColors: ['#5d8a3c', '#7e9c40', '#b19a45', '#8b6b3c', '#4f7d3d'] });
+  // Sparse leaves stay near planting; faint sunlit dust is driven by the weather.
+  const drift = createAmbientDrift(scene, { leafSources, leafColors: ['#5d8a3c', '#7e9c40', '#b19a45', '#8b6b3c', '#4f7d3d'] });
   scene.userData.ambientDrift = drift;
   return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,

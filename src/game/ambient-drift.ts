@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import type { WorldDetail } from './environment-quality';
 
 /**
- * Loose leaves blown through the air and dust motes hanging in the sun, kept
- * in a box that travels with the camera. One draw of tiny flat blocks (in
- * keeping with the blocky style); every particle's path is worked out in the
+ * Occasional leaves near planted sources and faint dust motes in the sun.
+ * Only dust follows the camera; leaves stay in small world-space pockets.
+ * One draw of tiny flat blocks (in keeping with the blocky style); every particle's path is worked out in the
  * vertex shader from the time and its seed, so a frame costs a few uniform
  * writes and nothing per particle on the CPU. Presentation only.
  *
@@ -26,8 +26,8 @@ export interface AmbientDriftWeather {
   mobile: boolean;
 }
 
-export const DRIFT_COUNT: Record<WorldDetail, number> = { low: 0, high: 260, ultra: 520 };
-/** Half-size of the box round the camera (m): wide and shallow, since leaves are seen near the ground. */
+export const DRIFT_COUNT: Record<WorldDetail, number> = { low: 0, high: 96, ultra: 192 };
+/** Half-size of the dust volume around the camera (m). */
 const BOX = new THREE.Vector3(13, 5, 13);
 /** Downwind, matching the trees' lean (tree-wind.ts). */
 const WIND_DIRECTION = new THREE.Vector2(.984, .177);
@@ -39,8 +39,8 @@ export function driftAmounts(weather: Pick<AmbientDriftWeather, 'wind' | 'rain' 
   if (weather.reduced || weather.detail === 'low') return { leaves: 0, motes: 0, speed: 0 };
   const day = 1 - Math.max(0, Math.min(1, weather.night)), wind = Math.max(0, Math.min(7, weather.wind)), rain = Math.max(0, Math.min(1, weather.rain));
   return {
-    leaves: Math.min(1, .35 + wind * .15) * (1 - rain * .6) * (.35 + .65 * day),
-    motes: Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3)),
+    leaves: Math.min(.5, wind * .12) * (1 - rain * .6) * (.35 + .65 * day),
+    motes: .2 * Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3)),
     speed: .5 + wind * .85,
   };
 }
@@ -51,6 +51,7 @@ uniform vec3 driftBox;
 uniform vec2 driftWind;
 attribute vec4 driftSeed;
 attribute float driftKind;
+attribute vec4 driftSource;
 varying float vDriftMote;
 mat3 driftRotation(vec3 axis, float angle) {
   float s = sin(angle), c = cos(angle), t = 1.0 - c;
@@ -75,10 +76,25 @@ driftPoint = mod(driftPoint - driftCentre + driftBox, driftCell) - driftBox + dr
 vec3 driftEdge = abs(driftPoint - driftCentre) / driftBox;
 float driftFade = 1.0 - smoothstep(.75, 1.0, max(driftEdge.x, max(driftEdge.y, driftEdge.z)));
 float driftShown = step(driftSeed.w, driftMote ? driftMotes : driftLeaves);
+if (!driftMote) {
+  // A short fall every 16–24 seconds, with long quiet gaps. Sources are actual
+  // plants in world space, so moving the camera cannot carry leaves onto the bay.
+  float cycle = fract(driftTime / (16.0 + driftSeed.z * 8.0) + driftSeed.x);
+  float fall = clamp(cycle / .28, 0.0, 1.0);
+  vec2 offset = driftWind * (fall - .5) * 3.0
+              + vec2(sin(driftClock), cos(driftClock * .9)) * .35;
+  driftPoint = driftSource.xyz + vec3(offset.x, mix(driftSource.w, .15, fall), offset.y);
+  driftFade = smoothstep(0.0, .12, fall) * (1.0 - smoothstep(.75, 1.0, fall));
+  driftFade *= 1.0 - smoothstep(14.0, 22.0, distance(cameraPosition, driftPoint));
+  driftShown *= step(.01, driftSource.w);
+}
 mat3 driftSpin = driftRotation(normalize(driftSeed.xyz - .5 + vec3(0.0, .01, 0.0)), driftClock * (driftMote ? .5 : 2.3));
 `;
 
-export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: readonly string[]; moteColor?: string } = {}) {
+/** World-space planting base and maximum leaf fall height above it. */
+export interface DriftSource { x: number; y: number; z: number; height: number }
+
+export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: readonly string[]; moteColor?: string; leafSources?: readonly DriftSource[] } = {}) {
   const leafColors = (options.leafColors ?? ['#5f8a3a', '#7a9a3c', '#a8923e', '#8a6a3a', '#4e7a3a']).map(c => new THREE.Color(c));
   const moteColor = new THREE.Color(options.moteColor ?? '#fff1cf');
   const count = DRIFT_COUNT.ultra;
@@ -88,16 +104,20 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
   // only this material lifts them into the air round the camera.
   const block = new THREE.BoxGeometry(.12, .016, .09), corners = block.getAttribute('position').count, indices = block.index!.count;
   const positions = new Float32Array(count * corners * 3), normals = new Float32Array(count * corners * 3), colors = new Float32Array(count * corners * 3);
+  const sources = new Float32Array(count * corners * 4);
   const seeds = new Float32Array(count * corners * 4), kinds = new Float32Array(count * corners), index = new Uint32Array(count * indices);
   // Hash-style seeds: deterministic, so every visit looks the same.
   const random = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
   const color = new THREE.Color(), blockPosition = block.getAttribute('position'), blockNormal = block.getAttribute('normal');
   for (let i = 0; i < count; i++) {
     const mote = i % 3 === 2;
+    const planting = options.leafSources;
+    const source = planting?.length ? planting[Math.floor(random(i, 6) * planting.length)] : undefined;
     color.copy(mote ? moteColor : leafColors[i % leafColors.length]).multiplyScalar(mote ? 1 : .85 + random(i, 5) * .3);
     for (let v = 0; v < corners; v++) {
       const at = i * corners + v;
       positions.set([blockPosition.getX(v), blockPosition.getY(v) + PARK, blockPosition.getZ(v)], at * 3);
+      if (!mote && source) sources.set([source.x, source.y, source.z, Math.min(3, source.height)], at * 4);
       normals.set([blockNormal.getX(v), blockNormal.getY(v), blockNormal.getZ(v)], at * 3);
       colors.set([color.r, color.g, color.b], at * 3);
       seeds.set([random(i, 1), random(i, 2), random(i, 3), random(i, 4)], at * 4); kinds[at] = mote ? 1 : 0;
@@ -110,6 +130,7 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
   geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geometry.setAttribute('driftSeed', new THREE.BufferAttribute(seeds, 4));
+  geometry.setAttribute('driftSource', new THREE.BufferAttribute(sources, 4));
   geometry.setAttribute('driftKind', new THREE.BufferAttribute(kinds, 1));
   geometry.setIndex(new THREE.BufferAttribute(index, 1));
   const material = new THREE.MeshStandardMaterial({ roughness: .85, metalness: 0, vertexColors: true });
@@ -124,13 +145,13 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
       .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\n${motion}\nobjectNormal = driftSpin * objectNormal;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vDriftMote = driftMote ? 1.0 : 0.0;
-transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * (driftMote ? vec3(.12, .9, .16) : vec3(1.0))) * driftFade * driftShown + driftPoint;`);
-    // Motes catch the light: a faint glow keeps them readable as specks rather than dirt.
+transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * (driftMote ? vec3(.07, .5, .09) : vec3(.75))) * driftFade * driftShown + driftPoint;`);
+    // A trace of reflected light, without conspicuous glowing flecks.
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying float vDriftMote;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vDriftMote * .6;');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vDriftMote * .06;');
   };
-  material.customProgramCacheKey = () => 'ambient-drift-v1';
+  material.customProgramCacheKey = () => 'ambient-drift-v2';
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'ambient-drift';
   mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
