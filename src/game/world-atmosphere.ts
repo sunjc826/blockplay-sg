@@ -48,7 +48,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const lookOptions = scene.userData.districtLook as DistrictLook | undefined;
   const look = lookOptions ? createDistrictLook(lookOptions, { software: !!renderer && softwareRenderer(renderer) }) : null;
   const gtaoCapable = !!renderer && !softwareRenderer(renderer) && renderer.capabilities.isWebGL2;
-  const exposure = createNightExposure(scene, look?.extension);
+  const exposure = createNightExposure(scene, look?.extension, groundHeight);
   const sunIrradiance = new THREE.Color(), keyColor = new THREE.Color(), groundColor = new THREE.Color(), lensSky = new THREE.Color();
   let lookDay = 0;
   // The sky light replaces the hemisphere's lighting; the hemisphere keeps being driven so its colours and intensity feed the sky.

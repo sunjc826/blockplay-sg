@@ -5,11 +5,73 @@ import { DAY_SKY_RAYS } from './district-look';
 /** Static geometry visibility, independent of the optional GPU shadow/AO passes. */
 export const EXPOSURE_HEIGHTS = [-3.5, .5, 2.5, 5.5, 11.5, 23.5, 47.5, 95.5, 191.5] as const;
 const CELL = 4, MAX_CELLS = 160, REACH = 260;
+/** Metres of ground height the exposure field's A channel spans (8 bits: a quarter metre a step). */
+export const GROUND_RANGE = 64;
 /** Daytime ambient occlusion radius: farther buildings bounce sunlight back and do not read as shade. */
 const DAY_REACH = 70;
 const SKY_RAYS = [[0, 1, 0], [.707, .707, 0], [-.707, .707, 0], [0, .707, .707], [0, .707, -.707]].map(([x, y, z]) => ({ x, y, z }));
 export interface NightBlocker { box: THREE.Box3; local: THREE.Box3; inverse: THREE.Matrix4; transmission: number }
+
+/**
+ * Share of a mesh's surface area facing up (world normal y above 0.5). A closed solid faces up with at most
+ * half its area; a terrain, graded paving or a lawn draped over a hill is nearly all up-facing: a sheet, which its enclosing box cannot stand
+ * for. As a box it would fill the whole hill and blacken every street on it.
+ */
+export function upFacingShare(geometry: THREE.BufferGeometry, matrixWorld: THREE.Matrix4) {
+  const position = geometry.getAttribute('position'), index = geometry.index;
+  if (!position) return 0;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const count = index ? index.count : position.count;
+  let up = 0, total = 0;
+  for (let i = 0; i + 2 < count; i += 3) {
+    const ia = index ? index.getX(i) : i, ib = index ? index.getX(i + 1) : i + 1, ic = index ? index.getX(i + 2) : i + 2;
+    a.fromBufferAttribute(position, ia).applyMatrix4(matrixWorld); b.fromBufferAttribute(position, ib).applyMatrix4(matrixWorld); c.fromBufferAttribute(position, ic).applyMatrix4(matrixWorld);
+    b.sub(a); c.sub(a); b.cross(c);
+    const area = b.length(); if (area <= 0) continue;
+    total += area; if (b.y / area > .5) up += area;
+  }
+  return total > 0 ? up / total : 0;
+}
 interface Node { box: THREE.Box3; items?: NightBlocker[]; left?: Node; right?: Node }
+
+/**
+ * The connected pieces of a merged geometry, as local boxes, when they fill under a quarter of the
+ * geometry's own box: one hull round furniture scattered across an estate would roof the whole of it. Null for anything
+ * that is one piece or fills its box (a building, a primitive), which keeps its single box.
+ */
+export function sparseParts(geometry: THREE.BufferGeometry, matrixWorld = new THREE.Matrix4()) {
+  const position = geometry.getAttribute('position');
+  if (!position || position.count <= 24) return null;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  const whole = geometry.boundingBox!.getSize(new THREE.Vector3()), world = geometry.boundingBox!.clone().applyMatrix4(matrixWorld).getSize(new THREE.Vector3());
+  // Only a hull over a metre high and at least 40 m across both ways can roof open ground; smaller
+  // sparse hulls (a facade's frames round its building) still stand for that building.
+  if (world.y < 1 || Math.min(world.x, world.z) < 40) return null;
+  // Union-find over vertices; unindexed corners that coincide are one vertex.
+  const parent = new Int32Array(position.count).map((_, i) => i);
+  const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const join = (a: number, b: number) => { a = find(a); b = find(b); if (a !== b) parent[a] = b; };
+  const seen = new Map<string, number>();
+  for (let i = 0; i < position.count; i++) {
+    const key = `${position.getX(i).toFixed(3)},${position.getY(i).toFixed(3)},${position.getZ(i).toFixed(3)}`;
+    const first = seen.get(key); if (first === undefined) seen.set(key, i); else join(i, first);
+  }
+  const index = geometry.index, count = index ? index.count : position.count;
+  for (let i = 0; i + 2 < count; i += 3) {
+    const a = index ? index.getX(i) : i;
+    join(a, index ? index.getX(i + 1) : i + 1); join(a, index ? index.getX(i + 2) : i + 2);
+  }
+  const boxes = new Map<number, THREE.Box3>(), p = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    const root = find(i); let box = boxes.get(root);
+    if (!box) { box = new THREE.Box3(); boxes.set(root, box); }
+    box.expandByPoint(p.fromBufferAttribute(position, i));
+  }
+  if (boxes.size < 2) return null;
+  const volume = (s: THREE.Vector3) => Math.max(s.x, .1) * Math.max(s.y, .1) * Math.max(s.z, .1);
+  let filled = 0; for (const box of boxes.values()) filled += volume(box.getSize(p));
+  return filled < volume(whole) * .25 ? [...boxes.values()] : null;
+}
 
 /** Excludes movable effects and small trim. Oriented boxes retain rotated walls and open gaps. */
 export function collectNightBlockers(scene: THREE.Object3D) {
@@ -23,6 +85,23 @@ export function collectNightBlockers(scene: THREE.Object3D) {
       if (opaque.length) {
         if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
         const local = object.geometry.boundingBox!;
+        // A draped sheet (terrain, graded paving) rising a metre or more is not a box: leave it out.
+        const sheet = !(object instanceof THREE.InstancedMesh) && local.clone().applyMatrix4(object.matrixWorld).getSize(new THREE.Vector3()).y >= 1
+          && upFacingShare(object.geometry, object.matrixWorld) >= .9;
+        if (sheet) { for (const child of object.children) visit(child); return; }
+        // Merged geometry of scattered pieces (benches, planters across a park) blocks as its pieces, not as one hull.
+        const parts = object instanceof THREE.InstancedMesh ? null : sparseParts(object.geometry, object.matrixWorld);
+        if (parts) {
+          const green = opaque.every(m => { const c = (m as THREE.MeshStandardMaterial).color; return c.g > c.r * 1.15 && c.g > c.b * 1.08; });
+          const inverse = object.matrixWorld.clone().invert();
+          for (const part of parts) {
+            const box = part.clone().applyMatrix4(object.matrixWorld), size = box.getSize(new THREE.Vector3());
+            if (size.x < 1 || size.z < 1 || (size.y < .12 && Math.min(size.x, size.z) < 3)) continue;
+            blockers.push({ box, local: part, inverse, transmission: green ? .35 : 0 });
+          }
+          for (const child of object.children) visit(child);
+          return;
+        }
         let clipLocal = local, shear: THREE.Matrix4 | null = null;
         const positions = object.geometry.getAttribute('position');
         // Authored route decks use eight corners: four on the top plane, four below.
@@ -116,27 +195,33 @@ export function skyVisibility(amount: number) { return SKY_FLOOR + (1 - SKY_FLOO
  * Nine height slices preserve street, sheltered and elevated-space differences. RG = sky / moon visibility.
  * B, for districts with a look (`district-look`), is daytime sky visibility, baked on demand in bounded steps.
  */
-export function bakeNightExposure(blockers: NightBlocker[], bounds: THREE.Box3, direction: Direction) {
+export function bakeNightExposure(blockers: NightBlocker[], bounds: THREE.Box3, direction: Direction, ground?: (x: number, z: number) => number) {
   const query = createExposureQuery(blockers);
   const width = Math.max(2, Math.min(MAX_CELLS, Math.ceil((bounds.max.x - bounds.min.x) / CELL)));
   const depth = Math.max(2, Math.min(MAX_CELLS, Math.ceil((bounds.max.z - bounds.min.z) / CELL)));
   const data = new Uint8Array(width * depth * EXPOSURE_HEIGHTS.length * 4);
   const point = { x: 0, y: 0, z: 0 };
   function fill(moonOnly: boolean, moon: Direction) {
-    if (!blockers.length) { data.fill(255); return; }
+    if (!blockers.length) { for (let i = 0; i < data.length; i += 4) data[i] = data[i + 1] = data[i + 2] = 255; return; }
     for (let layer = 0; layer < EXPOSURE_HEIGHTS.length; layer++) for (let z = 0; z < depth; z++) for (let x = 0; x < width; x++) {
       point.x = bounds.min.x + (x + .5) / width * (bounds.max.x - bounds.min.x);
       point.y = EXPOSURE_HEIGHTS[layer]; point.z = bounds.min.z + (z + .5) / depth * (bounds.max.z - bounds.min.z);
       const i = ((layer * depth + z) * width + x) * 4;
       if (!moonOnly) data[i] = Math.round(query.sky(point) * 255);
-      data[i + 1] = Math.round(query.moon(point, moon) * 255); data[i + 3] = 255;
+      data[i + 1] = Math.round(query.moon(point, moon) * 255);
     }
   }
   fill(false, direction);
+  // A: the ground's height under each cell (the same in every layer), so a look measures wall feet from the ground they stand on.
+  for (let z = 0; z < depth; z++) for (let x = 0; x < width; x++) {
+    const h = ground ? ground(bounds.min.x + (x + .5) / width * (bounds.max.x - bounds.min.x), bounds.min.z + (z + .5) / depth * (bounds.max.z - bounds.min.z)) : 0;
+    const a = Math.round(THREE.MathUtils.clamp(h / GROUND_RANGE, 0, 1) * 255);
+    for (let layer = 0; layer < EXPOSURE_HEIGHTS.length; layer++) data[((layer * depth + z) * width + x) * 4 + 3] = a;
+  }
   function sample(p: Direction) {
     const x = (p.x - bounds.min.x) / (bounds.max.x - bounds.min.x) * width - .5;
     const z = (p.z - bounds.min.z) / (bounds.max.z - bounds.min.z) * depth - .5;
-    if (x < -.5 || z < -.5 || x > width - .5 || z > depth - .5 || p.y > EXPOSURE_HEIGHTS.at(-1)!) return { sky: 1, moon: 1, day: 1 };
+    if (x < -.5 || z < -.5 || x > width - .5 || z > depth - .5 || p.y > EXPOSURE_HEIGHTS.at(-1)!) return { sky: 1, moon: 1, day: 1, ground: 0 };
     let lower = 0; while (lower < EXPOSURE_HEIGHTS.length - 2 && p.y > EXPOSURE_HEIGHTS[lower + 1]) lower++;
     const t = THREE.MathUtils.clamp((p.y - EXPOSURE_HEIGHTS[lower]) / (EXPOSURE_HEIGHTS[lower + 1] - EXPOSURE_HEIGHTS[lower]), 0, 1);
     function at(layer: number, channel: number) {
@@ -147,7 +232,7 @@ export function bakeNightExposure(blockers: NightBlocker[], bounds: THREE.Box3, 
       }
       return sum;
     }
-    return { sky: THREE.MathUtils.lerp(at(lower, 0), at(lower + 1, 0), t), moon: THREE.MathUtils.lerp(at(lower, 1), at(lower + 1, 1), t), day: THREE.MathUtils.lerp(at(lower, 2), at(lower + 1, 2), t) };
+    return { sky: THREE.MathUtils.lerp(at(lower, 0), at(lower + 1, 0), t), moon: THREE.MathUtils.lerp(at(lower, 1), at(lower + 1, 1), t), day: THREE.MathUtils.lerp(at(lower, 2), at(lower + 1, 2), t), ground: at(0, 3) * GROUND_RANGE };
   }
   function prepareMoon(moon: Direction) {
     const next = new Uint8Array(data); let cursor = 0;
@@ -220,6 +305,7 @@ uniform vec4 nightExposureBounds;
 uniform vec2 nightExposureSize;
 uniform float nightExposureAmount;
 uniform float nightExposureDay;
+uniform float nightExposureGroundRange;
 vec3 nightExposureSlice(vec3 p, float layer) {
   vec2 uv = clamp((p.xz - nightExposureBounds.xy) * nightExposureBounds.zw, 0.0, 1.0);
   uv = clamp(uv, 0.5 / nightExposureSize, 1.0 - 0.5 / nightExposureSize);
@@ -232,6 +318,15 @@ vec3 nightExposureAt(vec3 p) {
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))) || p.y > ${levels.at(-1)!.toFixed(1)}) return vec3(1.0);
   ${levels.slice(0, -1).map((h, i) => `if (p.y <= ${levels[i + 1].toFixed(1)}) return mix(nightExposureSlice(p, ${i.toFixed(1)}), nightExposureSlice(p, ${(i + 1).toFixed(1)}), clamp((p.y - ${h.toFixed(1)}) / ${(levels[i + 1] - h).toFixed(1)}, 0.0, 1.0));`).join('\n  ')}
   return vec3(1.0);
+}
+// The ground's height under p (A, layer 0): 0 outside the field and in districts without graded ground.
+float nightExposureGround(vec3 p) {
+  if (nightExposureGroundRange <= 0.0) return 0.0;
+  vec2 uv = (p.xz - nightExposureBounds.xy) * nightExposureBounds.zw;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+  uv = clamp(uv, 0.5 / nightExposureSize, 1.0 - 0.5 / nightExposureSize);
+  uv.y /= ${levels.length.toFixed(1)};
+  return texture2D(nightExposureMap, uv).a * nightExposureGroundRange;
 }
 float nightSkyFactor(float visibility) { return mix(1.0, ${SKY_FLOOR.toFixed(2)} + ${(1 - SKY_FLOOR).toFixed(2)} * pow(visibility, 2.2), nightExposureAmount); }
 float nightMoonFactor(float visibility) { return mix(1.0, 0.025 + 0.975 * visibility, nightExposureAmount); }
@@ -255,16 +350,17 @@ export const DAY_BAKE_BUDGET_MS = 4;
  * Patches natural light only. Emissive windows, lamp pools, torches and flashes keep their illumination.
  * With an extension (a district look), daytime sky visibility is baked into B after load and fades in.
  */
-export function createNightExposure(scene: THREE.Scene, extension?: ExposureExtension) {
+export function createNightExposure(scene: THREE.Scene, extension?: ExposureExtension, ground?: (x: number, z: number) => number) {
   const blockers = collectNightBlockers(scene), bounds = new THREE.Box3();
   for (const b of blockers) bounds.union(b.box);
   if (bounds.isEmpty()) bounds.set(new THREE.Vector3(-100, 0, -100), new THREE.Vector3(100, 100, 100));
   bounds.expandByScalar(4);
-  const field = bakeNightExposure(blockers, bounds, { x: 0, y: 1, z: 0 });
+  const field = bakeNightExposure(blockers, bounds, { x: 0, y: 1, z: 0 }, ground);
   const texture = new THREE.DataTexture(field.data, field.width, field.depth * levels.length);
   texture.minFilter = texture.magFilter = THREE.LinearFilter; texture.needsUpdate = true;
   const uniforms = { nightExposureMap: { value: texture }, nightExposureBounds: { value: new THREE.Vector4(bounds.min.x, bounds.min.z, 1/(bounds.max.x-bounds.min.x), 1/(bounds.max.z-bounds.min.z)) },
-    nightExposureSize: { value: new THREE.Vector2(field.width, field.depth) }, nightExposureAmount: { value: 0 }, nightExposureDay: { value: 0 } };
+    nightExposureSize: { value: new THREE.Vector2(field.width, field.depth) }, nightExposureAmount: { value: 0 }, nightExposureDay: { value: 0 },
+    nightExposureGroundRange: { value: ground ? GROUND_RANGE : 0 } };
   const dayBake = extension ? field.prepareDay() : null;
   let dayReady = !extension, dayFade = 0, dayTarget = 0, dayBakeMs = 0;
   const patched = new Map<THREE.Material, { compile: THREE.Material['onBeforeCompile']; key: THREE.Material['customProgramCacheKey'] }>();

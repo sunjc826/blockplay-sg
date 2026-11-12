@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { bakeNightExposure, collectNightBlockers, createExposureQuery, createNightExposure, skyVisibility } from './night-exposure';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { bakeNightExposure, collectNightBlockers, createExposureQuery, createNightExposure, GROUND_RANGE, skyVisibility, sparseParts, upFacingShare } from './night-exposure';
 
 function box(scene: THREE.Scene, x: number, y: number, z: number, w: number, h: number, d: number) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: '#888888' }));
@@ -127,5 +128,59 @@ describe('natural night visibility', () => {
     exposure.update(1, { x: 0, y: 1, z: 0 }, .1);
     expect(exposure.sample({ x: 0, y: 1.5, z: 0 }).moon).toBe(0);
     exposure.dispose(); expect(material.onBeforeCompile).toBe(compile); expect(material.customProgramCacheKey).toBe(key);
+  });
+});
+
+describe('natural light on graded and merged geometry', () => {
+  /** A 60 m hill draped as one up-facing sheet, 10 m high in the middle. */
+  function hill(scene: THREE.Scene) {
+    const geometry = new THREE.PlaneGeometry(60, 60, 12, 12).rotateX(-Math.PI / 2), position = geometry.getAttribute('position');
+    for (let i = 0; i < position.count; i++) position.setY(i, 10 * Math.max(0, 1 - Math.hypot(position.getX(i), position.getZ(i)) / 30));
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#7a8a60' })); scene.add(mesh); return mesh;
+  }
+  it('leaves draped terrain out, where its enclosing box would roof every street on the hill', () => {
+    const scene = new THREE.Scene(), mesh = hill(scene);
+    expect(upFacingShare(mesh.geometry, mesh.matrixWorld)).toBeGreaterThan(.95);
+    expect(collectNightBlockers(scene)).toHaveLength(0);
+    const query = createExposureQuery(collectNightBlockers(scene));
+    expect(query.daySky({ x: 15, y: 6, z: 0 })).toBe(1);
+    expect(query.inside({ x: 15, y: 6, z: 0 })).toBe(false);
+    // A closed solid faces up with half its area at most, and a flat slab stays a blocker as before.
+    const solid = box(new THREE.Scene(), 0, 5, 0, 10, 10, 10);
+    expect(upFacingShare(solid.geometry, solid.matrixWorld)).toBeLessThan(.5);
+    const slab = new THREE.Scene(); box(slab, 0, 0, 0, 40, .3, 40);
+    expect(collectNightBlockers(slab)).toHaveLength(1);
+  });
+  it('splits merged furniture scattered across an estate into its pieces, but keeps a compact building whole', () => {
+    const pieces = Array.from({ length: 6 }, (_, i) => new THREE.BoxGeometry(2, 1, 2).translate((i % 3) * 40 - 40, i < 3 ? .5 : 9.5, Math.floor(i / 3) * 60 - 30));
+    const scattered = mergeGeometries(pieces);
+    expect(sparseParts(scattered)).toHaveLength(6);
+    const scene = new THREE.Scene(); scene.add(new THREE.Mesh(scattered, new THREE.MeshStandardMaterial()));
+    const blockers = collectNightBlockers(scene);
+    expect(blockers).toHaveLength(6);
+    // Open ground between the benches keeps its sky.
+    expect(createExposureQuery(blockers).sky({ x: -20, y: 1.5, z: 0 })).toBe(1);
+    // A tower with a podium is two pieces that fill their box: one blocker, as before.
+    const tower = mergeGeometries([new THREE.BoxGeometry(40, 4, 40).translate(0, 2, 0), new THREE.BoxGeometry(20, 40, 20).translate(0, 24, 0)]);
+    expect(sparseParts(tower)).toBeNull();
+    // Small sparse hulls (a facade's frames) are left to stand for their building.
+    expect(sparseParts(mergeGeometries([new THREE.BoxGeometry(1, 1, 1), new THREE.BoxGeometry(1, 1, 1).translate(20, 3, 0)]))).toBeNull();
+    pieces.forEach(g => g.dispose());
+  });
+  it('carries the ground height under each cell in A, and only reads it where a district has graded ground', () => {
+    const scene = new THREE.Scene(); box(scene, 0, 4, 0, 20, 8, 20);
+    const bounds = new THREE.Box3(new THREE.Vector3(-40, -4, -40), new THREE.Vector3(40, 20, 40));
+    const graded = bakeNightExposure(collectNightBlockers(scene), bounds, { x: 0, y: 1, z: 0 }, (x) => Math.max(0, x) * .25);
+    expect(graded.sample({ x: 30, y: 9, z: 0 }).ground).toBeCloseTo(7.5, 0);
+    expect(graded.sample({ x: -30, y: 1, z: 0 }).ground).toBe(0);
+    const flat = bakeNightExposure(collectNightBlockers(scene), bounds, { x: 0, y: 1, z: 0 });
+    expect(flat.sample({ x: 30, y: 1, z: 0 }).ground).toBe(0);
+    // The sky and moon channels do not depend on the ground.
+    expect(flat.sample({ x: 15, y: 1, z: 5 }).sky).toBeCloseTo(graded.sample({ x: 15, y: 1, z: 5 }).sky, 6);
+    const without = createNightExposure(scene), withGround = createNightExposure(scene, undefined, () => 3);
+    expect(without.field.data[3]).toBe(0);
+    expect(withGround.field.data[3]).toBe(Math.round(3 / GROUND_RANGE * 255));
+    without.dispose(); withGround.dispose();
   });
 });
