@@ -117,7 +117,7 @@ export function narrowTopGaps(boxes: readonly ShapeBox[], minimum: number, step 
           const overlapZ = Math.min(a.max[2], b.max[2]) - Math.max(a.min[2], b.min[2]);
           // Gap along one axis while overlapping (by more than the gap) along the other.
           const gapX = -overlapX, gapZ = -overlapZ;
-          const narrow = (gapX > 1e-4 && gapX < minimum && overlapZ > minimum) || (gapZ > 1e-4 && gapZ < minimum && overlapX > minimum);
+          const below = minimum - 1e-3, narrow = (gapX > 1e-4 && gapX < below && overlapZ > minimum) || (gapZ > 1e-4 && gapZ < below && overlapX > minimum);
           if (narrow) { gaps++; if (samples.length < 6) samples.push([+(a.min[0] + a.max[0]) / 2, a.max[1], (a.min[2] + a.max[2]) / 2].map(n => +n.toFixed(2))); }
         }
   });
