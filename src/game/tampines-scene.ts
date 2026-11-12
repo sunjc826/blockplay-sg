@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { STOREY } from './block-module';
 import { withVerticalPlaces } from './vertical-places';
 import { markWater } from './water';
 import { addTampinesGround, tampinesGroundHeight } from './tampines-ground';
@@ -32,6 +33,7 @@ export function buildTampinesScene() {
     background: '#cdd9dd', fogNear: 290, fogFar: 900,
     sun: { x: -130, y: 205, z: 130 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f4f8fa', ground: '#787563', intensity: 1.8 },
+    module: true,
   });
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
@@ -185,8 +187,8 @@ export function buildTampinesScene() {
       box(x, 4, z + dz, len, 8, 18, concrete); solid(x, z + dz, len, 18);
       for (let dx = -len / 2 + 6; dx < len / 2 - 4; dx += 9) box(x + dx, 4, z + dz - 9.4, 5, 5.4, 0.6, glass);
       box(x, h / 2 + 8.4, z + dz, len - 6, h, 15, pale, scene, true);
-      for (let y = 11; y < h + 7; y += 3.2) {
-        const band = panels[(Math.round(y / 3.2) + Math.abs(Math.round(dz))) % panels.length];
+      for (let y = 11; y < h + 7; y += STOREY) {
+        const band = panels[(Math.round(y / STOREY) + Math.abs(Math.round(dz))) % panels.length];
         for (const side of [-1, 1]) {
           box(x, y, z + dz + side * 7.8, len - 8, 2.2, 0.5, band);
           for (let dx = -len / 2 + 6; dx < len / 2 - 4; dx += 6) box(x + dx, y, z + dz + side * 8.1, 3.4, 1.5, 0.4, glass);
@@ -228,12 +230,14 @@ export function buildTampinesScene() {
     }
   }
 
-  roundMarket(-80, -40);
-  stadium(55, -40);
+  // Landmarks keep their authored shapes off the module (docs/SHAPE-LANGUAGE.md).
+  kit.freeform(() => roundMarket(-80, -40));
+  kit.freeform(() => stadium(55, -40));
   mallCluster(40, 75);
   precinct(-188, -40); precinct(-188, 75); precinct(172, -40);
   quarry();
-  const disposeGround = addTampinesGround(kit);
+  // Graded ground carries authored walking heights; it stays as authored.
+  const disposeGround = kit.freeform(() => addTampinesGround(kit));
   addTampinesSocialDetails(kit);
   cyclePath([[-20, -170], [-20, -60], [-52, 6], [-52, 96], [-20, 150]]);
 

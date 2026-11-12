@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { STOREY } from './block-module';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
@@ -32,6 +33,7 @@ export function buildToaPayohScene() {
     background: '#ccd8dc', fogNear: 290, fogFar: 880,
     sun: { x: 120, y: 205, z: -130 }, shadow: { extent: 260, far: 670 },
     hemisphere: { sky: '#f4f7f9', ground: '#787564', intensity: 1.8 },
+    module: true,
   });
   const { scene, box, cylinder, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
@@ -60,8 +62,8 @@ export function buildToaPayohScene() {
     } else solid(x, z, length, 13);
     for (const dx of [-length / 2 + 4, 0, length / 2 - 4]) for (const dz of [-5, 5]) { box(x + dx, 1.7, z + dz, 2.2, 3.4, 2.2, concrete); solid(x + dx, z + dz, 2.6, 2.6); kit.obstacles.at(-1)!.maxY = 3.4; }
     box(x, 3.6, z, length, 0.6, 15, concrete);
-    for (let level = 0; level < Math.floor(height / 3.1); level++) {
-      const y = 5.4 + level * 3.1, band = bands[(level + Math.abs(Math.round(x / 40))) % bands.length];
+    for (let level = 0; level < Math.floor(height / STOREY); level++) {
+      const y = 5.4 + level * STOREY, band = bands[(level + Math.abs(Math.round(x / 40))) % bands.length];
       // Access deck: slab, balustrade and the bay divisions behind it.
       const playableGallery = x === 50 && (z === -86 || z === -18) && level < 3;
       if (playableGallery) continue;
@@ -76,7 +78,7 @@ export function buildToaPayohScene() {
     }
     for (const dx of (x === 50 && (z === -86 || z === -18) ? [] : [-length / 2 + 2, length / 2 - 2])) {
       box(x + dx, height / 2 + 4, z + facing * 9, 6, height + 1, 6, concrete, scene, true); solid(x + dx, z + facing * 9, 6, 6);
-      for (let y = 6; y < height + 3; y += 3.1) box(x + dx, y, z + facing * 12.1, 4.4, 1.6, 0.4, dark);
+      for (let y = 6; y < height + 3; y += STOREY) box(x + dx, y, z + facing * 12.1, 4.4, 1.6, 0.4, dark);
     }
     if (x === 50 && (z === -86 || z === -18)) for (const floor of [4.2,8.4]) {
       for (const side of [-1,1]) for (let dx=-length/2+7;dx<length/2-4;dx+=12) {
@@ -229,16 +231,17 @@ export function buildToaPayohScene() {
     sign('LORONG HAWKER CENTRE', x, 8.4, z - 22.4, 30, 2.2, '#a8563a');
   }
 
-  dragonPlayground(50, -50);
+  // Landmarks keep their authored shapes off the module (docs/SHAPE-LANGUAGE.md).
+  kit.freeform(() => dragonPlayground(50, -50));
   earlySlab(50, -86, 92, 30); earlySlab(50, -18, 80, 27, -1);
-  lookoutTower(-180, -20); pond();
+  kit.freeform(() => lookoutTower(-180, -20)); pond();
   // May 2016 exterior: a straight, narrow paver path under the park trees.
   // Ground-place ownership replaces the old decorative paving slab.
   for (let z = -87; z <= -3; z += 2) {
     box(-218, 0.23, z, 5, 0.015, 0.055, stone);
     box(-218 + (Math.round(z) % 4 ? 0.7 : -0.7), 0.23, z + 0.8, 0.055, 0.015, 1.6, stone);
   }
-  yBlock(-70, 62, 40);
+  kit.freeform(() => yBlock(-70, 62, 40));
   earlySlab(-180, 62, 76, 33); earlySlab(-180, 96, 68, 24, -1);
   townHub(50, 62);
   hawkerCentre(170, -50);
