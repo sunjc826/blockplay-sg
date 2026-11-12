@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { bailoutRoll } from './bailout-roll';
+import { footCycle, footSample, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring, type GaitShape } from './gait-motion';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CamoPattern, PatchLook } from './arena-factions';
 
@@ -668,15 +669,26 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   const target = new THREE.Vector3(), world = new THREE.Vector3(), pole = new THREE.Vector3();
   const waterTarget = new THREE.Vector3();
   const footLevel = new THREE.Quaternion(), footEuler = new THREE.Euler();
+  // Secondary motion: cycle shape, both feet, filtered arm swing, body-local
+  // velocity for acceleration, springs for lean and the weapon's lag, and how
+  // hard the figure is breathing. All presentation only.
+  const gait: GaitShape = { blend: 0, duty: .6, stride: 1, reach: 0 };
+  const feet = [footSample(), footSample()] as const, armSwing = [0, 0], settleLift = [0, 0];
+  const lastFoot = [new THREE.Vector3(), new THREE.Vector3()];
+  let localX = 0, localZ = 0, exertion = 0, breath = time * 1.7, hipDrop = 0;
+  const leanSpring = spring(), rollSpring = spring(), weaponLag = spring();
 
   /** Body-space point → the given joint's parent frame. */
   function toParent(point: THREE.Vector3, bone: THREE.Object3D) {
     world.copy(point); body.localToWorld(world); return bone.parent!.worldToLocal(world);
   }
   function handTarget(side: -1 | 1, out: THREE.Vector3) {
-    const swing = Math.sin(phase) * side * .2 * moveWeight * (1 - crouch * .5);
+    // Each arm swings with the opposite leg, a beat behind it; running, the
+    // elbows bend and the hands pump higher and closer in.
+    const run = gait.blend * moveWeight, forward = armSwing[side < 0 ? 0 : 1];
+    const swing = forward * (.17 + run * .07) * moveWeight * (1 - crouch * .5);
     const hipY = hips.position.y;
-    const rest = out.set(side * (.235 * build + .02), hipY - .02, -.02 + swing);
+    const rest = out.set(side * (.235 * build + .02 - run * .05), hipY - .02 + run * (.2 + Math.max(0, forward) * .1), -.02 - run * .05 - swing);
     if (down) return rest.set(side * .42, hipY + .1, .05);
     if (seated > .5 && driving > .5) return out.set(side * .19, D.seatedHips + .48, -.42);
     if (heal > .001) {
@@ -755,11 +767,25 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     moveWeight = smooth(moveWeight, clamp01((walking - .12) / .9), 10, dt);
     runWeight = smooth(runWeight, drive.sprint === undefined ? clamp01((walking - 2.4) / 2.8) : clamp01(drive.sprint), 6, dt);
     const crawling = prone > .5;
-    // Full left/right cycle: longer running strides avoid rapid tiny steps.
-    const stride = crawling ? .55 : 2.2 + runWeight * 2.2 - crouch * .6;
+    // Full left/right cycle. Cadence rises with speed so a planted foot covers
+    // exactly the ground the body does (gait-motion).
+    gaitShape(walking, crouch, gait);
+    const stride = crawling ? .55 : gait.stride;
     phase = drive.gaitPhase ?? (phase + walking * dt / stride * Math.PI * 2) % (Math.PI * 4);
-    const stepReach = Math.min(stride / 5, .52) * moveWeight;
-    const lift = (.11 + runWeight * .18 - crouch * .03) * moveWeight;
+    const stepReach = (crawling ? Math.min(stride / 5, .52) : gait.reach) * moveWeight;
+    const lift = (.09 + gait.blend * .2 - crouch * .03) * moveWeight;
+    footCycle(phase, gait.duty, feet[0], gait.blend); footCycle(phase + Math.PI, gait.duty, feet[1], gait.blend);
+    // Body-local acceleration leans the figure into starts, stops and turns.
+    const gx = localX, gz = localZ;
+    localX = smooth(localX, down ? 0 : velocity.x, 12, dt); localZ = smooth(localZ, down ? 0 : velocity.z, 12, dt);
+    const upright = (1 - seated) * (1 - prone) * (1 - slide) * (1 - air) * (down ? 0 : 1);
+    const forwardAccel = dt > 0 ? -(localZ - gz) / dt : 0, sideAccel = dt > 0 ? (localX - gx) / dt : 0;
+    stepSpring(leanSpring, THREE.MathUtils.clamp(forwardAccel * .028, -.16, .2) * upright, 10, .42, dt);
+    stepSpring(rollSpring, THREE.MathUtils.clamp((drive.turn ?? 0) * linear * .03 - sideAccel * .018, -.18, .18) * upright, 9, .5, dt);
+    // Breathing quickens and deepens after a run and calms over several seconds.
+    exertion = smooth(exertion, runWeight * moveWeight, runWeight * moveWeight > exertion ? 1.2 : .12, dt);
+    breath += clock * (1.7 + exertion * 2.2);
+    for (let i = 0; i < 2; i++) armSwing[i] = smooth(armSwing[i], feet[1 - i].along * -moveDirection.y, 11, dt);
 
     // Whole-body placement: prone lies the figure face-down with its head over
     // the root (the eye column); death topples it backwards.
@@ -768,25 +794,43 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     body.position.set(0, prone * .14 + fall * .13, prone * 1.62 - fall * 1.05);
 
     // Trunk.
-    const breathe = Math.sin(time * 1.7) * (1 - moveWeight);
-    // Hips ride highest as the feet pass and lowest at full stride.
-    const bob = Math.abs(Math.sin(phase)) * (.025 + runWeight * .035) * moveWeight;
-    const sway = Math.sin(time * .45) * .018 * (1 - moveWeight) * (1 - crouch) * (1 - seated);
+    const still = 1 - moveWeight, deep = 1 + exertion * 1.6;
+    const breathe = Math.sin(breath) * still;
+    // A walk vaults over each planted leg; a run sinks into it. The hips sit
+    // over the supporting foot and its side rides up as the swing side drops.
+    const stepping = moveWeight * (1 - prone) * (1 - seated);
+    const support = hipsFromFeet(feet[0], feet[1], gait.blend, .03, .05);
+    const bob = support.drop * stepping + gait.blend * .05 * moveWeight;
+    // Standing, the weight drifts from leg to leg instead of swaying evenly.
+    const standing = still * (1 - crouch) * upright;
+    const weight = idleWeight(time) * standing;
+    const sway = weight * .038;
     const crouchDrop = crouch * (.4 - seated * .4);
     const hipHeight = seated > .01 ? THREE.MathUtils.lerp(D.standingHips, D.seatedHips, seated) : D.standingHips;
-    hips.position.set(sway + Math.sin(phase) * .02 * moveWeight, hipHeight - crouchDrop - bob + air * .06 - slide * .16, crouch * .08 * (1 - seated) + seated * .02 + slide * .1);
-    const lean = runWeight * .22 + moveWeight * .05 * -moveDirection.y;
-    hips.rotation.set(-(crouch * .35 * (1 - seated)) - lean * .4 + slide * .75, Math.sin(phase) * .14 * moveWeight * (1 - prone), sway * 1.4 + flinch * .06 * flinchSide, 'YXZ');
+    // Leaning into a stop or start dips the hips a little as the legs take it.
+    const settle = Math.abs(leanSpring.value) * .12 + Math.abs(rollSpring.value) * .08;
+    hips.position.set(sway + support.shift * (.022 - gait.blend * .012) * stepping - rollSpring.value * .2, hipHeight - crouchDrop - bob - settle + air * .06 - slide * .16, crouch * .08 * (1 - seated) + seated * .02 + slide * .1);
+    const lean = runWeight * .28 + moveWeight * .05 * -moveDirection.y;
+    // The pelvis turns with the leading leg; the shoulders turn against it.
+    const pelvisYaw = (feet[1].along - feet[0].along) * .5 * (.12 + gait.blend * .05) * stepping * -moveDirection.y;
+    const pelvisRoll = support.roll * .045 * (1 - gait.blend * .5) * stepping + weight * .06;
+    hips.rotation.set(-(crouch * .35 * (1 - seated)) - lean * .4 + slide * .75 - leanSpring.value * .5, pelvisYaw, pelvisRoll + flinch * .06 * flinchSide, 'YXZ');
     const pitchAim = (drive.pitch ?? 0) * (1 - prone * .3);
     const gestureLean = gesture === 'wipe' ? .22 * gestureBlend : gesture === 'offer' ? .1 * gestureBlend : 0;
+    // A shouldered weapon keeps the chest square to the aim; empty hands let the shoulders swing.
+    const holding = !!weapon && weapon.visible && !down && heal <= .5;
+    const twist = holding ? 1 : 1.6, steady = holding ? aim : 0;
     // The hips roll back into a slide; the spine curls forward again so the head and gun stay level.
-    spine.rotation.set(-crouch * .05 * (1 - seated) - lean * .35 - gestureLean * .5 + breathe * .012 + flinch * .18 + seated * .05 - slide * .3, -hips.rotation.y * .6, 0);
-    chest.rotation.set(-(pitchAim * .35 * aim) - lean * .25 - gestureLean * .5 + breathe * .02 + flinch * .2 + crouch * .25 * (1 - seated) + fall * .3 - slide * .4, -hips.rotation.y * .5 + lookYaw * .3, flinch * -.08 * flinchSide);
+    spine.rotation.set(-crouch * .05 * (1 - seated) - lean * .35 - gestureLean * .5 + breathe * .012 * deep + flinch * .18 + seated * .05 - slide * .3 - leanSpring.value * .4,
+      -pelvisYaw * twist * .55, -pelvisRoll * .75 + rollSpring.value * .7);
+    chest.rotation.set(-(pitchAim * .35 * aim) - lean * .25 - gestureLean * .5 + breathe * .02 + flinch * .2 + crouch * .25 * (1 - seated) + fall * .3 - slide * .4 + (leanSpring.value * .9 - breathe * .012 * (deep - 1)) * steady,
+      -pelvisYaw * twist * .45 + lookYaw * .3, flinch * -.08 * flinchSide - rollSpring.value * .5 * steady);
     spine.rotation.x += waterBlind * (.1 + .035 * Math.sin(waterTime * 8));
     chest.rotation.x += waterBlind * .12 - waterMist * .06;
     chest.rotation.z += waterBlind * Math.sin(waterTime * 7) * .035;
-    chest.scale.set(1, 1 + breathe * .006, 1 + breathe * .012);
+    chest.scale.set(1, 1 + breathe * .006 * deep, 1 + breathe * .012 * deep);
 
+    hipDrop = bob + settle; stepSpring(weaponLag, hipDrop, 14, .35, dt);
     // Head look and aim.
     let wantYaw = 0, wantPitch = 0;
     if (drive.lookAt && !down) {
@@ -798,7 +842,9 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     } else if (!drive.lookAt && gesture === 'idle') wantYaw = Math.sin(time * .31) * .35 * (1 - moveWeight) * (1 - aim * (weapon ? 1 : 0));
     lookYaw = smooth(lookYaw, wantYaw, 5, dt); lookPitch = smooth(lookPitch, wantPitch, 5, dt);
     const nod = gesture === 'offer' || gesture === 'talk' ? Math.max(0, Math.sin(gestureTime * 5)) * .1 * gestureBlend * (gestureTime < 1.3 ? 1 : 0) : 0;
-    neck.rotation.set(-chest.rotation.x * .4 + pitchAim * .3 * aim + lookPitch * .4 + prone * .55, lookYaw * .35, 0);
+    // The head stays level and facing the way the figure is going while the trunk rolls and twists under it.
+    const trunkRoll = hips.rotation.z + spine.rotation.z + chest.rotation.z, trunkYaw = pelvisYaw * (1 - twist);
+    neck.rotation.set(-chest.rotation.x * .4 + pitchAim * .3 * aim + lookPitch * .4 + prone * .55, lookYaw * .35 - trunkYaw * .75 * upright, -trunkRoll * .7 * upright);
     head.rotation.set(pitchAim * .35 * aim + lookPitch * .6 - nod + prone * .65 - fall * .5 + flinch * .25, lookYaw * .5, flinch * .12 * flinchSide);
 
     head.rotation.y += waterBlind * (.2 + Math.sin(waterTime * 9) * .18) + waterMist * Math.sin(waterTime * 2.8) * .16;
@@ -822,6 +868,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
         const swing = run * moveWeight * (1 - prone) * (1 - air) * (1 - slide);
         weapon.position.x += Math.sin(phase) * .018 * swing;
         weapon.position.y += Math.cos(phase * 2) * .012 * swing;
+        // A lowered weapon trails the body's bob a moment behind; a shouldered one stays on the sight line.
+        weapon.position.y += (hipDrop - weaponLag.value) * low * (1 - prone);
         weapon.rotation.set(pitchAim * .65 * ready - low * .42 - run * .15 + kick * .09 + prone * Math.PI / 2, run * .55 - .04 * ready + Math.sin(phase) * .05 * swing, run * .25 + Math.sin(phase) * .06 * swing, 'YXZ');
       }
     }
@@ -830,19 +878,31 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
 
     // Legs.
     const proneCrawl = crawling ? moveWeight : 0;
-    for (const [thigh, shin, foot, side, offset] of [[thighL, shinL, footL, -1, 0], [thighR, shinR, footR, 1, Math.PI]] as const) {
-      const ph = phase + offset;
-      const along = Math.sin(ph) * stepReach * (1 - prone), up = Math.max(0, Math.cos(ph)) * lift * (1 - prone);
-      const spread = .1 + crouch * .04 * (1 - seated) + air * .02;
+    for (const [thigh, shin, foot, side, index] of [[thighL, shinL, footL, -1, 0], [thighR, shinR, footR, 1, 1]] as const) {
+      const cycle = feet[index];
+      const along = cycle.along * stepReach * (1 - prone);
+      let up = cycle.lift * lift * (1 - prone);
+      // Toe-off raises the heel (the ankle lifts, the toe stays down); the toes come up before heel strike.
+      const roll = stepping * (1 - crouch * .5), heel = cycle.heel * .45 * roll, toes = cycle.toe * .25 * roll;
+      if (cycle.stance >= 0) up += Math.sin(heel) * .17;
+      // Standing on one leg, the other knee relaxes with its foot a little forward.
+      const relaxed = Math.max(0, -weight * side);
+      const spread = .1 + crouch * .04 * (1 - seated) + air * .02 - gait.blend * .025 * moveWeight;
       // Sidesteps are shorter and never cross the feet over.
       const lateral = side * spread + moveDirection.x * along * .65;
-      target.set(side < 0 ? Math.min(lateral, -.05) : Math.max(lateral, .05), D.ankle + up, moveDirection.y * along);
+      target.set(side < 0 ? Math.min(lateral, -.05) : Math.max(lateral, .05), D.ankle + up + relaxed * .006, moveDirection.y * along - relaxed * .05);
+      // A foot dragged into place when the cycle winds down (a stop, a settle) is stepped, not slid.
+      const moved = dt > 0 ? Math.hypot(target.x - lastFoot[index].x, target.z - lastFoot[index].z) / dt : 0;
+      lastFoot[index].copy(target);
+      const other = feet[1 - index], leads = Math.abs(cycle.along) >= Math.abs(other.along);
+      settleLift[index] = smooth(settleLift[index], leads ? Math.min(.07, moved * .12) * (1 - moveWeight) * upright : 0, 25, dt);
+      target.y += Math.max(0, settleLift[index] - up);
       // Kneel the right leg back in a deep crouch; tuck both in the air.
       target.z += crouch * (1 - seated) * (side > 0 ? .16 : -.12);
       target.y += air * (side > 0 ? .3 : .2) + crouch * (1 - seated) * (side > 0 ? .06 : 0);
       if (seated > .01) target.lerp(tmpB.set(side * .14, D.ankle, -.42), seated);
       if (prone > .01) {
-        const crawl = Math.max(0, Math.sin(ph)) * proneCrawl;
+        const crawl = Math.max(0, Math.sin(phase + index * Math.PI)) * proneCrawl;
         target.lerp(tmpB.set(side * (.15 + crawl * .14), hips.position.y - D.thigh - D.shin + .02 + crawl * .3, .05 - crawl * .04), prone);
       }
       // Lying on the back, body-space +z is down: keep the heels on the ground.
@@ -850,7 +910,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
       if (slide > .01) target.lerp(tmpB.set(side * .15, D.ankle, side < 0 ? -.68 : -.14), slide);
       pole.set(side * (.15 + prone * .9 + slide * .5), 0, -1).normalize();
       // The pole is a direction in the thigh parent's frame (hips).
-      solveFoot(thigh, shin, foot, target, pole, -.04 + up * 1.5 * (1 - prone) + prone * .9);
+      solveFoot(thigh, shin, foot, target, pole, -.04 + (toes - heel) * (1 - prone) + prone * .9);
     }
     root.updateWorldMatrix(false, true);
 
@@ -917,7 +977,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   const rig: CharacterRig = {
     root, body, weapon, muzzle, joints, skinned, resources,
     update,
-    age(dt: number) { if (!Number.isFinite(dt) || dt <= 0) return; aged += dt; time += dt; if (down) downTime += dt; kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5); },
+    age(dt: number) { if (!Number.isFinite(dt) || dt <= 0) return; aged += dt; time += dt; breath += dt * (1.7 + exertion * 2.2); if (down) downTime += dt; kick = Math.max(0, kick - dt * 9); flinch = Math.max(0, flinch - dt * 5); },
     fire() { kick = 1; aim = Math.max(aim, .8); },
     flinch() { flinch = 1; flinchSide = Math.random() < .5 ? -1 : 1; },
     setDown(next: boolean) { if (next === down) return; down = next; downTime = 0; waterBlind = waterMist = waterTime = 0; lastWater = undefined; if (!next) { crouch = 0; prone = 0; } },
