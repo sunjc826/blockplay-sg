@@ -7032,3 +7032,24 @@ heritage districts need a decision on what counts as generic; HarbourFront and
 Chinatown gain about 40-50% static draws if snapped as they are; street props,
 vegetation, vertical places and lifts are not module-aware yet. Stash entry
 `shape-ubin-q15` is already committed and can be dropped by the owner.
+
+## 2026-11-13 — District look on all 23 districts
+
+`DistrictLook` is no longer Marina-only. Six presets in `district-look.ts`
+(`LOOK_PRESETS`: city, heartland, heritage, nature, coast, industrial) derive
+from `LOOK_DEFAULTS` (Marina's tuned values, pinned by test); `districtLook(preset, sky)`
+adds a `skyTint` from the district's authored background. Kit districts pass
+`look: '<preset>'`; Raffles Place and Queenstown set `userData.districtLook`.
+`docs/DISTRICTS.md` says how a new district picks one.
+
+- Shared fixes: draped terrain sheets and sparse merged hulls no longer enter
+  the visibility bake as solid boxes (Queenstown spawn sky 0 -> .86; this also
+  changes its night bake); the exposure field's alpha carries `groundHeight` so
+  contact shade and grime follow graded ground.
+- Merged tree: typecheck clean, 4,228 tests pass, build and `check:navigation`
+  pass. Not done: live session in any mode (arena coverage is by code path),
+  browser smokes.
+- Open: high overviews (~160 m) are milky, worst on Tuas; Tuas's open sea edge
+  shows grey below the horizon; Raffles' shaded street is darker; every district
+  shares one cloud field; indirect light fades in ~6 s after entering Changi.
+  Evidence `.cache/district-looks/<district>/`.
