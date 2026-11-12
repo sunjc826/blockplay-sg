@@ -6,6 +6,7 @@ import { withBuildingLifts } from './building-lift-scene';
 import { MARINA_LANDMARK_PLACES, MARINA_LIFTS } from './marina-landmarks';
 import { MARINA_LAYOUT_SCALE as S, marinaPoint, marinaBounds } from './marina-layout';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { instanceStaticMeshes } from './static-instances';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
@@ -17,6 +18,7 @@ import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } fr
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 import { MARINA_LOOK } from './district-look';
+import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -114,7 +116,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const detail = (source: THREE.MeshStandardMaterial, width: number, backing?: THREE.Color) => {
     const material = filterThinDetail(source, width * S, backing); materials.push(material); return material;
   };
-  const railWire = detail(steel, .035), boardSeam = detail(dark, .025, wood.color);
   const frontBand = detail(steel, .09, glass.color), frontFrame = detail(steel, .1, glass.color);
   const rearBand = detail(pale, .12, glass.color), rearFrame = detail(pale, .13, glass.color);
   const collider = (x: number, z: number, w: number, d: number, maxY = 6.8) => obstacles.push({ maxY, minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
@@ -127,6 +128,10 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     const mesh = box(middle.x, middle.y, middle.z, width, from.distanceTo(to), width, material, parent, true);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize()); return mesh;
   }
+  // Unique curved members (Shoppes roof arches, conservatory ribs) share one
+  // merged draw per material instead of one draw per tube.
+  const curved = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const curvedMembers = (material: THREE.Material) => { const list = curved.get(material) ?? []; curved.set(material, list); return list; };
   // Ground and the sand apron are laid round the basin rather than across it,
   // so looking down into the bay shows its bed and walls, not a lawn.
   const bay = AUTHORED_BAY, bayW = bay.maxX - bay.minX, bayD = bay.maxZ - bay.minZ, bayX = (bay.minX + bay.maxX) / 2, bayZ = (bay.minZ + bay.maxZ) / 2;
@@ -155,17 +160,8 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   }
   box(0, 0, 66, 185, 0.15, 28, sand);
   box(121, 0, 62, 32, 0.15, 24, sand);
-  // Instanced granite paving: small gray slabs, not the previous beige plaza.
-  const pavers = new THREE.InstancedMesh(boxGeo, mat('#a3a39e'), 180 * 24);
-  const transform = new THREE.Object3D(); const color = new THREE.Color();
-  for (let x = 0; x < 180; x++) for (let z = 0; z < 24; z++) {
-    const i = x * 24 + z;
-    transform.position.set(-89.5 + x, 0.095, 53 + z * 1.1); transform.scale.set(0.986, 0.025, 1.086); transform.updateMatrix();
-    pavers.setMatrixAt(i, transform.matrix); color.setHSL(0.12, 0.015, 0.83 + ((x * 7 + z * 3) % 7) * 0.022); pavers.setColorAt(i, color);
-  }
-  pavers.receiveShadow = true; scene.add(pavers);
-  box(0, 0.1, 51.9, 161, 0.12, 2, wood);
-  for (let x = -80; x < 80; x += 2) box(x, 0.17, 51.9, 0.025, 0.015, 2, boardSeam);
+  // Promenade paving, boardwalk and bay rails are laid after compaction, in
+  // world metres on the block module (see `promenadeOnModule`).
   for (const z of [85, 103, -103, -121]) box(0, 0.14, z, 220, 0.28, 0.45, cream);
   // Crosswalks, curbside planting and human-scale street lights.
   for (const x of [-103, 103]) for (let z = 84; z < 104; z += 2.8) box(x, 0.07, z, 11, 0.02, 1.3, white);
@@ -174,26 +170,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     box(x, 7.45, 80.4, 0.65, 0.16, 1.5, dark);
     box(x, 0.6, 80.5, 0.75, 1.2, 0.65, dark); collider(x, 81, 0.8, 0.8, 7.8);
   }
-  // Broad, darker expansion bands observed in south-waterfront.png.
-  const promenadeBand = mat('#777b79');
-  for (const x of [-64, -32, 0, 32, 64]) box(x, 0.115, 66, 0.7, 0.025, 27, promenadeBand);
-  const railStart = scene.children.length;
-  for (let x = -80; x <= 80; x += 3) {
-    if(x*S>-22 && x*S<-19) continue;
-    beam(new THREE.Vector3(x, 0.05, 51), new THREE.Vector3(x, 1.16, 50.5), 0.075, steel);
-  }
-  for (const y of [0.25, 0.45, 0.65, 0.85, 1.1]) {
-    box(-58.58, y, 50.6, 43.83, 0.035, 0.035, railWire);
-    box(24.42, y, 50.6, 112.17, 0.035, 0.035, railWire);
-    box(58.58, y, -90.6, 43.83, 0.035, 0.035, railWire);
-    box(-24.42, y, -90.6, 112.17, 0.035, 0.035, railWire);
-    box(-80.6, y, -20, 0.035, 0.035, 141, railWire);
-    box(80.6, y, -20, 0.035, 0.035, 141, railWire);
-  }
-  for (let x = -80; x <= 80; x += 3) { if(x*S>-22 && x*S<-19) continue; const post = box(x, 0.58, 50.6, 0.08, 1.16, 0.1, steel); post.rotation.x = -0.12; }
-  for (let x = -80; x <= 80; x += 3) { if(x*S>19 && x*S<22) continue; box(x, 0.58, -90.6, 0.08, 1.16, 0.1, steel); }
-  for (let z = -90; z <= 50; z += 3) for (const x of [-80.6, 80.6]) box(x, 0.58, z, 0.1, 1.16, 0.1, steel);
-  for (const rail of scene.children.slice(railStart)) rail.userData.rainContact = 'rail';
   // Bent, tapered fronds with individual leaflets instead of star-shaped cones.
   const frondVertices: number[] = [];
   for (let i = 0; i < 8; i++) {
@@ -254,7 +230,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     box(112.8, 4, z, 0.45, 8, 0.45, steel);
     const archPoints: THREE.Vector3[] = [];
     for (let i = 0; i <= 12; i++) { const a = i / 12 * Math.PI; archPoints.push(new THREE.Vector3(123 + Math.cos(a) * 11, 8 + Math.sin(a) * 4, z)); }
-    scene.add(new THREE.Mesh(geo(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(archPoints), 16, 0.18, 4, false)), steel));
+    curvedMembers(steel).push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(archPoints), 16, 0.18, 4, false));
   }
   const roofShape = new THREE.Shape(); roofShape.moveTo(-11, 0); roofShape.quadraticCurveTo(0, 8, 11, 0); roofShape.lineTo(-11, 0);
   const roof = new THREE.Mesh(geo(new THREE.ExtrudeGeometry(roofShape, { depth: 134, bevelEnabled: false, curveSegments: 12 })), mat('#597887', { roughness: 0.4, metalness: 0.25 }));
@@ -381,11 +357,18 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     const face = mat(towerColors[index % towerColors.length], { roughness: 0.35, metalness: 0.1 });
     box(x, h / 2, z, w, h, d, face, scene, true); collider(x, z, w, d, h + 4);
     box(x, h + 1, z, w - 3, 2, d - 3, cream);
-    for (let y = 3; y < h; y += 3) {
-      box(x + w / 2 + 0.05, y, z, 0.1, 0.22, d, steel);
-      box(x, y, z + d / 2 + 0.05, w, 0.22, 0.1, steel);
+    // Module facade (docs/SHAPE-LANGUAGE.md): a band at every 3 m storey on
+    // all four faces and a mullion at every 3 m bay, in authored units here
+    // and snapped to the world grid after compaction.
+    const storey = STOREY / S, bay = BAY / S, band = BAND / S, proud = DETAIL / S;
+    for (let y = storey; y < h - storey / 2; y += storey) for (const side of [-1, 1]) {
+      box(x + side * (w + proud) / 2, y, z, proud, band, d + 2 * proud, steel);
+      box(x, y, z + side * (d + proud) / 2, w, band, proud, steel);
     }
-    for (let dx = -w / 2 + 3; dx < w / 2; dx += 4) box(x + dx, h / 2, z + d / 2 + 0.15, 0.2, h, 0.15, steel);
+    for (const side of [-1, 1]) {
+      for (let dx = -w / 2 + bay; dx < w / 2 - bay / 3; dx += bay) box(x + dx, h / 2, z + side * (d + proud) / 2, 2 * proud, h, proud, steel);
+      for (let dz = -d / 2 + bay; dz < d / 2 - bay / 3; dz += bay) box(x + side * (w + proud) / 2, h / 2, z + dz, proud, h, 2 * proud, steel);
+    }
     box(x, h + 3, z, w * 0.55, 4, d * 0.65, dark);
     if (index % 2) box(x, h + 9, z, 0.5, 10, 0.5, steel);
   }
@@ -543,7 +526,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
         const angle = i / 16 * Math.PI;
         curve.push(new THREE.Vector3(x + Math.cos(angle) * width * ringRadius, 0.7 + Math.sin(angle) * height * ringRadius, z + depth * fraction));
       }
-      scene.add(new THREE.Mesh(geo(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curve), 20, 0.4, 4, false)), pale));
+      curvedMembers(pale).push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(curve), 20, 0.4, 4, false));
     }
     // Fine dark longitudinal mullions subdivide the glass between white ribs.
     // Box beams join the shared instance batch instead of adding draw calls.
@@ -638,10 +621,11 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   for (const z of [-230, -140, -50, 45]) {
     box(-281, 16, z, 24, 32, 34, cream, scene, true); collider(-281, z, 24, 34, 36);
     box(-281, 33, z, 26, 2, 36, pale);
-    for (let floor = 0; floor < 8; floor++) for (let dz = -12; dz <= 12; dz += 6) box(-268.9, 3 + floor * 3.6, z + dz, 0.15, 2.5, 3.8, glass);
+    for (let floor = 0; floor < 6; floor++) for (let dz = -12; dz <= 12; dz += 6) box(-268.9, (floor + 0.55) * STOREY / S, z + dz, DETAIL / S, 1.8 / S, 3.8, glass);
     box(-264, 4, z, 8, 0.18, 36, glass);
-    for (let dz = -18; dz <= 18; dz += 3) box(-264, 3.95, z + dz, 8, 0.24, 0.15, dark);
-    for (const dx of [-267, -263, -260.2]) box(dx, 3.95, z, 0.15, 0.24, 36, dark);
+    // Canopy beams sit on the glass, clear of the column tops.
+    for (let dz = -18; dz <= 18; dz += 3) box(-264, 4.25, z + dz, 8, 0.24, 0.15, dark);
+    for (const dx of [-267, -263, -260.2]) box(dx, 4.25, z, 0.15, 0.24, 36, dark);
     for (const dz of [-16, -8, 0, 8, 16]) { box(-260.5, 2, z + dz, 0.5, 4, 0.5, pale); collider(-260.5, z + dz, 0.6, 0.6); }
   }
   box(-280, 0.015, 124, 40, 0.12, 39, sand);
@@ -661,10 +645,11 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // the 2024 Marina Gardens Drive and 2018 Esplanade exterior references.
   for (let z = -270; z < 240; z += 3) {
     if (z > 151 && z < 177) continue; // Open the connector junction.
-    box(340, 0.16, z, 0.4, 0.32, 2.95, Math.abs(z / 3) % 2 ? white : dark);
+    box(340, 0.16, z, 0.4, 0.32, 2.85, Math.abs(z / 3) % 2 ? white : dark); // 0.1 m module joints
   }
   for (const x of [341.1, 341.5]) box(x, 0.085, -15, 0.12, 0.025, 510, yellow);
-  for (let z = -260; z < 230; z += 30) { box(338.8, 0.1, z, 0.65, 0.05, 1.1, dark); for (let i = 0; i < 5; i++) box(338.8, 0.13, z - 0.4 + i * 0.2, 0.65, 0.02, 0.04, steel); }
+  // Gullies are dark paint on the module: their 2.4 cm grate bars were below the detail floor.
+  for (let z = -260; z < 230; z += 30) box(338.8, 0.1, z, 0.65, 0.05, 1.1, dark);
   // Bicycle racks, litter bins and sheltered seating add human-scale detail.
   for (const [x, z] of [[313, 134], [315, -130], [-285, 139], [95, 230]]) {
     box(x, 0.65, z, 0.8, 1.3, 0.8, dark); collider(x, z, 0.8, 0.8);
@@ -699,6 +684,12 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     box(-120.2, 3, z - 2.3, 0.6, 6, 0.5, pale);
     box(-117, 0.35, z, 1.5, 0.7, 4.5, cream); box(-117, 1, z, 1.2, 0.9, 4.2, hedge); collider(-117, z, 1.5, 4.5, 1.5);
   }
+  for (const [material, list] of curved) {
+    // Each member keeps its own flight and cover bounds (flight-obstacles.ts).
+    const bounds = list.map(g => { g.computeBoundingBox(); return g.boundingBox!.clone(); });
+    const merged = mergeGeometries(list); list.forEach(g => g.dispose());
+    if (merged) { const mesh = new THREE.Mesh(geo(merged), material); mesh.userData.flightBounds = bounds; scene.add(mesh); }
+  }
   // Compact the authored district before adding human-scale tactical cover and
   // dynamic actors. Scaling all three axes preserves the landmark silhouettes.
   // No parent transform is left on the scene: subsequently spawned actors, cars,
@@ -711,8 +702,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   for (const obstacle of obstacles) Object.assign(obstacle, marinaBounds(obstacle),
     obstacle.maxY === undefined ? {} : {maxY:obstacle.maxY*S},obstacle.minY===undefined?{}:{minY:obstacle.minY*S});
   // Replace the basin blocker with exact water patches around the floating decks.
-  obstacles.splice(0,1,...marinaWaterObstacles());
-  obstacles.push(...MARINA_CAMP_COVER.map(c=>({...c})));
+  const marinaWaterObstacleSet = marinaWaterObstacles(), campCover = MARINA_CAMP_COVER.map(c=>({...c}));
+  obstacles.splice(0,1,...marinaWaterObstacleSet);
+  obstacles.push(...campCover);
   const camp=buildMarinaCamp();scene.add(camp.root);
 
   scene.userData.marinaCamp={center:{x:0,z:-12},radius:MARINA_ISLET.radius,landings:3,landmark:'Merlion',authoredGameplayLocation:true};
@@ -722,8 +714,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // sight and shots, while low planters allow standing fire over their tops.
   for (const [x,z,w,d] of [[0,129,184,50],[147,126,70,54],[-27,180,132,12],[119,180,128,12]]) {
     box(x*S, .025, z*S, w*S, .09, d*S, sand);
-    for (let offset=-w/2+4;offset<w/2;offset+=8) box((x+offset)*S,.078,z*S,.07,.012,d*S,dark);
-    for (let offset=-d/2+4;offset<d/2;offset+=8) box(x*S,.078,(z+offset)*S,w*S,.012,.07,dark);
+    // Paving seams stop one detail short of the court edge, so their ends never share its faces.
+    for (let offset=-w/2+4;offset<w/2;offset+=8) box((x+offset)*S,.078,z*S,.07,.012,d*S-2*DETAIL,dark);
+    for (let offset=-d/2+4;offset<d/2;offset+=8) box(x*S,.078,(z+offset)*S,w*S-2*DETAIL,.012,.07,dark);
   }
   for (const wall of MARINA_GARDEN_WALLS) {
     const {x,z,width,depth,height}=wall;
@@ -769,6 +762,63 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   scene.userData.marinaCombat = { name:'Compact landmark circuit', authored:true, layoutScale:S,
     walls:MARINA_GARDEN_WALLS.length,pavilions:MARINA_GARDEN_PAVILIONS.length,kiosks:MARINA_GARDEN_KIOSKS.length };
 
+  // Promenade on the block module, in world metres: 1 m granite slabs that
+  // abut with no joints (their tone varies instead), a boardwalk of 0.5 m
+  // planks, and a rail of 0.1 m posts and rails. The earlier 1.4 cm
+  // paver joints exposed the slab below as dotted lines and AO shimmer.
+  const slabTones = ['#a7a7a2', '#a3a39e', '#9f9f9a'].map(c => mat(c)), bandSlab = mat('#7d817f');
+  const paving = { minX: -54, maxX: 54, minZ: 31.5, maxZ: 47.5, top: .0645 };
+  const slabs = new Map<THREE.Material, THREE.Matrix4[]>(), slabMatrix = new THREE.Object3D();
+  for (let x = paving.minX; x < paving.maxX; x += SLAB) for (let z = paving.minZ; z < paving.maxZ; z += SLAB) {
+    // Darker expansion bands (south-waterfront.png) are whole slab columns.
+    const column = Math.round(x + SLAB / 2 - paving.minX), band = [15, 34, 53, 72, 91].includes(column);
+    const ix = Math.round(x - paving.minX), iz = Math.round(z - paving.minZ);
+    const hash = Math.sin(ix * 12.9898 + iz * 78.233) * 43758.5453;
+    const material = band ? bandSlab : slabTones[Math.floor((hash - Math.floor(hash)) * 3)];
+    slabMatrix.position.set(x + SLAB / 2, paving.top - .015, z + SLAB / 2); slabMatrix.scale.set(SLAB, .03, SLAB); slabMatrix.updateMatrix();
+    const list = slabs.get(material) ?? []; list.push(slabMatrix.matrix.clone()); slabs.set(material, list);
+  }
+  for (const [material, list] of slabs) {
+    const slabMesh = new THREE.InstancedMesh(boxGeo, material, list.length); slabMesh.name = 'marina-promenade-slabs';
+    list.forEach((m, i) => slabMesh.setMatrixAt(i, m)); slabMesh.receiveShadow = true; slabMesh.computeBoundingSphere(); scene.add(slabMesh); instances.push(slabMesh);
+  }
+  const plankTones = [wood, mat('#806b5f')];
+  for (let x = -48.5, i = 0; x < 48.5; x += BLOCK, i++) box(x + BLOCK / 2, .06, 30.95, BLOCK, .072, 1.1, plankTones[i % 2]);
+  const railStart = scene.children.length;
+  const railRuns: [number, number, number, 'x' | 'z'][] = [
+    [-48.3, -22, 30.35, 'x'], [-19, 48.3, 30.35, 'x'], [-48.3, 19, -54.35, 'x'], [22, 48.3, -54.35, 'x'],
+    [-54.3, 30.3, -48.35, 'z'], [-54.3, 30.3, 48.35, 'z'],
+  ];
+  // The bay rail keeps its compacted 0.7 m height (1.16 authored), so it stays
+  // below crouching eye height and leaves the bayfront's cover and sightlines as they were.
+  const railHeight = snap(1.16 * S);
+  for (const [from, to, at, axis] of railRuns) {
+    const along = (a: number, y: number, size: number, h: number) => axis === 'x' ? box(a, y, at, size, h, RAIL.rail, steel) : box(at, y, a, RAIL.rail, h, size, steel);
+    // The lower rail stays above 0.35 m, where ground cover would take it for a kerb.
+    for (const y of [railHeight - 3 * DETAIL + DETAIL / 2, railHeight - DETAIL / 2]) along((from + to) / 2, y, to - from, DETAIL);
+    const posts = Math.max(1, Math.round((to - from) / RAIL.spacing));
+    for (let i = 0; i <= posts; i++) along(from + (to - from) * i / posts, railHeight / 2, RAIL.post, railHeight);
+  }
+  for (const rail of scene.children.slice(railStart)) rail.userData.rainContact = 'rail';
+
+  // Snap every generic box and its collider to the 0.1 m detail grid with the
+  // 0.1 m thickness floor, in world metres. Landmarks with curves or
+  // distinctive silhouettes keep their authored geometry, as do groups
+  // (Merlion, camp, Flyer, people), rotated members and the water.
+  scene.userData.blockModule = true;
+  const freeform = (x: number, z: number) => SHAPE_FREEFORM_ZONES['marina-bay'].some(r => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ);
+  for (const child of scene.children) {
+    if (!(child instanceof THREE.Mesh) || child.geometry !== boxGeo || child instanceof THREE.InstancedMesh) continue;
+    if (child.rotation.x || child.rotation.y || child.rotation.z || freeform(child.position.x, child.position.z)) continue;
+    const b = snapModuleBox(child.position.x, child.position.y, child.position.z, child.scale.x, child.scale.y, child.scale.z);
+    child.position.set(b.x, b.y, b.z); child.scale.set(b.w, b.h, b.d);
+  }
+  const protectedObstacles = new Set([...marinaWaterObstacleSet, ...campCover]);
+  obstacles.forEach((o, i) => {
+    if (protectedObstacles.has(o) || o.minY !== undefined || freeform((o.minX + o.maxX) / 2, (o.minZ + o.maxZ) / 2)) return;
+    obstacles[i] = snapFootprint(o);
+  });
+
   // Record which reviewed images informed authored features (not photogrammetry).
   scene.userData.qualityDetails = qualityDetails;
   scene.userData.referenceFeatures = ['museum-shell', 'bay-skyline', 'fullerton-materials', 'fullerton-glazing', 'sands-canopy', 'sands-streetscape', 'south-waterfront', 'south-palms', 'merlion-waterfront-east', 'bayfront-gardens-east', 'south-promenade-north', 'gardens-grove-03-0', 'conservatory-road-03-90', 'barrage-approach-03-180', 'east-garden-03-180', 'flyer-road-03-270', 'float-waterfront-03-90', 'esplanade-road-03-180', 'promenade-road-03-180', 'downtown-green-03-180', 'marina-one-street-03-90'];
@@ -794,7 +844,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     const material = child.material as THREE.Material, key = `${child.geometry.uuid}:${material.uuid}:${child.castShadow}`;
     const batch = batches.get(key) || []; batch.push(child); batches.set(key, batch);
   }
-  instances.push(pavers);
   for (const batch of batches.values()) {
     if (batch.length < 2) continue;
     const mesh = new THREE.InstancedMesh(batch[0].geometry, batch[0].material, batch.length);

@@ -19,6 +19,10 @@ export const MIN_DETAIL = DETAIL;
 /** Ground overlays (paint, paving, kerb tops) may stay thinner than the
  * minimum vertically when they start this close to the ground. */
 export const OVERLAY_CEILING = 0.3;
+/** Low ground slabs topping out below this are levelled by ground cover
+ * (`withGroundCover`), so they keep their authored levels: snapping them
+ * vertically would only bury the paint laid on them. */
+export const GROUND_CAP_TOP = 0.6;
 
 /** Named multiples, so scene code reads as the module rather than numbers. */
 export const STOREY = 6 * BLOCK;            // 3 m floor-to-floor
@@ -49,20 +53,28 @@ export function isOnModule(value: number, step = DETAIL, tolerance = 1e-4) {
  */
 export function snapSpan(center: number, size: number, step = DETAIL, min = step) {
   const steps = Math.max(Math.round(+(Math.abs(size) / step).toFixed(6)), Math.ceil(min / step - EPSILON), 1);
-  const lo = snap(center - steps * step / 2, step);
+  // An edge already on the grid is usually the face a detail is mounted on:
+  // keep it, and grow or shrink the far side, so trim stays proud of its wall
+  // instead of sinking into it and sharing its face.
+  const lo0 = center - Math.abs(size) / 2, hi0 = center + Math.abs(size) / 2;
+  const lo = isOnModule(lo0, step, 1e-6) ? snap(lo0, step)
+    : isOnModule(hi0, step, 1e-6) ? +(snap(hi0, step) - steps * step).toFixed(6)
+    : snap(center - steps * step / 2, step);
   return { center: +(lo + steps * step / 2).toFixed(6), size: +(steps * step).toFixed(6) };
 }
 
 export interface ModuleBox { x: number; y: number; z: number; w: number; h: number; d: number }
 /**
  * Snap an axis-aligned box (centre and size) to the detail grid with the
- * thickness floor. Ground overlays — thinner than the minimum and starting
- * below `OVERLAY_CEILING` — keep their authored height and level, because
- * paint and paving lie on the ground and are owned by ground cover.
+ * thickness floor. Ground overlays and low ground slabs — starting below
+ * `OVERLAY_CEILING` and either thinner than the minimum or topping out below
+ * `GROUND_CAP_TOP` — keep their authored height and level, because paint,
+ * paving and kerbs lie on the ground and ground cover owns their levels.
  */
 export function snapModuleBox(x: number, y: number, z: number, w: number, h: number, d: number, step = DETAIL, min = MIN_DETAIL): ModuleBox {
   const sx = snapSpan(x, w, step, min), sz = snapSpan(z, d, step, min);
-  const overlay = Math.abs(h) < min - EPSILON && y - Math.abs(h) / 2 <= OVERLAY_CEILING;
+  const bottom = y - Math.abs(h) / 2, top = y + Math.abs(h) / 2;
+  const overlay = bottom <= OVERLAY_CEILING && (Math.abs(h) < min - EPSILON || top <= GROUND_CAP_TOP);
   const sy = overlay ? { center: y, size: h } : snapSpan(y, h, step, min);
   return { x: sx.center, y: sy.center, z: sz.center, w: sx.size, h: sy.size, d: sz.size };
 }
@@ -81,4 +93,18 @@ export const minRadius = (radius: number) => Math.max(radius, MIN_DETAIL / 2);
  * landmark and is neither snapped nor counted as generic by the audit.
  */
 export interface FreeformZone { name: string; minX: number; maxX: number; minZ: number; maxZ: number; minY?: number }
-export const SHAPE_FREEFORM_ZONES: Record<string, readonly FreeformZone[]> = {};
+export const SHAPE_FREEFORM_ZONES: Record<string, readonly FreeformZone[]> = {
+  // Marina Bay, world metres after the district's compaction.
+  'marina-bay': [
+    { name: 'Marina Bay Sands towers and SkyPark', minX: 81, maxX: 106, minZ: -50, maxZ: 31 },
+    { name: 'Shoppes podium, barrel roof and fins', minX: 66, maxX: 81, minZ: -48, maxZ: 34 },
+    { name: 'ArtScience Museum', minX: 66, maxX: 96, minZ: -81, maxZ: -51 },
+    { name: 'Helix Bridge', minX: 12, maxX: 54, minZ: -62, maxZ: -55 },
+    { name: 'Esplanade shells', minX: -50, maxX: 20, minZ: -119, maxZ: -101 },
+    { name: 'Supertree Grove', minX: 165, maxX: 192, minZ: -1, maxZ: 79 },
+    { name: 'Conservatories', minX: 156, maxX: 189, minZ: -121, maxZ: -40 },
+    { name: 'Singapore Flyer', minX: 138, maxX: 172, minZ: -169, maxZ: -151 },
+    { name: 'Promenade flyover', minX: 108, maxX: 200, minZ: -142, maxZ: -130 },
+    { name: 'Fullerton arcade', minX: -88, maxX: -69, minZ: 6, maxZ: 30 },
+  ],
+};

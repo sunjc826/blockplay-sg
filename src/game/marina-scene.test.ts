@@ -70,7 +70,10 @@ it('models the reviewed facade and landmark details without expanding the play f
     expect(MARINA_STAMPS).toHaveLength(14);
     expect(world.scene.userData.qualityDetails).toEqual({ esplanadeSunshades: 472, wheelCapsules: 16, conservatoryGlazingSegments: 224, sandsMullions: 2040 });
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
-    expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(14000);
+    // The promenade is 1,728 one-metre module slabs (formerly 4,320 jointed
+    // pavers), so the instanced total sits lower than before the module.
+    expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(12000);
+    expect(instances.filter(mesh => mesh.name === 'marina-promenade-slabs').reduce((sum, mesh) => sum + mesh.count, 0)).toBe(108 * 16);
     expect(instances.length).toBeLessThan(60);
     expect(world.scene.children.length).toBeLessThan(240);
   } finally { world.dispose(); }

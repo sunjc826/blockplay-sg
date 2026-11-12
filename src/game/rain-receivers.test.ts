@@ -16,7 +16,7 @@ describe('Marina rain contacts',()=>{
       expect(columns(-30,-20)).toBeCloseTo(-.24,5);
       expect(hit(0,-8).height).toBeCloseTo(0,5); // islet deck
       expect(hit(-20.5,24).height).toBeCloseTo(0,5); // jetty
-      expect(hit(-10,30.36).height).toBeCloseTo((1.1+.035/2)*.6,5);
+      expect(hit(-10,30.36).height).toBeCloseTo(.7,5); // module rail top: 1.16 authored x 0.6, snapped to 0.1 m
       expect(hit(-10,30.36).kind).toBe('rail');
       expect(hit(-10,30.5).height).toBeLessThan(.03); // gap beside rail, not a wide invisible roof
       expect(hit(-20.5,30.36).kind).not.toBe('rail'); // open jetty gate

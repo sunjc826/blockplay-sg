@@ -4,6 +4,7 @@ import type { RegionId } from './region-ids';
 import type { RegionWorld } from './regions';
 import { WORLD_GATEWAYS } from './world-zones';
 import { RAIL_ROUTES, type RailDistrict } from './rail-routes';
+import { snapModuleBox } from './block-module';
 
 export type BoundarySide = 'west' | 'east' | 'north' | 'south';
 type BoundaryStyle = 'city' | 'estate' | 'heritage' | 'forest' | 'industrial';
@@ -74,9 +75,12 @@ export function withDistrictBoundaries<T extends RegionWorld>(id: RegionId, worl
   const boxes = new Map<string, { material: THREE.Material; solid: boolean; transforms: THREE.Matrix4[] }>(), crowns: THREE.Matrix4[] = [];
   const ground = (x: number, z: number) => bounds.groundHeight?.(Math.max(bounds.minX, Math.min(bounds.maxX, x)), Math.max(bounds.minZ, Math.min(bounds.maxZ, z))) ?? 0;
   const matrix = (x: number, y: number, z: number, w: number, h: number, d: number) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(w, h, d));
+  // On block-module districts the boundary scenery is snapped like any other generic box.
+  const onModule = world.scene.userData.blockModule === true;
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, m: THREE.Material, solid = true) => {
     const key = `${m.uuid}/${solid}`, batch = boxes.get(key) ?? { material: m, solid, transforms: [] };
-    batch.transforms.push(matrix(x, y, z, w, h, d)); boxes.set(key, batch);
+    const b = onModule ? snapModuleBox(x, y, z, w, h, d) : { x, y, z, w, h, d };
+    batch.transforms.push(matrix(b.x, b.y, b.z, b.w, b.h, b.d)); boxes.set(key, batch);
   };
   const metadata: { side: BoundarySide; min: number; max: number; kind: string }[] = [];
   const horizon = world.scene.fog instanceof THREE.Fog ? world.scene.fog.far + 100 : 1100;

@@ -44,6 +44,22 @@ describe('block module', () => {
     expect(shelf.h).toBe(0.1);
   });
 
+  it('keeps a detail mounted on an on-grid face proud of it on either side', () => {
+    // Trim authored flush against a wall face at x = 5, 3.5 cm thick.
+    const east = snapSpan(5 + 0.0175, 0.035), west = snapSpan(-5 - 0.0175, 0.035);
+    expect(east.center - east.size / 2).toBeCloseTo(5, 9); expect(east.size).toBe(0.1);
+    expect(west.center + west.size / 2).toBeCloseTo(-5, 9);
+  });
+
+  it('leaves low ground slabs at their authored level for ground cover', () => {
+    const court = snapModuleBox(0, 0.025, 0, 110.4, 0.09, 30);
+    expect(court.y).toBe(0.025); expect(court.h).toBe(0.09);
+    const kerb = snapModuleBox(0, 0.084, 0, 132, 0.168, 0.27);
+    expect(kerb.h).toBe(0.168); expect(kerb.d).toBe(0.3);
+    const wall = snapModuleBox(0, 1.3, 0, 1.2, 2.6, 10.8);
+    expect(wall.h).toBe(2.6);
+  });
+
   it('snaps a collider exactly as the visual authored with the same numbers', () => {
     const [x, z, w, d] = [12.37, -4.83, 2.8, 0.75];
     const visual = snapModuleBox(x, 1, z, w, 2, d);
