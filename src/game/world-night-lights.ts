@@ -232,7 +232,12 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     nightBounds: { value: new THREE.Vector4(bounds.minX, bounds.minZ, 1 / (bounds.maxX - bounds.minX), 1 / (bounds.maxZ - bounds.minZ)) },
     nightLampColor: { value: new THREE.Color('#ffd9a6').multiplyScalar(4.5) },
     nightWindowShare: { value: .48 },
+    /** Seconds, wrapped every 21 minutes: drives windows switching and screen flicker. */
+    nightClock: { value: 0 },
+    /** 0 with reduced motion: no flicker, no switching. */
+    nightMotion: { value: 1 },
   };
+  const reducedMotion = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const moving = createMovingLights();
 
   // Lamp furniture: instanced poles and arms, emissive heads, and soft halos.
@@ -341,7 +346,24 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float nightLevel, nightPool, nightWindowShare; uniform sampler2D nightMap; uniform vec4 nightBounds; uniform vec3 nightLampColor;
-          varying vec3 vNightWorld, vNightNormal;${windows ? '\nvarying vec2 vNightSpan, vNightEdge;\nvarying float vNightSeed;' : ''}
+          varying vec3 vNightWorld, vNightNormal;${windows ? `
+          varying vec2 vNightSpan, vNightEdge;
+          varying float vNightSeed;
+          uniform float nightClock, nightMotion;
+          // About one window in six belongs to someone who comes and goes: it is
+          // decided afresh every two and a half minutes, each on its own schedule.
+          float nightWindowLit(float h) {
+            float restless = step(.83, fract(h * 5.31)) * nightMotion;
+            float epoch = floor(nightClock / 150.0 + fract(h * 17.3));
+            float roll = fract(sin(epoch * 91.7 + h * 311.7) * 43758.5453);
+            return step(1.0 - nightWindowShare, mix(h, roll, restless));
+          }
+          // A few lit rooms have a screen on: a cool, unsteady glow rather than lamplight.
+          vec3 nightWindowTint(float h, vec3 tint) {
+            float screen = step(.965, fract(h * 11.7)) * nightMotion, t = nightClock + h * 50.0;
+            float flicker = .6 + .25 * sin(t * 5.1) * sin(t * 2.3 + 1.7) + .15 * sin(t * 13.7 + h * 9.0);
+            return mix(tint, vec3(.5, .66, 1.0) * flicker, screen);
+          }` : ''}
           ${MOVING_LIGHTS_DECLARATIONS}`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           // Flares, motors and bursts nearby (moving-lights); they still shine when a blackout puts the city out.
@@ -362,7 +384,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               ${panes ? `
               // An authored pane is already the window: light its surface, preserving frames and grilles.
               float h = vNightSeed;
-              float lit = step(1.0 - nightWindowShare, h);
+              float lit = nightWindowLit(h);
               float pane = 1.0;
               ` : `
               // Fit complete columns and storeys inside each actual facade, including rotated/extruded sides.
@@ -373,16 +395,16 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               vec2 pane2 = clamp((vec2(.28, .24) - abs(f - .5)) / aa, 0.0, 1.0);
               float facade = floor(vNightSeed * 97.0);
               float h = fract(sin(dot(id + facade, vec2(12.9898, 78.233))) * 43758.5453);
-              float lit = step(1.0 - nightWindowShare, h);
+              float lit = nightWindowLit(h);
               // Far off, a grid finer than a pixel settles to its average instead of shimmering.
               float pane = mix(pane2.x * pane2.y, .56 * .48, smoothstep(.35, .9, max(aa.x, aa.y)));
               `}
-              vec3 tint = mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13)));
+              vec3 tint = nightWindowTint(h, mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13))));
               totalEmissiveRadiance += tint * (1.1 + fract(h * 3.7)) * pane * lit * wall * nightLevel;
             }` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v2' : '-windows-v2' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v3' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();
@@ -478,6 +500,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
     /** `lighting` is the hour's light; `blackout` 0–1 puts the city out (the sky stays). */
     update(lighting: Pick<LightingState, 'elevation' | 'key'>, blackout: number, dt: number, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
       if (disposed) return;
+      uniforms.nightClock.value = (uniforms.nightClock.value + (Number.isFinite(dt) ? Math.max(0, Math.min(dt, .25)) : 0)) % 6000;
+      uniforms.nightMotion.value = reducedMotion?.matches ? 0 : 1;
       const elevation = lighting.elevation; dark = nightLevel(elevation);
       const next = dark * (1 - Math.max(0, Math.min(1, blackout)));
       if (Math.abs(next - level) > 1e-3) {
