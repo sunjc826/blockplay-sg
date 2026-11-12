@@ -21,7 +21,7 @@ export const YISHUN_MAP_ROADS = [
  * photograph claims or paid captures. See docs/YISHUN.md for sources and scope.
  */
 export function buildYishunScene() {
-  const kit = createSceneKit({ background: '#d7d9cb', fogNear: 320, fogFar: 1050,
+  const kit = createSceneKit({ look: 'heartland', background: '#d7d9cb', fogNear: 320, fogFar: 1050,
     sun: { x: -130, y: 210, z: 100 }, shadow: { extent: 280, far: 750 } });
   const { scene, box, cylinder, solid, sign, tree, blob, mat } = kit;
   const grass = mat('#91a66e'), lawn = mat('#a2b57b'), asphalt = mat('#555b5b');

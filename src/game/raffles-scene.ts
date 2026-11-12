@@ -5,6 +5,7 @@ import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
 import { markWater } from './water';
+import { districtLook } from './district-look';
 
 export const RAFFLES_SPAWN = { x: 0, z: 52, yaw: 0 };
 export { RAFFLES_STAMPS } from '../data/region-stamps.ts';
@@ -50,6 +51,7 @@ export const RAFFLES_VERTICAL_PLACES: VerticalPlace[] = [{
 
 export function buildRafflesScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#b8d1da'); scene.fog = new THREE.Fog('#b8d1da', 280, 750);
+  scene.userData.districtLook = districtLook('city', '#b8d1da');
   scene.add(new THREE.HemisphereLight('#f1f8ff', '#787366', 1.8));
   const sun = new THREE.DirectionalLight('#fff1dd', 2); sun.position.set(-110, 190, 100); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -230, right: 230, top: 180, bottom: -180, far: 540 }); sun.shadow.normalBias = 0.22; scene.add(sun);

@@ -38,7 +38,7 @@ export const HARBOURFRONT_MAP_ROADS = [
  * ridge park behind it all. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildHarbourfrontScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'coast',
     background: '#c4d8e3', fogNear: 300, fogFar: 900,
     sun: { x: 130, y: 210, z: 140 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f2f9fc', ground: '#74776a', intensity: 1.86 },

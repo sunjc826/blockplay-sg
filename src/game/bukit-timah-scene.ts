@@ -68,7 +68,7 @@ const BUKIT_TIMAH_HILL: VerticalPlace = {
 };
 
 export function buildBukitTimahScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'nature',
     background: '#c9dad6', fogNear: 280, fogFar: 880,
     sun: { x: -140, y: 200, z: -110 }, shadow: { extent: 260, far: 670 },
     hemisphere: { sky: '#f2f8f6', ground: '#6f7458', intensity: 1.76 },

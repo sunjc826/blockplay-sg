@@ -7,6 +7,7 @@ import { getFpsDistrict } from './fps-districts';
 import { ZONE_LOOT_RULES } from './expedition-loot';
 import { getWorldZone } from './world-zones';
 import type { Obstacle } from './region-collision';
+import { LOOK_PRESETS, MARINA_LOOK, type DistrictLook } from './district-look';
 
 const CAR_RADIUS = 1.35;
 
@@ -115,6 +116,11 @@ describe.each(REGIONS.map(region => [region.id] as const))('%s', id => {
       const drawn = world.scene.children.reduce((total, child) =>
         total + (child instanceof THREE.InstancedMesh ? child.count : child instanceof THREE.Mesh ? 1 : 0), 0);
       expect(drawn).toBeGreaterThan(400);
+      // Every district shares the look's lighting language through a named preset (docs/DISTRICTS.md).
+      const look = world.scene.userData.districtLook as DistrictLook | undefined;
+      expect(look?.preset, `${id} picks a look preset`).toBeDefined();
+      expect(LOOK_PRESETS[look!.preset!], `${id} preset exists`).toBeDefined();
+      if (id === 'marina-bay') expect(look).toBe(MARINA_LOOK); else expect(look!.skyTint, `${id} keeps its own sky hue`).toHaveLength(3);
       // Draw-call guard. Marina, the largest district, sits near 210 children.
       expect(world.scene.children.length).toBeLessThan(260);
       expect(region.bounds.maxX).toBeGreaterThan(region.bounds.minX);

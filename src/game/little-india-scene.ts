@@ -14,7 +14,7 @@ export const LITTLE_INDIA_MAP_ROADS = [
 
 /** Researched landmark selection, schematic geometry. No accepted photo claims. */
 export function buildLittleIndiaScene() {
-  const k = createSceneKit({ background: '#dae2dc', fogNear: 300, fogFar: 950, shadow: { extent: 260, far: 680 } });
+  const k = createSceneKit({ look: 'heritage', background: '#dae2dc', fogNear: 300, fogFar: 950, shadow: { extent: 260, far: 680 } });
   const { scene, box, cylinder, solid, mat, sign, blob, tree } = k;
   const paving = mat('#d8cbb3'), grass = mat('#91a477'), white = mat('#efe5cd'), dark = mat('#34434b');
   const saffron = mat('#d99c3c'), terra = mat('#ab6448'), teal = mat('#579897'), glass = mat('#729ba5', .25, .2);

@@ -15,7 +15,7 @@ export const KATONG_JOO_CHIAT_MAP_ROADS = [
 /** Pastel streets and raised porches: an authored conservation neighbourhood,
  * with researched landmark selection and explicitly schematic geometry. */
 export function buildKatongJooChiatScene() {
-  const k = createSceneKit({ background: '#e2e5d9', fogNear: 330, fogFar: 1000, shadow: { extent: 280, far: 700 } });
+  const k = createSceneKit({ look: 'heritage', background: '#e2e5d9', fogNear: 330, fogFar: 1000, shadow: { extent: 280, far: 700 } });
   const { scene, box, solid, mat, sign, tree } = k;
   const grass = mat('#9cab7b'), paving = mat('#dbd0b9'), cream = mat('#f0e6d0'), wood = mat('#866148'), leaf = mat('#557f50');
   const red = mat('#b55e50'), roof = mat('#a9654d'), glass = mat('#709d9e', .3, .2), dark = mat('#3c4a48');

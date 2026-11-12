@@ -30,7 +30,7 @@ export const TUAS_MAP_ROADS = [
  * corrections. Lower station elevation and industrial streetscape Street View are reviewed.
  */
 export function buildTuasScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'industrial',
     background: '#c6ced3', fogNear: 300, fogFar: 940,
     sun: { x: 160, y: 205, z: -90 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#eef4f7', ground: '#7a776c', intensity: 1.75 },

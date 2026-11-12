@@ -74,7 +74,7 @@ export const ORCHARD_VERTICAL_PLACES: VerticalPlace[] = [{
 }];
 
 export function buildOrchardScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'city',
     background: '#cddbe4', fogNear: 280, fogFar: 840,
     sun: { x: -140, y: 205, z: -110 }, shadow: { extent: 250, far: 640 },
     hemisphere: { sky: '#f5f8fc', ground: '#79766b', intensity: 1.8 },

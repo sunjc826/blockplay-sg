@@ -13,6 +13,7 @@ import { QUEENSTOWN_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './queenstown-collision';
 import { QUEENSTOWN_HDB_BLOCKS, QUEENSTOWN_HOUSING_PLACES, HDB_CORE_OFFSET } from './queenstown-housing';
 import { QUEENSTOWN_HILLSIDE_PATHS, QUEENSTOWN_LANDSCAPE_PLACES, QUEENSTOWN_PATHS, QUEENSTOWN_SHADE_TREES, QUEENSTOWN_SHRUB_BEDS, queenstownTerrainHeight } from './queenstown-landscape';
+import { districtLook } from './district-look';
 
 export const QUEENSTOWN_SPAWN = { x: -18, z: 83, yaw: -0.35 };
 export const QUEENSTOWN_MAP_ROADS = [
@@ -34,6 +35,7 @@ export const QUEENSTOWN_VERTICAL_PLACES: VerticalPlace[] = [...QUEENSTOWN_HOUSIN
 export function buildQueenstownScene() {
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd9e7');
   scene.fog = new THREE.Fog('#bcd9e7', 240, 650);
+  scene.userData.districtLook = districtLook('heartland', '#bcd9e7');
   scene.add(new THREE.HemisphereLight('#eff8ff', '#747454', 1.8));
   const sun = new THREE.DirectionalLight('#fff0dc', 2); sun.position.set(-70, 150, 85); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -275, right: 275, top: 230, bottom: -230, far: 650 });

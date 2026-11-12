@@ -35,7 +35,7 @@ export const UPPER_THOMSON_MAP_ROADS = [
  * belt remain compressed; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildUpperThomsonScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'nature',
     background: '#c7dae0', fogNear: 290, fogFar: 880,
     sun: { x: 150, y: 210, z: -120 }, shadow: { extent: 260, far: 660 },
     hemisphere: { sky: '#f3f9fb', ground: '#6f7360', intensity: 1.82 },

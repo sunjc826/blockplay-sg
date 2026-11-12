@@ -39,7 +39,7 @@ export const SENTOSA_MAP_ROADS = [
  * along the southern shore. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildSentosaScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'coast',
     background: '#cfe1e7', fogNear: 300, fogFar: 920,
     sun: { x: 110, y: 215, z: 150 }, shadow: { extent: 265, far: 690 },
     hemisphere: { sky: '#f6fcfd', ground: '#7c7a63', intensity: 1.9 },

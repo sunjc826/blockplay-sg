@@ -29,7 +29,7 @@ export const TOA_PAYOH_MAP_ROADS = [
  * interchange at the centre. Compressed for play; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildToaPayohScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heartland',
     background: '#ccd8dc', fogNear: 290, fogFar: 880,
     sun: { x: 120, y: 205, z: -130 }, shadow: { extent: 260, far: 670 },
     hemisphere: { sky: '#f4f7f9', ground: '#787564', intensity: 1.8 },

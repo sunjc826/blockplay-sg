@@ -24,7 +24,7 @@ export const CHINATOWN_MAP_ROADS = [
  * Those views cover shop streets; temple facades remain simplified.
  */
 export function buildChinatownScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heritage',
     background: '#c8d8dc', fogNear: 260, fogFar: 760,
     sun: { x: 120, y: 200, z: -90 }, shadow: { extent: 250, far: 600 },
     hemisphere: { sky: '#f6f4ec', ground: '#7b7263', intensity: 1.75 },

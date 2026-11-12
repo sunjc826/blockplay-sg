@@ -28,7 +28,7 @@ export const CHANGI_MAP_ROADS = [
  * an apron. Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildChangiScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'coast',
     background: '#cfe0e8', fogNear: 320, fogFar: 950,
     sun: { x: -140, y: 220, z: 150 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#f6fbff', ground: '#77796d', intensity: 1.9 },

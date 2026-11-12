@@ -81,10 +81,9 @@ smoke all read the registry.
    0.1 m grid with a 0.1 m thickness floor, rhythm uses `STOREY`, `BAY` and
    `SLAB` from `src/game/block-module.ts`, and landmarks go inside
    `kit.freeform(() => ...)`. Run `pnpm audit:shape-language -- <id>` after.
-   Optionally pass `look` (a `DistrictLook` from `src/game/district-look.ts`)
-   for the gradient sky, blocky clouds, height haze, baked daytime indirect
-   light and colour grade; Marina (`MARINA_LOOK`, set on
-   `scene.userData.districtLook`) is the only district that opts in so far.
+   Pass `look` with a preset name for the gradient sky, blocky clouds, height
+   haze, baked daytime indirect light and colour grade every district shares
+   (see "Picking a look" below).
 2. **Stamps** — add the collectible list to `src/data/region-stamps.ts`.
 3. **Registry** — add the id to `src/game/region-ids.ts` and the descriptor to
    `src/game/regions.ts`: bounds and movement (`createRegionMovement`), spawn,
@@ -94,6 +93,33 @@ smoke all read the registry.
 5. **Picker** — add the `src/data/locations.ts` entry and a label slot in
    `SingaporeMap.tsx`, marked `central` if it falls inside the enlarged inset
    and `island` otherwise.
+
+### Picking a look
+
+Every district shares one lighting language (`src/game/district-look.ts`):
+named presets derived from shared defaults, each changing only what differs
+for its kind of place.
+
+| Preset | For | Districts |
+| --- | --- | --- |
+| `city` | Glass and stone towers (the defaults, as tuned on Marina) | Marina Bay, Raffles Place, Orchard Road |
+| `heartland` | HDB estates: slab blocks, painted walls, softer warmer shade | Queenstown, Toa Payoh, Tampines, Bishan, Yishun, Woodlands, Punggol |
+| `heritage` | Shophouse streets: warm light, deep five-foot ways, more grime | Chinatown, Kampong Glam, Little India, Katong / Joo Chiat, Geylang |
+| `nature` | Forest, reservoir, island: humid air, green-tinted shade | Bukit Timah, Upper Thomson, Jurong Lake, Pulau Ubin |
+| `coast` | Sea fronts and the airport by the sea: bright air, sand bounce | Sentosa, HarbourFront, Changi |
+| `industrial` | Yards and plants: flatter colour, harder contrast, bigger panels | Tuas |
+
+A kit district passes `look: 'heartland'` (say) to `createSceneKit`; the kit
+turns its `background` into the look's `skyTint`, so the gradient sky keeps
+the district's own hue rather than the weather's plain blue. Where a preset
+clearly does not fit one field, pass `look: districtLook('heartland',
+'#ccd8dc', { bounce: .2 })` instead of copying the preset. Scenes built
+without the kit set `scene.userData.districtLook` to the same call. Every walk,
+drive, FPS, expedition and arena mode builds the district through
+`region.build()`, so they all pick the look up; reduced effects drop the
+clouds, surface variation and bake, and software renderers keep three's fog.
+Graded ground (`groundHeight`) needs nothing extra: the atmosphere hands it
+to the exposure field, which measures wall feet from it.
 
 `src/game/regions.test.ts` then holds the new district to the same bar as every
 other: spawn, stamps, checkpoints, FPS spawn and vehicles must all be clear at

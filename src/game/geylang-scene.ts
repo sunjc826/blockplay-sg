@@ -36,7 +36,7 @@ const BLOCKS = [-185, -112, -56, 0, 56, 112, 185];
  * Compressed for play; reviewed exterior features are listed in referenceFeatures.
  */
 export function buildGeylangScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heritage',
     background: '#cfd9dc', fogNear: 280, fogFar: 840,
     sun: { x: 120, y: 200, z: 130 }, shadow: { extent: 255, far: 650 },
     hemisphere: { sky: '#f6f6ee', ground: '#78715f', intensity: 1.78 },

@@ -23,7 +23,7 @@ export const KAMPONG_GLAM_MAP_ROADS = [
  * Bussorah frontages are informed by that view. The outer grid is compressed.
  */
 export function buildKampongGlamScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heritage',
     background: '#cfdce0', fogNear: 250, fogFar: 740,
     sun: { x: -90, y: 200, z: -120 }, shadow: { extent: 240, far: 600 },
     hemisphere: { sky: '#f8f5ec', ground: '#7d7566', intensity: 1.8 },

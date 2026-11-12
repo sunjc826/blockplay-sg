@@ -36,7 +36,7 @@ export const WOODLANDS_MAP_ROADS = [
  * for play; researched changes are logged in docs/NORTH-EAST-REVIEW.md.
  */
 export function buildWoodlandsScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heartland',
     background: '#cbdae1', fogNear: 300, fogFar: 940,
     sun: { x: 140, y: 210, z: 120 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#f3f9fb', ground: '#767a66', intensity: 1.84 },

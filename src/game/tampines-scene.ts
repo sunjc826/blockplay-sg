@@ -29,7 +29,7 @@ export const TAMPINES_MAP_ROADS = [
  * the eastern block. Spatially compressed for play; researched changes are logged in docs/NORTH-EAST-REVIEW.md.
  */
 export function buildTampinesScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heartland',
     background: '#cdd9dd', fogNear: 290, fogFar: 900,
     sun: { x: -130, y: 205, z: 130 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f4f8fa', ground: '#787563', intensity: 1.8 },

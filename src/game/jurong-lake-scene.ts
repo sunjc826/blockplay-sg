@@ -27,7 +27,7 @@ export const JURONG_LAKE_MAP_ROADS = [
  * docs/WEST-DISTRICT-REVIEW.md. Garden-path Street View is reviewed; pagoda imagery remains unverified.
  */
 export function buildJurongLakeScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'nature',
     background: '#c6d9e2', fogNear: 300, fogFar: 900,
     sun: { x: 140, y: 210, z: 120 }, shadow: { extent: 260, far: 660 },
     hemisphere: { sky: '#f2f8fb', ground: '#74795f', intensity: 1.85 },

@@ -37,7 +37,7 @@ export const BISHAN_MAP_ROADS = [
  * precincts around. Compressed for play; source notes in docs/NORTH-CENTRAL-REVIEW.md.
  */
 export function buildBishanScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heartland',
     background: '#cddbd8', fogNear: 290, fogFar: 900,
     sun: { x: 130, y: 205, z: 120 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f4faf8', ground: '#75795f', intensity: 1.82 },

@@ -40,7 +40,7 @@ export const PUNGGOL_MAP_ROADS = [
  * docs/NORTH-EAST-REVIEW.md.
  */
 export function buildPunggolScene() {
-  const kit = createSceneKit({
+  const kit = createSceneKit({ look: 'heartland',
     background: '#c8dce6', fogNear: 300, fogFar: 920,
     sun: { x: -150, y: 215, z: 130 }, shadow: { extent: 270, far: 700 },
     hemisphere: { sky: '#f4fafd', ground: '#757a66', intensity: 1.86 },
