@@ -76,7 +76,7 @@ describe('district dressing',()=>{
     }
     expect(new Set(Object.values(counts)).size).toBeGreaterThan(1);
     expect(Object.values(counts).every(n=>n===STREET_PROP_LIMIT)).toBe(false);
-  },15000);
+  });
   it('reacts to a clipped shot without becoming ballistic cover, then resets',()=>{
     const region=getRegion('chinatown'),world=region.build();
     try{
