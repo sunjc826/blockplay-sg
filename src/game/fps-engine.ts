@@ -12,8 +12,9 @@ import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
 import { hardpointArena } from './hardpoint';
+import { buildFreeForAllWorld } from './free-for-all-world';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
-import { tdmArea, type ArenaMatch } from './arena-match';
+import { ffaArea, tdmArea, type ArenaMatch } from './arena-match';
 import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter } from './range-damage';
 import { createRangeDamageLabel } from './range-damage-label';
 import { cloneRangeDummy, createRangeDummyModel, RANGE_DUMMY_BASE_DEPTH } from './range-dummy';
@@ -402,8 +403,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const tdm = !expedition && options.arena?.match?.mode === 'team-deathmatch' ? options.arena.match : undefined;
   const hardpoint = !expedition && options.arena?.match?.mode==='hardpoint' ? hardpointArena(options.arena.match.area) : undefined;
   const teamMatch=!!tdm || !!hardpoint;
+  const ffa = !expedition && options.arena?.match?.mode==='free-for-all' && options.arena.match.area ? ffaArea(options.arena.match.area) : undefined;
+  const boundedMatch=teamMatch || !!ffa;
   const freeForAll = !expedition && !!options.arena && !teamMatch;
-  const region = expedition?.zone ?? (hardpoint?hardpoint.area.region:tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
+  const region = expedition?.zone ?? (hardpoint?hardpoint.area.region:tdm ? tdmArea(tdm.area)!.region : ffa?.region ?? options.region) ?? 'marina-bay';
   const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = rangeTravel?.spawn ?? district.spawn, targetPositions = district.targets;
   const practiceRange = !expedition && !options.arena && !options.tutorial;
   let drillMode: RangeDrillId = practiceRange && validRangeDrill(options.rangeDrill) ? options.rangeDrill : 'classic';
@@ -423,10 +426,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Sun shadows follow the camera (fps-sun-shadows) and stay off on software renderers.
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
-  canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : ' range')}. WASD to move, mouse to look, click to fire.`);
+  canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : freeForAll ? ' Free for All' : ' range')}. WASD to move, mouse to look, click to fire.`);
   const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld(hardpoint.area.id) : tdm ? buildTeamDeathmatchWorld(tdm.area)
-    : buildDistrictWorld(region, expedition?.spawn, { barricades: freeForAll });
-  if (teamMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
+    : ffa ? buildFreeForAllWorld(ffa.id) : buildDistrictWorld(region, expedition?.spawn, { barricades: freeForAll });
+  if (boundedMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
   // A third of the scene is hidden at any time (pooled effects, figures' spare parts); the renderer's
   // every-frame matrix pass skips it. Explicit forced updates still reach everything.
@@ -496,7 +499,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment && (options.arena.environment.paratroopers || options.arena.environment.proxies)) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
   const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { enabled: !teamMatch, spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
+  const vehicles = createFpsVehicles(world.scene, world.obstacles, equipment.vehicleSkins, { enabled: !boundedMatch, spawns: fleetSpawns, bounds: world.bounds, deriveFlightObstacles: region !== 'marina-bay', reducedMotion: () => !!motionPreference?.matches, exitFloor: (x, z) => footMovement.supportHeight(x, z, (world.bounds.groundHeight?.(x,z)??0)+MAX_STEP_HEIGHT, .38, 1.8) });
   const deploymentPoints = expedition && !expedition.checkpoint && !expedition.spawn ? districtDeploymentPoints(expedition.zone, (x, z) =>
     footMovement.canOccupy(x, 0, z, .5, 1.8) && Math.abs(footMovement.supportHeight(x, z, .1, .4, 1.8) ?? 100) < .05 &&
     npcs.every(n => Math.hypot(n.x - x, n.z - z) > 3) && Object.values(fleetSpawns).every(v => Math.hypot(v.x - x, v.z - z) > 8) &&
@@ -509,7 +512,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let respawnDescent = false;
   const introEligible = expedition ? !expedition.checkpoint && !expedition.spawn : !!options.deploymentIntro && !options.tutorial && !rangeTravel?.checkpoint;
   const overview = createDeploymentOverview(world.scene, deploymentPoints);
-  const overviewHighest = world.obstacles.filter(o => !teamMatch || o.maxX >= world.bounds.minX && o.minX <= world.bounds.maxX && o.maxZ >= world.bounds.minZ && o.minZ <= world.bounds.maxZ).reduce((height, o) => Math.max(height, o.maxY ?? 12), teamMatch ? 12 : 80);
+  const overviewHighest = world.obstacles.filter(o => !boundedMatch || o.maxX >= world.bounds.minX && o.minX <= world.bounds.maxX && o.maxZ >= world.bounds.minZ && o.minZ <= world.bounds.maxZ).reduce((height, o) => Math.max(height, o.maxY ?? 12), boundedMatch ? 12 : 80);
   let overviewZoom = 1, overviewPan = { x: 0, z: 0 }, overviewDrag: { id: number; x: number; y: number } | null = null;
   const initialOverviewActive = () => introEligible && ['loading', 'ready'].includes(hud.phase) && !deploymentIntro.begun;
   const respawnOverviewActive = () => !!expedition && hud.phase === 'playing' && hud.arenaSelf?.alive === false && !!hud.respawn && !deathScene;
@@ -4224,7 +4227,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
     const result = guardianPlacement(camera.position, target, {
       movement: footMovement, wallDistance: facilityCover.distance,
-      enemySpawns: area && self.team ? area.spawns[self.team === 'alpha' ? 'bravo' : 'alpha'] : [],
+      enemySpawns: ffa?.spawns ?? (area && self.team ? area.spawns[self.team === 'alpha' ? 'bravo' : 'alpha'] : []),
       protectedEnemies: hud.arena?.actors.filter(a => a.alive && a.shield && !streakFriendly(a, self)) ?? [],
     });
     if (hud.arena?.streaks?.effects.some(e => e.kind === 'interceptor' && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
@@ -4236,7 +4239,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
     const result = precisionStrikePlacement(camera.position, target, {
       movement: footMovement, wallDistance: facilityCover.distance,
-      spawns: area ? Object.values(area.spawns).flat() : [],
+      spawns: ffa?.spawns ?? (area ? Object.values(area.spawns).flat() : []),
       protectedEnemies: hud.arena?.actors.filter(a => a.alive && a.shield && !streakFriendly(a, self)) ?? [],
     });
     if (hud.arena?.streaks?.effects.some(e => e.kind === 'strike' && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
@@ -5025,7 +5028,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: teamMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);

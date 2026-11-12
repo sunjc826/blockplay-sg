@@ -10,13 +10,14 @@ import { getMenuDesign } from './menu-design';
  * so `/debug` is a URL worth sharing; the Cloudflare asset server and the
  * service worker both answer any extensionless navigation with the app shell.
  */
-type ArenaRoute = ArenaAreaId | `host-${ArenaAreaId}` | `hardpoint-${ArenaAreaId}` | `host-hardpoint-${ArenaAreaId}`;
+type ArenaRoute = ArenaAreaId | `host-${ArenaAreaId}` | `hardpoint-${ArenaAreaId}` | `host-hardpoint-${ArenaAreaId}` | `free-for-all-${ArenaAreaId}` | `host-free-for-all-${ArenaAreaId}`;
 const arenaRoutes = Object.fromEntries(Object.keys(ARENA_CATALOG).flatMap(id => [
   [id, `/play/team-deathmatch/${id}`], [`host-${id}`, `/play/multiplayer/team-deathmatch/${id}`],
+  [`free-for-all-${id}`, `/play/free-for-all/${id}`], [`host-free-for-all-${id}`, `/play/multiplayer/free-for-all/${id}`],
   [`hardpoint-${id}`, `/play/hardpoint/${id}`], [`host-hardpoint-${id}`, `/play/multiplayer/hardpoint/${id}`],
 ])) as Record<ArenaRoute, string>;
 const arenaLabels = Object.fromEntries(Object.entries(ARENA_CATALOG).flatMap(([id, {name}]) =>
-  [id, `host-${id}`, `hardpoint-${id}`, `host-hardpoint-${id}`].map(route => [route, name.split(' · ')[1]]),
+  [id, `host-${id}`, `hardpoint-${id}`, `host-hardpoint-${id}`, `free-for-all-${id}`, `host-free-for-all-${id}`].map(route => [route, name.split(' · ')[1]]),
 )) as Record<ArenaRoute, string>;
 
 export const ROUTE_PATHS = {
@@ -40,6 +41,8 @@ export type Route = keyof typeof ROUTE_PATHS;
 /** Shared hierarchy for on-screen links and native/browser Back. */
 export function parentRoute(route: Route): Route {
   if (Object.hasOwn(arenaRoutes, route)) {
+    if (route.startsWith('host-free-for-all-')) return 'host-free-for-all';
+    if (route.startsWith('free-for-all-')) return 'free-for-all';
     if (route.startsWith('host-hardpoint-')) return 'host-hardpoint';
     if (route.startsWith('hardpoint-')) return 'hardpoint';
     return route.startsWith('host-') ? 'host-team-deathmatch' : 'team-deathmatch';

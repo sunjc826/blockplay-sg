@@ -4,7 +4,7 @@ import { createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffe
 import { guardianPlacement } from './guardian-placement';
 import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
 import { createHardpoint, controlAt, controlGoal, inControlSite, HARDPOINT_RULES, type ControlSite, type HardpointSnapshot } from './hardpoint';
-import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type HardpointAreaId, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
+import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type HardpointAreaId, type ArenaTeam, type TeamDeathmatchArea, type FreeForAllArea } from './arena-match';
 import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
 import { refillAmmo } from './ammo-refill';
 import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
@@ -79,6 +79,7 @@ export interface ArenaActor {
   weaponPickup?: MatchWeaponPickup;
   armorPickup?: MatchArmorPickup;
   team?: ArenaTeam;
+  freeForAll?: true;
   /** Host-carried passenger in an authored building lift. */
   lift?: string;
   /** Match time of a surviving moving bailout, for a synchronized landing roll. */
@@ -173,6 +174,7 @@ export interface ArenaSnapshot {
   weaponDrops?: MatchWeaponDrop[];
   armorDrops?: MatchArmorDrop[];
   hardpoint?: HardpointSnapshot;
+  freeForAll?: { area: string };
   teamDeathmatch?: { area: string; scores: Record<ArenaTeam, number> };
   merlion?: MerlionState;
   proxies?: ProxySnapshot;
@@ -211,6 +213,7 @@ export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
   hardpoint?: {area:TeamDeathmatchArea;sites:readonly ControlSite[]};
   teamDeathmatch?: TeamDeathmatchArea;
+  freeForAll?: FreeForAllArea;
   /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
   proxies?: ProxyCampaign;
   battlefield?: { size: BattlefieldSize };
@@ -643,9 +646,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const safety = (p: { x: number; z: number }) => Math.min(1000, ...others.map(m => Math.hypot(m.actor.x - p.x, m.actor.z - p.z)));
       return safety(b) - safety(a);
     });
-    if (teamArea && entry.actor.team) {
+    if (teamArea && entry.actor.team || environment?.freeForAll) {
       const enemies=others.filter(m=>hostile(entry.actor,m.actor));
-      const candidates=(entry.actor.deaths===0 && elapsed===0 ? teamArea.spawns[entry.actor.team] : validSpawns).filter(p=>clearSpawn(p) && (!environment?.hardpoint || environment.hardpoint.sites.every(site=>Math.hypot(p.x-site.x,p.z-site.z)>site.radius+HARDPOINT_RULES.spawnClearance)) && others.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>2) && enemies.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>12));
+      const candidates=(teamArea && entry.actor.team && entry.actor.deaths===0 && elapsed===0 ? teamArea.spawns[entry.actor.team] : validSpawns).filter(p=>clearSpawn(p) && (!environment?.hardpoint || environment.hardpoint.sites.every(site=>Math.hypot(p.x-site.x,p.z-site.z)>site.radius+HARDPOINT_RULES.spawnClearance)) && others.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>2) && enemies.every(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)>12));
       const score=(p:{x:number;z:number})=> {
         const origin={...p,y:patrolGround(p.x,p.z)+1.75};
         const nearest=Math.min(120,...enemies.map(m=>Math.hypot(m.actor.x-p.x,m.actor.z-p.z)));
@@ -757,7 +760,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const safeWeapons = sanitizeWeapons(weapons), allowedWeapons = allowedIndexes(safeWeapons, allowed);
     const entry: InternalActor = {
       actor: { id, name: name.trim().slice(0, 24) || 'Player', bot: false, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0,
-        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: team ? teamFaction(team) : PLAYER_FACTION, ...(team?{team}:{}) },
+        health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: allowedWeapons[0], prone: false, shots: 0, role: 'player', faction: team ? teamFaction(team) : PLAYER_FACTION, ...(team?{team}:{}), ...(environment?.freeForAll?{freeForAll:true as const}:{}) },
       healthMax: 100, armorMax: Number.isFinite(armor) ? clamp(armor, 0, 150) : 0, absorption: Number.isFinite(absorption) ? clamp(absorption, 0, 0.9) : 0,
       insert: insertTraits(insert), weapons: safeWeapons, allowedWeapons, ammo: [], playing: true, movementBudget: 2, wasReloading: false, usePlayerSpawn,
       reaction: 1, target: '', strafe: random() < 0.5 ? -1 : 1, patrol: validSpawns[0], patrolTime: 0,
@@ -814,7 +817,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (elapsed - (entry.lastGrenadeAt ?? -Infinity) < .9 || (entry.grenadeSupplies?.[input.id] ?? 0) <= 0) return false;
     if (input.id === 'grenade-red-smoke' && elapsed - (entry.lastMissionAt ?? -Infinity) < 60) return false;
     if (!grenadeSystem.throwGrenade(id, input)) return false;
-    entry.grenadeSupplies![input.id]--; entry.lastGrenadeAt = elapsed; if(teamArea) entry.shieldUntil=0;
+    entry.grenadeSupplies![input.id]--; entry.lastGrenadeAt = elapsed; if(teamArea || environment?.freeForAll) entry.shieldUntil=0;
     if (entry.actor.bot) delete entry.actor.grenade;
     if (input.id === 'grenade-red-smoke') entry.lastMissionAt = elapsed;
     return true;
@@ -1120,7 +1123,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function hurtActor(victim: InternalActor, damage: number, attacker?: InternalActor, cause?: string, from?: ArenaPoint, blasted = false, piercing = false, calibre?: number, shred = 0, fromStreak = false) {
     if (fromStreak && (finished || !victim.actor.alive || elapsed < (victim.shieldUntil ?? 0) || attacker && (attacker === victim || !streaks?.enemy(attacker.actor, victim.actor)))) return {hitId:victim.actor.id,killed:false,damage:0};
     if (preparingPlayers.has(victim.actor.id)) return { hitId: victim.actor.id, killed: false, damage: 0 };
-    if (teamArea && (finished || !victim.actor.alive || attacker && attacker!==victim && !hostile(attacker.actor,victim.actor) || attacker!==victim && elapsed<(victim.shieldUntil??0))) return {hitId:victim.actor.id,killed:false,damage:0};
+    if ((teamArea || environment?.freeForAll) && (finished || !victim.actor.alive || attacker && attacker!==victim && !hostile(attacker.actor,victim.actor) || attacker!==victim && elapsed<(victim.shieldUntil??0))) return {hitId:victim.actor.id,killed:false,damage:0};
     if (attacker && damage > 0 && isProxyFaction(victim.actor.faction) && !isProxyFaction(attacker.actor.faction)) {
       proxies?.provoke(victim.actor.faction as ProxyId, proxyParticipant(attacker)); syncProxyTargets();
     }
@@ -1549,7 +1552,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     } else if (kind === 'strike') {
       const placement = precisionStrikePlacement(a, target ?? null, {
         movement: deviceMovement, wallDistance: worldWallDistance,
-        spawns: teamArea ? Object.values(teamArea.spawns).flat() : [],
+        spawns: environment?.freeForAll?.spawns ?? (teamArea ? Object.values(teamArea.spawns).flat() : []),
         protectedEnemies: [...members.values()].filter(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && streaks.enemy(a, m.actor)).map(m => m.actor),
       });
       if (!placement.at) return false;
@@ -1557,7 +1560,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     } else if (kind === 'interceptor') {
       const placement = guardianPlacement(a, target ?? null, {
         movement: deviceMovement, wallDistance: worldWallDistance,
-        enemySpawns: teamArea && a.team ? teamArea.spawns[a.team === 'alpha' ? 'bravo' : 'alpha'] : [],
+        enemySpawns: environment?.freeForAll?.spawns ?? (teamArea && a.team ? teamArea.spawns[a.team === 'alpha' ? 'bravo' : 'alpha'] : []),
         protectedEnemies: [...members.values()].filter(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && streaks.enemy(a, m.actor)).map(m => m.actor),
       });
       if (!placement.at) return false;
@@ -1569,7 +1572,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       at = { x: target.x, y: floor + .7, z: target.z };
       if (!lineClear(a, at) || !(traversal ? traversal.canOccupy(at.x, floor, at.z, .5, 1.4) : clearSpawn(at))) return false;
       if ([...members.values()].some(m => m.actor.alive && elapsed < (m.shieldUntil ?? 0) && Math.hypot(m.actor.x - at.x, m.actor.z - at.z) < 6 && streaks.enemy(a, m.actor))) return false;
-      if (teamArea && Object.values(teamArea.spawns).flat().some(p => Math.hypot(p.x - at.x, p.z - at.z) < 5)) return false;
+      if ((environment?.freeForAll?.spawns ?? (teamArea ? Object.values(teamArea.spawns).flat() : [])).some(p => Math.hypot(p.x - at.x, p.z - at.z) < 5)) return false;
     }
     const accepted = streaks.activate(a, kind, at, elapsed);
     if (accepted) entry.shieldUntil = 0;
@@ -3620,7 +3623,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const focusKey = aircraft?.id ?? (enemy ? `${enemy.actor.id}:${enemy.actor.deaths}` : undefined);
     entry.patrolTime -= dt;
     if (entry.patrolTime <= 0) {
-      const home = teamArea ? teamArea.patrols : entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
+      const home = environment?.freeForAll ? environment.freeForAll.patrols : teamArea ? teamArea.patrols : entry.home ? homeSpawns(entry.home) : validSpawns, pool = home.length ? home : validSpawns;
       entry.patrol = pool[Math.floor(random() * pool.length)]; entry.patrolTime = teamArea ? 10 + random()*6 : 3 + random() * 3;
       // `strafe` is also the dodge direction: a new patrol point must not reverse a dodge under way.
       if (!(threat && elapsed < threat.evadeUntil)) entry.strafe *= -1;
@@ -3830,7 +3833,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const shieldOf = (m: InternalActor) => {
     // A respawn descent holds it for longer, but it only starts to count down on landing.
     const shield = Math.round(Math.min(SPAWN_SHIELD_SECONDS, Math.max(0, (m.shieldUntil ?? 0) - elapsed)) * 100) / 100;
-    return (teamArea || !m.actor.bot) && m.actor.alive && shield > 0 ? { shield } : {};
+    return (teamArea || environment?.freeForAll || !m.actor.bot) && m.actor.alive && shield > 0 ? { shield } : {};
   };
   /**
    * Whether a bot may fire on `enemy`: always on a bot, and on a player only
@@ -4162,7 +4165,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function snapshot(): ArenaSnapshot {
     const reinforcementClocks: ReinforcementClocks = { airborne: { mercenaries: Math.max(0, airborneAt.mercenaries - elapsed), 'armed-forces': Math.max(0, airborneAt['armed-forces'] - elapsed) }, naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
     if (finished) streaks?.reset();
-    return { type: 'arena-snapshot', tick, elapsed, ...(streaks ? { streaks: streaks.snapshot() } : {}), ...(!environment?.endless ? { armorDrops: armorDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })), weaponDrops: weaponDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })) } : {}), ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.armorPickup ? { armorPickup: { ...m.actor.armorPickup } } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    return { type: 'arena-snapshot', tick, elapsed, ...(streaks ? { streaks: streaks.snapshot() } : {}), ...(!environment?.endless ? { armorDrops: armorDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })), weaponDrops: weaponDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })) } : {}), ...(environment?.freeForAll?{freeForAll:{area:environment.freeForAll.id}}:{}), ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.armorPickup ? { armorPickup: { ...m.actor.armorPickup } } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
@@ -4190,7 +4193,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     enlisted = Math.max(count, ...[...members.keys()].map(id => Number(/^bot-(\d+)$/.exec(id)?.[1] ?? 0))); factionHeat?.reset(); clock = dispatchClock();
     vehicles = vehicleOptions ? VEHICLE_KINDS.filter(kind=>vehicleOptions.spawns[kind]).map(kind => createSharedVehicle(kind, vehicleOptions.spawns[kind]!)) : [];
     if (facilities) for (const v of vehicles) { if(isDragonBoat(v.kind)) continue; const site = facilities.sites.find(s => s.kind === (v.kind === 'car' ? 'garage' : 'helipad')); if (!site || !facilityOperational(site)) v.health = 0; else v.faction = site.owner!; }
-    if(teamArea) for(const entry of members.values())entry.actor.alive=false;
+    if(teamArea || environment?.freeForAll) for(const entry of members.values())entry.actor.alive=false;
     for (const entry of members.values()) { entry.actor.kills = 0; delete entry.actor.controlSeconds; entry.actor.deaths = 0; entry.actor.shots = 0; delete entry.actor.merlionSupply; entry.grenadeSupplies = { ...entry.initialGrenades }; entry.lastGrenadeAt = entry.lastMissionAt = undefined; spawn(entry); }
     for (const id of preparingPlayers) preparePlayer(id);
     announce('New arena match');

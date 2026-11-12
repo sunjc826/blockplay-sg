@@ -49,7 +49,7 @@ export class PublicRooms {
   save() { return this.ctx.storage.put('rooms', [...this.rooms]); }
   sockets(code) { return this.ctx.getWebSockets(code); }
   summary(room) {
-    return { code: room.code, title: room.title, host: room.members[0].name, players: room.members.length, maxPlayers: MAX_PLAYERS, locked: !!room.passwordHash, createdAt: room.createdAt, build: room.build, map: ['hardpoint','team-deathmatch'].includes(room.match?.mode) && Object.hasOwn(ARENA_CATALOG,room.match.area) ? ARENA_CATALOG[room.match.area].name : 'Marina Bay', mode: room.match?.mode==='hardpoint'?'Hardpoint':room.match?.mode==='team-deathmatch' ? 'Team Deathmatch' : 'Free for all' };
+    return { code: room.code, title: room.title, host: room.members[0].name, players: room.members.length, maxPlayers: MAX_PLAYERS, locked: !!room.passwordHash, createdAt: room.createdAt, build: room.build, map: ['hardpoint','team-deathmatch','free-for-all'].includes(room.match?.mode) && Object.hasOwn(ARENA_CATALOG,room.match.area) ? ARENA_CATALOG[room.match.area].name : 'Marina Bay', mode: room.match?.mode==='hardpoint'?'Hardpoint':room.match?.mode==='team-deathmatch' ? 'Team Deathmatch' : 'Free for all' };
   }
   limited(key, max, windowMs = 60_000) {
     const now = Date.now();
@@ -113,8 +113,8 @@ export class PublicRooms {
           if (this.rooms.size >= MAX_ROOMS) return json({ error: 'The test server is full. Try again later.' }, 503);
           let code; do { code = random().slice(0, 6).toUpperCase(); } while (this.rooms.has(code));
           const salt = random();
-          if (body.match !== undefined && !(body.match?.mode==='free-for-all' || ['team-deathmatch','hardpoint'].includes(body.match?.mode) && Object.hasOwn(ARENA_CATALOG,body.match.area) && (body.match.mode==='team-deathmatch' || ARENA_CATALOG[body.match.area].hardpoint))) return json({error:'Unknown match mode or district area.'},400);
-          room = { match: ['team-deathmatch','hardpoint'].includes(body.match?.mode) ? {mode:body.match.mode,area:body.match.area} : {mode:'free-for-all'}, code, title: clean(body.title, 40, `${name}'s room`), createdAt: Date.now(), hostId: '', build: body.build, salt, passwordHash: password ? await passwordHash(password, salt) : '', members: [] };
+          if (body.match !== undefined && !(body.match?.mode==='free-for-all' && body.match.area===undefined || ['team-deathmatch','hardpoint','free-for-all'].includes(body.match?.mode) && typeof body.match.area==='string' && Object.hasOwn(ARENA_CATALOG,body.match.area) && (body.match.mode!=='hardpoint' || ARENA_CATALOG[body.match.area].hardpoint))) return json({error:'Unknown match mode or district area.'},400);
+          room = { match: ['team-deathmatch','hardpoint','free-for-all'].includes(body.match?.mode) && body.match.area!==undefined ? {mode:body.match.mode,area:body.match.area} : {mode:'free-for-all'}, code, title: clean(body.title, 40, `${name}'s room`), createdAt: Date.now(), hostId: '', build: body.build, salt, passwordHash: password ? await passwordHash(password, salt) : '', members: [] };
           this.rooms.set(code, room);
         } else {
           room = this.rooms.get(match[1]);

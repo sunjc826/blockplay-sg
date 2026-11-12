@@ -61,7 +61,7 @@ const LABELS: Partial<Record<WorldZoneId, string[]>> = {
 const DEPLOY_MS = 300;
 
 type Props = {
-  mode: 'training' | 'world' | 'team-deathmatch' | 'hardpoint';
+  mode: 'training' | 'world' | 'team-deathmatch' | 'hardpoint' | 'free-for-all';
   initial: WorldZoneId;
   options: readonly Location[];
   back: React.ReactNode;
@@ -74,8 +74,8 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   const [query, setQuery] = useState('');
   const matches = options.filter(option => `${option.name} ${option.district}`.toLowerCase().includes(query.toLowerCase().trim()));
   const clip = useId();
-  const arenas = mode === 'team-deathmatch' || mode === 'hardpoint';
-  const modeLabel = mode === 'hardpoint' ? 'HARDPOINT' : 'TEAM DEATHMATCH';
+  const arenas = mode === 'team-deathmatch' || mode === 'hardpoint' || mode === 'free-for-all';
+  const modeLabel = mode === 'hardpoint' ? 'HARDPOINT' : mode === 'free-for-all' ? 'FREE FOR ALL' : 'TEAM DEATHMATCH';
   const view = arenas ? 'map' : districtView;
   const mapRegions = arenas ? locations : options;
   const availableRegions = new Set(options.map(option => option.id));
@@ -179,7 +179,7 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
         <aside className="starting-details" aria-label={arenas ? 'Selected arena' : 'Selected starting point'}>
           <div className="starting-detail-top"><span className="starting-detail-label"><MapPin size={16} />{arenas ? 'ARENA' : 'STARTING POINT'}</span><nav className="starting-browse" aria-label={arenas ? "Browse available arenas" : "Browse starting districts"}><button aria-label={arenas ? "Previous arena" : "Previous district"} onClick={() => step(-1)}><ChevronLeft size={18} /></button><span>{String(index + 1).padStart(2, '0')} / {options.length}</span><button aria-label={arenas ? "Next arena" : "Next district"} onClick={() => step(1)}><ChevronRight size={18} /></button></nav></div>
           <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{arenas ? place.name : place.district}</span><h2>{arenas ? arenaName(place) : place.name}</h2>{!arenas && <p className="starting-subtitle">{place.subtitle}</p>}</div>
-          {arena && <div className="starting-brief"><span><Crosshair size={16} />4 VS 4 · {mode === 'hardpoint' ? 'ROTATING OBJECTIVES' : 'TEAM ELIMINATIONS'}</span><p>{arena.description}</p>{controls && <p>Rotation: {controls.map((site,i)=>`${i+1}. ${site.name}`).join(' → ')}</p>}</div>}
+          {arena && <div className="starting-brief"><span><Crosshair size={16} />{mode === 'free-for-all' ? 'EVERY OPERATOR FOR THEMSELVES' : `4 VS 4 · ${mode === 'hardpoint' ? 'ROTATING OBJECTIVES' : 'TEAM ELIMINATIONS'}`}</span><p>{arena.description}</p>{mode === 'free-for-all' && <p>Individual eliminations · 3 minutes · Shared spawn pockets</p>}{controls && <p>Rotation: {controls.map((site,i)=>`${i+1}. ${site.name}`).join(' → ')}</p>}</div>}
           {!arenas && <>
             <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
             <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>

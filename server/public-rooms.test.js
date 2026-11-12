@@ -139,17 +139,22 @@ describe('public room boundary', () => {
   });
 });
 
-it.each(Object.keys(ARENA_CATALOG))('hosts and labels both modes in %s',async area=>{
-  for(const mode of ['team-deathmatch','hardpoint']) {
+it.each(Object.keys(ARENA_CATALOG))('hosts and labels all modes in %s',async area=>{
+  for(const mode of ['team-deathmatch','hardpoint','free-for-all']) {
     const {directory}=await setup();
     const response=await directory.fetch(request('',{name:'Host',protocol:1,build:'test',match:{mode,area}}));
     expect(response.status).toBe(201);
     const ticket=await response.json(),room=directory.rooms.get(ticket.code);
     expect(room.match).toEqual({mode,area});
-    expect(directory.summary(room)).toMatchObject({map:ARENA_CATALOG[area].name,mode:mode==='hardpoint'?'Hardpoint':'Team Deathmatch'});
+    expect(directory.summary(room)).toMatchObject({map:ARENA_CATALOG[area].name,mode:mode==='hardpoint'?'Hardpoint':mode==='team-deathmatch'?'Team Deathmatch':'Free for all'});
   }
 });
 it.each(['invalid','__proto__','constructor'])('rejects unsupported hardpoint area %s',async area=>{
   const {directory}=await setup();
   expect((await directory.fetch(request('',{name:'Host',protocol:1,build:'test',match:{mode:'hardpoint',area}}))).status).toBe(400);
+});
+
+it.each(['invalid','__proto__','constructor',null,42,['marina-gardens'],{}].map(area=>({area})))('rejects unsupported free-for-all area $area',async ({area})=>{
+  const {directory}=await setup();
+  expect((await directory.fetch(request('',{name:'Host',protocol:1,build:'test',match:{mode:'free-for-all',area}}))).status).toBe(400);
 });

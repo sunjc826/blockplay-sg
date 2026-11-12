@@ -12,7 +12,9 @@ export const TDM_RULES = { teamSize: 4, scoreLimit: 30, duration: 300, respawnSe
 export type ArenaAreaId = keyof typeof ARENA_CATALOG;
 export const ARENA_AREA_IDS = Object.keys(ARENA_CATALOG) as ArenaAreaId[];
 export type HardpointAreaId = ArenaAreaId;
-export type ArenaMatch = { mode: 'free-for-all' } | { mode: 'team-deathmatch'; area: ArenaAreaId } | {mode:'hardpoint';area:HardpointAreaId};
+export type ArenaMatch = { mode: 'free-for-all'; area?: ArenaAreaId } | { mode: 'team-deathmatch'; area: ArenaAreaId } | {mode:'hardpoint';area:HardpointAreaId};
+/** Area-less FFA remains the legacy debug/LAN arena. New menu matches always select an area. */
+export const DEFAULT_FFA_AREA: ArenaAreaId = 'marina-gardens';
 export const DEFAULT_ARENA_MATCH: ArenaMatch = { mode: 'free-for-all' };
 export interface TeamDeathmatchArea {
   id: Extract<ArenaMatch, {mode:'team-deathmatch'}>['area']; name: string; region: WorldZoneId;
@@ -68,11 +70,17 @@ export const TDM_AREAS: readonly TeamDeathmatchArea[] = [
   ...DISTRICT_TEAM_ARENAS,
 ];
 export const tdmArea = (id: string) => TDM_AREAS.find(area => area.id === id);
+export interface FreeForAllArea extends Omit<TeamDeathmatchArea,'spawns'> { spawns: readonly Position2D[] }
+/** Shared combat scenery, with neutral spawn pockets around both edges and the interior. */
+export const FFA_AREAS: readonly FreeForAllArea[] = TDM_AREAS.map(area=>({
+  ...area, spawns:[...area.spawns.alpha.flatMap((p,i)=>[p,area.spawns.bravo[i]]),...area.patrols,...(area.id==='marina-gardens' ? points([[-26,68],[0,108],[25,108],[-26,108]]) : [])],
+}));
+export const ffaArea = (id:string) => FFA_AREAS.find(area=>area.id===id);
 export function validArenaMatch(value: unknown): value is ArenaMatch {
   if (!value || typeof value !== 'object') return false;
   const m=value as Record<string,unknown>;
-  return m.mode==='hardpoint' && typeof m.area==='string' && !!tdmArea(m.area) && ARENA_CATALOG[m.area as ArenaAreaId].hardpoint || m.mode==='free-for-all' || m.mode==='team-deathmatch' && typeof m.area==='string' && !!tdmArea(m.area);
+  return m.mode==='hardpoint' && typeof m.area==='string' && !!tdmArea(m.area) && ARENA_CATALOG[m.area as ArenaAreaId].hardpoint || m.mode==='free-for-all' && (m.area===undefined || typeof m.area==='string' && !!ffaArea(m.area)) || m.mode==='team-deathmatch' && typeof m.area==='string' && !!tdmArea(m.area);
 }
-export const sameArenaMatch = (a: ArenaMatch, b: ArenaMatch) => a.mode===b.mode && (a.mode==='free-for-all' || b.mode!=='free-for-all' && a.area===b.area);
+export const sameArenaMatch = (a: ArenaMatch, b: ArenaMatch) => a.mode===b.mode && a.area===b.area;
 export const teamFaction = (team: ArenaTeam) => team === 'alpha' ? 'armed-forces' : 'mercenaries';
 export function teamWinner(scores: Record<ArenaTeam,number>) { return scores.alpha===scores.bravo ? 'Draw' : TEAM_NAMES[scores.alpha>scores.bravo?'alpha':'bravo']; }

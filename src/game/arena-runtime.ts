@@ -94,6 +94,8 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : environment?.hardpoint ? HARDPOINT_RULES.duration : environment?.teamDeathmatch ? TDM_RULES.duration : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
   const tdm=environment?.teamDeathmatch, teamArea=tdm??environment?.hardpoint?.area;
+  if (environment?.freeForAll ? !object(value.freeForAll) || value.freeForAll.area!==environment.freeForAll.id : value.freeForAll!==undefined) return false;
+  if(environment?.freeForAll && (value.facilities || value.vehicles || value.transports || value.heat || value.reinforcementClocks || value.proxies)) return false;
   if(tdm) {
     const state=value.teamDeathmatch;
     if(!object(state)||state.area!==tdm.id||!object(state.scores)||!['alpha','bravo'].every(t=>Number.isInteger((state.scores as Record<string,unknown>)[t]) && Number((state.scores as Record<string,unknown>)[t])>=0 && Number((state.scores as Record<string,unknown>)[t])<=TDM_RULES.scoreLimit))return false;
@@ -116,6 +118,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   for (const actor of value.actors) {
     if (!object(actor) || (actor.armorPickup !== undefined && (environment?.endless || actor.bot || !validMatchArmorPickup(actor.armorPickup))) || (actor.weaponPickup !== undefined && (environment?.endless || actor.bot || !validMatchPickup(actor.weaponPickup))) || typeof actor.id !== 'string' || actor.id.length > 100 || ids.has(actor.id) || typeof actor.name !== 'string' || actor.name.length > 24 ||
       !['x', 'y', 'z', 'yaw', 'pitch', 'health', 'armor', 'kills', 'deaths', 'respawnIn', 'shots', 'weapon'].every(key => finite(actor[key])) ||
+      (environment?.freeForAll ? actor.freeForAll!==true : actor.freeForAll!==undefined) ||
       (actor.controlSeconds!==undefined && (!environment?.hardpoint || !finite(actor.controlSeconds) || actor.controlSeconds<0 || actor.controlSeconds>HARDPOINT_RULES.duration)) ||
       (teamArea ? !['alpha','bravo'].includes(String(actor.team)) || actor.faction!==teamFaction(actor.team as 'alpha'|'bravo') : actor.team!==undefined) ||
       (isProxyFaction(String(actor.faction)) && (actor.proxyOperation === undefined || actor.proxyTargets === undefined)) ||
@@ -463,6 +466,8 @@ const wrapAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle)
 /** Host owns bots, damage, spawns and score. The renderer submits only local input. */
 export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const { scene, session } = options;
+  const matchArea=(options.environment?.teamDeathmatch??options.environment?.hardpoint?.area??options.environment?.freeForAll)?.id;
+  const matchMode=options.environment?.hardpoint?'hardpoint':options.environment?.teamDeathmatch?'team-deathmatch':options.environment?.freeForAll?'free-for-all':undefined;
   let profile = options.session.role === 'solo' && options.environment?.proxies ? restoreFieldProfile(options.profile ?? createProfile(), { deferRentalExpiry: true }) : restoreProfile(JSON.stringify(options.profile ?? createProfile()));
   const inventory = profile;
   const peerInventories = new Map<string, ArmoryProfile>();
@@ -549,7 +554,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || !object(payload)) return;
     if (simulation) {
       const peer = session.getPeers().find(candidate => candidate.id === from); if (!peer) return;
-      if (payload.type === 'arena-hello' && payload.area === (options.environment?.teamDeathmatch??options.environment?.hardpoint?.area)?.id && (payload.mode??(options.environment?.teamDeathmatch?'team-deathmatch':undefined)) === (options.environment?.hardpoint?'hardpoint':options.environment?.teamDeathmatch?'team-deathmatch':undefined) && !registered.has(from)) {
+      if (payload.type === 'arena-hello' && payload.area === matchArea && (payload.mode??(options.environment?.teamDeathmatch?'team-deathmatch':undefined)) === matchMode && !registered.has(from)) {
         let raw: string;
         try { raw = JSON.stringify(payload.profile); } catch { return; }
         if (typeof raw !== 'string' || raw.length > 16_000) return;
@@ -748,7 +753,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!connected) { for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear(); }
     inputTime += dt; helloTime += dt;
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
-    if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:(options.environment?.teamDeathmatch??options.environment?.hardpoint?.area)?.id,mode:options.environment?.hardpoint?'hardpoint':options.environment?.teamDeathmatch?'team-deathmatch':undefined }); }
+    if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:matchArea,mode:matchMode }); }
     self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (validArenaInput(input)) lastInput = { ...input };
     if (simulation && input.playing && !started) { started = true; lastTime = performance.now(); publish(); }

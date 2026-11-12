@@ -47,7 +47,7 @@ it('keeps solo and hosted arena deep links under their mode picker',async()=>{
   const {HARDPOINT_ARENAS}=await import('../game/hardpoint');
   const {parentRoute}=await import('./routes');
   const {directionBetween}=await import('./route-transition');
-  for(const hosted of [false,true])for(const mode of ['team-deathmatch','hardpoint'] as const) {
+  for(const hosted of [false,true])for(const mode of ['team-deathmatch','hardpoint','free-for-all'] as const) {
     const areas=mode==='hardpoint'?HARDPOINT_ARENAS.map(config=>config.area):TDM_AREAS;
     for(const area of areas){
       const route=routeFromPath(`/play/${hosted?'multiplayer/':''}${mode}/${area.id}`);

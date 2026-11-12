@@ -16,8 +16,8 @@ import { useArmory } from '../game/use-armory';
 import { hasRegionGame } from '../game/region-selection';
 import { REGIONS } from '../game/regions';
 import { HARDPOINT_ARENAS } from '../game/hardpoint';
-import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
-import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
+import { FFA_AREAS, TDM_AREAS, DEFAULT_FFA_AREA, type ArenaMatch } from '../game/arena-match';
+import { MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
 import { locations } from '../data/locations';
 import { enterMainMenu, getMenuPage, initializeMenuHistory, navigate, parentRoute, useBackAction, returnToTitleScreen, ROUTE_PATHS, routeLabel, type Route } from '../lib/routes';
@@ -170,25 +170,25 @@ function PanelArtwork({ route, index, shared = false }: { route: Route; index: n
   </span>;
 }
 
-function MatchDistrictPicker({ online, mode }: { online: boolean; mode:'team-deathmatch'|'hardpoint' }) {
+function MatchDistrictPicker({ online, mode }: { online: boolean; mode:ArenaMatch['mode'] }) {
   const [preferred] = useState(readMatchPreference);
-  const areas = mode === 'hardpoint' ? HARDPOINT_ARENAS.map(config=>config.area) : TDM_AREAS;
+  const areas = mode === 'hardpoint' ? HARDPOINT_ARENAS.map(config=>config.area) : mode === 'free-for-all' ? FFA_AREAS : TDM_AREAS;
   const districts = locations.filter(place=>areas.some(area=>area.region===place.id));
   const initial = preferred.mode === mode ? areas.find(area => area.id === preferred.area)?.region : undefined;
-  return <StartingPointPicker mode={mode} initial={initial ?? areas[0].region} options={districts} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
+  return <StartingPointPicker mode={mode} initial={initial ?? (mode==='free-for-all' ? TDM_AREAS.find(a=>a.id===DEFAULT_FFA_AREA)!.region : areas[0].region)} options={districts} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
     onDeploy={id => {
       const area = areas.find(area => area.region === id);
       if (!area) return;
-      const match: ArenaMatch = mode === 'hardpoint' ? {mode,area:area.id as import('../game/arena-match').HardpointAreaId} : {mode,area:area.id};
+      const match: ArenaMatch = mode === 'hardpoint' ? {mode,area:area.id as import('../game/arena-match').HardpointAreaId} : mode === 'free-for-all' ? {mode,area:area.id} : {mode,area:area.id};
       saveMatchPreference(match);
-      navigate(`${online ? 'host-' : ''}${mode === 'hardpoint' ? 'hardpoint-' : ''}${area.id}` as Route);
+      navigate(`${online ? 'host-' : ''}${mode === 'team-deathmatch' ? '' : `${mode}-`}${area.id}` as Route);
     }} />;
 }
 
 const SOLO_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
   ...Object.fromEntries(TDM_AREAS.map(area=>[area.id,{mode:'team-deathmatch',area:area.id} satisfies ArenaMatch])),
   ...Object.fromEntries(HARDPOINT_ARENAS.map(({area})=>[`hardpoint-${area.id}`,{mode:'hardpoint',area:area.id} satisfies ArenaMatch])),
-  'free-for-all': defaultMatchFor('free-for-all'),
+  ...Object.fromEntries(FFA_AREAS.map(area=>[`free-for-all-${area.id}`,{mode:'free-for-all',area:area.id} satisfies ArenaMatch])),
 };
 const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = Object.fromEntries(
   Object.entries(SOLO_MATCH_BY_SCREEN).map(([route,match])=>[`host-${route}`,match]),
@@ -273,12 +273,14 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} mode="team-deathmatch" online={screen === 'host-team-deathmatch'} />;
   if (screen === 'hardpoint' || screen === 'host-hardpoint') return <MatchDistrictPicker key={screen} mode="hardpoint" online={screen === 'host-hardpoint'} />;
 
+  if (screen === 'free-for-all' || screen === 'host-free-for-all') return <MatchDistrictPicker key={screen} mode="free-for-all" online={screen === 'host-free-for-all'} />;
+
   const solo = SOLO_MATCH_BY_SCREEN[screen];
   const hosted = HOST_MATCH_BY_SCREEN[screen];
   const match = solo ?? hosted;
   const online = !!hosted || screen === 'multiplayer';
   if (match || online) {
-    const arenaPicker = match && match.mode !== 'free-for-all';
+    const arenaPicker = !!match;
     const parent = parentRoute(screen);
     return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
       <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={approved => approved ? transitionTo(parent, true) : returnToParent(parent)} armory={armory} suspended={install.updateReady} />

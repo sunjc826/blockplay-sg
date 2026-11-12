@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Free for All arena layout review</title>
+<style>body{margin:0;background:#141f27;color:#f4f4e9;font:15px system-ui}canvas{display:block}header{position:absolute;left:24px;top:20px;background:#14232deb;padding:16px 20px;max-width:530px;border-radius:8px}h1{font-size:24px;margin:0 0 6px}p{margin:5px 0}.label{position:absolute;transform:translate(-50%,-50%);background:#14232de8;border:1px solid #f3d46e;color:#ffe7a2;padding:4px 8px;border-radius:4px;pointer-events:none}</style>
+<header><h1 id="name"></h1><p id="description"></p><p>Blue: neutral spawn pockets · Every operator fights independently</p></header>
+<script type="module">
+import * as THREE from 'three';
+import { buildFreeForAllWorld } from '/src/game/free-for-all-world.ts';
+import { ffaArea } from '/src/game/arena-match.ts';
+const id=new URLSearchParams(location.search).get('area')??'container-yard',area=ffaArea(id),world=buildFreeForAllWorld(id);
+world.stamps.forEach(s=>s.visible=false);world.car.visible=false;
+document.querySelector('#name').textContent=area.name;document.querySelector('#description').textContent=area.description;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.setClearColor('#b7c5ce');document.body.append(renderer.domElement);
+const b=area.bounds,cx=(b.minX+b.maxX)/2,cz=(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ),aspect=innerWidth/innerHeight;
+const camera=new THREE.OrthographicCamera(-span*.68*aspect,span*.68*aspect,span*.68,-span*.68,.1,1200);camera.position.set(cx+span*.24,span*1.2,cz+span*.75);camera.lookAt(cx,0,cz);
+const labels=[];
+function mark(p,color,text){const m=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,.15,16),new THREE.MeshBasicMaterial({color,depthTest:false}));m.position.set(p.x,(p.y??0)+.2,p.z);m.renderOrder=999;world.scene.add(m);if(text){const e=document.createElement('div');e.className='label';e.textContent=text;document.body.append(e);labels.push([p,e]);}}
+for(const p of area.spawns)mark(p,'#63cfff');
+world.scene.updateMatrixWorld(true);renderer.render(world.scene,camera);
+for(const [p,e] of labels){const screen=new THREE.Vector3(p.x,p.y+1,p.z).project(camera);e.style.left=(screen.x+1)*innerWidth/2+'px';e.style.top=(1-screen.y)*innerHeight/2+'px';}
+window.reviewReady=true;
+</script></html>

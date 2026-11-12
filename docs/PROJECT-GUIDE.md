@@ -410,19 +410,19 @@ The open world also has **combat events**, more often and more dangerous in high
 
 Match menus follow the Open World sequence: choose a map, load it, then choose
 settings and a starting loadout over an aerial view of the playable area.
-Team Deathmatch and Hardpoint offer island arena pickers with all 23 regions
-in both modes; Free for All loads its fixed map directly. See [team arena layouts](TEAM-ARENAS.md). Online players connect to a room before loading its arena.
+Free for All, Team Deathmatch and Hardpoint offer island arena pickers with all
+23 regions in solo and hosted matches. See [arena layouts](TEAM-ARENAS.md). Online players connect to a room before loading its arena.
 Free for All's host can adjust bots on the loaded ready screen. Starting gear
 choices apply to the first life and stay separate from the saved Store loadout.
 Match spawns are assigned automatically, with no landing-zone picker. Starting
 a match or range uses the aerial zoom-in and scrolling insertion briefing;
 reduced motion and Skip intro use the same behavior as Open World.
 
-**Solo arena** runs locally against up to six bots (Black Kite contractors, who fight only the player) with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
+The legacy debug **Solo arena** runs locally against up to six bots (Black Kite contractors, who fight only the player) with mixed, assault, tank or sniper compositions. The full local build labels this entry **LAN arena**; choose **Solo vs bots** inside it. Multiplayer host/join requires the separate LAN server.
 
 Bots, other players and expedition locals share one articulated character: soldiers walk, strafe, crouch, go prone, ride in vehicles, keep both hands on their weapon, flinch when hit and fall when killed (a falling body never blocks shots). Locals look toward you, turn to face you nearby, wave as you arrive and gesture when you talk to or buy from them.
 
-FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions add vehicles, loot and checkpoints, and expeditions and arenas show visible allies and enemies within a time- and weather-dependent range of up to 60 m. Regional collectible maps and companions remain separate. Cars and helicopters are available in FPS practice, arenas and expeditions. Expeditions add AI car crews and delayed fleet replacements; [open-world vehicle rules](OPEN-WORLD-VEHICLES.md) describe boarding, crew exits and respawns. See [mode comparison](FEATURE-PARITY.md).
+FPS modes share a lightweight local minimap using regional road data: practice shows targets and parked vehicles, expeditions add vehicles, loot and checkpoints, and expeditions and arenas show visible allies and enemies within a time- and weather-dependent range of up to 60 m. Regional collectible maps and companions remain separate. Cars and helicopters are available in FPS practice, legacy debug arenas and expeditions. The bounded Free for All, Team Deathmatch and Hardpoint arenas are infantry-only. Expeditions add AI car crews and delayed fleet replacements; [open-world vehicle rules](OPEN-WORLD-VEHICLES.md) describe boarding, crew exits and respawns. See [mode comparison](FEATURE-PARITY.md).
 
 ## Install it
 

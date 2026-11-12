@@ -1,6 +1,6 @@
-# Singapore team arenas
+# Singapore arenas
 
-Team Deathmatch and Hardpoint each offer 23 arenas, one in every Singapore
+Free for All, Team Deathmatch and Hardpoint each offer 23 arenas, one in every Singapore
 region. Both solo and hosted matches start with the island arena picker; select
 a region, load its arena, then choose loadout and settings.
 
@@ -35,7 +35,14 @@ No new reference imagery or audio was generated for this expansion.
 | Katong / Pavilion court | The pavilion frontage anchors a courtyard fight with veranda and street-side rotations. | Pavilion court → West arrival → East veranda |
 | Pulau Ubin / Village lanes | Village houses create four corner pockets around the crossing, with long flanks outside the porches. | Village crossing → Jetty approach → Forest approach |
 
-All modes retain 4 vs 4 teams. TDM ends at 30 eliminations or five minutes;
+Free for All uses the same bounded combat layouts with shared spawn pockets around
+the perimeter and interior routes. Every operator is an enemy, including bots.
+Solo and hosted matches support zero to six bots; public rooms allow up to four
+human players. Individual scoring ends the match at 15 eliminations or three
+minutes. Respawns favour clear pockets away from enemies and briefly protect
+the returning operator; firing ends that protection. Blocked spawns retry safely.
+
+Team modes retain 4 vs 4 teams. TDM ends at 30 eliminations or five minutes;
 Hardpoint ends at 200 occupation points or six minutes, with a 60-second rotation
 and ten-second preview. Hardpoints require ground-level infantry; galleries do
 not capture the ground-floor objectives. Each new arena has six authored spawn
@@ -50,9 +57,16 @@ candidates per team, with at least four outside every objective's exclusion zone
   assembles each map's objective stations. All placements are fixed data.
 - Arena deep links and hosted match routing derive from the shared catalog,
   retaining existing URLs. A registry test requires exactly one arena per region
-  in each mode, so future region additions cannot silently omit team modes.
+  in each mode, so future region additions cannot silently omit modes.
 - The selected map drives scene loading, HUD names, minimap bounds/markers,
   objective scoring, placement restrictions and authoritative network validation.
+- `free-for-all-world.ts` adapts the shared geometry for individual combat.
+  Explicit map identities bind room joins and snapshots to the selected arena.
+  Legacy area-less debug/LAN matches retain their original behaviour.
+- `free-for-all.test.ts` checks all 23 maps for connected neutral spawns, full bot
+  matches, individual scoring, ten-operator starts, respawn protection and reset.
+  `free-for-all-network.test.ts` covers every map with host/guest synchronization,
+  rejected mismatched joins/snapshots, reset and departure.
 - Supply-crate seeking cannot override an active objective route.
 - `expanded-arenas.test.ts` checks complete capture circles, grounded stations,
   multiple approaches, safe spawn choices, navigation, combat, rotation and reset.
@@ -62,6 +76,8 @@ candidates per team, with at least four outside every objective's exclusion zone
   service tests check map acceptance, labels and rejection of unsupported areas.
 - `scripts/fixtures/team-arenas.html?area=tampines-hub` renders an annotated layout.
   `scripts/team-arenas-smoke.mjs` captures every arena layout and checks both pickers, Ubin and Toa Payoh gameplay and the mobile picker.
+  `scripts/free-for-all-arenas-smoke.mjs` captures neutral spawn layouts and checks
+  both 23-region pickers, Marina/Tampines/Ubin gameplay and the mobile picker.
   `ARENA_SKIP_LAYOUTS=1` skips development-only fixtures for deployed smoke tests.
   Set `ARENA_APP_ORIGIN` and `ARENA_CHROME_ORIGIN` for Vite and isolated Chrome/CDP.
 

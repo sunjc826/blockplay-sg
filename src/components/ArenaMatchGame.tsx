@@ -22,7 +22,7 @@ export default function ArenaMatchGame(props: ComponentProps<typeof FpsGame> & {
   const backLabel = props.onReturnRoom ? solo ? 'Setup' : 'Room' : 'Leave match';
   return <PlayLoading mode="arena" district={info.map} heading={`${solo ? 'SINGLE PLAYER' : 'MULTIPLAYER'} · ${info.name.toUpperCase()}`}
     back={back && <button className="play-nav-back" onClick={back}><ArrowLeft size={16} /> {backLabel}</button>}>
-    {(onLoaded, loadScreen) => <FpsGame {...props} arena={{ ...arena, match }} region={match.mode !== 'free-for-all' ? tdmArea(match.area)!.region : 'marina-bay'}
+    {(onLoaded, loadScreen) => <FpsGame {...props} arena={{ ...arena, match }} region={match.area ? tdmArea(match.area)!.region : 'marina-bay'}
       onLoaded={onLoaded} loadScreen={loadScreen} />}
   </PlayLoading>;
 }
