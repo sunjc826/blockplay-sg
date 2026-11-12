@@ -6968,3 +6968,9 @@ night, rain, canyon, towers, towers-dusk), indirect-on/off-*, sw-*, timing
 reports, capture.mjs/probe.mjs/look.html. Real-GPU frame time +0.3–0.6 ms at
 1600×900 (overview/street), rain/towers within noise. Not checked: phones,
 MarinaGame walk/drive UI in a live session, LAN, thermal view by eye.
+
+Tuned the same day after the owner saw dusk live: dusk air away from the sun is
+now mauve (`DUSK_AIR`) with the warmth kept on the sun side, the dusk grade is
+gentler, and overcast/rain clouds are a darker deck against the grey sky.
+Evidence `.cache/marina-lighting/tune1-{dusk,towers-dusk,rain}.png`. Rain haze
+still reads slightly cyan (the weather's own sky colour); left alone.

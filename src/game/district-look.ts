@@ -61,7 +61,7 @@ export const MARINA_LOOK: DistrictLook = {
     amount: 1,
     // Warm sun on stone and glass, teal-blue shade: the bay's daytime palette.
     day: { shadows: [.95, 1.0, 1.06], highlights: [1.04, 1.0, .94], saturation: 1.1, contrast: 1.1 },
-    dusk: { shadows: [.94, .94, 1.08], highlights: [1.07, .99, .9], saturation: 1.12, contrast: 1.08 },
+    dusk: { shadows: [.96, .97, 1.07], highlights: [1.05, 1.0, .94], saturation: 1.04, contrast: 1.04 },
     night: { shadows: [.92, .98, 1.1], highlights: [1.04, 1.0, .94], saturation: 1.05, contrast: 1.05 },
     storm: { shadows: [.96, 1.0, 1.04], highlights: [1.0, 1.0, .99], saturation: .92, contrast: 1.04 },
   },
@@ -98,6 +98,8 @@ const hue = (c: Rgb): Rgb => scale(c, 1 / Math.max(1e-4, luminance(c)));
 const ZENITH_TINT: Rgb = [.17, .4, .84];
 const DUSK_ZENITH: Rgb = [.42, .4, .78];
 /** Night glow off the city on the underside of the sky: warm sodium and white LED. */
+/** Dusk air away from the sun, as a tint on the sky's own grey: cooler than the weather's pink. */
+const DUSK_AIR: Rgb = [.96, .93, 1.12];
 const CITY_GLOW: Rgb = [.034, .026, .03];
 
 /** The hour's and weather's sky, haze and cloud colours as displayed. Pure, so tests can hold it to day, dusk, night and storm. */
@@ -109,15 +111,16 @@ export function lookPalette(input: LookPaletteInput): LookPalette {
   let zenith = mix(scale(background, .82), times(background, mix(ZENITH_TINT, DUSK_ZENITH, dusk)), clear);
   // A paler, slightly warm haze at the horizon, so distance reads as air rather than as more blue.
   let horizon = mix(background, times(grey, [1.12, 1.1, 1.04]), .42 * (.4 + .6 * clear) * (1 - dusk));
-  // Dusk warms the horizon all round, more on the sun's side (see duskTint).
-  horizon = mix(horizon, times(scale(hue(keyColor), L * 1.08), [1, .92, .95]), dusk * .3 * clear);
+  // Dusk: the air away from the sun cools to mauve, so haze does not wash the whole district one pink;
+  // the warmth sits on the sun's side (see duskTint).
+  horizon = mix(horizon, times(grey, DUSK_AIR), dusk * .5 * clear);
   // Night: a dark zenith over a horizon lifted by the city's own glow.
   zenith = mix(zenith, scale(background, .62), night);
   horizon = mix(horizon, [background[0] * 1.45 + CITY_GLOW[0], background[1] * 1.45 + CITY_GLOW[1], background[2] * 1.45 + CITY_GLOW[2]], night);
   const ground = scale(horizon, .82);
   const sunUp = smoothstep(-5, 1.5, input.elevation);
   const sunGlow = scale(keyColor, (.55 * sunUp + .05 * night) * input.sun ** 1.5 * (1 - input.haze * .4));
-  const duskTint = scale(keyColor, .32 * dusk * input.sun);
+  const duskTint = scale(keyColor, .42 * dusk * input.sun);
   const coverage = clamp01(.24 + (1 - input.sun) * .85 + input.rain * .12);
   const lightHue = mix([1, 1, 1], hue(keyColor), .35 + .45 * dusk);
   // Sunlit cloud is brighter than the horizon; under rain the cloud base is darker than the haze below it.
@@ -125,6 +128,9 @@ export function lookPalette(input: LookPaletteInput): LookPalette {
   let cloudLit = mix(lit, scale(grey, .95), (1 - clear) * .55);
   let cloudMid = mix(scale(cloudLit, .86), zenith, .12);
   let cloudShade = scale(mix(scale(cloudLit, .64), zenith, .28), 1 - .38 * input.rain);
+  // Overcast and rain: a darker deck against the grey sky, not pale cells that read as gaps in it.
+  const overcast = (1 - clear) * .85;
+  cloudLit = mix(cloudLit, scale(zenith, .96), overcast); cloudMid = mix(cloudMid, scale(zenith, .87), overcast); cloudShade = mix(cloudShade, scale(zenith, .76 - .1 * input.rain), overcast);
   // Night clouds: barely brighter than the sky, lit from below by the city.
   cloudLit = mix(cloudLit, scale(horizon, 1.5), night); cloudMid = mix(cloudMid, scale(horizon, 1.22), night); cloudShade = mix(cloudShade, scale(mix(zenith, horizon, .5), 1.15), night);
   return { zenith, horizon, ground, sunGlow, duskTint, cloudLit, cloudMid, cloudShade, coverage, cloudOpacity: .96 * (1 - input.haze * .55) };
