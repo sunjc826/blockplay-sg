@@ -50,10 +50,48 @@ export interface DistrictLook {
   /** Haze thins with height above `base` over `height` metres; `floor` of it never thins. */
   haze: { base: number; height: number; floor: number };
   grade: { amount: number; day: GradeStop; dusk: GradeStop; night: GradeStop; storm: GradeStop };
+  /** Procedural surface variation on lit materials; none when absent. See `SurfaceVariation`. */
+  surface?: SurfaceVariation;
+}
+
+/**
+ * Flat colours that vary like real materials, without textures or geometry. All three
+ * parts multiply the material's own colour and roughness in the lit-material patch,
+ * from coordinates that move with the mesh (instance space, or scaled object space),
+ * so instanced, merged and moving geometry keep a fixed pattern and never shimmer.
+ */
+export interface SurfaceVariation {
+  /**
+   * Per building: instances are grouped by the `cell` (metres) their origin falls in, so the
+   * stacked boxes of one tower share a seed while neighbouring towers differ. `value` and `hue`
+   * (warm/cool) are ± shares of the colour, `roughness` of the roughness. Halved on up-facing faces.
+   * Plain (non-instanced) meshes have no seed: game code may move them, and a seed from their
+   * position would flicker.
+   */
+  building: { cell: number; value: number; hue: number; roughness: number };
+  /**
+   * Up-facing faces (paving, lawns, roads, roofs): two scales of blocky cells, `coarse` and `fine`
+   * metres across, varying value, grass hue (yellower where lighter) and roughness by ± these
+   * shares. Cells fade to their mean once smaller than a pixel or two, so the far field is calm.
+   */
+  ground: { coarse: number; fine: number; value: number; hue: number; roughness: number };
+  /**
+   * Walls: a grimy foot over the first `grimeHeight` metres above the look's contact base (less
+   * where the contact term already darkens the ambient, so the two do not double up), and a lift
+   * of up to `lift` towards `liftHeight` metres, so towers lighten upwards. Blocky `panel` cells
+   * (width, height in metres) on each face vary value and roughness by ± `value` and `roughness`,
+   * so a curtain wall reflects pane by pane and a render wall is not one flat sheet.
+   */
+  wall: { grime: number; grimeHeight: number; lift: number; liftHeight: number; panel: [number, number]; value: number; roughness: number };
 }
 
 export const MARINA_LOOK: DistrictLook = {
   indirect: 1, indirectFloor: .4, bounce: .22,
+  surface: {
+    building: { cell: 8, value: .12, hue: .035, roughness: .15 },
+    ground: { coarse: 9, fine: 2.25, value: .1, hue: .06, roughness: .3 },
+    wall: { grime: .25, grimeHeight: 1.2, lift: .1, liftHeight: 60, panel: [4.5, 3.3], value: .04, roughness: .25 },
+  },
   contact: { base: 0, darken: .45, fade: 3, reach: 9 },
   clouds: { height: 900, cell: 70 },
   haze: { base: 0, height: 60, floor: .22 },
@@ -210,6 +248,144 @@ export const DAY_SKY_RAYS: readonly Direction[] = Array.from({ length: 12 }, (_,
   const u = (i + .5) / 12, angle = i * 2.399963229728653, radius = Math.sqrt(u);
   return { x: Math.cos(angle) * radius, y: Math.sqrt(1 - u), z: Math.sin(angle) * radius };
 });
+
+const fract = (v: number) => v - Math.floor(v);
+/** Hash of a 2D point to 0–1: the `lookSurfaceHash` the surface GLSL uses (hash12, no sine), mirrored for tests. */
+export function surfaceHash(x: number, y: number) {
+  let a = fract(x * .1031), b = fract(y * .1031), c = fract(x * .1031);
+  const d = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33);
+  a += d; b += d; c += d;
+  return fract((a + b) * c);
+}
+/** A building's two seeds, −1–1 (value, then warm/cool), from its instance origin: one per `cell` metres of footprint. */
+export function buildingSeed(x: number, z: number, cell: number): [number, number] {
+  const i = Math.floor(x / cell), j = Math.floor(z / cell);
+  return [surfaceHash(i, j) * 2 - 1, surfaceHash(i + 19.19, j + 19.19) * 2 - 1];
+}
+/** Blocky ground cells at a point, −1–1, before any distance fade. Mirrors the GLSL away from cell edges. */
+export function groundCells(x: number, z: number, ground: SurfaceVariation['ground']) {
+  const coarse = surfaceHash(Math.floor(x / ground.coarse), Math.floor(z / ground.coarse));
+  const fine = surfaceHash(Math.floor(x / ground.fine + 31.7), Math.floor(z / ground.fine + 31.7));
+  return (.62 * coarse + .38 * fine - .5) * 2;
+}
+/** Wall panel cells at a point on a wall (`along` it and `y` up, metres), −1–1. Mirrors the GLSL on an axis-aligned wall. */
+export function wallPanels(along: number, y: number, wall: SurfaceVariation['wall']) {
+  return (surfaceHash(Math.floor(along / wall.panel[0] + 7.3), Math.floor(y / wall.panel[1] + 7.3)) - .5) * 2;
+}
+export interface SurfacePoint {
+  /**
+   * World normal's y, the height above the look's contact base (m), the building seed (none for plain meshes),
+   * the ground cells and wall panels (`groundCells`, `wallPanels`) and how green the colour is (0–1).
+   */
+  normalY: number; height: number; seed: [number, number] | null; cells: number; panels: number; green: number;
+}
+/**
+ * The colour and roughness multipliers the surface GLSL applies at a point. `contactDarken` is the
+ * look's current wall-foot ambient darkening (`lookContact.y`), which eases the grime.
+ */
+export function surfaceShade(p: SurfacePoint, s: SurfaceVariation, contactDarken: number, amount = 1) {
+  const up = smoothstep(.6, .9, p.normalY), side = 1 - smoothstep(.25, .5, Math.abs(p.normalY));
+  const [value, warm] = p.seed ?? [0, 0], share = 1 - .5 * up;
+  let tint: Rgb = [1 + s.building.value * value * share, 1 + s.building.value * value * share, 1 + s.building.value * value * share];
+  tint = times(tint, [1 + s.building.hue * warm * share, 1, 1 - s.building.hue * warm * share]);
+  const cells = p.cells * up;
+  tint = scale(tint, 1 + s.ground.value * cells);
+  tint = times(tint, mix([1, 1, 1], [1 + s.ground.hue * cells, 1, 1 - 1.6 * s.ground.hue * cells], p.green));
+  const panels = p.panels * side;
+  tint = scale(tint, 1 + s.wall.value * panels);
+  const grime = s.wall.grime * side * Math.exp(-Math.max(p.height, 0) / s.wall.grimeHeight) * (1 - contactDarken);
+  const lift = s.wall.lift * side * smoothstep(0, s.wall.liftHeight, p.height);
+  tint = scale(times(tint, mix([1, 1, 1], [.86, .84, .8], grime)), 1 + lift);
+  return { color: mix([1, 1, 1], tint, amount),
+    roughness: 1 + amount * (s.ground.roughness * cells + s.wall.roughness * panels + s.building.roughness * value * share) };
+}
+
+/** Uniforms for the surface GLSL; amount (`lookSurface.x`) is set each frame and stays 0 without a `surface`. */
+export function surfaceUniforms(s: SurfaceVariation | undefined) {
+  return {
+    lookSurface: { value: new THREE.Vector4(0, s?.building.value ?? 0, s?.building.hue ?? 0, s?.building.roughness ?? 0) },
+    lookCells: { value: new THREE.Vector4(1 / (s?.ground.coarse ?? 1), 1 / (s?.ground.fine ?? 1), s?.ground.value ?? 0, s?.ground.roughness ?? 0) },
+    lookWallTone: { value: new THREE.Vector4(s?.wall.grime ?? 0, s?.wall.grimeHeight ?? 1, s?.wall.lift ?? 0, s?.wall.liftHeight ?? 1) },
+    lookPanels: { value: new THREE.Vector4(1 / (s?.wall.panel[0] ?? 1), 1 / (s?.wall.panel[1] ?? 1), s?.wall.value ?? 0, s?.wall.roughness ?? 0) },
+    lookGrassHue: { value: s?.ground.hue ?? 0 },
+    lookSeedCell: { value: s?.building.cell ?? 1 },
+  };
+}
+
+/** Vertex side of the surface variation: coordinates that move with the mesh, and the building seed. */
+export const LOOK_SURFACE_VERTEX_DECLARATIONS = /* glsl */`
+uniform float lookSeedCell;
+varying vec3 vLookCoord;
+varying vec3 vLookNormal;
+varying vec2 vLookSeed;
+float lookSurfaceHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+`;
+/**
+ * After project_vertex. The undeformed position, so tree wind and skinning never slide the pattern,
+ * and the normal in the same frame, so wall panels follow the mesh's own faces.
+ */
+export const LOOK_SURFACE_VERTEX = /* glsl */`
+  vec3 lookScale = vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
+  #ifdef USE_INSTANCING
+    vLookCoord = (instanceMatrix * vec4(position, 1.0)).xyz * lookScale;
+    vLookNormal = mat3(instanceMatrix) * objectNormal;
+    vec2 lookCellId = floor(instanceMatrix[3].xz * lookScale.xz / lookSeedCell);
+    vLookSeed = vec2(lookSurfaceHash(lookCellId), lookSurfaceHash(lookCellId + 19.19)) * 2.0 - 1.0;
+  #else
+    vLookCoord = position * lookScale;
+    vLookNormal = objectNormal;
+    vLookSeed = vec2(0.0);
+  #endif
+`;
+const LOOK_SURFACE_GLSL = /* glsl */`
+uniform vec4 lookSurface;
+uniform vec4 lookCells;
+uniform vec4 lookWallTone;
+uniform vec4 lookPanels;
+uniform float lookGrassHue;
+varying vec3 vLookCoord;
+varying vec3 vLookNormal;
+varying vec2 vLookSeed;
+float lookSurfaceHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
+// Nearest-cell value, blended across each cell edge over one pixel, settling to the mean once cells are pixel-sized.
+float lookCellValue(vec2 p) {
+  vec2 u = p - 0.5, i = floor(u), f = fract(u), w = max(fwidth(p), vec2(1e-4));
+  vec2 k = clamp((f - 0.5) / w + 0.5, 0.0, 1.0);
+  float v = mix(mix(lookSurfaceHash(i), lookSurfaceHash(i + vec2(1.0, 0.0)), k.x), mix(lookSurfaceHash(i + vec2(0.0, 1.0)), lookSurfaceHash(i + vec2(1.0)), k.x), k.y);
+  return mix(v, 0.5, smoothstep(0.25, 0.6, max(w.x, w.y)));
+}
+`;
+/** After color_fragment: the colour multipliers. Mirrors `surfaceShade`. Leaves `lookRoughness` for the roughness step. */
+export const LOOK_SURFACE_ALBEDO = /* glsl */`
+  float lookRoughness = 1.0;
+  if (lookSurface.x > 0.0) {
+    vec3 lookSurfaceN = normalize(vExposureNormal);
+    float lookUp = smoothstep(0.6, 0.9, lookSurfaceN.y), lookSide = 1.0 - smoothstep(0.25, 0.5, abs(lookSurfaceN.y));
+    float lookShare = 1.0 - 0.5 * lookUp;
+    vec3 lookTint = vec3(1.0 + lookSurface.y * vLookSeed.x * lookShare);
+    lookTint *= vec3(1.0 + lookSurface.z * vLookSeed.y * lookShare, 1.0, 1.0 - lookSurface.z * vLookSeed.y * lookShare);
+    float lookCellMix = (0.62 * lookCellValue(vLookCoord.xz * lookCells.x) + 0.38 * lookCellValue(vLookCoord.xz * lookCells.y + 31.7) - 0.5) * 2.0 * lookUp;
+    lookTint *= 1.0 + lookCells.z * lookCellMix;
+    float lookGreen = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) / max(diffuseColor.g, 1e-3) * 4.0, 0.0, 1.0);
+    lookTint *= mix(vec3(1.0), vec3(1.0 + lookGrassHue * lookCellMix, 1.0, 1.0 - 1.6 * lookGrassHue * lookCellMix), lookGreen);
+    // Wall panels on the mesh's own faces: x-facing walls run along z, z-facing along x, blended on curved ones.
+    vec3 lookFace = abs(normalize(vLookNormal));
+    float lookPanelMix = (lookCellValue(vLookCoord.zy * lookPanels.xy + 7.3) * lookFace.x + lookCellValue(vLookCoord.xy * lookPanels.xy + 7.3) * lookFace.z)
+      / max(lookFace.x + lookFace.z, 1e-3);
+    lookPanelMix = (lookPanelMix - 0.5) * 2.0 * lookSide;
+    lookTint *= 1.0 + lookPanels.z * lookPanelMix;
+    float lookHeight = max(vExposureWorld.y - lookContact.x, 0.0);
+    float lookGrime = lookWallTone.x * lookSide * exp(-lookHeight / lookWallTone.y) * (1.0 - lookContact.y);
+    float lookLift = lookWallTone.z * lookSide * smoothstep(0.0, lookWallTone.w, lookHeight);
+    lookTint *= mix(vec3(1.0), vec3(0.86, 0.84, 0.8), lookGrime) * (1.0 + lookLift);
+    diffuseColor.rgb *= mix(vec3(1.0), lookTint, lookSurface.x);
+    lookRoughness = 1.0 + lookSurface.x * (lookCells.w * lookCellMix + lookPanels.w * lookPanelMix + lookSurface.w * vLookSeed.x * lookShare);
+  }
+`;
+/** After roughnessmap_fragment (standard materials only). */
+export const LOOK_SURFACE_ROUGHNESS = /* glsl */`
+  roughnessFactor = clamp(roughnessFactor * lookRoughness, 0.03, 1.0);
+`;
 
 /** Haze, sky and indirect GLSL shared by the dome and every lit material's patch. */
 export const LOOK_SKY_GLSL = /* glsl */`
@@ -398,6 +574,7 @@ export function createDistrictLook(look: DistrictLook, options: { software?: boo
     lookIndirectFloor: { value: look.indirectFloor }, lookBounce: v3(),
     lookContact: { value: new THREE.Vector4(look.contact.base, look.contact.darken, look.contact.fade, look.contact.reach) },
     lookHaze: { value: new THREE.Vector3(look.haze.base, look.haze.height, look.haze.floor) },
+    ...surfaceUniforms(look.surface),
   };
   const grade = createGradeUniforms();
   const domeUniforms = { ...shared, lookZenith: v3(), lookHorizon: v3(), lookGround: v3(), lookSunGlow: v3(), lookDuskTint: v3(), ...grade.uniforms,
@@ -437,7 +614,9 @@ export function createDistrictLook(look: DistrictLook, options: { software?: boo
      * For `createNightExposure`: uniforms and GLSL spliced into its lit-material patch. None on a
      * software renderer, which keeps three's fog (towards the displayed horizon) and no daytime bake.
      */
-    extension: options.software ? undefined : { uniforms, declarations: LOOK_MATERIAL_GLSL, indirect: LOOK_INDIRECT_GLSL, specular: LOOK_SPECULAR_GLSL, fog: LOOK_FOG_GLSL },
+    extension: options.software ? undefined : { uniforms, declarations: LOOK_MATERIAL_GLSL + (look.surface ? LOOK_SURFACE_GLSL : ''),
+      indirect: LOOK_INDIRECT_GLSL, specular: LOOK_SPECULAR_GLSL, fog: LOOK_FOG_GLSL,
+      ...(look.surface ? { vertexDeclarations: LOOK_SURFACE_VERTEX_DECLARATIONS, vertex: LOOK_SURFACE_VERTEX, albedo: LOOK_SURFACE_ALBEDO, roughness: LOOK_SURFACE_ROUGHNESS } : {}) },
     /** Average horizon colour for materials that keep three's own fog: scene-referred, or as displayed on a software renderer (fog there lands after tone mapping). */
     get horizon() { return horizon; },
     get palette() { return palette; },
@@ -467,6 +646,8 @@ export function createDistrictLook(look: DistrictLook, options: { software?: boo
       uniforms.lookBounce.value.set(frame.sunIrradiance.r * g.r * albedo, frame.sunIrradiance.g * g.g * albedo, frame.sunIrradiance.b * g.b * albedo).multiplyScalar(look.bounce * sunHeight);
       // GTAO already darkens the first few metres of every corner, over sun and sky alike: keep only a little of the foot.
       uniforms.lookContact.value.y = look.contact.darken * (frame.gtao ? .35 : 1);
+      // Surface variation is off on reduced effects (phones and the Battery preset): the branch is skipped.
+      uniforms.lookSurface.value.x = look.surface && !frame.lowDetail ? 1 : 0;
       return frame.lowDetail ? 0 : look.indirect * (frame.gtao ? .85 : 1) * (1 - frame.night);
     },
     /** The clear-sky colour at the sun as it reaches the canvas (with the post chain's grade, if any), for the lens flare's sky test. */

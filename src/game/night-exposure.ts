@@ -245,6 +245,8 @@ export interface ExposureExtension {
   indirect: string; specular: string;
   /** Replaces three's fog and runs before tone mapping. */
   fog: string;
+  /** Surface variation: vertex declarations and code after project_vertex, then fragment code after color_fragment and roughnessmap_fragment. */
+  vertexDeclarations?: string; vertex?: string; albedo?: string; roughness?: string;
 }
 /** Steps of the daytime bake per update: it never holds up entering a district. */
 export const DAY_BAKE_BUDGET_MS = 4;
@@ -286,14 +288,17 @@ export function createNightExposure(scene: THREE.Scene, extension?: ExposureExte
               vec3 colour = mix(body, sky, fresnel);`)
               .replace('glint * uGlintStrength;', 'glint * uGlintStrength * nightMoonFactor(naturalVisibility.g);');
           } else {
-            shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vExposureWorld;\nvarying vec3 vExposureNormal;')
+            shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nvarying vec3 vExposureWorld;\nvarying vec3 vExposureNormal;\n${extension?.vertexDeclarations ?? ''}`)
               .replace('#include <project_vertex>', `#include <project_vertex>
                 vec4 exposureWorld = vec4(transformed, 1.0);
                 #ifdef USE_INSTANCING
                   exposureWorld = instanceMatrix * exposureWorld;
                 #endif
                 vExposureWorld = (modelMatrix * exposureWorld).xyz;
-                vExposureNormal = inverseTransformDirection(transformedNormal, viewMatrix);`);
+                vExposureNormal = inverseTransformDirection(transformedNormal, viewMatrix);
+                ${extension?.vertex ?? ''}`);
+            if (extension?.albedo) shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>\n${extension.albedo}`);
+            if (extension?.roughness) shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\n${extension.roughness}`);
             shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vExposureWorld;\nvarying vec3 vExposureNormal;')
               .replace('#include <lights_fragment_begin>', `vec3 naturalVisibility = nightExposureAt(vExposureWorld + normalize(vExposureNormal) * 0.35);\n${THREE.ShaderChunk.lights_fragment_begin.replace('getDirectionalLightInfo( directionalLight, directLight );', 'getDirectionalLightInfo( directionalLight, directLight );\n directLight.color *= nightMoonFactor(naturalVisibility.g);')}`)
               .replace('#include <lights_fragment_end>', `

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { acesFilmic, blendGrade, createDistrictLook, DAY_SKY_RAYS, gradeColor, hazeAmount, inverseAcesFilmic, lookPalette, MARINA_LOOK, skyColorAt, type LookPaletteInput } from './district-look';
+import { acesFilmic, blendGrade, buildingSeed, createDistrictLook, DAY_SKY_RAYS, gradeColor, groundCells, hazeAmount, inverseAcesFilmic, lookPalette, MARINA_LOOK, skyColorAt,
+  surfaceHash, surfaceShade, wallPanels, type DistrictLook, type LookPaletteInput, type SurfacePoint } from './district-look';
 import { dayLighting } from './world-lighting';
 import { WEATHER } from './world-events';
 import type { Rgb } from './world-sky-light';
@@ -101,5 +102,84 @@ describe('district look', () => {
     render(); expect(look.uniforms.lookFlat.value).toBe(0);
     background.setRGB(.004, .004, .005); render(); expect(look.uniforms.lookFlat.value).toBe(1);
     look.dispose(); expect(scene.userData.skyDome).toBeUndefined();
+  });
+});
+
+describe('district look surface variation', () => {
+  const surface = MARINA_LOOK.surface!;
+  const point = (p: Partial<SurfacePoint>): SurfacePoint => ({ normalY: 0, height: 10, seed: null, cells: 0, panels: 0, green: 0, ...p });
+
+  it('hashes evenly into 0–1 and seeds the stacked parts of one building alike', () => {
+    let sum = 0, n = 0;
+    for (let i = -40; i < 40; i++) for (let j = -40; j < 40; j++) { const h = surfaceHash(i, j); expect(h).toBeGreaterThanOrEqual(0); expect(h).toBeLessThan(1); sum += h; n++; }
+    expect(sum / n).toBeCloseTo(.5, 1);
+    // A podium, shaft and crown share their centre; a neighbour two cells away is seeded differently.
+    expect(buildingSeed(103.2, -41.5, 8)).toEqual(buildingSeed(103.2, -41.5, 8));
+    expect(buildingSeed(100.5, -41, 8)).toEqual(buildingSeed(103.9, -46, 8));
+    const seeds = Array.from({ length: 30 }, (_, i) => buildingSeed(i * 17, i * 11, 8)[0]);
+    expect(new Set(seeds.map(s => s.toFixed(3))).size).toBeGreaterThan(25);
+    for (const s of seeds) expect(Math.abs(s)).toBeLessThanOrEqual(1);
+  });
+
+  it('lays blocky ground cells that are flat inside a cell and average out over a district', () => {
+    expect(groundCells(.1, .1, surface.ground)).toBe(groundCells(.5, .5, surface.ground));
+    let sum = 0, n = 0;
+    for (let x = 0; x < 400; x += 1.3) for (let z = 0; z < 400; z += 1.7) { const c = groundCells(x, z, surface.ground); expect(Math.abs(c)).toBeLessThanOrEqual(1); sum += c; n++; }
+    expect(Math.abs(sum / n)).toBeLessThan(.1);
+    expect(wallPanels(.2, .2, surface.wall)).toBe(wallPanels(1, 1, surface.wall));
+  });
+
+  it('stays subtle: under 10% typical colour change, a third at most where every term peaks, roughness within half', () => {
+    let squares = 0;
+    for (let i = 0; i < 400; i++) {
+      const r = (k: number) => surfaceHash(i, k) * 2 - 1;
+      const shade = surfaceShade(point({ normalY: r(1), height: (r(2) + 1) * 50, seed: [r(3), r(4)], cells: r(5), panels: r(6), green: (r(7) + 1) / 2 }), surface, .16);
+      for (const c of shade.color) { expect(c).toBeGreaterThan(.7); expect(c).toBeLessThan(1.35); squares += (c - 1) ** 2 / 3; }
+      expect(Math.abs(shade.roughness - 1)).toBeLessThan(.5);
+    }
+    expect(Math.sqrt(squares / 400)).toBeLessThan(.1);
+  });
+
+  it('leaves a surface alone at zero amount, and plain meshes without a seed untinted', () => {
+    const off = surfaceShade(point({ normalY: 1, seed: [1, 1], cells: 1, panels: 1, green: 1, height: 0 }), surface, 0, 0);
+    expect(off.color).toEqual([1, 1, 1]); expect(off.roughness).toBe(1);
+    const roof = surfaceShade(point({ normalY: 1, height: 30 }), surface, .45);
+    expect(roof.color[0]).toBeCloseTo(1, 6); expect(roof.color[2]).toBeCloseTo(1, 6); expect(roof.roughness).toBeCloseTo(1, 6);
+  });
+
+  it('keeps ground cells off walls and wall panels off the ground', () => {
+    const wall = surfaceShade(point({ normalY: 0, cells: 1 }), surface, .45), ground = surfaceShade(point({ normalY: 1, panels: 1 }), surface, .45);
+    expect(wall.color[1]).toBeCloseTo(surfaceShade(point({ normalY: 0 }), surface, .45).color[1], 6);
+    expect(ground.color[1]).toBeCloseTo(1, 6);
+    expect(surfaceShade(point({ normalY: 1, cells: 1 }), surface, .45).color[1]).toBeGreaterThan(1);
+  });
+
+  it('dirties wall feet without doubling the contact shade, and lightens towers upwards', () => {
+    const at = (height: number, contact: number) => surfaceShade(point({ height }), surface, contact).color[1];
+    expect(at(0, .16)).toBeLessThan(at(3, .16));
+    // Where the look's contact term already darkens the foot (no GTAO), the grime gives way.
+    expect(at(0, .45)).toBeGreaterThan(at(0, .16));
+    expect(at(60, .16)).toBeGreaterThan(at(10, .16));
+    expect(at(60, .16)).toBeLessThanOrEqual(1 + surface.wall.lift + 1e-9);
+  });
+
+  it('warms lighter lawn cells and cools darker ones, leaving grey paving its hue', () => {
+    const light = surfaceShade(point({ normalY: 1, cells: 1, green: 1 }), surface, 0).color;
+    const dark = surfaceShade(point({ normalY: 1, cells: -1, green: 1 }), surface, 0).color;
+    const grey = surfaceShade(point({ normalY: 1, cells: 1, green: 0 }), surface, 0).color;
+    expect(light[0] / light[2]).toBeGreaterThan(1); expect(dark[0] / dark[2]).toBeLessThan(1); expect(grey[0]).toBeCloseTo(grey[2], 6);
+  });
+
+  it('turns the surface pass on only for looks that ask for it, and off on reduced effects', () => {
+    const frame = { background: new THREE.Color('#b9dcea'), keyColor: new THREE.Color('#fff3e2'), keyDirection: { x: .3, y: .9, z: .1 }, elevation: 64, shift: 0, night: 0, sun: 1, rain: 0, haze: 0, wind: 0,
+      exposure: .9, sunIrradiance: new THREE.Color(2, 2, 2), groundColor: new THREE.Color('#707060'), dt: .1, reduced: false, lowDetail: false, gtao: false };
+    const marina = createDistrictLook(MARINA_LOOK);
+    expect(marina.extension?.albedo).toContain('lookSurface'); expect(marina.extension?.vertex).toContain('vLookCoord');
+    marina.update(frame); expect(marina.uniforms.lookSurface.value.x).toBe(1);
+    marina.update({ ...frame, lowDetail: true }); expect(marina.uniforms.lookSurface.value.x).toBe(0);
+    const bare: DistrictLook = { ...MARINA_LOOK, surface: undefined }, plain = createDistrictLook(bare);
+    expect(plain.extension?.albedo).toBeUndefined(); expect(plain.extension?.declarations).not.toContain('lookCellValue');
+    plain.update(frame); expect(plain.uniforms.lookSurface.value.x).toBe(0);
+    marina.dispose(); plain.dispose();
   });
 });

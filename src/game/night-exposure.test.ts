@@ -100,6 +100,25 @@ describe('natural night visibility', () => {
     expect(look.dayReady).toBe(false); look.finishDay(); expect(look.dayReady).toBe(true);
     look.dispose();
   });
+  it('splices surface variation after the colour and roughness steps, and skips roughness where a material has none', () => {
+    const scene = new THREE.Scene(), mesh = box(scene, 0, 4, 0, 10, .3, 10);
+    const extension = { uniforms: {}, declarations: '', indirect: '', specular: '', fog: '',
+      vertexDeclarations: '/*vdecl*/', vertex: '/*vertex*/', albedo: '/*albedo*/', roughness: '/*roughness*/' };
+    const shader = (kind: 'standard' | 'lambert') => ({ uniforms: {}, vertexShader: THREE.ShaderLib[kind].vertexShader, fragmentShader: THREE.ShaderLib[kind].fragmentShader } as unknown as THREE.WebGLProgramParametersWithUniforms);
+    const exposure = createNightExposure(scene, extension), s = shader('standard');
+    (mesh.material as THREE.Material).onBeforeCompile(s, {} as THREE.WebGLRenderer);
+    expect(s.vertexShader.indexOf('/*vdecl*/')).toBeLessThan(s.vertexShader.indexOf('void main'));
+    expect(s.vertexShader.indexOf('/*vertex*/')).toBeGreaterThan(s.vertexShader.indexOf('#include <project_vertex>'));
+    expect(s.fragmentShader.indexOf('/*albedo*/')).toBeGreaterThan(s.fragmentShader.indexOf('#include <color_fragment>'));
+    expect(s.fragmentShader.indexOf('/*roughness*/')).toBeGreaterThan(s.fragmentShader.indexOf('#include <roughnessmap_fragment>'));
+    expect(s.fragmentShader.indexOf('/*albedo*/')).toBeLessThan(s.fragmentShader.indexOf('/*roughness*/'));
+    exposure.dispose();
+    const lambert = new THREE.MeshLambertMaterial(); mesh.material = lambert;
+    const again = createNightExposure(scene, extension), l = shader('lambert');
+    lambert.onBeforeCompile(l, {} as THREE.WebGLRenderer);
+    expect(l.fragmentShader).toContain('/*albedo*/'); expect(l.fragmentShader).not.toContain('/*roughness*/');
+    again.dispose();
+  });
   it('chains and restores existing material hooks without modifying emission', () => {
     const scene = new THREE.Scene(), mesh = box(scene, 0, 4, 0, 10, .3, 10), material = mesh.material as THREE.Material;
     const compile = material.onBeforeCompile, key = material.customProgramCacheKey;
