@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { STOREY } from './block-module';
 import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
@@ -40,6 +41,7 @@ export function buildBishanScene() {
     background: '#cddbd8', fogNear: 290, fogFar: 900,
     sun: { x: 130, y: 205, z: 120 }, shadow: { extent: 265, far: 680 },
     hemisphere: { sky: '#f4faf8', ground: '#75795f', intensity: 1.82 },
+    module: true,
   });
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
@@ -99,12 +101,13 @@ export function buildBishanScene() {
       else {
         (scene.userData.traversalObstacles ??= []).push({ minX: x-(len-4)/2, maxX: x+(len-4)/2, minZ: cz-7.5, maxZ: cz+7.5, minY: 7, maxY: h+7 });
       }
-      for (let y = 9; y < h + 6; y += 3.2) {
-        const band = panels[(Math.round(y / 3.2) + i) % panels.length];
+      for (let y = 9; y < h + 6; y += STOREY) {
+        const band = panels[(Math.round(y / STOREY) + i) % panels.length];
         for (const side of [-1, 1]) {
           box(x, y, cz + side * 7.8, len - 6, 2.2, 0.5, band);
           for (let dx = -len / 2 + 6; dx < len / 2 - 4; dx += 6) box(x + dx, y, cz + side * 8.1, 3.4, 1.5, 0.4, glass);
-          if (Math.round(y) % 6 === 0) box(x - len / 4, y, cz + side * 8.4, 8, 2.4, 0.4, dark);
+          // One recessed loggia row on the second storey, as with the earlier 3.2 m pitch.
+          if (Math.round((y - 9) / STOREY) === 1) box(x - len / 4, y, cz + side * 8.4, 8, 2.4, 0.4, dark);
         }
       }
       if (x === -60) for (const floor of [6.8,10.8]) for (const side of [-1,1]) {
@@ -165,19 +168,22 @@ export function buildBishanScene() {
 
   precinct(-175, -140); precinct(75, -140); precinct(-175, 105); precinct(-60, 105);
   townCentre(75, 105);
-  railStation(200, 60);
+  kit.freeform(() => railStation(200, 60));
   court(-60, -140);
 
   // April 2014 park preview: an oval grey shade roof, cylindrical piers and
   // horizontal louvres above an open paved apron. No river geometry inferred.
-  box(-60, 0.18, -84, 42, 0.2, 15, concrete);
-  const parkCanopy = cylinder(-60, 6.5, -84, 1, 0.45, steel);
-  parkCanopy.scale.set(20, 1, 7);
-  for (const dx of [-15, 15]) for (const dz of [-4, 4]) {
-    cylinder(-60 + dx, 3.1, -84 + dz, 0.32, 6.2, pale);
-    solid(-60 + dx, -84 + dz, 0.75, 0.75);
-  }
-  for (const y of [4.2, 4.8, 5.4]) box(-60, y, -88, 32, 0.18, 0.15, steel);
+  // Reviewed reference feature: kept exactly as authored, off the module.
+  kit.freeform(() => {
+    box(-60, 0.18, -84, 42, 0.2, 15, concrete);
+    const parkCanopy = cylinder(-60, 6.5, -84, 1, 0.45, steel);
+    parkCanopy.scale.set(20, 1, 7);
+    for (const dx of [-15, 15]) for (const dz of [-4, 4]) {
+      cylinder(-60 + dx, 3.1, -84 + dz, 0.32, 6.2, pale);
+      solid(-60 + dx, -84 + dz, 0.75, 0.75);
+    }
+    for (const y of [4.2, 4.8, 5.4]) box(-60, y, -88, 32, 0.18, 0.15, steel);
+  });
 
   // Southern field carries the range; planting keeps to its margins.
   box(185, 0.18, 105, 50, 0.35, 110, lawn);

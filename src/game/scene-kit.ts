@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
 import type { DistrictLook } from './district-look';
+import { KERB, ROAD_LINE, minRadius, snapFootprint, snapModuleBox } from './block-module';
 
 export interface SceneKitOptions {
   /** Sky and fog colour; districts pick their own daylight. */
@@ -14,18 +15,27 @@ export interface SceneKitOptions {
   hemisphere?: { sky: string; ground: string; intensity: number };
   /** Opt in to a gradient sky, clouds, height haze, baked indirect light and a colour grade (`district-look`). */
   look?: DistrictLook;
+  /** Build on the block module (docs/SHAPE-LANGUAGE.md). New districts set this. */
+  module?: boolean;
 }
 
 /**
  * Shared primitives for authored districts: tracked geometry and materials,
  * axis-aligned colliders, canvas signs and the instanced-batch/dispose pass.
  * Marina, Raffles and Queenstown predate this and keep their own copies.
+ *
+ * With `module: true`, boxes and colliders are built on the block module
+ * (docs/SHAPE-LANGUAGE.md): both edges snap to the 0.1 m detail grid, nothing
+ * is modelled thinner than 0.1 m, and a box and a collider authored with the
+ * same numbers stay identical. Wrap landmark geometry in `freeform(() => ...)`
+ * to keep it exact. Districts not yet converted build exactly as authored.
  */
 export function createSceneKit(options: SceneKitOptions) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(options.background);
   scene.fog = new THREE.Fog(options.background, options.fogNear, options.fogFar);
   if (options.look) scene.userData.districtLook = options.look;
+  if (options.module) scene.userData.blockModule = true;
   const sky = options.hemisphere ?? { sky: '#f1f8ff', ground: '#787366', intensity: 1.8 };
   scene.add(new THREE.HemisphereLight(sky.sky, sky.ground, sky.intensity));
   const sunOptions = options.sun ?? { x: -110, y: 190, z: 100 };
@@ -36,6 +46,7 @@ export function createSceneKit(options: SceneKitOptions) {
   Object.assign(sun.shadow.camera, { left: -extent, right: extent, top: extent, bottom: -extent, far: options.shadow?.far ?? 540 });
   scene.add(sun);
 
+  const onModule = options.module === true;
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [];
   const obstacles: Obstacle[] = [];
   const geo = <T extends THREE.BufferGeometry>(geometry: T) => { geometries.push(geometry); return geometry; };
@@ -47,14 +58,22 @@ export function createSceneKit(options: SceneKitOptions) {
   const cylinderGeo = geo(new THREE.CylinderGeometry(1, 1, 1, 10));
   const crownGeo = geo(new THREE.IcosahedronGeometry(1, 1));
 
+  let freeformDepth = onModule ? 0 : 1;
+  /** Build landmark geometry exactly as authored, off the module grid. */
+  function freeform<T>(build: () => T): T {
+    freeformDepth++;
+    try { return build(); } finally { freeformDepth--; }
+  }
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {
     const mesh = new THREE.Mesh(unit, material);
-    mesh.position.set(x, y, z); mesh.scale.set(w, h, d);
+    if (freeformDepth) { mesh.position.set(x, y, z); mesh.scale.set(w, h, d); }
+    else { const b = snapModuleBox(x, y, z, w, h, d); mesh.position.set(b.x, b.y, b.z); mesh.scale.set(b.w, b.h, b.d); }
     mesh.castShadow = shadow; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
   function cylinder(x: number, y: number, z: number, r: number, h: number, material: THREE.Material, parent: THREE.Object3D = scene) {
     const mesh = new THREE.Mesh(cylinderGeo, material);
-    mesh.position.set(x, y, z); mesh.scale.set(r, h, r);
+    const radius = freeformDepth ? r : minRadius(r);
+    mesh.position.set(x, y, z); mesh.scale.set(radius, h, radius);
     mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh;
   }
   function beam(a: THREE.Vector3, b: THREE.Vector3, r: number, material: THREE.Material) {
@@ -65,7 +84,8 @@ export function createSceneKit(options: SceneKitOptions) {
   }
   /** Axis-aligned footprint. Keep these clear of every displayed road centreline. */
   function solid(x: number, z: number, w: number, d: number) {
-    obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+    const footprint = { minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 };
+    obstacles.push(freeformDepth ? footprint : snapFootprint(footprint));
   }
   function blob(x: number, y: number, z: number, sx: number, sy: number, sz: number, material: THREE.Material, parent: THREE.Object3D = scene) {
     const mesh = new THREE.Mesh(crownGeo, material);
@@ -89,6 +109,10 @@ export function createSceneKit(options: SceneKitOptions) {
   }
   /** Simple animated bystander. Groups are never batched, so they can move. */
   function walker(x: number, z: number, shirt: THREE.Material, skin: THREE.Material, legs: THREE.Material) {
+    return freeform(() => walkerFigure(x, z, shirt, skin, legs));
+  }
+  /** Bystanders and the car keep their own proportions, off the module. */
+  function walkerFigure(x: number, z: number, shirt: THREE.Material, skin: THREE.Material, legs: THREE.Material) {
     const person = new THREE.Group();
     box(0, 1.1, 0, 0.5, 0.7, 0.35, shirt, person);
     box(0, 1.7, 0, 0.33, 0.35, 0.33, skin, person);
@@ -96,6 +120,9 @@ export function createSceneKit(options: SceneKitOptions) {
     person.position.set(x, 0, z); scene.add(person); return person;
   }
   function car(body: THREE.Material, glass: THREE.Material, trim: THREE.Material, dark: THREE.Material) {
+    return freeform(() => carModel(body, glass, trim, dark));
+  }
+  function carModel(body: THREE.Material, glass: THREE.Material, trim: THREE.Material, dark: THREE.Material) {
     const group = new THREE.Group(); scene.add(group);
     box(0, 0.7, 0, 1.8, 0.65, 3.4, body, group, true);
     box(0, 1.18, 0.1, 1.5, 0.62, 1.65, glass, group);
@@ -110,7 +137,8 @@ export function createSceneKit(options: SceneKitOptions) {
   /**
    * Orthogonal street grid with centre lines, kerbs and a perimeter loop.
    * Returns nothing to collide with: districts place their own footprints
-   * clear of these centrelines.
+   * clear of these centrelines. Lines are module road paint (0.2 m wide,
+   * 5 m dashes on a 12 m pitch) and kerbs are a module kerb high.
    */
   function streetGrid(options: {
     ew: readonly number[]; ns: readonly number[]; edgeX: number; edgeZ: number;
@@ -118,6 +146,8 @@ export function createSceneKit(options: SceneKitOptions) {
   }) {
     const { ew, ns, edgeX, edgeZ, asphalt, line, kerb, loop = true } = options;
     const width = options.width ?? 16, half = width / 2 + 2.5;
+    const lineWidth = onModule ? ROAD_LINE.width : 0.16, dash = onModule ? ROAD_LINE.dash : 5;
+    const kerbHeight = onModule ? KERB.height : 0.22, kerbY = onModule ? KERB.height / 2 : 0.12;
     const runs = (edge: number, crossings: readonly number[]) => {
       let spans: [number,number][] = [[-edge,edge]];
       for (const cross of crossings) spans = spans.flatMap(([a,b]) => {
@@ -130,22 +160,22 @@ export function createSceneKit(options: SceneKitOptions) {
     const vertical = runs(edgeZ, [...ew, ...(loop?[-edgeZ,edgeZ]:[])]);
     for (const z of ew) {
       box(0, 0, z, edgeX * 2, 0.12, width, asphalt);
-      for (let x = -edgeX + 6; x < edgeX; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, line);
-      if (kerb) for (const side of [-half, half]) for (const [a,b] of horizontal) box((a+b)/2, 0.12, z + side, b-a, 0.22, 3, kerb);
+      for (let x = -edgeX + 6; x < edgeX; x += 12) box(x, 0.09, z, dash, 0.025, lineWidth, line);
+      if (kerb) for (const side of [-half, half]) for (const [a,b] of horizontal) box((a+b)/2, kerbY, z + side, b-a, kerbHeight, 3, kerb);
     }
     for (const x of ns) {
       box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
-      for (let z = -edgeZ + 6; z < edgeZ; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, line);
-      if (kerb) for (const side of [-half, half]) for (const [a,b] of vertical) box(x + side, 0.12, (a+b)/2, 3, 0.22, b-a, kerb);
+      for (let z = -edgeZ + 6; z < edgeZ; z += 12) box(x, 0.09, z, lineWidth, 0.025, dash, line);
+      if (kerb) for (const side of [-half, half]) for (const [a,b] of vertical) box(x + side, kerbY, (a+b)/2, 3, kerbHeight, b-a, kerb);
     }
     if (!loop) return;
     for (const z of [-edgeZ, edgeZ]) {
       box(0, 0, z, edgeX * 2 + width, 0.12, width, asphalt);
-      for (let x = -edgeX; x < edgeX; x += 12) box(x, 0.09, z, 5, 0.025, 0.16, line);
+      for (let x = -edgeX; x < edgeX; x += 12) box(x, 0.09, z, dash, 0.025, lineWidth, line);
     }
     for (const x of [-edgeX, edgeX]) {
       box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
-      for (let z = -edgeZ; z < edgeZ; z += 12) box(x, 0.09, z, 0.16, 0.025, 5, line);
+      for (let z = -edgeZ; z < edgeZ; z += 12) box(x, 0.09, z, lineWidth, 0.025, dash, line);
     }
   }
 
@@ -196,6 +226,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, THREE };
+  return { scene, obstacles, geo, mat, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;

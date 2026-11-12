@@ -23,7 +23,7 @@ const distanceToRoad = (x: number, z: number) => Math.min(...PULAU_UBIN_MAP_ROAD
 /** A compressed island, not a road grid: a village/jetty, quarry, forest loop
  * and wetland boardwalk. Named places are stylised counterparts, not surveys. */
 export function buildPulauUbinScene() {
-  const k = createSceneKit({ background: '#cedfdc', fogNear: 330, fogFar: 1100, shadow: { extent: 285, far: 720 } });
+  const k = createSceneKit({ background: '#cedfdc', fogNear: 330, fogFar: 1100, shadow: { extent: 285, far: 720 }, module: true });
   const { scene, box, cylinder, blob, solid, mat, sign, tree } = k;
   const sea = mat('#568f98', .4), quarry = mat('#4f807b', .45), mud = mat('#7c8e70'); markWater(sea, quarry, mud);
   const grass = mat('#91a476'), trail = mat('#b6a17b'), pale = mat('#e4d9bf'), wood = mat('#80604b'), dark = mat('#3d4945');

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { captureRainReceivers } from './rain-receivers';
 import { MARINA_CAMP_DECKS, MARINA_CAMP_COVER, MARINA_ISLET, MARINA_SWIM_EXITS } from './marina-water';
+import { DETAIL } from './block-module';
 
 /** Compact Merlion islet, with boat landings and visible swimming ladders. */
 export function buildMarinaCamp() {
@@ -39,14 +40,14 @@ export function buildMarinaCamp() {
     for(const y of [-.38,-.1,.18])box(p.x,y,p.z,p.dz?1.05:.08,.07,p.dx?1.05:.08,gold);
     box(p.x-p.dx*.35,.015,p.z-p.dz*.35,p.dz?1.3:.4,.03,p.dx?1.3:.4,gold);
   }
-  // Kerb and rope mark each deck edge a walker cannot step off; a jump clears them,
+  // Kerb and rope mark each deck edge (rope and posts one module detail, 0.1 m, thick) a walker cannot step off; a jump clears them,
   // and each ladder leaves its own gate open.
   const guard=(x0:number,z0:number,x1:number,z1:number)=>{
     const length=Math.hypot(x1-x0,z1-z0),yaw=Math.atan2(z0-z1,x1-x0),x=(x0+x1)/2,z=(z0+z1)/2;
     box(x,.05,z,length,.1,.1,wood).rotation.y=yaw;
-    for(const y of [.42,.7]){const rail=box(x,y,z,length,.025,.025,gold);rail.rotation.y=yaw;rail.userData.rainContact='rail';}
+    for(const y of [.42,.7]){const rail=box(x,y,z,length,DETAIL,DETAIL,gold);rail.rotation.y=yaw;rail.userData.rainContact='rail';}
     const posts=Math.max(1,Math.round(length/1.6));
-    for(let i=0;i<=posts;i++)box(x0+(x1-x0)*i/posts,.38,z0+(z1-z0)*i/posts,.08,.76,.08,metal);
+    for(let i=0;i<=posts;i++)box(x0+(x1-x0)*i/posts,.38,z0+(z1-z0)*i/posts,DETAIL,.76,DETAIL,metal);
   };
   const gate=.6,edge=MARINA_ISLET.radius-.15,corners=edge*(Math.SQRT2-1),cz=MARINA_ISLET.z;
   for(const [x0,z0,x1,z1,gateAt] of [

@@ -76,6 +76,11 @@ smoke all read the registry.
    and materials, `box`/`cylinder`/`beam`/`blob`, canvas signs, trees, walkers,
    a car, stamp rings, a street grid, and the instanced-batch/dispose pass.
    Marina, Raffles and Queenstown predate the kit and keep their own copies.
+   Pass `module: true` so the district is built on the block module
+   ([shape language](SHAPE-LANGUAGE.md)): boxes and colliders snap to the
+   0.1 m grid with a 0.1 m thickness floor, rhythm uses `STOREY`, `BAY` and
+   `SLAB` from `src/game/block-module.ts`, and landmarks go inside
+   `kit.freeform(() => ...)`. Run `pnpm audit:shape-language -- <id>` after.
    Optionally pass `look` (a `DistrictLook` from `src/game/district-look.ts`)
    for the gradient sky, blocky clouds, height haze, baked daytime indirect
    light and colour grade; Marina (`MARINA_LOOK`, set on
