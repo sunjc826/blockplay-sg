@@ -9,12 +9,17 @@ import { getGraphicsSettings } from './graphics-settings';
 import { createWaterReflections } from './water-reflections';
 import { createRainReflections, type WetGround } from './rain-reflections';
 import { createGradeUniforms, GRADE_GLSL, type ColorGrade, type SkyDome } from './district-look';
+import { stabilizeGtao } from './gtao-stability';
+import { createAoTemporal } from './ao-temporal';
 
 /**
  * Ambient occlusion for the world view: corners, gaps under ledges and the
  * feet of walls darken, so shade has shape instead of one flat fill. Three's
  * GTAO, fed the scene pass's own depth and rebuilding normals from it, so the
- * district is drawn once, not twice. AO runs at half resolution and is blended
+ * district is drawn once, not twice. Its normals step over one-pixel strips
+ * (gtao-stability) and each frame is blended with the last, reprojected
+ * (ao-temporal), so the shade holds still while the view moves.
+ * AO runs at half resolution and is blended
  * over the full-resolution, multisampled scene; the output pass then applies
  * tone mapping and sRGB, as rendering straight to the canvas would. A plain
  * colour sky is left out of that and cleared on the canvas instead, as a
@@ -37,7 +42,7 @@ export const OCCLUSION_RADIUS = 3;
 export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const supported = !softwareRenderer(renderer) && renderer.capabilities.isWebGL2;
   let sceneTarget: THREE.WebGLRenderTarget | null = null, aoTarget: THREE.WebGLRenderTarget | null = null;
-  let gtao: GTAOPass | null = null, output: OutputPass | null = null;
+  let gtao: GTAOPass | null = null, output: OutputPass | null = null, aoTemporal: ReturnType<typeof createAoTemporal> | null = null;
   let smaa: SMAAPass | null = null, smaaTarget: THREE.WebGLRenderTarget | null = null, smaaEnabled = false;
   let bloom: UnrealBloomPass | null = null, bloomEnabled = false;
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
@@ -69,6 +74,10 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     gtao.updateGtaoMaterial({ radius: OCCLUSION_RADIUS, distanceExponent: 1.2, thickness: 5, distanceFallOff: 1, scale: 1.8, samples: 12 });
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
     gtao.blendIntensity = .9;
+    // AO and denoise only; the temporal resolve below darkens the picture.
+    gtao.output = GTAOPass.OUTPUT.Off;
+    stabilizeGtao(gtao);
+    aoTemporal = createAoTemporal();
   }
   function buildBloom() {
     // The pass halves this again: its largest blur target is quarter resolution.
@@ -134,7 +143,10 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       renderer.setRenderTarget(sceneTarget); renderer.clear(); renderer.render(scene, camera);
       if (dome) dome.mesh.visible = true;
       scene.background = sky ?? scene.background;
-      if (want) gtao!.render(renderer, aoTarget!, sceneTarget!, 0, false);
+      if (want) {
+        gtao!.render(renderer, aoTarget!, sceneTarget!, 0, false);
+        aoTemporal!.render(renderer, camera, gtao!.pdRenderTarget, sceneTarget!.depthTexture!, sceneTarget!.texture, aoTarget!, gtao!.blendIntensity);
+      } else aoTemporal?.reset();
       let picture = want ? aoTarget! : sceneTarget!;
       if (rainReflectionsEnabled) rain!.render(picture, sceneTarget!.depthTexture!);
       if (bloomEnabled) bloom!.render(renderer, picture, picture, 0, false);
@@ -166,7 +178,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       return want;
     },
     dispose() {
-      sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); output?.dispose();
+      sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); aoTemporal?.dispose(); output?.dispose();
       smaa?.dispose(); smaaTarget?.dispose();
       bloom?.dispose(); sunRays?.dispose();
       rain?.dispose(); water.dispose();
