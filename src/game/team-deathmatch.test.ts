@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createArena, type ArenaEnvironment, type ArenaSimulation } from './arena-rules';
 import { ARENA_TEAMS, TDM_AREAS, TDM_RULES, type TeamDeathmatchArea } from './arena-match';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
@@ -92,6 +92,7 @@ it('draws on equal team scores at five minutes and rejects mismatched snapshots'
 describe.each(TDM_AREAS)('$name real district',area=>{
   it('has clear, connected spawns and bot combat with no expedition services',()=>{
     const world=buildTeamDeathmatchWorld(area.id);
+    const clock=vi.spyOn(performance,'now').mockReturnValue(0);
     try {
       world.stamps.forEach(s=>s.visible=false);accelerateInstancedRaycasts(world.scene);
       const terrain={bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)};
@@ -114,6 +115,6 @@ describe.each(TDM_AREAS)('$name real district',area=>{
       expect(validArenaSnapshot(s,world.environment)).toBe(true);
       for(const bot of s.actors)expect(bot.x>=area.bounds.minX&&bot.x<=area.bounds.maxX&&bot.z>=area.bounds.minZ&&bot.z<=area.bounds.maxZ).toBe(true);
       a.reset();expect(a.snapshot().actors.every(a=>a.alive)).toBe(true);
-    }finally{world.dispose();}
+    }finally{clock.mockRestore();world.dispose();}
   });
 });

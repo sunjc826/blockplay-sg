@@ -185,36 +185,14 @@ function MatchDistrictPicker({ online, mode }: { online: boolean; mode:'team-dea
     }} />;
 }
 
-const SOLO_MATCHES = {
-  'dragon-courtyard': { mode: 'team-deathmatch', area: 'dragon-courtyard' },
-  'smith-street': { mode: 'team-deathmatch', area: 'smith-street' },
-  'container-yard': { mode: 'team-deathmatch', area: 'container-yard' },
-  'woodlands-park': { mode: 'team-deathmatch', area: 'woodlands-park' },
-  'bishan-court': { mode: 'team-deathmatch', area: 'bishan-court' },
-  'tampines-hub': { mode: 'team-deathmatch', area: 'tampines-hub' },
-  'hardpoint-smith-street': { mode: 'hardpoint', area: 'smith-street' },
-  'hardpoint-container-yard': { mode: 'hardpoint', area: 'container-yard' },
-  'hardpoint-woodlands-park': { mode: 'hardpoint', area: 'woodlands-park' },
-  'hardpoint-bishan-court': { mode: 'hardpoint', area: 'bishan-court' },
-  'hardpoint-tampines-hub': { mode: 'hardpoint', area: 'tampines-hub' },
+const SOLO_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
+  ...Object.fromEntries(TDM_AREAS.map(area=>[area.id,{mode:'team-deathmatch',area:area.id} satisfies ArenaMatch])),
+  ...Object.fromEntries(HARDPOINT_ARENAS.map(({area})=>[`hardpoint-${area.id}`,{mode:'hardpoint',area:area.id} satisfies ArenaMatch])),
   'free-for-all': defaultMatchFor('free-for-all'),
-} satisfies Record<string, ArenaMatch>;
-
-const SOLO_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = SOLO_MATCHES;
-const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
-  'host-dragon-courtyard': SOLO_MATCHES['dragon-courtyard'],
-  'host-smith-street': SOLO_MATCHES['smith-street'],
-  'host-container-yard': SOLO_MATCHES['container-yard'],
-  'host-woodlands-park': SOLO_MATCHES['woodlands-park'],
-  'host-bishan-court': SOLO_MATCHES['bishan-court'],
-  'host-tampines-hub': SOLO_MATCHES['tampines-hub'],
-  'host-hardpoint-smith-street': SOLO_MATCHES['hardpoint-smith-street'],
-  'host-hardpoint-container-yard': SOLO_MATCHES['hardpoint-container-yard'],
-  'host-hardpoint-woodlands-park': SOLO_MATCHES['hardpoint-woodlands-park'],
-  'host-hardpoint-bishan-court': SOLO_MATCHES['hardpoint-bishan-court'],
-  'host-hardpoint-tampines-hub': SOLO_MATCHES['hardpoint-tampines-hub'],
-  'host-free-for-all': SOLO_MATCHES['free-for-all'],
 };
+const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = Object.fromEntries(
+  Object.entries(SOLO_MATCH_BY_SCREEN).map(([route,match])=>[`host-${route}`,match]),
+);
 
 /**
  * The way out and the district choice for a play screen. It sits at the top of

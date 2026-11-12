@@ -1,3 +1,5 @@
+import ARENA_CATALOG from '../game/arena-catalog.json';
+import type { ArenaAreaId } from '../game/arena-match';
 import { isEquipmentRoute } from './equipment-navigation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { hasNavigationGuard, requestLeave } from './navigation-guard';
@@ -8,37 +10,26 @@ import { getMenuDesign } from './menu-design';
  * so `/debug` is a URL worth sharing; the Cloudflare asset server and the
  * service worker both answer any extensionless navigation with the app shell.
  */
+type ArenaRoute = ArenaAreaId | `host-${ArenaAreaId}` | `hardpoint-${ArenaAreaId}` | `host-hardpoint-${ArenaAreaId}`;
+const arenaRoutes = Object.fromEntries(Object.keys(ARENA_CATALOG).flatMap(id => [
+  [id, `/play/team-deathmatch/${id}`], [`host-${id}`, `/play/multiplayer/team-deathmatch/${id}`],
+  [`hardpoint-${id}`, `/play/hardpoint/${id}`], [`host-hardpoint-${id}`, `/play/multiplayer/hardpoint/${id}`],
+])) as Record<ArenaRoute, string>;
+const arenaLabels = Object.fromEntries(Object.entries(ARENA_CATALOG).flatMap(([id, {name}]) =>
+  [id, `host-${id}`, `hardpoint-${id}`, `host-hardpoint-${id}`].map(route => [route, name.split(' · ')[1]]),
+)) as Record<ArenaRoute, string>;
+
 export const ROUTE_PATHS = {
   menu: '/', play: '/play', 'single-player': '/play/single-player', 'training-menu': '/play/training',
   tutorial: '/tutorial', training: '/training', world: '/world',
   'team-deathmatch': '/play/team-deathmatch',
-  'dragon-courtyard': '/play/team-deathmatch/dragon-courtyard',
-  'smith-street': '/play/team-deathmatch/smith-street',
   hardpoint: '/play/hardpoint', 'free-for-all': '/play/free-for-all',
   'multiplayer-menu': '/play/multiplayer',
   'host-team-deathmatch': '/play/multiplayer/team-deathmatch',
-  'host-dragon-courtyard': '/play/multiplayer/team-deathmatch/dragon-courtyard',
-  'host-smith-street': '/play/multiplayer/team-deathmatch/smith-street',
   'host-hardpoint': '/play/multiplayer/hardpoint',
   'host-free-for-all': '/play/multiplayer/free-for-all',
-  'container-yard': '/play/team-deathmatch/container-yard',
-  'host-container-yard': '/play/multiplayer/team-deathmatch/container-yard',
-  'woodlands-park': '/play/team-deathmatch/woodlands-park',
-  'host-woodlands-park': '/play/multiplayer/team-deathmatch/woodlands-park',
-  'bishan-court': '/play/team-deathmatch/bishan-court',
-  'host-bishan-court': '/play/multiplayer/team-deathmatch/bishan-court',
-  'tampines-hub': '/play/team-deathmatch/tampines-hub',
-  'host-tampines-hub': '/play/multiplayer/team-deathmatch/tampines-hub',
-  'hardpoint-smith-street': '/play/hardpoint/smith-street',
-  'host-hardpoint-smith-street': '/play/multiplayer/hardpoint/smith-street',
-  'hardpoint-container-yard': '/play/hardpoint/container-yard',
-  'host-hardpoint-container-yard': '/play/multiplayer/hardpoint/container-yard',
-  'hardpoint-woodlands-park': '/play/hardpoint/woodlands-park',
-  'host-hardpoint-woodlands-park': '/play/multiplayer/hardpoint/woodlands-park',
-  'hardpoint-bishan-court': '/play/hardpoint/bishan-court',
-  'host-hardpoint-bishan-court': '/play/multiplayer/hardpoint/bishan-court',
-  'hardpoint-tampines-hub': '/play/hardpoint/tampines-hub',
-  'host-hardpoint-tampines-hub': '/play/multiplayer/hardpoint/tampines-hub',
+  // Keep child arenas after their pickers: route order also drives transition direction.
+  ...arenaRoutes,
   multiplayer: '/multiplayer',
   store: '/store', inventory: '/inventory', settings: '/settings', debug: '/debug',
   'faction-designs': '/faction-designs', 'prop-designs': '/prop-designs',
@@ -48,16 +39,15 @@ export type Route = keyof typeof ROUTE_PATHS;
 
 /** Shared hierarchy for on-screen links and native/browser Back. */
 export function parentRoute(route: Route): Route {
+  if (Object.hasOwn(arenaRoutes, route)) {
+    if (route.startsWith('host-hardpoint-')) return 'host-hardpoint';
+    if (route.startsWith('hardpoint-')) return 'hardpoint';
+    return route.startsWith('host-') ? 'host-team-deathmatch' : 'team-deathmatch';
+  }
   switch (route) {
     case 'single-player': case 'multiplayer-menu': return getMenuDesign() === 'classic' ? 'play' : 'menu';
     case 'training-menu': case 'world': case 'team-deathmatch': case 'hardpoint': case 'free-for-all': return 'single-player';
     case 'training': case 'tutorial': return 'training-menu';
-    case 'container-yard': case 'woodlands-park': case 'bishan-court': case 'tampines-hub':
-    case 'dragon-courtyard': case 'smith-street': return 'team-deathmatch';
-    case 'host-container-yard': case 'host-woodlands-park': case 'host-bishan-court': case 'host-tampines-hub':
-    case 'host-dragon-courtyard': case 'host-smith-street': return 'host-team-deathmatch';
-    case 'hardpoint-smith-street': case 'hardpoint-container-yard': case 'hardpoint-woodlands-park': case 'hardpoint-bishan-court': case 'hardpoint-tampines-hub': return 'hardpoint';
-    case 'host-hardpoint-smith-street': case 'host-hardpoint-container-yard': case 'host-hardpoint-woodlands-park': case 'host-hardpoint-bishan-court': case 'host-hardpoint-tampines-hub': return 'host-hardpoint';
     case 'multiplayer': case 'host-team-deathmatch': case 'host-hardpoint': case 'host-free-for-all': return 'multiplayer-menu';
     default: return 'menu';
   }
@@ -111,30 +101,13 @@ function saveView() {
   views.set(routeFromPath(acceptedPath || window.location.pathname), { scroll: window.scrollY, focus: active === document.body ? undefined : parts.join(' > ') });
 }
 export const routeLabel = (route: Route) => ({
+  ...arenaLabels,
   menu: 'Main menu', play: 'Play', 'single-player': 'Single Player', 'multiplayer-menu': 'Multiplayer',
   'training-menu': 'Training', training: 'Live-fire range', tutorial: 'Tutorial',
-  world: 'Open World', 'team-deathmatch': 'Team Deathmatch', 'dragon-courtyard': 'Dragon Courtyard', 'smith-street': 'Smith Street',
+  world: 'Open World', 'team-deathmatch': 'Team Deathmatch',
   hardpoint: 'Hardpoint', 'free-for-all': 'Free for All', multiplayer: 'Find a Room',
-  'host-team-deathmatch': 'Team Deathmatch', 'host-dragon-courtyard': 'Dragon Courtyard', 'host-smith-street': 'Smith Street',
+  'host-team-deathmatch': 'Team Deathmatch',
   'host-hardpoint': 'Hardpoint', 'host-free-for-all': 'Free for All',
-  'container-yard': 'Container Yard',
-  'host-container-yard': 'Container Yard',
-  'woodlands-park': 'Park Circuit',
-  'host-woodlands-park': 'Park Circuit',
-  'bishan-court': 'Shelter Court',
-  'host-bishan-court': 'Shelter Court',
-  'tampines-hub': 'Hub Court',
-  'host-tampines-hub': 'Hub Court',
-  'hardpoint-smith-street': 'Smith Street',
-  'host-hardpoint-smith-street': 'Smith Street',
-  'hardpoint-container-yard': 'Container Yard',
-  'host-hardpoint-container-yard': 'Container Yard',
-  'hardpoint-woodlands-park': 'Park Circuit',
-  'host-hardpoint-woodlands-park': 'Park Circuit',
-  'hardpoint-bishan-court': 'Shelter Court',
-  'host-hardpoint-bishan-court': 'Shelter Court',
-  'hardpoint-tampines-hub': 'Hub Court',
-  'host-hardpoint-tampines-hub': 'Hub Court',
   store: 'Store', inventory: 'Inventory', settings: 'Settings', debug: 'Debug', 'faction-designs': 'Faction designs', 'prop-designs': 'Street props',
 })[route];
 

@@ -1,6 +1,7 @@
+import ARENA_CATALOG from '../src/game/arena-catalog.json' with {type:'json'};
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const base=process.env.ARENA_APP_ORIGIN??'http://127.0.0.1:5327',chrome=process.env.ARENA_CHROME_ORIGIN??'http://127.0.0.1:9361',out='.cache/arena-expansion';
+const base=process.env.ARENA_APP_ORIGIN??'http://127.0.0.1:5327',chrome=process.env.ARENA_CHROME_ORIGIN??'http://127.0.0.1:9361',out=process.env.ARENA_SMOKE_OUTPUT??'.cache/all-team-arenas/browser';
 await fs.mkdir(out,{recursive:true});
 const tab=await(await fetch(chrome+'/json/new?about:blank',{method:'PUT'})).json(),ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise(r=>ws.onopen=r);
 let serial=0;const pending=new Map(),errors=[];ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}if(m.method==='Page.javascriptDialogOpening')void send('Page.handleJavaScriptDialog',{accept:true});if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description??m.params.exceptionDetails.text);};
@@ -12,17 +13,17 @@ const click=async selector=>{await send('Page.bringToFront');const p=await ev(`(
 await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
 await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({scale:.7,frameCap:30,shadowDetail:'low',lensEffects:false,sightReflections:false,antialias:false}));localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',shadows:false,occlusion:false,reducedEffects:true}));`});
 try {
- for(const id of ['container-yard','woodlands-park','bishan-court','tampines-hub']){await send('Page.navigate',{url:base+'/scripts/fixtures/team-arenas.html?area='+id});await wait('window.reviewReady');await shot(id+'-layout');}
- for(const mode of ['team-deathmatch','hardpoint']){
+ for(const id of process.env.ARENA_SKIP_LAYOUTS?[]:Object.keys(ARENA_CATALOG)){await send('Page.navigate',{url:base+'/scripts/fixtures/team-arenas.html?area='+id});await wait('window.reviewReady');await shot(id+'-layout');}
+ for(const region of ['pulau-ubin','toa-payoh'])for(const mode of ['team-deathmatch','hardpoint']){
   await send('Page.navigate',{url:base+'/play/'+mode});await wait('document.querySelector(".starting-picker")');
-  assert.equal(await ev('document.querySelectorAll("[data-start-region]:not([aria-disabled])").length'),mode==='hardpoint'?5:6);
-  await click('[data-start-region="tampines"]');await wait(`document.querySelector('[data-start-region="tampines"]')?.getAttribute('aria-pressed')==='true'`);await shot(mode+'-picker');await click('.starting-deploy');
+  assert.equal(await ev('document.querySelectorAll("[data-start-region]:not([aria-disabled])").length'),Object.keys(ARENA_CATALOG).length);
+  await click(`[data-start-region="${region}"]`);await wait(`document.querySelector('[data-start-region="${region}"]')?.getAttribute('aria-pressed')==='true'`);await shot(region+'-'+mode+'-picker');await click('.starting-deploy');
   await wait('document.querySelector(".fps-game")?.dataset.phase==="ready" && !document.querySelector(".play-loading")');
-  assert.equal(await ev('document.querySelector(".fps-game").dataset.mapZone'),'tampines');assert.equal(await ev('document.querySelector(".fps-game").dataset.matchMode'),mode);
-  await shot(mode+'-ready');
+  assert.equal(await ev('document.querySelector(".fps-game").dataset.mapZone'),region);assert.equal(await ev('document.querySelector(".fps-game").dataset.matchMode'),mode);
+  await shot(region+'-'+mode+'-ready');
   await ev(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Start match').dataset.smokeStart='true'`);await click('[data-smoke-start]');await wait('document.querySelector(".fps-game")?.dataset.phase==="playing"');
-  await new Promise(r=>setTimeout(r,2000));await shot(mode+'-playing');
+  await new Promise(r=>setTimeout(r,2000));await shot(region+'-'+mode+'-playing');
  }
- await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Page.navigate',{url:base+'/play/hardpoint'});await wait('document.querySelector(".starting-picker")');await click('[aria-label="Previous arena"]');await wait(`document.querySelector('.starting-place h2')?.textContent==='Park circuit'`);await shot('hardpoint-picker-mobile');assert(await ev('document.documentElement.scrollWidth<=innerWidth'));
- assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,errors},null,2));console.log('Arena layouts, both pickers, Tampines gameplay and mobile passed.');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Page.navigate',{url:base+'/play/hardpoint'});await wait('document.querySelector(".starting-picker")');const before=await ev("document.querySelector('.starting-place h2').textContent");await click('[aria-label="Previous arena"]');await wait(`document.querySelector('.starting-place h2')?.textContent!==${JSON.stringify(before)}`);await shot('hardpoint-picker-mobile');assert(await ev('document.documentElement.scrollWidth<=innerWidth'));
+ assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,errors},null,2));console.log('Arena layouts, both pickers, Pulau Ubin and Toa Payoh gameplay and mobile passed.');
 }finally{ws.close();await fetch(chrome+'/json/close/'+tab.id);}

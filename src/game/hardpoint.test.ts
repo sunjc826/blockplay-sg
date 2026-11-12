@@ -36,7 +36,7 @@ it('caps scoring at 200 and never scores outside the match duration',()=>{
  const h=createHardpoint();h.step(-5,500,SMITH_CONTROL_SITES.map(s=>player('alpha',s)));expect(h.scores()).toEqual({alpha:200,bravo:0});
  h.step(10,20,[player('bravo')]);expect(h.scores().bravo).toBe(0);
  h.reset();h.step(359.5,400,[player('bravo',south)]);h.step(400,450,[player('bravo')]);expect(h.scores().bravo).toBe(0);
- expect(validArenaMatch({mode:'hardpoint',area:'smith-street'})).toBe(true);expect(validArenaMatch({mode:'hardpoint',area:'dragon-courtyard'})).toBe(false);
+ expect(validArenaMatch({mode:'hardpoint',area:'smith-street'})).toBe(true);expect(validArenaMatch({mode:'hardpoint',area:'dragon-courtyard'})).toBe(true);
 });
 it('installs clear capture zones with two approaches, connected team spawns and real physical cover',()=>{
  const w=buildHardpointWorld();try{

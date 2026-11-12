@@ -1,8 +1,117 @@
 {
-  "dragon-courtyard": { "name": "Toa Payoh · Dragon courtyard", "region": "toa-payoh", "hardpoint": false },
-  "smith-street": { "name": "Chinatown · Smith Street", "region": "chinatown", "hardpoint": true },
-  "container-yard": { "name": "Tuas · Container yard", "region": "tuas", "hardpoint": true },
-  "woodlands-park": { "name": "Woodlands · Park circuit", "region": "woodlands", "hardpoint": true },
-  "bishan-court": { "name": "Bishan · Shelter court", "region": "bishan", "hardpoint": true },
-  "tampines-hub": { "name": "Tampines · Hub court", "region": "tampines", "hardpoint": true }
+  "dragon-courtyard": {
+    "name": "Toa Payoh \u00b7 Dragon courtyard",
+    "region": "toa-payoh",
+    "hardpoint": true
+  },
+  "smith-street": {
+    "name": "Chinatown \u00b7 Smith Street",
+    "region": "chinatown",
+    "hardpoint": true
+  },
+  "container-yard": {
+    "name": "Tuas \u00b7 Container yard",
+    "region": "tuas",
+    "hardpoint": true
+  },
+  "woodlands-park": {
+    "name": "Woodlands \u00b7 Park circuit",
+    "region": "woodlands",
+    "hardpoint": true
+  },
+  "bishan-court": {
+    "name": "Bishan \u00b7 Shelter court",
+    "region": "bishan",
+    "hardpoint": true
+  },
+  "tampines-hub": {
+    "name": "Tampines \u00b7 Hub court",
+    "region": "tampines",
+    "hardpoint": true
+  },
+  "marina-gardens": {
+    "name": "Marina Bay \u00b7 Garden pavilions",
+    "region": "marina-bay",
+    "hardpoint": true
+  },
+  "raffles-square": {
+    "name": "Raffles Place \u00b7 Exchange square",
+    "region": "raffles-place",
+    "hardpoint": true
+  },
+  "queenstown-green": {
+    "name": "Queenstown \u00b7 Estate green",
+    "region": "queenstown",
+    "hardpoint": true
+  },
+  "kampong-courts": {
+    "name": "Kampong Glam \u00b7 Cafe courts",
+    "region": "kampong-glam",
+    "hardpoint": true
+  },
+  "jurong-gardens": {
+    "name": "Jurong Lake \u00b7 Southern gardens",
+    "region": "jurong-lake",
+    "hardpoint": true
+  },
+  "changi-arrival": {
+    "name": "Changi \u00b7 Arrival garden",
+    "region": "changi",
+    "hardpoint": true
+  },
+  "thomson-crossing": {
+    "name": "Upper Thomson \u00b7 Terrace crossing",
+    "region": "upper-thomson",
+    "hardpoint": true
+  },
+  "punggol-green": {
+    "name": "Punggol \u00b7 Precinct green",
+    "region": "punggol",
+    "hardpoint": true
+  },
+  "harbour-gateway": {
+    "name": "HarbourFront \u00b7 Gateway court",
+    "region": "harbourfront",
+    "hardpoint": true
+  },
+  "sentosa-palms": {
+    "name": "Sentosa \u00b7 Palm court",
+    "region": "sentosa",
+    "hardpoint": true
+  },
+  "geylang-lorongs": {
+    "name": "Geylang \u00b7 Lorong crossings",
+    "region": "geylang",
+    "hardpoint": true
+  },
+  "timah-corridor": {
+    "name": "Bukit Timah \u00b7 Rail approach",
+    "region": "bukit-timah",
+    "hardpoint": true
+  },
+  "orchard-boulevard": {
+    "name": "Orchard \u00b7 Boulevard crossing",
+    "region": "orchard",
+    "hardpoint": true
+  },
+  "yishun-courts": {
+    "name": "Yishun \u00b7 Neighbourhood courts",
+    "region": "yishun",
+    "hardpoint": true
+  },
+  "little-india-lanes": {
+    "name": "Little India \u00b7 Campbell crossing",
+    "region": "little-india",
+    "hardpoint": true
+  },
+  "katong-court": {
+    "name": "Katong \u00b7 Pavilion court",
+    "region": "katong-joo-chiat",
+    "hardpoint": true
+  },
+  "ubin-village": {
+    "name": "Pulau Ubin \u00b7 Village lanes",
+    "region": "pulau-ubin",
+    "hardpoint": true
+  }
 }

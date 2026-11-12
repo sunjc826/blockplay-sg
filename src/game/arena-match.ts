@@ -1,3 +1,4 @@
+import { DISTRICT_TEAM_ARENAS } from './district-team-arenas';
 import ARENA_CATALOG from './arena-catalog.json';
 import type { TeamArenaCover } from './team-arena-cover';
 import type { StructureLayout, StructureProp } from './structure-types';
@@ -10,7 +11,7 @@ export const TEAM_NAMES = { alpha: 'Alpha', bravo: 'Bravo' } as const;
 export const TDM_RULES = { teamSize: 4, scoreLimit: 30, duration: 300, respawnSeconds: 3, shieldSeconds: 3 } as const;
 export type ArenaAreaId = keyof typeof ARENA_CATALOG;
 export const ARENA_AREA_IDS = Object.keys(ARENA_CATALOG) as ArenaAreaId[];
-export type HardpointAreaId = Exclude<ArenaAreaId, 'dragon-courtyard'>;
+export type HardpointAreaId = ArenaAreaId;
 export type ArenaMatch = { mode: 'free-for-all' } | { mode: 'team-deathmatch'; area: ArenaAreaId } | {mode:'hardpoint';area:HardpointAreaId};
 export const DEFAULT_ARENA_MATCH: ArenaMatch = { mode: 'free-for-all' };
 export interface TeamDeathmatchArea {
@@ -64,6 +65,7 @@ export const TDM_AREAS: readonly TeamDeathmatchArea[] = [
     patrols:points([[18,-65],[55,-68],[92,-65],[18,-20],[55,-40],[92,-20],[55,-12],[44,-52],[66,-28]]),
     cover:[{x:55,z:-55,width:6,depth:2,height:2.5,color:'#b27b5b'},{x:55,z:-25,width:6,depth:2,height:2.5,color:'#b27b5b'}],
     layout:coverLayout('tampines-hub',[[44,-55,'barricade',0,.7],[66,-25,'barricade',0,.7],[50,-76,'stores',0,.18],[60,-4,'stores',0,.18],[18,-52,'barricade',0,.18],[92,-28,'barricade',0,.18]]) },
+  ...DISTRICT_TEAM_ARENAS,
 ];
 export const tdmArea = (id: string) => TDM_AREAS.find(area => area.id === id);
 export function validArenaMatch(value: unknown): value is ArenaMatch {

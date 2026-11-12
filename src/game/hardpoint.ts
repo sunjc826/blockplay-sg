@@ -1,3 +1,4 @@
+import { DISTRICT_TEAM_ARENAS, DRAGON_CONTROL_SITES } from './district-team-arenas';
 import { tdmArea, type HardpointAreaId, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
 import type { StructureLayout } from './structure-types';
 
@@ -30,6 +31,8 @@ export const HARDPOINT_ARENAS:readonly HardpointArena[] = [
   arena('woodlands-park',sites([['lawn','Central lawn',137,88],['grove','West grove',108,114],['path','East path',166,60]])),
   arena('bishan-court',sites([['shelter','Shade court',-60,-140],['north','North court approach',-60,-174],['garden','Garden flank',-36,-114]])),
   arena('tampines-hub',sites([['centre','Centre court',55,-40,.7],['concourse','North concourse',55,-70,.18],['arrival','South arrival',55,-10,.18]])),
+  arena('dragon-courtyard',DRAGON_CONTROL_SITES),
+  ...DISTRICT_TEAM_ARENAS.map(area=>arena(area.id,area.sites)),
 ];
 export const hardpointArena = (id:string) => HARDPOINT_ARENAS.find(config=>config.area.id===id);
 

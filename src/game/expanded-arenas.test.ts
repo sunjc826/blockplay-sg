@@ -1,3 +1,5 @@
+import { REGION_IDS } from './regions';
+import ARENA_CATALOG from './arena-catalog.json';
 import { expect, it, vi } from 'vitest';
 import { HARDPOINT_ARENAS, controlGoal, HARDPOINT_RULES } from './hardpoint';
 import { buildHardpointWorld } from './hardpoint-world';
@@ -8,7 +10,14 @@ import { createArena } from './arena-rules';
 import { validArenaSnapshot } from './arena-runtime';
 import { createSceneCover } from './scene-cover';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
-import { ARENA_TEAMS, validArenaMatch } from './arena-match';
+import { ARENA_TEAMS, TDM_AREAS, validArenaMatch } from './arena-match';
+
+it('covers every Singapore region exactly once in both modes and the room catalog',()=>{
+  expect(TDM_AREAS.map(a=>a.region).sort()).toEqual([...REGION_IDS].sort());
+  expect(HARDPOINT_ARENAS.map(a=>a.area.region).sort()).toEqual([...REGION_IDS].sort());
+  expect(TDM_AREAS.map(a=>a.id).sort()).toEqual(Object.keys(ARENA_CATALOG).sort());
+  for(const a of TDM_AREAS)expect(ARENA_CATALOG[a.id]).toEqual({name:a.name,region:a.region,hardpoint:true});
+});
 
 it.each(HARDPOINT_ARENAS.slice(1))('$area.name has clear objectives and connected, safe spawns',({area,sites,layout})=>{
   const w=buildHardpointWorld(area.id);
@@ -32,7 +41,7 @@ it.each(HARDPOINT_ARENAS.slice(1))('$area.name has clear objectives and connecte
         for(const p of safe) {
           const y=w.bounds.groundHeight?.(p.x,p.z)??0;
           expect(move.canOccupy(p.x,y,p.z,.5,1.8),`${team} spawn ${p.x},${p.z}`).toBe(true);
-          for(let slot=0;slot<4;slot++)expect(nav.route({...p,y},{...controlGoal(site,slot),y:site.y}).length,`${team} to ${site.id}/${slot}`).toBeGreaterThan(0);
+          for(let slot=0;slot<4;slot++)expect(nav.route({...p,y},{...controlGoal(site,slot),y:site.y}).length,`${team} spawn ${p.x},${p.z} to ${site.id}/${slot}`).toBeGreaterThan(0);
         }
       }
       for(const side of [-1,1])expect(nav.route({x:site.x+(site.id==='gantry'?0:side*7),y:site.y,z:site.z+(site.id==='gantry'?side*9:0)},{...site}).length,`${site.id} approach ${side}`).toBeGreaterThan(0);
