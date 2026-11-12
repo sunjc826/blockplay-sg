@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { INFANTRY_SPEED, movementFrameSteps, runningItemMotion, advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
+import { INFANTRY_SPEED, movementFrameSteps, advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
+import { runningWeaponMotion } from './fps-weapon-run';
 import { createVerticalMovement } from './vertical-movement';
 
 const flat = () => createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [], surfaces: [], traversalObstacles: [] });
@@ -123,12 +124,12 @@ describe('wall-clock traversal and running presentation', () => {
     const state = createMovementMotion();
     advanceBodyMotion(state, 1.75, 'stand', 8.8, true, true, 0, 8.8, .5);
     expect(state.gait).toBeCloseTo(Math.PI * 2);
-    const first = runningItemMotion(state, 3);
-    state.gait += Math.PI / 2; const next = runningItemMotion(state, 3);
+    const first = runningWeaponMotion(state, { id: 'sar21-inspired', weightKg: 3 });
+    state.gait += Math.PI / 2; const next = runningWeaponMotion(state, { id: 'sar21-inspired', weightKg: 3 });
     expect(Math.abs(first.x - next.x)).toBeGreaterThan(.02);
-    for (const value of Object.values(runningItemMotion(state, 3, 1))) expect(value).toBeCloseTo(0);
-    const reduced = runningItemMotion(state, 3, 0, true); state.gait += 1;
-    expect(runningItemMotion(state, 3, 0, true)).toEqual(reduced);
+    for (const value of Object.values(runningWeaponMotion(state, { id: 'sar21-inspired', weightKg: 3 }, 1))) expect(value).toBeCloseTo(0);
+    const reduced = runningWeaponMotion(state, { id: 'sar21-inspired', weightKg: 3 }, 0, true); state.gait += 1;
+    expect(runningWeaponMotion(state, { id: 'sar21-inspired', weightKg: 3 }, 0, true)).toEqual(reduced);
     expect(reduced.y).toBeLessThan(0);
   });
 });

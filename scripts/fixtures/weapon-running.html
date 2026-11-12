@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Weapon running poses</title>
+<style>body{margin:0;background:#83969e;color:#fff;font:14px system-ui}canvas{display:block}#controls{position:absolute;top:16px;left:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;right:16px}select,button{padding:8px}input{width:200px}</style>
+<div id="controls"><select id="weapon"></select><button id="play">Pause</button><label>Run <input id="run" type="range" min="0" max="1" step=".01" value="1"></label><label><input id="reduced" type="checkbox">Reduced motion</label></div>
+<script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import {FPS_WEAPONS} from '/src/game/fps-rules.ts';
+import {buildServiceWeapon} from '/src/game/service-weapon-models.ts';
+import {createWeaponHandling} from '/src/game/fps-viewmodel.ts';
+import {dressWeapon} from '/src/game/armory-visuals.ts';
+import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
+import {createMovementMotion} from '/src/game/fps-movement.ts';
+import {runningWeaponMotion} from '/src/game/fps-weapon-run.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(innerWidth,innerHeight);renderer.toneMapping=THREE.ACESFilmicToneMapping;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#83969e');scene.add(new THREE.HemisphereLight('#e4efff','#576350',2.1));const key=new THREE.DirectionalLight('#fff4dd',2.5);key.position.set(1,2,1);scene.add(key);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.01,10),rig=new THREE.Group();scene.add(rig);
+const loader=new GLTFLoader(),models=await Promise.all(FPS_WEAPONS.map(async(spec,i)=>i<2?(await loader.loadAsync('/models/field-kit/'+spec.id+'.glb')).scene:buildServiceWeapon(spec.id)));
+const equipped=resolveLoadout(createProfile()).weapons;
+models.forEach((model,i)=>{dressWeapon(model,equipped[i]);createWeaponHandling(model,i).update(null,false);rig.add(model);});
+const select=document.querySelector('#weapon'),run=document.querySelector('#run'),reduced=document.querySelector('#reduced');FPS_WEAPONS.forEach((w,i)=>select.add(new Option(w.name,i)));
+function frame(index,phase,sprint=1,quiet=false){
+ select.value=index;models.forEach((m,i)=>m.visible=i===index);
+ const state={...createMovementMotion(),gait:phase,gaitWeight:1,sprint};
+ const pose=runningWeaponMotion(state,FPS_WEAPONS[index],0,quiet);
+ rig.position.set(.20+pose.x,-.32+pose.y,-.78+pose.z);rig.rotation.set(pose.pitch,pose.yaw,pose.roll);renderer.render(scene,camera);return pose;
+}
+let playing=true,phase=0,last=performance.now();document.querySelector('#play').onclick=()=>{playing=!playing;document.querySelector('#play').textContent=playing?'Pause':'Play';};
+const render=()=>frame(Number(select.value),phase,Number(run.value),reduced.checked);
+select.onchange=run.oninput=reduced.onchange=render;
+function tick(now){if(playing){phase+=(now-last)/1000*12;render();}last=now;requestAnimationFrame(tick);}render();requestAnimationFrame(tick);
+window.onresize=()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);render();};
+window.review={frame,models,rig,camera,renderer,pause:()=>playing=false};window.ready=true;
+</script>

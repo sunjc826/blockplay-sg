@@ -78,14 +78,3 @@ export function advanceBodyMotion(state: MovementMotion, eye: number, stance: Mo
   if (!grounded || speed < .1) state.stepDistance = 0;
   return step;
 }
-
-/** Low-ready sprint carry, driven by the same footfalls as the body. Static
- * lowering remains with reduced motion; optional oscillation does not. */
-export function runningItemMotion(state: MovementMotion, weightKg: number, aim = 0, reduced = false) {
-  const run = state.sprint * (1 - clamp(aim, 0, 1));
-  const swing = run * state.gaitWeight * (reduced ? 0 : 1) * clamp(1 - weightKg * .018, .55, 1);
-  const side = Math.sin(state.gait), step = Math.cos(state.gait * 2);
-  return { x: run * .035 + side * .028 * swing, y: -run * .075 + step * .018 * swing,
-    z: run * .045 + step * .012 * swing, pitch: -run * .22 + step * .035 * swing,
-    yaw: run * .12 + side * .045 * swing, roll: -run * .18 + side * .06 * swing };
-}

@@ -91,7 +91,7 @@ import { createWorldAtmosphere } from './world-atmosphere';
 import { createWetSurfaces } from './wet-surfaces';
 import { createNightLights, nightLevel } from './world-night-lights';
 import { getRegion } from './regions';
-import { INFANTRY_SPEED, movementFrameSteps, runningItemMotion, createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
+import { INFANTRY_SPEED, movementFrameSteps, createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
 import { elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getPhysicalWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -174,6 +174,7 @@ import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
 import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, READY_BEATS, READY_SECONDS, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
+import { runningWeaponMotion } from './fps-weapon-run';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { SLIDE_EYE_HEIGHT, SLIDE_SPREAD, advanceSlide, coolSlide, createSlide, endSlide, resolveSlideContact, startSlide } from './fps-slide';
 import { createFpsComms, type CommsEntry } from './fps-comms';
@@ -2778,8 +2779,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const eyeX = offsetSight ? cant * (offsetSight.aimX * Math.cos(roll) - offsetSight.aimHeight * Math.sin(roll)) : 0;
     const eyeY = THREE.MathUtils.lerp(handling[hud.weapon]?.aimHeight ?? .435, offsetSight ? offsetSight.aimX * Math.sin(roll) + offsetSight.aimHeight * Math.cos(roll) : 0, offsetSight ? cant : 0);
     const eyeDepth = THREE.MathUtils.lerp(handling[hud.weapon]?.aimDepth ?? -.47, offsetSight?.aimDepth ?? 0, offsetSight ? cant : 0);
+    // Integral modes keep the parent gun's carry and fitted weight.
+    const run = runningWeaponMotion(bodyMotion, specs[primaryWeaponFamily(hud.weapon)], aim, !!motionPreference?.matches);
     // Sliding, the gun rolls in across the chest, still pointed where the shots go.
-    const run = runningItemMotion(bodyMotion, specs[hud.weapon].weightKg ?? 3, aim, !!motionPreference?.matches);
     const slideCant = slideWeight * motionScale * (1 - aim);
     rig.position.set(THREE.MathUtils.lerp(.20, -eyeX, aim) + sway + run.x - slideCant * .05 + motion.x * reloadTravel + lookLagX,
       THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) + run.y - slideCant * .03 + bodyFollow + motion.y * reloadTravel + lookLagY,
