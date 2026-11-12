@@ -18,14 +18,16 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const GAIT = {
   /** Fraction of the cycle a foot is on the ground: a walk always has one down, a run has a flight phase. */
   walkDuty: .6, runDuty: .27,
-  /** Ground a planted foot covers, hip-relative, limited by the .88 m leg. */
-  walkStance: .62, runStance: .82,
+  /** Ground a planted foot covers, hip-relative, limited by the .82 m leg and how far the hips drop. */
+  walkStance: .58, runStance: .74,
   /** Speeds over which the walk turns into a run (m/s). */
   jogFrom: 1.6, runFrom: 4.2,
   /** Full left-right cycles per second: the cadence never drops to a crawl or rises to a blur. */
   minCadence: .7, maxCadence: 2.3,
   /** Half-length of the planted stretch no leg can exceed; past it, cadence is capped and feet slip. */
   maxReach: .45,
+  /** Closest the two ankles (centre to centre, a boot is .11 wide) come when stepping sideways (m). */
+  sideClearance: .135,
 } as const;
 
 export interface GaitShape {
@@ -37,19 +39,51 @@ export interface GaitShape {
   stride: number;
   /** Foot travel either side of the hip during stance (m); the planted foot covers 2 × reach. */
   reach: number;
+  /**
+   * How far the trailing foot's cycle runs behind the leading foot's, as a
+   * fraction of the cycle: .5 walking forwards (alternate feet), less when
+   * stepping sideways, where the lead foot steps out and the trailing foot
+   * closes up behind it instead of crossing over.
+   */
+  lag: number;
 }
 
-/** Cycle shape for a ground speed (m/s) and crouch (0..1). Crouched steps are shorter and quicker. */
-export function gaitShape(speed: number, crouch = 0, out: GaitShape = { blend: 0, duty: 0, stride: 0, reach: 0 }): GaitShape {
-  const v = Math.max(0, speed);
+/**
+ * Cycle shape for a ground speed (m/s), crouch (0..1) and how sideways the
+ * travel is (0 straight ahead or back, 1 directly sideways). Crouched steps are
+ * shorter and quicker. Sideways steps are shorter still and, at speed, become a
+ * side-skip with a moment off the ground, since the feet cannot pass each other.
+ */
+export function gaitShape(speed: number, crouch = 0, out: GaitShape = { blend: 0, duty: 0, stride: 0, reach: 0, lag: .5 }, lateral = 0): GaitShape {
+  const v = Math.max(0, speed), side = clamp(lateral, 0, 1);
   const blend = smoothstep(GAIT.jogFrom, GAIT.runFrom, v);
-  const duty = lerp(GAIT.walkDuty, GAIT.runDuty, blend);
-  const stance = lerp(GAIT.walkStance, GAIT.runStance, blend) * (1 - clamp(crouch, 0, 1) * .25);
+  const forward = lerp(GAIT.walkDuty, GAIT.runDuty, blend);
+  const duty = lerp(forward, Math.min(forward, .32), side * smoothstep(1.2, 2.4, v));
+  const stance = lerp(GAIT.walkStance, GAIT.runStance, blend) * (1 - clamp(crouch, 0, 1) * .25) * (1 - side * .55);
   // The stride a planted foot allows, held between the slowest and quickest cadence.
-  const stride = clamp(stance / duty, v / GAIT.maxCadence, Math.max(v / GAIT.minCadence, .05));
-  out.blend = blend; out.duty = duty; out.stride = stride;
+  const stride = clamp(stance / duty, v / (GAIT.maxCadence + side * .5), Math.max(v / GAIT.minCadence, .05));
+  // Step-together while one foot is always down; a quick skip once there is a flight phase.
+  const sideLag = lerp(duty / 3, 1 - duty, smoothstep(.42, .55, duty));
+  out.blend = blend; out.duty = duty; out.stride = stride; out.lag = lerp(.5, sideLag, side);
   out.reach = Math.min(GAIT.maxReach, duty * stride / 2);
   return out;
+}
+
+/**
+ * The furthest the trailing foot gets ahead of the leading one over a cycle,
+ * in units of `reach` along the travel. Forwards (lag .5) it is about 2: the
+ * feet pass each other. Sideways that has to be made up by standing wider, so
+ * the feet never cross.
+ */
+export function trailOvertake(duty: number, lag: number, samples = 24, slopeCap = 3) {
+  const lead = footSample(), trail = footSample();
+  let most = -Infinity;
+  for (let i = 0; i < samples; i++) {
+    const phase = i / samples * Math.PI * 2;
+    footCycle(phase, duty, lead, 0, slopeCap); footCycle(phase - lag * Math.PI * 2, duty, trail, 0, slopeCap);
+    most = Math.max(most, trail.along - lead.along);
+  }
+  return most;
 }
 
 export interface FootSample {
@@ -72,7 +106,7 @@ export const footSample = (): FootSample => ({ along: 0, lift: 0, stance: 0, hee
  * mid-stance (under the hip) at phase π, as the rig's left foot always was.
  * Stance is linear in time, so a planted foot moves at a constant speed.
  */
-export function footCycle(phase: number, duty: number, out: FootSample = footSample(), kick = 0): FootSample {
+export function footCycle(phase: number, duty: number, out: FootSample = footSample(), kick = 0, slopeCap = 3): FootSample {
   const d = clamp(duty, .05, .95);
   let u = ((phase - Math.PI) / TAU + d / 2) % 1; if (u < 0) u += 1;
   if (u < d) {
@@ -84,7 +118,7 @@ export function footCycle(phase: number, duty: number, out: FootSample = footSam
     // A Hermite arc that leaves and meets the ground moving back at the
     // planted speed (capped for runs, where it would overshoot the leg), so
     // the foot does not skid forward on lift-off or touchdown.
-    const slope = -Math.min(3, 2 * (1 - d) / d), s2 = s * s, s3 = s2 * s;
+    const slope = -Math.min(slopeCap, 2 * (1 - d) / d), s2 = s * s, s3 = s2 * s;
     out.along = -(2 * s3 - 3 * s2 + 1) + (s3 - 2 * s2 + s) * slope + (-2 * s3 + 3 * s2) + (s3 - s2) * slope;
     // Clearance peaks a little before mid-swing; running (`kick` → 1), earlier
     // still, the heel flicking up behind before the knee drives through.
