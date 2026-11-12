@@ -6974,3 +6974,34 @@ now mauve (`DUSK_AIR`) with the warmth kept on the sun side, the dusk grade is
 gentler, and overcast/rain clouds are a darker deck against the grey sky.
 Evidence `.cache/marina-lighting/tune1-{dusk,towers-dusk,rain}.png`. Rain haze
 still reads slightly cyan (the weather's own sky colour); left alone.
+
+
+## 2026-11-12 — Look polish: surface variation, motion, AO stability (merged locally)
+
+Three parallel agent branches merged into main after owner review of evidence.
+
+- Surface variation (Marina only, `DistrictLook.surface`): per-building tint by
+  8 m footprint cell, blocky ground cells (value and roughness), wall panels,
+  grimy foot and upward lift, in the lit-material patch. Off with reduced
+  effects and on software renderers. Faint by design; cells do not align with
+  paving seams or mullions. Evidence `.cache/marina-surfaces/`.
+- Character rig (all modes, new `gait-motion.ts`): stance/swing gait with
+  planted feet, hip/pelvis/shoulder weight, lean springs, breathing, idle weight
+  shifts; sidestep pattern for strafes and diagonals; backpedal no longer keeps
+  the forward stride. Legs shortened to thigh .421 / shin .404 so standing knees
+  are near straight with hips, torso and head unchanged. Trade-off accepted for
+  review: head rides 1.5-2 cm lower at walk/run. Still open: slip on rapid
+  direction changes (~.45 m/s) and run-turns, first-person body legs, bowed
+  knees on diagonals. Evidence `.cache/marina-motion/` and `followup/`.
+- Ambient: gust fronts in batched trees (all districts), camera-following
+  leaves and sun motes (`ambient-drift.ts`, Marina), night windows that change
+  over minutes with a few flickering screens.
+- AO stability (all districts, AO on): median-slope normals for GTAO
+  (`gtao-stability.ts`) and temporal half-res AO with depth-aware upsampling
+  (`ao-temporal.ts`). Evidence and harness `.cache/marina-stability/`.
+
+Combined tree: typecheck clean, 3,985 tests pass. Not done: browser smokes,
+live session, phones, SwiftShader, `audit:map-surfaces`. Findings left alone:
+walk/drive ignores the Sun shadows toggle and Shadow detail; Low/Battery have
+no anti-aliasing; SMAA on Ultra adds shimmer; `MarinaGame` may apply
+`withGroundCover` twice (white lawns in a harness, unverified in the game).
