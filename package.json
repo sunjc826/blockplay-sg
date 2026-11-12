@@ -98,6 +98,7 @@
     "analyse:weapons": "node --experimental-strip-types scripts/weapon-breakpoints.mjs",
     "audit:map-cover": "node --experimental-strip-types scripts/map-cover-audit.mjs",
     "audit:map-surfaces": "node --experimental-strip-types scripts/map-surface-audit.mjs",
+    "audit:shape-language": "node --experimental-strip-types scripts/shape-language-audit.mjs",
     "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs",
     "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs",
     "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs",
