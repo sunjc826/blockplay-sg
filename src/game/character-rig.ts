@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { bailoutRoll } from './bailout-roll';
-import { footCycle, footSample, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring, type GaitShape } from './gait-motion';
+import { footCycle, footSample, GAIT, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring, trailOvertake, type GaitShape } from './gait-motion';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CamoPattern, PatchLook } from './arena-factions';
 
@@ -104,7 +104,8 @@ type JointName = 'hips' | 'spine' | 'chest' | 'neck' | 'head'
   | 'thighL' | 'shinL' | 'footL' | 'thighR' | 'shinR' | 'footR';
 
 export const CHARACTER_DIMENSIONS = {
-  thigh: .45, shin: .43, ankle: .085, upperArm: .31, forearm: .28,
+  // Hip joint to ankle is .82 m standing: these leave the knee about 12° bent, 6° on a leg taking the weight.
+  thigh: .421, shin: .404, ankle: .085, upperArm: .31, forearm: .28,
   standingHips: .935, seatedHips: .45,
   spine: .1, chest: .2, neck: .27, head: .08,
 } as const;
@@ -665,19 +666,23 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   let waterBlind = 0, waterMist = 0, waterTime = 0;
   let lastWater: CharacterDrive['water'];
   let down = false, downTime = 0, gestureTime = 0, gesture: CharacterGesture = 'idle', gestureBlend = 0, lookYaw = 0, lookPitch = 0;
-  const moveDirection = new THREE.Vector2(0, -1), wanted = new THREE.Vector2();
+  const moveDirection = new THREE.Vector2(0, -1);
   const target = new THREE.Vector3(), world = new THREE.Vector3(), pole = new THREE.Vector3();
   const waterTarget = new THREE.Vector3();
   const footLevel = new THREE.Quaternion(), footEuler = new THREE.Euler();
   // Secondary motion: cycle shape, both feet, filtered arm swing, body-local
   // velocity for acceleration, springs for lean and the weapon's lag, and how
   // hard the figure is breathing. All presentation only.
-  const gait: GaitShape = { blend: 0, duty: .6, stride: 1, reach: 0 };
+  const gait: GaitShape = { blend: 0, duty: .6, stride: 1, reach: 0, lag: .5 };
   const feet = [footSample(), footSample()] as const, armSwing = [0, 0], settleLift = [0, 0];
   const lastFoot = [new THREE.Vector3(), new THREE.Vector3()];
-  let localX = 0, localZ = 0, exertion = 0, breath = time * 1.7, hipDrop = 0;
+  let sideways = 0, localX = 0, localZ = 0, exertion = 0, breath = time * 1.7, hipDrop = 0;
   const leanSpring = spring(), rollSpring = spring(), weaponLag = spring();
 
+  function turnTowards(angle: number, amount: number) {
+    const now = Math.atan2(moveDirection.y, moveDirection.x), next = now + Math.atan2(Math.sin(angle - now), Math.cos(angle - now)) * amount;
+    moveDirection.set(Math.cos(next), Math.sin(next));
+  }
   /** Body-space point → the given joint's parent frame. */
   function toParent(point: THREE.Vector3, bone: THREE.Object3D) {
     world.copy(point); body.localToWorld(world); return bone.parent!.worldToLocal(world);
@@ -732,8 +737,10 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     const linear = Math.hypot(velocity.x, velocity.z);
     const speed = down ? 0 : Math.max(linear, turnSpeed);
     speedSmoothed = smooth(speedSmoothed, speed, 8, dt);
-    if (linear > .05) moveDirection.lerp(wanted.set(velocity.x / linear, velocity.z / linear), 1 - Math.exp(-10 * dt)).normalize();
-    else if (turnSpeed > .05) moveDirection.lerp(wanted.set(1, 0), 1 - Math.exp(-6 * dt)).normalize();
+    // Turned through the angle, not blended as vectors: a lerp between opposite
+    // directions never flips, and backing away kept the forward stride.
+    if (linear > .05) turnTowards(Math.atan2(velocity.z, velocity.x), 1 - Math.exp(-10 * dt));
+    else if (turnSpeed > .05) turnTowards(0, 1 - Math.exp(-6 * dt));
     crouch = smooth(crouch, down ? Math.min(1, downTime * 4) : clamp01(drive.crouch ?? 0), 10, dt);
     prone = smooth(prone, drive.prone && !down ? 1 : 0, 6, dt);
     slide = smooth(slide, down ? 0 : clamp01(drive.slide ?? 0), 14, dt);
@@ -769,12 +776,23 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     const crawling = prone > .5;
     // Full left/right cycle. Cadence rises with speed so a planted foot covers
     // exactly the ground the body does (gait-motion).
-    gaitShape(walking, crouch, gait);
+    // Travel across the body becomes a sidestep: the foot on the side of travel
+    // leads, the other closes behind it, and they never cross.
+    // Eased, so the step pattern changes over a few steps instead of skating as the direction swings round.
+    sideways = smooth(sideways, crawling ? 0 : THREE.MathUtils.smoothstep(Math.abs(moveDirection.x), .35, .9), 6, dt);
+    gaitShape(walking, crouch, gait, sideways);
     const stride = crawling ? .55 : gait.stride;
     phase = drive.gaitPhase ?? (phase + walking * dt / stride * Math.PI * 2) % (Math.PI * 4);
     const stepReach = (crawling ? Math.min(stride / 5, .52) : gait.reach) * moveWeight;
-    const lift = (.09 + gait.blend * .2 - crouch * .03) * moveWeight;
-    footCycle(phase, gait.duty, feet[0], gait.blend); footCycle(phase + Math.PI, gait.duty, feet[1], gait.blend);
+    const lift = (.09 + gait.blend * .2 - crouch * .03) * moveWeight * (1 - sideways * .35);
+    const trailLag = (gait.lag - .5) * Math.PI * 2, leadRight = moveDirection.x >= 0;
+    // A side-skip lands moving at full speed (its feet are low, so the overshoot costs no reach).
+    const slopeCap = 3 + sideways * 2;
+    footCycle(phase - (leadRight ? trailLag : 0), gait.duty, feet[0], gait.blend, slopeCap);
+    footCycle(phase + Math.PI - (leadRight ? 0 : trailLag), gait.duty, feet[1], gait.blend, slopeCap);
+    // Across the body the feet stand wide enough apart that the trailing one, closing up, stops short of the lead.
+    const across = Math.abs(moveDirection.x) * stepReach;
+    const sideSpread = across > .005 ? (GAIT.sideClearance + across * Math.max(0, trailOvertake(gait.duty, gait.lag, 16, slopeCap))) / 2 : 0;
     // Body-local acceleration leans the figure into starts, stops and turns.
     const gx = localX, gz = localZ;
     localX = smooth(localX, down ? 0 : velocity.x, 12, dt); localZ = smooth(localZ, down ? 0 : velocity.z, 12, dt);
@@ -799,12 +817,21 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     // A walk vaults over each planted leg; a run sinks into it. The hips sit
     // over the supporting foot and its side rides up as the swing side drops.
     const stepping = moveWeight * (1 - prone) * (1 - seated);
-    const support = hipsFromFeet(feet[0], feet[1], gait.blend, .03, .05);
-    const bob = support.drop * stepping + gait.blend * .05 * moveWeight;
+    const support = hipsFromFeet(feet[0], feet[1], gait.blend, .04, .05);
+    // A wide sidestep sinks the hips just enough for the outstretched leg to reach the ground.
+    // Only a planted foot needs the reach, and only as far out as it is right now.
+    let wide = 0;
+    for (const [i, side] of [[0, -1], [1, 1]] as const) if (feet[i].stance >= 0) {
+      wide = Math.max(wide, Math.abs(side * (Math.max(.1, sideSpread) - .1) + moveDirection.x * feet[i].along * stepReach));
+    }
+    const legReach = (D.thigh + D.shin) * .99;
+    const sideDrop = legReach - Math.sqrt(Math.max(0, legReach * legReach - wide * wide));
+    // The running crouch is for long strides ahead; a sidestep keeps its height and only sinks to reach.
+    const bob = support.drop * stepping * (1 - sideways * .5) + gait.blend * .07 * moveWeight * (1 - sideways) + sideDrop * (1 - seated) * (1 - prone);
     // Standing, the weight drifts from leg to leg instead of swaying evenly.
     const standing = still * (1 - crouch) * upright;
     const weight = idleWeight(time) * standing;
-    const sway = weight * .038;
+    const sway = weight * .03;
     const crouchDrop = crouch * (.4 - seated * .4);
     const hipHeight = seated > .01 ? THREE.MathUtils.lerp(D.standingHips, D.seatedHips, seated) : D.standingHips;
     // Leaning into a stop or start dips the hips a little as the legs take it.
@@ -813,7 +840,7 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     const lean = runWeight * .28 + moveWeight * .05 * -moveDirection.y;
     // The pelvis turns with the leading leg; the shoulders turn against it.
     const pelvisYaw = (feet[1].along - feet[0].along) * .5 * (.12 + gait.blend * .05) * stepping * -moveDirection.y;
-    const pelvisRoll = support.roll * .045 * (1 - gait.blend * .5) * stepping + weight * .06;
+    const pelvisRoll = support.roll * .045 * (1 - gait.blend * .5) * stepping + weight * .035;
     hips.rotation.set(-(crouch * .35 * (1 - seated)) - lean * .4 + slide * .75 - leanSpring.value * .5, pelvisYaw, pelvisRoll + flinch * .06 * flinchSide, 'YXZ');
     const pitchAim = (drive.pitch ?? 0) * (1 - prone * .3);
     const gestureLean = gesture === 'wipe' ? .22 * gestureBlend : gesture === 'offer' ? .1 * gestureBlend : 0;
@@ -883,14 +910,17 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
       const along = cycle.along * stepReach * (1 - prone);
       let up = cycle.lift * lift * (1 - prone);
       // Toe-off raises the heel (the ankle lifts, the toe stays down); the toes come up before heel strike.
-      const roll = stepping * (1 - crouch * .5), heel = cycle.heel * .45 * roll, toes = cycle.toe * .25 * roll;
-      if (cycle.stance >= 0) up += Math.sin(heel) * .17;
+      // A sidestep has no heel-to-toe roll; it lands on the ball of the foot and settles onto the heel.
+      const roll = stepping * (1 - crouch * .5), heel = cycle.heel * .45 * roll * (1 - sideways), toes = cycle.toe * .25 * roll * (1 - sideways);
+      const ball = cycle.toe * .2 * roll * sideways;
+      // Through swing too, so the ankle height runs on unbroken into and out of each stance.
+      up += Math.sin(heel) * .17 + Math.sin(toes) * .065 + Math.sin(ball) * .17;
       // Standing on one leg, the other knee relaxes with its foot a little forward.
       const relaxed = Math.max(0, -weight * side);
-      const spread = .1 + crouch * .04 * (1 - seated) + air * .02 - gait.blend * .025 * moveWeight;
-      // Sidesteps are shorter and never cross the feet over.
-      const lateral = side * spread + moveDirection.x * along * .65;
-      target.set(side < 0 ? Math.min(lateral, -.05) : Math.max(lateral, .05), D.ankle + up + relaxed * .006, moveDirection.y * along - relaxed * .05);
+      const spread = Math.max(.1 + crouch * .04 * (1 - seated) + air * .02 - gait.blend * .025 * moveWeight, sideSpread);
+      // The planted foot moves under the body at its full speed in any direction;
+      // the sidestep spacing (sideSpread) is what keeps the feet from crossing.
+      target.set(side * spread + moveDirection.x * along, D.ankle + up + relaxed * .006, moveDirection.y * along - relaxed * .05);
       // A foot dragged into place when the cycle winds down (a stop, a settle) is stepped, not slid.
       const moved = dt > 0 ? Math.hypot(target.x - lastFoot[index].x, target.z - lastFoot[index].z) / dt : 0;
       lastFoot[index].copy(target);
@@ -906,11 +936,11 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
         target.lerp(tmpB.set(side * (.15 + crawl * .14), hips.position.y - D.thigh - D.shin + .02 + crawl * .3, .05 - crawl * .04), prone);
       }
       // Lying on the back, body-space +z is down: keep the heels on the ground.
-      if (fall > .01) target.lerp(tmpB.set(side * .19, hips.position.y - .87 + (side > 0 ? .14 : 0), .03), fall);
+      if (fall > .01) target.lerp(tmpB.set(side * .19, hips.position.y - D.thigh - D.shin + .01 + (side > 0 ? .14 : 0), .03), fall);
       if (slide > .01) target.lerp(tmpB.set(side * .15, D.ankle, side < 0 ? -.68 : -.14), slide);
       pole.set(side * (.15 + prone * .9 + slide * .5), 0, -1).normalize();
       // The pole is a direction in the thigh parent's frame (hips).
-      solveFoot(thigh, shin, foot, target, pole, -.04 + (toes - heel) * (1 - prone) + prone * .9);
+      solveFoot(thigh, shin, foot, target, pole, -.04 + (toes - heel - ball) * (1 - prone) + prone * .9);
     }
     root.updateWorldMatrix(false, true);
 

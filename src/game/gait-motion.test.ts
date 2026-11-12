@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { footCycle, footSample, GAIT, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring } from './gait-motion';
+import { footCycle, footSample, GAIT, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring, trailOvertake } from './gait-motion';
 
 describe('gait shape', () => {
   it('fits each step to the leg, so a planted foot covers exactly the ground the body does', () => {
@@ -19,6 +19,20 @@ describe('gait shape', () => {
     expect(gaitShape(6).duty).toBeLessThan(.35);
     expect(gaitShape(6).blend).toBe(1);
     expect(gaitShape(1).blend).toBe(0);
+  });
+  it('plants the foot sideways too, stepping out and closing rather than alternating', () => {
+    for (const speed of [.8, 1.2, 2.6, 3.4]) {
+      const shape = gaitShape(speed, 0, undefined, 1);
+      expect(2 * shape.reach / (shape.duty * shape.stride / speed)).toBeCloseTo(speed, 5);
+      expect(shape.lag).toBeLessThan(.45);
+      // The trailing foot gets no further ahead of the lead than this many reaches.
+      expect(trailOvertake(shape.duty, shape.lag)).toBeLessThan(1.4);
+    }
+    // Forwards the feet pass each other; quick sideways it is a skip with a flight phase.
+    expect(trailOvertake(.6, .5)).toBeGreaterThan(1.6);
+    expect(gaitShape(2.6, 0, undefined, 1).duty).toBeLessThan(.4);
+    expect(gaitShape(1, 0, undefined, 1).duty).toBeGreaterThan(.55);
+    expect(gaitShape(2, 0, undefined, 0).lag).toBe(.5);
   });
   it('takes shorter steps crouched', () => {
     expect(gaitShape(2, 1).stride).toBeLessThan(gaitShape(2, 0).stride);

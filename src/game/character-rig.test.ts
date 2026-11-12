@@ -90,11 +90,12 @@ describe('articulated characters', () => {
     });
     expect(max - min).toBeGreaterThan(.65); rig.dispose();
   });
-  it('keeps a planted foot still on the ground while the body walks or runs over it', () => {
-    for (const speed of [1.6, 3.1, 6]) {
-      const rig = soldier(), drive: CharacterDrive = { velocity: { x: 0, z: -speed }, aim: .15 };
+  it('keeps a planted foot still on the ground walking, running, backing off, strafing and on diagonals', () => {
+    const cases: [number, number][] = [[0, -1.6], [0, -3.1], [0, -6], [0, 2.2], [2.6, 0], [-2.6, 0], [1.2, 0], [1.56, -1.56], [-1.56, 1.56], [2.2, 2.2]];
+    for (const [x, z] of cases) {
+      const speed = Math.hypot(x, z), rig = soldier(), drive: CharacterDrive = { velocity: { x, z }, aim: .15 };
       // The root travels as the game moves it; the rig only sees body-local velocity.
-      const travel = (seconds: number, each?: () => void) => run(rig, drive, seconds, () => { rig.root.position.z -= speed / 60; each?.(); });
+      const travel = (seconds: number, each?: () => void) => run(rig, drive, seconds, () => { rig.root.position.x += x / 60; rig.root.position.z += z / 60; each?.(); });
       travel(1.5);
       let slip = 0, frames = 0;
       const last = { L: worldOf(rig.joints.footL), R: worldOf(rig.joints.footR) };
@@ -106,9 +107,24 @@ describe('articulated characters', () => {
         }
       });
       rig.dispose();
-      expect(frames).toBeGreaterThan(20);
-      // The old sine stride slid planted feet at 10–35 % of body speed; a sprint still skids briefly at touchdown.
-      expect(slip / frames).toBeLessThan(speed * (speed > 4 ? .1 : .06));
+      expect(frames, `${x},${z}`).toBeGreaterThan(20);
+      // The old sine stride slid planted feet at 10–35 % of body speed forwards,
+      // 40–75 % strafing and 200 % backing off; now under 1 % in every direction.
+      expect(slip / frames, `${x},${z}`).toBeLessThan(speed * .02);
+    }
+  });
+  it('stands with the knees almost straight and the head, torso and aim points where they were', () => {
+    for (const rig of [soldier(), createCharacterRig(npcCharacterLook({ id: 'npc-test-stand', role: 'Visitor', interaction: { kind: 'dialogue' } }))]) {
+      let least = Infinity, most = 0;
+      run(rig, { aim: 1 }, 2);
+      run(rig, { aim: 1 }, 12, () => { for (const side of ['L', 'R'] as const) { const knee = Math.abs(rig.joints[`shin${side}`].rotation.x); least = Math.min(least, knee); most = Math.max(most, knee); } });
+      // The leg taking the weight is nearly straight, the relaxed one softer; it was 40–46°.
+      expect(THREE.MathUtils.radToDeg(least)).toBeGreaterThan(3); expect(THREE.MathUtils.radToDeg(most)).toBeLessThan(22);
+      // Hip height, and with it the head and the published aim points, are unchanged by the leg proportions.
+      expect(worldOf(rig.joints.hips).y).toBeCloseTo(CHARACTER_DIMENSIONS.standingHips, 2);
+      expect(worldOf(rig.root.getObjectByName('avatar-aim-head')!).y).toBeCloseTo(1.68, 1);
+      for (const side of ['L', 'R'] as const) expect(Math.abs(sole(rig, side))).toBeLessThan(.02);
+      rig.dispose();
     }
   });
   it('swings each empty hand with the opposite leg', () => {
@@ -147,12 +163,20 @@ describe('articulated characters', () => {
     // Deeper breathing and the settle after a stop move the body, not the sight line.
     expect(sway(true)).toBeLessThan(sway(false) + THREE.MathUtils.degToRad(.4));
   });
-  it('sidesteps without crossing the feet', () => {
-    const rig = soldier();
-    run(rig, { velocity: { x: 2.6, z: 0 }, aim: 1 }, 2.5, () => {
-      const left = rig.root.worldToLocal(worldOf(rig.joints.footL)).x, right = rig.root.worldToLocal(worldOf(rig.joints.footR)).x;
-      expect(left).toBeLessThan(right - .08);
-    });
+  it('sidesteps without crossing the feet, either way, slow or quick, and on diagonals', () => {
+    for (const [x, z] of [[2.6, 0], [-2.6, 0], [1.2, 0], [-1.2, 0], [1.56, -1.56], [-1.56, 1.56]]) {
+      const rig = soldier();
+      run(rig, { velocity: { x, z }, aim: 1 }, 2.5, () => {
+        const left = rig.root.worldToLocal(worldOf(rig.joints.footL)).x, right = rig.root.worldToLocal(worldOf(rig.joints.footR)).x;
+        // Ankle centres; a boot is .11 wide.
+        expect(left, `${x},${z}`).toBeLessThan(right - .12);
+      });
+      // The grips stay in hand through the side-skip.
+      const grips = rig.weapon!.children.filter(child => !(child instanceof THREE.Mesh) && child !== rig.muzzle);
+      expect(worldOf(rig.joints.handR).distanceTo(worldOf(grips[0]))).toBeLessThan(.03);
+      expect(worldOf(rig.joints.handL).distanceTo(worldOf(grips[1]))).toBeLessThan(.03);
+      rig.dispose();
+    }
   });
   it('keeps both hands on the weapon whether aiming, walking, crouched or prone', () => {
     for (const drive of [{ aim: 1 }, { aim: .1, velocity: { x: 0, z: -3 } }, { aim: 1, crouch: 1, pitch: .3 }, { aim: 1, prone: true }] as CharacterDrive[]) {
