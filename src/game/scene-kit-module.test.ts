@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createSceneKit } from './scene-kit';
-import { withSurfaceOwnership } from './surface-ownership';
 import { isOnModule } from './block-module';
 
 const options = { background: '#ffffff', fogNear: 10, fogFar: 100 };
@@ -37,18 +36,5 @@ describe('scene kit on the block module', () => {
     expect(person.position.x).toBe(3.33);
     const legs = person.children.filter(c => c instanceof THREE.Mesh && c.scale.x === 0.16);
     expect(legs).toHaveLength(2);
-  });
-
-  it('bakes single-use surface variants into one draw on module districts', () => {
-    const kit = createSceneKit({ ...options, module: true }), wall = kit.mat('#888888'), trim = kit.mat('#ccbb99');
-    // Ten bodies, each with a flush panel of a different width, so every cut differs.
-    for (let i = 0; i < 10; i++) { kit.box(i * 20, 3, 0, 12, 6, 4, wall); kit.box(i * 20, 3, 1.5, 2 + i * .2, 2, 1, trim); }
-    const world = withSurfaceOwnership(kit.finish({ car: new THREE.Group(), stamps: [], animate() {} }));
-    try {
-      const summary = world.scene.userData.surfaceOwnership;
-      expect(summary.baked).toBeGreaterThan(0);
-      const bodies = world.scene.children.filter(c => c instanceof THREE.Mesh && c.material === wall);
-      expect(bodies.length).toBeLessThanOrEqual(2);
-    } finally { world.dispose(); }
   });
 });

@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import type { RegionWorld } from './regions';
 import { mapSurfaceFaces, surfacePolygon, intersectSurfacePolygons, type SurfaceFace } from './map-surface-audit';
 import { accelerateMeshRaycast } from './mesh-raycast';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 type Polygon = number[][];
 const cross = (a: number[], b: number[], p: number[]) => (b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]);
@@ -36,7 +35,7 @@ export function withSurfaceOwnership<T extends RegionWorld>(world: T): T {
   // Wind-deformed tree parts cannot own a fixed coplanar cut in nearby scenery.
   const faces=mapSurfaceFaces(world.scene).filter(f=>!Array.isArray(f.mesh.material) && !f.mesh.geometry.hasAttribute('treeRootHeight'));
   const planes=new Map<string,SurfaceFace[]>(),parts=new Map<THREE.Mesh,Map<number|undefined,Part>>();
-  const geometries=new Map<string,THREE.BufferGeometry>(),batches:THREE.InstancedMesh[]=[],baked_:THREE.Mesh[]=[],disposers:(()=>void)[]=[];
+  const geometries=new Map<string,THREE.BufferGeometry>(),batches:THREE.InstancedMesh[]=[],disposers:(()=>void)[]=[];
   let cuts=0;
   for(const face of faces) {
     const key=`${face.axis}/${face.sign}/${Math.round(face.height*1e4)}`;
@@ -110,23 +109,6 @@ export function withSurfaceOwnership<T extends RegionWorld>(world: T): T {
     }
     if(!(mesh instanceof THREE.InstancedMesh))continue;
     const removed=new Set<number>();
-    // On the block module, snapped neighbours share many faces, and variants
-    // used by a single instance would each cost a draw. Bake them into
-    // one static mesh per source batch instead; shared variants stay instanced.
-    // Window materials (per-instance night spans) and per-instance colours keep
-    // the instanced path.
-    const singles=[...variants].filter(([,indices])=>indices.length===1);
-    if(world.scene.userData.blockModule && singles.length>1 && !Array.isArray(mesh.material) && !mesh.material.userData.nightWindow && !mesh.instanceColor) {
-      const baked=singles.map(([geometry,[index]])=>{mesh.getMatrixAt(index,local);removed.add(index);variants.delete(geometry);return geometry.clone().applyMatrix4(local);});
-      const geometry=mergeGeometries(baked);baked.forEach(g=>g.dispose());
-      if(geometry) {
-        geometry.userData={partitionedFaces:true,bakedVariants:singles.length};geometry.computeBoundingBox();geometry.computeBoundingSphere();
-        const merged=new THREE.Mesh(geometry,mesh.material);merged.name=mesh.name;merged.userData={...mesh.userData};
-        merged.position.copy(mesh.position);merged.quaternion.copy(mesh.quaternion);merged.scale.copy(mesh.scale);merged.castShadow=mesh.castShadow;merged.receiveShadow=mesh.receiveShadow;
-        mesh.parent!.add(merged);baked_.push(merged);geometries.set(`baked/${mesh.uuid}`,geometry);
-        if(geometry.getAttribute('position').count>300)disposers.push(accelerateMeshRaycast(merged));
-      } else singles.forEach(([g,indices])=>{variants.set(g,indices);removed.delete(indices[0]);});
-    }
     for(const [geometry,indices] of variants) {
       const batch=new THREE.InstancedMesh(geometry,mesh.material,indices.length);batch.name=mesh.name;batch.userData={...mesh.userData};
       batch.position.copy(mesh.position);batch.quaternion.copy(mesh.quaternion);batch.scale.copy(mesh.scale);batch.castShadow=mesh.castShadow;batch.receiveShadow=mesh.receiveShadow;
@@ -137,8 +119,8 @@ export function withSurfaceOwnership<T extends RegionWorld>(world: T): T {
     mesh.count=count;mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingBox();mesh.computeBoundingSphere();
     if(!count)mesh.removeFromParent();
   }
-  world.scene.userData.surfaceOwnership={cuts,variants:geometries.size,batches:batches.length,baked:baked_.length};
+  world.scene.userData.surfaceOwnership={cuts,variants:geometries.size,batches:batches.length};
   const previous=world.dispose;
-  world.dispose=()=>{disposers.forEach(dispose=>dispose());batches.forEach(b=>{b.removeFromParent();b.dispose();});baked_.forEach(m=>m.removeFromParent());geometries.forEach(g=>g.dispose());previous();};
+  world.dispose=()=>{disposers.forEach(dispose=>dispose());batches.forEach(b=>{b.removeFromParent();b.dispose();});geometries.forEach(g=>g.dispose());previous();};
   return world;
 }
