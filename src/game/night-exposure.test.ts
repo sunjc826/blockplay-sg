@@ -113,7 +113,7 @@ describe('natural night visibility', () => {
     expect(s.fragmentShader.indexOf('/*roughness*/')).toBeGreaterThan(s.fragmentShader.indexOf('#include <roughnessmap_fragment>'));
     expect(s.fragmentShader.indexOf('/*albedo*/')).toBeLessThan(s.fragmentShader.indexOf('/*roughness*/'));
     exposure.dispose();
-    const lambert = new THREE.MeshLambertMaterial(); mesh.material = lambert;
+    const lambert = new THREE.MeshLambertMaterial(); (mesh as THREE.Mesh).material = lambert;
     const again = createNightExposure(scene, extension), l = shader('lambert');
     lambert.onBeforeCompile(l, {} as THREE.WebGLRenderer);
     expect(l.fragmentShader).toContain('/*albedo*/'); expect(l.fragmentShader).not.toContain('/*roughness*/');

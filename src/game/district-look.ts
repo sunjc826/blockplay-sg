@@ -348,11 +348,15 @@ varying vec3 vLookNormal;
 varying vec2 vLookSeed;
 float lookSurfaceHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 // Nearest-cell value, blended across each cell edge over one pixel, settling to the mean once cells are pixel-sized.
-float lookCellValue(vec2 p) {
-  vec2 u = p - 0.5, i = floor(u), f = fract(u), w = max(fwidth(p), vec2(1e-4));
+// w is the cell coordinate's screen derivative, taken by the caller outside any branch.
+float lookCellValue(vec2 p, vec2 w) {
+  w = max(w, vec2(1e-4));
+  float fade = smoothstep(0.25, 0.6, max(w.x, w.y));
+  if (fade >= 1.0) return 0.5;
+  vec2 u = p - 0.5, i = floor(u), f = fract(u);
   vec2 k = clamp((f - 0.5) / w + 0.5, 0.0, 1.0);
   float v = mix(mix(lookSurfaceHash(i), lookSurfaceHash(i + vec2(1.0, 0.0)), k.x), mix(lookSurfaceHash(i + vec2(0.0, 1.0)), lookSurfaceHash(i + vec2(1.0)), k.x), k.y);
-  return mix(v, 0.5, smoothstep(0.25, 0.6, max(w.x, w.y)));
+  return mix(v, 0.5, fade);
 }
 `;
 /** After color_fragment: the colour multipliers. Mirrors `surfaceShade`. Leaves `lookRoughness` for the roughness step. */
@@ -364,15 +368,22 @@ export const LOOK_SURFACE_ALBEDO = /* glsl */`
     float lookShare = 1.0 - 0.5 * lookUp;
     vec3 lookTint = vec3(1.0 + lookSurface.y * vLookSeed.x * lookShare);
     lookTint *= vec3(1.0 + lookSurface.z * vLookSeed.y * lookShare, 1.0, 1.0 - lookSurface.z * vLookSeed.y * lookShare);
-    float lookCellMix = (0.62 * lookCellValue(vLookCoord.xz * lookCells.x) + 0.38 * lookCellValue(vLookCoord.xz * lookCells.y + 31.7) - 0.5) * 2.0 * lookUp;
+    // Derivatives once, before the branches below skip faces a term does not touch.
+    vec3 lookDeriv = fwidth(vLookCoord);
+    float lookCellMix = 0.0;
+    if (lookUp > 0.0) lookCellMix = (0.62 * lookCellValue(vLookCoord.xz * lookCells.x, lookDeriv.xz * lookCells.x)
+      + 0.38 * lookCellValue(vLookCoord.xz * lookCells.y + 31.7, lookDeriv.xz * lookCells.y) - 0.5) * 2.0 * lookUp;
     lookTint *= 1.0 + lookCells.z * lookCellMix;
     float lookGreen = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) / max(diffuseColor.g, 1e-3) * 4.0, 0.0, 1.0);
     lookTint *= mix(vec3(1.0), vec3(1.0 + lookGrassHue * lookCellMix, 1.0, 1.0 - 1.6 * lookGrassHue * lookCellMix), lookGreen);
     // Wall panels on the mesh's own faces: x-facing walls run along z, z-facing along x, blended on curved ones.
-    vec3 lookFace = abs(normalize(vLookNormal));
-    float lookPanelMix = (lookCellValue(vLookCoord.zy * lookPanels.xy + 7.3) * lookFace.x + lookCellValue(vLookCoord.xy * lookPanels.xy + 7.3) * lookFace.z)
-      / max(lookFace.x + lookFace.z, 1e-3);
-    lookPanelMix = (lookPanelMix - 0.5) * 2.0 * lookSide;
+    float lookPanelMix = 0.0;
+    if (lookSide > 0.0) {
+      vec3 lookFace = abs(normalize(vLookNormal));
+      float lookAlongZ = lookFace.x > 0.01 ? lookCellValue(vLookCoord.zy * lookPanels.xy + 7.3, lookDeriv.zy * lookPanels.xy) : 0.5;
+      float lookAlongX = lookFace.z > 0.01 ? lookCellValue(vLookCoord.xy * lookPanels.xy + 7.3, lookDeriv.xy * lookPanels.xy) : 0.5;
+      lookPanelMix = ((lookAlongZ * lookFace.x + lookAlongX * lookFace.z) / max(lookFace.x + lookFace.z, 1e-3) - 0.5) * 2.0 * lookSide;
+    }
     lookTint *= 1.0 + lookPanels.z * lookPanelMix;
     float lookHeight = max(vExposureWorld.y - lookContact.x, 0.0);
     float lookGrime = lookWallTone.x * lookSide * exp(-lookHeight / lookWallTone.y) * (1.0 - lookContact.y);
