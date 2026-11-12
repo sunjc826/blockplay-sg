@@ -8,7 +8,7 @@ import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 import { createScopeBarrel } from './scope-barrel';
-import { createScopeStrafeShadow } from './scope-shadow';
+import { createScopeShadow } from './scope-shadow';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
@@ -336,8 +336,20 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3(), eyePosition = new THREE.Vector3(), buffer = new THREE.Vector2();
-  const strafeShadow = createScopeStrafeShadow();
-  let previousSight: WeaponSight | undefined;
+  const shadow = createScopeShadow();
+  const eyeNow = new THREE.Vector3(), eyeBefore = new THREE.Vector3(), aimNow = new THREE.Quaternion(), aimBefore = new THREE.Vector3(), turned = new THREE.Vector3();
+  let previousSight: WeaponSight | undefined, tracking = false;
+  const resetShadow = () => { shadow.reset(); tracking = false; };
+  /** Turning, climbing and recoil as the world camera actually moved, so anything that throws the view throws the shadow. */
+  function viewMotion(worldCamera: THREE.Camera, dt: number) {
+    worldCamera.getWorldPosition(eyeNow); worldCamera.getWorldQuaternion(aimNow);
+    // Where the view pointed last frame, seen from where it points now.
+    turned.copy(aimBefore).applyQuaternion(aimNow.invert());
+    const rate = tracking && dt > 0 ? 1 / dt : 0;
+    const motion = { verticalSpeed: (eyeNow.y - eyeBefore.y) * rate, turnRate: -turned.x * rate, pitchRate: -turned.y * rate };
+    eyeBefore.copy(eyeNow); worldCamera.getWorldDirection(aimBefore); tracking = true;
+    return motion;
+  }
   /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
   function prepare(sight: WeaponSight) {
     if (sight.magnification <= 1.01 || sight.lens.material.map === target.texture) return;
@@ -350,24 +362,25 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
     camera,
     render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1,
       motion?: { lateralSpeed: number; dt: number; reducedMotion?: boolean }) {
-      if (sight !== previousSight) strafeShadow.reset();
+      if (sight !== previousSight) resetShadow();
       previousSight = sight;
-      if (!sight) { strafeShadow.reset(); return false; }
+      if (!sight) { resetShadow(); return false; }
       // Powered reflex dots are gated by the optical aperture and eye alignment,
       // never by the aim button. Only magnified scopes fade with the ADS animation.
       sight.visibility.value = sight.magnification <= 1.01 ? 1 : THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       if (sight.reflection) sight.reflection.uniforms.aiming.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       sight.lens.visible = active && sight.visibility.value > 0;
-      if (!sight.lens.visible || sight.magnification <= 1.01) { strafeShadow.reset(); return false; }
+      if (!sight.lens.visible || sight.magnification <= 1.01) { resetShadow(); return false; }
       // The viewmodel camera is the eye. Lens-local coordinates include both
       // translation and tilt from actual weapon sway/recoil. The additional
-      // strafe cue compensates for ADS sway suppression only in the shadow.
+      // eye lag compensates for ADS sway suppression only in the shadow.
       viewCamera.updateWorldMatrix(true, false);
       if (sight.scopeEye) {
         viewCamera.getWorldPosition(eyePosition);
         sight.lens.worldToLocal(eyePosition);
         sight.scopeEye.value.set(-eyePosition.x, -eyePosition.y).multiplyScalar(.28 / sight.radius);
-        sight.scopeEye.value.x += strafeShadow.update(motion?.dt ?? 0, motion?.lateralSpeed ?? 0, !!motion && !motion.reducedMotion) * sight.visibility.value;
+        const dt = motion?.dt ?? 0, lag = shadow.update(dt, { lateralSpeed: motion?.lateralSpeed ?? 0, ...viewMotion(worldCamera, dt) }, !!motion && !motion.reducedMotion);
+        sight.scopeEye.value.x += lag.x * sight.visibility.value; sight.scopeEye.value.y += lag.y * sight.visibility.value;
         sight.scopeEye.value.clampLength(0, .18);
       }
       sight.lens.getWorldPosition(lensPosition);

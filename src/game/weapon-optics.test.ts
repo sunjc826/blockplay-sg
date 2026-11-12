@@ -127,7 +127,7 @@ it('adds an open, recessed scope barrel and disposes it with the optic', () => {
   expect(getWeaponSight(root)!.scopeEye).toBeUndefined(); removeDot();
 });
 
-it('strengthens strafe shadow without moving the scene or reticle and clears it when inactive', () => {
+it('swings the shadow on strafes, flicks and drops without moving the scene or reticle and clears it when inactive', () => {
   const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
   const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
   const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
@@ -136,15 +136,42 @@ it('strengthens strafe shadow without moving the scene or reticle and clears it 
   const plane = sight.lens.position.clone();
   scope.render(world, camera, view, sight, true);
   const projection = scope.camera.projectionMatrix.clone();
+  const frames = (count: number, lateralSpeed: number, each?: () => void) => {
+    let minX = 0, maxX = 0, minY = 0, maxY = 0;
+    for (let i = 0; i < count; i++) {
+      each?.(); camera.updateMatrixWorld();
+      scope.render(world, camera, view, sight, true, 1, { lateralSpeed, dt: 1 / 60 });
+      const { x, y } = sight.scopeEye!.value;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    return { minX, maxX, minY, maxY };
+  };
+  frames(2, 0);
   for (const lateralSpeed of [-2.2, 2.2]) {
-    for (let i = 0; i < 30; i++) scope.render(world, camera, view, sight, true, 1, { lateralSpeed, dt: 1 / 60 });
-    expect(sight.scopeEye!.value.x * -Math.sign(lateralSpeed)).toBeGreaterThan(.17);
+    const swing = frames(40, lateralSpeed);
+    expect(lateralSpeed > 0 ? -swing.minX : swing.maxX).toBeGreaterThan(.12);
+    // A held strafe keeps only a slight lean.
+    const lean = sight.scopeEye!.value.x * -Math.sign(lateralSpeed);
+    expect(lean).toBeGreaterThan(.02); expect(lean).toBeLessThan(.07);
     expect(sight.scopeEye!.value.y).toBeCloseTo(0);
     expect(scope.camera.projectionMatrix.equals(projection)).toBe(true);
     expect(scope.camera.position.equals(camera.position)).toBe(true);
     expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
     expect(sight.lens.position.equals(plane)).toBe(true);
   }
+  frames(90, 0);
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  // The view itself supplies turning and vertical travel, recoil climb included.
+  const flick = frames(12, 0, () => { camera.rotation.y -= .05; });
+  expect(flick.minX).toBeLessThan(-.1); expect(Math.abs(flick.minY) + flick.maxY).toBeLessThan(.01);
+  frames(90, 0);
+  const kick = frames(1, 0, () => { camera.rotation.x += .03; });
+  expect(kick.minY).toBeLessThan(-.02); expect(kick.minY).toBeGreaterThan(-.06);
+  frames(90, 0);
+  frames(20, 0, () => { camera.position.y -= 8 / 60; });
+  expect(frames(12, 0).minY).toBeLessThan(-.1);
+  expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
+  expect(sight.lens.position.equals(plane)).toBe(true);
   scope.render(world, camera, view, sight, false);
   scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 0, dt: 0 });
   expect(sight.scopeEye!.value.length()).toBeCloseTo(0);

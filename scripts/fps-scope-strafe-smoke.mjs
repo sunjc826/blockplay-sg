@@ -20,6 +20,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function wait(expression, timeout = 20000) { const started = Date.now(); while (Date.now()-started < timeout) { if (await evaluate(expression)) return; await delay(100); } throw new Error('Timed out: '+expression); }
 const canvas = "document.querySelector('#world canvas')";
 const read = `({shadow:JSON.parse(${canvas}.dataset.scopeShadow),movement:JSON.parse(${canvas}.dataset.movement),x:window.hud.x,z:window.hud.z,phase:window.hud.phase})`;
+/** Furthest horizontal swing over a window, sampled in the page each frame. */
+async function swing(ms) { return evaluate(`new Promise(resolve=>{const started=performance.now();let peak=0;(function frame(){const x=JSON.parse(${canvas}.dataset.scopeShadow)?.[0]??0;if(Math.abs(x)>Math.abs(peak))peak=x;performance.now()-started<${ms}?requestAnimationFrame(frame):resolve({peak})})()})`); }
 async function shot(name) { const r = await send('Page.captureScreenshot',{format:'png'}); await fs.writeFile(new URL(name+'.png',output),Buffer.from(r.data,'base64')); }
 async function move(key, mobile) { return evaluate(mobile ? `window.engine.setMoveAxis(${key ? JSON.stringify({x:key==='a'?-1:key==='d'?1:0,y:key==='w'?-1:0,magnitude:1}) : 'null'})` : `['a','d','w'].forEach(key=>window.engine.setInput(key,key===${JSON.stringify(key)}))`); }
 try {
@@ -40,12 +42,14 @@ try {
       const idle = await evaluate(read); assert(Math.abs(idle.shadow[0])<.02,'Centred at rest'); await shot(label+'-'+weapon+'-idle');
       const samples = {};
       for (const [key,name,sign] of [['a','left',1],['d','right',-1]]) {
-        await move(key,mobile); await delay(650);
+        await move(key,mobile); const start = await swing(900);
         const state = await evaluate(read); assert(state.movement.speed>1.5,'Player actually strafes');
-        assert(state.shadow[0]*sign>.14,name+' strafe has a clearly displaced shadow');
-        assert.equal(state.phase,'playing'); samples[name]=state;
+        assert(start.peak*sign>.08,name+' strafe swings the shadow in as it starts: '+start.peak);
+        assert(state.shadow[0]*sign>.015&&state.shadow[0]*sign<.08,name+' strafe eases to a slight lean while held: '+state.shadow[0]);
+        assert.equal(state.phase,'playing'); samples[name]={...state,peak:start.peak};
         await shot(label+'-'+weapon+'-'+name);
-        await move(null,mobile); await delay(650);
+        await move(null,mobile); const stop = await swing(900);
+        assert(stop.peak*sign<-.05,'Stopping throws the shadow the other way: '+stop.peak);
         assert(Math.abs((await evaluate(read)).shadow[0])<.02,'Shadow settles after stopping');
       }
       await move('w',mobile); await delay(650); const forward=await evaluate(read);
@@ -58,5 +62,5 @@ try {
     }
   }
   assert.deepEqual(errors,[]); await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,results,errors},null,2));
-  console.log('PASS: actual left/right movement creates strong opposite scope shadows on desktop and touch; stopping, forward motion and reduced motion remain clear.');
+  console.log('PASS: actual left/right movement swings opposite scope shadows in on desktop and touch, eases to a lean while held and rebounds on stopping; forward motion and reduced motion remain clear.');
 } finally { await evaluate('window.engine?.dispose()').catch(()=>{}); ws.close(); await fetch(`${chrome}/json/close/${tab.id}`); }
