@@ -15,6 +15,7 @@ import StartingPointPicker from './StartingPointPicker';
 import { useArmory } from '../game/use-armory';
 import { hasRegionGame } from '../game/region-selection';
 import { REGIONS } from '../game/regions';
+import { HARDPOINT_ARENAS } from '../game/hardpoint';
 import { TDM_AREAS, type ArenaMatch } from '../game/arena-match';
 import { defaultMatchFor, MATCH_MODES, readMatchPreference, saveMatchPreference } from '../game/match-menu';
 import type { WorldZoneId } from '../game/world-zones';
@@ -39,7 +40,7 @@ const plainScreenSounds = {
   onPointerOver: (event: ReactPointerEvent) => { const button = (event.target as Element).closest?.(SOUNDING_CONTROL); if (event.pointerType === 'mouse' && button && !button.contains(event.relatedTarget as Node | null)) playMenuSound('hover'); },
 };
 const TRAINING_DISTRICTS = locations.filter(place => hasRegionGame(place.id));
-const MATCH_DISTRICTS = locations.filter(place => TDM_AREAS.some(area => area.region === place.id));
+
 
 const ENTRIES = [
   { route: 'play', icon: Play, title: 'Play', detail: 'Explore, train or play a match.', mode: true },
@@ -169,22 +170,33 @@ function PanelArtwork({ route, index, shared = false }: { route: Route; index: n
   </span>;
 }
 
-function MatchDistrictPicker({ online }: { online: boolean }) {
+function MatchDistrictPicker({ online, mode }: { online: boolean; mode:'team-deathmatch'|'hardpoint' }) {
   const [preferred] = useState(readMatchPreference);
-  const initial = preferred.mode === 'team-deathmatch' ? TDM_AREAS.find(area => area.id === preferred.area)?.region : undefined;
-  return <StartingPointPicker mode="team-deathmatch" initial={initial ?? TDM_AREAS[0].region} options={MATCH_DISTRICTS} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
+  const areas = mode === 'hardpoint' ? HARDPOINT_ARENAS.map(config=>config.area) : TDM_AREAS;
+  const districts = locations.filter(place=>areas.some(area=>area.region===place.id));
+  const initial = preferred.mode === mode ? areas.find(area => area.id === preferred.area)?.region : undefined;
+  return <StartingPointPicker mode={mode} initial={initial ?? areas[0].region} options={districts} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
     onDeploy={id => {
-      const area = TDM_AREAS.find(area => area.region === id);
+      const area = areas.find(area => area.region === id);
       if (!area) return;
-      saveMatchPreference({ mode: 'team-deathmatch', area: area.id });
-      navigate(online ? `host-${area.id}` : area.id);
+      const match: ArenaMatch = mode === 'hardpoint' ? {mode,area:area.id as import('../game/arena-match').HardpointAreaId} : {mode,area:area.id};
+      saveMatchPreference(match);
+      navigate(`${online ? 'host-' : ''}${mode === 'hardpoint' ? 'hardpoint-' : ''}${area.id}` as Route);
     }} />;
 }
 
 const SOLO_MATCHES = {
   'dragon-courtyard': { mode: 'team-deathmatch', area: 'dragon-courtyard' },
   'smith-street': { mode: 'team-deathmatch', area: 'smith-street' },
-  hardpoint: defaultMatchFor('hardpoint'),
+  'container-yard': { mode: 'team-deathmatch', area: 'container-yard' },
+  'woodlands-park': { mode: 'team-deathmatch', area: 'woodlands-park' },
+  'bishan-court': { mode: 'team-deathmatch', area: 'bishan-court' },
+  'tampines-hub': { mode: 'team-deathmatch', area: 'tampines-hub' },
+  'hardpoint-smith-street': { mode: 'hardpoint', area: 'smith-street' },
+  'hardpoint-container-yard': { mode: 'hardpoint', area: 'container-yard' },
+  'hardpoint-woodlands-park': { mode: 'hardpoint', area: 'woodlands-park' },
+  'hardpoint-bishan-court': { mode: 'hardpoint', area: 'bishan-court' },
+  'hardpoint-tampines-hub': { mode: 'hardpoint', area: 'tampines-hub' },
   'free-for-all': defaultMatchFor('free-for-all'),
 } satisfies Record<string, ArenaMatch>;
 
@@ -192,7 +204,15 @@ const SOLO_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = SOLO_MATCHES;
 const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = {
   'host-dragon-courtyard': SOLO_MATCHES['dragon-courtyard'],
   'host-smith-street': SOLO_MATCHES['smith-street'],
-  'host-hardpoint': SOLO_MATCHES.hardpoint,
+  'host-container-yard': SOLO_MATCHES['container-yard'],
+  'host-woodlands-park': SOLO_MATCHES['woodlands-park'],
+  'host-bishan-court': SOLO_MATCHES['bishan-court'],
+  'host-tampines-hub': SOLO_MATCHES['tampines-hub'],
+  'host-hardpoint-smith-street': SOLO_MATCHES['hardpoint-smith-street'],
+  'host-hardpoint-container-yard': SOLO_MATCHES['hardpoint-container-yard'],
+  'host-hardpoint-woodlands-park': SOLO_MATCHES['hardpoint-woodlands-park'],
+  'host-hardpoint-bishan-court': SOLO_MATCHES['hardpoint-bishan-court'],
+  'host-hardpoint-tampines-hub': SOLO_MATCHES['hardpoint-tampines-hub'],
   'host-free-for-all': SOLO_MATCHES['free-for-all'],
 };
 
@@ -272,14 +292,15 @@ export default function GameMenu({ screen }: { screen: Screen }) {
   </SettingsStoreContext.Provider>;
 
   if (screen === 'play' || screen === 'single-player' || screen === 'multiplayer-menu' || screen === 'training-menu') return <ActivityMenu screen={screen} profile={profile} />;
-  if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} online={screen === 'host-team-deathmatch'} />;
+  if (screen === 'team-deathmatch' || screen === 'host-team-deathmatch') return <MatchDistrictPicker key={screen} mode="team-deathmatch" online={screen === 'host-team-deathmatch'} />;
+  if (screen === 'hardpoint' || screen === 'host-hardpoint') return <MatchDistrictPicker key={screen} mode="hardpoint" online={screen === 'host-hardpoint'} />;
 
   const solo = SOLO_MATCH_BY_SCREEN[screen];
   const hosted = HOST_MATCH_BY_SCREEN[screen];
   const match = solo ?? hosted;
   const online = !!hosted || screen === 'multiplayer';
   if (match || online) {
-    const arenaPicker = match?.mode === 'team-deathmatch';
+    const arenaPicker = match && match.mode !== 'free-for-all';
     const parent = parentRoute(screen);
     return <SettingsStoreContext.Provider value={armory}><div {...plainScreenSounds} style={{ display: 'contents' }}>
       <MatchGame key={screen} {...(solo ? { kind: 'solo', match: solo } : { kind: 'online', match: hosted })} backLabel={arenaPicker ? 'Arenas' : routeLabel(parent)} onBack={approved => approved ? transitionTo(parent, true) : returnToParent(parent)} armory={armory} suspended={install.updateReady} />

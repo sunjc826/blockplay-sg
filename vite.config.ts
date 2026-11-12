@@ -12,7 +12,7 @@ import navigationBake from './scripts/navigation-bake-plugin.mjs';
 export default defineConfig(({ mode }) => {
   const buildHash = createHash('sha256');
   buildHash.update(readFileSync('pnpm-lock.yaml'));
-  for (const path of readdirSync('src', { recursive: true }).map(String).filter(path => /\.(ts|tsx)$/.test(path) && !path.includes('.test.')).sort()) buildHash.update(path).update(readFileSync(`src/${path}`));
+  for (const path of readdirSync('src', { recursive: true }).map(String).filter(path => /\.(ts|tsx|json)$/.test(path) && !path.includes('.test.')).sort()) buildHash.update(path).update(readFileSync(`src/${path}`));
   // Explicitly expose only this browser credential, never all unprefixed env vars.
   // Static capture scripts continue to read VITE_GOOGLE_MAPS_API_KEY directly.
   const demo = loadEnv(mode, process.cwd(), 'GOOGLE_MAPS_DEMO_API_KEY').GOOGLE_MAPS_DEMO_API_KEY?.trim();

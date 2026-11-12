@@ -1,4 +1,4 @@
-import { tdmArea, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
+import { tdmArea, type HardpointAreaId, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
 import type { StructureLayout } from './structure-types';
 
 export const HARDPOINT_RULES = { scoreLimit:200, duration:360, rotationSeconds:60, previewSeconds:10, spawnClearance:10 } as const;
@@ -15,9 +15,27 @@ export const HARDPOINT_LAYOUT: StructureLayout = {id:'hardpoint:smith-street',st
   props:[{kind:'barricade',x:site.x,y:site.y,z:site.z+(i===0?5.8:i===1?6:5),yaw:0}],
   navigationAnchors:[{...site},{x:site.x-2,y:site.y,z:site.z},{x:site.x+2,y:site.y,z:site.z}],
 }))};
+export interface HardpointArena { area:TeamDeathmatchArea; sites:readonly ControlSite[]; layout:StructureLayout }
+const sites = (entries:readonly [string,string,number,number,number?][]):ControlSite[] => entries.map(([id,name,x,z,y=0])=>({id,name,x,z,y,radius:4}));
+function arena(id:HardpointAreaId, controlSites:readonly ControlSite[]):HardpointArena {
+  return {area:tdmArea(id)!,sites:controlSites,layout:{id:`hardpoint:${id}`,structures:controlSites.map(site=>({
+    id:`control-${site.id}`,name:`${site.name} control station`,x:site.x,y:site.y,z:site.z-5.5,
+    core:{model:'signal-beacon',cover:'scene'},
+    navigationAnchors:[{...site},{x:site.x-6,y:site.y,z:site.z},{x:site.x+6,y:site.y,z:site.z}],
+  }))}};
+}
+export const HARDPOINT_ARENAS:readonly HardpointArena[] = [
+  {area:HARDPOINT_AREA,sites:SMITH_CONTROL_SITES,layout:HARDPOINT_LAYOUT},
+  arena('container-yard',sites([['gantry','Gantry crossing',131,-40],['loading','North loading apron',114,-75],['dispatch','South dispatch apron',148,-14]])),
+  arena('woodlands-park',sites([['lawn','Central lawn',137,88],['grove','West grove',108,114],['path','East path',166,60]])),
+  arena('bishan-court',sites([['shelter','Shade court',-60,-140],['north','North court approach',-60,-174],['garden','Garden flank',-36,-114]])),
+  arena('tampines-hub',sites([['centre','Centre court',55,-40,.7],['concourse','North concourse',55,-70,.18],['arrival','South arrival',55,-10,.18]])),
+];
+export const hardpointArena = (id:string) => HARDPOINT_ARENAS.find(config=>config.area.id===id);
+
 export interface ControlActor { x:number;y:number;z:number;alive:boolean;team?:ArenaTeam;vehicle?:unknown;transport?:unknown }
 export interface HardpointSnapshot {
-  area:'smith-street'; active:string; next:string|null; remaining:number;
+  area:HardpointAreaId; active:string; next:string|null; remaining:number;
   owner:ArenaTeam|null; contested:boolean; occupants:Record<ArenaTeam,number>; scores:Record<ArenaTeam,number>;
 }
 export function controlAt(elapsed:number,sites:readonly ControlSite[]=SMITH_CONTROL_SITES) {
@@ -37,7 +55,7 @@ export function controlOccupancy(site:ControlSite,actors:readonly ControlActor[]
   return {occupants,contested,owner};
 }
 /** Authority accumulates uncontested occupation time, never kills or head count. */
-export function createHardpoint(sites:readonly ControlSite[]=SMITH_CONTROL_SITES) {
+export function createHardpoint(sites:readonly ControlSite[]=SMITH_CONTROL_SITES,area:HardpointAreaId='smith-street') {
   const held={alpha:0,bravo:0};
   const scores=()=>({alpha:Math.min(HARDPOINT_RULES.scoreLimit,Math.floor(held.alpha+1e-7)),bravo:Math.min(HARDPOINT_RULES.scoreLimit,Math.floor(held.bravo+1e-7))});
   return {
@@ -53,7 +71,7 @@ export function createHardpoint(sites:readonly ControlSite[]=SMITH_CONTROL_SITES
     },
     snapshot(elapsed:number,actors:readonly ControlActor[]):HardpointSnapshot {
       const {site,next,remaining}=controlAt(elapsed,sites);
-      return {area:'smith-street',active:site.id,next:remaining<=HARDPOINT_RULES.previewSeconds&&elapsed<HARDPOINT_RULES.duration?next.id:null,remaining:Math.round(remaining*100)/100,...controlOccupancy(site,actors),scores:scores()};
+      return {area,active:site.id,next:remaining<=HARDPOINT_RULES.previewSeconds&&elapsed<HARDPOINT_RULES.duration?next.id:null,remaining:Math.round(remaining*100)/100,...controlOccupancy(site,actors),scores:scores()};
     },
     scores,
     reset(){held.alpha=held.bravo=0;},
@@ -63,10 +81,10 @@ export function controlGoal(site:ControlSite,slot:number) {
   return {x:site.x+(slot%2?1.8:-1.8),y:site.y+1.75,z:site.z+(slot%4<2?-1.8:1.8)};
 }
 
-export function validHardpointSnapshot(value:unknown,elapsed:number,actors:readonly ControlActor[],sites:readonly ControlSite[]=SMITH_CONTROL_SITES):value is HardpointSnapshot {
+export function validHardpointSnapshot(value:unknown,elapsed:number,actors:readonly ControlActor[],sites:readonly ControlSite[]=SMITH_CONTROL_SITES,area:HardpointAreaId='smith-street'):value is HardpointSnapshot {
   if(!value||typeof value!=='object')return false;
   const s=value as HardpointSnapshot,{site,next,remaining}=controlAt(elapsed,sites),occupancy=controlOccupancy(site,actors);
-  return s.area==='smith-street' && s.active===site.id && s.next===(remaining<=HARDPOINT_RULES.previewSeconds&&elapsed<HARDPOINT_RULES.duration?next.id:null) && s.remaining===Math.round(remaining*100)/100 && s.owner===occupancy.owner && s.contested===occupancy.contested &&
+  return s.area===area && s.active===site.id && s.next===(remaining<=HARDPOINT_RULES.previewSeconds&&elapsed<HARDPOINT_RULES.duration?next.id:null) && s.remaining===Math.round(remaining*100)/100 && s.owner===occupancy.owner && s.contested===occupancy.contested &&
     !!s.occupants && s.occupants.alpha===occupancy.occupants.alpha && s.occupants.bravo===occupancy.occupants.bravo &&
     !!s.scores && [s.scores.alpha,s.scores.bravo].every(n=>Number.isInteger(n)&&n>=0&&n<=HARDPOINT_RULES.scoreLimit);
 }

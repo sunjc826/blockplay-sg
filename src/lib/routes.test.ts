@@ -41,3 +41,17 @@ describe('routes', () => {
     expect(canonicalUrl('/multiplayer', '?room=ABC123')).toBeNull();
   });
 });
+
+it('keeps solo and hosted arena deep links under their mode picker',async()=>{
+  const {TDM_AREAS}=await import('../game/arena-match');
+  const {HARDPOINT_ARENAS}=await import('../game/hardpoint');
+  const {parentRoute}=await import('./routes');
+  for(const hosted of [false,true])for(const mode of ['team-deathmatch','hardpoint'] as const) {
+    const areas=mode==='hardpoint'?HARDPOINT_ARENAS.map(config=>config.area):TDM_AREAS;
+    for(const area of areas){
+      const route=routeFromPath(`/play/${hosted?'multiplayer/':''}${mode}/${area.id}`);
+      expect(route).not.toBe('menu');
+      expect(parentRoute(route)).toBe(`${hosted?'host-':''}${mode}`);
+    }
+  }
+});

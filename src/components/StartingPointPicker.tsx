@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Crosshair, MapPin } from 'lucide-react';
 import { locations, type Location } from '../data/locations';
+import { hardpointArena } from '../game/hardpoint';
 import { TDM_AREAS } from '../game/arena-match';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audio';
@@ -60,7 +61,7 @@ const LABELS: Partial<Record<WorldZoneId, string[]>> = {
 const DEPLOY_MS = 300;
 
 type Props = {
-  mode: 'training' | 'world' | 'team-deathmatch';
+  mode: 'training' | 'world' | 'team-deathmatch' | 'hardpoint';
   initial: WorldZoneId;
   options: readonly Location[];
   back: React.ReactNode;
@@ -73,7 +74,8 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   const [query, setQuery] = useState('');
   const matches = options.filter(option => `${option.name} ${option.district}`.toLowerCase().includes(query.toLowerCase().trim()));
   const clip = useId();
-  const arenas = mode === 'team-deathmatch';
+  const arenas = mode === 'team-deathmatch' || mode === 'hardpoint';
+  const modeLabel = mode === 'hardpoint' ? 'HARDPOINT' : 'TEAM DEATHMATCH';
   const view = arenas ? 'map' : districtView;
   const mapRegions = arenas ? locations : options;
   const availableRegions = new Set(options.map(option => option.id));
@@ -87,6 +89,8 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   useEffect(() => () => clearTimeout(deployTimer.current), []);
   const place = options.find(option => option.id === selected) ?? options[0];
   const zone = getWorldZone(place.id);
+  const arena = arenas ? TDM_AREAS.find(area=>area.region===place.id) : undefined;
+  const controls = mode === 'hardpoint' && arena ? hardpointArena(arena.id)?.sites : undefined;
   const index = options.findIndex(option => option.id === place.id);
   const step = (direction: number) => setSelected(options[(index + direction + options.length) % options.length].id);
 
@@ -137,9 +141,9 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
   };
 
   return <div className={`game-screen starting-picker${deploying ? ' is-deploying' : ''}`} data-mode={mode} onPointerOver={hover} onFocus={focus} onClickCapture={click}>
-    <header className="starting-header">{back}<span>{arenas ? 'TEAM DEATHMATCH' : training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> {arenas ? 'SELECT ARENA' : 'SELECT DISTRICT'}</span><span className="starting-step">{arenas ? 'ARENA SELECTION' : '01 — STARTING POINT'}</span></header>
+    <header className="starting-header">{back}<span>{arenas ? modeLabel : training ? 'TRAINING' : 'OPEN WORLD'} <i>/</i> {arenas ? 'SELECT ARENA' : 'SELECT DISTRICT'}</span><span className="starting-step">{arenas ? 'ARENA SELECTION' : '01 — STARTING POINT'}</span></header>
     <main className="starting-main" ref={main} aria-busy={deploying}>
-      <div className="starting-title"><span className="starting-eyebrow">{arenas ? 'TEAM DEATHMATCH' : 'THE ISLAND IS YOURS'}</span><h1>{arenas ? 'Choose an arena' : 'Choose a district'}</h1><p>{arenas ? 'Choose an arena on the map. Grey regions are currently unavailable.' : training ? 'Choose where to set up your live-fire range.' : 'Choose where your open world journey begins.'}</p></div>
+      <div className="starting-title"><span className="starting-eyebrow">{arenas ? modeLabel : 'THE ISLAND IS YOURS'}</span><h1>{arenas ? 'Choose an arena' : 'Choose a district'}</h1><p>{arenas ? 'Choose an arena on the map. Grey regions are currently unavailable.' : training ? 'Choose where to set up your live-fire range.' : 'Choose where your open world journey begins.'}</p></div>
       <div className="starting-layout">
         <section className="starting-map" aria-label={arenas ? 'Arena locations' : 'Starting districts'}>
           <div className="starting-map-heading"><span>SINGAPORE <b>/ {options.length} {arenas ? 'AVAILABLE ARENAS' : 'DISTRICTS'}</b></span>{!arenas && <div className="starting-view" role="group" aria-label="District view"><button aria-pressed={view === 'map'} onClick={() => setView('map')}>Map</button><button aria-pressed={view === 'list'} onClick={() => setView('list')}>List</button></div>}</div>
@@ -175,6 +179,7 @@ export default function StartingPointPicker({ mode, initial, options, back, onDe
         <aside className="starting-details" aria-label={arenas ? 'Selected arena' : 'Selected starting point'}>
           <div className="starting-detail-top"><span className="starting-detail-label"><MapPin size={16} />{arenas ? 'ARENA' : 'STARTING POINT'}</span><nav className="starting-browse" aria-label={arenas ? "Browse available arenas" : "Browse starting districts"}><button aria-label={arenas ? "Previous arena" : "Previous district"} onClick={() => step(-1)}><ChevronLeft size={18} /></button><span>{String(index + 1).padStart(2, '0')} / {options.length}</span><button aria-label={arenas ? "Next arena" : "Next district"} onClick={() => step(1)}><ChevronRight size={18} /></button></nav></div>
           <div className="starting-place" aria-live="polite" aria-atomic="true"><span className="starting-eyebrow">{arenas ? place.name : place.district}</span><h2>{arenas ? arenaName(place) : place.name}</h2>{!arenas && <p className="starting-subtitle">{place.subtitle}</p>}</div>
+          {arena && <div className="starting-brief"><span><Crosshair size={16} />4 VS 4 · {mode === 'hardpoint' ? 'ROTATING OBJECTIVES' : 'TEAM ELIMINATIONS'}</span><p>{arena.description}</p>{controls && <p>Rotation: {controls.map((site,i)=>`${i+1}. ${site.name}`).join(' → ')}</p>}</div>}
           {!arenas && <>
             <div className="starting-tags">{place.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
             <div className="starting-brief"><span>{training ? <Crosshair size={16} /> : <MapPin size={16} />}{training ? 'LIVE-FIRE RANGE' : `${zone.risk.toUpperCase()} THREAT`}</span><p>{training ? 'Practice with your equipped loadout. Targets, drills and vehicles will be ready when you arrive.' : zone.description}</p></div>

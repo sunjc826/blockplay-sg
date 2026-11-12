@@ -1,0 +1,8 @@
+{
+  "dragon-courtyard": { "name": "Toa Payoh · Dragon courtyard", "region": "toa-payoh", "hardpoint": false },
+  "smith-street": { "name": "Chinatown · Smith Street", "region": "chinatown", "hardpoint": true },
+  "container-yard": { "name": "Tuas · Container yard", "region": "tuas", "hardpoint": true },
+  "woodlands-park": { "name": "Woodlands · Park circuit", "region": "woodlands", "hardpoint": true },
+  "bishan-court": { "name": "Bishan · Shelter court", "region": "bishan", "hardpoint": true },
+  "tampines-hub": { "name": "Tampines · Hub court", "region": "tampines", "hardpoint": true }
+}

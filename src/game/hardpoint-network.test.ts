@@ -1,4 +1,4 @@
-import { HARDPOINT_AREA, SMITH_CONTROL_SITES } from './hardpoint';
+import { HARDPOINT_ARENAS, HARDPOINT_AREA, SMITH_CONTROL_SITES } from './hardpoint';
 import * as THREE from 'three';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createArenaRuntime } from './arena-runtime';
@@ -31,9 +31,9 @@ it('waits for the host, ignores forged/invalid configs, and handles a late host'
   n.deliver(1,'host',{type:'arena-config',match:DEFAULT_ARENA_MATCH});expect(received).toHaveLength(1);
   guest();host();
 });
-it.each([HARDPOINT_AREA])('synchronizes $id teams, late join, respawn, reset, and departure',area=>{
+it.each(HARDPOINT_ARENAS)('synchronizes $area.id teams, late join, respawn, reset, and departure',({area,sites})=>{
   vi.useFakeTimers();const n=network();
-  const environment={bounds:area.bounds,move:createRegionMovement(area.bounds).move,spawns:[...area.spawns.alpha,...area.spawns.bravo],hardpoint:{area,sites:SMITH_CONTROL_SITES}};
+  const environment={bounds:area.bounds,move:createRegionMovement(area.bounds).move,spawns:[...area.spawns.alpha,...area.spawns.bravo],hardpoint:{area,sites}};
   const host=createArenaRuntime({scene:new THREE.Scene(),obstacles:[],botCount:6,environment,session:n.sessions[0]});
   const guest=createArenaRuntime({scene:new THREE.Scene(),obstacles:[],botCount:0,environment,session:n.sessions[1]});
   const input:ArenaInput={x:area.spawns.alpha[0].x,y:1.75,z:area.spawns.alpha[0].z,yaw:0,pitch:0,weapon:0,playing:true};
@@ -47,7 +47,7 @@ it.each([HARDPOINT_AREA])('synchronizes $id teams, late join, respawn, reset, an
     n.deliver(0,'guest',{type:'arena-input',input:{...input,team:'alpha'}});step(.2);expect(g.self?.team).toBe('bravo');
     host.setVitals({health:0});step(.1);expect(h.self?.alive).toBe(true); // Shared matches refuse local health edits.
     step(65);expect(h.snapshot?.actors.some(a=>a.deaths>0&&a.alive)).toBe(true);
-    step(.2);g=guest.update(0,input);expect(g.snapshot?.hardpoint).toEqual((n.packets.filter((p:any)=>p.type==='arena-state').at(-1) as any).snapshot.hardpoint);expect(g.snapshot?.hardpoint?.active).toBe('east');
+    step(.2);g=guest.update(0,input);expect(g.snapshot?.hardpoint).toEqual((n.packets.filter((p:any)=>p.type==='arena-state').at(-1) as any).snapshot.hardpoint);expect(g.snapshot?.hardpoint?.active).toBe(sites[1].id);
     const saved=structuredClone(g.snapshot);n.deliver(1,'intruder',{type:'arena-state',snapshot:{...saved,hardpoint:{...saved!.hardpoint,scores:{alpha:200,bravo:0}}}});expect(guest.update(0,input).snapshot?.hardpoint?.scores).toEqual(saved!.hardpoint!.scores);
     n.deliver(0,'guest',{type:'arena-state',snapshot:{...saved,hardpoint:{...saved!.hardpoint,scores:{alpha:200,bravo:0}}}});step(.1);expect(h.snapshot?.hardpoint?.scores.alpha).toBeLessThan(200);
     host.reset();step(.1);g=guest.update(0,input);expect(h.snapshot?.hardpoint?.scores).toEqual({alpha:0,bravo:0});expect(g.snapshot?.hardpoint).toEqual((n.packets.filter((p:any)=>p.type==='arena-state').at(-1) as any).snapshot.hardpoint);

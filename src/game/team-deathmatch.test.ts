@@ -96,8 +96,8 @@ describe.each(TDM_AREAS)('$name real district',area=>{
       world.stamps.forEach(s=>s.visible=false);accelerateInstancedRaycasts(world.scene);
       const terrain={bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene)};
       const movement=createVerticalMovement(terrain),nav=createVerticalNavigator(terrain,world.environment.navigationAnchors),cover=createSceneCover(world.scene);
-      for(const p of [...world.environment.spawns,...area.patrols])expect(movement.canOccupy(p.x,0,p.z,.5,1.8),JSON.stringify(p)).toBe(true);
-      for(let i=0;i<area.spawns.alpha.length;i++)expect(nav.route({...area.spawns.alpha[i],y:0},{...area.spawns.bravo[i],y:0}).length).toBeGreaterThan(0);
+      for(const p of [...world.environment.spawns,...area.patrols])expect(movement.canOccupy(p.x,world.bounds.groundHeight?.(p.x,p.z)??0,p.z,.5,1.8),JSON.stringify(p)).toBe(true);
+      for(let i=0;i<area.spawns.alpha.length;i++)expect(nav.route({...area.spawns.alpha[i],y:world.bounds.groundHeight?.(area.spawns.alpha[i].x,area.spawns.alpha[i].z)??0},{...area.spawns.bravo[i],y:world.bounds.groundHeight?.(area.spawns.bravo[i].x,area.spawns.bravo[i].z)??0}).length).toBeGreaterThan(0);
       const a=createArena(world.obstacles,0,'mixed',world.environment,undefined,terrain,cover.distance,undefined,cover.sightDistance);
       expect(a.snapshot().actors.every(a=>a.alive)).toBe(true);
       const initial=a.snapshot();tick(a,120);const s=a.snapshot();

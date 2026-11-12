@@ -4,7 +4,7 @@ import { createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffe
 import { guardianPlacement } from './guardian-placement';
 import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
 import { createHardpoint, controlAt, controlGoal, inControlSite, HARDPOINT_RULES, type ControlSite, type HardpointSnapshot } from './hardpoint';
-import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
+import { ARENA_TEAMS, TDM_RULES, teamFaction, teamWinner, type HardpointAreaId, type ArenaTeam, type TeamDeathmatchArea } from './arena-match';
 import { createVehicleCollisionBuffers } from './vehicle-collision-buffers';
 import { refillAmmo } from './ammo-refill';
 import { insideLift, liftBodies, liftDeparture, liftSample } from './building-lifts';
@@ -492,7 +492,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const armorDrops: MatchArmorDrop[] = [];
   let dropSerial = 0, pickupSerial = 0;
   const teamArea = environment?.teamDeathmatch ?? environment?.hardpoint?.area;
-  const hardpoint = environment?.hardpoint ? createHardpoint(environment.hardpoint.sites) : undefined;
+  const hardpoint = environment?.hardpoint ? createHardpoint(environment.hardpoint.sites,environment.hardpoint.area.id as HardpointAreaId) : undefined;
   const teamScores: Record<ArenaTeam, number> = {alpha:0,bravo:0};
   const duration = hardpoint ? HARDPOINT_RULES.duration : teamArea ? TDM_RULES.duration : ARENA_DURATION;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
@@ -3730,7 +3730,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(path?.length){const p=path[0],d=Math.hypot(p.x-actor.x,p.z-actor.z),step=Math.min(d,role.speed*dt);dxStep=(p.x-actor.x)/Math.max(d,.001)*step;dzStep=(p.z-actor.z)/Math.max(d,.001)*step;}
     }
     // With nobody in sight, a patrol makes for a supply crate on the ground.
-    const crate = !visible && !searching && !entry.temporary && !entry.order && !entry.mission ? lureFor(actor) : null;
+    const crate = !visible && !searching && !entry.temporary && !entry.order && !mission ? lureFor(actor) : null;
     if (crate) {
       const cx = crate.x - actor.x, cz = crate.z - actor.z, d = Math.hypot(cx, cz), stride = Math.max(0, Math.min(d - 1, role.speed * dt));
       dxStep = d > .01 ? cx / d * stride : 0; dzStep = d > .01 ? cz / d * stride : 0;

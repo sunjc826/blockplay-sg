@@ -410,8 +410,8 @@ The open world also has **combat events**, more often and more dangerous in high
 
 Match menus follow the Open World sequence: choose a map, load it, then choose
 settings and a starting loadout over an aerial view of the playable area.
-Team Deathmatch offers its arena picker; Hardpoint and Free for All load their
-fixed maps directly. Online players connect to a room before loading its arena.
+Team Deathmatch and Hardpoint offer island arena pickers with six and five maps
+respectively; Free for All loads its fixed map directly. See [team arena layouts](TEAM-ARENAS.md). Online players connect to a room before loading its arena.
 Free for All's host can adjust bots on the loaded ready screen. Starting gear
 choices apply to the first life and stay separate from the saved Store loadout.
 Match spawns are assigned automatically, with no landing-zone picker. Starting

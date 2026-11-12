@@ -137,3 +137,19 @@ describe('public room boundary', () => {
     expect(directory.rooms.size).toBe(0);
   });
 });
+
+it.each(['container-yard','woodlands-park','bishan-court','tampines-hub'])('hosts and labels both modes in %s',async area=>{
+  const { default: catalog } = await import('../src/game/arena-catalog.json', { with: { type:'json' } });
+  for(const mode of ['team-deathmatch','hardpoint']) {
+    const {directory}=await setup();
+    const response=await directory.fetch(request('',{name:'Host',protocol:1,build:'test',match:{mode,area}}));
+    expect(response.status).toBe(201);
+    const ticket=await response.json(),room=directory.rooms.get(ticket.code);
+    expect(room.match).toEqual({mode,area});
+    expect(directory.summary(room)).toMatchObject({map:catalog[area].name,mode:mode==='hardpoint'?'Hardpoint':'Team Deathmatch'});
+  }
+});
+it.each(['invalid','__proto__','constructor','dragon-courtyard'])('rejects unsupported hardpoint area %s',async area=>{
+  const {directory}=await setup();
+  expect((await directory.fetch(request('',{name:'Host',protocol:1,build:'test',match:{mode:'hardpoint',area}}))).status).toBe(400);
+});

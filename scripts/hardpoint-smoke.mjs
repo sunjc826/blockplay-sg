@@ -24,7 +24,7 @@ async function page(path='/multiplayer'){
 }
 const ready=`document.querySelector('.fps-game')?.dataset.phase==='ready'`,playing=`document.querySelector('.fps-game')?.dataset.phase==='playing'`;
 try{
- const host=await page('/play/multiplayer/hardpoint');await host.field('input[autocomplete="nickname"]','Hardpoint Host');await host.click('Create public room');await host.wait(`document.querySelector('output[aria-label="Room code"]')`);const code=await host.ev(`document.querySelector('output[aria-label="Room code"]').textContent`);
+ const host=await page('/play/multiplayer/hardpoint/smith-street');await host.field('input[autocomplete="nickname"]','Hardpoint Host');await host.click('Create public room');await host.wait(`document.querySelector('output[aria-label="Room code"]')`);const code=await host.ev(`document.querySelector('output[aria-label="Room code"]').textContent`);
  const listing=await(await fetch(origin+'/api/rooms')).json();assert.equal(listing.rooms.find(r=>r.code===code).mode,'Hardpoint');assert.match(listing.rooms.find(r=>r.code===code).map,/Smith Street/);
  const guest=await page();await guest.field('input[autocomplete="nickname"]','Hardpoint Guest');await guest.field('.lan-code-input',code);await guest.click('Join room');await guest.wait(`document.querySelector('output[aria-label="Room code"]')`);await guest.click('Load arena');await guest.wait(ready);
  await host.click('Load arena');await host.wait(ready);await guest.wait(ready);

@@ -11,7 +11,7 @@ import { createStreakVisuals, streakReconMarkers, streakFriendly, streakHunterMa
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
 import { playerGrenadeDirection } from './grenade-flight';
 import { buildHardpointWorld } from './hardpoint-world';
-import { SMITH_CONTROL_SITES } from './hardpoint';
+import { hardpointArena } from './hardpoint';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
 import { tdmArea, type ArenaMatch } from './arena-match';
 import { RANGE_ARMOR_TIERS, rangeDamageDps, createRangeDamageMeter, damageRangeDummy, expireRangeDamage, type RangeArmorTier, type RangeDamageMeter } from './range-damage';
@@ -400,10 +400,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const rangeTravel = !expedition && !options.arena && !options.tutorial ? options.rangeTravel : undefined;
   const checkpoint = expedition?.checkpoint ?? rangeTravel?.checkpoint;
   const tdm = !expedition && options.arena?.match?.mode === 'team-deathmatch' ? options.arena.match : undefined;
-  const hardpoint = !expedition && options.arena?.match?.mode==='hardpoint';
-  const teamMatch=!!tdm || hardpoint;
+  const hardpoint = !expedition && options.arena?.match?.mode==='hardpoint' ? hardpointArena(options.arena.match.area) : undefined;
+  const teamMatch=!!tdm || !!hardpoint;
   const freeForAll = !expedition && !!options.arena && !teamMatch;
-  const region = expedition?.zone ?? (hardpoint?'chinatown':tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
+  const region = expedition?.zone ?? (hardpoint?hardpoint.area.region:tdm ? tdmArea(tdm.area)!.region : options.region) ?? 'marina-bay';
   const district = options.tutorial ? TUTORIAL_DISTRICT : getFpsDistrict(region), spawn = rangeTravel?.spawn ?? district.spawn, targetPositions = district.targets;
   const practiceRange = !expedition && !options.arena && !options.tutorial;
   let drillMode: RangeDrillId = practiceRange && validRangeDrill(options.rangeDrill) ? options.rangeDrill : 'classic';
@@ -424,7 +424,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : ' range')}. WASD to move, mouse to look, click to fire.`);
-  const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld() : tdm ? buildTeamDeathmatchWorld(tdm.area)
+  const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld(hardpoint.area.id) : tdm ? buildTeamDeathmatchWorld(tdm.area)
     : buildDistrictWorld(region, expedition?.spawn, { barricades: freeForAll });
   if (teamMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
   const world = zoneWorld; world.stamps.forEach(o => o.visible = false);
@@ -991,7 +991,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     onHud({ ...hud, reserveCarrier: carrierHud(), swimming:swimming(),swimCanFire:!swimming()||swimmingCanFire(hud.weapon,carry.length()), ...(options.tutorial ? { tutorial: { feet: vertical, grounded: grounded(), stance: stance(), sprinting: wasSprinting } } : {}), crouchLatched: keys.has('c'), vision: visionHud(), ...railHud(), supplyUse: supplyUse ? { name: supplyUse.name, verb: supplyUse.profile.verb, progress: supplyProgress(supplyUse), style: supplyUse.profile.style, fromBelt: supplyUse.fromBelt } : reserveTransferProgress > 0 ? { name: CARRIER_NAME[carrierStock()!.kind], verb: 'TRANSFERRING AMMUNITION', progress: reserveTransferProgress, style: 'ammo', fromBelt: false } : ammoPlacement ? { name: `Rig pouch ${Math.floor(ammoPlacement.slot / 18) * 9 + ammoPlacement.slot % 9 + 1}`, verb: 'STOWING AMMUNITION', progress: ammoPlacement.progress, style: 'ammo', fromBelt: false } : null, prone, braced: braced(), carriedWeapons: physicalWeaponFamilies(equipment.carriedFamilies), carriedKg: burden.totalKg, movementScale: burden.movement, comms: comms.snapshot(), pilotEnabled, aimProgress, reloadEmpty: emptyReload[hud.weapon], reloadSaved: state.reloadSaved ?? 0, chambered: chamberRound(state, specs[hud.weapon]) > 0, magazineOut: state.magazineOut === true, roundReady: roundReady(state, specs[hud.weapon]), vehicleView: firstPersonVehicle() ? 'first-person' : 'third-person', vehiclePersonalWeapon: vehicles.canUseFirearm, ...vehicles.hud(position, Object.fromEntries((hud.arena?.actors ?? []).map(a => [a.id, a.name]))), ...(liftNotice()?{vehicleNotice:liftNotice()}:{}), ...(!vehicles.active && (vertical > .35 || expedition && (focusedLoot || hud.npcPrompt)) ? { interact: '' } : {}), magazine: state.magazine, reserve: state.reserve, spareMagazines: spareMagazines(state), magazineCapacity: magazineCapacity(state, specs[hud.weapon]), reloadCapacity: specs[hud.weapon].capacity, reloading: state.reloadRemaining / reloadDuration(specs[hud.weapon], state.reloadEmpty === true), aiming: actualAim, hit: hitTime > 0, locked: document.pointerLockElement === canvas, inputMode, x: position.x, z: position.z, yaw, pitch,
       mapContactRange, mapMarkers: [
         ...(maid && !maid.arriving ? [{ id: 'personal-maid', ...maid.position, kind: 'loot' as const, lootType: 'resupply' as const, label: 'Maid · reserve ammunition' }] : []),
-        ...(hud.arena?.hardpoint ? SMITH_CONTROL_SITES.map((site,i):MinimapMarker=>({id:`control-${site.id}`,x:site.x,z:site.z,kind:'control',number:i+1,
+        ...(hud.arena?.hardpoint ? (hardpoint?.sites ?? []).map((site,i):MinimapMarker=>({id:`control-${site.id}`,x:site.x,z:site.z,kind:'control',number:i+1,
           active:hud.arena!.hardpoint!.active===site.id,inactive:hud.arena!.hardpoint!.active!==site.id,
           label:`${i+1}. ${site.name} · ${hud.arena!.hardpoint!.active===site.id?(hud.arena!.hardpoint!.contested?'Contested':'Active'):hud.arena!.hardpoint!.next===site.id?'Next':'Inactive'}`})):[]),
         ...(rangeTravel ? WORLD_GATEWAYS.filter(g => g.from === region && g.border).map(g => ({ id: g.id, ...g.position, kind: 'checkpoint' as const, label: g.name })) : []),
@@ -4221,7 +4221,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function guardianPreview(target: THREE.Vector3 | null) {
     const self = hud.arenaSelf!;
-    const area = tdmArea(hardpoint ? 'smith-street' : tdm?.area ?? '');
+    const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
     const result = guardianPlacement(camera.position, target, {
       movement: footMovement, wallDistance: facilityCover.distance,
       enemySpawns: area && self.team ? area.spawns[self.team === 'alpha' ? 'bravo' : 'alpha'] : [],
@@ -4233,7 +4233,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function strikePreview(target: THREE.Vector3 | null) {
     const self = hud.arenaSelf!;
-    const area = tdmArea(hardpoint ? 'smith-street' : tdm?.area ?? '');
+    const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
     const result = precisionStrikePlacement(camera.position, target, {
       movement: footMovement, wallDistance: facilityCover.distance,
       spawns: area ? Object.values(area.spawns).flat() : [],

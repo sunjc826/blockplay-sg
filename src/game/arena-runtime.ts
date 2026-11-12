@@ -2,7 +2,7 @@ import { MAX_MATCH_ARMOR_DROPS, validMatchArmorDrop, validMatchArmorPickup } fro
 import { isStreakId, validStreakSnapshot, type StreakId } from './match-streaks';
 import { MAX_MATCH_DROPS, validMatchDrop, validMatchPickup } from './match-weapon-drops';
 import { HARDPOINT_RULES, validHardpointSnapshot } from './hardpoint';
-import { TDM_RULES, teamFaction } from './arena-match';
+import { TDM_RULES, teamFaction, type HardpointAreaId } from './arena-match';
 import { looksLikeSlide } from './fps-slide';
 import { getBuildingLifts } from './building-lifts';
 import { validMerlionState, validMerlionAction, type MerlionAction } from './merlion-gameplay';
@@ -149,7 +149,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (value.streaks !== undefined && (environment?.endless || !validStreakSnapshot(value.streaks, value.actors as ArenaActor[], environment?.hardpoint ? 'hardpoint' : teamArea ? 'team-deathmatch' : 'free-for-all', value.elapsed as number))) return false;
   if (teamArea && ((Array.isArray(value.events) && value.events.some(e => !object(e) || e.kind !== 'drone' || !(value.streaks as import('./match-streaks').StreakSnapshot)?.effects?.some(s => s.kind === 'hunter' && s.event === e.id))) || (Array.isArray(value.raiders) && value.raiders.some(r => !object(r) || r.kind !== 'drone')))) return false;
   if (value.streaks !== undefined && (value.streaks as import('./match-streaks').StreakSnapshot).effects.some(e => e.event && (!Array.isArray(value.events) || !value.events.some(d => d.id === e.event && d.kind === 'drone')))) return false;
-  if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites) : value.hardpoint!==undefined)return false;
+  if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites,environment.hardpoint.area.id as HardpointAreaId) : value.hardpoint!==undefined)return false;
   if (value.proxies !== undefined) {
     const op=(value.proxies as import('./proxy-operations').ProxySnapshot).operation;
     if (op && environment && [op.at,...Object.values(op.entries)].some(p=>p.x<environment.bounds.minX || p.x>environment.bounds.maxX || p.z<environment.bounds.minZ || p.z>environment.bounds.maxZ)) return false;

@@ -1,16 +1,19 @@
 import * as THREE from 'three';
 import { buildTeamCombatWorld } from './team-combat-world';
-import { HARDPOINT_AREA, HARDPOINT_LAYOUT, SMITH_CONTROL_SITES, type HardpointSnapshot } from './hardpoint';
+import { hardpointArena, type HardpointSnapshot } from './hardpoint';
 import { installStructureLayout } from './structure-layout';
 import { createStructureVisuals } from './structure-visuals';
 
 /** Fixed mode-owned stations, with presentation separate from objective occupancy. */
-export function buildHardpointWorld() {
-  const world=buildTeamCombatWorld(HARDPOINT_AREA,{hardpoint:{area:HARDPOINT_AREA,sites:SMITH_CONTROL_SITES}});
-  const installed=installStructureLayout(world,HARDPOINT_LAYOUT);
-  world.environment.navigationAnchors=[...world.environment.navigationAnchors??[],...installed.navigationAnchors,...SMITH_CONTROL_SITES];
-  const structures=createStructureVisuals(world.scene,HARDPOINT_LAYOUT);
-  const markers=SMITH_CONTROL_SITES.map(site=>{
+export function buildHardpointWorld(areaId = 'smith-street') {
+  const config=hardpointArena(areaId);
+  if(!config) throw new Error('Unknown Hardpoint area');
+  const {area,sites,layout}=config;
+  const world=buildTeamCombatWorld(area,{hardpoint:{area:area,sites:sites}});
+  const installed=installStructureLayout(world,layout);
+  world.environment.navigationAnchors=[...world.environment.navigationAnchors??[],...installed.navigationAnchors,...sites];
+  const structures=createStructureVisuals(world.scene,layout);
+  const markers=sites.map(site=>{
     const root=new THREE.Group();root.userData.fpsEffect=true;root.name=`Control zone ${site.id}`;
     root.position.set(site.x,site.y+.06,site.z);
     const material=new THREE.MeshBasicMaterial({color:'#667780',side:THREE.DoubleSide,transparent:true,opacity:.25,depthWrite:false});
@@ -21,7 +24,7 @@ export function buildHardpointWorld() {
   });
   const controlStations={
     update(state?:HardpointSnapshot) {
-      structures.update(SMITH_CONTROL_SITES.map((site,i)=>{
+      structures.update(sites.map((site,i)=>{
         const active=state?.active===site.id;
         const accent=active?(state.contested?'#ff7568':state.owner==='alpha'?'#70cfff':state.owner==='bravo'?'#ffc56e':'#eef5fa'):state?.next===site.id?'#e7df88':'#667780';
         markers[i].material.color.set(accent);markers[i].material.opacity=active?.85:state?.next===site.id?.55:.18;
