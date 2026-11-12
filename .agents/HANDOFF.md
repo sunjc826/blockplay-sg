@@ -7005,3 +7005,30 @@ live session, phones, SwiftShader, `audit:map-surfaces`. Findings left alone:
 walk/drive ignores the Sun shadows toggle and Shadow detail; Low/Battery have
 no anti-aliasing; SMAA on Ultra adds shimmer; `MarinaGame` may apply
 `withGroundCover` twice (white lawns in a harness, unverified in the game).
+
+## 2026-11-12 — Block module (shape language), first five districts
+
+Rules and constants in `docs/SHAPE-LANGUAGE.md` and `src/game/block-module.ts`:
+0.5 m block, 0.1 m detail unit and minimum thickness, 3 m storey and bay.
+`createSceneKit({ module: true })` snaps boxes and colliders together;
+`kit.freeform(() => ...)` keeps landmarks exact. `pnpm audit:shape-language`
+surveys every district (baseline and after JSON in `docs/evidence/`).
+
+- Converted: Marina Bay (hand pass after compaction, freeform zones in
+  `SHAPE_FREEFORM_ZONES`), Toa Payoh, Tampines, Bishan, Pulau Ubin. The other
+  18 districts build exactly as before.
+- Marina: promenade is 1,728 jointless 1 m slabs (was 4,320 pavers with 1.4 cm
+  joints), 0.5 m boardwalk planks, bay rail of 0.1 m posts and two rails at
+  0.7 m, 3 m storey bands and bay mullions on generic towers, gully grate bars
+  removed, Shoppes arches and conservatory ribs merged to one draw per material.
+- Test expectations changed: rail top .7 m in `rain-receivers.test.ts`;
+  instanced floor 14,000 -> 12,000 plus a slab-count pin in `marina-scene.test.ts`.
+- Navigation re-baked for the five; Toa Payoh 14 of 16 routes, as before.
+
+Merged tree: typecheck clean, 3,999 tests pass, build and `check:navigation`
+pass. Not done: live session, browser smokes, `test:pwa`, `test:touch`.
+Remaining: Raffles Place and Queenstown predate the kit and need a hand pass;
+heritage districts need a decision on what counts as generic; HarbourFront and
+Chinatown gain about 40-50% static draws if snapped as they are; street props,
+vegetation, vertical places and lifts are not module-aware yet. Stash entry
+`shape-ubin-q15` is already committed and can be dropped by the owner.
