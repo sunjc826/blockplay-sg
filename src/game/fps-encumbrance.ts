@@ -3,6 +3,7 @@ import type { ShopItem } from './armory-catalog';
 import type { WeaponState } from './fps-rules';
 import { beltWeightKg } from './utility-belt';
 import { createPooledLoadout } from './ammo-pools';
+import { SPRINT_OUT, SPRINT_OUT_RANGE } from './fps-sprint';
 
 const bounded = (value: number | undefined, fallback: number, max: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
@@ -45,5 +46,9 @@ export function equipmentMovement(equipment: ResolvedLoadout, active: number,
   const movement = Math.max(.2, Math.min(1, carried * inHand));
   return { totalKg, weaponsKg, ammoKg, suppliesKg, carried, inHand, movement,
     // Keep low cover reachable even with heavy equipment; weight still taxes the arc.
-    jumpVelocity: .9 + .1 * movement, aimSpeed: Math.max(.25, (.35 + .65 * carried) * inHand) };
+    jumpVelocity: .9 + .1 * movement, aimSpeed: Math.max(.25, (.35 + .65 * carried) * inHand),
+    // What is in hand decides how well it moves on aim and how soon it fires out of a run.
+    // A rifle is 1; a pistol strafes a fifth faster on its sights, a machine gun under three quarters as fast.
+    aimMove: Math.max(.7, Math.min(1.25, 1 + 1.5 * (inHand - 1))),
+    sprintOut: Math.max(SPRINT_OUT_RANGE.min, Math.min(SPRINT_OUT_RANGE.max, SPRINT_OUT / (inHand * inHand))) };
 }

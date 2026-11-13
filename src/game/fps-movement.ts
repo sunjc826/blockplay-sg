@@ -11,8 +11,8 @@ export function movementFrameSteps(elapsed: number): number[] {
 
 export type MovementStance = 'stand' | 'crouch' | 'prone';
 export const INFANTRY_GRAVITY = { rise: 18, fall: 24 };
-/** About 1.6 m unladen: enough to mount low cover, with a quick landing. */
-export const INFANTRY_JUMP_SPEED = 7.6;
+/** About 1.05 m unladen: a hop over a kerb, a hurdle or a low crate. Chest-high cover is climbed (see fps-mantle). */
+export const INFANTRY_JUMP_SPEED = 6.2;
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const damp = (a: number, b: number, rate: number, dt: number) => b + (a - b) * Math.exp(-rate * dt);
 export function createMovementMotion() {
@@ -36,12 +36,16 @@ export function consumeJump(state: MovementMotion, grounded: boolean, canJump: b
   }
   return jump;
 }
+/** Per second, towards the wanted velocity. Air control bends a jump without turning it round. */
+export const GROUND_ACCELERATION = 11, GROUND_STOP = 16, AIR_CONTROL = 3;
 /** Accelerate in world space: looking around in midair cannot rotate momentum. */
 export function advanceGroundMotion(state: MovementMotion, targetX: number, targetZ: number,
   grounded: boolean, mobility: number, stance: MovementStance, locked: boolean, dt: number) {
   if (locked) { state.x = state.z = 0; return { x: 0, z: 0 }; }
   const input = Math.hypot(targetX, targetZ) > .001;
-  const rate = grounded ? (input ? (stance === 'prone' ? 5 : 9) * (.65 + .35 * mobility) : 16) : input ? 1.35 : .12;
+  // Pushing against the way the body is going brakes as hard as letting go, so a strafe reverses rather than drifts.
+  const against = stance !== 'prone' && state.x * targetX + state.z * targetZ < 0;
+  const rate = grounded ? (input ? (stance === 'prone' ? 5 : against ? GROUND_STOP : GROUND_ACCELERATION) * (.65 + .35 * mobility) : GROUND_STOP) : input ? AIR_CONTROL : .12;
   // Integrate the exponential exactly so travel distance is independent of frame rate.
   const blend = 1 - Math.exp(-rate * dt);
   const x = targetX * dt + (state.x - targetX) * blend / rate;

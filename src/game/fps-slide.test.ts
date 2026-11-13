@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SLIDE_AIR_GRACE, SLIDE_BOOST, SLIDE_COOLDOWN, SLIDE_SECONDS, advanceSlide, coolSlide, createSlide, endSlide, looksLikeSlide, resolveSlideContact, startSlide } from './fps-slide';
+import { SLIDE_AIR_GRACE, SLIDE_BOOST, SLIDE_COOLDOWN, SLIDE_SECONDS, SLIDE_SPREAD, slideSpread, advanceSlide, coolSlide, createSlide, endSlide, looksLikeSlide, resolveSlideContact, startSlide } from './fps-slide';
 
 const run = (fps: number, input: [number, number] = [0, 0]) => {
   const state = createSlide(); startSlide(state, 7, 0, 7, 2.1);
@@ -8,6 +8,18 @@ const run = (fps: number, input: [number, number] = [0, 0]) => {
   return { state, x, z, frames };
 };
 describe('combat slide', () => {
+  it('is hard to shoot from while fast and steady again by its end', () => {
+    const state = createSlide();
+    expect(slideSpread(state)).toBe(1);
+    startSlide(state, 7, 0, 7, 2.1);
+    expect(slideSpread(state)).toBe(SLIDE_SPREAD);
+    advanceSlide(state, 0, 0, true, SLIDE_SECONDS * .6);
+    expect(slideSpread(state)).toBe(SLIDE_SPREAD);
+    advanceSlide(state, 0, 0, true, SLIDE_SECONDS * .25);
+    expect(slideSpread(state)).toBeLessThan(SLIDE_SPREAD); expect(slideSpread(state)).toBeGreaterThan(1);
+    advanceSlide(state, 0, 0, true, SLIDE_SECONDS * .149);
+    expect(slideSpread(state)).toBeLessThan(1.01);
+  });
   it('starts only from a real run, with a kick along the run', () => {
     expect(startSlide(createSlide(), 2, 0, 7, 2.1)).toBe(false);
     expect(startSlide(createSlide(), 0, 0, 7, 2.1)).toBe(false);

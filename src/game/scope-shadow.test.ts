@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AIMED_TURN_LAG_LIMIT, createAimedTurnLag, createScopeShadow, limitScopeEye, SCOPE_CLEAR_CENTRE, scopeEyeBox, type ScopeMotion } from './scope-shadow';
+import { AIMED_TURN_LAG_LIMIT, createAimedTurnLag, hipTurnShare, weaponHeft, createScopeShadow, limitScopeEye, SCOPE_CLEAR_CENTRE, scopeEyeBox, type ScopeMotion } from './scope-shadow';
 
 const still: ScopeMotion = { lateralSpeed: 0 };
 /** Runs frames and reports the furthest swing on each side plus where it ended. */
@@ -126,6 +126,27 @@ describe('aimed turn lag', () => {
     expect(settle[15].yaw).toBeGreaterThan(peak * .25);
     expect(Math.min(...settle.map(sample => sample.yaw))).toBeGreaterThanOrEqual(0);
     expect(settle.at(-1)!.yaw).toBeLessThan(AIMED_TURN_LAG_LIMIT * .01);
+  });
+  it('leaves a heavy gun further behind and brings it back later, and a pistol hardly at all', () => {
+    const pistol = weaponHeft(1.14), rifle = weaponHeft(1), gun = weaponHeft(.74);
+    expect(rifle).toBe(1); expect(pistol).toBeLessThan(.8); expect(gun).toBeGreaterThan(1.7);
+    expect(weaponHeft(.1)).toBe(2.2); expect(weaponHeft(Number.NaN)).toBe(1); expect(weaponHeft(0)).toBe(1);
+    const swing = (heft: number) => {
+      const lag = createAimedTurnLag(); let peak = 0;
+      for (let i = 0; i < 12; i++) peak = Math.max(peak, lag.update(1 / 60, -2 / 60, 0, true, heft).yaw);
+      let frames = 0, yaw = peak;
+      while (yaw > .002 && frames < 600) { yaw = lag.update(1 / 60, 0, 0, true, heft).yaw; peak = Math.max(peak, yaw); frames++; }
+      return { peak, frames };
+    };
+    const light = swing(pistol), middle = swing(rifle), heavy = swing(gun);
+    expect(light.peak).toBeLessThan(middle.peak); expect(heavy.peak).toBeGreaterThan(middle.peak * 1.3);
+    expect(heavy.frames).toBeGreaterThan(middle.frames * 1.3); expect(light.frames).toBeLessThan(middle.frames);
+    // Bounded however heavy, and unchanged for the rifle.
+    const spun = createAimedTurnLag(); let far = 0;
+    for (let i = 0; i < 120; i++) far = Math.max(far, spun.update(1 / 60, -1, 0, true, 9).yaw);
+    expect(far).toBeLessThanOrEqual(AIMED_TURN_LAG_LIMIT * 1.5 + 1e-9);
+    expect(createAimedTurnLag().update(1 / 60, -.02, 0, true).yaw).toBe(createAimedTurnLag().update(1 / 60, -.02, 0, true, 1).yaw);
+    expect(hipTurnShare(pistol)).toBeLessThan(.2); expect(hipTurnShare(rifle)).toBeCloseTo(.4); expect(hipTurnShare(gun)).toBeGreaterThan(1.1); expect(hipTurnShare(9)).toBe(1.6);
   });
   it('stays inside its limit however fast the view spins, and clears when disabled', () => {
     const lag = createAimedTurnLag();

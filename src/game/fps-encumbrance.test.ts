@@ -21,6 +21,9 @@ describe('total carried load plus weapon in hand', () => {
     expect(pistol.movement).toBeLessThan(1); // stowed MGs still count
     expect(heavy.jumpVelocity).toBeLessThan(pistol.jumpVelocity);
     expect(heavy.aimSpeed).toBeLessThan(pistol.aimSpeed);
+    // The gun in hand, not the load, sets how it strafes on aim and how soon it fires out of a run.
+    expect(rifle.aimMove).toBe(1); expect(pistol.aimMove).toBeGreaterThan(1.15); expect(heavy.aimMove).toBe(.7);
+    expect(rifle.sprintOut).toBeCloseTo(.12); expect(pistol.sprintOut).toBeLessThan(.1); expect(heavy.sprintOut).toBe(.16);
   });
   it('a heavier stowed variant slows even the pistol; unused owned gear and skins do not', () => {
     const base = createProfile(), light = resolveLoadout(base);

@@ -25,6 +25,8 @@ export const SLIDE_AIR_GRACE = .12;
 const SLIDE_STOPPED_SHARE = .35;
 /** Harder to hit from than a run, and it never earns a crouch's steadiness. */
 export const SLIDE_SPREAD = 1.35;
+/** The penalty holds while the slide is fast and is gone by its end, so a slide into a fight arrives able to shoot. */
+const SLIDE_SETTLE = 2 / 3;
 
 export interface SlideState { active: boolean; x: number; z: number; speed: number; floor: number; elapsed: number; cooldown: number; air: number }
 export const createSlide = (): SlideState => ({ active: false, x: 0, z: 0, speed: 0, floor: 0, elapsed: 0, cooldown: 0, air: 0 });
@@ -72,6 +74,11 @@ export function resolveSlideContact(state: SlideState, wantedX: number, wantedZ:
   if (moved < wanted * SLIDE_STOPPED_SHARE) { endSlide(state); state.speed = 0; return; }
   state.x = movedX / moved; state.z = movedZ / moved;
   state.speed = Math.max(state.floor, state.speed * moved / wanted);
+}
+export function slideSpread(state: SlideState) {
+  if (!state.active) return 1;
+  const t = Math.max(0, Math.min(1, (state.elapsed / SLIDE_SECONDS - SLIDE_SETTLE) / (1 - SLIDE_SETTLE)));
+  return SLIDE_SPREAD - (SLIDE_SPREAD - 1) * t * t * (3 - 2 * t);
 }
 /** Only a slide moves a crouching figure this fast, so a remote body can be read without another field on the wire. */
 export const SLIDE_READ_SPEED = 3.4;

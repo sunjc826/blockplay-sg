@@ -21,7 +21,7 @@ import { cloneRangeDummy, createRangeDummyModel, RANGE_DUMMY_BASE_DEPTH } from '
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
-import { createAimedTurnLag } from './scope-shadow';
+import { createAimedTurnLag, hipTurnShare, weaponHeft } from './scope-shadow';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
 import { transportRayDistance } from './combat-transports';
@@ -179,7 +179,8 @@ import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, READY_
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { runningWeaponMotion } from './fps-weapon-run';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
-import { SLIDE_EYE_HEIGHT, SLIDE_SPREAD, advanceSlide, coolSlide, createSlide, endSlide, resolveSlideContact, startSlide } from './fps-slide';
+import { SLIDE_ENTRY_SHARE, SLIDE_EYE_HEIGHT, slideSpread, advanceSlide, coolSlide, createSlide, endSlide, resolveSlideContact, startSlide } from './fps-slide';
+import { MANTLE_AIR_MIN, MANTLE_AIR_REACH, MANTLE_GROUND_MIN, MANTLE_REACH, advanceMantle, createMantle, planMantle, startMantle, type MantlePlan } from './fps-mantle';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
 import { createEncikAudio } from './encik-audio';
@@ -266,6 +267,8 @@ export interface FpsExpeditionOptions {
  * cooldown was dropped, and holding was the only pull that reliably fired.
  */
 const TRIGGER_BUFFER = .18;
+/** A dive leaves the ground at this speed, a little faster than the run it came from. */
+const DIVE_LIFT = 4, DIVE_BOOST = 1.08;
 const MAP_CAPTURE_GRACE_MS = 1500;
 /** How near a friendly has to fall, in metres, for the radio to say what they left. */
 const FRIENDLY_KIT_CALL_RANGE = 90;
@@ -904,6 +907,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // The combat slide (see fps-slide): `slideWeight` eases the view and the gun in and out of it.
   const slide = createSlide();
   let slideWeight = 0;
+  // Climbing (see fps-mantle): the hands are busy, so the gun drops out of the way and cannot fire.
+  const mantle = createMantle();
+  let mantleWeight = 0, lastGroundY = 0;
+  /** A sprint thrown flat: airborne and prone until it lands, with no steering. */
+  let diving = false;
   let mapReturnStance: { prone: boolean; crouch: boolean } | null = null;
   /** How long play carries on without the mouse while it is being taken back after the map. */
   let mapCaptureUntil = 0;
@@ -1044,7 +1052,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     minimapSeen = minimapSightings(camera, world.scene, hud.arenaSelf, hud.arena?.actors ?? [], combatSubjects(true), clouds, range);
     return minimapMarkers(hud.arenaSelf, hud.arena?.actors ?? [], minimapSeen);
   };
-  const clearInput = () => { cancelCarrierTransfer(); ammoPlacements.clear(); ammoPlacement = undefined; bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
+  const clearInput = () => { cancelCarrierTransfer(); ammoPlacements.clear(); ammoPlacement = undefined; bailoutAge = undefined; firearmShake.reset(); flinch.reset(); shoulderMotion.reset(); stopInspect(); keyboardCrouch.clear(); prone = false; keys.clear(); trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false; Object.assign(sprintBreak, createSprintBreak()); wasSprinting = stickRunning = false; Object.assign(slide, createSlide()); Object.assign(mantle, createMantle()); diving = false; ads = false; touchAim = false; drag = null; moveStick = null; recoveryKeyAt = null; grenadeKeyAt = null; grenadeFireHeld = false; grenadePicker = null; recoveryPicker = null; hud.recoveryPicker = null; hud.grenadePicker = null; if (grenadeHeld?.pinned && !disposed) releaseGrenade(); else grenadeHeld = null; resetMovementMotion(bodyMotion, eyeHeight()); handling.forEach(model => model.resetBipod()); };
   function configureDebug(value: FpsDebugSettings) {
     if (!debugAvailable || disposed) return;
     const fraction = hud.health / hud.maxHealth;
@@ -1790,7 +1798,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     if (key === 'k') { if (held) inspectWeapon(); return; }
     if (key === 'v') { if (held) switchVehicleSeat(); return; }
-    if (key === 'z') { if (held && !vehicles.active && grounded()) { if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keyboardCrouch.clear(); keys.delete('c'); publish(); } return; }
+    if (key === 'z') { if (held && !vehicles.active && !mantle.active && grounded()) {
+      // Going prone out of a sprint is a dive: the run carries on through the air and lands flat.
+      // Like the slide, it takes a real run: a sprint held against a wall just lies down.
+      if (!prone && wasSprinting && !slide.active && Math.hypot(bodyMotion.x, bodyMotion.z) > INFANTRY_SPEED.sprint * movement().movement * SLIDE_ENTRY_SHARE) { diving = true; velocityY = DIVE_LIFT; bodyMotion.x *= DIVE_BOOST; bodyMotion.z *= DIVE_BOOST; }
+      if (!prone || footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8)) prone = !prone; keyboardCrouch.clear(); keys.delete('c'); publish(); } return; }
     if (held && !vehicles.active && (key === 'c' || key === 'control') && footMovement.canOccupy(position.x, vertical, position.z, .38, 1.2)) prone = false;
     // Letting the touch latch go is the second press of crouch: it stands up out of the slide.
     if (key === 'c' && !held && keys.has('c')) endSlide(slide);
@@ -2667,8 +2679,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.deathCam = '';
     // Bounded camera-relative inertia, driven by angle deltas (not frame rate).
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
-    lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
-    lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
+    // A heavier gun is left further behind by a turn and takes longer to catch up. Only the model lags; the aim is the camera's.
+    const heft = weaponHeft(specs[primaryWeaponFamily(hud.weapon)]?.mobility ?? 1);
+    lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025 * heft, -.003 * heft, .003 * heft), 0, 12 / heft, dt);
+    lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025 * heft, -.003 * heft, .003 * heft), 0, 12 / heft, dt);
     const pitchDelta = pitch - lastLookPitch;
     lastLookYaw = yaw; lastLookPitch = pitch;
     const merlion = merlionRenderState ?? merlionState();
@@ -2696,6 +2710,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle()) && (!swimming() || swimmingCanFire(hud.weapon,carry.length()));
     const poseStance = stance(), crouching = poseStance !== 'stand' && !slide.active;
     slideWeight = THREE.MathUtils.damp(slideWeight, slide.active ? 1 : 0, slide.active ? 14 : 8, dt);
+    mantleWeight = THREE.MathUtils.damp(mantleWeight, mantle.active ? 1 : 0, mantle.active ? 16 : 9, dt);
+    const traversal = mantle.active ? (mantle.vault ? 'vault' : 'mantle') : diving ? 'dive' : '';
+    if (traversal !== (canvas.dataset.traversal ?? '')) canvas.dataset.traversal = traversal;
     const speed = carry.length(), onGround = grounded();
     const sideSpeed = carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw);
     const forwardSpeed = -carry.x * Math.sin(yaw) - carry.z * Math.cos(yaw);
@@ -2740,7 +2757,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A laser that is switched off still weighs the gun down, but it no longer shows where the round goes.
     const fitted = specs[hud.weapon].accessories;
     spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(fittedWeaponDevices(weaponDevices, fitted).laser ? fitted : { ...fitted, rail: undefined }, aim);
-    if (slide.active) spreadAngle *= SLIDE_SPREAD;
+    spreadAngle *= slideSpread(slide);
     if(swimming()) spreadAngle=Math.max(spreadAngle,SWIMMING.spread);
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
@@ -2791,7 +2808,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Sliding, the gun rolls in across the chest, still pointed where the shots go.
     const slideCant = slideWeight * motionScale * (1 - aim);
     rig.position.set(THREE.MathUtils.lerp(.20, -eyeX, aim) + sway + run.x - slideCant * .05 + motion.x * reloadTravel + lookLagX,
-      THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) + run.y - slideCant * .03 + bodyFollow + motion.y * reloadTravel + lookLagY,
+      THREE.MathUtils.lerp(-.32, -eyeY, aim) + Math.abs(sway) + run.y - slideCant * .03 - mantleWeight * motionScale * .16 + bodyFollow + motion.y * reloadTravel + lookLagY,
       THREE.MathUtils.lerp(-.78, eyeDepth, aim) + run.z + pose.push + motion.z * reloadTravel + bodyMotion.surge * motionScale * (1 - aim));
     // The weapon carries the buck, the sideways half of the pattern and the roll
     // that goes with it; the camera only ever takes the view coupling above.
@@ -2810,8 +2827,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // point while the tube swings, and the scope shadow follows from that.
     const scopeSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
     const scoped = !!scopeSight && scopeSight.magnification > 1.01 && hud.phase === 'playing' && !motionPreference?.matches && !vehicles.active;
-    const turnLag = aimedTurnLag.update(dt, yawDelta, pitchDelta, scoped);
+    const trailing = hud.phase === 'playing' && !motionPreference?.matches && !vehicles.active;
+    const turnLag = aimedTurnLag.update(dt, yawDelta, pitchDelta, trailing, heft);
     const turnLagWeight = scoped ? aim * (offsetSight ? 1 - cant : 1) : 0;
+    // At the hip the whole gun swings behind the turn, by its weight. Unmagnified sights get
+    // nothing on aim: with no eyepiece to pivot about, any swing would move them off the shot.
+    const hipTurn = trailing ? (1 - aim) * hipTurnShare(heft) : 0;
+    rig.rotation.x += turnLag.pitch * hipTurn; rig.rotation.y += turnLag.yaw * hipTurn;
+    if (debugDatasets) canvas.dataset.hipTurnLag = JSON.stringify([+(turnLag.yaw * hipTurn).toFixed(5), +(turnLag.pitch * hipTurn).toFixed(5), +heft.toFixed(3)]);
     if (scopeSight && turnLagWeight > 0 && (turnLag.yaw || turnLag.pitch)) {
       // The lens keeps its place in the rig, so last frame's matrices locate it in this frame's pose.
       rig.worldToLocal(scopeSight.lens.getWorldPosition(turnLagPivot));
@@ -2916,7 +2939,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.aimProgress = aimProgress.toFixed(3); canvas.dataset.reloadStage = stage;
     canvas.dataset.weaponVisible = String(rig.visible);
     if (debugDatasets) canvas.dataset.movement = JSON.stringify({ speed: +speed.toFixed(3), eye: +bodyMotion.eye.toFixed(3),
-      gait: bodyMotion.gait, sprint: bodyMotion.sprint, run, weaponPosition: rig.position.toArray(), weaponRotation: [rig.rotation.x, rig.rotation.y, rig.rotation.z], feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4), slide: slide.active, spread: +spreadAngle.toFixed(5) });
+      gait: bodyMotion.gait, sprint: bodyMotion.sprint, run, weaponPosition: rig.position.toArray(), weaponRotation: [rig.rotation.x, rig.rotation.y, rig.rotation.z], x: +position.x.toFixed(3), z: +position.z.toFixed(3), feet: +vertical.toFixed(3), grounded: onGround, stance: poseStance, impact: +bodyMotion.compression.toFixed(4), slide: slide.active, spread: +spreadAngle.toFixed(5) });
     viewScene.updateMatrixWorld(true);
   }
   /** Exposure, sun shadows and the weapon's own lights, from the hour and weather the world resolved to. */
@@ -4617,8 +4640,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) loadout.forEach((state, i) => advanceWeapon(state, i, realDt, specs, gunRates()));
     if (hud.chatter.length && hud.chatter[0].until <= now / 1000) hud.chatter = hud.chatter.filter(line => line.until > now / 1000);
     if (hud.phase === 'playing' && (!options.arena || hud.arenaSelf?.alive)) {
-      if (arenaConditionModifiers(conditions).frozen) { keys.clear(); moveStick = null; trigger = false; pullBuffer = 0; bodyMotion.x = bodyMotion.z = 0; endSlide(slide); }
-      if (vehicles.mounted || merlionOperating()) endSlide(slide);
+      if (arenaConditionModifiers(conditions).frozen) { keys.clear(); moveStick = null; trigger = false; pullBuffer = 0; bodyMotion.x = bodyMotion.z = 0; endSlide(slide); mantle.active = diving = false; }
+      if (vehicles.mounted || merlionOperating()) { endSlide(slide); mantle.active = diving = false; }
       bloom.forEach(state => advanceBloom(state, dt));
       calloutTime = Math.max(0, calloutTime - realDt); if (!calloutTime) hud.callout = '';
       const liftBefore=hud.elapsed;
@@ -4655,6 +4678,29 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const forward = move.forward, side = move.side;
         const onGround = grounded(), burden = movement(), footScale = footSpeedScale(foodEffects);
         coolSlide(slide, dt);
+        if (onGround) { lastGroundY = vertical; diving = false; }
+        if (mantle.active) {
+          // The climb follows its planned path; nothing else moves the body until it is over.
+          const at = advanceMantle(mantle, dt);
+          carry.set((at.x - position.x) / Math.max(dt, 1e-4), 0, (at.z - position.z) / Math.max(dt, 1e-4));
+          position = { ...position, x: at.x, z: at.z }; vertical = at.y; velocityY = 0;
+          moving = true; sprinting = wasSprinting = false; fireReady = false;
+          if (!mantle.active) {
+            // It comes off the top at a walk, in the direction it climbed.
+            const pace = Math.min(INFANTRY_SPEED.walk * footScale * burden.movement, 3.6);
+            bodyMotion.x = mantle.dirX * pace; bodyMotion.z = mantle.dirZ * pace;
+            if (!mantle.vault) { landMovement(bodyMotion, 2.4); movementSound(.4, true); }
+          }
+          continue;
+        }
+        const dynamicCover = () => [...vehicles.footObstacles().slice(world.obstacles.length), ...liftCollision()];
+        const beginMantle = (plan: MantlePlan) => {
+          endSlide(slide); keyboardCrouch.clear(); keys.delete('c');
+          startMantle(mantle, { x: position.x, y: vertical, z: position.z }, plan, .7 + .3 * burden.movement);
+          bodyMotion.x = bodyMotion.z = 0; velocityY = 0; bodyMotion.compressionVelocity -= .5;
+          handsSound('world-cloth-up', 0); wasSprinting = false;
+        };
+        const facing = movementInput(1, 0, yaw, 1, 1);
         // Crouch mid-sprint is a slide. Sprinting needs a standing body, so last frame's run is the proof.
         if (wasSprinting && crouchRequested() && !prone && onGround && !swimming()) startSlide(slide, bodyMotion.x, bodyMotion.z, INFANTRY_SPEED.sprint * footScale * burden.movement, INFANTRY_SPEED.crouch * footScale * burden.movement);
         if (slide.active && (prone || swimming())) endSlide(slide);
@@ -4662,7 +4708,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const wantsSprint = !swimming() && move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
         sprintIntent = wantsSprint && keys.has('shift');
         // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
-        ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, dt));
+        ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, dt, burden.sprintOut));
         // A fresh trigger pull or sprint key stops a reload; one already held when
         // it began does not, and a held sprint drops to a run until the reload ends.
         if (loadout[hud.weapon].reloadRemaining > 0) {
@@ -4671,13 +4717,24 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         // A fresh trigger pull or sprint key puts a supply away; one already held walks.
         if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
-        const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? INFANTRY_SPEED.prone : poseStance === 'crouch' ? INFANTRY_SPEED.crouch : sprinting ? INFANTRY_SPEED.sprint : (ads || touchAim) ? INFANTRY_SPEED.aim : INFANTRY_SPEED.walk) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
-        const target = movementInput(forward, side, yaw, speed * burden.movement, 1);
+        const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? INFANTRY_SPEED.prone : poseStance === 'crouch' ? INFANTRY_SPEED.crouch : sprinting ? INFANTRY_SPEED.sprint : (ads || touchAim) ? Math.min(INFANTRY_SPEED.walk, INFANTRY_SPEED.aim * burden.aimMove) : INFANTRY_SPEED.walk) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
+        // A dive is committed: the stick does nothing until it lands.
+        const target = diving ? { x: 0, z: 0 } : movementInput(forward, side, yaw, speed * burden.movement, 1);
         const canStandUp = () => footMovement.canOccupy(position.x, vertical, position.z, .38, 1.8, liftCollision());
         if (consumeJump(bodyMotion, onGround, poseStance === 'stand' && bodyMotion.eye > 1.6 || slide.active && canStandUp(), dt)) {
+          // Pressed into cover too tall to hop, the jump climbs it or goes over instead.
+          const plan = forward > .3 && !swimming() ? planMantle(footMovement, { x: position.x, y: vertical, z: position.z }, facing.x, facing.z,
+            { minLift: MANTLE_GROUND_MIN, reach: MANTLE_REACH, vault: true, extra: dynamicCover() }) : null;
+          if (plan) { beginMantle(plan); continue; }
           velocityY = INFANTRY_JUMP_SPEED * burden.jumpVelocity;
           // Jumping out of a slide stands up and keeps what the slide was carrying.
           if (slide.active) { endSlide(slide); keyboardCrouch.clear(); keys.delete('c'); }
+        } else if (!onGround && !swimming() && !prone && !slide.active && velocityY < 1 && forward > .5) {
+          // A jump that falls short of a ledge catches it. The reach is measured from where
+          // the jump left the ground, so a hop never climbs higher than a standing mantle.
+          const plan = planMantle(footMovement, { x: position.x, y: vertical, z: position.z }, facing.x, facing.z,
+            { minLift: MANTLE_AIR_MIN, reach: Math.min(MANTLE_AIR_REACH, lastGroundY + MANTLE_REACH - vertical), vault: false, extra: dynamicCover() });
+          if (plan) { beginMantle(plan); continue; }
         }
         const slideWasActive = slide.active;
         const delta = slide.active ? advanceSlide(slide, target.x, target.z, onGround, dt) : advanceGroundMotion(bodyMotion, target.x, target.z, (onGround || swimming()) && velocityY <= 0, burden.movement, poseStance, braced(), dt);

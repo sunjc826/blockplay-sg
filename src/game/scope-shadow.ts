@@ -95,7 +95,12 @@ export function createScopeShadow() {
   };
 }
 
-/** Furthest the aimed gun trails the view, in radians: about a degree and three quarters. */
+/** How much gun there is to swing, from its handling: 1 for a service rifle, about .77 for a pistol, 1.8 for a general-purpose machine gun. */
+export const weaponHeft = (mobility: number) => Math.max(.7, Math.min(2.2, 1 / ((Number.isFinite(mobility) && mobility > 0 ? mobility : 1) ** 2)));
+/** Share of the trail a gun at the hip shows: a pistol barely moves, a machine gun swings wide. */
+export const hipTurnShare = (heft: number) => Math.max(0, Math.min(1.6, heft - .6));
+
+/** Furthest a rifle trails the view, in radians: about a degree and three quarters. Heavier guns go up to half as far again. */
 export const AIMED_TURN_LAG_LIMIT = .03;
 const TURN_SHARE = .12, TURN_RECOVERY = 5, TURN_FOLLOW = 8;
 
@@ -107,14 +112,16 @@ const TURN_SHARE = .12, TURN_RECOVERY = 5, TURN_FOLLOW = 8;
 export function createAimedTurnLag() {
   let trailYaw = 0, trailPitch = 0;
   const value = { yaw: 0, pitch: 0 };
-  const limit = (angle: number) => Math.max(-AIMED_TURN_LAG_LIMIT, Math.min(AIMED_TURN_LAG_LIMIT, Number.isFinite(angle) ? angle : 0));
+  const limit = (angle: number, reach: number) => Math.max(-reach, Math.min(reach, Number.isFinite(angle) ? angle : 0));
   return {
     reset() { trailYaw = trailPitch = value.yaw = value.pitch = 0; },
-    /** `yawDelta` and `pitchDelta` are how far the view turned this frame, in radians. */
-    update(dt: number, yawDelta: number, pitchDelta: number, enabled: boolean) {
+    /** `yawDelta` and `pitchDelta` are how far the view turned this frame, in radians.
+     * `heft` (see `weaponHeft`) makes a heavy gun trail further and come back later; the aim itself never waits. */
+    update(dt: number, yawDelta: number, pitchDelta: number, enabled: boolean, heft = 1) {
       if (!enabled) { this.reset(); return value; }
-      const step = Math.min(Math.max(dt, 0), .1), recover = Math.exp(-TURN_RECOVERY * step), follow = 1 - Math.exp(-TURN_FOLLOW * step);
-      trailYaw = limit(trailYaw - yawDelta * TURN_SHARE) * recover; trailPitch = limit(trailPitch - pitchDelta * TURN_SHARE) * recover;
+      const weight = Math.max(.5, Math.min(2.5, Number.isFinite(heft) ? heft : 1)), slow = Math.sqrt(weight), reach = AIMED_TURN_LAG_LIMIT * Math.min(1.5, weight);
+      const step = Math.min(Math.max(dt, 0), .1), recover = Math.exp(-TURN_RECOVERY / slow * step), follow = 1 - Math.exp(-TURN_FOLLOW / slow * step);
+      trailYaw = limit(trailYaw - yawDelta * TURN_SHARE * weight, reach) * recover; trailPitch = limit(trailPitch - pitchDelta * TURN_SHARE * weight, reach) * recover;
       value.yaw += (trailYaw - value.yaw) * follow; value.pitch += (trailPitch - value.pitch) * follow;
       if (Math.abs(value.yaw) < 1e-6 && Math.abs(trailYaw) < 1e-6) value.yaw = trailYaw = 0;
       if (Math.abs(value.pitch) < 1e-6 && Math.abs(trailPitch) < 1e-6) value.pitch = trailPitch = 0;

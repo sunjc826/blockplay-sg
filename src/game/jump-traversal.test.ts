@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createVerticalMovement, type VerticalState } from './vertical-movement';
-import { advanceGroundMotion, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
+import { INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
+import { MANTLE_GROUND_MIN, MANTLE_REACH, advanceMantle, createMantle, planMantle, startMantle } from './fps-mantle';
 import { createProfile, resolveLoadout } from './armory-state';
 import { equipmentMovement } from './fps-encumbrance';
 import { campPropBounds, createCommandCamp, facilityObstacles } from './command-camp';
@@ -12,24 +13,30 @@ const crate: Obstacle = { minX:0, maxX:5, minZ:-2, maxZ:2, minY:0, maxY:1.25, su
 const movement = (obstacles: Obstacle[]) => createVerticalMovement({ bounds, obstacles, surfaces:[], traversalObstacles:[] });
 
 describe('jumping onto solid cover', () => {
-  it.each([30,60,144])('mounts cover with the heaviest movement penalty at %i fps, stays there and drops off', fps => {
+  it.each([30,60,144])('climbs cover a hop cannot reach with the heaviest movement penalty at %i fps, stays there and drops off', fps => {
     const base = resolveLoadout(createProfile());
     const kit = { ...base, mobility:0, armorWeightKg:100, suppliesWeightKg:1000,
       weapons:base.weapons.map(w=>({...w,mobility:.25})) };
     const burden = equipmentMovement(kit,0);
-    const move = movement([crate]), motion = createMovementMotion();
-    const start = { x:-1.2, y:0, z:0, velocityY:0 };
+    const move = movement([crate]);
+    const start = { x:-.4, y:0, z:0, velocityY:0 };
     expect(move.move(start,4,0,1).x).toBeLessThan(0);
-    let state: VerticalState = { ...start, velocityY:INFANTRY_JUMP_SPEED*burden.jumpVelocity };
-    // A running approach, then release the movement input over the crate.
-    motion.x = 3;
-    for(let i=0;i<fps*3;i++) {
-      const onGround = state.velocityY<=0 && Math.abs(state.y-(move.supportHeight(state.x,state.z,state.y+.02)??-100))<.025;
-      const delta = advanceGroundMotion(motion,state.x<1?3:0,0,onGround,burden.movement,'stand',false,1/fps);
-      state = move.move(state,delta.x,delta.z,1/fps,.38,1.8,[],INFANTRY_GRAVITY);
+    // The hop alone no longer gets there.
+    expect((INFANTRY_JUMP_SPEED*burden.jumpVelocity)**2/(2*INFANTRY_GRAVITY.rise)).toBeLessThan(crate.maxY!);
+    const plan = planMantle(move,start,1,0,{ minLift:MANTLE_GROUND_MIN, reach:MANTLE_REACH, vault:true })!;
+    expect(plan).toMatchObject({ y:1.25, vault:false });
+    const climb = createMantle(); startMantle(climb,start,plan,.7+.3*burden.movement);
+    let feet = { x:start.x, y:start.y, z:start.z }, frames = 0;
+    while(climb.active && frames++ < fps*3) {
+      const next = advanceMantle(climb,1/fps);
+      // Up the face first, then across: the body is never inside the crate.
+      expect(next.y).toBeGreaterThanOrEqual(feet.y); expect(move.canOccupy(next.x,next.y,next.z,.38,1.2)).toBe(true);
+      feet = next;
     }
-    expect(state.x).toBeGreaterThan(1); expect(state.x).toBeLessThan(5);
-    expect(state.y).toBe(1.25); expect(state.velocityY).toBe(0);
+    expect(climb.active).toBe(false); expect(frames/fps).toBeLessThan(1);
+    const state: VerticalState = { ...feet, velocityY:0 };
+    expect(state.x).toBeGreaterThan(0); expect(state.x).toBeLessThan(5);
+    expect(state.y).toBe(1.25);
     expect(move.move(state,0,0,1).grounded).toBe(true);
     expect(move.move(state,8,0,2).y).toBe(0);
   });

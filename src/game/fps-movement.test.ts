@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { INFANTRY_SPEED, movementFrameSteps, advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, landMovement, resetMovementMotion } from './fps-movement';
+import { INFANTRY_SPEED, movementFrameSteps, advanceBodyMotion, advanceGroundMotion, bufferJump, consumeJump, createMovementMotion, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED, GROUND_STOP, landMovement, resetMovementMotion } from './fps-movement';
 import { runningWeaponMotion } from './fps-weapon-run';
 import { createVerticalMovement } from './vertical-movement';
 
 const flat = () => createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [], surfaces: [], traversalObstacles: [] });
 describe('weighted infantry movement', () => {
   it('a running jump over a low solid prop with no top to stand on does not fall into it', () => {
-    const prop = { minX: 3, maxX: 6, minZ: -3, maxZ: 3, maxY: 1.2 };
+    const prop = { minX: 3, maxX: 6, minZ: -3, maxZ: 3, maxY: .8 };
     const world = createVerticalMovement({ bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, obstacles: [prop], surfaces: [], traversalObstacles: [] });
     let state = { x: 0, y: 0, z: 0, velocityY: INFANTRY_JUMP_SPEED };
     const step = (dx: number) => { state = { ...state, ...world.move(state, dx, 0, 1 / 60, .38, 1.8, [], INFANTRY_GRAVITY) }; };
-    for (let i = 0; i < 60 && state.x < 4.5; i++) step(7 / 60);
+    for (let i = 0; i < 60 && state.x < 4.5; i++) step(9 / 60);
     expect(state.x).toBeGreaterThanOrEqual(4.5);
     for (let i = 0; i < 90; i++) step(0);
-    expect(state.y).toBeGreaterThanOrEqual(1.2);
+    expect(state.y).toBeGreaterThanOrEqual(.8);
     expect(world.canOccupy(state.x, state.y, state.z, .38, 1.8)).toBe(true);
     for (let i = 0; i < 60; i++) step(4 / 60);
     expect(state.x).toBeGreaterThan(6.38);
@@ -40,7 +40,7 @@ describe('weighted infantry movement', () => {
     expect(air.x).toBeGreaterThan(4.8);
     advanceGroundMotion(air, -5, 0, false, 1, 'stand', false, .1);
     advanceGroundMotion(ground, -5, 0, true, 1, 'stand', false, .1);
-    expect(air.x).toBeGreaterThan(3); expect(ground.x).toBeLessThan(0);
+    expect(air.x).toBeGreaterThan(2); expect(ground.x).toBeLessThan(0);
   });
   it('heavy gear accelerates more slowly and a deployed mount stops all drift', () => {
     const light = createMovementMotion(), heavy = createMovementMotion();
@@ -84,6 +84,23 @@ describe('weighted infantry movement', () => {
     state.x = 4; bufferJump(state); resetMovementMotion(state, .55);
     expect(state.x).toBe(0); expect(state.eye).toBe(.55); expect(state.jumpBuffer).toBe(0);
   });
+  it('reverses a strafe as hard as it stops, and bends a jump without turning it round', () => {
+    const reversing = createMovementMotion(), starting = createMovementMotion(), stopping = createMovementMotion();
+    reversing.x = stopping.x = -5;
+    advanceGroundMotion(reversing, 5, 0, true, 1, 'stand', false, .05);
+    advanceGroundMotion(stopping, 0, 0, true, 1, 'stand', false, .05);
+    advanceGroundMotion(starting, 5, 0, true, 1, 'stand', false, .05);
+    // The brake is the stop rate, so the reversal is already past rest where letting go is still coasting.
+    expect(reversing.x).toBeGreaterThan(0); expect(stopping.x).toBeLessThan(-2);
+    // From rest it is the ordinary acceleration, not the brake.
+    expect(starting.x).toBeLessThan(5 * (1 - Math.exp(-GROUND_STOP * .05)) - .2);
+    const air = createMovementMotion(); air.x = 6;
+    for (let i = 0; i < 36; i++) advanceGroundMotion(air, 0, 6, false, 1, 'stand', false, 1 / 60);
+    expect(air.z).toBeGreaterThan(4); expect(air.z).toBeLessThan(5.6); expect(air.x).toBeGreaterThan(.4);
+    const coast = createMovementMotion(); coast.x = 6;
+    for (let i = 0; i < 36; i++) advanceGroundMotion(coast, 0, 0, false, 1, 'stand', false, 1 / 60);
+    expect(coast.x).toBeGreaterThan(5.5);
+  });
   it('clears low obstacles with a bounded arc and falls faster than it rises', () => {
     const movement = flat(); let state = { x: 0, y: 0, z: 0, velocityY: INFANTRY_JUMP_SPEED };
     let peak = 0, rise = 0, fall = 0;
@@ -92,7 +109,7 @@ describe('weighted infantry movement', () => {
       if (next.velocityY > 0) rise++; else fall++;
       peak = Math.max(peak, next.y); state = next; if (next.grounded) break;
     }
-    expect(peak).toBeGreaterThan(1.5); expect(peak).toBeLessThan(1.65); expect(fall).toBeLessThan(rise);
+    expect(peak).toBeGreaterThan(1); expect(peak).toBeLessThan(1.15); expect(fall).toBeLessThan(rise);
   });
 });
 

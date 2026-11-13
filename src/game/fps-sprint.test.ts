@@ -40,3 +40,13 @@ it('ignores a broken clock', () => {
   expect(advanceSprintBreak(state, true, true, false, Number.NaN).fire).toBe(false);
   expect(state.raise).toBe(SPRINT_OUT);
 });
+it('raises a handier gun sooner when told how long it takes', () => {
+  const wait = (raise: number) => {
+    const state = createSprintBreak();
+    advanceSprintBreak(state, true, true, true, frame, raise);
+    let time = frame;
+    while (!advanceSprintBreak(state, true, true, false, frame, raise).fire) time += frame;
+    return time;
+  };
+  expect(wait(.08)).toBeLessThan(wait(SPRINT_OUT)); expect(wait(.16)).toBeGreaterThan(wait(SPRINT_OUT));
+});
