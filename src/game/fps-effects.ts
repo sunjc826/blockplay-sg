@@ -236,6 +236,11 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
   // The plume's base sits on the water, so the quad is shifted to stand on its bottom edge.
   const column = fading('fps-splash-column', paint(columnTexture(64))); column.mesh.geometry.translate(0, .5, 0);
   const foamPatch = fading('fps-splash-foam', blob);
+  // Marina water renders at order 1. These transparent pools do not write
+  // depth, so drawing them first lets the water paint over airborne spray
+  // (only the tip above the water's screen silhouette survives). Composite
+  // after the surface, retaining depth tests against water and solid cover.
+  for (const mesh of [splashRingMesh, foamPatch.mesh, column.mesh, sprayMesh]) mesh.renderOrder = 2;
   const flat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0));
   const upright = new THREE.Quaternion(), turn = new THREE.Quaternion(), yawOnly = new THREE.Euler(0, 0, 0, 'YXZ');
   const spray = new THREE.Color('#e9f4f6'), foam = new THREE.Color('#d8eef0');
