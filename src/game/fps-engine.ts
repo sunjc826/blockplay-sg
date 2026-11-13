@@ -21,6 +21,7 @@ import { cloneRangeDummy, createRangeDummyModel, RANGE_DUMMY_BASE_DEPTH } from '
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
+import { createAimedTurnLag } from './scope-shadow';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
 import { transportRayDistance } from './combat-transports';
@@ -797,6 +798,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   let triggerSpent = false, dryFireSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
+  const aimedTurnLag = createAimedTurnLag(), turnLagPivot = new THREE.Vector3(), turnLagTurn = new THREE.Quaternion(), turnLagAngles = new THREE.Euler();
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
   const bodyMotion = createMovementMotion();
   let bailoutAge: number | undefined;
@@ -2666,6 +2668,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const yawDelta = Math.atan2(Math.sin(yaw - lastLookYaw), Math.cos(yaw - lastLookYaw));
     lookLagX = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagX + yawDelta * .025, -.003, .003), 0, 12, dt);
     lookLagY = THREE.MathUtils.damp(THREE.MathUtils.clamp(lookLagY - (pitch - lastLookPitch) * .025, -.003, .003), 0, 12, dt);
+    const pitchDelta = pitch - lastLookPitch;
     lastLookYaw = yaw; lastLookPitch = pitch;
     const merlion = merlionRenderState ?? merlionState();
     if(merlionOperating()&&merlion){
@@ -2802,6 +2805,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
     rig.position.y -= landingRoll.weaponDrop;
     rig.rotation.x -= landingRoll.tuck * .35;
+    // A scoped gun trails a turn about its eyepiece: the lens stays on the aim
+    // point while the tube swings, and the scope shadow follows from that.
+    const scopeSight = weapons[hud.weapon] ? getWeaponSight(weapons[hud.weapon]) : undefined;
+    const scoped = !!scopeSight && scopeSight.magnification > 1.01 && hud.phase === 'playing' && !motionPreference?.matches && !vehicles.active;
+    const turnLag = aimedTurnLag.update(dt, yawDelta, pitchDelta, scoped);
+    const turnLagWeight = scoped ? aim * (offsetSight ? 1 - cant : 1) : 0;
+    if (scopeSight && turnLagWeight > 0 && (turnLag.yaw || turnLag.pitch)) {
+      // The lens keeps its place in the rig, so last frame's matrices locate it in this frame's pose.
+      rig.worldToLocal(scopeSight.lens.getWorldPosition(turnLagPivot));
+      rig.updateMatrix(); turnLagPivot.applyMatrix4(rig.matrix);
+      turnLagTurn.setFromEuler(turnLagAngles.set(turnLag.pitch * turnLagWeight, turnLag.yaw * turnLagWeight, 0));
+      rig.position.sub(turnLagPivot).applyQuaternion(turnLagTurn).add(turnLagPivot);
+      rig.quaternion.premultiply(turnLagTurn);
+    }
+    if (debugDatasets) canvas.dataset.aimedTurnLag = JSON.stringify([turnLag.yaw * turnLagWeight, turnLag.pitch * turnLagWeight]);
     if (state.reloadSlot !== undefined && state.reloadSlot >= 0) {
       const pocketPose = pouchWeaponOffset(specs[hud.weapon].feed === 'belt' ? beltProgress : progress, emptyReload[hud.weapon]);
       rig.position.x += pocketPose.x; rig.position.y += pocketPose.y; rig.position.z += pocketPose.z;

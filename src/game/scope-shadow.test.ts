@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createScopeShadow, limitScopeEye, SCOPE_CLEAR_CENTRE, scopeEyeBox, type ScopeMotion } from './scope-shadow';
+import { AIMED_TURN_LAG_LIMIT, createAimedTurnLag, createScopeShadow, limitScopeEye, SCOPE_CLEAR_CENTRE, scopeEyeBox, type ScopeMotion } from './scope-shadow';
 
 const still: ScopeMotion = { lateralSpeed: 0 };
 /** Runs frames and reports the furthest swing on each side plus where it ended. */
@@ -36,11 +36,7 @@ describe('scope shadow', () => {
     const slow = run(started(), 120, { lateralSpeed: .5 }), full = run(started(), 120, { lateralSpeed: 2 });
     expect(slow.min).toBeCloseTo(full.min / 4, 6); expect(slow.last).toBeCloseTo(-.01125, 4);
   });
-  it('answers flicks, recoil climb, jumps and landings on the matching axis', () => {
-    const right = run(started(), 30, { lateralSpeed: 0, turnRate: 3 });
-    expect(right.min).toBeLessThan(-.12);
-    const climb = run(started(), 30, { lateralSpeed: 0, pitchRate: 1.5 }, 'y');
-    expect(climb.min).toBeLessThan(-.05);
+  it('answers jumps and landings on the vertical axis only', () => {
     const fall = started(); run(fall, 60, { lateralSpeed: 0, verticalSpeed: -8 }, 'y');
     const landing = run(fall, 30, still, 'y');
     expect(landing.min).toBeLessThan(-.12);
@@ -76,7 +72,7 @@ describe('scope shadow', () => {
     expect(landed).toBeGreaterThan(.6);
     const look = started();
     let looking = 0;
-    for (let i = 0; i < 60; i++) looking = Math.max(looking, look.update(1 / 60, { lateralSpeed: 2 * Math.sin(i), turnRate: 3 * Math.cos(i * 2), pitchRate: 3 * Math.sin(i * 3) }, true).relief);
+    for (let i = 0; i < 60; i++) looking = Math.max(looking, look.update(1 / 60, { lateralSpeed: 2 * Math.sin(i) }, true).relief);
     expect(looking).toBe(0);
   });
   it('tightens and hardens the eye box with magnification and closes it with relief', () => {
@@ -103,5 +99,42 @@ describe('scope shadow', () => {
     }
     expect(limitScopeEye({ x: .01, y: 0 }, scopeEyeBox(8)).x).toBeCloseTo(.01, 3);
     expect(limitScopeEye({ x: 0, y: 0 }, scopeEyeBox(8))).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('aimed turn lag', () => {
+  const turn = (lag: ReturnType<typeof createAimedTurnLag>, frames: number, yawRate: number, pitchRate = 0, fps = 60) => {
+    const trace: { yaw: number; pitch: number }[] = [];
+    for (let i = 0; i < frames; i++) trace.push({ ...lag.update(1 / fps, yawRate / fps, pitchRate / fps, true) });
+    return trace;
+  };
+  it('trails the turn: right turns leave the gun pointing left, looking up leaves it low', () => {
+    const lag = createAimedTurnLag(), right = turn(lag, 30, -1, .5).at(-1)!;
+    expect(right.yaw).toBeGreaterThan(.01); expect(right.pitch).toBeLessThan(-.005);
+    const left = turn(createAimedTurnLag(), 30, 1).at(-1)!;
+    expect(left.yaw).toBeCloseTo(-turn(createAimedTurnLag(), 30, -1).at(-1)!.yaw, 10);
+    expect(left.pitch).toBe(0);
+  });
+  it('builds and recovers deliberately, with no jump on a flick and no overshoot', () => {
+    const lag = createAimedTurnLag(), flick = turn(lag, 6, -6);
+    // A hard flick moves the gun only a fraction of its limit in the first frame.
+    expect(flick[0].yaw).toBeLessThan(AIMED_TURN_LAG_LIMIT * .15);
+    for (let i = 1; i < flick.length; i++) expect(flick[i].yaw - flick[i - 1].yaw).toBeLessThan(AIMED_TURN_LAG_LIMIT * .15);
+    const settle = turn(lag, 120, 0), peak = Math.max(...settle.map(sample => sample.yaw));
+    expect(peak).toBeGreaterThan(AIMED_TURN_LAG_LIMIT * .5); expect(peak).toBeLessThanOrEqual(AIMED_TURN_LAG_LIMIT);
+    // Still a quarter of the way out a quarter of a second after the flick ends.
+    expect(settle[15].yaw).toBeGreaterThan(peak * .25);
+    expect(Math.min(...settle.map(sample => sample.yaw))).toBeGreaterThanOrEqual(0);
+    expect(settle.at(-1)!.yaw).toBeLessThan(AIMED_TURN_LAG_LIMIT * .01);
+  });
+  it('stays inside its limit however fast the view spins, and clears when disabled', () => {
+    const lag = createAimedTurnLag();
+    for (const sample of turn(lag, 120, -40, 40)) { expect(Math.abs(sample.yaw)).toBeLessThanOrEqual(AIMED_TURN_LAG_LIMIT); expect(Math.abs(sample.pitch)).toBeLessThanOrEqual(AIMED_TURN_LAG_LIMIT); }
+    expect(lag.update(1 / 60, -.1, .1, false)).toEqual({ yaw: 0, pitch: 0 });
+    expect(lag.update(1 / 60, NaN, 0, true).yaw).toBe(0);
+  });
+  it('holds much the same shape at 30, 60 and 144 frames a second', () => {
+    const ends = [30, 60, 144].map(fps => turn(createAimedTurnLag(), fps / 2, -1, 0, fps).at(-1)!.yaw);
+    expect(Math.abs(ends[0] - ends[1])).toBeLessThan(.001); expect(Math.abs(ends[2] - ends[1])).toBeLessThan(.001);
   });
 });

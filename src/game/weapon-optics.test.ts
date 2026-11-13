@@ -130,7 +130,7 @@ it('adds an open, recessed scope barrel and disposes it with the optic', () => {
   expect(getWeaponSight(root)!.scopeEye).toBeUndefined(); removeDot();
 });
 
-it('swings the shadow on strafes, flicks and drops without moving the scene or reticle and clears it when inactive', () => {
+it('swings the shadow on strafes and drops, and leaves turning to the gun, without moving the scene or reticle and clears it when inactive', () => {
   const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
   const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
   const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
@@ -164,13 +164,14 @@ it('swings the shadow on strafes, flicks and drops without moving the scene or r
   }
   frames(90, 0);
   expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
-  // The view itself supplies turning and vertical travel, recoil climb included.
-  const flick = frames(12, 0, () => { camera.rotation.y -= .05; });
-  expect(flick.minX).toBeLessThan(-.1); expect(Math.abs(flick.minY) + flick.maxY).toBeLessThan(.01);
-  frames(90, 0);
-  const kick = frames(1, 0, () => { camera.rotation.x += .03; });
-  expect(kick.minY).toBeLessThan(-.02); expect(kick.minY).toBeGreaterThan(-.06);
-  frames(90, 0);
+  // Turning the view alone adds nothing: the aimed gun's own trail is what the lens reads.
+  const flick = frames(12, 0, () => { camera.rotation.y -= .05; camera.rotation.x += .01; });
+  expect(Math.max(-flick.minX, flick.maxX, -flick.minY, flick.maxY)).toBeLessThan(1e-6);
+  // A gun turned about its eyepiece does shadow, with the lens still on the aim point.
+  root.position.sub(plane).applyAxisAngle(new THREE.Vector3(0, 1, 0), .03).add(plane); root.rotation.y = .03;
+  expect(Math.abs(frames(1, 0).minX + frames(1, 0).maxX)).toBeGreaterThan(.03);
+  root.position.set(0, -sight.aimHeight, sight.aimDepth); root.rotation.y = 0;
+  frames(2, 0);
   frames(20, 0, () => { camera.position.y -= 8 / 60; });
   expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
   let tunnel = 1;

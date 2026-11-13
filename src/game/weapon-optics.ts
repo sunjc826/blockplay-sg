@@ -324,6 +324,9 @@ export function setSightNightVision(sight: WeaponSight | undefined, active: bool
   if (sight.offset) setSightNightVision(sight.offset, active);
 }
 
+/** Lens UVs of shadow travel per radian of scope tilt: a tube about fourteen lens radii long. */
+export const SCOPE_TUBE = 4;
+
 /** The target covers only the lens, so crop FOV as well as applying magnification. */
 export function scopeFov(worldFov: number, lensFraction: number, magnification: number) {
   return THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(worldFov / 2)) * lensFraction / magnification));
@@ -341,18 +344,15 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3(), eyePosition = new THREE.Vector3(), buffer = new THREE.Vector2();
   const shadow = createScopeShadow();
-  const eyeNow = new THREE.Vector3(), eyeBefore = new THREE.Vector3(), aimNow = new THREE.Quaternion(), aimBefore = new THREE.Vector3(), turned = new THREE.Vector3();
+  const eyeNow = new THREE.Vector3(), eyeBefore = new THREE.Vector3(), sightLine = new THREE.Vector3(), lensFacing = new THREE.Quaternion();
   let previousSight: WeaponSight | undefined, tracking = false, jolt = 0;
   const resetShadow = () => { shadow.reset(); tracking = false; jolt = 0; };
-  /** Turning, climbing and recoil as the world camera actually moved, so anything that throws the view throws the shadow. */
+  /** Vertical travel as the world camera actually moved: jumps, landings and stance changes. */
   function viewMotion(worldCamera: THREE.Camera, dt: number) {
-    worldCamera.getWorldPosition(eyeNow); worldCamera.getWorldQuaternion(aimNow);
-    // Where the view pointed last frame, seen from where it points now.
-    turned.copy(aimBefore).applyQuaternion(aimNow.invert());
-    const rate = tracking && dt > 0 ? 1 / dt : 0;
-    const motion = { verticalSpeed: (eyeNow.y - eyeBefore.y) * rate, turnRate: -turned.x * rate, pitchRate: -turned.y * rate };
-    eyeBefore.copy(eyeNow); worldCamera.getWorldDirection(aimBefore); tracking = true;
-    return motion;
+    worldCamera.getWorldPosition(eyeNow);
+    const verticalSpeed = tracking && dt > 0 ? (eyeNow.y - eyeBefore.y) / dt : 0;
+    eyeBefore.copy(eyeNow); tracking = true;
+    return { verticalSpeed };
   }
   /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
   function prepare(sight: WeaponSight) {
@@ -387,6 +387,11 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
         viewCamera.getWorldPosition(eyePosition);
         sight.lens.worldToLocal(eyePosition);
         sight.scopeEye.value.set(-eyePosition.x, -eyePosition.y).multiplyScalar(.28 / sight.radius);
+        // The eyepiece sits close to the eye, so a tilted scope barely moves the
+        // eye across it; what darkens is the far end of the tube leaving the
+        // line of sight. Add that as the sight line's slope in the lens's frame.
+        viewCamera.getWorldDirection(sightLine).applyQuaternion(sight.lens.getWorldQuaternion(lensFacing).invert());
+        sight.scopeEye.value.x += sightLine.x * SCOPE_TUBE; sight.scopeEye.value.y += sightLine.y * SCOPE_TUBE;
         const dt = motion?.dt ?? 0, lag = shadow.update(dt, { lateralSpeed: motion?.lateralSpeed ?? 0, jolt, ...viewMotion(worldCamera, dt) }, !!motion && !motion.reducedMotion);
         jolt = 0;
         const box = scopeEyeBox(sight.magnification, lag.relief * sight.visibility.value), gain = box.gain * sight.visibility.value;
