@@ -38,18 +38,22 @@ export function buildDragonBoatModel(golden: boolean) {
   const flash=new THREE.Group();flash.name='vehicle-muzzle-flash';flash.visible=false;root.add(flash);
   const wakeMaterial=new THREE.MeshBasicMaterial({color:'#b4e2dc',transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
   for(const side of [-1,1]){
-    const wake=new THREE.Mesh(new THREE.PlaneGeometry(.12,5),wakeMaterial);wake.name='dragon-wake';wake.position.set(side*1.15,.025,4.6);wake.rotation.set(-Math.PI/2,0,side*.17);wake.userData.fpsEffect=true;wake.raycast=()=>{};root.add(wake);
+    const wake=new THREE.Mesh(new THREE.PlaneGeometry(.12,5),wakeMaterial);wake.name='dragon-wake';wake.position.set(side*1.15,.025,4.6);wake.rotation.set(-Math.PI/2,0,side*.17);wake.userData.side=side;wake.userData.fpsEffect=true;wake.raycast=()=>{};root.add(wake);
   }
   return root;
 }
 
-export function animateDragonBoat(model: THREE.Group, speed:number, dt:number, reducedMotion=false) {
+export function animateDragonBoat(model: THREE.Group, speed:number, dt:number, reducedMotion=false, waveBlend=0) {
   const time=(model.userData.paddleTime??0)+dt;model.userData.paddleTime=time;
   const moving=Math.abs(speed)>.1, stroke=time*4.5;
   model.position.y+=reducedMotion?0:Math.sin(time*1.7)*.025;
   model.rotation.z=reducedMotion?0:Math.sin(time*1.3)*.008;
   model.traverse(o=>{
     if(o.name==='dragon-paddle'){o.rotation.x=moving?Math.sin(stroke)*.5:0;o.rotation.z=o.userData.side*(moving?.08+Math.cos(stroke)*.1:.15);}
-    if(o.name==='dragon-wake'){const wake=o as THREE.Mesh<THREE.PlaneGeometry,THREE.MeshBasicMaterial>;wake.material.opacity=Math.min(.45,Math.abs(speed)*.09);}
+    if(o.name==='dragon-wake'){
+      const wake=o as THREE.Mesh<THREE.PlaneGeometry,THREE.MeshBasicMaterial>,sign=speed<0?-1:1;
+      wake.material.opacity=Math.min(.45,Math.abs(speed)*.09)*(1-Math.max(0,Math.min(1,waveBlend)));
+      wake.position.z=4.6*sign;wake.rotation.z=wake.userData.side*.17*sign;
+    }
   });
 }

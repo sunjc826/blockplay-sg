@@ -4,8 +4,30 @@ import { createFpsVehicles } from './fps-vehicles';
 import { WORLD_VEHICLES } from './world-vehicles';
 import { firstVisibleHit } from './fps-raycast';
 import { createSharedVehicle } from './vehicle-seats';
+import type { WaterBoat } from './boat-wake';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+it('feeds boat wakes from the rendered shared pose and releases them on reset, destruction and disposal', () => {
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+  let now=0; vi.spyOn(performance,'now').mockImplementation(()=>now);
+  const scene=new THREE.Scene(),spawns={car:{x:80,z:80,yaw:0},helicopter:{x:90,z:80,yaw:0},'dragon-boat-red':{x:-30,z:20,yaw:0}};
+  const fleet=createFpsVehicles(scene,[],{car:'',helicopter:''},{spawns});
+  const shared=createSharedVehicle('dragon-boat-red',spawns['dragon-boat-red']);
+  try {
+    const sources=scene.userData.waterBoats as WaterBoat[];expect(sources).toHaveLength(1);
+    fleet.adoptShared([shared],'observer');now=100;fleet.adoptShared([{...shared,z:19.6,speed:4}],'observer');now=150;fleet.sharedStep(.05);
+    expect(sources[0].z).toBeCloseTo(19.8);expect(sources[0].z).toBe(fleet.models['dragon-boat-red'].position.z);
+    expect(sources[0].z).not.toBe(fleet.states['dragon-boat-red'].z);
+    sources[0].wakeBlend=1;fleet.sharedStep(0);
+    const wake=fleet.models['dragon-boat-red'].getObjectByName('dragon-wake') as THREE.Mesh<THREE.PlaneGeometry,THREE.MeshBasicMaterial>;
+    expect(wake.material.opacity).toBe(0);
+    fleet.reset();expect(sources[0]).toMatchObject({revision:1,wakeBlend:0,z:20});
+    fleet.damage('dragon-boat-red',1000);expect(sources[0].active).toBe(false);
+    fleet.reset();fleet.omit(['dragon-boat-red']);expect(sources[0].active).toBe(false);
+  } finally { fleet.dispose(); }
+  expect(scene.userData.waterBoats).toBeUndefined();
+});
 
 it('updates cockpit hull/ammunition from local and shared authority and restores it on reset', () => {
   vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });

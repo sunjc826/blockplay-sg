@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import type { WaterMaterial } from './water';
+import { boatWakeCoverage, boatWaveFade, createBoatWake, type WaterBoat } from './boat-wake';
 import { WATER_WAVES, createSwimmerWake, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
 
 /** Explicit gameplay input: a crouching camera, a spectator or a boat is not a swimmer. */
@@ -20,40 +21,45 @@ const fragmentShader = /* glsl */ `
   uniform float dt;
   uniform int impulseCount;
   uniform vec4 impulses[${WATER_WAVES.maxImpulses}];
+  uniform float impulseFoam[${WATER_WAVES.maxImpulses}];
   varying vec2 vUv;
   const float span=${WATER_WAVES.span.toFixed(1)};
   const float texel=1.0/${WATER_WAVES.size.toFixed(1)};
   const float dx=span*texel;
   bool inBay(vec2 p) { return all(greaterThanEqual(p,bounds.xy)) && all(lessThanEqual(p,bounds.zw)); }
-  vec2 sampleState(vec2 uv) {
-    if (any(lessThan(uv,vec2(0.0))) || any(greaterThan(uv,vec2(1.0)))) return vec2(0.0);
-    return texture2D(state,uv).rg;
+  vec3 sampleState(vec2 uv) {
+    if (any(lessThan(uv,vec2(0.0))) || any(greaterThan(uv,vec2(1.0)))) return vec3(0.0);
+    return texture2D(state,uv).rgb;
   }
-  float neighbor(vec2 direction, vec2 p, vec2 uv, float centre) {
+  vec3 neighbor(vec2 direction, vec2 p, vec2 uv, vec3 centre) {
     // Zero normal derivative at solid quays: waves reflect instead of crossing land.
-    return inBay(p+direction*dx) ? sampleState(uv+direction*texel).r : centre;
+    return inBay(p+direction*dx) ? sampleState(uv+direction*texel) : centre;
   }
   void main() {
     vec2 p=origin+vUv*span, uv=vUv+shift;
     if (!inBay(p)) { gl_FragColor=vec4(0.0); return; }
-    vec2 current=sampleState(uv);
+    vec3 current=sampleState(uv);
     float h=current.x, velocity=current.y;
-    float lap=neighbor(vec2(1,0),p,uv,h)+neighbor(vec2(-1,0),p,uv,h)
-      +neighbor(vec2(0,1),p,uv,h)+neighbor(vec2(0,-1),p,uv,h)-4.0*h;
-    velocity += ${WATER_WAVES.speed ** 2}*dt*lap/(dx*dx);
+    vec3 lap=neighbor(vec2(1,0),p,uv,current)+neighbor(vec2(-1,0),p,uv,current)
+      +neighbor(vec2(0,1),p,uv,current)+neighbor(vec2(0,-1),p,uv,current)-4.0*current;
+    velocity += ${WATER_WAVES.speed ** 2}*dt*lap.x/(dx*dx);
     float edge=min(min(vUv.x,vUv.y),min(1.0-vUv.x,1.0-vUv.y))*span;
     // Absorbing outer band keeps the finite moving window from sending echoes back.
     float damping=${WATER_WAVES.damping}+(1.0-smoothstep(.2,3.0,edge))*7.0;
     velocity *= exp(-damping*dt);
     h=(h+velocity*dt)*exp(-(1.0-smoothstep(.2,2.0,edge))*4.0*dt);
+    // Spare B channel stores short-lived stern froth. Stable diffusion uses the
+    // same neighbour taps; no extra texture, pass or geometry is needed.
+    float foam=max(0.0,current.b+.035*dt*lap.b/(dx*dx))*exp(-(1.1+damping)*dt);
     for (int i=0; i<${WATER_WAVES.maxImpulses}; i++) {
       if (i>=impulseCount) break;
       vec4 impulse=impulses[i];
       float q=dot(p-impulse.xy,p-impulse.xy)/(impulse.z*impulse.z);
       // Depression with a raised shoulder and zero net volume, not a growing mound.
       h += impulse.w*(1.0-q)*exp(-q);
+      foam += impulseFoam[i]*exp(-q*1.5);
     }
-    gl_FragColor=vec4(clamp(h,-.25,.25),clamp(velocity,-2.5,2.5),0.0,1.0);
+    gl_FragColor=vec4(clamp(h,-.25,.25),clamp(velocity,-2.5,2.5),clamp(foam,0.0,.8),1.0);
   }
 `;
 
@@ -65,9 +71,11 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   const eye = new THREE.Vector3(), box = new THREE.Box3(), clearColor = new THREE.Color();
   const origin = new THREE.Vector2(), bounds = new THREE.Vector4();
   const wake = createSwimmerWake(), pending: (WaterImpulse & { at: number })[] = [];
+  const boatWakes = new Map<string, ReturnType<typeof createBoatWake>>();
+  const boats = () => (scene.userData.waterBoats ?? []) as WaterBoat[];
   let targets: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget] | undefined;
   let solver: THREE.ShaderMaterial | undefined, quad: FullScreenQuad | undefined, patch: THREE.Mesh | undefined;
-  let lastTime: number | undefined, remainder = 0, active = false, totalSteps = 0, totalImpulses = 0;
+  let lastTime: number | undefined, remainder = 0, active = false, totalSteps = 0, totalImpulses = 0, boatImpulses = 0;
   const originalHook = water?.userData.waveImpulse, originalCoverage = water?.userData.waveCoverage;
   const coverage = (x: number, z: number, radius: number) => active && x-radius>origin.x+3 && x+radius<origin.x+WATER_WAVES.span-3 && z-radius>origin.y+3 && z+radius<origin.y+WATER_WAVES.span-3;
   const impulse = (event: WaterImpulse, delay = 0) => {
@@ -75,7 +83,14 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     if (event.x < bounds.x || event.x > bounds.z || event.z < bounds.y || event.z > bounds.w) return;
     if (event.x < origin.x + 1 || event.x > origin.x + WATER_WAVES.span - 1 || event.z < origin.y + 1 || event.z > origin.y + WATER_WAVES.span - 1) return;
     if (pending.length === WATER_WAVES.maxImpulses) pending.shift();
-    pending.push({ ...event, at: water!.uniforms.uTime.value + delay, radius: Math.max(.12, event.radius), height: THREE.MathUtils.clamp(event.height,-.12,.12) });
+    pending.push({ ...event, at: water!.uniforms.uTime.value + delay, radius: Math.max(.12, event.radius), height: THREE.MathUtils.clamp(event.height,-.12,.12), foam: Number.isFinite(event.foam) ? THREE.MathUtils.clamp(event.foam!,0,.5) : 0 });
+    return true;
+  };
+  const boatImpulse = (event: WaterImpulse, delay: number) => {
+    // Leave room for shot rebounds and the swimmer even after a long frame.
+    if (pending.length >= WATER_WAVES.maxImpulses-8) return;
+    const fade = boatWaveFade(event.x,event.z,origin);
+    if (fade > 0 && impulse({ ...event, height: event.height*fade, foam: (event.foam??0)*fade },delay)) boatImpulses++;
   };
   const onRipple = (x: number, z: number, strength: number) => {
     originalHook?.(x,z,strength);
@@ -91,13 +106,14 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     water.uniforms.uWaveReady.value = 0;
     if (patch) patch.visible = false;
     active = false;
+    for (const boat of boats()) boat.wakeBlend = 0;
   }
   function release() {
     unbind(); targets?.forEach(t => t.dispose()); targets = undefined;
     solver?.dispose(); solver = undefined; quad?.dispose(); quad = undefined;
     patch?.removeFromParent(); patch?.geometry.dispose(); patch = undefined;
     if (water?.uniforms.uWaveMap) water.uniforms.uWaveMap.value = null;
-    pending.length = 0; lastTime = undefined; remainder = 0; wake.reset();
+    pending.length = 0; lastTime = undefined; remainder = 0; wake.reset(); boatWakes.clear();
   }
   function build() {
     const target = () => new THREE.WebGLRenderTarget(WATER_WAVES.size,WATER_WAVES.size, {
@@ -106,7 +122,7 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     targets = [target(), target()];
     solver = new THREE.ShaderMaterial({ vertexShader, fragmentShader, depthTest: false, depthWrite: false,
       uniforms: { state: { value: targets[0].texture }, origin: { value: origin }, shift: { value: new THREE.Vector2() }, bounds: { value: bounds },
-        dt: { value: 0 }, impulseCount: { value: 0 }, impulses: { value: Array.from({length: WATER_WAVES.maxImpulses},()=>new THREE.Vector4()) } } });
+        dt: { value: 0 }, impulseCount: { value: 0 }, impulses: { value: Array.from({length: WATER_WAVES.maxImpulses},()=>new THREE.Vector4()) }, impulseFoam: { value: new Float32Array(WATER_WAVES.maxImpulses) } } });
     quad = new FullScreenQuad(solver);
     const geometry = new THREE.PlaneGeometry(WATER_WAVES.span,WATER_WAVES.span,WATER_WAVES.segments,WATER_WAVES.segments);
     geometry.setAttribute('waterPatch',new THREE.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));
@@ -122,7 +138,7 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     get enabled() { return active; },
     get target() { return targets?.[0]; },
     get origin() { return origin; },
-    get stats() { return { active, steps: totalSteps, impulses: totalImpulses, pending: pending.length, size: targets ? WATER_WAVES.size : 0 }; },
+    get stats() { return { active, steps: totalSteps, impulses: totalImpulses, boatImpulses, boats: boatWakes.size, pending: pending.length, size: targets ? WATER_WAVES.size : 0 }; },
     impulse,
     update(enabled: boolean, visible: boolean) {
       if (!water?.uniforms.uWaveReady || !bay) return;
@@ -142,13 +158,28 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
         const reset = fresh || schedule.reset || Math.abs(next.x-origin.x)>=WATER_WAVES.span || Math.abs(next.z-origin.y)>=WATER_WAVES.span;
         if (reset) {
           renderer.setClearColor(0,0); targets!.forEach(t=>{renderer.setRenderTarget(t);renderer.clear();});
-          pending.length = 0; wake.reset(); remainder = 0;
+          pending.length = 0; wake.reset(); boatWakes.clear(); remainder = 0;
         }
         const shift = solver!.uniforms.shift.value as THREE.Vector2;
         shift.set(reset ? 0 : (next.x-origin.x)/WATER_WAVES.span, reset ? 0 : (next.z-origin.y)/WATER_WAVES.span);
         origin.set(next.x,next.z);
         active = true;
         if (!reset) wake.update(scene.userData.waterSwimmer as WaterSwimmer | undefined,time-(lastTime ?? time),impulse);
+        const sources = boats();
+        for (const id of boatWakes.keys()) if (!sources.some(boat=>boat.id===id)) boatWakes.delete(id);
+        // Marina has two boats. A distant fleet never grows the local solver's work.
+        let nearby = 0;
+        for (const boat of sources) {
+          const distance = Math.max(Math.abs(boat.x-origin.x-WATER_WAVES.span/2),Math.abs(boat.z-origin.y-WATER_WAVES.span/2));
+          if (!boat.active || ![boat.x,boat.z,boat.yaw,boat.speed].every(Number.isFinite) || distance > WATER_WAVES.span/2+5 || nearby >= 2) {
+            boat.wakeBlend = 0; boatWakes.delete(boat.id); continue;
+          }
+          nearby++;
+          boat.wakeBlend = boatWakeCoverage(boat,origin);
+          let trail = boatWakes.get(boat.id);
+          if (!trail) { trail = createBoatWake(); boatWakes.set(boat.id,trail); }
+          trail.update(boat,reset ? WATER_WAVES.step : time-(lastTime ?? time),boatImpulse);
+        }
         const steps = reset ? 0 : schedule.steps;
         const passes = Math.max(steps, shift.lengthSq() > 0 ? 1 : 0);
         for (let i=0;i<passes;i++) {
@@ -158,7 +189,7 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
           let count=0;
           if (steps) for(let j=0;j<pending.length;) {
             const p=pending[j];
-            if(p.at<=stepTime+1e-7){solver!.uniforms.impulses.value[count++].set(p.x,p.z,p.radius,p.height);pending.splice(j,1);}else j++;
+            if(p.at<=stepTime+1e-7){solver!.uniforms.impulseFoam.value[count]=p.foam??0;solver!.uniforms.impulses.value[count++].set(p.x,p.z,p.radius,p.height);pending.splice(j,1);}else j++;
           }
           solver!.uniforms.impulseCount.value = count;
           renderer.setRenderTarget(targets![1]); quad!.render(renderer);

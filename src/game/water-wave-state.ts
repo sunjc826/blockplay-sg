@@ -1,6 +1,6 @@
 /** Metres and seconds. Courant number c*dt/dx = .587 < 1/sqrt(2). */
 export const WATER_WAVES = { size: 512, span: 32, segments: 256, step: 1 / 60, speed: 2.2, damping: .48, maxSteps: 4, maxImpulses: 32, anchor: 2 } as const;
-export interface WaterImpulse { x: number; z: number; radius: number; height: number }
+export interface WaterImpulse { x: number; z: number; radius: number; height: number; foam?: number }
 export interface WaterSwimmer { x: number; z: number; active: boolean }
 
 /** Align scrolling to whole simulation texels so existing waves stay in world space. */

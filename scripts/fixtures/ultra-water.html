@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
 import { createWaterMaterial } from '/src/game/water.ts';
 import { setWaterSwimmer } from '/src/game/water-waves.ts';
+import { createFpsVehicles } from '/src/game/fps-vehicles.ts';
+import { MARINA_WATER, DRAGON_BOAT_SPAWNS } from '/src/game/marina-water.ts';
 import { buildMarinaScene } from '/src/game/marina-scene.ts';
 import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
 import { createNightLights } from '/src/game/world-night-lights.ts';
@@ -35,6 +37,17 @@ if(real){
  camera.position.set(0,5,11);camera.lookAt(0,-.4,0);
 }
 const bay=scene.getObjectByName('marina-bay-water'),water=bay.material,post=createWorldOcclusion(renderer,scene,camera);
+let fleet;
+window.boats=()=>{
+ if(!fleet)fleet=createFpsVehicles(scene,world?.obstacles??[],{car:'',helicopter:''},{spawns:{car:{x:100,z:100,yaw:0},helicopter:{x:110,z:100,yaw:0},...DRAGON_BOAT_SPAWNS}});
+ fleet.omit(['car','helicopter']);return scene.userData.waterBoats;
+};
+window.boatPose=(x,z,yaw=0,speed=4,index=0,active=true)=>{
+ window.boats();const v=fleet.states[index?'dragon-boat-gold':'dragon-boat-red'];
+ Object.assign(v,{x,z,yaw,speed,health:300,despawned:!active,y:real?MARINA_WATER.surface:0});fleet.animateEffects(0);
+ return scene.userData.waterBoats;
+};
+window.boatState=()=>({sources:scene.userData.waterBoats,opacity:fleet?.models['dragon-boat-red'].getObjectByName('dragon-wake').material.opacity});
 let current={detail:'ultra',reflections:true,ao:false,bloom:false,reduced:false,time:7,smaa:false,rays:'off'};
 function pixels(){const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,c.width,c.height).data;}
 window.draw=(options={})=>{
@@ -59,7 +72,7 @@ window.benchmark=async()=>{
   result.push({detail,...state,medianMs:times[10],p95Ms:times[18]});
  }return result;
 };
-window.dispose=()=>{post.dispose();atmosphere?.dispose();night?.dispose();world?.dispose();renderer.dispose();};
+window.dispose=()=>{post.dispose();fleet?.dispose();atmosphere?.dispose();night?.dispose();world?.dispose();renderer.dispose();};
 window.waveReset=()=>{window.draw({detail:'high'});setWaterSwimmer(scene,0,0,false);return window.draw({detail:'ultra',time:0});};
 window.waveImpact=(x=0,z=0,strength=1)=>water.userData.ripple(x,z,strength);
 window.waveAdvance=(seconds,fps=60)=>{for(let i=0;i<Math.round(seconds*fps);i++)window.draw({time:current.time+1/fps});return post.waterWaves.stats;};
@@ -67,14 +80,14 @@ window.waveSwimmer=(x,z,active=true)=>setWaterSwimmer(scene,x,z,active);
 window.waveRead=(cx=0,cz=0)=>{
  const target=post.waterWaves.target;if(!target)return null;
  const bits=new Uint16Array(target.width*target.height*4);renderer.readRenderTargetPixels(target,0,0,target.width,target.height,bits);
- let min=0,max=0,energy=0,mass=0,radius=0,outside=0,hash=0;const bounds=water.uniforms.uWaveBounds.value,origin=post.waterWaves.origin;
+ let min=0,max=0,energy=0,mass=0,radius=0,outside=0,hash=0,foam=0;const bounds=water.uniforms.uWaveBounds.value,origin=post.waterWaves.origin;
  for(let z=0;z<target.height;z++)for(let x=0;x<target.width;x++){
   const i=(z*target.width+x)*4,h=THREE.DataUtils.fromHalfFloat(bits[i]),wx=origin.x+(x+.5)*32/target.width,wz=origin.y+(z+.5)*32/target.height;
-  if(!Number.isFinite(h))throw Error('Nonfinite wave');min=Math.min(min,h);max=Math.max(max,h);energy+=h*h;mass+=Math.abs(h);radius+=Math.abs(h)*Math.hypot(wx-cx,wz-cz);
+  const froth=THREE.DataUtils.fromHalfFloat(bits[i+2]);if(!Number.isFinite(h)||!Number.isFinite(froth)||froth<0||froth>.801)throw Error('Invalid wave or foam');foam+=froth;min=Math.min(min,h);max=Math.max(max,h);energy+=h*h;mass+=Math.abs(h);radius+=Math.abs(h)*Math.hypot(wx-cx,wz-cz);
   if(wx<bounds.x||wx>bounds.z||wz<bounds.y||wz>bounds.w)outside+=Math.abs(h);hash=(Math.imul(hash,31)+bits[i])|0;
  }
  const sx=Math.floor((cx-origin.x)/32*target.width),sz=Math.floor((cz-origin.y)/32*target.height);
- return {min,max,energy,radius:radius/Math.max(mass,1e-10),outside,hash,sample:THREE.DataUtils.fromHalfFloat(bits[(sz*target.width+sx)*4]),glError:renderer.getContext().getError(),stats:post.waterWaves.stats};
+ return {min,max,energy,foam,radius:radius/Math.max(mass,1e-10),outside,hash,sample:THREE.DataUtils.fromHalfFloat(bits[(sz*target.width+sx)*4]),glError:renderer.getContext().getError(),stats:post.waterWaves.stats};
 };
 window.waveBenchmark=async()=>{
  const result=[];
@@ -93,6 +106,44 @@ window.recordWaves=async()=>{
  for(let i=0;i<150;i++){if(i===35)window.waveImpact(-28.7,19.5,1.2);if(i===70)window.waveImpact(-31,19,1);window.draw({time:current.time+1/30});await new Promise(r=>setTimeout(r,1000/30));}
  recorder.stop();await done;stream.getTracks().forEach(t=>t.stop());
  return await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(new Blob(chunks,{type:'video/webm'}));});
+};
+window.boatRun=(seconds=3,fps=60,speed=4)=>{
+ for(let i=1;i<=seconds*fps;i++){window.boatPose(0,6-speed*i/fps,0,speed);window.waveAdvance(1/fps,fps);}
+ return window.waveRead();
+};
+window.boatPreview=async(record=false)=>{
+ window.waveReset();window.boatPose(-29,22,0,4);window.boatPose(-23,18,Math.PI,3,1);
+ window.move(-21,7,29,-29,0,22);
+ let stream,recorder,done,chunks=[];
+ if(record){stream=renderer.domElement.captureStream(30);recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9',videoBitsPerSecond:5000000});recorder.ondataavailable=e=>chunks.push(e.data);done=new Promise(resolve=>recorder.onstop=resolve);recorder.start();}
+ let x=-29,z=22;
+ for(let i=0;i<210;i++){
+  const t=i/30,yaw=Math.max(0,t-3)*.24;
+  x-=Math.sin(yaw)*4/30;z-=Math.cos(yaw)*4/30;
+  window.boatPose(x,z,yaw,4);window.boatPose(-23,18+t*3,Math.PI,3,1);
+  setWaterSwimmer(scene,x+3,z+2,true);
+  if(i===100||i===140)window.waveImpact(x-2,z+4);
+  camera.position.set(x+7,4,z+8);camera.lookAt(x,0,z+1);
+  window.waveAdvance(1/30,30);
+  if(record)await new Promise(r=>setTimeout(r,1000/30));
+ }
+ setWaterSwimmer(scene,0,0,false);
+ if(!record)return post.waterWaves.stats;
+ recorder.stop();await done;stream.getTracks().forEach(t=>t.stop());
+ return await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(new Blob(chunks,{type:'video/webm'}));});
+};
+window.boatBenchmark=async()=>{
+ const results=[];window.move(-22,6,23,-29,0,15);
+ for(const detail of ['high','ultra'])for(const moving of [false,true]){
+  window.waveReset();window.draw({detail});const times=[];
+  for(let i=0;i<100;i++){
+   const t=i/60;window.boatPose(-29,18-(moving?t*4:0),0,moving?4:0);window.boatPose(-25,10+(moving?t*3:0),Math.PI,moving?3:0,1);
+   setWaterSwimmer(scene,-27,18-t,true);if(moving&&i%20===0)window.waveImpact(-28,16);
+   await new Promise(requestAnimationFrame);const start=performance.now();const state=window.draw({time:current.time+1/60});renderer.getContext().finish();
+   if(i>=20)times.push(performance.now()-start);
+   if(i===99){times.sort((a,b)=>a-b);results.push({detail,moving,...state,waves:post.waterWaves.stats,medianMs:times[40],p95Ms:times[75]});}
+  }
+ }setWaterSwimmer(scene,0,0,false);return results;
 };
 window.review={renderer,camera,scene,water,post};window.draw();window.ready=true;
 </script></body></html>

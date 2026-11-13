@@ -153,6 +153,11 @@ const fragmentShader = /* glsl */ `
   // Analytic gradients of smooth value noise: two advected scales provide
   // irregular wind ripples without texture assets or finite-difference reads.
   float waterHash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+  float foamNoise(vec2 p) {
+    vec2 cell=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+    return mix(mix(waterHash(cell),waterHash(cell+vec2(1,0)),f.x),
+      mix(waterHash(cell+vec2(0,1)),waterHash(cell+vec2(1,1)),f.x),f.y);
+  }
   vec2 windSlope(vec2 p) {
     vec2 cell=floor(p), f=fract(p), u=f*f*(3.0-2.0*f), du=6.0*f*(1.0-f);
     float a=waterHash(cell), b=waterHash(cell+vec2(1,0));
@@ -204,6 +209,15 @@ const fragmentShader = /* glsl */ `
     }
 
     float foam = 0.0;
+    if (simulated>0.0) {
+      float trail=texture2D(uWaveMap,(p-uWaveOrigin)/waveSpan).b*simulated;
+      // A broken, soft stern trail, held in world space as the hull turns away.
+      if (trail>.001) {
+        float bubbles=.4+.6*smoothstep(.2,.8,foamNoise(p*9.0+uTime*.025)*.65+foamNoise(p*21.0)*.35);
+        bubbles=mix(bubbles,.7,smoothstep(.035,.12,waterFootprint));
+        foam=trail*bubbles;
+      }
+    }
     for (int i = 0; i < RIPPLES; i++) {
       vec4 r = uRipples[i];
       float age = uTime - r.z;

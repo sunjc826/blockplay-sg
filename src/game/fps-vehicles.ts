@@ -1,4 +1,5 @@
 import { animateDragonBoat } from './dragon-boat-model';
+import type { WaterBoat } from './boat-wake';
 import { namedObject } from './named-object';
 import { isDragonBoat } from './marina-water';
 import { createVehicleImpactMotion, createEmptyImpactPose } from './vehicle-impact';
@@ -29,6 +30,10 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const sceneObstacles = options.deriveFlightObstacles ? sceneFlightObstacles(scene) : null;
   const root = new THREE.Group(); scene.add(root);
   const states = keyed(freshState);
+  const waterBoats: WaterBoat[] = VEHICLE_KINDS.filter(isDragonBoat).filter(kind=>spawns[kind]).map(id=>({
+    id, x: 0, z: 0, yaw: 0, speed: 0, active: false, revision: 0, wakeBlend: 0,
+  }));
+  if (waterBoats.length) scene.userData.waterBoats = waterBoats;
   for(const v of Object.values(states))if(!isDragonBoat(v.kind))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13;
   const currentSkins = { ...skins };
   const models = keyed(kind=>buildVehicleModel(kind, isDragonBoat(kind) ? undefined : skins[kind]));
@@ -150,7 +155,11 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
       damageVisuals[kind](vehicleDamageStage(states[kind]));
       if (shared) { const gun = v as SharedVehicle; namedObject(model, 'vehicle-turret')!.rotation.set(gun.gunPitch, gun.gunYaw - gun.yaw, 0, 'YXZ'); }
       namedObject(model, 'vehicle-muzzle-flash')!.visible = flashTime[kind] > 0 && v.health > 0;
-      if(isDragonBoat(kind)) animateDragonBoat(model,v.speed,dt,options.reducedMotion?.());
+      if(isDragonBoat(kind)) {
+        const source = waterBoats.find(boat=>boat.id===kind);
+        if (source) Object.assign(source,{x:v.x,z:v.z,yaw:v.yaw,speed:v.speed,active:v.health>0&&!states[kind].despawned});
+        animateDragonBoat(model,v.health>0?v.speed:0,dt,options.reducedMotion?.(),source?.wakeBlend??0);
+      }
       else if (kind === 'car') {
         const tilt=terrainVehicleTilt(bounds.groundHeight??(()=>0),v.x,v.z,v.yaw);model.rotation.set(tilt.pitch + jolt.pitch + (wreck?.pitch ?? 0),v.yaw,tilt.roll + jolt.roll + (wreck?.roll ?? 0),'YXZ');
         model.traverse(o => { if (o.name === 'vehicle-wheel') o.rotation.x -= v.speed * dt / .51; });
@@ -287,7 +296,7 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
         interact: active ? `E · ${isDragonBoat(active) ? 'Disembark' : 'Exit'} ${vehicleName(active)}` : near ? `E · ${nearLabel} · ${Math.ceil(states[near].health)} HP` : '', vehicleNotice: notice,
         carDistance: distance(player, 'car'), helicopterDistance: distance(player, 'helicopter') };
     },
-    reset() { impacts.car.reset(); impacts.helicopter.reset(); helicopterPitch = 0; active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; hullBlasts.length = hullBurns.length = 0; wrecks.car.reset(); wrecks.helicopter.reset(); rotorSpinning = false; wreckTime.car = wreckTime.helicopter = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); for(const kind of VEHICLE_KINDS){states[kind]=freshState(kind);impacts[kind].reset();presentation[kind].reset();wreckTime[kind]=flashTime[kind]=sharedShots[kind]=0;} for(const v of Object.values(states))if(!isDragonBoat(v.kind))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
-    dispose() { effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
+    reset() { for (const boat of waterBoats) { boat.revision++; boat.wakeBlend=0; } impacts.car.reset(); impacts.helicopter.reset(); helicopterPitch = 0; active = null; shared = null; lastSnapshot = null; presentation.car.reset(); presentation.helicopter.reset(); selfId = ''; localSeat = 0; sharedShots.car = sharedShots.helicopter = 0; notice = ''; noticeTime = 0; destruction.length = 0; hullBlasts.length = hullBurns.length = 0; wrecks.car.reset(); wrecks.helicopter.reset(); rotorSpinning = false; wreckTime.car = wreckTime.helicopter = 0; effects.reset(); flashTime.car = flashTime.helicopter = 0; for (const model of Object.values(models)) model.getObjectByName('vehicle-turret')!.rotation.set(0, 0, 0); for(const kind of VEHICLE_KINDS){states[kind]=freshState(kind);impacts[kind].reset();presentation[kind].reset();wreckTime[kind]=flashTime[kind]=sharedShots[kind]=0;} for(const v of Object.values(states))if(!isDragonBoat(v.kind))v.y=(bounds.groundHeight?.(v.x,v.z)??0)+.13; models.helicopter.rotation.x = 0; models.car.getObjectByName('humvee-steering-wheel')!.rotation.z = 0; sync(0); },
+    dispose() { if (scene.userData.waterBoats===waterBoats) delete scene.userData.waterBoats; effects.dispose(); root.removeFromParent(); disposeModel(root); Object.values(labels).forEach(sprite => { sprite.material.map?.dispose(); sprite.material.dispose(); }); },
   };
 }

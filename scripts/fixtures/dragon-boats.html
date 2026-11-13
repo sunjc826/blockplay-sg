@@ -9,6 +9,7 @@ import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
 setEnvironmentSettings({weather:'sunny',timeOfDay:'noon',celebration:'none',reducedEffects:true,shadows:false,occlusion:false});
 const params=new URLSearchParams(location.search);
 if(params.has('water-effects')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'high',waterReflections:false,lensEffects:true});setEnvironmentSettings({weather:'sunny',reducedEffects:false});}
+if(params.has('boat-wakes')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
 if(params.has('gallery')){
   document.getElementById('start').remove();
   const {buildMarinaScene}=await import('/src/game/marina-scene.ts');

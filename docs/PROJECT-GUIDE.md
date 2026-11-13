@@ -373,8 +373,18 @@ existing rings. Fixed 60 Hz steps are capped at four per draw, with reset after
 large time gaps; texel-aligned scrolling preserves world positions, solid quay
 bounds reflect waves and the outer simulation band absorbs them. Floating decks
 do not obstruct propagation. Detail changes/disposal release both state targets
-and patch geometry. Boat/remote-player wakes and caustics are not part of this
-first interaction pass. `scripts/water-waves-smoke.mjs` reads the actual GPU field
+and patch geometry. Moving dragon boats feed bow shoulders, stern drawdown and
+alternating turbulence into the same field (`boat-wake.ts`). Emissions follow
+rendered local/shared poses, are spaced by distance with subframe timestamps,
+scale with speed and reverse with the hull. A spare state channel stores diffuse,
+short-lived stern froth; no new targets, geometry or draw calls are added. The
+local field accepts at most two nearby boats, reserves impulse capacity for shots
+and swimmers, and fades forcing before the absorbing border. The lightweight
+hull-attached wake crossfades outside coverage and remains on High/reduced effects.
+Stopped, destroyed, despawned and teleported boats leave no new trail. Remote
+swimmer wakes and caustics remain future work. `scripts/boat-wakes-smoke.mjs`
+checks the GPU field, foam decay, exact 30/60/144 fps results, fallback switching,
+culling and combined boat/swimmer/shot rendering costs, and records a Marina clip. `scripts/water-waves-smoke.mjs` reads the actual GPU field
 to verify propagation, overlap, damping, 30/60/144 fps equivalence, scrolling and
 quay bounds, and captures a moving Marina preview. `scripts/ultra-water-smoke.mjs` checks foreground
 preservation, preset restoration, texture lifetime, resize/2× density and real
