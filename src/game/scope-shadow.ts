@@ -63,15 +63,24 @@ function createAxis() {
   };
 }
 
-/** Visual eye-box lag in lens UVs. ADS damps the model's gait almost
- * completely, so the gun's own sway cannot supply a readable cue. The eye is a
- * sprung mass behind the scope: starts, stops, reversals, jumps and landings
- * swing the shadow in and it rings back out, leaving only a slight lean while
- * the motion continues. Turning is not modelled here: the aimed gun itself
- * trails a turn (`createAimedTurnLag`), and the lens reads that as real
- * misalignment. `relief` is the scope driven back at the eye by
+/** Lens UVs of shadow travel per radian the tube is tilted off the sight line.
+ * The eyepiece sits close to the eye, so what darkens is the far end of the tube. */
+export const SCOPE_TUBE = 4;
+/** The tilt about the eyepiece that puts the eye `sway` lens UVs off axis: yaw
+ * and pitch in the gun's parent frame, applied as an XYZ Euler. The lens only
+ * ever shows what the gun is really doing, so this is how motion reaches it. */
+export const scopeSwayTilt = (sway: { x: number; y: number }, gain = 1) => ({ yaw: sway.x * gain / SCOPE_TUBE, pitch: -sway.y * gain / SCOPE_TUBE });
+
+/** How far a scoped gun is thrown off the eye, in lens UVs of shadow. ADS damps
+ * the model's gait almost completely, so the gun's own sway cannot supply a
+ * readable cue. The gun is a sprung mass at the shoulder: starts, stops,
+ * reversals, jumps and landings swing it and it rings back, leaving only a
+ * slight lean while the motion continues. The engine turns this into a tilt
+ * about the eyepiece (`scopeSwayTilt`), and the lens reads the shadow off that
+ * tilt, so the two cannot disagree. Turning has its own trail
+ * (`createAimedTurnLag`). `relief` is the scope driven back at the eye by
  * a shot or a landing: 0 at rest, towards 1 as the picture tunnels in. Only
- * the shadow moves, never the aim. */
+ * the gun and its shadow move, never the aim. */
 export function createScopeShadow() {
   const x = createAxis(), y = createAxis(), value = { x: 0, y: 0, relief: 0 };
   let relief = 0, reliefVelocity = 0, climb: number | undefined;

@@ -8,7 +8,7 @@ import type { EnemyOptic } from './enemy-weapon-layout';
 import { enemyOptic } from './enemy-weapon-layout';
 import { scopeReticleFor, scopeReticleGlsl, type ScopeReticle } from './scope-reticles';
 import { createScopeBarrel } from './scope-barrel';
-import { createScopeShadow, limitScopeEye, scopeEyeBox } from './scope-shadow';
+import { SCOPE_TUBE, limitScopeEye, scopeEyeBox } from './scope-shadow';
 
 export interface WeaponSight {
   aimHeight: number; aimDepth: number; radius: number; magnification: number;
@@ -324,8 +324,7 @@ export function setSightNightVision(sight: WeaponSight | undefined, active: bool
   if (sight.offset) setSightNightVision(sight.offset, active);
 }
 
-/** Lens UVs of shadow travel per radian of scope tilt: a tube about fourteen lens radii long. */
-export const SCOPE_TUBE = 4;
+export { SCOPE_TUBE };
 
 /** The target covers only the lens, so crop FOV as well as applying magnification. */
 export function scopeFov(worldFov: number, lensFraction: number, magnification: number) {
@@ -343,17 +342,7 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   const target = new THREE.WebGLRenderTarget(384, 384, { depthBuffer: true, stencilBuffer: false });
   const camera = new THREE.PerspectiveCamera();
   const lensPosition = new THREE.Vector3(), eyePosition = new THREE.Vector3(), buffer = new THREE.Vector2();
-  const shadow = createScopeShadow();
-  const eyeNow = new THREE.Vector3(), eyeBefore = new THREE.Vector3(), sightLine = new THREE.Vector3(), lensFacing = new THREE.Quaternion();
-  let previousSight: WeaponSight | undefined, tracking = false, jolt = 0;
-  const resetShadow = () => { shadow.reset(); tracking = false; jolt = 0; };
-  /** Vertical travel as the world camera actually moved: jumps, landings and stance changes. */
-  function viewMotion(worldCamera: THREE.Camera, dt: number) {
-    worldCamera.getWorldPosition(eyeNow);
-    const verticalSpeed = tracking && dt > 0 ? (eyeNow.y - eyeBefore.y) / dt : 0;
-    eyeBefore.copy(eyeNow); tracking = true;
-    return { verticalSpeed };
-  }
+  const sightLine = new THREE.Vector3(), lensFacing = new THREE.Quaternion();
   /** Gives a magnified lens its picture now, so its first aim changes no material (and compiles no shader). */
   function prepare(sight: WeaponSight) {
     if (sight.magnification <= 1.01 || sight.lens.material.map === target.texture) return;
@@ -362,26 +351,21 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
   }
   return {
     prepare,
-    /** A round fired: the scope comes back at the eye and the picture tunnels in. Heavier recoil, tighter tunnel. */
-    shot(recoil: number, multiplier = 1) {
-      if (recoil > 0 && multiplier > 0) jolt = Math.min(1.5, jolt + Math.min(1.2, Math.sqrt(recoil / .018)) * Math.min(1, multiplier));
-    },
     /** The camera the lens's picture was last drawn with: lens UV (0–1) is this camera's NDC halved and moved to the centre. */
     camera,
     render(world: THREE.Scene, worldCamera: THREE.PerspectiveCamera, viewCamera: THREE.PerspectiveCamera, sight: WeaponSight | undefined, active: boolean, aimProgress = 1,
-      motion?: { lateralSpeed: number; dt: number; reducedMotion?: boolean }) {
-      if (sight !== previousSight) resetShadow();
-      previousSight = sight;
-      if (!sight) { resetShadow(); return false; }
+      /** `relief` is the scope driven back at the eye (see `createScopeShadow`): the picture tunnels in. */
+      motion?: { relief?: number }) {
+      if (!sight) return false;
       // Powered reflex dots are gated by the optical aperture and eye alignment,
       // never by the aim button. Only magnified scopes fade with the ADS animation.
       sight.visibility.value = sight.magnification <= 1.01 ? 1 : THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       if (sight.reflection) sight.reflection.uniforms.aiming.value = THREE.MathUtils.smoothstep(aimProgress, .12, .92);
       sight.lens.visible = active && sight.visibility.value > 0;
-      if (!sight.lens.visible || sight.magnification <= 1.01) { resetShadow(); return false; }
+      if (!sight.lens.visible || sight.magnification <= 1.01) return false;
       // The viewmodel camera is the eye. Lens-local coordinates include both
-      // translation and tilt from actual weapon sway/recoil. The additional
-      // eye lag compensates for ADS sway suppression only in the shadow.
+      // translation and tilt from what the weapon is actually doing; nothing
+      // is added here, so the shadow always agrees with the gun on screen.
       viewCamera.updateWorldMatrix(true, false);
       if (sight.scopeEye) {
         viewCamera.getWorldPosition(eyePosition);
@@ -392,10 +376,7 @@ export function createScopeRenderer(renderer: THREE.WebGLRenderer) {
         // line of sight. Add that as the sight line's slope in the lens's frame.
         viewCamera.getWorldDirection(sightLine).applyQuaternion(sight.lens.getWorldQuaternion(lensFacing).invert());
         sight.scopeEye.value.x += sightLine.x * SCOPE_TUBE; sight.scopeEye.value.y += sightLine.y * SCOPE_TUBE;
-        const dt = motion?.dt ?? 0, lag = shadow.update(dt, { lateralSpeed: motion?.lateralSpeed ?? 0, jolt, ...viewMotion(worldCamera, dt) }, !!motion && !motion.reducedMotion);
-        jolt = 0;
-        const box = scopeEyeBox(sight.magnification, lag.relief * sight.visibility.value), gain = box.gain * sight.visibility.value;
-        sight.scopeEye.value.x += lag.x * gain; sight.scopeEye.value.y += lag.y * gain;
+        const box = scopeEyeBox(sight.magnification, (motion?.relief ?? 0) * sight.visibility.value);
         limitScopeEye(sight.scopeEye.value, box);
         sight.scopeBox?.value.set(box.radius, box.soft);
       }

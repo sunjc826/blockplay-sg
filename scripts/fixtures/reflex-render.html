@@ -4,6 +4,7 @@
 import * as THREE from '/node_modules/three/build/three.module.js';
 import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
 import {fitWeaponOptic,getWeaponSight,createScopeRenderer} from '/src/game/weapon-optics.ts';
+import {createScopeShadow,scopeEyeBox,scopeSwayTilt} from '/src/game/scope-shadow.ts';
 import {createOpticReflectionRenderer} from '/src/game/weapon-reflections.ts';
 import {FPS_WEAPONS,magnifiedFov} from '/src/game/fps-rules.ts';
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.autoClear=false;document.body.append(renderer.domElement);
@@ -92,7 +93,13 @@ for(const [label,x,y,tilt,speed] of [['left',-.45,0,0],['right',.45,0,0],['up',0
 window.show('ads');model.position.x+=x*sight.radius;model.position.y+=y*sight.radius;model.rotation.y=tilt;viewScene.updateMatrixWorld(true);
 scope.render(world,camera,viewCamera,sight,true,1);
 // A sidestep swings the shadow in as it starts and then eases off, so sample the swing, not the hold.
-if(speed!==undefined)for(let i=0;i<7;i++)scope.render(world,camera,viewCamera,sight,true,1,{lateralSpeed:i?speed:0,dt:1/60});
+if(speed!==undefined){
+// The engine tilts the gun about its eyepiece by what the spring asks; the lens only reads that tilt.
+const spring=createScopeShadow();let thrown;for(let i=0;i<7;i++)thrown=spring.update(1/60,{lateralSpeed:i?speed:0},true);
+const lean=scopeSwayTilt(thrown,scopeEyeBox(sight.magnification).gain),turn=new THREE.Quaternion().setFromEuler(new THREE.Euler(lean.pitch,lean.yaw,0));
+const pivot=model.parent.worldToLocal(sight.lens.getWorldPosition(new THREE.Vector3()));
+model.position.sub(pivot).applyQuaternion(turn).add(pivot);model.quaternion.premultiply(turn);viewScene.updateMatrixWorld(true);
+scope.render(world,camera,viewCamera,sight,true,1);}
 const offset=sight.scopeEye.value.clone(),moving=sample();sight.scopeEye.value.set(0,0);const centred=sample();sight.scopeEye.value.copy(offset);
 let centralMax=0,darkLeft=0,darkRight=0,darkTop=0,darkBottom=0;
 for(let y=-.9;y<=.901;y+=.03)for(let x=-.9;x<=.901;x+=.03){

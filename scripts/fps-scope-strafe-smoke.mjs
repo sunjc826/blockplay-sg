@@ -43,7 +43,8 @@ try {
       const samples = {};
       for (const [key,name,sign] of [['a','left',1],['d','right',-1]]) {
         await move(key,mobile); const start = await swing(900);
-        const state = await evaluate(read); assert(state.movement.speed>1.5,'Player actually strafes');
+        const state = await evaluate(read); // A heavy rifle walks slower on its sights (equipmentMovement().aimMove), but it still walks.
+        assert(state.movement.speed>1,'Player actually strafes: '+state.movement.speed);
         assert(start.peak*sign>.08,name+' strafe swings the shadow in as it starts: '+start.peak);
         assert(state.shadow[0]*sign>.015&&state.shadow[0]*sign<.08,name+' strafe eases to a slight lean while held: '+state.shadow[0]);
         assert.equal(state.phase,'playing'); samples[name]={...state,peak:start.peak};

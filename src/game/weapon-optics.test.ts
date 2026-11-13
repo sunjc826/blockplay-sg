@@ -1,4 +1,4 @@
-import { SCOPE_CLEAR_CENTRE, scopeEyeBox } from './scope-shadow';
+import { SCOPE_CLEAR_CENTRE, SCOPE_TUBE, scopeEyeBox, scopeSwayTilt } from './scope-shadow';
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
@@ -130,69 +130,49 @@ it('adds an open, recessed scope barrel and disposes it with the optic', () => {
   expect(getWeaponSight(root)!.scopeEye).toBeUndefined(); removeDot();
 });
 
-it('swings the shadow on strafes and drops, and leaves turning to the gun, without moving the scene or reticle and clears it when inactive', () => {
+it('reads the shadow off the gun alone: a tilt about the eyepiece throws it as far as the engine asked, and relief tunnels it', () => {
   const root = new THREE.Group(), remove = fitWeaponOptic(root, FPS_WEAPONS[0]), sight = getWeaponSight(root)!;
   const renderer = { getDrawingBufferSize: (size: THREE.Vector2) => size.set(1600, 900), getRenderTarget: vi.fn(() => null), setRenderTarget: vi.fn(), clear: vi.fn(), render: vi.fn() };
   const scope = createScopeRenderer(renderer as unknown as THREE.WebGLRenderer);
   const view = new THREE.PerspectiveCamera(ADS_VIEW_FOV, 1, .01, 3), camera = new THREE.PerspectiveCamera(HIP_FOV, 1, .08, 800), world = new THREE.Scene();
-  root.position.set(0, -sight.aimHeight, sight.aimDepth);
-  const plane = sight.lens.position.clone();
+  const rest = new THREE.Vector3(0, -sight.aimHeight, sight.aimDepth);
+  root.position.copy(rest); root.updateMatrixWorld(true);
+  const plane = sight.lens.position.clone(), pivot = sight.lens.getWorldPosition(new THREE.Vector3());
   scope.render(world, camera, view, sight, true);
   const projection = scope.camera.projectionMatrix.clone();
-  const frames = (count: number, lateralSpeed: number, each?: () => void) => {
-    let minX = 0, maxX = 0, minY = 0, maxY = 0;
-    for (let i = 0; i < count; i++) {
-      each?.(); camera.updateMatrixWorld();
-      scope.render(world, camera, view, sight, true, 1, { lateralSpeed, dt: 1 / 60 });
-      const { x, y } = sight.scopeEye!.value;
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  // Moving or turning the world camera is not misalignment.
+  camera.position.set(3, 9, -4); camera.rotation.set(.2, -.6, 0); camera.updateMatrixWorld();
+  scope.render(world, camera, view, sight, true);
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  // The engine's tilt for a wanted shadow, applied the way the engine applies it.
+  for (const wanted of [{ x: .1, y: 0 }, { x: -.08, y: 0 }, { x: 0, y: .09 }, { x: .05, y: -.07 }]) {
+    const tilt = scopeSwayTilt(wanted), turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(tilt.pitch, tilt.yaw, 0));
+    root.position.copy(rest).sub(pivot).applyQuaternion(turn).add(pivot); root.quaternion.copy(turn); root.updateMatrixWorld(true);
+    scope.render(world, camera, view, sight, true);
+    // The tube supplies what was asked; the eye's small slide across the eyepiece adds a little the same way.
+    for (const axis of ['x', 'y'] as const) {
+      const got = sight.scopeEye!.value[axis], want = wanted[axis];
+      if (want === 0) expect(got).toBeCloseTo(0, 3);
+      else { expect(got / want).toBeGreaterThan(1); expect(got / want).toBeLessThan(1.3); }
     }
-    return { minX, maxX, minY, maxY };
-  };
-  frames(2, 0);
-  for (const lateralSpeed of [-2.2, 2.2]) {
-    const swing = frames(40, lateralSpeed);
-    expect(lateralSpeed > 0 ? -swing.minX : swing.maxX).toBeGreaterThan(.09);
-    // A held strafe keeps only a slight lean.
-    const lean = sight.scopeEye!.value.x * -Math.sign(lateralSpeed);
-    expect(lean).toBeGreaterThan(.02); expect(lean).toBeLessThan(.07);
-    expect(sight.scopeEye!.value.y).toBeCloseTo(0);
-    expect(scope.camera.projectionMatrix.equals(projection)).toBe(true);
-    expect(scope.camera.position.equals(camera.position)).toBe(true);
+    // The lens has not left the aim point, and the picture has not moved.
+    expect(sight.lens.getWorldPosition(new THREE.Vector3()).distanceTo(pivot)).toBeLessThan(1e-9);
+    scope.camera.projectionMatrix.elements.forEach((value, i) => expect(value).toBeCloseTo(projection.elements[i], 6));
     expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
     expect(sight.lens.position.equals(plane)).toBe(true);
   }
-  frames(90, 0);
-  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
-  // Turning the view alone adds nothing: the aimed gun's own trail is what the lens reads.
-  const flick = frames(12, 0, () => { camera.rotation.y -= .05; camera.rotation.x += .01; });
-  expect(Math.max(-flick.minX, flick.maxX, -flick.minY, flick.maxY)).toBeLessThan(1e-6);
-  // A gun turned about its eyepiece does shadow, with the lens still on the aim point.
-  root.position.sub(plane).applyAxisAngle(new THREE.Vector3(0, 1, 0), .03).add(plane); root.rotation.y = .03;
-  expect(Math.abs(frames(1, 0).minX + frames(1, 0).maxX)).toBeGreaterThan(.03);
-  root.position.set(0, -sight.aimHeight, sight.aimDepth); root.rotation.y = 0;
-  frames(2, 0);
-  frames(20, 0, () => { camera.position.y -= 8 / 60; });
+  expect(scopeSwayTilt({ x: .1, y: .1 }, 0)).toEqual({ yaw: 0, pitch: -0 });
+  expect(scopeSwayTilt({ x: SCOPE_TUBE, y: 0 }).yaw).toBe(1);
+  root.position.copy(rest); root.quaternion.identity(); root.updateMatrixWorld(true);
+  scope.render(world, camera, view, sight, true);
   expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
-  let tunnel = 1;
-  expect(frames(12, 0, () => { tunnel = Math.min(tunnel, sight.scopeBox!.value.x); }).minY).toBeLessThan(-.05);
-  // The landing also drives the scope back at the eye, and so does a shot.
-  expect(tunnel).toBeLessThan(.47);
-  frames(90, 0);
+  scope.render(world, camera, view, sight, true, 1, { relief: 1 });
+  expect(sight.scopeBox!.value.x).toBeCloseTo(.42); expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
+  scope.render(world, camera, view, sight, true, 1, { relief: .5 });
+  expect(sight.scopeBox!.value.x).toBeCloseTo(.465);
+  scope.render(world, camera, view, sight, true, 1, {});
   expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
-  scope.shot(.018); frames(6, 0);
-  expect(sight.scopeBox!.value.x).toBeLessThan(.45); expect(sight.scopeBox!.value.x).toBeGreaterThanOrEqual(.42);
-  expect(sight.scopeEye!.value.length()).toBeLessThan(.01);
-  frames(90, 0);
-  expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
-  expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
-  expect(sight.lens.position.equals(plane)).toBe(true);
-  scope.render(world, camera, view, sight, false);
-  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 0, dt: 0 });
-  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
-  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 2, dt: .1 });
-  scope.render(world, camera, view, sight, true, 1, { lateralSpeed: 2, dt: .1, reducedMotion: true });
-  expect(sight.scopeEye!.value.length()).toBeCloseTo(0);
   remove(); scope.dispose();
 });
 

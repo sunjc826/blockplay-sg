@@ -21,7 +21,7 @@ import { cloneRangeDummy, createRangeDummyModel, RANGE_DUMMY_BASE_DEPTH } from '
 import { effectsOutput } from '../lib/effects-volume';
 import { namedObject } from './named-object';
 import { needsAmmoRefill, refillAmmo } from './ammo-refill';
-import { createAimedTurnLag, hipTurnShare, weaponHeft } from './scope-shadow';
+import { createAimedTurnLag, createScopeShadow, scopeEyeBox, scopeSwayTilt, hipTurnShare, weaponHeft } from './scope-shadow';
 import { createScopeZoom, createScopeZoomWheel, scopeZoomLookScale, type ScopeZoom } from './scope-zoom';
 import { getBuildingLifts, liftBodies, insideLift, liftDeparture, liftPassenger, liftSample } from './building-lifts';
 import { transportRayDistance } from './combat-transports';
@@ -802,6 +802,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   let triggerSpent = false, dryFireSpent = false;
   let lastLookYaw = yaw, lastLookPitch = pitch, lookLagX = 0, lookLagY = 0;
+  // What throws a scoped gun off the eye besides turning: strafes, jumps, landings and shots (see scope-shadow).
+  const scopeSway = createScopeShadow();
+  let scopeJolt = 0, scopeRelief = 0, lastEyeY: number | undefined;
   const aimedTurnLag = createAimedTurnLag(), turnLagPivot = new THREE.Vector3(), turnLagTurn = new THREE.Quaternion(), turnLagAngles = new THREE.Euler();
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
   const bodyMotion = createMovementMotion();
@@ -2835,15 +2838,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const hipTurn = trailing ? (1 - aim) * hipTurnShare(heft) : 0;
     rig.rotation.x += turnLag.pitch * hipTurn; rig.rotation.y += turnLag.yaw * hipTurn;
     if (debugDatasets) canvas.dataset.hipTurnLag = JSON.stringify([+(turnLag.yaw * hipTurn).toFixed(5), +(turnLag.pitch * hipTurn).toFixed(5), +heft.toFixed(3)]);
-    if (scopeSight && turnLagWeight > 0 && (turnLag.yaw || turnLag.pitch)) {
+    // Strafes, jumps and landings swing it the same way, and a shot drives it back at the eye.
+    // The eye's own climb is read off the camera, so stance changes count too.
+    const eyeClimb = lastEyeY !== undefined && dt > 0 ? (camera.position.y - lastEyeY) / dt : 0;
+    lastEyeY = camera.position.y;
+    const thrown = scopeSway.update(dt, { lateralSpeed: sideSpeed, verticalSpeed: eyeClimb, jolt: scopeJolt }, scoped);
+    scopeJolt = 0; scopeRelief = thrown.relief;
+    const swayTilt = scopeSwayTilt(thrown, scoped ? scopeEyeBox(scopeSight!.magnification).gain : 0);
+    const tiltYaw = turnLag.yaw + swayTilt.yaw, tiltPitch = turnLag.pitch + swayTilt.pitch;
+    // The few millimetres the gun slides behind a turn would move the eye across the eyepiece on a different clock.
+    rig.position.x -= lookLagX * turnLagWeight; rig.position.y -= lookLagY * turnLagWeight;
+    if (scopeSight && turnLagWeight > 0 && (tiltYaw || tiltPitch)) {
       // The lens keeps its place in the rig, so last frame's matrices locate it in this frame's pose.
       rig.worldToLocal(scopeSight.lens.getWorldPosition(turnLagPivot));
       rig.updateMatrix(); turnLagPivot.applyMatrix4(rig.matrix);
-      turnLagTurn.setFromEuler(turnLagAngles.set(turnLag.pitch * turnLagWeight, turnLag.yaw * turnLagWeight, 0));
+      turnLagTurn.setFromEuler(turnLagAngles.set(tiltPitch * turnLagWeight, tiltYaw * turnLagWeight, 0));
       rig.position.sub(turnLagPivot).applyQuaternion(turnLagTurn).add(turnLagPivot);
       rig.quaternion.premultiply(turnLagTurn);
     }
-    if (debugDatasets) canvas.dataset.aimedTurnLag = JSON.stringify([turnLag.yaw * turnLagWeight, turnLag.pitch * turnLagWeight]);
+    if (debugDatasets) { canvas.dataset.aimedTurnLag = JSON.stringify([turnLag.yaw * turnLagWeight, turnLag.pitch * turnLagWeight]); canvas.dataset.scopeTilt = JSON.stringify([tiltYaw * turnLagWeight, tiltPitch * turnLagWeight]); }
     if (state.reloadSlot !== undefined && state.reloadSlot >= 0) {
       const pocketPose = pouchWeaponOffset(specs[hud.weapon].feed === 'belt' ? beltProgress : progress, emptyReload[hud.weapon]);
       rig.position.x += pocketPose.x; rig.position.y += pocketPose.y; rig.position.z += pocketPose.z;
@@ -3737,7 +3750,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
     const recoilMultiplier = stanceRecoilMultiplier(slide.active ? 'stand' : stance(), grounded(), bodyMotion.eye) * supportMultiplier * recoilScale(foodEffects) * arenaConditionModifiers(conditions).recoil;
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
-    firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier); scopeRenderer.shot(specs[hud.weapon].recoil, recoilMultiplier);
+    firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier); { const recoil = specs[hud.weapon].recoil; if (recoil > 0 && recoilMultiplier > 0) scopeJolt = Math.min(1.5, scopeJolt + Math.min(1.2, Math.sqrt(recoil / .018)) * Math.min(1, recoilMultiplier)); }
     shoulderMotion.shot(specs[hud.weapon], recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: specs[hud.weapon].action === 'bolt' ? null : weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
@@ -4925,10 +4938,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const sight = mountedSight?.offset && cant > .5 ? mountedSight.offset : mountedSight;
       if (mountedSight?.offset) (sight === mountedSight ? mountedSight.offset : mountedSight).lens.visible = false;
       canvas.dataset.cant = cant.toFixed(2);
-      const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress, {
-        lateralSpeed: vehicles.active ? 0 : carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw),
-        dt: realDt, reducedMotion: !!motionPreference?.matches,
-      });
+      const scopeActive = scopeRenderer.render(world.scene, camera, viewCamera, sight, opticActive, aimProgress, { relief: scopeRelief });
       if (debugDatasets) { canvas.dataset.scopeShadow = JSON.stringify(sight?.scopeEye?.value.toArray() ?? null); canvas.dataset.scopeBox = JSON.stringify(sight?.scopeBox?.value.toArray() ?? null); }
       // Without live capture the glass keeps its tint, coating and clearcoat highlights but shows no scenery.
       const reflectionsOn = getGraphicsSettings().sightReflections;
