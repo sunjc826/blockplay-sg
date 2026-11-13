@@ -4866,11 +4866,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         getGraphicsSettings().bloom && !vision.thermal && !nvgAiming,
         getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive(),
         getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive(),
-        !vision.thermal && !nvgAiming && !overviewActive() ? getGraphicsSettings().godRays : 'off'));
+        !vision.thermal && !nvgAiming && !overviewActive() ? getGraphicsSettings().godRays : 'off',
+        !vision.thermal && !nvgAiming && !overviewActive()));
       canvas.dataset.godRays = String(occlusion.godRaysEnabled);
       canvas.dataset.smaa = String(occlusion.smaaEnabled);
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
       canvas.dataset.waterReflections = String(occlusion.waterReflectionsEnabled);
+      canvas.dataset.waterRefraction = String(occlusion.waterRefractionEnabled);
       canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);
       const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
       const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;

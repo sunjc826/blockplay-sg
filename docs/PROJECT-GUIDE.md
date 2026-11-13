@@ -347,8 +347,22 @@ and two foam rings. Droplets are integrated in fixed 1/60 s substeps so a slow
 renderer doesn't lose them in one long step. Marina's water is a shader surface
 (`createWaterMaterial`): travelling-wave normals, Schlick Fresnel against a
 two-colour sky, a sun glint, and up to twelve shot ripples written straight into
-its uniforms. The bay is a real basin — quay walls down to a bed 3 m below —
-so the transparency shows depth when you look down into it.
+its uniforms. The bay has quay walls and a bed 1.56 m below its mean surface.
+Ultra water adds two moving scales of procedural wind normals, depth-dependent
+absorption and refraction in the bay. `water-surface-pass.ts` draws opaque
+materials, copies their resolved HDR colour/depth, then draws transparent
+materials into the original target, so geometry is not rendered twice for
+refraction. Depth rejection keeps foreground quays and hulls out of the
+distortion. The snapshot is active only during that camera's water draw; scopes
+use the ordinary surface rather than sampling the main view's buffers.
+With water reflections enabled, the bay uses a mirrored scene capture at half
+resolution, capped at 1024 pixels on Ultra (768 otherwise). Ultra filters its
+mip levels and stretches highlights slightly, with more softening in rain.
+Refraction requires hardware WebGL2, visible above-water bay geometry and
+unreduced Ultra detail; lowering detail releases the snapshot. Other districts
+retain their authored water. `scripts/ultra-water-smoke.mjs` checks foreground
+preservation, preset restoration, texture lifetime, resize/2× density and real
+Marina day/night/rain views using `scripts/fixtures/ultra-water.html`.
 
 **District map.** M opens the whole district over the scene: sector names, every marker the mode shows (targets and vehicles on the range; loot, people and exits on an expedition, with labels), your position and facing, and a 100 m scale bar. M again folds it back into the corner minimap. On a touchscreen, tap the minimap.
 

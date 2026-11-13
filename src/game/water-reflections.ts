@@ -11,7 +11,7 @@ export function createWaterReflections(renderer: THREE.WebGLRenderer, scene: THR
   const size = new THREE.Vector2(), hidden: THREE.Object3D[] = [], eye = new THREE.Vector3();
   const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4();
   return {
-    render(enabled: boolean) {
+    render(enabled: boolean, ultra = false) {
       if (!bay || !material?.uniforms.uReflectionReady) return false;
       material.uniforms.uReflectionReady.value = 0;
       camera.getWorldPosition(eye); bay.updateWorldMatrix(true,false);
@@ -22,7 +22,13 @@ export function createWaterReflections(renderer: THREE.WebGLRenderer, scene: THR
         reflector.rotation.x = -Math.PI/2; reflector.position.y = bay.position.y; reflector.updateMatrixWorld(true);
       }
       renderer.getDrawingBufferSize(size);
-      const scale=Math.min(.5,768/Math.max(size.x,size.y)), target=reflector.getRenderTarget();
+      const scale=Math.min(.5,(ultra ? 1024 : 768)/Math.max(size.x,size.y)), target=reflector.getRenderTarget();
+      // Reflector's HDR target generates the filtered levels after its scene draw.
+      const filter = ultra ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+      if (target.texture.minFilter !== filter) {
+        target.texture.minFilter = filter; target.texture.generateMipmaps = ultra;
+        target.texture.needsUpdate = true;
+      }
       const width=Math.max(64,Math.ceil(size.x*scale)),height=Math.max(64,Math.ceil(size.y*scale));
       if(target.width!==width||target.height!==height)target.setSize(width,height);
       hidden.length=0;

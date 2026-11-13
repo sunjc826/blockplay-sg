@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Ultra water review</title></head><body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
+import { createWaterMaterial } from '/src/game/water.ts';
+import { buildMarinaScene } from '/src/game/marina-scene.ts';
+import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
+import { createNightLights } from '/src/game/world-night-lights.ts';
+import { getRegion } from '/src/game/regions.ts';
+import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
+import { setGraphicsSettings } from '/src/game/graphics-settings.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.autoClear=false;renderer.info.autoReset=false;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(60,1.5,.08,1000),params=new URLSearchParams(location.search);
+const real=params.has('marina');let scene,world,atmosphere,night;
+setEnvironmentSettings({timeOfDay:params.get('time')||'noon',weather:params.get('weather')||'sunny',celebration:'none',reducedEffects:false});
+setGraphicsSettings({waterDetail:'ultra',rainDetail:'low',grassDetail:'low',waterReflections:true,smaa:false,godRays:'off'});
+if(real){
+ world=buildMarinaScene();scene=world.scene;world.stamps.forEach(o=>o.visible=false);
+ camera.position.set(-30,2,29);camera.lookAt(0,0,-24);
+ const region=getRegion('marina-bay');
+ atmosphere=createWorldAtmosphere(scene,region.stamps,world.obstacles,false,renderer);
+ night=createNightLights(scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
+ for(let i=0;i<60;i++){atmosphere.update(.1,camera);night.update(atmosphere.light.lighting,0,.1,camera,renderer);}
+ renderer.toneMappingExposure=atmosphere.light.lighting.exposure;
+}else{
+ scene=new THREE.Scene();scene.background=new THREE.Color('#91b3cd');scene.add(new THREE.HemisphereLight('#ffffff','#637467',2));
+ const water=createWaterMaterial({deep:'#1d4750',shallow:'#3d7c84',sky:'#8db6d4',horizon:'#557788',sun:new THREE.Vector3(.5,1,.2),clarity:.55,choppiness:.9});
+ const bay=new THREE.Mesh(new THREE.PlaneGeometry(30,30,60,60),water);bay.name='marina-bay-water';bay.rotation.x=-Math.PI/2;bay.renderOrder=1;scene.add(bay);
+ const bed=new THREE.Mesh(new THREE.PlaneGeometry(30,30),new THREE.MeshBasicMaterial({color:'#a1a490'}));bed.rotation.x=-Math.PI/2;bed.position.y=-2;scene.add(bed);
+ for(let x=-12;x<12;x+=2)for(let z=-12;z<12;z+=2){const tile=new THREE.Mesh(new THREE.BoxGeometry(1,.1,1),new THREE.MeshBasicMaterial({color:(x+z)%4===0?'#c8b68d':'#51616b'}));tile.position.set(x,-1.94,z);scene.add(tile);}
+ const ledge=new THREE.Mesh(new THREE.BoxGeometry(5,.2,7),new THREE.MeshBasicMaterial({color:'#c8b68d'}));ledge.position.set(-6,-.45,1);scene.add(ledge);
+ const post=new THREE.Mesh(new THREE.BoxGeometry(.8,5,.8),new THREE.MeshBasicMaterial({color:'#ed5832'}));post.position.set(1,.5,0);scene.add(post);
+ const foreground=new THREE.Mesh(new THREE.BoxGeometry(1.4,1,1),new THREE.MeshBasicMaterial({color:'#ed5832'}));foreground.position.set(0,1,6);scene.add(foreground);
+ camera.position.set(0,5,11);camera.lookAt(0,-.4,0);
+}
+const bay=scene.getObjectByName('marina-bay-water'),water=bay.material,post=createWorldOcclusion(renderer,scene,camera);
+let current={detail:'ultra',reflections:true,ao:false,bloom:false,reduced:false,time:7,smaa:false,rays:'off'};
+function pixels(){const c=document.createElement('canvas');c.width=renderer.domElement.width;c.height=renderer.domElement.height;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,c.width,c.height).data;}
+window.draw=(options={})=>{
+ current={...current,...options};setGraphicsSettings({waterDetail:current.detail,smaa:current.smaa});setEnvironmentSettings({reducedEffects:current.reduced});
+ water.userData.setTime(current.time);renderer.info.reset();post.render(current.ao,current.bloom,false,current.reflections,current.rays);
+ return {supported:post.supported,refraction:Number(post.waterRefractionEnabled),ultra:water.uniforms.uUltra.value,reflections:post.waterReflectionsEnabled,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,glError:renderer.getContext().getError()};
+};
+window.move=(x,y,z,tx=0,ty=0,tz=-24)=>{camera.position.set(x,y,z);camera.lookAt(tx,ty,tz);return window.draw();};
+window.resize=(w,h)=>{renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();post.setSize();return window.draw();};
+window.density=value=>{renderer.setPixelRatio(value);post.setSize();return window.draw();};
+window.compare=()=>{
+ window.draw({detail:'high',reflections:false});const a=pixels();window.draw({detail:'ultra'});const b=pixels();
+ let changed=0,foregroundChanged=0,foreground=0;
+ for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>6)changed++;if(a[i]>200&&a[i+1]<170&&a[i+2]<130){foreground++;if(d>6)foregroundChanged++;}}
+ window.draw({detail:'high'});const back=pixels();let restored=0;for(let i=0;i<a.length;i++)if(a[i]!==back[i])restored++;
+ return {changed,foreground,foregroundChanged,restored};
+};
+window.benchmark=async()=>{
+ const result=[];for(const detail of ['high','ultra']){
+  for(let i=0;i<8;i++)window.draw({detail,reflections:true});renderer.getContext().finish();
+  const times=[];let state;for(let i=0;i<20;i++){await new Promise(requestAnimationFrame);const start=performance.now();state=window.draw();renderer.getContext().finish();times.push(performance.now()-start);}times.sort((a,b)=>a-b);
+  result.push({detail,...state,medianMs:times[10],p95Ms:times[18]});
+ }return result;
+};
+window.dispose=()=>{post.dispose();atmosphere?.dispose();night?.dispose();world?.dispose();renderer.dispose();};
+window.review={renderer,camera,scene,water,post};window.draw();window.ready=true;
+</script></body></html>

@@ -7,6 +7,8 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { softwareRenderer } from './fps-sun-shadows';
 import { getGraphicsSettings } from './graphics-settings';
 import { createWaterReflections } from './water-reflections';
+import { createWaterSurfacePass } from './water-surface-pass';
+import { getEnvironmentSettings } from './environment-settings';
 import { createRainReflections, type WetGround } from './rain-reflections';
 import { createGradeUniforms, GRADE_GLSL, type ColorGrade, type SkyDome } from './district-look';
 import { stabilizeGtao } from './gtao-stability';
@@ -47,6 +49,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let bloom: UnrealBloomPass | null = null, bloomEnabled = false;
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
   const water = createWaterReflections(renderer,scene,camera);
+  const waterSurface = createWaterSurfacePass(renderer,scene,camera);
   let waterReflectionsEnabled = false;
   let sunRays: ReturnType<typeof createSunRays> | null = null, godRaysEnabled = false;
   const sunUv = new THREE.Vector2();
@@ -101,6 +104,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     /** Whether the last frame went out with the scene's colour grade. */
     get gradeApplied() { return gradeApplied; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
+    get waterRefractionEnabled() { return waterSurface.enabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
     setSize() {
@@ -112,21 +116,23 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
-    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays) {
+    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays, wantWaterSurface = true) {
       smaaEnabled = supported && getGraphicsSettings().smaa;
       // Release optional full-resolution buffers when the player switches back to a light preset.
       if (!smaaEnabled && smaa) { smaa.dispose(); smaaTarget!.dispose(); smaa = null; smaaTarget = null; }
       camera.updateMatrixWorld();
+      const ultraWater = supported && wantWaterSurface && getGraphicsSettings().waterDetail === 'ultra' && !getEnvironmentSettings().reducedEffects;
+      const waterSurfaceEnabled = waterSurface.prepare(ultraWater);
       const sun = scene.userData.sunRays as SunRayLight | undefined;
       const rayStrength = supported && wantGodRays !== 'off' ? projectSunRays(camera, sun, sunUv) : 0;
       godRaysEnabled = rayStrength > .002;
-      waterReflectionsEnabled = water.render(supported && wantWaterReflections);
+      waterReflectionsEnabled = water.render(supported && wantWaterReflections, ultraWater);
       bloomEnabled = supported && wantBloom;
       const ground = scene.userData.wetGround as WetGround | undefined;
       rainReflectionsEnabled = supported && wantRainReflections && !!ground?.surface && ground.wetness > .03;
       gradeApplied = false;
       const dome = scene.userData.skyDome as SkyDome | undefined;
-      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled && !smaaEnabled)) {
+      if (!supported || (!want && !bloomEnabled && !rainReflectionsEnabled && !godRaysEnabled && !smaaEnabled && !waterSurfaceEnabled)) {
         dome?.setGrade(null);
         renderer.setRenderTarget(null); renderer.clear(); renderer.render(scene, camera);
         return false;
@@ -140,7 +146,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       renderer.getClearColor(clearColor); const clearAlpha = renderer.getClearAlpha();
       if (sky) { scene.background = null; renderer.setClearColor(0x000000, 0); }
       if (dome) dome.mesh.visible = false;
-      renderer.setRenderTarget(sceneTarget); renderer.clear(); renderer.render(scene, camera);
+      renderer.setRenderTarget(sceneTarget); renderer.clear(); waterSurface.render(sceneTarget!);
       if (dome) dome.mesh.visible = true;
       scene.background = sky ?? scene.background;
       if (want) {
@@ -181,7 +187,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); aoTemporal?.dispose(); output?.dispose();
       smaa?.dispose(); smaaTarget?.dispose();
       bloom?.dispose(); sunRays?.dispose();
-      rain?.dispose(); water.dispose();
+      rain?.dispose(); water.dispose(); waterSurface.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.
       bloom?.materialHighPassFilter.dispose();
     },

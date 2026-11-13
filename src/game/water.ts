@@ -88,6 +88,14 @@ const fragmentShader = /* glsl */ `
   uniform float uChop;
   uniform float uClarity;
   uniform float uRain;
+  uniform float uUltra;
+  uniform float uRefractionReady;
+  uniform float uRefractionHeight;
+  uniform sampler2D uSceneColor;
+  uniform sampler2D uSceneDepth;
+  uniform vec2 uViewport;
+  uniform vec2 uCameraRange;
+  uniform mat4 uInverseViewProjection;
   uniform float uReflectionReady;
   uniform float uReflectionHeight;
   uniform sampler2D uReflectionMap;
@@ -115,6 +123,24 @@ const fragmentShader = /* glsl */ `
     return dir * (a * k * cos(phase)) * (1.0 - smoothstep(1.0, 3.14159, footprint));
   }
 
+  // Analytic gradients of smooth value noise: two advected scales provide
+  // irregular wind ripples without texture assets or finite-difference reads.
+  float waterHash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+  vec2 windSlope(vec2 p) {
+    vec2 cell=floor(p), f=fract(p), u=f*f*(3.0-2.0*f), du=6.0*f*(1.0-f);
+    float a=waterHash(cell), b=waterHash(cell+vec2(1,0));
+    float c=waterHash(cell+vec2(0,1)), d=waterHash(cell+vec2(1,1));
+    return du*vec2(mix(b-a,d-c,u.y),mix(c-a,d-b,u.x));
+  }
+  float viewDepth(float depth) {
+    return uCameraRange.x*uCameraRange.y /
+      (uCameraRange.y-depth*(uCameraRange.y-uCameraRange.x));
+  }
+  vec3 scenePosition(vec2 uv, float depth) {
+    vec4 world=uInverseViewProjection*vec4(uv*2.0-1.0,depth*2.0-1.0,1.0);
+    return world.xyz/world.w;
+  }
+
   void main() {
     vec2 p = vWorld.xz;
     float waterFootprint = max(length(dFdx(p)), length(dFdy(p)));
@@ -123,6 +149,16 @@ const fragmentShader = /* glsl */ `
     slope += wave(p, normalize(vec2(-0.5, 0.86)), 0.9, 0.022, 1.9);
     slope += wave(p, normalize(vec2(0.2, -1.0)), 1.7, 0.012, 2.7);
     slope += wave(p, normalize(vec2(-0.95, -0.3)), 3.1, 0.006, 3.6);
+    if (uUltra > .5) {
+      // The broad swell's shading agrees with its actual vertex displacement.
+      slope += vec2(.0045*cos(p.x*.09+uTime*.7),.00455*cos(p.y*.13-uTime*.9));
+      mat2 turn=mat2(.8,.6,-.6,.8);
+      float wind=1.0+uRain*.45;
+      slope += windSlope(p*2.7+vec2(uTime*.22,-uTime*.14))*.045*wind
+        *(1.0-smoothstep(.12,.65,waterFootprint));
+      slope += turn*windSlope(mat2(.8,-.6,.6,.8)*p*7.3+vec2(-uTime*.31,uTime*.19))*.022*wind
+        *(1.0-smoothstep(.04,.25,waterFootprint));
+    }
     slope *= uChop;
 
     float foam = 0.0;
@@ -168,7 +204,7 @@ const fragmentShader = /* glsl */ `
     // Schlick's approximation with water's F0 of about 0.02.
     // Capped below a perfect mirror: the chop scatters part of a grazing
     // reflection back into the body colour, and at range that is most of it.
-    float fresnel = min(0.02 + 0.98 * pow(1.0 - facing, 5.0), 0.78);
+    float fresnel = min(0.02 + 0.98 * pow(1.0 - facing, 5.0), mix(0.78,0.96,uUltra));
 
     vec3 reflected = reflect(-toEye, normal);
     vec3 sky = mix(uHorizon, uSky, smoothstep(0.0, 0.45, reflected.y));
@@ -177,10 +213,44 @@ const fragmentShader = /* glsl */ `
       vec2 uv=projected.xy/projected.w + slope*.018;
       if(projected.w>0.0 && all(greaterThan(uv,vec2(0.0))) && all(lessThan(uv,vec2(1.0)))) {
         float edge=smoothstep(0.0,.035,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
-        sky=mix(sky,texture2D(uReflectionMap,uv).rgb,edge*.9);
+        vec3 captured=texture2D(uReflectionMap,uv).rgb;
+        if (uUltra > .5) {
+          // Mip filtering removes distant shimmer; the short vertical kernel
+          // gives lights and silhouettes a soft, wind-stretched reflection.
+          float blur=1.1+uRain*.8+(1.0-facing)*.8;
+          vec2 spread=vec2(.0005,.0018)*(1.0+uRain);
+          captured=texture2D(uReflectionMap,uv,blur).rgb*.5;
+          captured+=texture2D(uReflectionMap,clamp(uv+spread,.001,.999),blur).rgb*.25;
+          captured+=texture2D(uReflectionMap,clamp(uv-spread,.001,.999),blur).rgb*.25;
+        }
+        sky=mix(sky,captured,edge*mix(.9,.95,uUltra));
       }
     }
     vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55) * uSurfaceLight;
+    bool refracting=uRefractionReady>.5 && abs(vBaseHeight-uRefractionHeight)<.02;
+    if (refracting) {
+      vec2 uv=gl_FragCoord.xy/uViewport;
+      float surfaceDepth=viewDepth(gl_FragCoord.z);
+      float opaqueDepth=texture2D(uSceneDepth,uv).x;
+      float thickness=max(0.0,viewDepth(opaqueDepth)-surfaceDepth);
+      vec3 viewNormal=mat3(viewMatrix)*normal;
+      vec2 offset=viewNormal.xy*.025*min(thickness,2.0)/max(1.0,surfaceDepth*.12);
+      float edge=smoothstep(0.0,.04,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
+      vec2 refractedUv=clamp(uv+offset*edge,vec2(.001),vec2(.999));
+      float displacedDepth=texture2D(uSceneDepth,refractedUv).x;
+      vec3 behind=scenePosition(refractedUv,displacedDepth);
+      // Never pull a foreground hull, quay or above-water object into the bay.
+      if (displacedDepth>=.99999 || viewDepth(displacedDepth)<=surfaceDepth+.02 || behind.y>vBaseHeight+.02) {
+        refractedUv=uv; displacedDepth=opaqueDepth;
+        behind=scenePosition(uv,opaqueDepth);
+      }
+      float path=min(30.0,max(0.0,viewDepth(displacedDepth)-surfaceDepth)/max(.15,-normalize((viewMatrix*vec4(vWorld,1.0)).xyz).z));
+      float depth=max(0.0,vBaseHeight-behind.y);
+      vec3 transmission=exp(-vec3(.85,.38,.29)*path);
+      if (displacedDepth>=.99999) transmission=vec3(0.0);
+      vec3 scatter=mix(uShallow,uDeep,1.0-exp(-depth*.65))*uSurfaceLight;
+      body=texture2D(uSceneColor,refractedUv).rgb*transmission+scatter*(1.0-transmission);
+    }
     vec3 colour = mix(body, sky, fresnel);
     // Broaden subpixel highlights and conserve their energy instead of flashing single pixels.
     vec3 reflectionDx = dFdx(reflected), reflectionDy = dFdy(reflected);
@@ -191,7 +261,8 @@ const fragmentShader = /* glsl */ `
     colour = mix(colour, vec3(0.9, 0.96, 0.97) * uSurfaceLight, clamp(foam, 0.0, 0.85));
 
     float alpha = clamp(mix(uClarity, 1.0, fresnel) + glint + foam, 0.0, 1.0);
-    gl_FragColor = vec4(colour, alpha);
+    // Refraction already contains the bed colour: do not alpha-blend it twice.
+    gl_FragColor = vec4(colour, refracting ? 1.0 : alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <fog_fragment>
@@ -216,6 +287,13 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
       uTime: { value: 0 },
       uRain: { value: 0 },
+      uUltra: { value: 0 },
+      uRefractionReady: { value: 0 },
+      uRefractionHeight: { value: 0 },
+      uSceneColor: { value: null }, uSceneDepth: { value: null },
+      uViewport: { value: new THREE.Vector2(1,1) },
+      uCameraRange: { value: new THREE.Vector2(.08,1000) },
+      uInverseViewProjection: { value: new THREE.Matrix4() },
       uReflectionReady: { value: 0 },
       uReflectionHeight: { value: 0 },
       uReflectionMap: { value: null },
@@ -265,7 +343,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     u.uSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z);
   };
   material.userData.resetLighting = () => {
-    u.uRain.value=0;u.uReflectionReady.value=0;
+    u.uRain.value=0;u.uReflectionReady.value=0;u.uRefractionReady.value=0;u.uUltra.value=0;
     u.uSky.value.copy(daySky); u.uHorizon.value.copy(dayHorizon); u.uSun.value.copy(daySun);
     u.uSurfaceLight.value = 1; u.uGlintStrength.value = 2.4; u.uGlintColor.value.setRGB(1, .96, .86);
   };

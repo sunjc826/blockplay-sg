@@ -21,6 +21,13 @@ it('mirrors the camera at the bay surface, excludes water recursion and restores
     expect(material.uniforms.uReflectionMap.value.image).toMatchObject({width:768,height:512});
     expect(material.uniforms.uReflectionReady.value).toBe(1);
     expect(bay.visible).toBe(true);expect(rain.visible).toBe(true);expect(renderer.xr.enabled).toBe(true);expect(renderer.shadowMap.autoUpdate).toBe(true);
+    expect(reflections.render(true,true)).toBe(true);
+    expect(material.uniforms.uReflectionMap.value.image).toMatchObject({width:1024,height:683});
+    expect(material.uniforms.uReflectionMap.value.generateMipmaps).toBe(true);
+    expect(material.uniforms.uReflectionMap.value.minFilter).toBe(THREE.LinearMipmapLinearFilter);
+    reflections.render(true,false);
+    expect(material.uniforms.uReflectionMap.value.generateMipmaps).toBe(false);
+    expect(material.uniforms.uReflectionMap.value.image).toMatchObject({width:768,height:512});
     expect(reflections.render(false)).toBe(false);expect(material.uniforms.uReflectionReady.value).toBe(0);
     camera.position.y=-1;camera.updateMatrixWorld(true);expect(reflections.render(true)).toBe(false);
   }finally{reflections.dispose();bay.geometry.dispose();material.dispose();}
