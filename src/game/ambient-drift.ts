@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import type { WorldDetail } from './environment-quality';
 
 /**
- * Occasional leaves near planted sources and faint dust motes in the sun.
- * Only dust follows the camera; leaves stay in small world-space pockets.
- * One draw of tiny flat blocks (in keeping with the blocky style); every particle's path is worked out in the
- * vertex shader from the time and its seed, so a frame costs a few uniform
- * writes and nothing per particle on the CPU. Presentation only.
+ * Occasional leaves falling from the plants near the camera and dust motes in
+ * the sun. Only dust follows the camera; a leaf always falls at a real plant,
+ * and is moved to one near the player only while it is out of sight.
+ * One draw of tiny flat blocks (in keeping with the blocky style); every
+ * particle's path is worked out in the vertex shader from the time and its
+ * seed, so a frame costs a few uniform writes, plus a few times a second a
+ * pass over the leaves to re-home the hidden ones. Presentation only.
  *
- * Leaves need a little breeze and thin out in heavy rain; motes need direct
+ * Leaves fall in still air, more in wind, and thin out in heavy rain; motes need direct
  * sun and vanish at night. Reduced effects and the Low preset (`low` world
  * detail) turn the whole thing off; phones draw half as many.
  */
@@ -26,9 +28,11 @@ export interface AmbientDriftWeather {
   mobile: boolean;
 }
 
-export const DRIFT_COUNT: Record<WorldDetail, number> = { low: 0, high: 96, ultra: 192 };
-/** Half-size of the dust volume around the camera (m). */
-const BOX = new THREE.Vector3(13, 5, 13);
+export const DRIFT_COUNT: Record<WorldDetail, number> = { low: 0, high: 144, ultra: 288 };
+/** Half-size of the dust volume around the camera (m): close in, since a speck is lost beyond a few metres. */
+const BOX = new THREE.Vector3(6, 3, 6);
+/** Leaves fall from plants within this distance of the camera (m); the shader fades them out from 14 to 22. */
+const LEAF_REACH = 12, LEAF_HIDDEN = 24;
 /** Downwind, matching the trees' lean (tree-wind.ts). */
 const WIND_DIRECTION = new THREE.Vector2(.984, .177);
 /** Rest height of the merged blocks, far below any world, for passes that bypass this material. */
@@ -39,8 +43,8 @@ export function driftAmounts(weather: Pick<AmbientDriftWeather, 'wind' | 'rain' 
   if (weather.reduced || weather.detail === 'low') return { leaves: 0, motes: 0, speed: 0 };
   const day = 1 - Math.max(0, Math.min(1, weather.night)), wind = Math.max(0, Math.min(7, weather.wind)), rain = Math.max(0, Math.min(1, weather.rain));
   return {
-    leaves: Math.min(.5, wind * .12) * (1 - rain * .6) * (.35 + .65 * day),
-    motes: .2 * Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3)),
+    leaves: Math.min(1, .5 + wind * .12) * (1 - rain * .5) * (.35 + .65 * day),
+    motes: .45 * Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3)),
     speed: .5 + wind * .85,
   };
 }
@@ -77,14 +81,18 @@ vec3 driftEdge = abs(driftPoint - driftCentre) / driftBox;
 float driftFade = 1.0 - smoothstep(.75, 1.0, max(driftEdge.x, max(driftEdge.y, driftEdge.z)));
 float driftShown = step(driftSeed.w, driftMote ? driftMotes : driftLeaves);
 if (!driftMote) {
-  // A short fall every 16–24 seconds, with long quiet gaps. Sources are actual
+  // A fall every 9–14 seconds, with as long a quiet gap after it. Sources are actual
   // plants in world space, so moving the camera cannot carry leaves onto the bay.
-  float cycle = fract(driftTime / (16.0 + driftSeed.z * 8.0) + driftSeed.x);
-  float fall = clamp(cycle / .28, 0.0, 1.0);
-  vec2 offset = driftWind * (fall - .5) * 3.0
+  // A leaf leaves the plant's edge (a shrub is about a metre across, and would
+  // otherwise hide the whole fall inside itself) and lands clear of it, further in wind.
+  float cycle = fract(driftTime / (9.0 + driftSeed.z * 5.0) + driftSeed.x);
+  float fall = clamp(cycle / .5, 0.0, 1.0);
+  float driftSide = driftSeed.y * 6.2832;
+  vec2 offset = vec2(cos(driftSide), sin(driftSide)) * (1.15 + driftSeed.z * .35)
+              + driftWind * fall * (2.0 + driftSeed.x + driftSpeed * .8)
               + vec2(sin(driftClock), cos(driftClock * .9)) * .35;
   driftPoint = driftSource.xyz + vec3(offset.x, mix(driftSource.w, .15, fall), offset.y);
-  driftFade = smoothstep(0.0, .12, fall) * (1.0 - smoothstep(.75, 1.0, fall));
+  driftFade = smoothstep(0.0, .06, fall) * (1.0 - smoothstep(.88, 1.0, fall));
   driftFade *= 1.0 - smoothstep(14.0, 22.0, distance(cameraPosition, driftPoint));
   driftShown *= step(.01, driftSource.w);
 }
@@ -105,14 +113,16 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
   const block = new THREE.BoxGeometry(.12, .016, .09), corners = block.getAttribute('position').count, indices = block.index!.count;
   const positions = new Float32Array(count * corners * 3), normals = new Float32Array(count * corners * 3), colors = new Float32Array(count * corners * 3);
   const sources = new Float32Array(count * corners * 4);
+  const planting = options.leafSources ?? [], home = new Int32Array(count).fill(-1), nearby: number[] = [];
+  let homedAt = -Infinity, picks = 0;
   const seeds = new Float32Array(count * corners * 4), kinds = new Float32Array(count * corners), index = new Uint32Array(count * indices);
   // Hash-style seeds: deterministic, so every visit looks the same.
   const random = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453; return n - Math.floor(n); };
   const color = new THREE.Color(), blockPosition = block.getAttribute('position'), blockNormal = block.getAttribute('normal');
   for (let i = 0; i < count; i++) {
     const mote = i % 3 === 2;
-    const planting = options.leafSources;
-    const source = planting?.length ? planting[Math.floor(random(i, 6) * planting.length)] : undefined;
+    if (!mote && planting.length) home[i] = Math.floor(random(i, 6) * planting.length);
+    const source = planting[home[i]];
     color.copy(mote ? moteColor : leafColors[i % leafColors.length]).multiplyScalar(mote ? 1 : .85 + random(i, 5) * .3);
     for (let v = 0; v < corners; v++) {
       const at = i * corners + v;
@@ -145,13 +155,13 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
       .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\n${motion}\nobjectNormal = driftSpin * objectNormal;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vDriftMote = driftMote ? 1.0 : 0.0;
-transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * (driftMote ? vec3(.07, .5, .09) : vec3(.75))) * driftFade * driftShown + driftPoint;`);
-    // A trace of reflected light, without conspicuous glowing flecks.
+transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * (driftMote ? vec3(.12, .9, .16) : vec3(1.5))) * driftFade * driftShown + driftPoint;`);
+    // Enough reflected light to read as specks in the sun, short of glowing flecks.
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying float vDriftMote;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vDriftMote * .06;');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vDriftMote * .35;');
   };
-  material.customProgramCacheKey = () => 'ambient-drift-v2';
+  material.customProgramCacheKey = () => 'ambient-drift-v3';
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'ambient-drift';
   mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
@@ -160,10 +170,34 @@ transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * 
   mesh.userData.fpsEffect = true;
   mesh.visible = false;
   scene.add(mesh);
+  const sourceAttribute = geometry.getAttribute('driftSource') as THREE.BufferAttribute;
+  // Leaves are dealt across every plant in the district, so few would ever fall
+  // in view. A few times a second, any leaf whose plant is too far to be seen
+  // and which is between falls is moved to a plant near the camera.
+  const rehome = (time: number, eye: THREE.Vector3) => {
+    if (!planting.length || Math.abs(time - homedAt) < .25) return;
+    homedAt = time; nearby.length = 0;
+    const away = (s: DriftSource) => Math.hypot(s.x - eye.x, s.y - eye.y, s.z - eye.z);
+    planting.forEach((s, at) => { if (away(s) < LEAF_REACH) nearby.push(at); });
+    if (!nearby.length) return;
+    let moved = false;
+    for (let i = 0; i < count; i++) {
+      if (home[i] < 0 || away(planting[home[i]]) < LEAF_HIDDEN) continue;
+      const turn = time / (9 + random(i, 3) * 5) + random(i, 1);
+      if (turn - Math.floor(turn) < .52) continue; // mid-fall (same cycle as the shader)
+      home[i] = nearby[Math.floor(random(i, 7 + picks++) * nearby.length)];
+      const s = planting[home[i]], height = Math.min(3, s.height);
+      for (let v = 0; v < corners; v++) sources.set([s.x, s.y, s.z, height], (i * corners + v) * 4);
+      moved = true;
+    }
+    if (moved) sourceAttribute.needsUpdate = true;
+  };
   return {
     mesh,
-    update(time: number, weather: AmbientDriftWeather) {
+    /** `eye` is the camera's world position; without it leaves stay where they were dealt. */
+    update(time: number, weather: AmbientDriftWeather, eye?: THREE.Vector3) {
       const amounts = driftAmounts(weather);
+      if (eye && amounts.leaves > .001) rehome(time, eye);
       // Phones draw half as many; the seeds are uniform, so the first n are an even spread.
       const shown = Math.min(count, Math.round(DRIFT_COUNT[weather.detail] * (weather.mobile ? .5 : 1)));
       geometry.setDrawRange(0, shown * indices);

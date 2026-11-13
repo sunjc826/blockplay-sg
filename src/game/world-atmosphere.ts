@@ -168,7 +168,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       sunRays.sunlight = sunlight; sunRays.reduced = reduced;
       const time = (now % 3600_000) / 1000;
       scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail);
-      (scene.userData.ambientDrift as AmbientDrift | undefined)?.update(time, { wind, rain: wetness, sun: sunlight, night, reduced, detail: getGraphicsSettings().grassDetail, mobile: coarsePointer?.matches ?? false });
+      (scene.userData.ambientDrift as AmbientDrift | undefined)?.update(time, { wind, rain: wetness, sun: sunlight, night, reduced, detail: getGraphicsSettings().grassDetail, mobile: coarsePointer?.matches ?? false }, exposurePoint);
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
       keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);
