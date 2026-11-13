@@ -362,7 +362,16 @@ resolution, capped at 1024 pixels on Ultra (768 otherwise). Ultra filters its
 mip levels and stretches highlights slightly, with more softening in rain.
 Refraction requires hardware WebGL2, visible above-water bay geometry and
 unreduced Ultra detail; lowering detail releases the snapshot. Other districts
-retain their authored water. Ultra also runs a 512² GPU height/velocity field
+retain their authored water. Ultra softens the last 12 cm of water contact and
+reduces refraction over thin water and stair-height discontinuities, keeping
+foreground geometry out of the distorted sample. Restrained animated caustics
+modulate the lit submerged receiver reconstructed from the same depth snapshot;
+its orientation, depth, sunlight, rain and screen footprint control their strength.
+They fade by 2.5 m depth / 42 m view distance and turn off at night. The pattern
+uses one filtered procedural cellular layer, with no added targets, geometry or
+draw calls; it is an artistic screen-space approximation, not photon transport.
+`scripts/shallow-water-smoke.mjs` checks submerged/dry treads, foreground exclusion,
+weather/night, contact transitions, quality fallbacks and costs. Ultra also runs a 512² GPU height/velocity field
 across a 32 m square around the player (`water-waves.ts`). Bullet impacts launch
 short wave trains, with a dedicated bore-and-power strength scale (~1× for the
 issued rifle, 1.4× FN MAG, 2.7× CIS .50). Heavy rounds displace a wider cavity;
@@ -388,7 +397,7 @@ local field accepts at most two nearby boats, reserves impulse capacity for shot
 and swimmers, and fades forcing before the absorbing border. The lightweight
 hull-attached wake crossfades outside coverage and remains on High/reduced effects.
 Stopped, destroyed, despawned and teleported boats leave no new trail. Remote
-swimmer wakes and caustics remain future work. `scripts/boat-wakes-smoke.mjs`
+swimmer wakes remain future work. `scripts/boat-wakes-smoke.mjs`
 checks the GPU field, foam decay, exact 30/60/144 fps results, fallback switching,
 culling and combined boat/swimmer/shot rendering costs, and records a Marina clip. `scripts/water-waves-smoke.mjs` reads the actual GPU field
 to verify propagation, overlap, damping, 30/60/144 fps equivalence, scrolling and

@@ -116,6 +116,8 @@ const fragmentShader = /* glsl */ `
   uniform float uClarity;
   uniform float uRain;
   uniform float uUltra;
+  uniform float uShallowDetail;
+  uniform float uCausticLight;
   uniform float uRefractionReady;
   uniform float uRefractionHeight;
   uniform sampler2D uSceneColor;
@@ -171,6 +173,24 @@ const fragmentShader = /* glsl */ `
   vec3 scenePosition(vec2 uv, float depth) {
     vec4 world=uInverseViewProjection*vec4(uv*2.0-1.0,depth*2.0-1.0,1.0);
     return world.xyz/world.w;
+  }
+
+  // Slowly moving cellular light bands, anchored to the submerged receiver.
+  // One filtered layer is enough for sheltered bay water; no texture/pass is added.
+  float shallowCaustic(vec2 p, float footprint) {
+    p+=.22*sin(p.yx*2.1+vec2(uTime*.19,-uTime*.16));
+    vec2 cell=floor(p),local=fract(p);
+    float first=8.0,second=8.0;
+    for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++) {
+      vec2 offset=vec2(float(x),float(y)),id=cell+offset;
+      vec2 phase=6.28318*vec2(waterHash(id),waterHash(id+37.2));
+      vec2 point=offset+.5+.3*sin(phase+uTime*.28)-local;
+      float distanceSquared=dot(point,point);
+      if(distanceSquared<first){second=first;first=distanceSquared;}
+      else second=min(second,distanceSquared);
+    }
+    float gap=sqrt(second)-sqrt(first),width=.035+footprint*.65;
+    return (1.0-smoothstep(width,width*2.4,gap))*(1.0-smoothstep(.12,.4,footprint));
   }
 
   void main() {
@@ -285,14 +305,24 @@ const fragmentShader = /* glsl */ `
       }
     }
     vec3 body = mix(uDeep, uShallow, clamp(facing * 0.6 + slope.x * 2.0, 0.0, 1.0) * 0.55) * uSurfaceLight;
+    vec3 contactColour=body;
+    float contactCoverage=1.0;
     bool refracting=uRefractionReady>.5 && abs(vBaseHeight-uRefractionHeight)<.02;
     if (refracting) {
       vec2 uv=gl_FragCoord.xy/uViewport;
       float surfaceDepth=viewDepth(gl_FragCoord.z);
       float opaqueDepth=texture2D(uSceneDepth,uv).x;
       float thickness=max(0.0,viewDepth(opaqueDepth)-surfaceDepth);
+      vec3 opaqueWorld=scenePosition(uv,opaqueDepth);
+      float contactDepth=max(0.0,vWorld.y-opaqueWorld.y);
+      // A thin film joins its receiver gently instead of drawing a hard mirror
+      // edge. Both depth and thickness matter at grazing views of quay walls.
+      float contact=opaqueDepth<.99999?clamp(min(contactDepth,thickness),0.0,1.0):1.0;
+      contactCoverage=mix(1.0,smoothstep(0.0,.12,contact),uShallowDetail);
+      contactColour=texture2D(uSceneColor,uv).rgb;
       vec3 viewNormal=mat3(viewMatrix)*normal;
       vec2 offset=viewNormal.xy*.025*min(thickness,2.0)/max(1.0,surfaceDepth*.12);
+      offset*=mix(1.0,smoothstep(.025,.32,contact),uShallowDetail);
       float edge=smoothstep(0.0,.04,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
       vec2 refractedUv=clamp(uv+offset*edge,vec2(.001),vec2(.999));
       float displacedDepth=texture2D(uSceneDepth,refractedUv).x;
@@ -302,12 +332,41 @@ const fragmentShader = /* glsl */ `
         refractedUv=uv; displacedDepth=opaqueDepth;
         behind=scenePosition(uv,opaqueDepth);
       }
+      // Keep refraction from dragging a different stair tread across its riser.
+      float discontinuity=smoothstep(.06,.28,abs(behind.y-opaqueWorld.y))*uShallowDetail;
+      refractedUv=mix(refractedUv,uv,discontinuity);
+      displacedDepth=texture2D(uSceneDepth,refractedUv).x;
+      behind=scenePosition(refractedUv,displacedDepth);
+      if(displacedDepth>=.99999 || viewDepth(displacedDepth)<=surfaceDepth+.02 || behind.y>vBaseHeight+.02) {
+        refractedUv=uv;displacedDepth=opaqueDepth;behind=opaqueWorld;
+      }
       float path=min(30.0,max(0.0,viewDepth(displacedDepth)-surfaceDepth)/max(.15,-normalize((viewMatrix*vec4(vWorld,1.0)).xyz).z));
       float depth=max(0.0,vBaseHeight-behind.y);
       vec3 transmission=exp(-vec3(.85,.38,.29)*path);
       if (displacedDepth>=.99999) transmission=vec3(0.0);
       vec3 scatter=mix(uShallow,uDeep,1.0-exp(-depth*.65))*uSurfaceLight;
-      body=texture2D(uSceneColor,refractedUv).rgb*transmission+scatter*(1.0-transmission);
+      vec3 receiver=texture2D(uSceneColor,refractedUv).rgb;
+      // Reconstruct receiver orientation before the effect's depth branch.
+      // Light modulates the already lit colour, so dark receivers stay dark.
+      vec3 receiverDx=dFdx(behind),receiverDy=dFdy(behind);
+      vec3 receiverCross=cross(receiverDx,receiverDy);
+      vec3 receiverNormal=receiverCross/max(length(receiverCross),.000001);
+      if(dot(receiverNormal,cameraPosition-behind)<0.0)receiverNormal=-receiverNormal;
+      float receiverFootprint=max(length(receiverDx),length(receiverDy));
+      float receiverDistance=distance(cameraPosition,behind);
+      if(uShallowDetail>.5 && uCausticLight>.001 && displacedDepth<.99999 && depth>.015 && depth<2.5
+        && receiverFootprint<.25 && receiverDistance<42.0) {
+        // Trace towards the refracted sunlight at the surface, including wall faces.
+        vec2 projected=behind.xz+uSun.xz*depth*.65/max(.25,uSun.y);
+        float pattern=shallowCaustic(projected*1.6,receiverFootprint*1.6);
+        float facingSun=max(0.0,dot(receiverNormal,normalize(uSun)));
+        float attenuation=smoothstep(.015,.12,depth)*exp(-depth*.65)*(1.0-smoothstep(1.8,2.5,depth));
+        attenuation*=1.0-smoothstep(18.0,42.0,receiverDistance);
+        float strength=uCausticLight*(1.0-uRain*.85)*facingSun*attenuation
+          *(1.0-smoothstep(.12,.4,receiverFootprint*1.6));
+        receiver*=1.0+(pattern-.16)*.38*strength;
+      }
+      body=receiver*transmission+scatter*(1.0-transmission);
     }
     vec3 colour = mix(body, sky, fresnel);
     // Broaden subpixel highlights and conserve their energy instead of flashing single pixels.
@@ -317,6 +376,7 @@ const fragmentShader = /* glsl */ `
     float glint = pow(max(dot(reflected, uSun), 0.0), glintPower) * (glintPower / 380.0);
     colour += uGlintColor * glint * uGlintStrength;
     colour = mix(colour, vec3(0.9, 0.96, 0.97) * uSurfaceLight, clamp(foam, 0.0, 0.85));
+    if(refracting)colour=mix(contactColour,colour,contactCoverage);
 
     float alpha = clamp(mix(uClarity, 1.0, fresnel) + glint + foam, 0.0, 1.0);
     // Refraction already contains the bed colour: do not alpha-blend it twice.
@@ -349,6 +409,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
       uTime: { value: 0 },
       uRain: { value: 0 },
       uUltra: { value: 0 },
+      uShallowDetail: { value: 1 }, uCausticLight: { value: 1 },
       uWaveReady: { value: 0 }, uWaveMap: { value: null }, uWaveHeight: { value: 0 },
       uWaveOrigin: { value: new THREE.Vector2() }, uWaveBounds: { value: new THREE.Vector4() },
       uRefractionReady: { value: 0 },
@@ -405,6 +466,9 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     u.uSurfaceLight.value += (surfaceLight - u.uSurfaceLight.value) * blend;
     const glint = 2.4 * weather * (1 - lighting.shift + lighting.shift * lighting.keyScale);
     u.uGlintStrength.value += (glint - u.uGlintStrength.value) * blend;
+    // Moonlight uses a positive key direction too, so gate by solar elevation.
+    const causticLight=THREE.MathUtils.smoothstep(lighting.elevation,3,25)*weather*weather;
+    u.uCausticLight.value += (causticLight-u.uCausticLight.value)*blend;
     targetGlint.setRGB(1, .96, .86).lerp(targetSky.set(lighting.keyColor), lighting.shift);
     u.uGlintColor.value.lerp(targetGlint, blend);
     u.uSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z);
@@ -413,6 +477,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     u.uRain.value=0;u.uReflectionReady.value=0;u.uRefractionReady.value=0;u.uUltra.value=0;u.uWaveReady.value=0;
     u.uSky.value.copy(daySky); u.uHorizon.value.copy(dayHorizon); u.uSun.value.copy(daySun);
     u.uSurfaceLight.value = 1; u.uGlintStrength.value = 2.4; u.uGlintColor.value.setRGB(1, .96, .86);
+    u.uCausticLight.value = 1;
   };
   return material;
 }

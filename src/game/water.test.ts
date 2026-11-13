@@ -43,6 +43,14 @@ describe('water surfaces', () => {
   it('ignores a ripple on water that has no shader surface', () => {
     expect(() => rippleWater(new THREE.Mesh(new THREE.BoxGeometry(), markWater(new THREE.MeshStandardMaterial())), 0, 0)).not.toThrow();
   });
+  it('gates caustics by actual daylight, dims them in cloud and restores their authored strength', () => {
+    const water=createWaterMaterial(options),u=water.uniforms,sky=new THREE.Color('#abcdef');
+    water.userData.setLighting(dayLighting(13),sky,sky,1,1);expect(u.uCausticLight.value).toBe(1);
+    water.userData.setLighting(dayLighting(13),sky,sky,.18,1);expect(u.uCausticLight.value).toBeCloseTo(.18*.18);
+    water.userData.setLighting(dayLighting(22.5),sky,sky,1,1);expect(u.uCausticLight.value).toBe(0);
+    water.userData.setLighting(dayLighting(13),sky,sky,1,.5);expect(u.uCausticLight.value).toBe(.5);
+    water.userData.resetLighting();expect(u.uCausticLight.value).toBe(1);water.dispose();
+  });
   it('feeds bounded finite impacts to Ultra while retaining the cheap fallback rings', () => {
     const material=createWaterMaterial(options), received:number[][]=[];
     material.userData.waveImpulse=(...args)=>received.push(args);
