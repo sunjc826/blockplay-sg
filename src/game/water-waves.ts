@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
-import type { WaterMaterial } from './water';
+import { primaryWaterSurface } from './water';
 import { boatWakeCoverage, boatWaveFade, createBoatWake, type WaterBoat } from './boat-wake';
 import { WATER_WAVES, createSwimmerWake, waterImpactPulse, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
 
@@ -66,7 +66,7 @@ const fragmentShader = /* glsl */ `
 /** Local, cosmetic GPU heightfield. The original bay remains the gameplay raycast
  * plane; the denser patch replaces only its rendered surface while Ultra is active. */
 export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
-  const bay = scene.getObjectByName('marina-bay-water') as THREE.Mesh<THREE.BufferGeometry, WaterMaterial> | undefined;
+  const bay = primaryWaterSurface(scene);
   const water = bay?.material;
   const eye = new THREE.Vector3(), box = new THREE.Box3(), clearColor = new THREE.Color();
   const origin = new THREE.Vector2(), bounds = new THREE.Vector4();

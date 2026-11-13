@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { accelerateTerrainRaycast } from './terrain-raycast';
 import type { VerticalPlace } from './vertical-places';
 import type { SceneKit } from './scene-kit';
+import { sentosaBeachHeight } from './sentosa-beach';
 
 const profile = (n: number, points: readonly (readonly [number, number])[]) => {
   if (n <= points[0][0]) return points[0][1];
@@ -84,7 +85,7 @@ const ridge = ground(axis(-222, -152, [-211, -203, -196, -188, -182, -174]), axi
 const fort = ground(axis(-142, -48, fortRegions.flatMap(r => [r.minX, r.maxX])), axis(-96, 12, fortRegions.flatMap(r => [r.minZ, r.maxZ])), fortHeight,
   (x, z) => fortRegions.some(r => inRegion(r, x, z)));
 export const harbourfrontGroundHeight = ridge.height;
-export const sentosaGroundHeight = fort.height;
+export const sentosaGroundHeight = (x: number, z: number) => sentosaBeachHeight(x, z) ?? fort.height(x, z);
 
 function nearPath(x: number, z: number, points: readonly { x: number; z: number }[], width: number) {
   return points.slice(1).some((b, i) => {

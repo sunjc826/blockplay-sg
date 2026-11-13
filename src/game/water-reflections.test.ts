@@ -3,10 +3,10 @@ import { expect, it, vi } from 'vitest';
 import { createWaterMaterial } from './water';
 import { createWaterReflections } from './water-reflections';
 
-it('mirrors the camera at the bay surface, excludes water recursion and restores render state',()=>{
+it.each(['marina-bay-water','sentosa-beach-water'])('%s: mirrors the surface, excludes water recursion and restores render state',name=>{
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1.5,.08,400);
   const material=createWaterMaterial({deep:'#123456',shallow:'#456789',sky:'#abcdef',horizon:'#888888',sun:new THREE.Vector3(0,1,0)});
-  const bay=new THREE.Mesh(new THREE.PlaneGeometry(100,100),material);bay.name='marina-bay-water';bay.rotation.x=-Math.PI/2;bay.position.y=-.24;scene.add(bay);
+  const bay=new THREE.Mesh(new THREE.PlaneGeometry(100,100),material);bay.name=name;if(name!=='marina-bay-water')scene.userData.primaryWater=name;bay.rotation.x=-Math.PI/2;bay.position.y=-.24;scene.add(bay);
   const rain=new THREE.Group();rain.name='rain-effects';scene.add(rain);
   camera.position.set(0,2,5);camera.lookAt(0,-.24,0);camera.updateMatrixWorld(true);
   let mirroredY=Infinity;

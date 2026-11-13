@@ -1,7 +1,7 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>Ultra water review</title></head><body style="margin:0"><script type="module">
 import * as THREE from 'three';
 import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
-import { createWaterMaterial } from '/src/game/water.ts';
+import { createWaterMaterial, primaryWaterSurface } from '/src/game/water.ts';
 import { setWaterSwimmer } from '/src/game/water-waves.ts';
 import { createFpsVehicles } from '/src/game/fps-vehicles.ts';
 import { MARINA_WATER, DRAGON_BOAT_SPAWNS } from '/src/game/marina-water.ts';
@@ -18,13 +18,14 @@ import { setGraphicsSettings } from '/src/game/graphics-settings.ts';
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.autoClear=false;renderer.info.autoReset=false;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;document.body.append(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(60,1.5,.08,1000),params=new URLSearchParams(location.search);
-const real=params.has('marina');let scene,world,atmosphere,night;
+const sentosa=params.has('sentosa'),real=params.has('marina')||sentosa;let scene,world,atmosphere,night;
 setEnvironmentSettings({timeOfDay:params.get('time')||'noon',weather:params.get('weather')||'sunny',celebration:'none',reducedEffects:false});
 setGraphicsSettings({waterDetail:'ultra',rainDetail:'low',grassDetail:'low',waterReflections:true,smaa:false,godRays:'off'});
 if(real){
- world=buildMarinaScene();scene=world.scene;world.stamps.forEach(o=>o.visible=false);
+ world=sentosa?getRegion('sentosa').build():buildMarinaScene();scene=world.scene;world.stamps.forEach(o=>o.visible=false);
  camera.position.set(-30,2,29);camera.lookAt(0,0,-24);
- const region=getRegion('marina-bay');
+ if(sentosa){camera.position.set(0,2,194);camera.lookAt(0,0,204);}
+ const region=getRegion(sentosa?'sentosa':'marina-bay');
  atmosphere=createWorldAtmosphere(scene,region.stamps,world.obstacles,false,renderer);
  night=createNightLights(scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
  for(let i=0;i<60;i++){atmosphere.update(.1,camera);night.update(atmosphere.light.lighting,0,.1,camera,renderer);}
@@ -48,7 +49,7 @@ if(real){
   quay.position.set(6,-.9,0);scene.add(quay);camera.position.set(3,4.2,8);camera.lookAt(0,-.2,1);
  }
 }
-const bay=scene.getObjectByName('marina-bay-water'),water=bay.material,post=createWorldOcclusion(renderer,scene,camera);
+const bay=primaryWaterSurface(scene),water=bay.material,post=createWorldOcclusion(renderer,scene,camera);
 let fleet;
 window.boats=()=>{
  if(!fleet)fleet=createFpsVehicles(scene,world?.obstacles??[],{car:'',helicopter:''},{spawns:{car:{x:100,z:100,yaw:0},helicopter:{x:110,z:100,yaw:0},...DRAGON_BOAT_SPAWNS}});

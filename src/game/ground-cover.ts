@@ -100,8 +100,10 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     }
     if (object.userData.terrain) {
       box.copy(local).applyMatrix4(object.matrixWorld);
-      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass: true });
-      object.material = detail(material); object.userData.noShadowCast = true; object.castShadow = false;
+      const grass = object.userData.terrainCover !== 'sand';
+      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass, wettable: !grass });
+      if (grass) object.material = detail(material);
+      object.userData.noShadowCast = true; object.castShadow = false;
       continue;
     }
     const count = object instanceof THREE.InstancedMesh ? object.count : 1;

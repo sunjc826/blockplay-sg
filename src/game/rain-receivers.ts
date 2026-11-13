@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { VehicleRainHit } from './vehicle-rain';
 
 export type RainContact = 'solid' | 'rail' | 'water';
-interface Receiver { mesh: THREE.Mesh; kind: RainContact; bounds: THREE.Box3; inverse: THREE.Matrix4 }
+interface Receiver { mesh: THREE.Mesh; kind: RainContact; bounds: THREE.Box3; inverse: THREE.Matrix4; floor?: (x: number, z: number) => number | undefined }
 /** Capture selected static meshes before batching. Geometry remains owned by the
  * district; these invisible query copies never enter the render scene. */
 export function captureRainReceivers(scene: THREE.Scene) {
@@ -13,7 +13,7 @@ export function captureRainReceivers(scene: THREE.Scene) {
     if (!(object instanceof THREE.Mesh) || !kind) return;
     object.geometry.computeBoundingBox();
     const mesh = new THREE.Mesh(object.geometry, object.material); mesh.matrixWorld.copy(object.matrixWorld);
-    receivers.push({ mesh, kind, bounds: object.geometry.boundingBox!.clone().applyMatrix4(object.matrixWorld), inverse: object.matrixWorld.clone().invert() });
+    receivers.push({ mesh, kind, bounds: object.geometry.boundingBox!.clone().applyMatrix4(object.matrixWorld), inverse: object.matrixWorld.clone().invert(), floor: object.userData.waterFloor });
   });
   scene.userData.rainReceivers = receivers;
 }
@@ -54,6 +54,9 @@ export function createRainReceivers(scene: THREE.Scene) {
           const material=r.mesh.material as THREE.ShaderMaterial, u=material.uniforms;
           const time=u?.uTime?.value??0, chop=u?.uChop?.value??0;
           const surface=y+chop*(.05*Math.sin(x*.09+time*.7)+.035*Math.sin(z*.13-time*.9));
+          // A sloping beach can hide part of the broad water plane. Rain and
+          // raised ripple crests must stop at the same dry shoreline.
+          if ((r.floor?.(x,z) ?? -Infinity) >= surface) continue;
           top=top===null?surface:Math.max(top,surface);
         }
       }

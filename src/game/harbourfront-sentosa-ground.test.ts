@@ -15,9 +15,10 @@ afterAll(() => { harbour.dispose(); sentosa.dispose(); });
 describe('distinct coastal ground', () => {
   it('keeps quays, shores, displayed roads and bridge approaches at their existing ground datum', () => {
     for (const [x,z] of [[20,134],[109,165],[60,108],[-185,-20],[-230,-85],[130,30]]) expect(harbourfrontGroundHeight(x,z)).toBe(0);
-    for (const [x,z] of [[108,-192],[-90,75],[0,192],[-187,-60],[-90,20],[-101,20],[-86,20],[-150,-45]]) expect(sentosaGroundHeight(x,z)).toBe(0);
+    for (const [x,z] of [[108,-192],[-90,75],[-187,-60],[-90,20],[-101,20],[-86,20],[-150,-45]]) expect(sentosaGroundHeight(x,z)).toBe(0);
     expect(harbourfrontGroundHeight(-185,-85)).toBe(22);
     expect(sentosaGroundHeight(-90,-48)).toBe(12.2);
+    expect(sentosaGroundHeight(0,192)).toBeCloseTo(.33);
   });
 
   it('uses the same triangles for connected shoulders and movement, including the level ridge rest pad', () => {

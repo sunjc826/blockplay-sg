@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { markWater } from './water';
+import { buildSentosaBeach } from './sentosa-beach';
+import { captureRainReceivers } from './rain-receivers';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { buildBoardwalkConnection } from './boardwalk-connection';
@@ -23,7 +25,7 @@ const EDGE_X = 225, EDGE_Z = 180;
  * The strait is the exception and is parted where the boardwalk lands, which
  * is the island's only way on or off.
  */
-const SEA = { minZ: 196, maxZ: 210 }, STRAIT = { minZ: -210, maxZ: -190 };
+const STRAIT = { minZ: -210, maxZ: -190 };
 const STRAIT_SPANS: readonly (readonly [number, number])[] = [[-215, 100], [116, 215]];
 const LANDING_X = 108, LAGOON = { x: -90, z: 75, width: 62, depth: 44 };
 export const SENTOSA_MAP_ROADS = [
@@ -56,7 +58,8 @@ export function buildSentosaScene() {
   const palmLeaf = mat('#4f8a4a'), leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const cloth = ['#e6dcc4', '#c96a4a', '#4f8fa0', '#d8b24a'].map(color => mat(color));
 
-  box(0, -0.6, 0, 600, 1, 520, lawn);
+  // Stop the opaque inland fill before the sloping, submerged sand.
+  box(0, -0.6, -37.5, 600, 1, 445, lawn);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
   const ripples: THREE.Mesh[] = [];
@@ -68,13 +71,9 @@ export function buildSentosaScene() {
       ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
   }
-  openWater(-215, 215, SEA.minZ, SEA.maxZ, 30);
-  // Authored offshore approach for landing craft, outside infantry bounds.
-  box(0, -.06, 280, 430, .4, 140, sea);
+  const beach = buildSentosaBeach(kit);
   scene.userData.navalWater = { minX: -215, maxX: 215, minZ: 196, maxZ: 350 };
   for (const [fromX, toX] of STRAIT_SPANS) openWater(fromX, toX, STRAIT.minZ, STRAIT.maxZ, 10);
-  box(0, 0.16, 191, 440, 0.34, 12, sand);
-  scene.userData.walkSurfaces = [{ id: 'southern-beach', routeId: 'southern-beach', minX: -220, maxX: 220, minZ: 185, maxZ: 196, axis: 'z', startHeight: .33, endHeight: .33 }];
   box(0, 0.16, -186, 440, 0.34, 10, sand);
 
   /** Boardwalk across the strait: the island's only landing. */
@@ -110,6 +109,18 @@ export function buildSentosaScene() {
     if (NS_ROADS.some(road => Math.abs(x - road) < 14) || Math.abs(x - LANDING_X) < 14) continue;
     palm(x, 187, 11 + (Math.abs(Math.round(x)) % 4), ((Math.round(x / 13)) % 3 - 1) * 0.12);
   }
+
+  // Shade clusters leave road approaches and landing-craft exits open.
+  for (const [i, x] of [-104, -62, 38, 104].entries()) {
+    cylinder(x, 1.95, 190, .09, 3.24, wood); solid(x, 190, .3, .3);
+    const shade = new THREE.Mesh(geo(new THREE.ConeGeometry(2.6, .8, 10)), cloth[i]);
+    shade.position.set(x, 3.8, 190); shade.castShadow = true; scene.add(shade);
+    for (const dx of [-1.4, 1.4]) {
+      box(x + dx, .65, 192, 1, .18, 2.4, cloth[i]);
+      box(x + dx, .5, 192, .8, .3, 1.8, wood); solid(x + dx, 192, 1, 2.4);
+    }
+  }
+  sign('SOUTH BEACH · SHALLOWS', 20, 2.7, 186, 15, 1.3, '#2f6b78');
 
   /** Resort podium: arcaded base, domed pavilions and a stepped water stair. */
   function resortPodium(x: number, z: number) {
@@ -342,10 +353,12 @@ export function buildSentosaScene() {
   scene.userData.referenceFeatures = ['palawan-suspension-bridge', 'palawan-paired-roofed-lookouts', 'palawan-palm-lined-sand-shore'];
 
   const ground = buildCoastalGround('sentosa'); scene.add(ground.mesh);
+  captureRainReceivers(scene);
   scene.userData.groundDesign = { type: 'low-shore-and-defensive-hillside', sources: COASTAL_GROUND_SOURCES, surveyed: false };
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
+      beach.water.userData.setTime(time);
       ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
       train.position.x = railState(RAIL_ROUTES.sentosa, time).position;
       pedestrians.forEach((person, index) => {
@@ -515,6 +528,6 @@ export function buildSentosaScene() {
     }
   });
   const dispose = world.dispose;
-  world.dispose = () => { ground.dispose(); dispose(); };
+  world.dispose = () => { beach.dispose(); ground.dispose(); dispose(); };
   return world;
 }

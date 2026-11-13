@@ -3,11 +3,11 @@ import { expect, it, vi } from 'vitest';
 import { createWaterMaterial } from './water';
 import { createWaterSurfacePass } from './water-surface-pass';
 
-function setup(failCopy = false) {
+function setup(failCopy = false, name = 'marina-bay-water') {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(60, 1.5, .08, 400);
   const water = createWaterMaterial({ deep: '#123456', shallow: '#456789', sky: '#abcdef', horizon: '#888888', sun: new THREE.Vector3(0, 1, 0) });
   const bay = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), water);
-  bay.name = 'marina-bay-water'; bay.rotation.x = -Math.PI / 2; scene.add(bay);
+  bay.name = name; if (name !== 'marina-bay-water') scene.userData.primaryWater = name; bay.rotation.x = -Math.PI / 2; scene.add(bay);
   const solid = new THREE.MeshBasicMaterial(), glass = new THREE.MeshBasicMaterial({ transparent: true });
   const hidden = new THREE.MeshBasicMaterial({ visible: false });
   // A transparent child of an opaque mesh must still be rendered in phase two.
@@ -25,8 +25,8 @@ function setup(failCopy = false) {
     dispose() { pass.dispose(); target.depthTexture!.dispose(); target.dispose(); bay.geometry.dispose(); parent.geometry.dispose(); [water, solid, glass, hidden].forEach(m => m.dispose()); } };
 }
 
-it('draws each material once, snapshots opaque colour/depth, restores state and releases buffers when disabled', () => {
-  const s = setup();
+it.each(['marina-bay-water', 'sentosa-beach-water'])('%s: snapshots opaque colour/depth, restores state and releases buffers when disabled', name => {
+  const s = setup(false, name);
   try {
     expect(s.pass.prepare(true)).toBe(true); s.pass.render(s.target);
     expect(s.frames).toEqual([[true, false, false, false], [false, true, true, false]]);

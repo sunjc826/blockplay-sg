@@ -981,7 +981,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     const riding=traversalWorld?.lifts?.find(l=>l.id===actor.lift && insideLift(l,actor));
     delete actor.swimming;entry.lastSwimInput=undefined;
-    const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, input.prone === true ? PRONE_EYE_HEIGHT : 1, 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
+    const target = { x: clamp(input.x, bounds.minX + 0.5, bounds.maxX - 0.5), y: clamp(input.y, Math.min(0, bounds.groundHeight?.(input.x, input.z) ?? 0) + (input.prone === true ? PRONE_EYE_HEIGHT : 1), 90), z: clamp(input.z, bounds.minZ + 0.5, bounds.maxZ - 0.5) };
     if(riding){
       const car=liftSample(riding,elapsed);
       target.y=car.y+clamp(Number.isFinite(input.liftOffset)?input.liftOffset!:actor.y-car.y,.55,2.65);
@@ -1001,7 +1001,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     solids.push(...liveLiftBodies().filter(o=>(o.minY??0)<y+.05&&(o.maxY??0)>feet));
     if (traversalWorld) solids.push(...traversalWorld.traversalObstacles.filter(o => o.maxY > feet + 1e-5 && o.minY < y + .05));
     let position = move(actor, (target.x - actor.x) * scale, (target.z - actor.z) * scale, 0.35, solids);
-    if (traversal && !traversal.canOccupy(position.x, Math.max(0, feet), position.z, .35, bodyHeight,liveLiftBodies())) position = { x: actor.x, z: actor.z };
+    if (traversal && !traversal.canOccupy(position.x, Math.max(bounds.groundHeight?.(position.x, position.z) ?? 0, feet), position.z, .35, bodyHeight,liveLiftBodies())) position = { x: actor.x, z: actor.z };
     entry.movementBudget = Math.max(0, entry.movementBudget - Math.hypot(position.x - actor.x, y - actor.y, position.z - actor.z));
     Object.assign(actor, position, { y, yaw: input.yaw % (Math.PI * 2), pitch: clamp(input.pitch, -1.5, 1.5) });
   }
@@ -3095,12 +3095,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const a=entry.actor,target={...goal,y:0};
     if(entry.navigation)entry.navigation.retry-=dt;
     if(navigator&&(!entry.navigation||Math.hypot(entry.navigation.target.x-goal.x,entry.navigation.target.z-goal.z)>.6||!entry.navigation.pending&&!entry.navigation.path.length&&entry.navigation.retry<=0))
-      entry.navigation={path:[],target,retry:1.5,pending:navigator.plan({x:a.x,y:Math.max(0,a.y-1.75),z:a.z},target)};
+      entry.navigation={path:[],target,retry:1.5,pending:navigator.plan({x:a.x,y:Math.max(bounds.groundHeight?.(a.x,a.z)??0,a.y-1.75),z:a.z},target)};
     while(entry.navigation?.path.length&&Math.hypot(entry.navigation.path[0].x-a.x,entry.navigation.path[0].z-a.z)<.3)entry.navigation.path.shift();
     const next=entry.navigation?.path[0]??goal,dx=next.x-a.x,dz=next.z-a.z,d=Math.hypot(dx,dz),stride=Math.min(d,entry.role!.speed*dt);
     if(d<.01)return;
     const solids=vehicles.filter(v=>!v.despawned&&v.y<2).map(vehicleBounds);
-    if(traversal){const p=traversal.move({x:a.x,y:Math.max(0,a.y-1.75),z:a.z,velocityY:entry.velocityY??0},dx/d*stride,dz/d*stride,dt,.4,1.8,solids);Object.assign(a,{x:p.x,y:p.y+1.75,z:p.z});entry.velocityY=p.velocityY;}
+    if(traversal){const p=traversal.move({x:a.x,y:Math.max(bounds.groundHeight?.(a.x,a.z)??0,a.y-1.75),z:a.z,velocityY:entry.velocityY??0},dx/d*stride,dz/d*stride,dt,.4,1.8,solids);Object.assign(a,{x:p.x,y:p.y+1.75,z:p.z});entry.velocityY=p.velocityY;}
     else Object.assign(a,move(a,dx/d*stride,dz/d*stride,.4,[...groundObstacles,...solids]));
     a.yaw=Math.atan2(-dx,-dz);a.prone=false;
   }
@@ -3264,7 +3264,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const dx = (v.x - entry.actor.x) / Math.max(.01, d) * stride, dz = (v.z - entry.actor.z) / Math.max(.01, d) * stride;
     const solids = vehicles.filter(other => !other.despawned && other.y < 2).map(vehicleBounds);
     if (traversal) {
-      const next = traversal.move({ x: entry.actor.x, y: Math.max(0, entry.actor.y - 1.75), z: entry.actor.z, velocityY: entry.velocityY ?? 0 }, dx, dz, dt, .4, 1.8, solids);
+      const next = traversal.move({ x: entry.actor.x, y: Math.max(bounds.groundHeight?.(entry.actor.x,entry.actor.z)??0,entry.actor.y-1.75), z: entry.actor.z, velocityY: entry.velocityY ?? 0 }, dx, dz, dt, .4, 1.8, solids);
       Object.assign(entry.actor, { x: next.x, y: next.y + 1.75, z: next.z }); entry.velocityY = next.velocityY;
     } else Object.assign(entry.actor, move(entry.actor, dx, dz, .4, [...groundObstacles, ...solids]));
     entry.actor.yaw = Math.atan2(-dx, -dz); return true;
@@ -3535,11 +3535,11 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if(!nearMerlion(a,'console')){
       const goal={...MERLION.console,y:0};
       if(entry.navigation)entry.navigation.retry-=dt;
-      if(navigator&&(!entry.navigation||entry.navigation.target.x!==goal.x||entry.navigation.target.z!==goal.z||!entry.navigation.pending&&!entry.navigation.path.length&&entry.navigation.retry<=0))entry.navigation={path:[],target:goal,retry:1.5,pending:navigator.plan({x:a.x,y:Math.max(0,a.y-1.75),z:a.z},goal)};
+      if(navigator&&(!entry.navigation||entry.navigation.target.x!==goal.x||entry.navigation.target.z!==goal.z||!entry.navigation.pending&&!entry.navigation.path.length&&entry.navigation.retry<=0))entry.navigation={path:[],target:goal,retry:1.5,pending:navigator.plan({x:a.x,y:Math.max(bounds.groundHeight?.(a.x,a.z)??0,a.y-1.75),z:a.z},goal)};
       while(entry.navigation?.path.length&&Math.hypot(entry.navigation.path[0].x-a.x,entry.navigation.path[0].z-a.z)<.35)entry.navigation.path.shift();
       const next=entry.navigation?.path[0]??goal;
       const dx=next.x-a.x,dz=next.z-a.z,d=Math.hypot(dx,dz),step=Math.min(d,entry.role!.speed*dt);
-      if(traversal){const p=traversal.move({x:a.x,y:Math.max(0,a.y-1.75),z:a.z,velocityY:0},dx/d*step,dz/d*step,dt,.4,1.8);Object.assign(a,{x:p.x,y:p.y+1.75,z:p.z});}
+      if(traversal){const p=traversal.move({x:a.x,y:Math.max(bounds.groundHeight?.(a.x,a.z)??0,a.y-1.75),z:a.z,velocityY:0},dx/d*step,dz/d*step,dt,.4,1.8);Object.assign(a,{x:p.x,y:p.y+1.75,z:p.z});}
       else Object.assign(a,move(a,dx/d*step,dz/d*step,.4,obstacles));
       return true;
     }
@@ -3660,7 +3660,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     let approach = Number.isFinite(intent.approach) ? clamp(intent.approach, -1, 1) : 0;
     const wounded = botWantsHeal({ health: actor.health, healthMax: entry.healthMax, medkits: entry.medkits, sinceHurt: elapsed - entry.lastHurt, visible, danger: !!dangerExit(actor) });
     if (!riding && wounded === 'heal') {
-      const feet = Math.max(0, actor.y - 1.75);
+      const feet = Math.max(bounds.groundHeight?.(actor.x,actor.z)??0,actor.y-1.75);
       entry.aimFocus = undefined;
       entry.heal = { time: 0, feet, started: elapsed }; actor.healing = 0; actor.y = feet + BOT_HEAL.kneelEye; entry.burst = 0; entry.target = '';
       bark(entry, 'healing');
@@ -3718,7 +3718,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const routeNeeded = !!mission || !visible && !!searching || !!evading?.cover || !aircraft && Math.abs(target.y - actor.y) > .6 || !!entry.navigation?.pending || !!entry.navigation?.path.length;
     if (!routeNeeded) entry.navigation = undefined;
     if(!riding && !entry.anchor && (!evading || !!evading.cover) && ((navigator && routeNeeded) || entry.navigation?.path.length)) {
-      const feet={x:actor.x,y:Math.max(0,actor.y-1.75),z:actor.z};
+      const feet={x:actor.x,y:Math.max(bounds.groundHeight?.(actor.x,actor.z)??0,actor.y-1.75),z:actor.z};
       const goal={x:destination.x,y:floorAt(destination),z:destination.z};
       if(entry.navigation) entry.navigation.retry-=dt;
       if(navigator && (!entry.navigation || !entry.navigation.pending && entry.navigation.retry<=0 && (!entry.navigation.path.length && distance(feet,goal)>.7 || distance(entry.navigation.target,goal)>4))) {
@@ -3764,7 +3764,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (riding) { dxStep=0; dzStep=0; }
     else if (entry.anchor) Object.assign(actor, { x: entry.anchor.x, z: entry.anchor.z });
     else if (traversal) {
-      const step = traversal.move({ x: actor.x, y: Math.max(0, actor.y - 1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
+      const step = traversal.move({ x: actor.x, y: Math.max(bounds.groundHeight?.(actor.x,actor.z)??0,actor.y-1.75), z: actor.z, velocityY: entry.velocityY ?? 0 }, dxStep, dzStep, dt, .4, 1.8, vehicleSolids);
       Object.assign(actor, { x: step.x, z: step.z, y: step.y + 1.75 }); entry.velocityY = step.velocityY;
     } else Object.assign(actor, move(actor, dxStep, dzStep, .4, [...groundObstacles, ...vehicleSolids]));
     if (entry.navigation?.path.length && !ordered) {

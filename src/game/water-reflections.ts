@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { isWaterObject, type WaterMaterial } from './water';
+import { isWaterObject, primaryWaterSurface } from './water';
 
-/** One bounded planar capture for Marina's broad bay, shared by its water shader.
+/** One bounded planar capture for the district's primary water surface.
  * A mirrored camera can include scenery outside the main view, unlike pavement SSR. */
 export function createWaterReflections(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
-  const bay = scene.getObjectByName('marina-bay-water') as THREE.Mesh | undefined;
-  const material = bay?.material as WaterMaterial | undefined;
+  const bay = primaryWaterSurface(scene);
+  const material = bay?.material;
   let reflector: Reflector | undefined;
   const size = new THREE.Vector2(), hidden: THREE.Object3D[] = [], eye = new THREE.Vector3();
   const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4();

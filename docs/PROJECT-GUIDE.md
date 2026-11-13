@@ -346,12 +346,12 @@ arc (`skipRound`), each up to twice. Any steeper and the water takes it. Either
 way the surface throws spray instead of sparks, dust or a scorch: a crown of
 droplets, a central jet for a plunging round (a skim sprays forward instead),
 and two foam rings. Droplets are integrated in fixed 1/60 s substeps so a slow
-renderer doesn't lose them in one long step. Marina's water is a shader surface
+renderer doesn't lose them in one long step. Marina's bay and Sentosa's southern beach use a shader surface
 (`createWaterMaterial`): travelling-wave normals, Schlick Fresnel against a
 two-colour sky, a sun glint, and up to twelve shot ripples written straight into
 its uniforms. The bay has quay walls and a bed 1.56 m below its mean surface.
 Ultra water adds two moving scales of procedural wind normals, depth-dependent
-absorption and refraction in the bay. `water-surface-pass.ts` draws opaque
+absorption and refraction on those primary water surfaces. `water-surface-pass.ts` draws opaque
 materials, copies their resolved HDR colour/depth, then draws transparent
 materials into the original target, so geometry is not rendered twice for
 refraction. Depth rejection keeps foreground quays and hulls out of the
@@ -360,9 +360,9 @@ use the ordinary surface rather than sampling the main view's buffers.
 With water reflections enabled, the bay uses a mirrored scene capture at half
 resolution, capped at 1024 pixels on Ultra (768 otherwise). Ultra filters its
 mip levels and stretches highlights slightly, with more softening in rain.
-Refraction requires hardware WebGL2, visible above-water bay geometry and
+Refraction requires hardware WebGL2, visible above-water primary surface geometry and
 unreduced Ultra detail; lowering detail releases the snapshot. Other districts
-retain their authored water. Ultra softens the last 12 cm of water contact and
+retain their authored water. A district can select one surface via `scene.userData.primaryWater`; Marina remains the default. Ultra softens the last 12 cm of water contact and
 reduces refraction over thin water and stair-height discontinuities, keeping
 foreground geometry out of the distorted sample. Restrained animated caustics
 modulate the lit submerged receiver reconstructed from the same depth snapshot;
@@ -370,6 +370,17 @@ its orientation, depth, sunlight, rain and screen footprint control their streng
 They fade by 2.5 m depth / 42 m view distance and turn off at night. The pattern
 uses one filtered procedural cellular layer, with no added targets, geometry or
 draw calls; it is an artistic screen-space approximation, not photon transport.
+Sentosa's southern beach has a pale sand bed, a wet shore band and a walkable
+20–60 cm shelf. Its exact terrain triangles also supply movement height; the
+opaque inland lawn ends before the shelf. Shade umbrellas and loungers sit on
+the dry strip, and two deeper channels preserve the existing naval landing
+lanes and ramp endpoints. Offshore water continues into the fog. This is an
+authored gameplay beach, not surveyed bathymetry. Deep water stays blocked;
+Sentosa does not gain Marina's swimming system. Visit the southern perimeter
+road and the **SOUTH BEACH · SHALLOWS** sign; Ultra, sunny noon and a downward
+view make the sand caustics clearest. `scripts/sentosa-beach-smoke.mjs` checks
+sun/rain/night, waves, quality fallbacks, resize and the real FPS engine.
+
 `scripts/shallow-water-smoke.mjs` checks submerged/dry treads, foreground exclusion,
 weather/night, contact transitions, quality fallbacks and costs. Ultra also runs a 512² GPU height/velocity field
 across a 32 m square around the player (`water-waves.ts`). Bullet impacts launch

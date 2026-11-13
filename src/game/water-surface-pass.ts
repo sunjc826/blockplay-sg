@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import type { WaterMaterial } from './water';
+import { primaryWaterSurface } from './water';
 
 /** Ultra's opaque snapshot. Each material is drawn once; only colour/depth are
  * copied, never sampled while attached to the framebuffer being written. */
 export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
-  const bay = scene.getObjectByName('marina-bay-water') as THREE.Mesh | undefined;
-  const material = bay?.material as WaterMaterial | undefined;
+  const bay = primaryWaterSurface(scene);
+  const material = bay?.material;
   const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4(), eye = new THREE.Vector3(), bayPosition = new THREE.Vector3();
   const opaque = new Set<THREE.Material>(), transparent = new Set<THREE.Material>();
   let snapshot: THREE.WebGLRenderTarget | undefined;

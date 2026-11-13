@@ -3879,7 +3879,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const nowOperating=!!frame.self?.alive && frame.snapshot?.merlion?.operator===frame.self?.id;
     if(wasOperating!==nowOperating){
       clearInput();velocityY=0;prone=false;keyboardCrouch.clear();
-      if(frame.self){position={x:frame.self.x,z:frame.self.z};vertical=Math.max(0,frame.self.y-1.75);}
+      if(frame.self){position={x:frame.self.x,z:frame.self.z};vertical=Math.max(world.bounds.groundHeight?.(frame.self.x,frame.self.z)??0,frame.self.y-1.75);}
       if(nowOperating&&frame.snapshot?.merlion){yaw=frame.snapshot.merlion.yaw;pitch=frame.snapshot.merlion.pitch;}
     }
     const receipt=frame.self?.merlionSupply;
@@ -3914,7 +3914,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         restoreVehicleLook = false;
         velocityY = 0;
-        vertical = !vehicles.active && frame.self ? Math.max(0, frame.self.y - 1.75) : 0;
+        vertical = !vehicles.active && frame.self ? Math.max(world.bounds.groundHeight?.(frame.self.x, frame.self.z) ?? 0, frame.self.y - 1.75) : 0;
         if (frame.self) position = { x: frame.self.x, z: frame.self.z };
         clearInput();
       }
@@ -3998,7 +3998,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         ads = touchAim = false;
         briefing.clear();
         if (respawnDescent) { respawnDescent = false; deploymentIntro.skip(); hud.phase = 'playing'; }
-        const recap = deathTracker.die(frame.self, deathFrame), body = { x: frame.self.x, z: frame.self.z }, feet = arenaRuntime.ownCorpseFeet() ?? Math.max(0, frame.self.y - 1.75);
+        const recap = deathTracker.die(frame.self, deathFrame), body = { x: frame.self.x, z: frame.self.z }, feet = arenaRuntime.ownCorpseFeet() ?? Math.max(world.bounds.groundHeight?.(frame.self.x, frame.self.z) ?? 0, frame.self.y - 1.75);
         const killer = recap.killer && frame.snapshot?.actors.find(actor => actor.id === recap.killer!.id);
         const killerAt = killer ? { x: killer.x, y: killer.y, z: killer.z } : null;
         deathScene = { recap, age: 0, feet, body, look: null, killerAt,
@@ -4035,7 +4035,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         if (previousSelf && !previousSelf.alive) radioCall('respawn');
         pilot.reset(); strategicPlanner?.reset();
-        position = { x: frame.self.x, z: frame.self.z }; vertical = Math.max(0, frame.self.y - 1.75); velocityY = 0;
+        position = { x: frame.self.x, z: frame.self.z }; vertical = Math.max(world.bounds.groundHeight?.(frame.self.x, frame.self.z) ?? 0, frame.self.y - 1.75); velocityY = 0;
         yaw = frame.self.yaw; pitch = frame.self.pitch; loadout = createPooledLoadout(specs, equipment.carriedFamilies); clearInput(); supplyUse = null;
         if (checkpointPending) {
           maidArrivalSeconds = checkpointPending.maidTravelSeconds ?? 0;
@@ -4050,7 +4050,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         updateCameras(0, false, false);
       } else if (frame.correction && !vehicles.active) {
         position = { x: frame.correction.x, z: frame.correction.z };
-        if(!localLift || !insideLift(localLift,position))vertical = Math.max(0, frame.correction.y - eyeHeight());
+        if(!localLift || !insideLift(localLift,position))vertical = Math.max(world.bounds.groundHeight?.(frame.correction.x, frame.correction.z) ?? 0, frame.correction.y - eyeHeight());
         if (frame.hardCorrection) { velocityY = 0; resetMovementMotion(bodyMotion, eyeHeight()); carry.set(0, 0, 0); }
         updateCameras(0, false, false);
       }
@@ -4118,7 +4118,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!expedition || !markers || was !== true || actor.alive) continue;
       const side = getArenaFaction(factionIdOf(actor))?.side ?? 'opposition';
       const fell = expedition.loot.fallen(expedition.zone, { key: `${actor.id}:${actor.deaths}`, side, rank: actor.rank, grenade: actor.grenade, variant: actor.variant, family: actor.weapon },
-        { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) }, lootGround);
+        { x: actor.x, z: actor.z, y: actor.ground ?? Math.max(world.bounds.groundHeight?.(actor.x, actor.z) ?? 0, actor.y - (actor.prone ? PRONE_EYE_HEIGHT : 1.75)) }, lootGround);
       if (!fell.loot.length) continue;
       fell.evicted.forEach(id => markers.remove(id)); fell.loot.forEach(item => markers.addDrop(item));
       hud.fieldLoot = expedition.loot.remaining(expedition.zone);

@@ -9,6 +9,7 @@ import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
 setEnvironmentSettings({weather:'sunny',timeOfDay:'noon',celebration:'none',reducedEffects:true,shadows:false,occlusion:false});
 const params=new URLSearchParams(location.search);
 if(params.has('water-effects')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'high',waterReflections:false,lensEffects:true});setEnvironmentSettings({weather:'sunny',reducedEffects:false});}
+if(params.has('sentosa-beach')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
 if(params.has('boat-wakes')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
 if(params.has('gallery')){
   document.getElementById('start').remove();
@@ -25,6 +26,7 @@ if(params.has('gallery')){
 }else{
   const root=createRoot(document.getElementById('overlay'));
   const options={region:'marina-bay',combat:false,rangeTravel:{spawn:params.has('water-effects')?{x:0,z:-4,yaw:Math.PI,pitch:-.8}:params.has('swim')?{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06}:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}};
+  if(params.has('sentosa-beach')){options.region='sentosa';options.rangeTravel.spawn={x:0,z:194,yaw:Math.PI,pitch:-.45};}
   if(params.has('calibre')){
     const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
     options.loadout=resolveLoadout(createProfile());options.loadout.carriedFamilies=[Number(params.get('calibre')),2];

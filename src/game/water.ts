@@ -49,6 +49,12 @@ export function isWaterObject(object: THREE.Object3D) {
   return Array.isArray(material) ? material.some(m => m.userData.fpsWater) : !!material.userData.fpsWater;
 }
 
+/** One explicitly selected broad surface owns each district's bounded Ultra
+ * buffers. Other ponds keep their inexpensive fallback material. */
+export function primaryWaterSurface(scene: THREE.Scene) {
+  return scene.getObjectByName(scene.userData.primaryWater ?? 'marina-bay-water') as THREE.Mesh<THREE.BufferGeometry, WaterMaterial> | undefined;
+}
+
 export interface WaterOptions {
   /** Colour of the water body seen straight down. */
   deep: string;

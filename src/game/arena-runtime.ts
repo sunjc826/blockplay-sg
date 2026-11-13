@@ -685,7 +685,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const eyeAbove = actor.y - avatar.ground;
     const crouch = actor.swimming || actor.transport || actor.vehicle || actor.prone ? 0 : Math.max(0, Math.min(1, (1.75 - eyeAbove) / (1.75 - 1.15)));
     const airborne = !actor.transport && !actor.vehicle && !actor.prone && eyeAbove > 1.95;
-    const feet = actor.swimming ? actor.y-1.75 : seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(0, actor.y - 1.75);
+    const feet = actor.swimming ? actor.y-1.75 : seated ? actor.y - 1.2 : actor.vehicle ? actor.y - 1.75 : actor.prone ? actor.y - PRONE_EYE_HEIGHT : crouch > .02 ? avatar.ground : Math.max(avatar.ground, actor.y - 1.75);
     destination.set(actor.x, feet, actor.z);
     avatar.previous.copy(root.position);
     if (actor.alive) {
