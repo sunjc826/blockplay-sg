@@ -3695,7 +3695,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const supportMultiplier = bipodRecoilMultiplier(specs[hud.weapon].bipod, handling[hud.weapon]?.bipodDeployment ?? 0, prone, grounded(), carry.length());
     const recoilMultiplier = stanceRecoilMultiplier(slide.active ? 'stand' : stance(), grounded(), bodyMotion.eye) * supportMultiplier * recoilScale(foodEffects) * arenaConditionModifiers(conditions).recoil;
     recordRecoilShot(kick, specs[hud.weapon], hud.weapon, Math.random, recoilMultiplier);
-    firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier);
+    firearmShake.shot(specs[hud.weapon].recoil, recoilMultiplier); scopeRenderer.shot(specs[hud.weapon].recoil, recoilMultiplier);
     shoulderMotion.shot(specs[hud.weapon], recoilMultiplier);
     canvas.dataset.recoilMultiplier = recoilMultiplier.toFixed(3);
     effects.fire({ recoil: specs[hud.weapon].recoil, eject: specs[hud.weapon].action === 'bolt' ? null : weapons[hud.weapon].getObjectByName(`${FPS_WEAPONS[hud.weapon].id}__socket_eject`), camera, carry });
@@ -4852,7 +4852,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         lateralSpeed: vehicles.active ? 0 : carry.x * Math.cos(yaw) - carry.z * Math.sin(yaw),
         dt: realDt, reducedMotion: !!motionPreference?.matches,
       });
-      if (debugDatasets) canvas.dataset.scopeShadow = JSON.stringify(sight?.scopeEye?.value.toArray() ?? null);
+      if (debugDatasets) { canvas.dataset.scopeShadow = JSON.stringify(sight?.scopeEye?.value.toArray() ?? null); canvas.dataset.scopeBox = JSON.stringify(sight?.scopeBox?.value.toArray() ?? null); }
       // Without live capture the glass keeps its tint, coating and clearcoat highlights but shows no scenery.
       const reflectionsOn = getGraphicsSettings().sightReflections;
       if (!reflectionsOn && sight?.reflection) sight.reflection.uniforms.reflectionReady.value = 0;

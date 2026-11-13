@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createScopeShadow, type ScopeMotion } from './scope-shadow';
+import { createScopeShadow, limitScopeEye, SCOPE_CLEAR_CENTRE, scopeEyeBox, type ScopeMotion } from './scope-shadow';
 
 const still: ScopeMotion = { lateralSpeed: 0 };
 /** Runs frames and reports the furthest swing on each side plus where it ended. */
@@ -55,10 +55,53 @@ describe('scope shadow', () => {
     expect(samples[0]).toBeCloseTo(samples[1], 8); expect(samples[0]).toBeCloseTo(samples[2], 8);
     const shadow = started();
     shadow.update(.05, { lateralSpeed: 2 }, true);
-    expect(shadow.update(.05, { lateralSpeed: 2 }, false)).toEqual({ x: 0, y: 0 });
+    expect(shadow.update(.05, { lateralSpeed: 2 }, false)).toEqual({ x: 0, y: 0, relief: 0 });
     // Raising the sight mid-strafe starts from the lean, not a fresh kick.
     expect(Math.abs(run(shadow, 60, { lateralSpeed: 2 }).min)).toBeLessThan(.06);
     shadow.reset();
-    expect(shadow.update(0, still, true)).toEqual({ x: 0, y: 0 });
+    expect(shadow.update(0, still, true)).toEqual({ x: 0, y: 0, relief: 0 });
+  });
+  it('tunnels in on a shot or a landing, harder for heavier recoil, and never for gravity or looking around', () => {
+    const peak = (jolt: number) => { const shadow = started(); shadow.update(1 / 60, { lateralSpeed: 0, jolt }, true); let top = 0; for (let i = 0; i < 40; i++) top = Math.max(top, shadow.update(1 / 60, still, true).relief); return { top, last: shadow.update(1 / 60, still, true).relief }; };
+    const heavy = peak(1), light = peak(.4);
+    expect(heavy.top).toBeGreaterThan(.8); expect(heavy.top).toBeLessThanOrEqual(1);
+    expect(light.top).toBeGreaterThan(.25); expect(light.top).toBeLessThan(heavy.top * .5);
+    expect(heavy.last).toBeLessThan(.02);
+    const fall = started();
+    let falling = 0;
+    for (let i = 0; i < 30; i++) falling = Math.max(falling, fall.update(1 / 60, { lateralSpeed: 0, verticalSpeed: -i * 20 / 60 }, true).relief);
+    expect(falling).toBe(0);
+    let landed = 0;
+    for (let i = 0; i < 20; i++) landed = Math.max(landed, fall.update(1 / 60, still, true).relief);
+    expect(landed).toBeGreaterThan(.6);
+    const look = started();
+    let looking = 0;
+    for (let i = 0; i < 60; i++) looking = Math.max(looking, look.update(1 / 60, { lateralSpeed: 2 * Math.sin(i), turnRate: 3 * Math.cos(i * 2), pitchRate: 3 * Math.sin(i * 3) }, true).relief);
+    expect(looking).toBe(0);
+  });
+  it('tightens and hardens the eye box with magnification and closes it with relief', () => {
+    const low = scopeEyeBox(1.5), mid = scopeEyeBox(4), high = scopeEyeBox(8), beyond = scopeEyeBox(12);
+    expect(low.soft).toBeGreaterThan(mid.soft); expect(mid.soft).toBeGreaterThan(high.soft);
+    expect(low.gain).toBeLessThan(mid.gain); expect(mid.gain).toBeLessThan(high.gain);
+    expect(beyond).toEqual(high); expect(low.radius).toBe(high.radius);
+    expect(scopeEyeBox(4, 1).radius).toBeCloseTo(mid.radius - .09); expect(scopeEyeBox(4, 5).radius).toBe(scopeEyeBox(4, 1).radius);
+  });
+  it('eases the eye into its limit and always leaves the aim point clear', () => {
+    for (const magnification of [1.5, 4, 8]) for (const relief of [0, .5, 1]) {
+      const box = scopeEyeBox(magnification, relief), limit = box.radius - box.soft - SCOPE_CLEAR_CENTRE;
+      expect(limit).toBeGreaterThan(.03);
+      let before = 0;
+      for (const reach of [.02, .05, .1, .2, .5, 10]) {
+        const eye = limitScopeEye({ x: -reach * .6, y: reach * .8 }, box), length = Math.hypot(eye.x, eye.y);
+        // Still moving at every step, never past the limit, direction kept.
+        expect(length).toBeGreaterThan(before); expect(length).toBeLessThanOrEqual(limit);
+        expect(eye.y / eye.x).toBeCloseTo(-.8 / .6);
+        // The shadow starts no nearer the centre than the protected disc.
+        expect(box.radius - box.soft - length).toBeGreaterThanOrEqual(SCOPE_CLEAR_CENTRE - 1e-9);
+        before = length;
+      }
+    }
+    expect(limitScopeEye({ x: .01, y: 0 }, scopeEyeBox(8)).x).toBeCloseTo(.01, 3);
+    expect(limitScopeEye({ x: 0, y: 0 }, scopeEyeBox(8))).toEqual({ x: 0, y: 0 });
   });
 });

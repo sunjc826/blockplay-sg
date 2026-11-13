@@ -8,7 +8,30 @@ export type ScopeMotion = {
   turnRate?: number;
   /** Radians a second looking up; recoil climb arrives here. */
   pitchRate?: number;
+  /** Shots fired since the last frame, as recoil strength where 1 is a heavy round. */
+  jolt?: number;
 };
+
+/** The eye box in lens UVs: `radius` is where the shadow turns black, `soft` how far inside that it starts. */
+export type ScopeEyeBox = { radius: number; soft: number; gain: number };
+
+/** The aim point's clear disc: the shadow never enters this share of the lens UV, whatever throws it. */
+export const SCOPE_CLEAR_CENTRE = .22;
+const BOX_RADIUS = .51, TUNNEL = .09;
+
+/** Higher power means a smaller exit pupil: a touchier eye box with a harder edge. */
+export function scopeEyeBox(magnification: number, relief = 0): ScopeEyeBox {
+  const power = Math.max(0, Math.min(1, (magnification - 2) / 6));
+  return { radius: BOX_RADIUS - TUNNEL * Math.max(0, Math.min(1, relief)), soft: .15 - .07 * power, gain: .8 + .45 * power };
+}
+
+/** Eases an eye offset towards the furthest the box can travel while keeping
+ * the clear centre, so the shadow slows into its limit rather than sticking. */
+export function limitScopeEye(eye: { x: number; y: number }, box: ScopeEyeBox) {
+  const limit = Math.max(.001, box.radius - box.soft - SCOPE_CLEAR_CENTRE), length = Math.hypot(eye.x, eye.y);
+  if (length > 1e-6) { const scale = limit * Math.tanh(length / limit) / length; eye.x *= scale; eye.y *= scale; }
+  return eye;
+}
 
 const AMPLITUDE = .18;
 /** Share of the full offset a steady strafe or turn keeps holding. */
@@ -18,6 +41,9 @@ const KICK = 1.7;
 const FREQUENCY = 14, DAMPING = .5;
 const DECAY = FREQUENCY * DAMPING, RING = FREQUENCY * Math.sqrt(1 - DAMPING * DAMPING);
 const STRAFE_SPEED = 2, VERTICAL_SPEED = 5, LOOK_RATE = 3;
+/** Gravity changes vertical speed more gently than this; a jump or landing does not. */
+const JOLT_RATE = 5;
+const RELIEF_KICK = 1.8;
 
 const unit = (value: number) => Math.max(-1, Math.min(1, Number.isFinite(value) ? value : 0));
 
@@ -45,16 +71,27 @@ function createAxis() {
  * completely, so the gun's own sway cannot supply a readable cue. The eye is a
  * sprung mass behind the scope: starts, stops, reversals, flicks, landings and
  * recoil swing the shadow in and it rings back out, leaving only a slight lean
- * while the motion continues. Only the shadow moves, never the aim. */
+ * while the motion continues. `relief` is the scope driven back at the eye by
+ * a shot or a landing: 0 at rest, towards 1 as the picture tunnels in. Only
+ * the shadow moves, never the aim. */
 export function createScopeShadow() {
-  const x = createAxis(), y = createAxis(), value = { x: 0, y: 0 };
+  const x = createAxis(), y = createAxis(), value = { x: 0, y: 0, relief: 0 };
+  let relief = 0, reliefVelocity = 0, climb: number | undefined;
   return {
-    reset() { x.reset(); y.reset(); value.x = value.y = 0; },
+    reset() { x.reset(); y.reset(); value.x = value.y = value.relief = relief = reliefVelocity = 0; climb = undefined; },
     update(dt: number, motion: ScopeMotion, enabled: boolean) {
       if (!enabled) { this.reset(); return value; }
-      const step = Math.min(Math.max(dt, 0), .1);
+      const step = Math.min(Math.max(dt, 0), .1), vertical = unit((motion.verticalSpeed ?? 0) / VERTICAL_SPEED);
       value.x = x.update(step, unit(unit(motion.lateralSpeed / STRAFE_SPEED) + unit((motion.turnRate ?? 0) / LOOK_RATE)));
-      value.y = y.update(step, unit(unit((motion.verticalSpeed ?? 0) / VERTICAL_SPEED) + unit((motion.pitchRate ?? 0) / LOOK_RATE)));
+      value.y = y.update(step, unit(vertical + unit((motion.pitchRate ?? 0) / LOOK_RATE)));
+      const landing = Math.max(0, Math.abs(vertical - (climb ?? vertical)) - JOLT_RATE * step);
+      climb = vertical;
+      reliefVelocity += (landing + Math.max(0, Math.min(1.5, motion.jolt ?? 0))) * RELIEF_KICK * FREQUENCY;
+      const fade = Math.exp(-DECAY * step), cos = Math.cos(RING * step), sin = Math.sin(RING * step), from = relief;
+      relief = fade * (from * cos + (reliefVelocity + DECAY * from) / RING * sin);
+      reliefVelocity = fade * (reliefVelocity * cos - (DECAY * reliefVelocity + FREQUENCY * FREQUENCY * from) / RING * sin);
+      if (Math.abs(relief) < .0001 && Math.abs(reliefVelocity) < .001) relief = reliefVelocity = 0;
+      value.relief = Math.max(0, Math.min(1, relief));
       return value;
     },
   };

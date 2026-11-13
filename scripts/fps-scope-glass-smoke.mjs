@@ -17,7 +17,7 @@ async function verifyDepth(label) {
   assert(depth.right.darkLeft > depth.right.darkRight * 3, label+': right eye offset shadows the left edge');
   assert(depth.up.darkBottom > depth.up.darkTop * 3, label+': upward offset shadows the bottom edge');
   assert(depth.down.darkTop > depth.down.darkBottom * 3, label+': downward offset shadows the top edge');
-  assert(depth.strafeLeft.offset[0] > .17 && depth.strafeRight.offset[0] < -.17, label+': aimed sidesteps create a pronounced eye-box displacement');
+  assert(depth.strafeLeft.offset[0] > .08 && depth.strafeRight.offset[0] < -.08, label+': starting an aimed sidestep swings the eye box clearly: '+depth.strafeLeft.offset[0]);
   assert(depth.strafeLeft.darkLeft > depth.strafeLeft.darkRight * 3, label+': left strafe shadows the left edge');
   assert(depth.strafeRight.darkRight > depth.strafeRight.darkLeft * 3, label+': right strafe shadows the right edge');
   for (const [pose, x, y] of [['centred',0,0],['shifted',.45,.15]]) {

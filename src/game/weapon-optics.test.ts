@@ -1,3 +1,4 @@
+import { SCOPE_CLEAR_CENTRE, scopeEyeBox } from './scope-shadow';
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
@@ -96,7 +97,9 @@ it('moves the scope shadow with the eye without steering the PiP camera or movin
   root.position.x = 0; root.rotation.y = .025; render();
   expect(Math.abs(sight.scopeEye!.value.x)).toBeGreaterThan(.001);
   root.rotation.y = 0; root.position.x = 10; render();
-  expect(sight.scopeEye!.value.length()).toBeCloseTo(.18);
+  const box = scopeEyeBox(sight.magnification);
+  expect(sight.scopeEye!.value.length()).toBeCloseTo(box.radius - box.soft - SCOPE_CLEAR_CENTRE);
+  expect(sight.scopeBox!.value.toArray()).toEqual([box.radius, box.soft]);
   expect(scope.camera.position.equals(camera.position)).toBe(true);
   expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
   expect(sight.lens.position.equals(plane)).toBe(true);
@@ -149,7 +152,7 @@ it('swings the shadow on strafes, flicks and drops without moving the scene or r
   frames(2, 0);
   for (const lateralSpeed of [-2.2, 2.2]) {
     const swing = frames(40, lateralSpeed);
-    expect(lateralSpeed > 0 ? -swing.minX : swing.maxX).toBeGreaterThan(.12);
+    expect(lateralSpeed > 0 ? -swing.minX : swing.maxX).toBeGreaterThan(.09);
     // A held strafe keeps only a slight lean.
     const lean = sight.scopeEye!.value.x * -Math.sign(lateralSpeed);
     expect(lean).toBeGreaterThan(.02); expect(lean).toBeLessThan(.07);
@@ -169,7 +172,18 @@ it('swings the shadow on strafes, flicks and drops without moving the scene or r
   expect(kick.minY).toBeLessThan(-.02); expect(kick.minY).toBeGreaterThan(-.06);
   frames(90, 0);
   frames(20, 0, () => { camera.position.y -= 8 / 60; });
-  expect(frames(12, 0).minY).toBeLessThan(-.1);
+  expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
+  let tunnel = 1;
+  expect(frames(12, 0, () => { tunnel = Math.min(tunnel, sight.scopeBox!.value.x); }).minY).toBeLessThan(-.05);
+  // The landing also drives the scope back at the eye, and so does a shot.
+  expect(tunnel).toBeLessThan(.47);
+  frames(90, 0);
+  expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
+  scope.shot(.018); frames(6, 0);
+  expect(sight.scopeBox!.value.x).toBeLessThan(.45); expect(sight.scopeBox!.value.x).toBeGreaterThanOrEqual(.42);
+  expect(sight.scopeEye!.value.length()).toBeLessThan(.01);
+  frames(90, 0);
+  expect(sight.scopeBox!.value.x).toBeCloseTo(.51);
   expect(scope.camera.quaternion.equals(camera.quaternion)).toBe(true);
   expect(sight.lens.position.equals(plane)).toBe(true);
   scope.render(world, camera, view, sight, false);
