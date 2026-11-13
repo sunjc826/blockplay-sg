@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { createAmbientDrift, DRIFT_COUNT, driftAmounts } from './ambient-drift';
+import { createAmbientDrift, DRIFT_COUNT, driftAmounts, foliageDriftSources } from './ambient-drift';
 
 const calm = { wind: 0, rain: 0, sun: 1, night: 0, reduced: false, detail: 'high' as const, mobile: false };
 
@@ -11,6 +11,20 @@ describe('ambient drift', () => {
     expect(squall.leaves).toBeGreaterThan(still.leaves * .9); expect(squall.motes).toBe(0); expect(squall.speed).toBeGreaterThan(still.speed * 5);
     expect(driftAmounts({ ...calm, night: 1 }).motes).toBe(0);
     for (const off of [{ ...calm, reduced: true }, { ...calm, detail: 'low' as const }]) expect(driftAmounts(off)).toEqual({ leaves: 0, motes: 0, speed: 0 });
+  });
+  it('takes release points from transformed foliage, preserving canopy and rooftop heights', () => {
+    const geometry = new THREE.IcosahedronGeometry(1, 1), material = new THREE.MeshBasicMaterial();
+    const crown = new THREE.Mesh(geometry, material), parent = new THREE.Group();
+    parent.position.set(10, 7, 20); parent.scale.setScalar(.6); parent.add(crown);
+    crown.position.y = 12; crown.scale.set(3, 2, 4); crown.rotation.y = .4;
+    const sources = foliageDriftSources(crown, 7);
+    expect(sources.length).toBeGreaterThan(1); expect(sources.length).toBeLessThanOrEqual(16);
+    for (const source of sources) {
+      expect(source.y).toBe(7); expect(source.height).toBeGreaterThan(5);
+      const local = crown.worldToLocal(new THREE.Vector3(source.x, source.y + source.height, source.z));
+      expect(local.length()).toBeCloseTo(1, 5);
+    }
+    geometry.dispose(); material.dispose();
   });
   it('anchors leaves to supplied planting bases, including raised planters, and disables unsourced leaves', () => {
     const scene = new THREE.Scene();
@@ -23,7 +37,7 @@ describe('ambient drift', () => {
         if (kinds.getX(i) === 1) { expect(sources.getW(i)).toBe(0); continue; }
         const source = leafSources.find(s => s.x === sources.getX(i) && s.y === sources.getY(i) && s.z === sources.getZ(i));
         expect(source).toBeDefined();
-        expect(sources.getW(i)).toBeCloseTo(Math.min(3, source!.height));
+        expect(sources.getW(i)).toBeCloseTo(source!.height);
         seen.add(sources.getY(i));
       }
       expect([...seen].sort()).toEqual([0, 7]);
@@ -36,17 +50,17 @@ describe('ambient drift', () => {
     const drift = createAmbientDrift(scene, { leafSources: [...far, ...near] });
     try {
       const sources = drift.mesh.geometry.getAttribute('driftSource'), kinds = drift.mesh.geometry.getAttribute('driftKind');
-      const leavesNear = () => { let n = 0; for (let i = 0; i < sources.count; i += 24) if (kinds.getX(i) === 0 && Math.abs(sources.getX(i)) < 10) n++; return n; };
+      const leavesNear = () => { let n = 0; for (let i = 0; i < sources.count; i += sources.count / DRIFT_COUNT.ultra) if (kinds.getX(i) === 0 && Math.abs(sources.getX(i)) < 10) n++; return n; };
       const total = DRIFT_COUNT.ultra * 2 / 3, before = leavesNear();
       expect(before).toBeLessThan(total * .2);
       // One pass moves every leaf that is between falls; the rest follow as their falls end.
       drift.update(10, calm, new THREE.Vector3(0, 1.7, 0));
       expect(leavesNear()).toBeGreaterThan(total * .3);
-      for (let t = 11; t < 40; t++) drift.update(t, calm, new THREE.Vector3(0, 1.7, 0));
+      for (let t = 11; t < 70; t++) drift.update(t, calm, new THREE.Vector3(0, 1.7, 0));
       expect(leavesNear()).toBe(total);
-      for (let i = 0; i < sources.count; i += 24) if (kinds.getX(i) === 0) expect([2, 3]).toContain(sources.getW(i));
+      for (let i = 0; i < sources.count; i += sources.count / DRIFT_COUNT.ultra) if (kinds.getX(i) === 0) expect([2, 5]).toContain(sources.getW(i));
       // Out on the bay, with no plant in reach, nothing is moved.
-      for (let t = 40; t < 70; t++) drift.update(t, calm, new THREE.Vector3(0, 1.7, -300));
+      for (let t = 70; t < 100; t++) drift.update(t, calm, new THREE.Vector3(0, 1.7, -300));
       expect(leavesNear()).toBe(total);
     } finally { drift.dispose(); }
   });

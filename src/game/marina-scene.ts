@@ -18,7 +18,7 @@ import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } fr
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 import { MARINA_LOOK } from './district-look';
-import { createAmbientDrift, type DriftSource } from './ambient-drift';
+import { createAmbientDrift, foliageDriftSources, type DriftSource } from './ambient-drift';
 import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
@@ -608,12 +608,12 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const roofPlantGeo = geo(new THREE.IcosahedronGeometry(1, 1));
   for (const x of [-185, -133, -81, 67, 119, 171]) for (const side of [-1, 1]) {
     const px = x + side * 11;
-    leafSources.push({ x: px * S, y: 12.02 * S, z: 200 * S, height: .65 });
     box(px, 12.02, 200, 6.7, .05, 1.7, gardenSoil);
     for (const dz of [201.25, 201.6, 201.95, 202.3, 202.65]) box(px, 11.38, dz, 6.6, .12, .25, wood);
     for (const dx of [-2.4, -1.2, 0, 1.2, 2.4]) {
       const shrub = new THREE.Mesh(roofPlantGeo, dx % 2 ? leaf : hedge);
       shrub.position.set(px + dx, 12.38 + (dx === 0 ? .15 : 0), 200);
+      shrub.userData.driftGround = 12.02 * S;
       shrub.scale.set(.83, .55, .65); shrub.castShadow = true; scene.add(shrub);
       for (const dz of [-.35, .35]) box(px + dx, 12.03, 200 + dz, .08, .48, .08, trunk);
     }
@@ -735,7 +735,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
       box(x+(alongZ?-.63:offset),height/2,z+(alongZ?offset:-.73),alongZ?.08:.14,height-.25,alongZ?.14:.08,wood);
     for(let offset=-length/2+1;offset<length/2;offset+=2){
       const plant=new THREE.Mesh(shrubGeo,offset%3?leaf:hedge);
-      leafSources.push({ x: px+(alongZ?0:offset), y: .62, z: pz+(alongZ?offset:0), height: 1 });
+      plant.userData.driftGround = .62;
       plant.position.set(px+(alongZ?0:offset),1.05,pz+(alongZ?offset:0));plant.scale.set(1.1,.65,1.1);plant.castShadow=true;scene.add(plant);
     }
   }
@@ -841,14 +841,13 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   scene.userData.rainReceivers.push(...camp.root.userData.rainReceivers);
   // Repeated façade/paving/railing and palm details share batched draw calls.
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
-  // Capture compacted tree roots before batching removes the individual parts.
-  const leafRoots = new Set<string>();
+  // Capture actual foliage surfaces after compaction, before batching removes
+  // the individual crowns/fronds. Trunks never emit leaves.
   scene.traverse(object => {
+    if (!(object instanceof THREE.Mesh)) return;
     const part = object.userData.treePart;
-    if (!part) return;
-    const { x, y, z } = part.root;
-    const key = `${x}:${y}:${z}`;
-    if (!leafRoots.has(key)) { leafRoots.add(key); leafSources.push({ x, y, z, height: part.height }); }
+    const ground = object.userData.driftGround ?? (part?.flutter > 0 ? part.root.y : undefined);
+    if (ground !== undefined) leafSources.push(...foliageDriftSources(object, ground));
   });
   instances.push(...batchTrees(scene, geo, m => materials.push(m)));
   const batches = new Map<string, THREE.Mesh[]>();
