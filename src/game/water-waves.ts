@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import type { WaterMaterial } from './water';
 import { boatWakeCoverage, boatWaveFade, createBoatWake, type WaterBoat } from './boat-wake';
-import { WATER_WAVES, createSwimmerWake, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
+import { WATER_WAVES, createSwimmerWake, waterImpactPulse, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
 
 /** Explicit gameplay input: a crouching camera, a spectator or a boat is not a swimmer. */
 export function setWaterSwimmer(scene: THREE.Scene, x: number, z: number, active: boolean) {
@@ -83,7 +83,7 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     if (event.x < bounds.x || event.x > bounds.z || event.z < bounds.y || event.z > bounds.w) return;
     if (event.x < origin.x + 1 || event.x > origin.x + WATER_WAVES.span - 1 || event.z < origin.y + 1 || event.z > origin.y + WATER_WAVES.span - 1) return;
     if (pending.length === WATER_WAVES.maxImpulses) pending.shift();
-    pending.push({ ...event, at: water!.uniforms.uTime.value + delay, radius: Math.max(.12, event.radius), height: THREE.MathUtils.clamp(event.height,-.12,.12), foam: Number.isFinite(event.foam) ? THREE.MathUtils.clamp(event.foam!,0,.5) : 0 });
+    pending.push({ ...event, at: water!.uniforms.uTime.value + delay, radius: Math.max(.12, event.radius), height: THREE.MathUtils.clamp(event.height,-WATER_WAVES.maxImpulseHeight,WATER_WAVES.maxImpulseHeight), foam: Number.isFinite(event.foam) ? THREE.MathUtils.clamp(event.foam!,0,.5) : 0 });
     return true;
   };
   const boatImpulse = (event: WaterImpulse, delay: number) => {
@@ -94,7 +94,8 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
   };
   const onRipple = (x: number, z: number, strength: number) => {
     originalHook?.(x,z,strength);
-    const height = -.085 * Math.min(2,strength), radius = .19 + Math.min(3,strength) * .025;
+    if (strength <= 0) return;
+    const { height, radius } = waterImpactPulse(strength);
     impulse({ x, z, radius, height });
     // A short rebound launches a wave train rather than one isolated expanding ridge.
     impulse({ x, z, radius, height: -height*.55 }, .12);

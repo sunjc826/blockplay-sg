@@ -364,7 +364,13 @@ Refraction requires hardware WebGL2, visible above-water bay geometry and
 unreduced Ultra detail; lowering detail releases the snapshot. Other districts
 retain their authored water. Ultra also runs a 512² GPU height/velocity field
 across a 32 m square around the player (`water-waves.ts`). Bullet impacts launch
-short wave trains; the local player's swimming position produces distance-spaced
+short wave trains, with a dedicated bore-and-power strength scale (~1× for the
+issued rifle, 1.4× FN MAG, 2.7× CIS .50). Heavy rounds displace a wider cavity;
+the 24 cm impulse ceiling preserves their amplitude below the 25 cm field limit.
+Skipped and cover-weakened rounds retain their energy attenuation. The same
+strength reaches fallback surface ripples. `scripts/water-calibre-smoke.mjs`
+checks GPU amplitude/energy ordering, sustained .50 stability and real shots from
+all three weapons. The local player's swimming position produces distance-spaced
 paired wakes and restrained treading ripples. A 256²-cell rendered patch samples
 the same field for displacement and normals, so reflections/refraction follow
 the crests. The original bay remains the gameplay raycast plane. Raised impact

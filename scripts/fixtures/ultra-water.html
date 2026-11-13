@@ -5,6 +5,9 @@ import { createWaterMaterial } from '/src/game/water.ts';
 import { setWaterSwimmer } from '/src/game/water-waves.ts';
 import { createFpsVehicles } from '/src/game/fps-vehicles.ts';
 import { MARINA_WATER, DRAGON_BOAT_SPAWNS } from '/src/game/marina-water.ts';
+import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
+import { impactProfile } from '/src/game/fps-impact-profile.ts';
+import { waterImpactStrength } from '/src/game/fps-splashes.ts';
 import { buildMarinaScene } from '/src/game/marina-scene.ts';
 import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
 import { createNightLights } from '/src/game/world-night-lights.ts';
@@ -75,6 +78,10 @@ window.benchmark=async()=>{
 window.dispose=()=>{post.dispose();fleet?.dispose();atmosphere?.dispose();night?.dispose();world?.dispose();renderer.dispose();};
 window.waveReset=()=>{window.draw({detail:'high'});setWaterSwimmer(scene,0,0,false);return window.draw({detail:'ultra',time:0});};
 window.waveImpact=(x=0,z=0,strength=1)=>water.userData.ripple(x,z,strength);
+window.waveCalibre=(family,x=0,z=0,energy=1)=>{
+ const spec=FPS_WEAPONS[family],strength=waterImpactStrength(impactProfile(spec.caliberMm,spec.damage),energy);
+ window.waveImpact(x,z,strength);return {name:spec.name,calibre:spec.caliberMm,strength};
+};
 window.waveAdvance=(seconds,fps=60)=>{for(let i=0;i<Math.round(seconds*fps);i++)window.draw({time:current.time+1/fps});return post.waterWaves.stats;};
 window.waveSwimmer=(x,z,active=true)=>setWaterSwimmer(scene,x,z,active);
 window.waveRead=(cx=0,cz=0)=>{

@@ -25,6 +25,10 @@ if(params.has('gallery')){
 }else{
   const root=createRoot(document.getElementById('overlay'));
   const options={region:'marina-bay',combat:false,rangeTravel:{spawn:params.has('water-effects')?{x:0,z:-4,yaw:Math.PI,pitch:-.8}:params.has('swim')?{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06}:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}};
+  if(params.has('calibre')){
+    const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
+    options.loadout=resolveLoadout(createProfile());options.loadout.carriedFamilies=[Number(params.get('calibre')),2];
+  }
   if(params.has('shared')){
     const {createSoloSession}=await import('/src/game/lan-peer.ts');const {createProfile}=await import('/src/game/armory-state.ts');
     const {MARINA_BOUNDS,moveInMarina}=await import('/src/game/marina-collision.ts');

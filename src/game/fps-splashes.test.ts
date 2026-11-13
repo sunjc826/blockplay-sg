@@ -98,6 +98,23 @@ describe('splashes', () => {
 });
 
 describe('splash size by calibre', () => {
+  it('gives heavier rounds stronger waves while retaining skip and penetration energy', async () => {
+    const { FPS_WEAPONS } = await import('./fps-rules');
+    const { impactProfile } = await import('./fps-impact-profile');
+    const { waterImpactStrength } = await import('./fps-splashes');
+    const profiles=FPS_WEAPONS.map(w=>impactProfile(w.caliberMm,w.damage));
+    const [rifle,lightMg,pistol,mg,heavy]=profiles.map(p=>waterImpactStrength(p));
+    expect(rifle).toBe(1);expect(lightMg).toBeLessThanOrEqual(rifle);
+    expect(Math.abs(pistol-rifle)).toBeLessThan(.15);
+    expect(mg).toBeGreaterThan(1.4);expect(heavy).toBeGreaterThan(mg*1.8);
+    expect(waterImpactStrength(profiles[4],.6)).toBeCloseTo(heavy*.6);
+    expect(waterImpactStrength(profiles[4],.2)).toBeCloseTo(heavy*.2);
+    expect(waterImpactStrength(profiles[4],0)).toBe(0);
+    for(const value of [NaN,Infinity,-10,1e9]){
+      const strength=waterImpactStrength({debrisCount:value},value);
+      expect(Number.isFinite(strength)).toBe(true);expect(strength).toBeGreaterThanOrEqual(0);expect(strength).toBeLessThanOrEqual(3);
+    }
+  });
   it('splashes like the rifle by default, about the same for a pistol and far bigger for a .50', async () => {
     const { FPS_WEAPONS } = await import('./fps-rules');
     const { impactProfile } = await import('./fps-impact-profile');

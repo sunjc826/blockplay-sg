@@ -105,6 +105,16 @@ export function splashWeight(profile?: Pick<ImpactProfile, 'debrisCount'>) {
   return { size: Math.min(2.2, Math.max(.6, Math.pow(weight, .45))), count: Math.min(2.6, Math.max(.6, Math.pow(weight, .6))) };
 }
 
+/** Surface displacement needs a wider range than spray dimensions. Use the
+ * shot's bore-and-power profile so a 9 mm pistol does not outrank a rifle merely
+ * by diameter. Rifle ~1, FN MAG ~1.4, CIS .50 ~2.7; weakened/skipping rounds keep
+ * their remaining energy. This follows the shot, including remote weapons. */
+export function waterImpactStrength(profile?: Pick<ImpactProfile, 'debrisCount'>, energy = 1) {
+  const weight = Number.isFinite(profile?.debrisCount) ? Math.max(.2,Math.min(5,profile!.debrisCount)) : 1;
+  const remaining = Number.isFinite(energy) ? Math.max(0,Math.min(1.5,energy)) : 1;
+  return Math.min(3,Math.pow(weight,.65)*remaining);
+}
+
 /**
  * Records one splash at `point` on a surface whose height is `point.y`.
  * `direction` is the round's travel; `energy` scales the spray, as it does for

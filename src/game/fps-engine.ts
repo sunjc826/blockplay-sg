@@ -118,7 +118,7 @@ import { firstVisibleHit, visibleHits } from './fps-raycast';
 import { sectorAt, zoneSectors } from './zone-sectors';
 import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound, MAX_ROUNDS_IN_FLIGHT, MAX_SKIPS, type InFlightRound, type PublishedRound } from './fps-projectiles';
 import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
-import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
+import { SKIP_ENERGY, waterImpactStrength, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { setWaterSwimmer } from './water-waves';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
@@ -3036,7 +3036,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     effects.splash(hit.point, direction, skip ? energy * .6 : energy, profile);
     impactSound(hit.point, 'water', skip ? energy * .6 : energy, profile);
     // A heavier round rocks the surface harder as well as throwing more spray.
-    rippleWater(hit.object, hit.point.x, hit.point.z, (skip ? energy * .6 : energy) * splashWeight(profile).size);
+    rippleWater(hit.object, hit.point.x, hit.point.z, waterImpactStrength(profile, skip ? energy * .6 : energy));
     if(getGraphicsSettings().lensEffects&&!vehicles.active){
       const eye=camera.getWorldPosition(new THREE.Vector3()),toward=hit.point.clone().sub(eye),distance=toward.length();
       const amount=waterSplashExposure(distance,toward.normalize().dot(camera.getWorldDirection(new THREE.Vector3())),Math.max(0,eye.y-hit.point.y));

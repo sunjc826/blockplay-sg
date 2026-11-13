@@ -1,5 +1,21 @@
 import { expect, it } from 'vitest';
-import { WATER_WAVES, createSwimmerWake, waterWaveOrigin, waterWaveSteps, type WaterImpulse } from './water-wave-state';
+import { WATER_WAVES, createSwimmerWake, waterImpactPulse, waterWaveOrigin, waterWaveSteps, type WaterImpulse } from './water-wave-state';
+import { waterImpactStrength } from './fps-splashes';
+import { impactProfile } from './fps-impact-profile';
+import { FPS_WEAPONS } from './fps-rules';
+
+it('preserves rifle displacement and gives GPMG and .50 rounds distinct amplitudes without clipping', () => {
+  const [rifle,mg,heavy]=[0,3,4].map(i=>waterImpactPulse(waterImpactStrength(impactProfile(FPS_WEAPONS[i].caliberMm,FPS_WEAPONS[i].damage))));
+  expect(rifle).toEqual({height:-.085,radius:.215});
+  expect(Math.abs(mg.height)).toBeGreaterThan(.12);
+  expect(Math.abs(heavy.height)).toBeGreaterThan(Math.abs(mg.height)*1.8);
+  expect(Math.abs(heavy.height)).toBeLessThan(WATER_WAVES.maxImpulseHeight);
+  expect(heavy.radius).toBeGreaterThan(mg.radius);expect(mg.radius).toBeGreaterThan(rifle.radius);
+  for(const strength of [-1,0,NaN,Infinity,1e9]){
+    const pulse=waterImpactPulse(strength);expect(Object.values(pulse).every(Number.isFinite)).toBe(true);
+    expect(Math.abs(pulse.height)).toBeLessThanOrEqual(WATER_WAVES.maxImpulseHeight);
+  }
+});
 
 it('keeps wave propagation stable and frame-rate independent, bounding long frames', () => {
   expect(WATER_WAVES.speed*WATER_WAVES.step/(WATER_WAVES.span/WATER_WAVES.size)).toBeLessThan(1/Math.sqrt(2));

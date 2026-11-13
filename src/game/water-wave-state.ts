@@ -1,7 +1,14 @@
 /** Metres and seconds. Courant number c*dt/dx = .587 < 1/sqrt(2). */
-export const WATER_WAVES = { size: 512, span: 32, segments: 256, step: 1 / 60, speed: 2.2, damping: .48, maxSteps: 4, maxImpulses: 32, anchor: 2 } as const;
+export const WATER_WAVES = { size: 512, span: 32, segments: 256, step: 1 / 60, speed: 2.2, damping: .48, maxSteps: 4, maxImpulses: 32, maxImpulseHeight: .24, anchor: 2 } as const;
 export interface WaterImpulse { x: number; z: number; radius: number; height: number; foam?: number }
 export interface WaterSwimmer { x: number; z: number; active: boolean }
+
+/** Preserve the rifle's 8.5 cm impulse and give heavy rounds headroom below the
+ * solver's 25 cm displacement limit. A wider cavity carries a stronger wave. */
+export function waterImpactPulse(strength: number) {
+  const power = Number.isFinite(strength) ? Math.max(0,Math.min(3,strength)) : 0;
+  return { height: -Math.min(WATER_WAVES.maxImpulseHeight,.085*power), radius: .215*Math.sqrt(Math.max(.3,power)) };
+}
 
 /** Align scrolling to whole simulation texels so existing waves stay in world space. */
 export function waterWaveOrigin(x: number, z: number) {
