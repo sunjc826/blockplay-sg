@@ -44,6 +44,7 @@ export function createWaterRipples(scene: THREE.Scene, materials: ReadonlySet<Wa
         clock=water.uniforms.uTime.value;
         for(const r of water.uniforms.uRipples.value as THREE.Vector4[]){
           const age=clock-r.z;if(r.w<=0||age<0||age>RIPPLE_LIFE)continue;
+          if(detail==='ultra' && water.userData.waveCoverage?.(r.x,r.y,age*RIPPLE_SPEED))continue;
           const fade=Math.min(1,age/.08)*Math.exp(-age*1.1)*Math.min(1,r.w);
           for(let i=0;i<2;i++){const a=age-i*.16;if(a>0)add(r.x,r.y,a*RIPPLE_SPEED,.035*Math.min(2,r.w)*Math.exp(-a),fade*(i? .6:1));}
         }

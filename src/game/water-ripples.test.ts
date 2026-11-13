@@ -16,6 +16,9 @@ it('raises bounded geometric crests on High/Ultra and removes them on Low, reduc
   ripples.update(camera,'ultra',false,1);expect(ripples.mesh.count).toBeGreaterThan(2);expect(ripples.mesh.count).toBeLessThanOrEqual(128);
   ripples.update(camera,'low',false,1);expect(ripples.mesh.visible).toBe(false);
   ripples.update(camera,'ultra',true,1);expect(ripples.mesh.count).toBe(0);
+  water.userData.waveCoverage=()=>true;
+  ripples.update(camera,'ultra',false,0);expect(ripples.mesh.count).toBe(0);
+  ripples.update(camera,'high',false,0);expect(ripples.mesh.count).toBe(2);
   water.userData.setTime(5);ripples.update(camera,'high',false,0);expect(ripples.mesh.count).toBe(0);
  }finally{ripples.dispose();water.dispose();}
 });

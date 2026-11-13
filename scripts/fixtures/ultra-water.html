@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { createWorldOcclusion } from '/src/game/world-occlusion.ts';
 import { createWaterMaterial } from '/src/game/water.ts';
+import { setWaterSwimmer } from '/src/game/water-waves.ts';
 import { buildMarinaScene } from '/src/game/marina-scene.ts';
 import { createWorldAtmosphere } from '/src/game/world-atmosphere.ts';
 import { createNightLights } from '/src/game/world-night-lights.ts';
@@ -59,5 +60,39 @@ window.benchmark=async()=>{
  }return result;
 };
 window.dispose=()=>{post.dispose();atmosphere?.dispose();night?.dispose();world?.dispose();renderer.dispose();};
+window.waveReset=()=>{window.draw({detail:'high'});setWaterSwimmer(scene,0,0,false);return window.draw({detail:'ultra',time:0});};
+window.waveImpact=(x=0,z=0,strength=1)=>water.userData.ripple(x,z,strength);
+window.waveAdvance=(seconds,fps=60)=>{for(let i=0;i<Math.round(seconds*fps);i++)window.draw({time:current.time+1/fps});return post.waterWaves.stats;};
+window.waveSwimmer=(x,z,active=true)=>setWaterSwimmer(scene,x,z,active);
+window.waveRead=(cx=0,cz=0)=>{
+ const target=post.waterWaves.target;if(!target)return null;
+ const bits=new Uint16Array(target.width*target.height*4);renderer.readRenderTargetPixels(target,0,0,target.width,target.height,bits);
+ let min=0,max=0,energy=0,mass=0,radius=0,outside=0,hash=0;const bounds=water.uniforms.uWaveBounds.value,origin=post.waterWaves.origin;
+ for(let z=0;z<target.height;z++)for(let x=0;x<target.width;x++){
+  const i=(z*target.width+x)*4,h=THREE.DataUtils.fromHalfFloat(bits[i]),wx=origin.x+(x+.5)*32/target.width,wz=origin.y+(z+.5)*32/target.height;
+  if(!Number.isFinite(h))throw Error('Nonfinite wave');min=Math.min(min,h);max=Math.max(max,h);energy+=h*h;mass+=Math.abs(h);radius+=Math.abs(h)*Math.hypot(wx-cx,wz-cz);
+  if(wx<bounds.x||wx>bounds.z||wz<bounds.y||wz>bounds.w)outside+=Math.abs(h);hash=(Math.imul(hash,31)+bits[i])|0;
+ }
+ const sx=Math.floor((cx-origin.x)/32*target.width),sz=Math.floor((cz-origin.y)/32*target.height);
+ return {min,max,energy,radius:radius/Math.max(mass,1e-10),outside,hash,sample:THREE.DataUtils.fromHalfFloat(bits[(sz*target.width+sx)*4]),glError:renderer.getContext().getError(),stats:post.waterWaves.stats};
+};
+window.waveBenchmark=async()=>{
+ const result=[];
+ for(const detail of ['high','ultra']){
+  window.draw({detail});for(let i=0;i<10;i++)window.draw({time:current.time+1/60});
+  const samples=[];let state;
+  for(let i=0;i<40;i++){await new Promise(requestAnimationFrame);if(i%15===0)window.waveImpact(-30,20,1.5);const start=performance.now();state=window.draw({time:current.time+1/60});renderer.getContext().finish();samples.push(performance.now()-start);}
+  samples.sort((a,b)=>a-b);result.push({detail,...state,waves:post.waterWaves.stats,medianMs:samples[20],p95Ms:samples[37]});
+ }return result;
+};
+window.recordWaves=async()=>{
+ window.waveReset();window.waveImpact(-30,20,1.5);
+ const stream=renderer.domElement.captureStream(30),chunks=[];
+ const recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9',videoBitsPerSecond:5000000});
+ recorder.ondataavailable=e=>chunks.push(e.data);const done=new Promise(resolve=>recorder.onstop=resolve);recorder.start();
+ for(let i=0;i<150;i++){if(i===35)window.waveImpact(-28.7,19.5,1.2);if(i===70)window.waveImpact(-31,19,1);window.draw({time:current.time+1/30});await new Promise(r=>setTimeout(r,1000/30));}
+ recorder.stop();await done;stream.getTracks().forEach(t=>t.stop());
+ return await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsDataURL(new Blob(chunks,{type:'video/webm'}));});
+};
 window.review={renderer,camera,scene,water,post};window.draw();window.ready=true;
 </script></body></html>

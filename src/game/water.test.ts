@@ -43,6 +43,15 @@ describe('water surfaces', () => {
   it('ignores a ripple on water that has no shader surface', () => {
     expect(() => rippleWater(new THREE.Mesh(new THREE.BoxGeometry(), markWater(new THREE.MeshStandardMaterial())), 0, 0)).not.toThrow();
   });
+  it('feeds bounded finite impacts to Ultra while retaining the cheap fallback rings', () => {
+    const material=createWaterMaterial(options), received:number[][]=[];
+    material.userData.waveImpulse=(...args)=>received.push(args);
+    material.userData.ripple(2,3,9); material.userData.ripple(NaN,3,1);
+    expect(received).toEqual([[2,3,3]]);
+    expect(material.uniforms.uRipples.value[0].toArray()).toEqual([2,3,0,3]);
+    expect(material.uniforms.uRipples.value[1].w).toBe(0);
+    material.dispose();
+  });
   it('follows the night sky, dims the water body and foam, and restores authored daylight', () => {
     const material = createWaterMaterial(options), u = material.uniforms;
     const night = dayLighting(22.5), sky = new THREE.Color(night.sky);

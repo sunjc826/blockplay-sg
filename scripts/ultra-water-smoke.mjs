@@ -57,9 +57,14 @@ try{
  await wait("document.querySelector('#world canvas').dataset.waterRefraction==='false'");
  await evaluate("import('/src/game/graphics-settings.ts').then(m=>m.setGraphicsSettings({waterDetail:'ultra'}))");
  await wait("document.querySelector('#world canvas').dataset.waterRefraction==='true'");
- await evaluate("window.engine.setInput('fire',true)");await wait('window.hud.shots>=2');await evaluate("window.engine.setInput('fire',false);window.engine.setInput('w',true)");
- await wait('window.hud.swimming===true');await evaluate("window.engine.setInput('w',false)");await screenshot('live-ultra-swimming');
- results.gameplay=await evaluate("({swimming:window.hud.swimming,shots:window.hud.shots,refraction:document.querySelector('#world canvas').dataset.waterRefraction})");
+ await evaluate("window.engine.setInput('fire',true)");await wait('window.hud.shots>=2');await evaluate("window.engine.setInput('fire',false)");
+ await wait("JSON.parse(document.querySelector('#world canvas').dataset.waterWaves).pending===0");
+ const beforeSwim=await evaluate("JSON.parse(document.querySelector('#world canvas').dataset.waterWaves).impulses");assert(beforeSwim>0,'Actual bullet hits reach the simulation');
+ await evaluate("window.engine.setInput('w',true)");
+ await wait('window.hud.swimming===true');
+ await wait(`JSON.parse(document.querySelector('#world canvas').dataset.waterWaves).impulses>${beforeSwim+6}`);
+ await evaluate("window.engine.setInput('w',false)");await screenshot('live-ultra-swimming');
+ results.gameplay=await evaluate("({swimming:window.hud.swimming,shots:window.hud.shots,waves:JSON.parse(document.querySelector('#world canvas').dataset.waterWaves),refraction:document.querySelector('#world canvas').dataset.waterRefraction})");
  await evaluate('window.engine.dispose()');assert.deepEqual(errors,[]);
  console.log('PASS Ultra water: depth/refraction, foreground preservation, presets, resize, day/night/rain, hardware timings, FPS scope and swimming.');
 }finally{results.errors=errors;await fs.writeFile(new URL('results.json',output),JSON.stringify(results,null,2));ws.close();await fetch(chrome+'/json/close/'+tab.id);}

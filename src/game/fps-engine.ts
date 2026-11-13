@@ -120,6 +120,7 @@ import { adoptPublishedRounds, advanceRound, createRound, needsFlight, skipRound
 import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import { SKIP_ENERGY, splashWeight, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
+import { setWaterSwimmer } from './water-waves';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { assistCone, assistLook, assistTrack, ASSIST_RANGE } from './aim-assist';
 import { getAimAssist } from './aim-assist-setting';
@@ -4818,6 +4819,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     matchCalls.step(now / 1000);
     hud.encikCallout = encik.current(now / 1000);
     objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);
+    setWaterSwimmer(world.scene, position.x, position.z, hud.phase === 'playing' && hud.health > 0 && swimming());
     world.animate(hud.elapsed);
     markers?.update(realDt, camera.position);
     rangeFigures?.update(realDt, camera.position);
@@ -4891,6 +4893,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       canvas.dataset.bloom = String(occlusion.bloomEnabled);
       canvas.dataset.waterReflections = String(occlusion.waterReflectionsEnabled);
       canvas.dataset.waterRefraction = String(occlusion.waterRefractionEnabled);
+      if (debugDatasets) canvas.dataset.waterWaves = JSON.stringify(occlusion.waterWaves.stats);
       canvas.dataset.rainReflections = String(occlusion.rainReflectionsEnabled);
       const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
       const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;

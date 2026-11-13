@@ -8,6 +8,7 @@ import { softwareRenderer } from './fps-sun-shadows';
 import { getGraphicsSettings } from './graphics-settings';
 import { createWaterReflections } from './water-reflections';
 import { createWaterSurfacePass } from './water-surface-pass';
+import { createWaterWaves } from './water-waves';
 import { getEnvironmentSettings } from './environment-settings';
 import { createRainReflections, type WetGround } from './rain-reflections';
 import { createGradeUniforms, GRADE_GLSL, type ColorGrade, type SkyDome } from './district-look';
@@ -50,6 +51,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
   let rain: ReturnType<typeof createRainReflections> | null = null, rainReflectionsEnabled = false;
   const water = createWaterReflections(renderer,scene,camera);
   const waterSurface = createWaterSurfacePass(renderer,scene,camera);
+  const waterWaves = createWaterWaves(renderer,scene,camera);
   let waterReflectionsEnabled = false;
   let sunRays: ReturnType<typeof createSunRays> | null = null, godRaysEnabled = false;
   const sunUv = new THREE.Vector2();
@@ -104,6 +106,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     /** Whether the last frame went out with the scene's colour grade. */
     get gradeApplied() { return gradeApplied; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
+    get waterWaves() { return waterWaves; },
     get waterRefractionEnabled() { return waterSurface.enabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
@@ -123,6 +126,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       camera.updateMatrixWorld();
       const ultraWater = supported && wantWaterSurface && getGraphicsSettings().waterDetail === 'ultra' && !getEnvironmentSettings().reducedEffects;
       const waterSurfaceEnabled = waterSurface.prepare(ultraWater);
+      waterWaves.update(ultraWater, waterSurfaceEnabled);
       const sun = scene.userData.sunRays as SunRayLight | undefined;
       const rayStrength = supported && wantGodRays !== 'off' ? projectSunRays(camera, sun, sunUv) : 0;
       godRaysEnabled = rayStrength > .002;
@@ -187,7 +191,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       sceneTarget?.depthTexture?.dispose(); sceneTarget?.dispose(); aoTarget?.dispose(); gtao?.dispose(); aoTemporal?.dispose(); output?.dispose();
       smaa?.dispose(); smaaTarget?.dispose();
       bloom?.dispose(); sunRays?.dispose();
-      rain?.dispose(); water.dispose(); waterSurface.dispose();
+      rain?.dispose(); water.dispose(); waterSurface.dispose(); waterWaves.dispose();
       // Three r180's pass disposes its blur/composite materials, but not this one.
       bloom?.materialHighPassFilter.dispose();
     },

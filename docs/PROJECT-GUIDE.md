@@ -360,7 +360,21 @@ resolution, capped at 1024 pixels on Ultra (768 otherwise). Ultra filters its
 mip levels and stretches highlights slightly, with more softening in rain.
 Refraction requires hardware WebGL2, visible above-water bay geometry and
 unreduced Ultra detail; lowering detail releases the snapshot. Other districts
-retain their authored water. `scripts/ultra-water-smoke.mjs` checks foreground
+retain their authored water. Ultra also runs a 512² GPU height/velocity field
+across a 32 m square around the player (`water-waves.ts`). Bullet impacts launch
+short wave trains; the local player's swimming position produces distance-spaced
+paired wakes and restrained treading ripples. A 256²-cell rendered patch samples
+the same field for displacement and normals, so reflections/refraction follow
+the crests. The original bay remains the gameplay raycast plane. Raised impact
+rings are suppressed where the simulation fully covers them; High keeps its
+existing rings. Fixed 60 Hz steps are capped at four per draw, with reset after
+large time gaps; texel-aligned scrolling preserves world positions, solid quay
+bounds reflect waves and the outer simulation band absorbs them. Floating decks
+do not obstruct propagation. Detail changes/disposal release both state targets
+and patch geometry. Boat/remote-player wakes and caustics are not part of this
+first interaction pass. `scripts/water-waves-smoke.mjs` reads the actual GPU field
+to verify propagation, overlap, damping, 30/60/144 fps equivalence, scrolling and
+quay bounds, and captures a moving Marina preview. `scripts/ultra-water-smoke.mjs` checks foreground
 preservation, preset restoration, texture lifetime, resize/2× density and real
 Marina day/night/rain views using `scripts/fixtures/ultra-water.html`.
 

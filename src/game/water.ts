@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
+import { WATER_WAVES } from './water-wave-state';
 
 /**
  * Open water: a surface a round can splash into rather than a floor it chips.
@@ -63,7 +64,29 @@ export interface WaterOptions {
   choppiness?: number;
 }
 
+// Shared sampling keeps displaced geometry, reflection normals and refraction in phase.
+const waveField = /* glsl */ `
+  uniform sampler2D uWaveMap;
+  uniform float uWaveReady, uWaveHeight;
+  uniform vec2 uWaveOrigin;
+  uniform vec4 uWaveBounds;
+  const float waveSpan=${WATER_WAVES.span.toFixed(1)};
+  const float waveTexel=1.0/${WATER_WAVES.size.toFixed(1)};
+  float waveWeight(vec2 p, float baseHeight) {
+    if (uWaveReady<.5 || abs(baseHeight-uWaveHeight)>.02) return 0.0;
+    vec2 local=p-uWaveOrigin;
+    float edge=min(min(local.x,local.y),min(waveSpan-local.x,waveSpan-local.y));
+    return smoothstep(0.0,3.0,edge);
+  }
+  float waveHeight(vec2 p, float baseHeight) {
+    return texture2D(uWaveMap,(p-uWaveOrigin)/waveSpan).r*waveWeight(p,baseHeight);
+  }
+`;
+
 const vertexShader = /* glsl */ `
+  ${waveField}
+  attribute float waterPatch;
+  varying float vWaterPatch;
   uniform float uTime;
   uniform float uChop;
   varying vec3 vWorld;
@@ -73,6 +96,8 @@ const vertexShader = /* glsl */ `
   void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
     vBaseHeight = world.y;
+    vWaterPatch = waterPatch;
+    if (waterPatch>.5 && uWaveReady>.5) world.y += waveHeight(world.xz,vBaseHeight);
     // A slow swell moves the vertices; the fine chop lives only in the normal.
     world.y += uChop * (0.05 * sin(world.x * 0.09 + uTime * 0.7) + 0.035 * sin(world.z * 0.13 - uTime * 0.9));
     vWorld = world.xyz;
@@ -84,6 +109,8 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   #define RIPPLES ${MAX_WATER_RIPPLES}
+  ${waveField}
+  varying float vWaterPatch;
   uniform float uTime;
   uniform float uChop;
   uniform float uClarity;
@@ -143,6 +170,15 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     vec2 p = vWorld.xz;
+    float simulated=waveWeight(p,vBaseHeight);
+    if (uWaveReady>.5 && abs(vBaseHeight-uWaveHeight)<.02) {
+      vec2 local=p-uWaveOrigin;
+      // Keep a narrow underlying border so MSAA coverage at the patch edge
+      // cannot leave subpixel holes between the two independently rasterized meshes.
+      bool inPatch=all(greaterThan(local,vec2(.2))) && all(lessThan(local,vec2(waveSpan-.2)));
+      if (vWaterPatch<.5 && inPatch) discard;
+      if (vWaterPatch>.5 && (any(lessThan(p,uWaveBounds.xy)) || any(greaterThan(p,uWaveBounds.zw)))) discard;
+    }
     float waterFootprint = max(length(dFdx(p)), length(dFdy(p)));
     vec2 slope = vec2(0.0);
     slope += wave(p, normalize(vec2(0.8, 0.6)), 0.55, 0.035, 1.3);
@@ -160,6 +196,12 @@ const fragmentShader = /* glsl */ `
         *(1.0-smoothstep(.04,.25,waterFootprint));
     }
     slope *= uChop;
+    if (simulated>0.0) {
+      vec2 stepX=vec2(waveSpan*waveTexel,0),stepZ=stepX.yx;
+      vec2 waveSlope=vec2(waveHeight(p+stepX,vBaseHeight)-waveHeight(p-stepX,vBaseHeight),
+        waveHeight(p+stepZ,vBaseHeight)-waveHeight(p-stepZ,vBaseHeight))/(2.0*waveSpan*waveTexel);
+      slope += waveSlope*(1.0-smoothstep(.08,.3,waterFootprint));
+    }
 
     float foam = 0.0;
     for (int i = 0; i < RIPPLES; i++) {
@@ -177,9 +219,9 @@ const fragmentShader = /* glsl */ `
       float decay = r.w * exp(-age * 1.6) / (1.0 + d * 1.4);
       float phase = behind * 11.0;
       float dh = cos(phase) * envelope * decay * (1.0 - smoothstep(1.0, 3.14159, 11.0 * waterFootprint));
-      slope += (d > 1e-3 ? offset / d : vec2(0.0)) * dh * 0.9;
+      slope += (d > 1e-3 ? offset / d : vec2(0.0)) * dh * 0.9 * (1.0-simulated);
       // Fresh white water where the round broke the surface.
-      foam += r.w * exp(-age * 3.2) * smoothstep(0.5 + age * 0.9, 0.0, d);
+      foam += mix(1.0,.12,simulated) * r.w * exp(-age * 3.2) * smoothstep(0.5 + age * 0.9, 0.0, d);
     }
 
     // Small, short-lived rain rings deform the surface itself, never floating
@@ -210,7 +252,9 @@ const fragmentShader = /* glsl */ `
     vec3 sky = mix(uHorizon, uSky, smoothstep(0.0, 0.45, reflected.y));
     if (uReflectionReady > .5 && abs(vBaseHeight-uReflectionHeight)<.02) {
       vec4 projected=uReflectionMatrix*vec4(vWorld,1.0);
-      vec2 uv=projected.xy/projected.w + slope*.018;
+      // Resolve the larger angular deflection of nearby interactive crests.
+      float distortion=mix(.018,.05+.025*(1.0-facing),uWaveReady);
+      vec2 uv=projected.xy/projected.w + slope*distortion;
       if(projected.w>0.0 && all(greaterThan(uv,vec2(0.0))) && all(lessThan(uv,vec2(1.0)))) {
         float edge=smoothstep(0.0,.035,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
         vec3 captured=texture2D(uReflectionMap,uv).rgb;
@@ -273,6 +317,9 @@ export type WaterMaterial = THREE.ShaderMaterial & {
   userData: {
     fpsWater: true;
     ripple: (x: number, z: number, strength?: number) => void;
+    /** Optional Ultra simulation hook; cheap rings remain the fallback. */
+    waveImpulse?: (x: number, z: number, strength: number) => void;
+    waveCoverage?: (x: number, z: number, radius: number) => boolean;
     setTime: (seconds: number) => void;
     setRain: (intensity: number, reduced: boolean) => void;
     setLighting: (lighting: LightingState, sky: THREE.Color, horizon: THREE.Color, sunlight: number, blend: number) => void;
@@ -288,6 +335,8 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
       uTime: { value: 0 },
       uRain: { value: 0 },
       uUltra: { value: 0 },
+      uWaveReady: { value: 0 }, uWaveMap: { value: null }, uWaveHeight: { value: 0 },
+      uWaveOrigin: { value: new THREE.Vector2() }, uWaveBounds: { value: new THREE.Vector4() },
       uRefractionReady: { value: 0 },
       uRefractionHeight: { value: 0 },
       uSceneColor: { value: null }, uSceneDepth: { value: null },
@@ -314,10 +363,14 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
   }) as WaterMaterial;
   // UniformsUtils.merge clones values; keep writing to the array the shader reads.
   const live = material.uniforms.uRipples.value as THREE.Vector4[];
+  Object.assign(material.defaultAttributeValues, { waterPatch: [0] });
   material.userData.fpsWater = true;
   /** Drops a ring into the surface at world (x, z), aged from the current time. */
   material.userData.ripple = (x, z, strength = 1) => {
-    live[next].set(x, z, material.uniforms.uTime.value, Math.max(0, Math.min(3, strength)));
+    if (![x,z,strength].every(Number.isFinite)) return;
+    strength = Math.max(0, Math.min(3, strength));
+    material.userData.waveImpulse?.(x,z,strength);
+    live[next].set(x, z, material.uniforms.uTime.value, strength);
     next = (next + 1) % MAX_WATER_RIPPLES;
   };
   material.userData.setTime = seconds => { material.uniforms.uTime.value = seconds; };
@@ -343,7 +396,7 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
     u.uSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z);
   };
   material.userData.resetLighting = () => {
-    u.uRain.value=0;u.uReflectionReady.value=0;u.uRefractionReady.value=0;u.uUltra.value=0;
+    u.uRain.value=0;u.uReflectionReady.value=0;u.uRefractionReady.value=0;u.uUltra.value=0;u.uWaveReady.value=0;
     u.uSky.value.copy(daySky); u.uHorizon.value.copy(dayHorizon); u.uSun.value.copy(daySun);
     u.uSurfaceLight.value = 1; u.uGlintStrength.value = 2.4; u.uGlintColor.value.setRGB(1, .96, .86);
   };
