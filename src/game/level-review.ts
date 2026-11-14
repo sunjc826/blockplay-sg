@@ -6,7 +6,11 @@ export const MAX_REVIEW_BYTES = 2_000_000;
 export type ReviewCollection = 'level' | 'asset';
 export interface ReviewView { yaw: number; pitch: number; zoom: number; pan?: { x: number; y: number } }
 export interface ReviewSurface { y: number; meshPath: number[]; view: ReviewView }
-export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface }
+/** Orbit camera over a district: the point looked at (world metres), angles in radians and the distance to it. */
+export interface ReviewSceneView { x: number; y: number; z: number; yaw: number; pitch: number; distance: number }
+/** A district pin placed on the built 3D scene: world height of the surface, and the view it was placed from. */
+export interface ReviewSpace { y: number; view: ReviewSceneView }
+export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface; space?: ReviewSpace }
 export type ReviewAuthor = 'designer' | 'ai';
 export type ReviewStatus = 'open' | 'resolved';
 export type ReviewEvent = { id: string; at: string; author: ReviewAuthor; body: string; status?: ReviewStatus };
@@ -44,6 +48,12 @@ export function parseReview(raw: string): ReviewDocument {
       if (pan !== undefined && (!record(pan) || !['x', 'y'].every(k => typeof pan[k] === 'number' && Number.isFinite(pan[k]) && Math.abs(Number(pan[k])) <= 10))) throw new Error('Invalid model camera pan.');
       surface = { y: p.y, meshPath: [...p.meshPath], view: { yaw: Number(p.view.yaw), pitch: Number(p.view.pitch), zoom: Number(p.view.zoom), ...(record(pan) ? { pan: { x: Number(pan.x), y: Number(pan.y) } } : {}) } };
     }
+    let space: ReviewSpace | undefined;
+    if (t.anchor.space !== undefined) {
+      const p = t.anchor.space, v = record(p) ? p.view : undefined, finite = (n: unknown, max: number): n is number => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= max;
+      if (assets || !record(p) || !finite(p.y, 100000) || !record(v) || !finite(v.x, 100000) || !finite(v.y, 100000) || !finite(v.z, 100000) || !finite(v.yaw, 1000) || !finite(v.pitch, Math.PI / 2) || !finite(v.distance, 100000) || v.distance <= 0) throw new Error('Invalid 3D district position or saved view.');
+      space = { y: p.y, view: { x: v.x, y: v.y, z: v.z, yaw: v.yaw, pitch: v.pitch, distance: v.distance } };
+    }
     if (assets && !surface && (t.anchor.x !== 0 || t.anchor.z !== 0)) throw new Error('Whole-model notes must use a zero anchor.');
     threadIds.add(t.id);
     const events = t.events.map((e): ReviewEvent => {
@@ -51,7 +61,7 @@ export function parseReview(raw: string): ReviewDocument {
       eventIds.add(e.id);
       return { id: e.id, at: e.at, author: e.author, body: e.body, ...(e.status ? { status: e.status } : {}) };
     });
-    return { id: t.id, ...(assets ? { asset: t.asset as string } : { district: t.district as RegionId }), title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level, ...(surface ? { surface } : {}) }, events: sortEvents(events) };
+    return { id: t.id, ...(assets ? { asset: t.asset as string } : { district: t.district as RegionId }), title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level, ...(surface ? { surface } : {}), ...(space ? { space } : {}) }, events: sortEvents(events) };
   });
   return { format: assets ? 'blockplay-asset-review' : 'blockplay-level-review', version: 1, threads };
 }
@@ -91,5 +101,5 @@ export function reviewPoint(x: number, z: number, bounds: MapBounds) {
   return { x: Math.round(Math.max(bounds.minX, Math.min(bounds.maxX, x)) * 10) / 10, z: Math.round(Math.max(bounds.minZ, Math.min(bounds.maxZ, z)) * 10) / 10 };
 }
 export function reviewBrief(document: ReviewDocument, target: string) {
-  return [`Design review: ${target}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => (t.asset ?? t.district) === target).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z}${t.anchor.surface ? ` · y=${t.anchor.surface.y} · mesh path ${t.anchor.surface.meshPath.join("/")} · view ${JSON.stringify(t.anchor.surface.view)}` : ""} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
+  return [`Design review: ${target}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => (t.asset ?? t.district) === target).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z}${t.anchor.surface ? ` · y=${t.anchor.surface.y} · mesh path ${t.anchor.surface.meshPath.join("/")} · view ${JSON.stringify(t.anchor.surface.view)}` : ""}${t.anchor.space ? ` · y=${t.anchor.space.y} (placed on the 3D scene) · view ${JSON.stringify(t.anchor.space.view)}` : ""} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
 }

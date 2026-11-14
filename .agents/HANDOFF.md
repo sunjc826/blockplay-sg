@@ -7053,3 +7053,25 @@ adds a `skyTint` from the district's authored background. Kit districts pass
   shows grey below the horizon; Raffles' shaded street is darker; every district
   shares one cloud field; indirect light fades in ~6 s after entering Changi.
   Evidence `.cache/district-looks/<district>/`.
+
+## 2026-11-14 — Level review: 3D layout pins and audit
+
+Level review gains a **3D layout** view (`/debug?review=<district>&view=3d`):
+the district from `region.build()`, held still under an orbit camera, with
+comments pinned to surfaces. Schematic stays the default and builds nothing.
+
+- Schema: level threads may carry `anchor.space { y, view { x, y, z, yaw, pitch, distance } }`
+  (world metres, part of the immutable header). Shared by client, Worker and CLI.
+  An older cached client drops it and its sync is refused as a conflict until it updates.
+- `src/game/district-review.ts` (camera, picking, labels, detached-pin check),
+  `src/components/DistrictReviewViewer.tsx`. Schematic pins show in 3D at ground
+  level (dashed); occluded pins fade; a 3D pin with no surface within 0.6 m is flagged.
+- Schematic: wheel zoom about the cursor and background drag-pan for the mouse.
+- Audit table appended to `docs/DEBUG-WORKSPACE-AUDIT.md`; usage in `docs/LEVEL-REVIEW.md`.
+
+Checked: typecheck, 4,293 tests, build, and on SwiftShader the new
+`scripts/district-review-smoke.mjs` plus the level, model, gesture and workspace
+review smokes. Not done: cloud sync against a Worker (`level-review-cloud-smoke`),
+a physical phone, `test:browser`/`test:pwa`/`test:touch`. Left alone: model viewer
+wheel is dead while positioning a pin; the pin-mode bar shifts the canvas ~33 px;
+the 3D study has no shadows or atmosphere; buried pins are not detected.

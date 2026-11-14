@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { ReviewGesture } from '../lib/review-gestures';
 
 /** Capture two-finger gestures before orbit/pin handlers; never resume one finger mid-gesture. */
-export function useReviewGestures(host: RefObject<HTMLElement | null>, onChange: (gesture: ReviewGesture) => void, onStart?: () => void) {
+/** `mount` changes when the host element is replaced, so the listeners move to the new node. */
+export function useReviewGestures(host: RefObject<HTMLElement | null>, onChange: (gesture: ReviewGesture) => void, onStart?: () => void, mount: unknown = 0) {
   const latest = useRef({ onChange, onStart }); latest.current = { onChange, onStart };
   const [active, setActive] = useState(false), [version, setVersion] = useState(0);
   useEffect(() => {
@@ -51,6 +52,6 @@ export function useReviewGestures(host: RefObject<HTMLElement | null>, onChange:
     window.addEventListener('pointerup', end, true); window.addEventListener('pointercancel', end, true);
     window.addEventListener('blur', cancel); window.addEventListener('resize', cancel); document.addEventListener('visibilitychange', hidden);
     return () => { node.removeEventListener('pointerdown', down, true); node.removeEventListener('pointermove', move, true); node.removeEventListener('pointerup', end, true); node.removeEventListener('pointercancel', end, true); node.removeEventListener('lostpointercapture', lost, true); node.removeEventListener('click', click, true); window.removeEventListener('pointerup', end, true); window.removeEventListener('pointercancel', end, true); window.removeEventListener('blur', cancel); window.removeEventListener('resize', cancel); document.removeEventListener('visibilitychange', hidden); };
-  }, [host]);
+  }, [host, mount]);
   return { active, version };
 }

@@ -3,7 +3,10 @@
 Open `/debug?review=marina-bay` or choose **Level review** in the debug mode list.
 All 23 district schematics support world X/Z pins, floor labels, zoom/pan,
 mouse/touch/keyboard placement, threads, design rationale and resolution history.
-The board does not start gameplay or automatically call a model.
+**3D layout** (or `&view=3d`) shows the district as it is built for play and
+pins comments to its surfaces with a real height; see [3D layout pins](#3d-layout-pins).
+The schematic is the default and builds nothing. The board does not start
+gameplay or automatically call a model.
 
 ## Working together
 
@@ -30,6 +33,52 @@ link** identifies a location/thread but does not grant access. **Copy AI brief**
 JSON export/import and repository notes remain available for backups and offline
 handoffs. Disconnect removes this browser's saved credential; cloud history and
 the cached browser copy remain. It does not revoke a previously shared link.
+
+## 3D layout pins
+
+The schematic draws roads, a few map shapes and landmark dots: it has no
+buildings, decks or floors, so a schematic pin can only name its height in
+words. **3D layout** builds the same scene the walk and FPS modes use
+(`region.build()`), holds it still, and puts an orbit camera over it. No
+atmosphere, weather, shadows, fog or animation run; it is a layout study, not a
+preview of the lit game.
+
+- **Move**: drag orbits; Shift-drag, right-drag or two fingers slide the view
+  along the ground; wheel or pinch zooms; double-click centres on the surface
+  under the cursor (this is how to orbit around a roof rather than the ground
+  below it). Arrow keys slide, Shift+arrows orbit, `+`/`-` zoom, PageUp/PageDown
+  raise or lower the point looked at. **Overview** frames the playable bounds;
+  **Top** looks straight down with north up, like the schematic.
+- **Pin**: **Pin a comment**, drag the pointer onto a surface, release, **Pin
+  here**. The pick is a raycast against drawn meshes; sprites, lines, effects,
+  hidden colliders, fully transparent materials and anything beyond a margin
+  around the playable bounds (the sky) are skipped. The suggested label says what
+  was hit, for example `Deck or roof · y=66.4 m, 66.4 m above ground · <mesh
+  name>`; edit it to name the place.
+- **Read**: every thread of the district appears in both views. Schematic pins
+  have no height, so in 3D they are drawn at ground level with a dashed outline.
+  Pins behind geometry are faded but still selectable. Selecting a 3D thread
+  restores the view it was placed from; **Restore pin view** returns to it.
+- **Changed geometry**: when the scene is opened, each 3D pin is checked for a
+  surface within 0.6 m along the six axes. A pin with none is kept where it was
+  and its thread says the geometry changed. This is per pin and local; it does
+  not notice new geometry that buries or hides a place, and it only runs while
+  the 3D layout is open.
+
+A 3D anchor adds `anchor.space: { y, view: { x, y, z, yaw, pitch, distance } }`
+to a level thread. `anchor.x`, `space.y`, `anchor.z` are world metres on the
+surface. `view` is the orbit camera: the point looked at, yaw (0 looks north
+from the south, positive moves the camera east), pitch above the horizon in
+radians, and distance in metres. The camera position is
+`target + distance * (sin yaw * cos pitch, sin pitch, cos yaw * cos pitch)`.
+Like the rest of the anchor it is part of the immutable thread header. **Copy AI
+brief** and the CLI `pull` carry it, so a reply can reason about the exact place
+and sightline. Helpers and limits live in `src/game/district-review.ts`.
+
+Deploy the Worker and the client together (the normal push does). A browser
+still running an older cached build drops `space` when it reads the board, and
+its next sync is refused as a conflicting location until the app updates; no
+history is lost.
 
 ## Cloud persistence
 
@@ -96,7 +145,7 @@ The same schema powers local storage, imports, the API and the CLI.
 
 - Maximum 2 MB UTF-8, 500 threads, 500 events per thread.
 - Immutable thread header: stable ID, district, title, kind, anchor (`x`, `z`,
-  descriptive `level`) and `mapRevision`. For a moved pin or renamed thread,
+  descriptive `level`, and `space` for a 3D layout pin) and `mapRevision`. For a moved pin or renamed thread,
   create a new thread and link the old ID in a reply.
 - Append-only event: unique ID, ISO UTC timestamp
   (`YYYY-MM-DDTHH:mm:ss.sssZ`), author (`designer` or `ai`), body and optional
@@ -116,7 +165,9 @@ Static Sites builds retain local/file mode without the cloud controls. Vite
 proxies `/api/level-review` to local Wrangler on 8787. Use a private `.dev.vars`
 file for local credentials; no production credential is embedded in the client.
 
-Validation: `pnpm test`, `pnpm typecheck`, `scripts/level-review-smoke.mjs`, and
+Validation: `pnpm test`, `pnpm typecheck`, `scripts/level-review-smoke.mjs`,
+`scripts/district-review-smoke.mjs` (3D layout: ground and roof pins, saved
+views, thread links, detached pins, touch; needs WebGL in Chrome), and
 `scripts/level-review-cloud-smoke.mjs` (local Wrangler or deployed HTTPS plus
 Chrome CDP). The cloud smoke uses the verification board only.
 
