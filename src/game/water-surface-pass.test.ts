@@ -15,7 +15,7 @@ function setup(failCopy = false, name = 'marina-bay-water') {
   parent.add(new THREE.Mesh(parent.geometry, glass)); scene.add(parent, new THREE.Mesh(parent.geometry, hidden));
   camera.position.set(0, 2, 5); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
   const frames: boolean[][] = [];
-  const renderer = { autoClear: false, shadowMap: { autoUpdate: true }, initRenderTarget: vi.fn(), setRenderTarget: vi.fn(),
+  const renderer = { autoClear: false, shadowMap: { autoUpdate: true }, initRenderTarget: vi.fn(), resetState: vi.fn(), setRenderTarget: vi.fn(),
     copyTextureToTexture: vi.fn(() => { if (failCopy) throw new Error('copy failed'); }),
     render: vi.fn(() => frames.push([solid.visible, glass.visible, water.visible, hidden.visible])),
   } as unknown as THREE.WebGLRenderer;

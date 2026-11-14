@@ -9,7 +9,7 @@ import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
 setEnvironmentSettings({weather:'sunny',timeOfDay:'noon',celebration:'none',reducedEffects:true,shadows:false,occlusion:false});
 const params=new URLSearchParams(location.search);
 if(params.has('water-effects')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'high',waterReflections:false,lensEffects:true});setEnvironmentSettings({weather:'sunny',reducedEffects:false});}
-if(params.has('sentosa-beach')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
+if(params.has('sentosa-beach')||params.has('caustics-wall')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
 if(params.has('boat-wakes')){const {setGraphicsSettings}=await import('/src/game/graphics-settings.ts');setGraphicsSettings({waterDetail:'ultra',waterReflections:true});setEnvironmentSettings({reducedEffects:false});}
 if(params.has('gallery')){
   document.getElementById('start').remove();
@@ -26,7 +26,21 @@ if(params.has('gallery')){
 }else{
   const root=createRoot(document.getElementById('overlay'));
   const options={region:'marina-bay',combat:false,rangeTravel:{spawn:params.has('water-effects')?{x:0,z:-4,yaw:Math.PI,pitch:-.8}:params.has('swim')?{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06}:{x:-20.5,z:24,yaw:0,pitch:-.06},onTravel(){}}};
-  if(params.has('sentosa-beach')){options.region='sentosa';options.rangeTravel.spawn={x:0,z:194,yaw:Math.PI,pitch:-.45};}
+  if(params.has('sentosa-beach')||params.has('caustics-wall')){options.region='sentosa';options.rangeTravel.spawn={x:0,z:194,yaw:Math.PI,pitch:-.45};}
+  if(params.has('caustics-wall')){
+    // Explicit receiver test geometry; the FPS engine, gun, impacts and spray
+    // are unchanged. This wall is not part of the shipped Sentosa map.
+    const THREE=await import('three'),{getRegion}=await import('/src/game/regions.ts'),awaitWater=await import('/src/game/water.ts');
+    setEnvironmentSettings({timeOfDay:'morning'});
+    const region=getRegion('sentosa'),build=region.build;
+    region.build=(...args)=>{const world=build(...args);
+      const {primaryWaterSurface}=awaitWater;
+      primaryWaterSurface(world.scene).material.uniforms.uChop.value=0;
+      const wall=new THREE.Mesh(new THREE.BoxGeometry(.25,3.6,10),new THREE.MeshStandardMaterial({color:'#92958a',roughness:1}));
+      wall.position.set(-1.7,.3,206);wall.name='caustics-review-wall';world.scene.add(wall);
+      const dispose=world.dispose;world.dispose=()=>{wall.geometry.dispose();wall.material.dispose();dispose();};return world;
+    };
+  }
   if(params.has('calibre')){
     const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
     options.loadout=resolveLoadout(createProfile());options.loadout.carriedFamilies=[Number(params.get('calibre')),2];

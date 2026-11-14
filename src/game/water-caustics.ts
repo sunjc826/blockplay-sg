@@ -1,53 +1,186 @@
-/** Artistic refracted-light approximation. Shared water depth/height samples
- * keep the moving bands and local focusing attached to the submerged receiver. */
-export const waterCausticsShader = /* glsl */ `
-  float causticBands(vec2 p, float footprint, float phaseOffset) {
-    // Curve the filaments within each moving cell rather than leaving a
-    // straight polygonal net. Opposed phases keep the two scales independent.
-    p+=.19*sin(p.yx*2.4+vec2(uTime*.31+phaseOffset,-uTime*.27));
-    footprint*=1.45;
-    vec2 cell=floor(p),local=fract(p);
-    float first=8.0,second=8.0;
-    for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++) {
-      vec2 offset=vec2(float(x),float(y)),id=cell+offset;
-      vec2 seed=vec2(waterHash(id),waterHash(id+37.2));
-      vec2 phase=6.28318*seed+phaseOffset;
-      vec2 point=offset+.5+.29*sin(phase+uTime*(.48+seed*.24))-local;
-      float distanceSquared=dot(point,point);
-      if(distanceSquared<first){second=first;first=distanceSquared;}
-      else second=min(second,distanceSquared);
-    }
-    float gap=sqrt(second)-sqrt(first);
-    // Widen subpixel bands but reduce their energy, avoiding distant glitter.
-    float width=.032+footprint*.6;
-    return (1.0-smoothstep(width,width*2.3,gap))*.032/width;
-  }
-  float dynamicCaustic(vec2 p, float depth, float footprint, float baseHeight) {
-    vec2 bend=windSlope(p*2.7+vec2(uTime*.22,-uTime*.14))*.045*uChop;
-    bend+=vec2(.019*cos(dot(p,vec2(.8,.6))*.55-uTime*1.3),
-      .02*cos(dot(p,vec2(-.5,.86))*.9-uTime*1.9))*uChop;
-    float focus=1.0;
-    if(uCausticResponse>0.0 && waveWeight(p,baseHeight)>0.0) {
-      // Surface curvature concentrates/diverges refracted light. Five filtered
-      // height taps also bend the pattern with bullet rings and boat wakes.
-      float spacing=max(.125,footprint*1.5);
-      vec2 dx=vec2(spacing,0.0),dz=dx.yx;
-      float h=waveHeight(p,baseHeight);
-      float l=waveHeight(p-dx,baseHeight),r=waveHeight(p+dx,baseHeight);
-      float b=waveHeight(p-dz,baseHeight),t=waveHeight(p+dz,baseHeight);
-      bend+=vec2(r-l,t-b)/(2.0*spacing)*uCausticResponse;
-      vec2 curvature=clamp(vec2(l+r,b+t)-2.0*h,-3.0*spacing*spacing,3.0*spacing*spacing)/(spacing*spacing);
-      vec2 jacobian=vec2(1.0)-curvature*min(depth,1.5)*.25*uCausticResponse;
-      focus=clamp(1.0/max(.55,abs(jacobian.x*jacobian.y)),.65,1.8);
-    }
-    p-=clamp(bend*depth*.75,vec2(-.35),vec2(.35));
-    vec2 drift=vec2(uTime*.075,-uTime*.055);
-    vec2 warp=.18*vec2(sin(p.y*1.7+uTime*.46),sin(p.x*1.4-uTime*.39));
-    float broad=causticBands((p+warp+drift)*1.45,footprint*1.45,0.0);
-    float fine=causticBands(mat2(.8,-.6,.6,.8)*(p-warp-drift*.7)*2.15+19.3,footprint*2.15,2.1);
-    // Crossings briefly focus more light; soft troughs conserve the overall
-    // brightness instead of painting white lines over the bottom.
-    float bands=broad*.65+fine*.4+broad*fine*.6;
-    return (bands+.24)*focus-.36;
+import * as THREE from 'three';
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import type { WaterMaterial } from './water';
+import { waterWaveField, waterNormalField } from './water-surface-field';
+import { WATER_WAVES } from './water-wave-state';
+
+/** Horizontal receiving planes in metres relative to the water. Sampling the
+ * two neighbouring planes approximates focus at the actual receiver height. */
+export const CAUSTIC_HEIGHTS = [-.25, -1, -2.5, .35, 1.25, 3] as const;
+const TILE = 512;
+
+const projectVertex = /* glsl */ `
+  ${waterWaveField}
+  ${waterNormalField}
+  uniform vec3 uSun;
+  uniform float receiverHeight, uCausticResponse;
+  varying vec3 sourcePoint, receivingPoint;
+  varying vec2 flatSource;
+  varying float validRay;
+  void main() {
+    vec2 p=uWaveOrigin+uv*waveSpan;
+    vec2 slope=ambientWaterSlope(p,waveSpan/256.0)+interactionWaterSlope(p,uWaveHeight)*uCausticResponse;
+    vec3 normal=normalize(vec3(-slope.x,1.0,-slope.y));
+    float height=waterSwellHeight(p)+waveHeight(p,uWaveHeight)*uCausticResponse;
+    vec3 incoming=-normalize(uSun);
+    bool above=receiverHeight>0.0;
+    vec3 flatRay=above?reflect(incoming,vec3(0,1,0)):refract(incoming,vec3(0,1,0),1.0/1.333);
+    vec3 ray=above?reflect(incoming,normal):refract(incoming,normal,1.0/1.333);
+    validRay=step(.12,ray.y*sign(receiverHeight));
+    float travel=(receiverHeight-height)/(sign(receiverHeight)*max(.12,abs(ray.y)));
+    sourcePoint=vec3(p.x,height,p.y);
+    flatSource=uv*waveSpan;
+    receivingPoint=sourcePoint+ray*travel;
+    vec2 projected=(receivingPoint.xz-uWaveOrigin-flatRay.xz/flatRay.y*receiverHeight)/waveSpan;
+    gl_Position=vec4(projected*2.0-1.0,0.0,1.0);
   }
 `;
+const projectFragment = /* glsl */ `
+  ${waterWaveField}
+  varying vec3 sourcePoint, receivingPoint;
+  varying vec2 flatSource;
+  varying float validRay;
+  void main() {
+    if(validRay<.99 || shoreDepth(sourcePoint.xz)<=.015
+      || any(lessThan(sourcePoint.xz,uWaveBounds.xy)) || any(greaterThan(sourcePoint.xz,uWaveBounds.zw))) discard;
+    // Flux is the area of the source divided by the projected receiving area.
+    // Folded/overlapping triangles add their light, generating the caustic itself.
+    float sourceArea=abs(dFdx(flatSource.x)*dFdy(flatSource.y)-dFdy(flatSource.x)*dFdx(flatSource.y));
+    float receivingArea=length(cross(dFdx(receivingPoint),dFdy(receivingPoint)));
+    float flux=min(12.0,sourceArea/max(receivingArea,1e-8));
+    vec2 origin=(sourcePoint.xz-uWaveOrigin)/waveSpan;
+    gl_FragColor=vec4(flux,flux*origin.x,flux*origin.y,flux*sourcePoint.y);
+  }
+`;
+const receiverVertex = /* glsl */ `
+  varying vec2 vUv;
+  void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}
+`;
+const receiverFragment = /* glsl */ `
+  uniform sampler2D sceneColor, sceneDepth, caustics;
+  uniform mat4 inverseViewProjection, viewProjection, view;
+  uniform vec3 eye, uSun, uGlintColor;
+  uniform vec2 origin, cameraRange;
+  uniform float surface, light, rain;
+  varying vec2 vUv;
+  const float span=${WATER_WAVES.span.toFixed(1)};
+  vec3 worldPosition(vec2 uv,float depth) {
+    vec4 p=inverseViewProjection*vec4(uv*2.0-1.0,depth*2.0-1.0,1.0);return p.xyz/p.w;
+  }
+  float viewDepth(float depth) {
+    return cameraRange.x*cameraRange.y/(cameraRange.y-depth*(cameraRange.y-cameraRange.x));
+  }
+  vec4 layer(vec2 uv,float index) {
+    vec2 tile=vec2(mod(index,2.0),floor(index/2.0));
+    return texture2D(caustics,(tile+clamp(uv,vec2(.5/512.0),vec2(1.0-.5/512.0)))/vec2(2,3));
+  }
+  float visiblePath(vec3 start,vec3 finish) {
+    // Screen-depth visibility avoids projecting through intervening visible
+    // walls/steps. Offscreen occluders are a documented screen-space limitation.
+    for(int i=1;i<=7;i++) {
+      vec3 p=mix(start,finish,float(i)/9.0);
+      vec4 clip=viewProjection*vec4(p,1.0);
+      vec2 uv=clip.xy/clip.w*.5+.5;
+      if(clip.w<=0.0 || any(lessThan(uv,vec2(0))) || any(greaterThan(uv,vec2(1)))) continue;
+      float depth=texture2D(sceneDepth,uv).r;
+      float z=-(view*vec4(p,1)).z;
+      if(depth<.99999 && z>viewDepth(depth)+.12) return 0.0;
+    }
+    return 1.0;
+  }
+  void main() {
+    vec4 base=texture2D(sceneColor,vUv);
+    float d=texture2D(sceneDepth,vUv).r;
+    vec3 world=worldPosition(vUv,d);
+    vec3 dx=dFdx(world),dy=dFdy(world);
+    vec3 n=cross(dx,dy);n/=max(length(n),1e-6);
+    if(dot(n,eye-world)<0.0)n=-n;
+    float h=world.y-surface;
+    if(d>=.99999 || h< -2.5 || h>3.0 || abs(h)<.025){gl_FragColor=base;return;}
+    bool above=h>0.0;
+    vec3 incoming=-normalize(uSun);
+    vec3 ray=above?reflect(incoming,vec3(0,1,0)):refract(incoming,vec3(0,1,0),1.0/1.333);
+    vec2 uv=(world.xz-origin-ray.xz/ray.y*h)/span;
+    float border=min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y))*span;
+    float fade=smoothstep(.6,3.0,border)*(1.0-smoothstep(22.0,40.0,distance(eye,world)));
+    float facing=max(0.0,dot(n,-ray));
+    // Dry horizontal sand cannot receive upward-reflected light.
+    if(fade<=0.0 || facing<=.01){gl_FragColor=base;return;}
+    vec4 field;
+    if(above) {
+      if(h<1.25)field=mix(layer(uv,3.0),layer(uv,4.0),clamp((h-.35)/.9,0.0,1.0));
+      else field=mix(layer(uv,4.0),layer(uv,5.0),clamp((h-1.25)/1.75,0.0,1.0));
+      fade*=smoothstep(.025,.12,h)*(1.0-smoothstep(2.2,3.0,h));
+    }else {
+      float depth=-h;
+      if(depth<1.0)field=mix(layer(uv,0.0),layer(uv,1.0),clamp((depth-.25)/.75,0.0,1.0));
+      else field=mix(layer(uv,1.0),layer(uv,2.0),clamp((depth-1.0)/1.5,0.0,1.0));
+      fade*=smoothstep(.025,.12,depth)*exp(-depth*.35)*(1.0-smoothstep(2.0,2.5,depth));
+    }
+    if(field.r<.001){gl_FragColor=base;return;}
+    vec3 source=vec3(origin.x+field.g/field.r*span,surface+field.a/field.r,origin.y+field.b/field.r*span);
+    fade*=visiblePath(source,world)*light*(1.0-rain*.85);
+    float concentration=clamp(field.r-1.0,above?0.0:-.3,5.0);
+    vec3 addition=above?(base.rgb*.7+vec3(.06))*concentration*1.5:base.rgb*concentration*1.3;
+    gl_FragColor=vec4(max(vec3(0),base.rgb+addition*uGlintColor*facing*fade),base.a);
+  }
+`;
+
+/** Surface-derived light capture and receiver lighting, before transparent
+ * water/spray. No cellular texture or independently animated caustic pattern. */
+export function createWaterCaustics(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, water?: WaterMaterial) {
+  let atlas: THREE.WebGLRenderTarget | undefined, grid: THREE.Mesh | undefined;
+  let projector: THREE.ShaderMaterial | undefined, receiver: THREE.ShaderMaterial | undefined, quad: FullScreenQuad | undefined;
+  const projectionScene=new THREE.Scene(), projectionCamera=new THREE.Camera();
+  const clear=new THREE.Color(), viewport=new THREE.Vector4();
+  let enabled=false;
+  function release() {
+    atlas?.dispose();atlas=undefined;grid?.geometry.dispose();grid?.removeFromParent();grid=undefined;
+    projector?.dispose();projector=undefined;receiver?.dispose();receiver=undefined;quad?.dispose();quad=undefined;enabled=false;
+  }
+  function build() {
+    const u=water!.uniforms;
+    atlas=new THREE.WebGLRenderTarget(TILE*2,TILE*3,{type:THREE.HalfFloatType,depthBuffer:false,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
+    const uniforms:Record<string,THREE.IUniform>={receiverHeight:{value:0}};
+    for(const key of ['uWaveMap','uWaveReady','uWaveHeight','uWaveOrigin','uWaveBounds','uWaterDepthMap','uWaterDepthReady','uWaterDepthBounds','uTime','uChop','uRain','uUltra','uSun','uCausticResponse'])uniforms[key]=u[key];
+    projector=new THREE.ShaderMaterial({vertexShader:projectVertex,fragmentShader:projectFragment,uniforms,depthTest:false,depthWrite:false,side:THREE.DoubleSide,transparent:true,
+      blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendSrcAlpha:THREE.OneFactor,blendDstAlpha:THREE.OneFactor});
+    grid=new THREE.Mesh(new THREE.PlaneGeometry(2,2,256,256),projector);grid.frustumCulled=false;projectionScene.add(grid);
+    receiver=new THREE.ShaderMaterial({vertexShader:receiverVertex,fragmentShader:receiverFragment,depthTest:false,depthWrite:false,uniforms:{
+      sceneColor:{value:null},sceneDepth:{value:null},caustics:{value:atlas.texture},inverseViewProjection:{value:new THREE.Matrix4()},viewProjection:{value:new THREE.Matrix4()},view:{value:new THREE.Matrix4()},
+      eye:{value:new THREE.Vector3()},origin:{value:new THREE.Vector2()},cameraRange:{value:new THREE.Vector2()},surface:{value:0},light:{value:0},rain:u.uRain,uSun:u.uSun,uGlintColor:u.uGlintColor,
+    }});quad=new FullScreenQuad(receiver);
+  }
+  return {
+    get enabled(){return enabled;},
+    get target(){return atlas;},
+    release,
+    render(snapshot:THREE.WebGLRenderTarget,target:THREE.WebGLRenderTarget) {
+      enabled=false;
+      const u=water?.uniforms;
+      if(!u || u.uWaveReady.value<.5 || u.uCausticLight.value<.001 || u.uShallowDetail.value<.5)return false;
+      if(!atlas)build();
+      const previous=renderer.getRenderTarget(),autoClear=renderer.autoClear,alpha=renderer.getClearAlpha(),scissor=renderer.getScissorTest(),xr=renderer.xr.enabled;
+      renderer.getClearColor(clear);renderer.getViewport(viewport);
+      try {
+        renderer.autoClear=false;renderer.xr.enabled=false;renderer.setScissorTest(false);
+        renderer.setRenderTarget(atlas!);renderer.setClearColor(0,0);renderer.clear();
+        for(let i=0;i<CAUSTIC_HEIGHTS.length;i++) {
+          projector!.uniforms.receiverHeight.value=CAUSTIC_HEIGHTS[i];
+          renderer.setViewport(i%2*TILE,Math.floor(i/2)*TILE,TILE,TILE);renderer.render(projectionScene,projectionCamera);
+        }
+        const r=receiver!.uniforms;
+        r.sceneColor.value=snapshot.texture;r.sceneDepth.value=snapshot.depthTexture;
+        r.inverseViewProjection.value.multiplyMatrices(camera.matrixWorld,camera.projectionMatrixInverse);
+        r.viewProjection.value.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);r.view.value.copy(camera.matrixWorldInverse);
+        camera.getWorldPosition(r.eye.value);r.origin.value.copy(u.uWaveOrigin.value);r.cameraRange.value.set(camera.near,camera.far);
+        r.surface.value=u.uWaveHeight.value;r.light.value=u.uCausticLight.value;
+        renderer.setRenderTarget(target);renderer.setViewport(0,0,target.width,target.height);quad!.render(renderer);enabled=true;
+        return true;
+      }finally{
+        renderer.setRenderTarget(previous);renderer.setViewport(viewport);renderer.setClearColor(clear,alpha);renderer.setScissorTest(scissor);renderer.xr.enabled=xr;renderer.autoClear=autoClear;
+      }
+    },
+    dispose:release,
+  };
+}

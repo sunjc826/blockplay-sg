@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
-import { WATER_WAVES } from './water-wave-state';
-import { waterCausticsShader } from './water-caustics';
-import { waterShoreShader } from './water-shore';
+import { waterWaveField, waterNormalField } from './water-surface-field';
 
 /**
  * Open water: a surface a round can splash into rather than a floor it chips.
@@ -72,32 +70,11 @@ export interface WaterOptions {
   choppiness?: number;
 }
 
-// Shared sampling keeps displaced geometry, reflection normals and refraction in phase.
-const waveField = /* glsl */ `
-  ${waterShoreShader}
-  uniform sampler2D uWaveMap;
-  uniform float uWaveReady, uWaveHeight;
-  uniform vec2 uWaveOrigin;
-  uniform vec4 uWaveBounds;
-  const float waveSpan=${WATER_WAVES.span.toFixed(1)};
-  const float waveTexel=1.0/${WATER_WAVES.size.toFixed(1)};
-  float waveWeight(vec2 p, float baseHeight) {
-    if (uWaveReady<.5 || abs(baseHeight-uWaveHeight)>.02) return 0.0;
-    vec2 local=p-uWaveOrigin;
-    float edge=min(min(local.x,local.y),min(waveSpan-local.x,waveSpan-local.y));
-    return smoothstep(0.0,3.0,edge);
-  }
-  float waveHeight(vec2 p, float baseHeight) {
-    return texture2D(uWaveMap,(p-uWaveOrigin)/waveSpan).r*waveWeight(p,baseHeight)*shoreFade(p);
-  }
-`;
-
 const vertexShader = /* glsl */ `
-  ${waveField}
+  ${waterWaveField}
+  ${waterNormalField}
   attribute float waterPatch;
   varying float vWaterPatch;
-  uniform float uTime;
-  uniform float uChop;
   varying vec3 vWorld;
   varying float vBaseHeight;
   #include <common>
@@ -108,7 +85,7 @@ const vertexShader = /* glsl */ `
     vWaterPatch = waterPatch;
     if (waterPatch>.5 && uWaveReady>.5) world.y += waveHeight(world.xz,vBaseHeight);
     // A slow swell moves the vertices; the fine chop lives only in the normal.
-    world.y += shoreFade(world.xz) * uChop * (0.05 * sin(world.x * 0.09 + uTime * 0.7) + 0.035 * sin(world.z * 0.13 - uTime * 0.9));
+    world.y += waterSwellHeight(world.xz);
     vWorld = world.xyz;
     vec4 mvPosition = viewMatrix * world;
     gl_Position = projectionMatrix * mvPosition;
@@ -118,13 +95,10 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   #define RIPPLES ${MAX_WATER_RIPPLES}
-  ${waveField}
+  ${waterWaveField}
+  ${waterNormalField}
   varying float vWaterPatch;
-  uniform float uTime;
-  uniform float uChop;
   uniform float uClarity;
-  uniform float uRain;
-  uniform float uUltra;
   uniform float uShallowDetail;
   uniform float uCausticLight;
   uniform float uCausticResponse;
@@ -154,27 +128,10 @@ const fragmentShader = /* glsl */ `
   #include <common>
   #include <fog_pars_fragment>
 
-  // Slope contribution of one travelling wave: d/dx, d/dz of a*sin(k.p - wt).
-  vec2 wave(vec2 p, vec2 dir, float k, float a, float w) {
-    float phase = dot(p, dir) * k - uTime * w;
-    // Remove frequencies that cannot be resolved by this pixel (especially at the horizon).
-    float footprint = max(abs(dFdx(phase)), abs(dFdy(phase)));
-    return dir * (a * k * cos(phase)) * (1.0 - smoothstep(1.0, 3.14159, footprint));
-  }
-
-  // Analytic gradients of smooth value noise: two advected scales provide
-  // irregular wind ripples without texture assets or finite-difference reads.
-  float waterHash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
   float foamNoise(vec2 p) {
     vec2 cell=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
     return mix(mix(waterHash(cell),waterHash(cell+vec2(1,0)),f.x),
       mix(waterHash(cell+vec2(0,1)),waterHash(cell+vec2(1,1)),f.x),f.y);
-  }
-  vec2 windSlope(vec2 p) {
-    vec2 cell=floor(p), f=fract(p), u=f*f*(3.0-2.0*f), du=6.0*f*(1.0-f);
-    float a=waterHash(cell), b=waterHash(cell+vec2(1,0));
-    float c=waterHash(cell+vec2(0,1)), d=waterHash(cell+vec2(1,1));
-    return du*vec2(mix(b-a,d-c,u.y),mix(c-a,d-b,u.x));
   }
   float viewDepth(float depth) {
     return uCameraRange.x*uCameraRange.y /
@@ -185,7 +142,6 @@ const fragmentShader = /* glsl */ `
     return world.xyz/world.w;
   }
 
-  ${waterCausticsShader}
 
   void main() {
     vec2 p = vWorld.xz;
@@ -200,28 +156,8 @@ const fragmentShader = /* glsl */ `
     }
     float shoreline = shoreFade(p);
     float waterFootprint = max(length(dFdx(p)), length(dFdy(p)));
-    vec2 slope = vec2(0.0);
-    slope += wave(p, normalize(vec2(0.8, 0.6)), 0.55, 0.035, 1.3);
-    slope += wave(p, normalize(vec2(-0.5, 0.86)), 0.9, 0.022, 1.9);
-    slope += wave(p, normalize(vec2(0.2, -1.0)), 1.7, 0.012, 2.7);
-    slope += wave(p, normalize(vec2(-0.95, -0.3)), 3.1, 0.006, 3.6);
-    if (uUltra > .5) {
-      // The broad swell's shading agrees with its actual vertex displacement.
-      slope += vec2(.0045*cos(p.x*.09+uTime*.7),.00455*cos(p.y*.13-uTime*.9));
-      mat2 turn=mat2(.8,.6,-.6,.8);
-      float wind=1.0+uRain*.45;
-      slope += windSlope(p*2.7+vec2(uTime*.22,-uTime*.14))*.045*wind
-        *(1.0-smoothstep(.12,.65,waterFootprint));
-      slope += turn*windSlope(mat2(.8,-.6,.6,.8)*p*7.3+vec2(-uTime*.31,uTime*.19))*.022*wind
-        *(1.0-smoothstep(.04,.25,waterFootprint));
-    }
-    slope *= uChop * shoreline;
-    if (simulated>0.0) {
-      vec2 stepX=vec2(waveSpan*waveTexel,0),stepZ=stepX.yx;
-      vec2 waveSlope=vec2(waveHeight(p+stepX,vBaseHeight)-waveHeight(p-stepX,vBaseHeight),
-        waveHeight(p+stepZ,vBaseHeight)-waveHeight(p-stepZ,vBaseHeight))/(2.0*waveSpan*waveTexel);
-      slope += waveSlope*(1.0-smoothstep(.08,.3,waterFootprint));
-    }
+    vec2 slope=ambientWaterSlope(p,waterFootprint);
+    if(simulated>0.0) slope+=interactionWaterSlope(p,vBaseHeight)*(1.0-smoothstep(.08,.3,waterFootprint));
 
     float foam = 0.0;
     if (simulated>0.0) {
@@ -341,27 +277,6 @@ const fragmentShader = /* glsl */ `
       if (displacedDepth>=.99999) transmission=vec3(0.0);
       vec3 scatter=mix(uShallow,uDeep,1.0-exp(-depth*.65))*uSurfaceLight;
       vec3 receiver=texture2D(uSceneColor,refractedUv).rgb;
-      // Reconstruct receiver orientation before the effect's depth branch.
-      // Light modulates the already lit colour, so dark receivers stay dark.
-      vec3 receiverDx=dFdx(behind),receiverDy=dFdy(behind);
-      vec3 receiverCross=cross(receiverDx,receiverDy);
-      vec3 receiverNormal=receiverCross/max(length(receiverCross),.000001);
-      if(dot(receiverNormal,cameraPosition-behind)<0.0)receiverNormal=-receiverNormal;
-      float receiverFootprint=max(length(receiverDx),length(receiverDy));
-      float receiverDistance=distance(cameraPosition,behind);
-      if(uShallowDetail>.5 && uCausticLight>.001 && displacedDepth<.99999 && depth>.015 && depth<2.5
-        && receiverFootprint<.25 && receiverDistance<42.0) {
-        // Trace towards the refracted sunlight at the surface, including wall faces.
-        vec3 lightRay=refract(-normalize(uSun),vec3(0.0,1.0,0.0),1.0/1.333);
-        vec2 projected=behind.xz-lightRay.xz*depth/max(.25,-lightRay.y);
-        float pattern=dynamicCaustic(projected,depth,receiverFootprint,vBaseHeight);
-        float facingSun=max(0.0,dot(receiverNormal,-lightRay));
-        float attenuation=smoothstep(.015,.12,depth)*exp(-depth*.65)*(1.0-smoothstep(1.8,2.5,depth));
-        attenuation*=1.0-smoothstep(18.0,42.0,receiverDistance);
-        float strength=uCausticLight*(1.0-uRain*.85)*facingSun*attenuation
-          *(1.0-smoothstep(.12,.4,receiverFootprint*1.6));
-        receiver*=1.0+pattern*.72*strength;
-      }
       body=receiver*transmission+scatter*(1.0-transmission);
     }
     vec3 colour = mix(body, sky, fresnel);

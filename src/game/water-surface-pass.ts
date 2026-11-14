@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 import { primaryWaterSurface } from './water';
+import { createWaterCaustics } from './water-caustics';
 
 /** Ultra's opaque snapshot. Each material is drawn once; only colour/depth are
  * copied, never sampled while attached to the framebuffer being written. */
 export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const bay = primaryWaterSurface(scene);
   const material = bay?.material;
+  const caustics=createWaterCaustics(renderer,camera,material);
   const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4(), eye = new THREE.Vector3(), bayPosition = new THREE.Vector3();
   const opaque = new Set<THREE.Material>(), transparent = new Set<THREE.Material>();
   let snapshot: THREE.WebGLRenderTarget | undefined;
   let active = false;
   let rendered = false;
   function release() {
+    caustics.release();
     snapshot?.depthTexture?.dispose(); snapshot?.dispose(); snapshot = undefined;
     if (material?.uniforms.uRefractionReady) {
       material.uniforms.uRefractionReady.value = 0;
@@ -20,6 +23,7 @@ export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THR
   }
   return {
     get enabled() { return rendered; },
+    get caustics() { return caustics; },
     prepare(enabled: boolean) {
       active = false; rendered = false;
       if (!bay || !material?.uniforms.uUltra) return false;
@@ -51,11 +55,20 @@ export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THR
       try {
         transparent.forEach(m => { m.visible = false; });
         renderer.render(scene, camera); // Resolves the multisampled opaque colour and depth.
+        renderer.resetState();
         renderer.initRenderTarget(snapshot);
         renderer.copyTextureToTexture(target.texture, snapshot.texture);
         renderer.copyTextureToTexture(target.depthTexture, snapshot.depthTexture!);
         // Copying binds read/draw framebuffers internally; explicitly restore our target.
         renderer.setRenderTarget(target);
+        if(caustics.render(snapshot,target)) {
+          // Refraction sees the same lit receivers as the above-water view.
+          // r180 can leave another texture unit active when the destination
+          // is already cached on unit zero after the receiver pass.
+          renderer.resetState();
+          renderer.copyTextureToTexture(target.texture,snapshot.texture);
+          renderer.setRenderTarget(target);
+        }
         const u = material.uniforms;
         u.uSceneColor.value = snapshot.texture; u.uSceneDepth.value = snapshot.depthTexture;
         u.uViewport.value.set(target.width, target.height);

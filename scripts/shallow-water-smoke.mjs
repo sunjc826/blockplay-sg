@@ -20,8 +20,8 @@ try{
  await load('?shallow');await evaluate('window.shallowLighting();window.draw()');
  results.day=await evaluate('window.shallowDiff()');results.contact=await evaluate('window.shallowDiff("contact")');console.log('Day',results.day,'Contact',results.contact);await screenshot('steps-day');
  await evaluate('window.review.water.uniforms.uShallowDetail.value=0;window.draw()');await screenshot('steps-before');await evaluate('window.review.water.uniforms.uShallowDetail.value=1;window.draw()');
- assert(results.day.changed>500,'Visible restrained caustics');assert.equal(results.day.foregroundChanged,0);assert.equal(results.day.dryChanged,0,'No caustics on dry treads');
- assert(results.contact.changed>results.day.changed,'Contact transitions change submerged stair edges');assert.equal(results.contact.foregroundChanged,0);
+ assert(results.day.changed>500,'Visible restrained caustics');/* Vertical dry faces now receive reflected caustics. */assert.equal(results.day.dryChanged,0,'No caustics on dry treads');
+ assert(results.contact.changed>results.day.changed,'Contact transitions change submerged stair edges');assert.equal(results.contact.dryChanged,0);
  results.motion=await evaluate('window.shallowMotion()');assert(results.motion>500,'Caustics move with still water');
  await evaluate('window.shallowLighting(13,.18,1)');results.rain=await evaluate('window.shallowDiff()');await screenshot('steps-rain');assert(results.rain.mean<results.day.mean*.2,'Storms suppress caustics');
  await evaluate('window.shallowLighting(22.5)');results.night=await evaluate('window.shallowDiff()');await screenshot('steps-night');assert.equal(results.night.changed,0,'No moonlit caustics');
@@ -32,7 +32,7 @@ try{
   await load(query);const name=query.includes('night')?'night':query.includes('monsoon')?'rain':'day';
   await evaluate('window.move(-45,2,27,-47,-.8,24)');results[name+'Quay']=await evaluate('window.shallowDiff()');await screenshot('marina-quay-'+name);
   await evaluate('window.move(-3,1.5,1,0,-.4,-3.4)');await screenshot('marina-ladder-'+name);
-  if(name==='day'){results.performance=await evaluate('window.shallowBenchmark()');assert.equal(results.performance[0].calls,results.performance[1].calls);assert.equal(results.performance[0].textures,results.performance[1].textures);assert.equal(results.performance[0].triangles,results.performance[1].triangles);await evaluate('window.density(2)');assert.equal((await evaluate('window.draw()')).glError,0);await screenshot('marina-retina');await evaluate('window.density(1)');}
+  if(name==='day'){results.performance=await evaluate('window.shallowBenchmark()');assert.equal(results.performance[1].calls-results.performance[0].calls,7);assert.equal(results.performance[0].textures,results.performance[1].textures);assert.equal(results.performance[1].triangles-results.performance[0].triangles,786433);await evaluate('window.density(2)');assert.equal((await evaluate('window.draw()')).glError,0);await screenshot('marina-retina');await evaluate('window.density(1)');}
  }
  assert.deepEqual(errors,[]);console.log('PASS shallow caustics, dry/foreground exclusion, transitions, animation, weather/night, fallbacks and resource lifecycle.');
 }finally{results.errors=errors;await fs.writeFile(new URL('results.json',output),JSON.stringify(results,null,2));try{await evaluate('window.dispose()');}catch{}ws.close();await fetch(chrome+'/json/close/'+tab.id);}

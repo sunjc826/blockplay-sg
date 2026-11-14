@@ -364,17 +364,41 @@ Refraction requires hardware WebGL2, visible above-water primary surface geometr
 unreduced Ultra detail; lowering detail releases the snapshot. Other districts
 retain their authored water. A district can select one surface via `scene.userData.primaryWater`; Marina remains the default. Ultra softens the last 12 cm of water contact and
 reduces refraction over thin water and stair-height discontinuities, keeping
-foreground geometry out of the distorted sample. Restrained animated caustics
-modulate the lit submerged receiver reconstructed from the same depth snapshot;
-its orientation, depth, sunlight, rain and screen footprint control their strength.
-They fade by 2.5 m depth / 42 m view distance and turn off at night. Two independently flowing, curved light layers overlap into brighter crossings.
-Refracted sunlight projects the pattern onto the receiver; five filtered samples
-of the existing wave field bend the pattern and focus/diverge its brightness
-with bullet ripples and boat wakes. Filtering controls subpixel shimmer. This is
-a Crysis-inspired artistic screen-space approximation, not photon transport;
-it adds no render targets, geometry or draw calls. `scripts/dynamic-caustics-smoke.mjs`
-isolates wave-driven light changes with the surface and refraction frozen, and
-checks sun/weather, dry receivers, shore damping, quality fallbacks and costs.
+foreground geometry out of the distorted sample.
+
+Ultra caustics (`water-caustics.ts`) are generated from the same ambient slopes,
+swell and simulated interaction heights used by the water (`water-surface-field.ts`).
+There is no cellular caustic pattern. A 256² grid projects refracted sunlight
+below the water and reflected sunlight above it. The ratio of source area to
+projected area gives light concentration; folded triangles accumulate additively.
+Six horizontal slices (-0.25, -1, -2.5, +0.35, +1.25, +3 m) occupy a 1024×1536
+RGBA16F atlas (12 MiB). A receiver pass reconstructs opaque world position and
+orientation from depth, interpolates the slices, and lights sand, submerged
+steps/walls, and appropriately facing above-water walls/overhangs. Water then
+refracts this already-lit opaque snapshot. Dry upward-facing surfaces cannot
+receive the upward reflected light. Source masks reject dry sand; shoreline,
+patch-border, sunlight, weather, depth and distance fades constrain the effect.
+It turns off at night and fades by 2.5 m below / 3 m above water and 40 m from
+the camera. High/reduced-effects modes release the atlas.
+
+This is a bounded rasterized light-transport approximation, not a claim to
+reproduce Crytek's exact implementation: horizontal slice interpolation limits
+focus accuracy on tall/sloping receivers, near-horizontal rays are excluded,
+and screen-depth visibility cannot account for offscreen occluders. Source
+sunlight is not traced through the sun's shadow map. The pass adds seven draws
+and 786,432 grid triangles per active frame. The normal-driven capture structure
+follows [Crytek's documented volume-caustic behavior](https://www.cryengine.com/docs/static/engines/cryengine-3/categories/1114113/pages/1048636);
+[Evan Wallace's renderer](https://github.com/evanw/webgl-water/blob/master/renderer.js)
+provides an independent reference for projected-area light concentration.
+
+`scripts/surface-caustics-smoke.mjs` checks uniform flat-water lighting,
+conserved mean flux, propagating focus, separate floor/wall receivers, fallbacks,
+retina rendering and measured cost. `scripts/dynamic-caustics-smoke.mjs` also
+checks Sentosa shore damping, boat wakes, sun/weather, dry treads and lifetime.
+`scripts/surface-caustics-capture.mjs` records actual CIS .50 gunfire in Sentosa;
+`--wall` uses an explicitly labeled plain test wall and calm ambient water in
+the FPS fixture, with normal weapon, ripple, foam and spray code. It logs the
+actual weapon's ripple callbacks. The test wall is not shipped map geometry.
 Sentosa's southern beach has a pale sand bed, a wet shore band and a walkable
 20–60 cm shelf. Its exact terrain triangles also supply movement height; the
 opaque inland lawn ends before the shelf. Shade umbrellas and loungers sit on

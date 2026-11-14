@@ -18,6 +18,7 @@ import { setGraphicsSettings } from '/src/game/graphics-settings.ts';
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1200,800);renderer.autoClear=false;renderer.info.autoReset=false;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;document.body.append(renderer.domElement);
 const camera=new THREE.PerspectiveCamera(60,1.5,.08,1000),params=new URLSearchParams(location.search);
+const causticTest=params.has('caustics');
 const sentosa=params.has('sentosa'),real=params.has('marina')||sentosa;let scene,world,atmosphere,night;
 setEnvironmentSettings({timeOfDay:params.get('time')||'noon',weather:params.get('weather')||'sunny',celebration:'none',reducedEffects:false});
 setGraphicsSettings({waterDetail:'ultra',rainDetail:'low',grassDetail:'low',waterReflections:true,smaa:false,godRays:'off'});
@@ -49,6 +50,14 @@ if(real){
   quay.position.set(6,-.9,0);scene.add(quay);camera.position.set(3,4.2,8);camera.lookAt(0,-.2,1);
  }
 }
+if(causticTest){
+ const keep=scene.getObjectByName('marina-bay-water');
+ for(const o of [...scene.children])if(o!==keep)scene.remove(o);
+ const floor=new THREE.Mesh(new THREE.BoxGeometry(30,.2,30),new THREE.MeshBasicMaterial({color:'#74776c'}));floor.position.y=-1.3;floor.name='caustic-test-floor';scene.add(floor);
+ const wall=new THREE.Mesh(new THREE.BoxGeometry(12,3.6,.25),new THREE.MeshBasicMaterial({color:'#68716f'}));wall.position.set(0,.5,-2.5);wall.name='caustic-test-wall';scene.add(wall);
+ keep.material.uniforms.uSun.value.set(.25,1,.65).normalize();keep.material.uniforms.uChop.value=0;
+ camera.position.set(3,3.2,5);camera.lookAt(0,.1,-1.5);
+}
 const bay=primaryWaterSurface(scene),water=bay.material,post=createWorldOcclusion(renderer,scene,camera);
 let fleet;
 window.boats=()=>{
@@ -72,10 +81,12 @@ window.move=(x,y,z,tx=0,ty=0,tz=-24)=>{camera.position.set(x,y,z);camera.lookAt(
 window.resize=(w,h)=>{renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();post.setSize();return window.draw();};
 window.density=value=>{renderer.setPixelRatio(value);post.setSize();return window.draw();};
 window.compare=()=>{
+ const causticLight=water.uniforms.uCausticLight.value;water.uniforms.uCausticLight.value=0;
  window.draw({detail:'high',reflections:false});const a=pixels();window.draw({detail:'ultra'});const b=pixels();
  let changed=0,foregroundChanged=0,foreground=0;
  for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>6)changed++;if(a[i]>200&&a[i+1]<170&&a[i+2]<130){foreground++;if(d>6)foregroundChanged++;}}
  window.draw({detail:'high'});const back=pixels();let restored=0;for(let i=0;i<a.length;i++)if(a[i]!==back[i])restored++;
+ water.uniforms.uCausticLight.value=causticLight;
  return {changed,foreground,foregroundChanged,restored};
 };
 window.shallowLighting=(hour=13,sunlight=1,rain=0)=>{
@@ -101,7 +112,7 @@ window.shallowDiff=(mode='caustics')=>{
  return {changed,mean:total/(a.length/4),max,foreground,redChanged,foregroundChanged,dryChanged,state,light:water.uniforms.uCausticLight.value};
 };
 window.shallowMotion=()=>{
- const chop=water.uniforms.uChop.value;water.uniforms.uChop.value=0;
+ const chop=water.uniforms.uChop.value;water.uniforms.uChop.value=1;
  window.draw({time:2});const a=pixels();window.draw({time:3});const b=pixels();let changed=0;
  for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>2)changed++;
  water.uniforms.uChop.value=chop;return changed;
@@ -110,9 +121,14 @@ window.shallowMotion=()=>{
 window.causticResponse=()=>{
  const u=water.uniforms.uCausticResponse,value=u.value;
  u.value=0;window.draw();const a=pixels();u.value=value;const state=window.draw(),b=pixels();
- let changed=0,max=0,total=0;
- for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>2)changed++;max=Math.max(max,d);total+=d;}
- return {changed,max,mean:total/(a.length/4),state};
+ let changed=0,max=0,total=0,wallChanged=0,floorChanged=0;
+ const width=renderer.domElement.width,height=renderer.domElement.height;
+ const polygon=points=>points.map(p=>{const v=new THREE.Vector3(...p).project(camera);return[(v.x+1)*width/2,(1-v.y)*height/2];});
+ const wall=polygon([[-5,.15,-2.374],[5,.15,-2.374],[5,2.2,-2.374],[-5,2.2,-2.374]]);
+ const floor=polygon([[-3,-1.2,-.5],[3,-1.2,-.5],[3,-1.2,4],[-3,-1.2,4]]);
+ const inside=(x,y,poly)=>{let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++)if((poly[i][1]>y)!=(poly[j][1]>y)&&x<(poly[j][0]-poly[i][0])*(y-poly[i][1])/(poly[j][1]-poly[i][1])+poly[i][0])yes=!yes;return yes;};
+ for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>2){changed++;const x=i/4%width,y=Math.floor(i/4/width);if(causticTest&&inside(x,y,wall))wallChanged++;if(causticTest&&inside(x,y,floor))floorChanged++;}max=Math.max(max,d);total+=d;}
+ return {changed,wallChanged,floorChanged,max,mean:total/(a.length/4),state};
 };
 window.shallowBenchmark=async()=>{
  const results=[];window.draw({detail:'ultra'});
@@ -206,6 +222,25 @@ window.boatBenchmark=async()=>{
    if(i===99){times.sort((a,b)=>a-b);results.push({detail,moving,...state,waves:post.waterWaves.stats,medianMs:times[40],p95Ms:times[75]});}
   }
  }setWaterSwimmer(scene,0,0,false);return results;
+};
+let causticBlocker;
+window.causticBlock=(enabled=true)=>{
+ if(!causticBlocker){causticBlocker=new THREE.Mesh(new THREE.BoxGeometry(6,.12,3),new THREE.MeshBasicMaterial({color:'#514d44'}));causticBlocker.position.set(0,.25,-.7);scene.add(causticBlocker);}
+ causticBlocker.visible=enabled;return window.draw();
+};
+window.causticRead=(cx=0,cz=-1)=>{
+ const target=post.waterCaustics.target;if(!target)return null;
+ const bits=new Uint16Array(target.width*target.height*4);renderer.readRenderTargetPixels(target,0,0,target.width,target.height,bits);
+ const layers=[];
+ for(let layer=0;layer<6;layer++){
+  let min=1e6,max=0,sum=0,count=0,mass=0,radius=0;
+  for(let y=100;y<412;y++)for(let x=100;x<412;x++){
+   const i=((Math.floor(layer/2)*512+y)*target.width+(layer%2*512+x))*4,v=THREE.DataUtils.fromHalfFloat(bits[i]);
+   if(!Number.isFinite(v))throw Error('Invalid caustic flux');min=Math.min(min,v);max=Math.max(max,v);sum+=v;count++;
+   const origin=water.uniforms.uWaveOrigin.value,r=Math.hypot(origin.x+(x+.5)*32/512-cx,origin.y+(y+.5)*32/512-cz);
+   if(r<6){const weight=Math.abs(v-1);mass+=weight;radius+=weight*r;}
+  }layers.push({min,max,mean:sum/count,radius:radius/Math.max(mass,1e-8),mass});
+ }return {layers,width:target.width,height:target.height,enabled:post.waterCaustics.enabled,glError:renderer.getContext().getError()};
 };
 window.review={renderer,camera,scene,water,post};window.draw();window.ready=true;
 </script></body></html>

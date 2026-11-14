@@ -107,6 +107,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     get gradeApplied() { return gradeApplied; },
     get waterReflectionsEnabled() { return waterReflectionsEnabled; },
     get waterWaves() { return waterWaves; },
+    get waterCaustics() { return waterSurface.caustics; },
     get waterRefractionEnabled() { return waterSurface.enabled; },
     get rainReflectionsEnabled() { return rainReflectionsEnabled; },
     /** Call when the canvas's size or pixel ratio changes. */
