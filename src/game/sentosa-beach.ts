@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { SceneKit } from './scene-kit';
 import { accelerateTerrainRaycast } from './terrain-raycast';
 import { createWaterMaterial } from './water';
+import { createWaterDepthMap } from './water-shore';
 
 /** Authored beach in gameplay metres, not surveyed Sentosa bathymetry.
  * Preserve the two existing landing lanes as deeper channels. */
@@ -51,6 +52,10 @@ export function buildSentosaBeach(kit: SceneKit) {
   sea.name = 'sentosa-beach-water'; sea.rotation.x = -Math.PI / 2; sea.position.set(0, SENTOSA_BEACH.surface, 270); sea.renderOrder = 1;
   sea.userData.fpsWater = true; sea.userData.rainContact = 'water'; kit.scene.add(sea);
   sea.userData.waterFloor = sentosaBeachHeight;
+  const depthBounds=new THREE.Vector4(SENTOSA_BEACH.minX,SENTOSA_BEACH.minZ,SENTOSA_BEACH.maxX,SENTOSA_BEACH.maxZ);
+  const depthMap=createWaterDepthMap(depthBounds,SENTOSA_BEACH.surface,sentosaBeachHeight);
+  water.uniforms.uWaterDepthMap.value=depthMap;water.uniforms.uWaterDepthReady.value=1;
+  water.uniforms.uWaterDepthBounds.value.copy(depthBounds);
   // Continue past the authored landing approaches into the fog, so looking
   // along the beach never exposes the rectangular edge of the old sea strip.
   const horizonGeometry = kit.geo(new THREE.BufferGeometry());
@@ -67,5 +72,5 @@ export function buildSentosaBeach(kit: SceneKit) {
   // no swimming or new naval routes are inferred from the rendered surface.
   kit.obstacles.push({ minX: -215, maxX: 215, minZ: SENTOSA_BEACH.wadeEnd, maxZ: 350 });
   for (const x of [-155, 155]) kit.obstacles.push({ minX: x - 21, maxX: x + 21, minZ: 196, maxZ: SENTOSA_BEACH.wadeEnd });
-  return { water, shelf, sea, dispose() { disposeRaycast(); water.dispose(); } };
+  return { water, shelf, sea, dispose() { disposeRaycast(); depthMap.dispose(); water.dispose(); } };
 }

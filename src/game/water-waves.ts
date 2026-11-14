@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { primaryWaterSurface } from './water';
+import { waterShoreShader } from './water-shore';
 import { boatWakeCoverage, boatWaveFade, createBoatWake, type WaterBoat } from './boat-wake';
 import { WATER_WAVES, createSwimmerWake, waterImpactPulse, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
 
@@ -15,6 +16,7 @@ const vertexShader = /* glsl */ `
   void main() { vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }
 `;
 const fragmentShader = /* glsl */ `
+  ${waterShoreShader}
   uniform sampler2D state;
   uniform vec2 origin, shift;
   uniform vec4 bounds;
@@ -37,7 +39,8 @@ const fragmentShader = /* glsl */ `
   }
   void main() {
     vec2 p=origin+vUv*span, uv=vUv+shift;
-    if (!inBay(p)) { gl_FragColor=vec4(0.0); return; }
+    float depth=shoreDepth(p);
+    if (!inBay(p) || depth<=.015) { gl_FragColor=vec4(0.0); return; }
     vec3 current=sampleState(uv);
     float h=current.x, velocity=current.y;
     vec3 lap=neighbor(vec2(1,0),p,uv,current)+neighbor(vec2(-1,0),p,uv,current)
@@ -45,9 +48,10 @@ const fragmentShader = /* glsl */ `
     velocity += ${WATER_WAVES.speed ** 2}*dt*lap.x/(dx*dx);
     float edge=min(min(vUv.x,vUv.y),min(1.0-vUv.x,1.0-vUv.y))*span;
     // Absorbing outer band keeps the finite moving window from sending echoes back.
-    float damping=${WATER_WAVES.damping}+(1.0-smoothstep(.2,3.0,edge))*7.0;
+    float shoreLoss=(1.0-smoothstep(.015,.65,depth))*5.0;
+    float damping=${WATER_WAVES.damping}+shoreLoss+(1.0-smoothstep(.2,3.0,edge))*7.0;
     velocity *= exp(-damping*dt);
-    h=(h+velocity*dt)*exp(-(1.0-smoothstep(.2,2.0,edge))*4.0*dt);
+    h=(h+velocity*dt)*exp(-((1.0-smoothstep(.2,2.0,edge))*4.0+shoreLoss)*dt);
     // Spare B channel stores short-lived stern froth. Stable diffusion uses the
     // same neighbour taps; no extra texture, pass or geometry is needed.
     float foam=max(0.0,current.b+.035*dt*lap.b/(dx*dx))*exp(-(1.1+damping)*dt);
@@ -59,7 +63,8 @@ const fragmentShader = /* glsl */ `
       h += impulse.w*(1.0-q)*exp(-q);
       foam += impulseFoam[i]*exp(-q*1.5);
     }
-    gl_FragColor=vec4(clamp(h,-.25,.25),clamp(velocity,-2.5,2.5),clamp(foam,0.0,.8),1.0);
+    float limit=min(.25,depth*.35);
+    gl_FragColor=vec4(clamp(h,-limit,limit),clamp(velocity,-2.5,2.5),clamp(foam,0.0,.8),1.0);
   }
 `;
 
@@ -122,7 +127,9 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     });
     targets = [target(), target()];
     solver = new THREE.ShaderMaterial({ vertexShader, fragmentShader, depthTest: false, depthWrite: false,
-      uniforms: { state: { value: targets[0].texture }, origin: { value: origin }, shift: { value: new THREE.Vector2() }, bounds: { value: bounds },
+      uniforms: { uWaterDepthMap: water!.uniforms.uWaterDepthMap,
+        uWaterDepthReady: water!.uniforms.uWaterDepthReady, uWaterDepthBounds: water!.uniforms.uWaterDepthBounds,
+        state: { value: targets[0].texture }, origin: { value: origin }, shift: { value: new THREE.Vector2() }, bounds: { value: bounds },
         dt: { value: 0 }, impulseCount: { value: 0 }, impulses: { value: Array.from({length: WATER_WAVES.maxImpulses},()=>new THREE.Vector4()) }, impulseFoam: { value: new Float32Array(WATER_WAVES.maxImpulses) } } });
     quad = new FullScreenQuad(solver);
     const geometry = new THREE.PlaneGeometry(WATER_WAVES.span,WATER_WAVES.span,WATER_WAVES.segments,WATER_WAVES.segments);

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { LightingState } from './world-lighting';
 import { WATER_WAVES } from './water-wave-state';
+import { waterCausticsShader } from './water-caustics';
+import { waterShoreShader } from './water-shore';
 
 /**
  * Open water: a surface a round can splash into rather than a floor it chips.
@@ -10,7 +12,7 @@ import { WATER_WAVES } from './water-wave-state';
  * engine "this is water" and a shot into them throws spray instead of sparks.
  *
  * `createWaterMaterial` is the full surface, used where the water is big enough
- * to be looked at (Marina Bay). Its baseline sky reflection is procedural;
+ * to be looked at (Marina Bay and Sentosa). Its baseline sky reflection is procedural;
  * Ultra can supply a bounded planar scene capture through water-reflections.
  * Rain rings stay in the surface shader. Per fragment it
  *
@@ -72,6 +74,7 @@ export interface WaterOptions {
 
 // Shared sampling keeps displaced geometry, reflection normals and refraction in phase.
 const waveField = /* glsl */ `
+  ${waterShoreShader}
   uniform sampler2D uWaveMap;
   uniform float uWaveReady, uWaveHeight;
   uniform vec2 uWaveOrigin;
@@ -85,7 +88,7 @@ const waveField = /* glsl */ `
     return smoothstep(0.0,3.0,edge);
   }
   float waveHeight(vec2 p, float baseHeight) {
-    return texture2D(uWaveMap,(p-uWaveOrigin)/waveSpan).r*waveWeight(p,baseHeight);
+    return texture2D(uWaveMap,(p-uWaveOrigin)/waveSpan).r*waveWeight(p,baseHeight)*shoreFade(p);
   }
 `;
 
@@ -105,7 +108,7 @@ const vertexShader = /* glsl */ `
     vWaterPatch = waterPatch;
     if (waterPatch>.5 && uWaveReady>.5) world.y += waveHeight(world.xz,vBaseHeight);
     // A slow swell moves the vertices; the fine chop lives only in the normal.
-    world.y += uChop * (0.05 * sin(world.x * 0.09 + uTime * 0.7) + 0.035 * sin(world.z * 0.13 - uTime * 0.9));
+    world.y += shoreFade(world.xz) * uChop * (0.05 * sin(world.x * 0.09 + uTime * 0.7) + 0.035 * sin(world.z * 0.13 - uTime * 0.9));
     vWorld = world.xyz;
     vec4 mvPosition = viewMatrix * world;
     gl_Position = projectionMatrix * mvPosition;
@@ -124,6 +127,7 @@ const fragmentShader = /* glsl */ `
   uniform float uUltra;
   uniform float uShallowDetail;
   uniform float uCausticLight;
+  uniform float uCausticResponse;
   uniform float uRefractionReady;
   uniform float uRefractionHeight;
   uniform sampler2D uSceneColor;
@@ -181,23 +185,7 @@ const fragmentShader = /* glsl */ `
     return world.xyz/world.w;
   }
 
-  // Slowly moving cellular light bands, anchored to the submerged receiver.
-  // One filtered layer is enough for sheltered bay water; no texture/pass is added.
-  float shallowCaustic(vec2 p, float footprint) {
-    p+=.22*sin(p.yx*2.1+vec2(uTime*.19,-uTime*.16));
-    vec2 cell=floor(p),local=fract(p);
-    float first=8.0,second=8.0;
-    for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++) {
-      vec2 offset=vec2(float(x),float(y)),id=cell+offset;
-      vec2 phase=6.28318*vec2(waterHash(id),waterHash(id+37.2));
-      vec2 point=offset+.5+.3*sin(phase+uTime*.28)-local;
-      float distanceSquared=dot(point,point);
-      if(distanceSquared<first){second=first;first=distanceSquared;}
-      else second=min(second,distanceSquared);
-    }
-    float gap=sqrt(second)-sqrt(first),width=.035+footprint*.65;
-    return (1.0-smoothstep(width,width*2.4,gap))*(1.0-smoothstep(.12,.4,footprint));
-  }
+  ${waterCausticsShader}
 
   void main() {
     vec2 p = vWorld.xz;
@@ -210,6 +198,7 @@ const fragmentShader = /* glsl */ `
       if (vWaterPatch<.5 && inPatch) discard;
       if (vWaterPatch>.5 && (any(lessThan(p,uWaveBounds.xy)) || any(greaterThan(p,uWaveBounds.zw)))) discard;
     }
+    float shoreline = shoreFade(p);
     float waterFootprint = max(length(dFdx(p)), length(dFdy(p)));
     vec2 slope = vec2(0.0);
     slope += wave(p, normalize(vec2(0.8, 0.6)), 0.55, 0.035, 1.3);
@@ -226,7 +215,7 @@ const fragmentShader = /* glsl */ `
       slope += turn*windSlope(mat2(.8,-.6,.6,.8)*p*7.3+vec2(-uTime*.31,uTime*.19))*.022*wind
         *(1.0-smoothstep(.04,.25,waterFootprint));
     }
-    slope *= uChop;
+    slope *= uChop * shoreline;
     if (simulated>0.0) {
       vec2 stepX=vec2(waveSpan*waveTexel,0),stepZ=stepX.yx;
       vec2 waveSlope=vec2(waveHeight(p+stepX,vBaseHeight)-waveHeight(p-stepX,vBaseHeight),
@@ -259,7 +248,7 @@ const fragmentShader = /* glsl */ `
       float decay = r.w * exp(-age * 1.6) / (1.0 + d * 1.4);
       float phase = behind * 11.0;
       float dh = cos(phase) * envelope * decay * (1.0 - smoothstep(1.0, 3.14159, 11.0 * waterFootprint));
-      slope += (d > 1e-3 ? offset / d : vec2(0.0)) * dh * 0.9 * (1.0-simulated);
+      slope += (d > 1e-3 ? offset / d : vec2(0.0)) * dh * 0.9 * (1.0-simulated) * shoreline;
       // Fresh white water where the round broke the surface.
       foam += mix(1.0,.12,simulated) * r.w * exp(-age * 3.2) * smoothstep(0.5 + age * 0.9, 0.0, d);
     }
@@ -276,10 +265,10 @@ const fragmentShader = /* glsl */ `
       float ringWidth=sqrt(1.0/(95.0*95.0)+.25*waterFootprint*waterFootprint);
       float ring=exp(-pow((d-radius)/ringWidth,2.0))/(95.0*ringWidth)*(1.0-smoothstep(.25,.65,age))*smoothstep(0.0,.06,age);
       float amount=uRain*(.5+seed*.5)*(1.0-smoothstep(20.0,65.0,distance(cameraPosition.xz,p)));
-      slope += delta/max(d,.001)*ring*amount*.08;
+      slope += delta/max(d,.001)*ring*amount*.08*shoreline;
       rainFoam += ring*amount*.035;
     }
-    foam += rainFoam;
+    foam = (foam + rainFoam) * shoreline;
     vec3 normal = normalize(vec3(-slope.x, 1.0, -slope.y));
     vec3 toEye = normalize(cameraPosition - vWorld);
     float facing = clamp(dot(normal, toEye), 0.0, 1.0);
@@ -363,14 +352,15 @@ const fragmentShader = /* glsl */ `
       if(uShallowDetail>.5 && uCausticLight>.001 && displacedDepth<.99999 && depth>.015 && depth<2.5
         && receiverFootprint<.25 && receiverDistance<42.0) {
         // Trace towards the refracted sunlight at the surface, including wall faces.
-        vec2 projected=behind.xz+uSun.xz*depth*.65/max(.25,uSun.y);
-        float pattern=shallowCaustic(projected*1.6,receiverFootprint*1.6);
-        float facingSun=max(0.0,dot(receiverNormal,normalize(uSun)));
+        vec3 lightRay=refract(-normalize(uSun),vec3(0.0,1.0,0.0),1.0/1.333);
+        vec2 projected=behind.xz-lightRay.xz*depth/max(.25,-lightRay.y);
+        float pattern=dynamicCaustic(projected,depth,receiverFootprint,vBaseHeight);
+        float facingSun=max(0.0,dot(receiverNormal,-lightRay));
         float attenuation=smoothstep(.015,.12,depth)*exp(-depth*.65)*(1.0-smoothstep(1.8,2.5,depth));
         attenuation*=1.0-smoothstep(18.0,42.0,receiverDistance);
         float strength=uCausticLight*(1.0-uRain*.85)*facingSun*attenuation
           *(1.0-smoothstep(.12,.4,receiverFootprint*1.6));
-        receiver*=1.0+(pattern-.16)*.38*strength;
+        receiver*=1.0+pattern*.72*strength;
       }
       body=receiver*transmission+scatter*(1.0-transmission);
     }
@@ -416,6 +406,9 @@ export function createWaterMaterial(options: WaterOptions): WaterMaterial {
       uRain: { value: 0 },
       uUltra: { value: 0 },
       uShallowDetail: { value: 1 }, uCausticLight: { value: 1 },
+      uCausticResponse: { value: 1 },
+      uWaterDepthMap: { value: null }, uWaterDepthReady: { value: 0 },
+      uWaterDepthBounds: { value: new THREE.Vector4() },
       uWaveReady: { value: 0 }, uWaveMap: { value: null }, uWaveHeight: { value: 0 },
       uWaveOrigin: { value: new THREE.Vector2() }, uWaveBounds: { value: new THREE.Vector4() },
       uRefractionReady: { value: 0 },

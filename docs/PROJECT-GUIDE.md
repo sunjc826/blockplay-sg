@@ -367,14 +367,23 @@ reduces refraction over thin water and stair-height discontinuities, keeping
 foreground geometry out of the distorted sample. Restrained animated caustics
 modulate the lit submerged receiver reconstructed from the same depth snapshot;
 its orientation, depth, sunlight, rain and screen footprint control their strength.
-They fade by 2.5 m depth / 42 m view distance and turn off at night. The pattern
-uses one filtered procedural cellular layer, with no added targets, geometry or
-draw calls; it is an artistic screen-space approximation, not photon transport.
+They fade by 2.5 m depth / 42 m view distance and turn off at night. Two independently flowing, curved light layers overlap into brighter crossings.
+Refracted sunlight projects the pattern onto the receiver; five filtered samples
+of the existing wave field bend the pattern and focus/diverge its brightness
+with bullet ripples and boat wakes. Filtering controls subpixel shimmer. This is
+a Crysis-inspired artistic screen-space approximation, not photon transport;
+it adds no render targets, geometry or draw calls. `scripts/dynamic-caustics-smoke.mjs`
+isolates wave-driven light changes with the surface and refraction frozen, and
+checks sun/weather, dry receivers, shore damping, quality fallbacks and costs.
 Sentosa's southern beach has a pale sand bed, a wet shore band and a walkable
 20–60 cm shelf. Its exact terrain triangles also supply movement height; the
 opaque inland lawn ends before the shelf. Shade umbrellas and loungers sit on
 the dry strip, and two deeper channels preserve the existing naval landing
-lanes and ramp endpoints. Offshore water continues into the fog. This is an
+lanes and ramp endpoints. Offshore water continues into the fog. A static 512×256 byte depth map (128 KiB)
+sampled from the same sand triangles lets the wave solver absorb energy in the
+shallows and cap wave height to available depth. Surface displacement, normals
+and foam fade smoothly over the last 55 cm of depth; dry sand carries no waves.
+Solid Marina quay boundaries retain their reflected-wave behavior. This is an
 authored gameplay beach, not surveyed bathymetry. Deep water stays blocked;
 Sentosa does not gain Marina's swimming system. Visit the southern perimeter
 road and the **SOUTH BEACH · SHALLOWS** sign; Ultra, sunny noon and a downward

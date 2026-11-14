@@ -106,6 +106,14 @@ window.shallowMotion=()=>{
  for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>2)changed++;
  water.uniforms.uChop.value=chop;return changed;
 };
+// Freeze time and the wave field: only light focusing changes in this comparison.
+window.causticResponse=()=>{
+ const u=water.uniforms.uCausticResponse,value=u.value;
+ u.value=0;window.draw();const a=pixels();u.value=value;const state=window.draw(),b=pixels();
+ let changed=0,max=0,total=0;
+ for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>2)changed++;max=Math.max(max,d);total+=d;}
+ return {changed,max,mean:total/(a.length/4),state};
+};
 window.shallowBenchmark=async()=>{
  const results=[];window.draw({detail:'ultra'});
  for(const enabled of [false,true]){
@@ -133,14 +141,15 @@ window.waveSwimmer=(x,z,active=true)=>setWaterSwimmer(scene,x,z,active);
 window.waveRead=(cx=0,cz=0)=>{
  const target=post.waterWaves.target;if(!target)return null;
  const bits=new Uint16Array(target.width*target.height*4);renderer.readRenderTargetPixels(target,0,0,target.width,target.height,bits);
- let min=0,max=0,energy=0,mass=0,radius=0,outside=0,hash=0,foam=0;const bounds=water.uniforms.uWaveBounds.value,origin=post.waterWaves.origin;
+ let min=0,max=0,energy=0,mass=0,radius=0,outside=0,hash=0,foam=0,dryEnergy=0;const bounds=water.uniforms.uWaveBounds.value,origin=post.waterWaves.origin;
  for(let z=0;z<target.height;z++)for(let x=0;x<target.width;x++){
   const i=(z*target.width+x)*4,h=THREE.DataUtils.fromHalfFloat(bits[i]),wx=origin.x+(x+.5)*32/target.width,wz=origin.y+(z+.5)*32/target.height;
   const froth=THREE.DataUtils.fromHalfFloat(bits[i+2]);if(!Number.isFinite(h)||!Number.isFinite(froth)||froth<0||froth>.801)throw Error('Invalid wave or foam');foam+=froth;min=Math.min(min,h);max=Math.max(max,h);energy+=h*h;mass+=Math.abs(h);radius+=Math.abs(h)*Math.hypot(wx-cx,wz-cz);
+  if(bay.userData.waterFloor?.(wx,wz)>=water.uniforms.uWaveHeight.value)dryEnergy+=h*h;
   if(wx<bounds.x||wx>bounds.z||wz<bounds.y||wz>bounds.w)outside+=Math.abs(h);hash=(Math.imul(hash,31)+bits[i])|0;
  }
  const sx=Math.floor((cx-origin.x)/32*target.width),sz=Math.floor((cz-origin.y)/32*target.height);
- return {min,max,energy,foam,radius:radius/Math.max(mass,1e-10),outside,hash,sample:THREE.DataUtils.fromHalfFloat(bits[(sz*target.width+sx)*4]),glError:renderer.getContext().getError(),stats:post.waterWaves.stats};
+ return {min,max,energy,dryEnergy,foam,radius:radius/Math.max(mass,1e-10),outside,hash,sample:THREE.DataUtils.fromHalfFloat(bits[(sz*target.width+sx)*4]),glError:renderer.getContext().getError(),stats:post.waterWaves.stats};
 };
 window.waveBenchmark=async()=>{
  const result=[];
