@@ -16,6 +16,28 @@ const compare = (index: ReturnType<typeof createSceneRayIndex>, objects: THREE.M
   return expected;
 };
 
+it('reuses bounds across membership changes while validating simultaneous edits and new hit order', () => {
+  const first = box(), second = box(), removed = box(40), moved = box(30);
+  const index = createSceneRayIndex(); index.setObjects([first, second, removed, moved]);
+  moved.position.x = 0; moved.updateMatrixWorld(true);
+  first.geometry = new THREE.BoxGeometry().translate(50, 0, 0);
+  for (const mesh of [first, second, moved]) mesh.geometry.computeBoundingSphere();
+  const scan = vi.spyOn(THREE.Box3.prototype, 'setFromBufferAttribute');
+  try {
+    index.setObjects([second, moved, first]);
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(scan).toHaveBeenCalledWith(first.geometry.getAttribute('position'));
+    expect(index.nearestHit(ray(), h => isVisibleHit(h))?.object).toBe(second);
+    index.setObjects([moved, first, second]);
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(index.nearestHit(ray(), h => isVisibleHit(h))?.object).toBe(moved);
+  } finally { scan.mockRestore(); }
+  compare(index, [moved, first, second]);
+  moved.raycast = (_r, hits) => { hits.push({ distance: 1, point: new THREE.Vector3(0, 0, -1), object: moved }); };
+  index.setObjects([moved, second]);
+  expect(compare(index, [moved, second])?.distance).toBe(1);
+});
+
 it('prunes distant mesh calls while preserving ordering, layers, near/far and rays inside bounds', () => {
   const objects = Array.from({ length: 80 }, (_, i) => box(i * 10));
   const tie = box(); objects.push(tie);

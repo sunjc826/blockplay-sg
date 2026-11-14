@@ -82,6 +82,23 @@ it('prunes far scenery instead of raycasting every mesh', () => {
   } finally { spy.mockRestore(); }
 });
 
+it('does not rescan static vertex buffers when a dummy dies or respawns', () => {
+  const { scene, figure } = district(), index = createGameplayRayIndex(scene, include);
+  index.refresh();
+  const scan = vi.spyOn(THREE.Box3.prototype, 'setFromBufferAttribute');
+  try {
+    figure.userData.fpsEffect = true;
+    index.refresh();
+    expect(scan).not.toHaveBeenCalled();
+    figure.userData.fpsEffect = false;
+    index.refresh();
+    // Only the returning dummy needs fresh bounds, never the district.
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(scan).toHaveBeenCalledWith((figure.children[0] as THREE.Mesh).geometry.getAttribute('position'));
+  } finally { scan.mockRestore(); }
+  expectSame(scene, index);
+});
+
 it('refits many moved entries to the same boxes as refitting each one', async () => {
   const { createRayBoundsTree } = await import('./ray-bounds-tree');
   let s = 3; const random = () => (s = (s * 16807) % 2147483647) / 2147483647;

@@ -44,28 +44,34 @@ export function createSceneRayIndex() {
     entry.matrix.copy(mesh.matrixWorld);
     padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix));
   };
+  /** Returns whether this entry's spatial bounds changed. */
+  function refreshEntry(entry: Entry) {
+    if (!entry.indexed) return false;
+    const { mesh } = entry;
+    const position = mesh.geometry.getAttribute('position'), instanced = mesh as THREE.InstancedMesh;
+    const geometryChanged = entry.geometry !== mesh.geometry || entry.position !== position || entry.positionVersion !== version(position);
+    // Revalidate custom accelerators when their source or callback changes.
+    if (!position || mesh.children.length || mesh.morphTargetInfluences?.length || mesh.geometry.morphAttributes.position?.length
+      || usage(position) !== THREE.StaticDrawUsage || ((geometryChanged || entry.raycast !== mesh.raycast) && !indexable(mesh))) {
+      entry.indexed = false; entry.box.makeEmpty(); return true;
+    }
+    let moved = false;
+    if (geometryChanged || entry.instances !== (instanced.isInstancedMesh ? instanced.instanceMatrix : undefined)
+      || entry.instanceVersion !== entry.instances?.version || entry.count !== (instanced.isInstancedMesh ? instanced.count : undefined)) {
+      bounds(entry); moved = true;
+    } else if (!entry.matrix.equals(mesh.matrixWorld)) {
+      entry.matrix.copy(mesh.matrixWorld);
+      padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix)); moved = true;
+    }
+    entry.raycast = mesh.raycast;
+    return moved;
+  }
   /** Re-checks every entry: eligibility, geometry, instances and world matrix. */
   function refresh() {
     always.length = 0; changed.length = 0;
     for (const entry of entries) {
-      const { mesh } = entry;
-      if (!entry.indexed) { always.push(entry); continue; }
-      const position = mesh.geometry.getAttribute('position'), instanced = mesh as THREE.InstancedMesh;
-      const geometryChanged = entry.geometry !== mesh.geometry || entry.position !== position || entry.positionVersion !== version(position);
-      // Immutable geometry/raycast eligibility was established when inserted.
-      // Revalidate custom accelerators only when their source or callback changes.
-      if (!position || mesh.children.length || mesh.morphTargetInfluences?.length || mesh.geometry.morphAttributes.position?.length
-        || usage(position) !== THREE.StaticDrawUsage || ((geometryChanged || entry.raycast !== mesh.raycast) && !indexable(mesh))) {
-        entry.indexed = false; entry.box.makeEmpty(); changed.push(entry); always.push(entry); continue;
-      }
-      if (geometryChanged || entry.instances !== (instanced.isInstancedMesh ? instanced.instanceMatrix : undefined)
-        || entry.instanceVersion !== entry.instances?.version || entry.count !== (instanced.isInstancedMesh ? instanced.count : undefined)) {
-        bounds(entry); changed.push(entry);
-      } else if (!entry.matrix.equals(mesh.matrixWorld)) {
-        entry.matrix.copy(mesh.matrixWorld);
-        padRayBounds(entry.box.copy(entry.local).applyMatrix4(entry.matrix)); changed.push(entry);
-      }
-      entry.raycast = mesh.raycast;
+      if (refreshEntry(entry)) changed.push(entry);
+      if (!entry.indexed) always.push(entry);
     }
     tree.refitMany(changed);
   }
@@ -108,8 +114,19 @@ export function createSceneRayIndex() {
      * anything else (a Points, Line or custom raycast) is always returned. */
     setObjects(objects: readonly THREE.Object3D[]) {
       if (objects.length === entries.length && objects.every((mesh, i) => mesh === entries[i].mesh)) return;
+      // A target dying changes membership, not the vertices of every building.
+      // Retain private bounds; still validate edits made alongside the membership change.
+      const previous = new Map(entries.map(entry => [entry.mesh, entry]));
       entries = objects.map((object, order) => {
         const mesh = object as THREE.Mesh, isMesh = (object as THREE.Mesh).isMesh === true;
+        const retained = previous.get(mesh);
+        if (retained) {
+          retained.order = order;
+          if (!retained.indexed && isMesh && indexable(mesh)) {
+            retained.indexed = true; retained.raycast = mesh.raycast; bounds(retained);
+          } else refreshEntry(retained);
+          return retained;
+        }
         const entry: Entry = { mesh, order, box: new THREE.Box3(), local: new THREE.Box3(), matrix: new THREE.Matrix4(), geometry: mesh.geometry, position: isMesh ? mesh.geometry.getAttribute('position') : undefined!, positionVersion: -1, indexed: isMesh && !!indexable(mesh), raycast: mesh.raycast };
         if (entry.indexed) bounds(entry);
         return entry;

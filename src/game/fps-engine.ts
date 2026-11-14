@@ -1,3 +1,4 @@
+import { withWarmRenderObjects } from './warm-render-objects';
 import { createAmmoPlacementQueue, type AmmoPlacement, type AmmoPlacementSource } from './ammo-placement';
 import { createAmmoPlacementViewmodel } from './fps-ammo-placement';
 import { CARRIER_CAPACITY, CARRIER_NAME, carrierUsed, stepCarrierTransfer, transferCandidate, type ReserveCarrierKind } from './reserve-carrier';
@@ -5010,6 +5011,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   async function warmShaders() {
     weapons.forEach(weapon => { const sight = getWeaponSight(weapon); if (sight) scopeRenderer.prepare(sight); });
     if (options.arena) combatVisuals.prewarm();
+    // The overview skips the body update; build worn gear and magazine variants
+    // now so their first allocation/compile does not happen during descent.
+    playerBody.update(0, equipment, loadout, { x: position.x, y: vertical, z: position.z, yaw, visible: false, activeFamily: hud.weapon });
     lightView(0);
     // The real figures only arrive after this.
     const removeFigures = options.arena ? standInFigures(world.scene, camera.getWorldPosition(new THREE.Vector3()).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), 6)) : null;
@@ -5022,15 +5026,39 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     renderer.setRenderTarget(previous);
     compiling.push(vision.warm(), deploymentBlur.warm());
-    try { await Promise.all(compiling); } finally { targets.forEach((t, i) => t.root.visible = targetVisibility[i]); offscreen.dispose(); }
-    if (disposed) { removeFigures?.(); return; }
+    try {
+      await Promise.all(compiling);
+      if (!disposed) {
+        // Hidden viewmodels and empty effect pools compile but never draw in the
+        // aerial overview. Pay their first-use checks/uploads here, not on reveal.
+        withWarmRenderObjects([rig, playerBody.root, effects.root], () => {
+          for (const target of [offscreen, null]) {
+            renderer.setRenderTarget(target); renderer.clear();
+            renderer.render(world.scene, camera);
+            renderer.clearDepth(); renderer.render(viewScene, viewCamera);
+          }
+        });
+        // Stand-in materials are disposed below; retain their programs before
+        // removing the last owner, for the real arena figures that arrive later.
+        keepShadersLinked();
+      }
+    } finally {
+      renderer.setRenderTarget(previous);
+      targets.forEach((t, i) => t.root.visible = targetVisibility[i]); offscreen.dispose();
+      removeFigures?.();
+    }
+    if (disposed) return;
     // A compiled shader still needs a pipeline per target format, built on first draw there.
     scopeRenderer.warm(world.scene, camera); opticReflections.warm(world.scene, camera);
     // Occlusion builds its passes and links them on first use, which would otherwise be the first frame of the descent.
     occlusion.render(atmosphere.light.occlusion);
     keepShadersLinked();
-    // Redrawn in the same task, so the stand-ins are never on screen.
-    if (removeFigures) { removeFigures(); occlusion.render(atmosphere.light.occlusion); }
+    // Redraw with restored visibility in the same task; warm-up is never presented.
+    renderer.clearDepth(); renderer.render(viewScene, viewCamera);
+    world.scene.updateMatrixWorld(true);
+    roundIndex.refresh();
+    // The acoustic cover index is otherwise built synchronously by the first shot.
+    gunshotSpaces.at('own', { x: position.x, y: vertical + eyeHeight(), z: position.z }, true);
   }
   /**
    * Each patch rebuilds a material's program, and each order of them is a program
