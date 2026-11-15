@@ -7312,3 +7312,10 @@ behind the wrists: the forearms are thick for the hand and the pistol sits low a
 Forearms (2026-11-15): `forearmGeometry` is no longer a cone with two torus rings (it read as bamboo). It is an oval
 tube, narrow at the wrist, widest about 0.2 m down, with shallow folds winding round the sleeve; the wrist band follows
 the hand's flat section. Hand size is unchanged (about three-quarters of life size against the guns).
+
+Life-size hands (2026-11-15): the gun hands are scaled 1.25 (`HAND` in `fps-viewmodel.ts`) and the free hands 1.18
+(`HAND_SCALE` in `fps-viewmodel-hand.ts`), both about 78 mm across the palm. Each is scaled about the palm's face, so
+every authored pose and held object still meets the palm where it did; the gun hand's palm stays `children[0]` because
+tests measure it. The CIS 50's spade grips close all four fingers right round (`tight` in `curlFingers`). Seen in the
+fixture on all eighteen guns, both hands, reload frames on SAR 21, P30, XM8 and the bolt gun, and in
+`utility-animation.html` (frag, finale shell, bandage, first-aid kit, ammo pouch). Not seen in live play.

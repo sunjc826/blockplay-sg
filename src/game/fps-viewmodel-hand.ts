@@ -90,20 +90,24 @@ export function buildThumb(into: THREE.Object3D, mesh: Mesher, glove: THREE.Mate
  * parts on three-joint fingers, posed by `setGrip`, in the same materials as the
  * reload hands in `fps-viewmodel`.
  */
+/** The free hands' scale: a glove about 78 mm across the palm, the same as the gun hands. */
+const HAND_SCALE = 1.18;
 export function createViewmodelHand(left: boolean, { glove, pad, sleeve, mesh }: ViewmodelHandKit) {
   const group = new THREE.Group(); group.name = left ? 'viewmodel-hand-left' : 'viewmodel-hand-right';
+  // Built small and scaled to life size about the palm's face, so whatever a caller puts in the hand still lies on it.
+  const shape = new THREE.Group(); shape.scale.setScalar(HAND_SCALE); shape.position.z = -.02 * (1 - HAND_SCALE); group.add(shape);
   // First finger on the thumb side, so a pinch is that finger and the thumb.
   const side = left ? 1 : -1, w = .066, h = .078, d = .04;
-  mesh(group, palmGeometry(w, h, d, side), glove);
-  mesh(group, gloveArmourGeometry(w, h, d, -.05, .004), pad);
+  mesh(shape, palmGeometry(w, h, d, side), glove);
+  mesh(shape, gloveArmourGeometry(w, h, d, -.05, .004), pad);
   const fingers = [0, 1, 2, 3].map(i => {
-    const base = new THREE.Group(); base.position.set(side * (.0235 - i * .0157), .034, -.003); group.add(base);
+    const base = new THREE.Group(); base.position.set(side * (.0235 - i * .0157), .034, -.003); shape.add(base);
     return { base, ...buildFinger(base, mesh, glove, [.058, .064, .06, .048][i], [.0074, .0076, .0072, .0066][i]) };
   });
-  const thumb = new THREE.Group(); thumb.position.set(side * .032, -.004, -.012); group.add(thumb);
+  const thumb = new THREE.Group(); thumb.position.set(side * .032, -.004, -.012); shape.add(thumb);
   const thumbTip = buildThumb(thumb, mesh, glove, .062, .0098);
   // A sleeve long enough to leave the frame whatever the pose.
-  const arm = new THREE.Group(); arm.position.set(0, -.058, .008); arm.rotation.x = -.22; group.add(arm);
+  const arm = new THREE.Group(); arm.position.set(0, -.058, .008); arm.rotation.x = -.22; shape.add(arm);
   mesh(arm, forearmGeometry(.62), sleeve);
   /** 0 open and flat, 1 a closed fist; `pinch` brings the first finger and thumb together on top of that. */
   const setGrip = (closed: number, pinch = 0) => {

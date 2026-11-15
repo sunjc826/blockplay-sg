@@ -35,7 +35,7 @@ describe('non-food utility animations', () => {
     const view=createSupplyViewmodel(new THREE.Scene());
     const roll=view.root.getObjectByName('bandage-roll')!,wrap=view.root.getObjectByName('bandage-wrap') as THREE.Mesh;
     view.update('bandage',.4,'kit-bandage');const early=wrap.geometry.drawRange.count;
-    const scale=roll.scale.clone();expect(wrap.parent!.parent!.name).toBe('viewmodel-hand-left');
+    const scale=roll.scale.clone();expect(wrap.parent!.parent!.parent!.name).toBe('viewmodel-hand-left');
     view.update('bandage',.8,'kit-bandage');expect(wrap.geometry.drawRange.count).toBeGreaterThan(early);expect(roll.scale.equals(scale)).toBe(true);
     expect(view.root.getObjectByName('dressing-pad')!.visible).toBe(false);
     view.update('bandage',.4,'kit-dressing');expect(view.root.getObjectByName('dressing-pad')!.visible).toBe(true);

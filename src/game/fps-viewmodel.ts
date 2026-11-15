@@ -14,6 +14,8 @@ import { beltPouchTime, createBeltReload } from './fps-belt-reload';
 
 /** Metres of sleeve behind each gun hand's wrist. */
 const FOREARM = .62;
+/** The hands are built small and scaled to life size: a glove about 78 mm across the palm. */
+const HAND = 1.25;
 /** Lightweight rigid hand poses; no extra render target or skinning. */
 export function createWeaponHandling(model: THREE.Group, index: number) {
   const additions = new THREE.Group(); additions.name = 'fps-handling'; model.add(additions);
@@ -33,24 +35,27 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const jointed = new Map<THREE.Object3D, { joint: THREE.Group; bend: THREE.Group; mid: THREE.Group; tip: THREE.Group }[]>();
   const hand = (left: boolean) => {
     const group = new THREE.Group(); group.name = left ? 'reload-hand-left' : 'reload-hand-right'; additions.add(group);
-    mesh(group, palmGeometry(.062, .077, .044, left ? 1 : -1), glove);
-    mesh(group, gloveArmourGeometry(.062, .077, .044, -.05, .005, .024), pad);
+    // Scaled about the palm's face, so the face stays where every authored pose puts it.
+    // The palm stays the hand's first child; the rest goes in `shape`.
+    const palm = mesh(group, palmGeometry(.062, .077, .044, left ? 1 : -1), glove, 0, 0, .022 * (HAND - 1)); palm.scale.setScalar(HAND);
+    const shape = new THREE.Group(); shape.scale.copy(palm.scale); shape.position.copy(palm.position); group.add(shape);
+    mesh(shape, gloveArmourGeometry(.062, .077, .044, -.05, .005, .024), pad);
     jointed.set(group, [0, 1, 2, 3].map(i => {
-      const joint = new THREE.Group(); joint.name = `grip-finger-${i}`; joint.position.set(-.023 + i * .015, .025, -.005); group.add(joint);
+      const joint = new THREE.Group(); joint.name = `grip-finger-${i}`; joint.position.set(-.023 + i * .015, .025, -.005); shape.add(joint);
       const bend = new THREE.Group(); joint.add(bend);
       // The thumb is at −x on the right hand and +x on the left, so the first finger is at that end.
       const order = left ? 3 - i : i;
       return { joint, bend, ...buildFinger(bend, mesh, glove, [.058, .064, .06, .048][order], [.0064, .0064, .0062, .0058][order]) };
     }));
-    const thumb = new THREE.Group(); thumb.name = 'grip-thumb'; thumb.position.set(left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; group.add(thumb);
+    const thumb = new THREE.Group(); thumb.name = 'grip-thumb'; thumb.position.set(left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; shape.add(thumb);
     buildThumb(thumb, mesh, glove, .052, .0092);
     // Long enough that the elbow end stays out of frame through a reload or an inspect.
-    const forearm = mesh(group, forearmGeometry(FOREARM, .024, .04), sleeve, 0, -.0531, .0059); forearm.rotation.x = -.28; forearm.name = 'hand-forearm-stub';
+    const forearm = mesh(shape, forearmGeometry(FOREARM, .024, .04), sleeve, 0, -.0531, .0059); forearm.rotation.x = -.28; forearm.name = 'hand-forearm-stub';
     return group;
   };
-  const curlFingers = (group: THREE.Object3D, clasp = 0, trigger = 0) => jointed.get(group)!.forEach(({ joint, bend, mid, tip }, i) => {
-    // `trigger` straightens the first finger of the firing hand along the frame.
-    const drive = joint.rotation.x, closed = Math.min(1.05, Math.max(-.12, .6 + drive * (drive >= 0 ? .6 : 1.4))) - (i === 0 ? trigger * .42 : 0);
+  const curlFingers = (group: THREE.Object3D, clasp = 0, trigger = 0, tight = 0) => jointed.get(group)!.forEach(({ joint, bend, mid, tip }, i) => {
+    // `trigger` straightens the first finger of the firing hand along the frame; `tight` closes the hand right round a thin handle.
+    const drive = joint.rotation.x, closed = Math.min(1.05, Math.max(-.12, .6 + drive * (drive >= 0 ? .6 : 1.4)) + tight * .45) - (i === 0 ? trigger * .42 : 0);
     // Clasping the pistol's slide, the drive is already the knuckle's own angle.
     bend.rotation.x = THREE.MathUtils.lerp(-closed * .95 - drive, 0, clasp);
     mid.rotation.x = THREE.MathUtils.lerp(-closed * 1.25, -.22, clasp); tip.rotation.x = THREE.MathUtils.lerp(-closed * .7, -.12, clasp);
@@ -103,7 +108,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     const face = flank && Math.abs(flank.x - centre.x) < .05 ? flank.x : centre.x - side * .011;
     const fronts = probe(new THREE.Vector3(face - side * .012, centre.y, centre.z - .14), new THREE.Vector3(0, 0, 1), .15).filter(point => point.z <= centre.z + .004);
     const strap = fronts.length ? fronts[fronts.length - 1].z : centre.z - .022;
-    return { position: new THREE.Vector3(face + side * (.02 + clear), centre.y + (fit.rise ?? 0), THREE.MathUtils.clamp(strap + .027, centre.z - .02, centre.z + .03) - (fit.reach ?? 0)),
+    return { position: new THREE.Vector3(face + side * (.02 + clear), centre.y + (fit.rise ?? 0), THREE.MathUtils.clamp(strap + .027 * HAND, centre.z - .02, centre.z + .04) - (fit.reach ?? 0)),
       rotation: facing(fit.fingers ?? new THREE.Vector3(0, -.15, -1), new THREE.Vector3(-side, 0, 0)), arm: (fit.arm ?? new THREE.Vector3(side * .28, -.42, .86)).normalize(), thumb: fit.thumb ?? -.5 };
   };
   /** Palm up under the fore-end at `centre`, coming in from the left, fingers up its far side. */
@@ -336,7 +341,9 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
         thumb.rotation.z *= 1 - clasp;
         pistolSlide.forEach(({ part, z }) => { part.position.z = z + stroke; });
       }
-      curlFingers(right, 0, holdGrip(right)); holdGrip(left); curlFingers(left, clasp);
+      // The CIS 50's spade grips are thin, and fired with the thumbs: every finger closes right round them.
+      const rightHeld = holdGrip(right), leftHeld = holdGrip(left), spade = index === 4;
+      curlFingers(right, 0, spade ? 0 : rightHeld, spade ? rightHeld : 0); curlFingers(left, clasp, 0, spade ? leftHeld : 0);
       control.position.z = controlZ + stroke;
       control.rotation.z = controlRoll - (cycle?.lift ?? (manualBolt ? motion.action : 0)) * .9;
     },
