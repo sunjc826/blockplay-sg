@@ -149,15 +149,18 @@ describe('flicking the spent magazine out one-handed', () => {
   it('throws a whole magazine, hidden inside the grip while seated', () => {
     const f = viewed(); f.at(0);
     expect(new THREE.Box3().setFromObject(f.magazine).getSize(new THREE.Vector3()).y).toBeGreaterThan(.1);
-    const body = f.model.getObjectByName(`${spec.id}__magazine-body`) as THREE.Mesh, grip = f.model.getObjectByName(`${spec.id}__grip`)!;
+    // Seen from the side, every corner of the body is behind the frame's outline or the base plate.
+    const body = f.model.getObjectByName(`${spec.id}__magazine-body`) as THREE.Mesh, frame = f.model.getObjectByName(`${spec.id}__frame`) as THREE.Mesh;
     f.model.updateMatrixWorld(true);
-    const intoGrip = grip.matrixWorld.clone().invert();
-    body.geometry.computeBoundingBox();
-    const { min, max } = body.geometry.boundingBox!;
-    for (const x of [min.x, max.x]) for (const y of [min.y, max.y]) for (const z of [min.z, max.z]) {
-      const corner = new THREE.Vector3(x, y, z).applyMatrix4(body.matrixWorld).applyMatrix4(intoGrip);
-      expect(Math.abs(corner.x)).toBeLessThan(.022);
-      expect(Math.abs(corner.z)).toBeLessThan(.028);
+    const intoModel = f.model.matrixWorld.clone().invert(), toWorld = new THREE.Matrix3().setFromMatrix4(f.model.matrixWorld);
+    frame.geometry.computeBoundingBox(); body.geometry.computeBoundingBox();
+    const half = frame.geometry.boundingBox!.max.x, { min, max } = body.geometry.boundingBox!, inset = .0005, ray = new THREE.Raycaster();
+    for (const x of [min.x, max.x]) for (const y of [min.y + inset, max.y - inset]) for (const z of [min.z + inset, max.z - inset]) {
+      const corner = new THREE.Vector3(x, y, z).applyMatrix4(body.matrixWorld);
+      expect(Math.abs(corner.clone().applyMatrix4(intoModel).x)).toBeLessThan(half);
+      const across = new THREE.Vector3(-1, 0, 0).applyMatrix3(toWorld).normalize();
+      ray.set(corner.clone().addScaledVector(across, -1), across);
+      expect(ray.intersectObjects([frame, f.magazine], false).length, `corner ${x},${y},${z}`).toBeGreaterThan(0);
     }
     f.done();
   });
