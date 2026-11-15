@@ -17,6 +17,7 @@ export function readDebugWorkspace(search: string, saved?: string | null): Debug
 export function debugWorkspaceUrl(state: DebugWorkspace, search = '') {
   const query = new URLSearchParams(search);
   for (const key of ['review', 'asset', 'tool', 'district', 'thread', 'room']) query.delete(key);
+  if (state.tool !== 'maps') query.delete('view');
   if (state.tool === 'maps') query.set('review', state.district);
   else if (state.tool === 'models') query.set('asset', state.asset);
   else { query.set('tool', state.tool); query.set('district', state.district); }

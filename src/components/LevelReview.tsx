@@ -11,6 +11,8 @@ import { reviewCacheKey } from '../lib/level-review-cloud';
 import { useLevelReviewCloud } from './use-level-review-cloud';
 import { getReviewAsset, REVIEW_ASSETS } from '../game/review-assets';
 import ModelReviewViewer from './ModelReviewViewer';
+import DistrictReviewViewer from './DistrictReviewViewer';
+import { DISTRICT_PIN_REACH } from '../game/district-review';
 import ReviewPointer from './ReviewPointer';
 import { useReviewGestures } from './use-review-gestures';
 import { gestureMapView } from '../lib/review-gestures';
@@ -63,6 +65,15 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
   const [kind, setKind] = useState<ReviewThread['kind']>('discussion');
   const [reply, setReply] = useState('');
   useNavigationGuard(!!((anchor && (title.trim() || body.trim())) || reply.trim()), { title: 'Leave this draft?', detail: 'This comment has not been posted. Stay to finish it, or leave and discard the draft. Saved threads are unaffected.', confirmLabel: 'Discard draft & leave' });
+  // The schematic is the light default; the built district only loads when the 3D layout is asked for.
+  const [layout, setLayout] = useState<'map' | 'scene'>(() => !assetId && new URLSearchParams(window.location.search).get('view') === '3d' ? 'scene' : 'map');
+  const [detached, setDetached] = useState<string[] | null>(null);
+  const showLayout = (next: 'map' | 'scene') => {
+    setLayout(next); setPlacing(false); if (next === 'map') setDetached(null);
+    const query = new URLSearchParams(window.location.search); if (next === 'scene') query.set('view', '3d'); else query.delete('view');
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}?${query}${window.location.hash}`);
+  };
+  const scene = !assetId && layout === 'scene';
   const [zoom, setZoom] = useState(1), [center, setCenter] = useState<{ x: number; z: number } | null>(null);
   const more = useRef<HTMLDetailsElement>(null);
   useEffect(() => { const close = (event: PointerEvent) => { if (more.current && !more.current.contains(event.target as Node)) more.current.open = false; }; window.document.addEventListener('pointerdown', close); return () => window.document.removeEventListener('pointerdown', close); }, []);
@@ -77,7 +88,21 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
   const focus = center ?? middle, spanX = (bounds.maxX - bounds.minX) / zoom, spanZ = (bounds.maxZ - bounds.minZ) / zoom;
   const view = { minX: focus.x - spanX / 2, maxX: focus.x + spanX / 2, minZ: focus.z - spanZ / 2, maxZ: focus.z + spanZ / 2 };
   const mapSurface = useRef<HTMLDivElement>(null), liveMapView = useRef({ zoom, center: focus }); liveMapView.current = { zoom, center: focus };
-  const gestures = useReviewGestures(mapSurface, gesture => { const next = gestureMapView(bounds, WIDTH, HEIGHT, liveMapView.current, gesture); liveMapView.current = next; setZoom(next.zoom); setCenter(next.center); });
+  const gestures = useReviewGestures(mapSurface, gesture => mapGesture.current(gesture), undefined, scene);
+  const applyMapGesture = (gesture: Parameters<typeof gestureMapView>[4]) => { const next = gestureMapView(bounds, WIDTH, HEIGHT, liveMapView.current, gesture); liveMapView.current = next; setZoom(next.zoom); setCenter(next.center); };
+  const mapGesture = useRef(applyMapGesture); mapGesture.current = applyMapGesture;
+  // Mouse parity with the touch gestures: the wheel zooms about the cursor and a background drag slides the map.
+  useEffect(() => {
+    const node = mapSurface.current; if (!node) return;
+    const at = (e: MouseEvent) => { const rect = node.getBoundingClientRect(); return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height }; };
+    const wheel = (e: WheelEvent) => { e.preventDefault(); const point = at(e); mapGesture.current({ from: point, to: point, scale: Math.exp(-e.deltaY * .0015) }); };
+    let last: { x: number; y: number } | null = null;
+    const down = (e: PointerEvent) => { if (e.pointerType === 'mouse' && e.button === 0 && !(e.target as Element).closest('.lr-pin,.lr-placement')) { last = at(e); node.setPointerCapture(e.pointerId); } };
+    const move = (e: PointerEvent) => { if (!last) return; const point = at(e); mapGesture.current({ from: last, to: point, scale: 1 }); last = point; };
+    const up = () => { last = null; };
+    node.addEventListener('wheel', wheel, { passive: false }); node.addEventListener('pointerdown', down); node.addEventListener('pointermove', move); node.addEventListener('pointerup', up); node.addEventListener('pointercancel', up); node.addEventListener('lostpointercapture', up);
+    return () => { node.removeEventListener('wheel', wheel); node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', up); node.removeEventListener('lostpointercapture', up); };
+  }, [scene]);
   const map = minimapProjection(view, WIDTH, HEIGHT, 24);
   const labels = minimapLabels(region.stamps.map((stamp, i) => ({ id: String(i), name: stamp.name, x: map.x(stamp.x), y: map.y(stamp.z) - 8, priority: 1 })).filter(p => p.x > 0 && p.x < WIDTH && p.y > 0 && p.y < HEIGHT), WIDTH, HEIGHT);
   useEffect(() => {
@@ -89,7 +114,7 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
       setSize({ width, height });
     });
     observer.observe(frame.current); return () => observer.disconnect();
-  }, []);
+  }, [scene]);
   const threads = document.threads.filter(t => assetId ? t.asset === assetId : t.district === district);
   const visible = threads.filter(t => (filter === 'all' || (filter === 'design-note' ? t.kind === filter : threadStatus(t) === filter)) && `${t.title} ${t.anchor.level} ${t.events.map(e => e.body).join(' ')}`.toLowerCase().includes(search.toLowerCase()));
   const active = threads.find(t => t.id === selected);
@@ -160,12 +185,12 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
       <small>Cloud threads remain saved when you disconnect. A copy stays in this browser; export it before clearing site data while offline.</small>
     </details>}
     {(error || notice || cloud.problem) && <div className="lr-feedback" aria-live="polite">{error ? <><strong role="alert">{error}</strong><button onClick={() => { try { download(localStorage.getItem(reviewCacheKey(collection)) ?? '', 'level-review-storage-backup.txt', 'text/plain'); } catch { setNotice('Browser storage is unavailable. Export review still downloads the loaded threads.'); } }}>Export saved backup</button></> : cloud.problem || notice}<button className="lr-dismiss" aria-label="Dismiss notification" onClick={() => setNotice('')} hidden={!notice || !!error || !!cloud.problem}>×</button></div>}
-    <div className="lr-panel-switch" role="group" aria-label="Review panels"><button aria-pressed={panel === 'canvas'} onClick={() => setPanel('canvas')}>{assetId ? 'Model' : 'Map'}</button><button aria-pressed={panel === 'discussion'} onClick={() => setPanel('discussion')}>Discussion · {threads.length}{anchor ? ' · Draft' : ''}</button></div>
+    <div className="lr-panel-switch" role="group" aria-label="Review panels"><button aria-pressed={panel === 'canvas'} onClick={() => setPanel('canvas')}>{assetId ? 'Model' : scene ? '3D layout' : 'Map'}</button><button aria-pressed={panel === 'discussion'} onClick={() => setPanel('discussion')}>Discussion · {threads.length}{anchor ? ' · Draft' : ''}</button></div>
     <div className="lr-layout">
       <div className="lr-map-column">
-        <div className="lr-map-heading"><strong>{assetId ? asset?.name ?? assetId : region.name}</strong><span>{assetId ? '3D / STATIC STUDY' : '↑ N · SCHEMATIC'}</span></div>
+        <div className="lr-map-heading"><strong>{assetId ? asset?.name ?? assetId : region.name}</strong>{assetId ? <span>3D / STATIC STUDY</span> : <div className="lr-view-switch" role="group" aria-label="Review view"><button aria-pressed={!scene} onClick={() => showLayout('map')}>Schematic</button><button aria-pressed={scene} onClick={() => showLayout('scene')}>3D layout</button></div>}</div>
         {assetId ? <><ModelReviewViewer assetId={assetId} placing={placing} draft={anchor} threads={visible} numbers={Object.fromEntries(threads.map((thread, i) => [thread.id, i + 1]))} selected={active} onPick={confirmPin} onCancel={() => setPlacing(false)} onSelect={select} onRevision={setAssetRevision} />
-          {asset && <details className="lr-method"><summary>Developer context · {asset.name}</summary><p>{asset.description}</p><p>{asset.rationale}</p><p>Source: {asset.source.startsWith('https://') ? <a href={asset.source} target="_blank" rel="noreferrer">Species reference ↗</a> : <code>{asset.source}</code>} · <a href={asset.gallery}>Original gallery ↗</a></p><button onClick={() => requestLeave(() => { setReply(''); setPlacing(false); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(`Design intent: ${asset.name}`.slice(0, 160)); setBody(''); setKind('design-note'); setSelected(''); })}>Discuss the design intent</button></details>}</> : <>
+          {asset && <details className="lr-method"><summary>Developer context · {asset.name}</summary><p>{asset.description}</p><p>{asset.rationale}</p><p>Source: {asset.source.startsWith('https://') ? <a href={asset.source} target="_blank" rel="noreferrer">Species reference ↗</a> : <code>{asset.source}</code>} · <a href={asset.gallery}>Original gallery ↗</a></p><button onClick={() => requestLeave(() => { setReply(''); setPlacing(false); setAnchor({ x: 0, z: 0, level: 'Whole model' }); setLevel('Whole model'); setTitle(`Design intent: ${asset.name}`.slice(0, 160)); setBody(''); setKind('design-note'); setSelected(''); })}>Discuss the design intent</button></details>}</> : scene ? <DistrictReviewViewer district={district} placing={placing} draft={anchor} threads={visible} numbers={Object.fromEntries(threads.map((thread, i) => [thread.id, i + 1]))} selected={active} onPick={confirmPin} onCancel={() => setPlacing(false)} onSelect={select} onDetached={setDetached} /> : <>
         <div ref={frame} className={`lr-map ${placing ? 'is-placing' : ''}`}>
           <div ref={mapSurface} className="lr-map-surface" data-map-zoom={zoom} data-map-center={JSON.stringify(focus)}><svg ref={svg} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} tabIndex={0} role="group" aria-label="Review map. In pin mode drag the pointer, then choose Pin here. Enter focuses the pointer. Arrows pan the map." onKeyDown={e => {
             if (e.target !== e.currentTarget) return;
@@ -197,21 +222,23 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
         </div>
         <p className="lr-map-hint">{placing ? 'Drag the pointer, release, then choose Pin here. Arrow keys move the pointer; Enter offers Pin here. Two fingers pan and pinch to zoom.' : 'Two fingers pan and pinch to zoom. Select a pin to read its thread. Gold: discussion · Teal: design note · ✓: resolved.'}</p>
         </>}
-        <details className="lr-method"><summary>How we collaborate</summary><ol><li><strong>You point and explain.</strong> Pin a place, name the floor, describe the problem or desired experience.</li><li><strong>Sync the discussion.</strong> Connect your private cloud workspace. The AI can fetch its threads and reply to the same IDs with intent, alternatives, tradeoffs and a test plan.</li><li><strong>Read replies here.</strong> Connected boards refresh automatically. Export/import is still available for backups and offline handoffs.</li><li><strong>Review in game, then resolve.</strong> Record what changed and how it played. Reopen with a comment if the result misses the intent.</li></ol><p>Connected threads are stored on Cloudflare. This board does not call an AI automatically. Author labels describe contributors, not verified identities. Map pins use world X/Z plus a floor label. Model pins store a mesh-local surface point and viewing angle in the frozen study pose; changed geometry asks for re-verification.</p></details>
+        <details className="lr-method"><summary>How we collaborate</summary><ol><li><strong>You point and explain.</strong> Pin a place on the schematic or on the 3D layout, name it, describe the problem or desired experience.</li><li><strong>Sync the discussion.</strong> Connect your private cloud workspace. The AI can fetch its threads and reply to the same IDs with intent, alternatives, tradeoffs and a test plan.</li><li><strong>Read replies here.</strong> Connected boards refresh automatically. Export/import is still available for backups and offline handoffs.</li><li><strong>Review in game, then resolve.</strong> Record what changed and how it played. Reopen with a comment if the result misses the intent.</li></ol><p>Connected threads are stored on Cloudflare. This board does not call an AI automatically. Author labels describe contributors, not verified identities. Schematic pins use world X/Z plus a floor label you type. 3D layout pins sit on a surface of the built district and save world X/Y/Z with the view they were placed from. Model pins store a mesh-local surface point and viewing angle in the frozen study pose; changed geometry asks for re-verification.</p></details>
       </div>
       <aside ref={discussion} className="lr-discussion" aria-label="Review threads" tabIndex={-1}>
         {anchor ? <form className="lr-compose" onSubmit={e => { e.preventDefault(); if (!title.trim() || !body.trim() || !level.trim()) return; const thread: ReviewThread = { id: crypto.randomUUID(), ...(assetId ? { asset: assetId } : { district }), title: title.trim(), kind, anchor: { ...anchor, level: level.trim() }, mapRevision: revision, events: [event(body)] }; if (save({ ...emptyReview(collection), threads: [thread] })) { setSelected(thread.id); setAnchor(null); setFilter('all'); setSearch(''); } }}>
-          <span className="lr-eyebrow">NEW THREAD · {assetId && !anchor.surface ? "WHOLE MODEL" : `${anchor.x.toFixed(2)}, ${anchor.z.toFixed(2)}${anchor.surface ? ` · Y ${anchor.surface.y.toFixed(2)}` : ""}`}</span><h3>{assetId ? "What should we refine?" : "What should happen here?"}</h3>
+          <span className="lr-eyebrow">NEW THREAD · {assetId && !anchor.surface ? "WHOLE MODEL" : `${anchor.x.toFixed(2)}, ${anchor.z.toFixed(2)}${anchor.surface ? ` · Y ${anchor.surface.y.toFixed(2)}` : ""}${anchor.space ? ` · HEIGHT ${anchor.space.y.toFixed(2)} M` : ""}`}</span><h3>{assetId ? "What should we refine?" : "What should happen here?"}</h3>
           <label>Title<input ref={titleInput} required maxLength={160} value={title} onChange={e => setTitle(e.target.value)} placeholder={assetId ? "e.g. This edge needs a softer profile" : "e.g. This crossing feels too exposed"} /></label>
-          <label>{assetId ? "Part / detail" : "Floor / height"}<input required maxLength={100} value={level} onChange={e => setLevel(e.target.value)} /></label>
+          <label>{assetId ? "Part / detail" : anchor.space ? "Surface / height (from the 3D scene; edit to name the place)" : "Floor / height (the schematic records none; pin in 3D layout to capture it)"}<input required maxLength={100} value={level} onChange={e => setLevel(e.target.value)} /></label>
           <label>Thread type<select value={kind} onChange={e => setKind(e.target.value as ReviewThread['kind'])}><option value="discussion">Discussion</option><option value="design-note">Design rationale</option></select></label>
           <label>Comment<textarea required maxLength={8000} rows={5} value={body} onChange={e => setBody(e.target.value)} placeholder="What you notice, what you want, and how we could test it…" /></label>
           <div className="lr-actions"><button className="lr-primary" type="submit">Post comment</button><button type="button" onClick={() => requestLeave(() => { setAnchor(null); setTitle(''); setBody(''); })}>Cancel</button></div>
         </form> : active ? <div className="lr-thread">
           <button className="lr-back" onClick={() => requestLeave(() => { setReply(''); setSelected(''); })}>← All threads</button><div className="lr-thread-meta">{active.kind === 'design-note' ? 'DESIGN NOTE' : 'DISCUSSION'} · {threadStatus(active).toUpperCase()}</div><h3>{active.title}</h3>
-          <p className="lr-coordinate">{assetId ? active.anchor.surface ? `Surface · X ${active.anchor.x.toFixed(3)} · Y ${active.anchor.surface.y.toFixed(3)} · Z ${active.anchor.z.toFixed(3)}` : "Whole model" : `X ${active.anchor.x} · Z ${active.anchor.z}`}<br />{active.anchor.level}</p>
+          <p className="lr-coordinate">{assetId ? active.anchor.surface ? `Surface · X ${active.anchor.x.toFixed(3)} · Y ${active.anchor.surface.y.toFixed(3)} · Z ${active.anchor.z.toFixed(3)}` : "Whole model" : active.anchor.space ? `X ${active.anchor.x} · Y ${active.anchor.space.y} · Z ${active.anchor.z} · placed in 3D` : `X ${active.anchor.x} · Z ${active.anchor.z} · schematic pin, no height recorded`}<br />{active.anchor.level}</p>
           {active.mapRevision !== revision && <p className="lr-warning">{assetId ? "The model changed or this note predates a verified model revision. Verify the part before acting; stale surface pins are hidden." : "The schematic has changed or this pin has not been checked against it. Verify the location in game before acting."}</p>}
-          <button onClick={() => void copy(`${window.location.origin}/debug?${targetQuery}${testQuery}&thread=${encodeURIComponent(active.id)}`, 'Thread link copied. Other devices need cloud access or the exported review file.', 'review-link.txt')}>Copy thread link</button>
+          {scene && detached?.includes(active.id) && <p className="lr-warning" data-pin-detached>No surface lies within {DISTRICT_PIN_REACH} m of this pin in the district as it is built now, so the geometry here has changed since the comment. The pin is kept where it was; check the place before acting.</p>}
+          {!assetId && !scene && active.anchor.space && <button onClick={() => showLayout('scene')}>View in 3D</button>}
+          <button onClick={() => void copy(`${window.location.origin}/debug?${targetQuery}${testQuery}${active.anchor.space ? '&view=3d' : ''}&thread=${encodeURIComponent(active.id)}`, 'Thread link copied. Other devices need cloud access or the exported review file.', 'review-link.txt')}>Copy thread link</button>
           <ol className="lr-messages">{sortEvents(active.events).map(item => <li key={item.id} className={item.author === 'ai' ? 'by-ai' : ''}><div><strong>{item.author === 'ai' ? 'AI developer' : 'Designer'}</strong><time dateTime={item.at}>{new Date(item.at).toLocaleString()}</time></div>{item.status && <small>{item.status === 'resolved' ? 'Marked resolved' : 'Reopened'}</small>}<p>{item.body}</p></li>)}</ol>
           <form onSubmit={e => { e.preventDefault(); addReply(); }}><label>Reply as designer<textarea required maxLength={8000} rows={4} value={reply} onChange={e => setReply(e.target.value)} placeholder="Add feedback, a decision, or a playtest result…" /></label><div className="lr-actions"><button className="lr-primary" disabled={!reply.trim()}>Reply</button><button type="button" disabled={!reply.trim()} onClick={() => addReply(threadStatus(active) === 'open' ? 'resolved' : 'open')}>{threadStatus(active) === 'open' ? 'Reply & resolve' : 'Reply & reopen'}</button></div></form><small className="lr-id">Thread {active.id}</small>
         </div> : <><div className="lr-list-heading"><h3>Conversations <span>{threads.length}</span></h3><span>{threads.filter(t => threadStatus(t) === 'open').length} open</span></div>
