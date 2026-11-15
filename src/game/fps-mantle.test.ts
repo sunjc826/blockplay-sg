@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createVerticalMovement } from './vertical-movement';
 import type { Obstacle } from './region-collision';
+import { MANTLE_TWO_HAND_LIFT, mantleMotion } from './fps-mantle-hands';
 import { MANTLE_AIR_MIN, MANTLE_AIR_REACH, MANTLE_GROUND_MIN, MANTLE_REACH, advanceMantle, createMantle, planMantle, startMantle } from './fps-mantle';
 
 const bounds = { minX: -40, maxX: 40, minZ: -40, maxZ: 40 };
@@ -83,5 +84,37 @@ describe('climbing', () => {
     for (let i = 0; i < 200 && state.active; i++) { const p = advanceMantle(state, 1 / 120); if (p.x > -.4 + 1e-9) expect(p.y).toBe(1.2); }
     expect(state.active).toBe(false);
     expect(advanceMantle(state, 1)).toEqual({ x: .45, y: 1.2, z: 0 });
+  });
+});
+
+describe('the hands on a climb', () => {
+  it('finds the edge to hold: just past the face, on the top of the crate or of the wall', () => {
+    const onto = planMantle(world(crate(1.4)), at(-.5), 1, 0, ground)!;
+    expect(onto.lip!.y).toBe(1.4); expect(onto.lip!.x).toBeGreaterThan(0); expect(onto.lip!.x).toBeLessThan(.25);
+    const over = planMantle(world(crate(1, false, .3)), at(-.4), 1, 0, ground)!;
+    expect(over.lip!.x).toBeGreaterThan(0); expect(over.lip!.x).toBeLessThan(.3);
+    expect(over.lip!.y).toBeGreaterThanOrEqual(1); expect(over.lip!.y).toBeLessThan(1.06); expect(over.lip!.y).toBeLessThanOrEqual(over.y);
+  });
+  const climb = (height: number, vault = false) => { const state = createMantle(); startMantle(state, at(-.4), { x: vault ? 1.2 : .45, y: height, z: 0, vault }); return state; };
+  it('uses both hands for a high ledge and one for a low one or a vault', () => {
+    expect(mantleMotion(climb(MANTLE_TWO_HAND_LIFT + .2)).twoHanded).toBe(true);
+    expect(mantleMotion(climb(.9)).twoHanded).toBe(false);
+    expect(mantleMotion(climb(1.15, true)).twoHanded).toBe(false);
+  });
+  it('plants before the body is far up, holds through the pull, lets go by the end and leaves the view level', () => {
+    for (const state of [climb(1.5), climb(.9), climb(1, true)]) {
+      const lift = state.toY - state.fromY; let planted = false, held = 0, lastPlant = 0, lastRelease = 0;
+      for (let i = 0; i < 400 && state.active; i++) {
+        const feet = advanceMantle(state, 1 / 240); if (!state.active) break;
+        const motion = mantleMotion(state);
+        expect(motion.plant).toBeGreaterThanOrEqual(lastPlant); expect(motion.release).toBeGreaterThanOrEqual(lastRelease);
+        lastPlant = motion.plant; lastRelease = motion.release;
+        if (motion.plant >= 1 && !planted) { planted = true; expect(feet.y - state.fromY).toBeLessThan(lift * .45); }
+        if (motion.plant >= 1 && motion.release === 0) held++;
+        expect(motion.pitch).toBeLessThanOrEqual(0); expect(Math.abs(motion.pitch)).toBeLessThan(.12); expect(Math.abs(motion.roll)).toBeLessThan(.1);
+      }
+      expect(planted).toBe(true); expect(held).toBeGreaterThan(20); expect(lastRelease).toBeGreaterThan(.9);
+      expect(mantleMotion(state)).toMatchObject({ plant: 0, release: 1, pitch: 0, roll: 0 });
+    }
   });
 });

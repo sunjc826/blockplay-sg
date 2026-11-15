@@ -7147,6 +7147,50 @@ current model. Checked with `weapon-lineup.html` pages 2–4, `proxy-weapons-smo
 (pass, run against 5175/9224), `pnpm test` (all pass) and `pnpm typecheck`.
 Not checked in live first-person play: the default loadout carries no cargo gun.
 
+### Mantle animation and rounder hands (2026-11-15)
+
+Mantle: `planMantle` now also returns `lip`, the near edge of the crate or wall
+top, and `MantleState` carries it. New `src/game/fps-mantle-hands.ts`:
+`mantleMotion(state)` (pure: `twoHanded`, `plant`, `release`, view `pitch`/`roll`)
+and `createMantleHands(viewScene)`, free hands held on the lip in world space and
+converted through the world camera each frame. The eye starts above any ledge it
+can reach, so a hand left purely on the world is never on screen: below a floor
+(`FRAME_FLOOR`) the palm stops at the bottom of the frame and presses down.
+A lift of 1.1 m or more (`MANTLE_TWO_HAND_LIFT`) uses both hands and stows the gun
+(`mantleStow` in the engine); lower ledges and vaults plant the left hand only,
+take the support hand off the gun and cant it. The rise easing now starts from
+rest (`1 - (1 - up^1.5)^2`), same durations.
+
+Hands: `fps-viewmodel-hand.ts` now exports the shared shapes (`palmGeometry`,
+`gloveArmourGeometry`, `forearmGeometry`, `buildFinger`, `buildThumb`): capsule
+fingers on three joints, a palm with knuckles and heel pads, one fused mesh per
+material. The gun hands in `fps-viewmodel.ts` use them. Their animation still
+writes `grip-finger-N.rotation.x` as before; `curlFingers` turns that into a
+knuckle and two joints closing towards the palm (−z). `hand-forearm-stub` is
+0.62 m (was 0.16) and stretches by scale only.
+
+Resting grips: the animation still moves the gun hands in their first frames (an
+upright block beside the grip). `holdGrip`, the last thing `update` does, turns a
+resting hand to wrap what it holds and fades that out over the first 6 cm (or
+0.6 rad) a hand moves from rest, so every reload pose is as authored. The firing
+hand goes palm to the grip's flank with fingers round the front and the first
+finger straighter (`besideGrip`); the support hand cups the fore-end from below
+left (`underForeEnd`), or mirrors the firing hand on the pistol and the CIS 50's
+spade grips. Both fits ray-cast the dressed model once at construction for the
+grip flank, front strap and fore-end underside, with fixed offsets as fallback;
+the forearm is aimed at the elbow separately. Seen in the fixture
+(`&side=R|L|F|B&hand=left`) on all eighteen guns, both hands, and reload frames
+on XM8, P30 and the bolt gun. No misfits. On the cargo guns the firing hand sits
+high on the grip, so the bottom third of the grip shows below it.
+
+Checked: `scripts/fixtures/hand-models.html` (`?weapon=`, `?free=1`, `?mantle=`),
+and both climbs filmed live on the Orchard range through CDP on 5175/9224 with a
+test platform pushed into the collision world (no ledge of mantle height is near
+the range spawn; the platform was not drawn, so the hands were not judged against
+real geometry). Full `pnpm test` (433 files) and `pnpm typecheck` pass. Not done:
+`pnpm build`, a vault filmed live, the grenade pinch point against the longer
+fingers, remote players and bots (still no climb animation).
+
 ### Street prop audit and fixes (2026-11-15)
 
 Audit of the 35 `/prop-designs` models (measured in a throwaway vitest harness and
@@ -7258,3 +7302,9 @@ Checked: `pnpm test` (435 files, 4,385 tests), `pnpm typecheck`; the line-up
 fixture, and the Marina Bay range through CDP on the 5175 server (SAR 21 and
 P30, hip and inspect) with no shader or console errors. Not measured: frame
 cost on a real GPU or a phone. Not run: the browser smokes.
+
+Pistol grip (2026-11-15): `besideGrip` takes a `fit` (rise, reach, fingers, arm, thumb). On the P30 the
+firing hand sits .019 higher, under the tang with its first finger in the guard; the support hand is .016 ahead and
+wraps over the firing fingers instead of through them; both forearms drop away steeply. The wrist band is no wider
+than the hand (`w * .5`) and the gun-hand wrist is slimmer. From the first-person hip view the hands are still mostly
+behind the wrists: the forearms are thick for the hand and the pistol sits low and far out in the shared hip pose.

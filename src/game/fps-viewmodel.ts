@@ -8,9 +8,12 @@ import { getWeaponSight } from './weapon-optics';
 import { createBipodMotion, type BipodMotionInput } from './weapon-bipod';
 import { MACHINE_GUN_LAYOUT } from './machine-gun-layout';
 import { ENEMY_WEAPON_LAYOUT, isEnemyWeaponId } from './enemy-weapon-layout';
+import { buildFinger, buildThumb, forearmGeometry, gloveArmourGeometry, palmGeometry } from './fps-viewmodel-hand';
 import { updateMagazineAmmo } from './magazine-ammo';
 import { beltPouchTime, createBeltReload } from './fps-belt-reload';
 
+/** Metres of sleeve behind each gun hand's wrist. */
+const FOREARM = .62;
 /** Lightweight rigid hand poses; no extra render target or skinning. */
 export function createWeaponHandling(model: THREE.Group, index: number) {
   const additions = new THREE.Group(); additions.name = 'fps-handling'; model.add(additions);
@@ -24,21 +27,36 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   };
   const box = (parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, m = glove) =>
     mesh(parent, new RoundedBoxGeometry(w, h, d, 1, .004), m, x, y, z);
+  // The animation drives each `grip-finger-N` about x, as it did when a finger was
+  // one rigid piece; `curlFingers` turns that into a knuckle and two joints that
+  // close towards the palm (−z), so a held grip reads as fingers wrapped round it.
+  const jointed = new Map<THREE.Object3D, { joint: THREE.Group; bend: THREE.Group; mid: THREE.Group; tip: THREE.Group }[]>();
   const hand = (left: boolean) => {
     const group = new THREE.Group(); group.name = left ? 'reload-hand-left' : 'reload-hand-right'; additions.add(group);
-    box(group, .062, .077, .044, 0, 0, 0);
-    box(group, .052, .035, .009, 0, .016, .025, pad);
-    for (let i = 0; i < 4; i++) {
-      const finger = new THREE.Group(); finger.name = `grip-finger-${i}`; finger.position.set(-.023 + i * .015, .025, -.005); group.add(finger);
-      box(finger, .013, .045 - Math.abs(i - 1) * .003, .017, 0, .019, -.003);
-      box(finger, .012, .016, .01, 0, .004, .027, pad);
-    }
-    const thumb = box(group, .019, .045, .025, left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; thumb.name = 'grip-thumb';
-    const stub = mesh(group, new THREE.CylinderGeometry(.034, .046, .16, 8), sleeve, 0, -.13, .028); stub.rotation.x = -.28; stub.name = 'hand-forearm-stub';
-    box(group, .073, .025, .060, 0, -.05, .005, pad);
+    mesh(group, palmGeometry(.062, .077, .044, left ? 1 : -1), glove);
+    mesh(group, gloveArmourGeometry(.062, .077, .044, -.05, .005, .024), pad);
+    jointed.set(group, [0, 1, 2, 3].map(i => {
+      const joint = new THREE.Group(); joint.name = `grip-finger-${i}`; joint.position.set(-.023 + i * .015, .025, -.005); group.add(joint);
+      const bend = new THREE.Group(); joint.add(bend);
+      // The thumb is at −x on the right hand and +x on the left, so the first finger is at that end.
+      const order = left ? 3 - i : i;
+      return { joint, bend, ...buildFinger(bend, mesh, glove, [.058, .064, .06, .048][order], [.0064, .0064, .0062, .0058][order]) };
+    }));
+    const thumb = new THREE.Group(); thumb.name = 'grip-thumb'; thumb.position.set(left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; group.add(thumb);
+    buildThumb(thumb, mesh, glove, .052, .0092);
+    // Long enough that the elbow end stays out of frame through a reload or an inspect.
+    const forearm = mesh(group, forearmGeometry(FOREARM, .026, .041), sleeve, 0, -.0531, .0059); forearm.rotation.x = -.28; forearm.name = 'hand-forearm-stub';
     return group;
   };
+  const curlFingers = (group: THREE.Object3D, clasp = 0, trigger = 0) => jointed.get(group)!.forEach(({ joint, bend, mid, tip }, i) => {
+    // `trigger` straightens the first finger of the firing hand along the frame.
+    const drive = joint.rotation.x, closed = Math.min(1.05, Math.max(-.12, .6 + drive * (drive >= 0 ? .6 : 1.4))) - (i === 0 ? trigger * .42 : 0);
+    // Clasping the pistol's slide, the drive is already the knuckle's own angle.
+    bend.rotation.x = THREE.MathUtils.lerp(-closed * .95 - drive, 0, clasp);
+    mid.rotation.x = THREE.MathUtils.lerp(-closed * 1.25, -.22, clasp); tip.rotation.x = THREE.MathUtils.lerp(-closed * .7, -.12, clasp);
+  });
   const right = hand(false), left = hand(true);
+  curlFingers(right); curlFingers(left);
   right.position.set(.028, index ? -.015 : -.029, index ? .17 : .01); right.rotation.set(-.20, .12, -.12);
   const support = new THREE.Vector3(-.033, index ? .072 : .085, index ? -.205 : -.16);
   const magazineGrip = new THREE.Vector3(-.033, index ? -.014 : -.050, index ? .008 : .245);
@@ -65,6 +83,59 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
   const flickRotation = new THREE.Quaternion(), flickTurn = new THREE.Quaternion();
   const supportRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -.2, .32));
   const rightHome = right.position.clone(), rightRotation = right.quaternion.clone();
+  // Everything above and below moves the hands in the frames they were first built in: an upright
+  // block beside the grip. At rest that is not a grip, so `holdGrip` turns each resting hand to wrap
+  // what it holds, and lets go of that as the hand leaves for a reload, where the old frames still hold.
+  const probe = (from: THREE.Vector3, towards: THREE.Vector3, far: number) => {
+    model.updateWorldMatrix(true, true);
+    const inverse = new THREE.Matrix4().copy(model.matrixWorld).invert();
+    const ray = new THREE.Raycaster(from.clone().applyMatrix4(model.matrixWorld), towards.clone().transformDirection(model.matrixWorld), 0, far);
+    const shown = (object: THREE.Object3D) => { for (let o: THREE.Object3D | null = object; o && o !== model; o = o.parent) if (!o.visible || o === additions) return false; return true; };
+    return ray.intersectObject(model, true).filter(hit => shown(hit.object)).map(hit => hit.point.applyMatrix4(inverse));
+  };
+  const facing = (fingers: THREE.Vector3, palm: THREE.Vector3) => {
+    const y = fingers.clone().normalize(), z = palm.clone().normalize().negate(), x = new THREE.Vector3().crossVectors(y, z).normalize();
+    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z));
+  };
+  /** Palm against the flank of an upright grip at `centre`, fingers forward round its front; `side` is the hand's side of it. */
+  const besideGrip = (centre: THREE.Vector3, side: number, clear = 0, fit: { rise?: number; reach?: number; fingers?: THREE.Vector3; arm?: THREE.Vector3; thumb?: number } = {}) => {
+    const flank = probe(new THREE.Vector3(centre.x + side * .16, centre.y, centre.z), new THREE.Vector3(-side, 0, 0), .3)[0];
+    const face = flank && Math.abs(flank.x - centre.x) < .05 ? flank.x : centre.x - side * .011;
+    const fronts = probe(new THREE.Vector3(face - side * .012, centre.y, centre.z - .14), new THREE.Vector3(0, 0, 1), .15).filter(point => point.z <= centre.z + .004);
+    const strap = fronts.length ? fronts[fronts.length - 1].z : centre.z - .022;
+    return { position: new THREE.Vector3(face + side * (.02 + clear), centre.y + (fit.rise ?? 0), THREE.MathUtils.clamp(strap + .027, centre.z - .02, centre.z + .03) - (fit.reach ?? 0)),
+      rotation: facing(fit.fingers ?? new THREE.Vector3(0, -.15, -1), new THREE.Vector3(-side, 0, 0)), arm: (fit.arm ?? new THREE.Vector3(side * .28, -.42, .86)).normalize(), thumb: fit.thumb ?? -.5 };
+  };
+  /** Palm up under the fore-end at `centre`, coming in from the left, fingers up its far side. */
+  const underForeEnd = (centre: THREE.Vector3) => {
+    const under = probe(new THREE.Vector3(0, centre.y - .22, centre.z), new THREE.Vector3(0, 1, 0), .3).find(point => point.y > centre.y - .1 && point.y < centre.y + .05);
+    const palm = new THREE.Vector3(Math.sin(.45), Math.cos(.45), 0), across = new THREE.Vector3(Math.cos(.45), -Math.sin(.45), 0);
+    return { position: new THREE.Vector3(0, under?.y ?? centre.y - .015, centre.z).addScaledVector(palm, -.021),
+      rotation: facing(across.multiplyScalar(Math.cos(.6)).add(new THREE.Vector3(0, 0, -Math.sin(.6))), palm), arm: new THREE.Vector3(-.45, -.5, .74).normalize(), thumb: -.2 };
+  };
+  const twoGrips = pistol || index === 4;
+  const holds = new Map<THREE.Object3D, { home: THREE.Vector3; homeRotation: THREE.Quaternion; move: THREE.Vector3; turn: THREE.Quaternion; arm: THREE.Quaternion; thumb: number }>();
+  const hold = (hand: THREE.Object3D, home: THREE.Vector3, homeRotation: THREE.Quaternion, grip: ReturnType<typeof besideGrip>) => {
+    const rotation = grip.rotation, local = grip.arm.clone().applyQuaternion(rotation.clone().invert());
+    holds.set(hand, { home: home.clone(), homeRotation: homeRotation.clone(), move: grip.position.sub(home), turn: homeRotation.clone().invert().multiply(rotation),
+      arm: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), local), thumb: grip.thumb });
+  };
+  // On the pistol the firing hand sits high under the tang, and the other wraps over its fingers from a
+  // little ahead and below. Both arms splay wide of the line of sight, so the hands are not hidden behind them.
+  hold(right, rightHome, rightRotation, besideGrip(rightHome, 1, 0, pistol ? { rise: .019, arm: new THREE.Vector3(.42, -.78, .46) } : {}));
+  hold(left, support, supportRotation, !twoGrips ? underForeEnd(support) : besideGrip(support, -1, pistol ? .008 : 0,
+    pistol ? { rise: .01, reach: .016, fingers: new THREE.Vector3(0, -.24, -1), arm: new THREE.Vector3(-.52, -.74, .43) } : {}));
+  const still = new THREE.Quaternion(), slack = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.28, 0, 0));
+  /** How firmly `hand` is on its grip (1 at rest, 0 once it has left), after settling it there by that much. */
+  const holdGrip = (hand: THREE.Object3D) => {
+    const grip = holds.get(hand)!;
+    const held = (1 - smoothStep(hand.position.distanceTo(grip.home) / .06)) * (1 - smoothStep(hand.quaternion.angleTo(grip.homeRotation) / .6));
+    hand.position.addScaledVector(grip.move, held); hand.quaternion.multiply(still.identity().slerp(grip.turn, held));
+    namedObject(hand, 'hand-forearm-stub')!.quaternion.copy(slack).slerp(grip.arm, held);
+    namedObject(hand, 'grip-thumb')!.rotation.x = grip.thumb * held;
+    return held;
+  };
+  holdGrip(right); holdGrip(left);
   const chargeTarget = new THREE.Vector3(), chargeWaypoint = new THREE.Vector3();
   const chargeRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-.15, -1.4, .02));
   // Released from a top handle: fingers up and out, palm to the camera, forearm
@@ -220,10 +291,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       // The stub ends in mid-air, which only shows once the hand lets go and hangs
       // away from the gun. Run it out of the frame for as long as that lasts.
-      const stretchArm = (hand: THREE.Object3D, out: number) => {
-        const arm = namedObject(hand, 'hand-forearm-stub')!, armOut = 1 + out * 3.4;
-        arm.scale.y = armOut; arm.position.y = -.0531 - .0769 * armOut; arm.position.z = .0059 + .0221 * armOut;
-      };
+      const stretchArm = (hand: THREE.Object3D, out: number) => { namedObject(hand, 'hand-forearm-stub')!.scale.y = 1 + out * .14; };
       const throwArm = thrown?.active ? thrown.armOut : flicked?.handOut ?? 0;
       stretchArm(left, Math.max(throwArm, topFlick ? flick.open : 0));
       // The pistol is held up on one arm for this reload, with nothing in front of the stub's cut end.
@@ -258,16 +326,17 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
       }
       const thumb = namedObject(left, 'grip-thumb')!;
       thumb.rotation.z = -.55 - closed * .35 + splay;
+      const clasp = pistol ? leftToHandle * (1 - flick.clear) : 0;
       if (pistol) {
-        const clasp = leftToHandle * (1 - flick.clear);
         for (let finger = 0; finger < 4; finger++) {
           const joint = namedObject(left, `grip-finger-${finger}`)!;
           joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, -1.1, clasp);
         }
-        thumb.position.copy(pistolThumbHome).lerp(new THREE.Vector3(.02, -.058, -.025), clasp);
+        thumb.position.copy(pistolThumbHome).lerp(new THREE.Vector3(.02, -.064, -.025), clasp);
         thumb.rotation.z *= 1 - clasp;
         pistolSlide.forEach(({ part, z }) => { part.position.z = z + stroke; });
       }
+      curlFingers(right, 0, holdGrip(right)); holdGrip(left); curlFingers(left, clasp);
       control.position.z = controlZ + stroke;
       control.rotation.z = controlRoll - (cycle?.lift ?? (manualBolt ? motion.action : 0)) * .9;
     },

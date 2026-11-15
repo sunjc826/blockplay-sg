@@ -181,6 +181,7 @@ import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { runningWeaponMotion } from './fps-weapon-run';
 import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
 import { SLIDE_ENTRY_SHARE, SLIDE_EYE_HEIGHT, slideSpread, advanceSlide, coolSlide, createSlide, endSlide, resolveSlideContact, startSlide } from './fps-slide';
+import { createMantleHands, mantleMotion } from './fps-mantle-hands';
 import { MANTLE_AIR_MIN, MANTLE_AIR_REACH, MANTLE_GROUND_MIN, MANTLE_REACH, advanceMantle, createMantle, planMantle, startMantle, type MantlePlan } from './fps-mantle';
 import { createFpsComms, type CommsEntry } from './fps-comms';
 import { createEncikRadio, type EncikAddress, type EncikCallout, type EncikEvent } from './fps-callouts';
@@ -575,6 +576,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const playerBody = createFpsBody(world.scene);
   // Hands and the supply in them; `apply` lands its effect at the commit point and says whether it could.
   const supplyHands = createSupplyViewmodel(viewScene);
+  const mantleHands = createMantleHands(viewScene);
   const ammoPlacementHands = createAmmoPlacementViewmodel(viewScene);
   const merlionVisuals = createMerlionVisuals(world.scene);
   let merlionRenderState: MerlionState | undefined;
@@ -913,7 +915,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let slideWeight = 0;
   // Climbing (see fps-mantle): the hands are busy, so the gun drops out of the way and cannot fire.
   const mantle = createMantle();
-  let mantleWeight = 0, lastGroundY = 0;
+  let mantleWeight = 0, mantleStow = 0, lastGroundY = 0;
   /** A sprint thrown flat: airborne and prone until it lands, with no steering. */
   let diving = false;
   let mapReturnStance: { prone: boolean; crouch: boolean } | null = null;
@@ -2560,7 +2562,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Once they fall or leave, hold on the last place they were seen.
     if (killer?.alive) scene.killerAt = { x: killer.x, y: killer.y, z: killer.z };
     const shot = scene.cam.shot(scene.age, scene.killerAt);
-    actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null);
+    actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null); grenadeHands.update(null);
     arenaRuntime?.showOwnCorpse(!!motionPreference?.matches || scene.age >= DEATH_CAM_LEAVES_BODY);
     camera.position.set(shot.x, shot.y, shot.z);
     if (shot.clear) {
@@ -2666,7 +2668,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const view = overviewView();
       camera.position.set(view.x, view.y, view.z); camera.rotation.set(view.pitch, view.yaw, 0, 'YXZ'); camera.fov = view.fov; camera.near = view.near; camera.far = view.far;
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
-      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); grenadeHands.update(null);
+      actualAim = false; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null); grenadeHands.update(null);
       canvas.dataset.weaponVisible = 'false'; canvas.dataset.deploymentIntro = ''; canvas.dataset.readyAction = '';
       canvas.dataset.deploymentOverview = 'true';
       canvas.dataset.deploymentCamera = JSON.stringify({ x: view.x, y: view.y, z: view.z, pitch: view.pitch, yaw: view.yaw, fov: view.fov, near: camera.near, far: camera.far, ready: null, speed: 0, blur: 0 });
@@ -2692,7 +2694,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const merlion = merlionRenderState ?? merlionState();
     if(merlionOperating()&&merlion){
       const s=merlion,at=merlionMouth(s.yaw),dir=merlionDirection(s.yaw,s.pitch);
-      actualAim=false;aimProgress=0;rig.visible=false;playerBody.root.visible=false;supplyHands.update(null,0);
+      actualAim=false;aimProgress=0;rig.visible=false;playerBody.root.visible=false;supplyHands.update(null,0);mantleHands.update(null);
       camera.position.set(at.x+dir.x*.65,at.y+.45+dir.y*.65,at.z+dir.z*.65);
       camera.lookAt(camera.position.x+dir.x,camera.position.y+dir.y,camera.position.z+dir.z);camera.fov=65;
       canvas.dataset.merlionCamera=JSON.stringify({yaw:s.yaw,pitch:s.pitch,hostYaw:merlionState()?.yaw,inputYaw:yaw});camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
@@ -2701,7 +2703,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (vehicles.mounted && !vehicles.canUseFirearm) {
       canvas.dataset.body = JSON.stringify({ visible: false, rig: equipment.rigId, plate: equipment.plateId,
         slots: playerBody.root.userData.magazineSlots, magazines: playerBody.root.userData.magazines });
-      actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0);
+      actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null);
       updateVehicleCamera(dt); return;
     }
     const aiming = !weaponSwitch && !swimming() && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
@@ -2715,6 +2717,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const poseStance = stance(), crouching = poseStance !== 'stand' && !slide.active;
     slideWeight = THREE.MathUtils.damp(slideWeight, slide.active ? 1 : 0, slide.active ? 14 : 8, dt);
     mantleWeight = THREE.MathUtils.damp(mantleWeight, mantle.active ? 1 : 0, mantle.active ? 16 : 9, dt);
+    // A high ledge takes both hands, so the gun goes right out of frame; a low one or a vault keeps it in the right.
+    const climb = mantleMotion(mantle);
+    mantleStow = THREE.MathUtils.damp(mantleStow, mantle.active && climb.twoHanded && climb.release < .5 ? 1 : 0, mantle.active && climb.release < .5 ? 20 : 13, dt);
     const traversal = mantle.active ? (mantle.vault ? 'vault' : 'mantle') : diving ? 'dive' : '';
     if (traversal !== (canvas.dataset.traversal ?? '')) canvas.dataset.traversal = traversal;
     const speed = carry.length(), onGround = grounded();
@@ -2751,7 +2756,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!footMovement.canOccupy(position.x, vertical, position.z, .38, visualEye + .05)) visualEye = Math.min(visualEye, eyeHeight());
     camera.position.set(position.x, vertical + Math.max(swimming()?SWIMMING.eyeHeight-.02:.4, visualEye - landingRoll.eyeDrop), position.z);
     const view = recoilView(kick), pose = recoilPose(kick);
-    camera.rotation.set(pitch + view.pitch + landingRoll.pitch + handsView.pitch * motionScale + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + handsView.roll * motionScale + (bodyMotion.lean + slideWeight * .045) * motionScale * (1 - aim * .9), 'YXZ');
+    camera.rotation.set(pitch + view.pitch + landingRoll.pitch + (handsView.pitch + climb.pitch) * motionScale + (conditions.dazed ? Math.sin(hud.elapsed * 8) * .018 : 0), yaw + view.yaw, landingRoll.bank + (handsView.roll + climb.roll) * motionScale + (bodyMotion.lean + slideWeight * .045) * motionScale * (1 - aim * .9), 'YXZ');
     camera.fov = aimWorldFov(aim * motionScale) + Math.max(bodyMotion.sprint * 6, slideWeight * 8) * (1 - aim) * motionScale;
     if (vehicles.mounted) updateVehicleCamera(dt);
     camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
@@ -2825,7 +2830,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const inspectScale = motionPreference?.matches ? .25 : 1;
     rig.position.x += inspection.x * inspectScale; rig.position.y += inspection.y * inspectScale; rig.position.z += inspection.z * inspectScale;
     rig.rotation.x += inspection.pitch * inspectScale; rig.rotation.y += inspection.yaw * inspectScale; rig.rotation.z += inspection.roll * inspectScale;
-    rig.position.y -= landingRoll.weaponDrop;
+    rig.position.y -= landingRoll.weaponDrop + mantleStow * .6;
+    rig.rotation.x -= mantleStow * .55; rig.rotation.z += (mantleWeight - mantleStow) * motionScale * .3;
     rig.rotation.x -= landingRoll.tuck * .35;
     // A scoped gun trails a turn about its eyepiece: the lens stays on the aim
     // point while the tube swings, and the scope shadow follows from that.
@@ -2910,7 +2916,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     supplyHands.root.position.x = sway + lookLagX; supplyHands.root.position.y = Math.abs(sway) + bodyFollow + lookLagY;
     if (debugDatasets) canvas.dataset.utilityView = JSON.stringify({ supplyVisible: supplyHands.root.visible, supplyDepth: supplyHands.root.position.z, grenadeVisible: grenadeHands.root.visible, grenadeDepth: grenadeHands.root.position.z });
     handsView = grenadeMotion?.view ?? supply?.view ?? { pitch: 0, roll: 0 };
-    const tucked = supply && supply.weaponTuck > 0 ? handling[hud.weapon] ?? null : null;
+    // The support hand is the one on the ledge.
+    const climbing = mantleHands.update(rig.visible && hud.phase === 'playing' ? mantle : null, camera, projectionScale);
+    const tucked = (supply && supply.weaponTuck > 0) || (climbing && climbing.release < 1) ? handling[hud.weapon] ?? null : null;
     if (tuckedHandling !== tucked) { tuckedHandling?.setSupportHand(true); tucked?.setSupportHand(false); tuckedHandling = tucked; }
     const weaponTuck = supply?.weaponTuck ?? 0;
     if (weaponTuck > 0) { rig.position.x += weaponTuck * .03; rig.position.y -= weaponTuck * .15; rig.position.z += weaponTuck * .05; rig.rotation.x -= weaponTuck * .36; rig.rotation.y -= weaponTuck * .14; rig.rotation.z -= weaponTuck * .46; }
@@ -5289,7 +5297,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       targets.forEach(target => target.label?.dispose());
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();
-      scopeRenderer.dispose(); opticReflections.dispose(); ammoPlacementHands.dispose(); supplyHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
+      scopeRenderer.dispose(); opticReflections.dispose(); ammoPlacementHands.dispose(); supplyHands.dispose(); mantleHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
       renderer.setRenderTarget(null); renderer.renderLists.dispose();
       if (!options.surface) fpsSurface.dispose();
     },

@@ -1,50 +1,106 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export interface ViewmodelHandKit {
   glove: THREE.Material; pad: THREE.Material; sleeve: THREE.Material;
   /** Registers the geometry for disposal and adds the mesh. */
   mesh: (into: THREE.Object3D, geometry: THREE.BufferGeometry, material: THREE.Material, x?: number, y?: number, z?: number) => THREE.Mesh;
 }
+type Mesher = ViewmodelHandKit['mesh'];
+interface Placed { at?: [number, number, number]; scale?: [number, number, number]; turn?: [number, number, number] }
+const placed = (geometry: THREE.BufferGeometry, { at = [0, 0, 0], scale = [1, 1, 1], turn = [0, 0, 0] }: Placed = {}) => {
+  const flat = geometry.index ? geometry.toNonIndexed() : geometry;
+  if (flat !== geometry) geometry.dispose();
+  return flat.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...at), new THREE.Quaternion().setFromEuler(new THREE.Euler(...turn)), new THREE.Vector3(...scale)));
+};
+/** One geometry out of several shaped pieces, so a hand part is a single draw. */
+const fuse = (...parts: THREE.BufferGeometry[]) => {
+  const merged = mergeGeometries(parts.map(part => { part.deleteAttribute('uv'); return part; }));
+  parts.forEach(part => part.dispose());
+  return merged;
+};
+
+/**
+ * The shapes both sets of first-person hands are built from. A hand's fingers
+ * point along +y, its palm faces −z and its back +z; `thumb` is the side the
+ * thumb is on (+1 or −1 along x).
+ */
+/** Palm with a row of knuckles and the two pads of the heel, inside the box `w × h × d`. */
+export function palmGeometry(w: number, h: number, d: number, thumb: number) {
+  const knuckle = Math.min(.0088, w * .14);
+  // The slab is a little shallower than the box, so the heel's two pads are what reaches the palm face.
+  const slab = d * .86, thenar = w * .26, heel = w * .22;
+  return fuse(
+    placed(new RoundedBoxGeometry(w, h, slab, 3, Math.min(w, h, slab) * .36), { at: [0, 0, (d - slab) / 2] }),
+    ...[0, 1, 2, 3].map(i => placed(new THREE.SphereGeometry(knuckle, 10, 7), { at: [thumb * (w * .36 - i * w * .24), h / 2 - knuckle - .0005, d * .2], scale: [1, 1, .8] })),
+    placed(new THREE.SphereGeometry(thenar, 12, 8), { at: [thumb * w * .24, -h * .15, -d / 2 + thenar * .62], scale: [1, 1.3, .62] }),
+    placed(new THREE.SphereGeometry(heel, 12, 8), { at: [-thumb * w * .27, -h * .16, -d / 2 + heel * .6], scale: [1, 1.5, .6] }));
+}
+/** The glove's armour: a plate on the back of the hand and the band at the wrist. */
+export function gloveArmourGeometry(w: number, h: number, d: number, cuffY: number, cuffZ: number, wrist = .034) {
+  return fuse(
+    placed(new RoundedBoxGeometry(w * .78, h * .4, .008, 3, .0038), { at: [0, h * .1, d / 2 + .001] }),
+    placed(new THREE.CylinderGeometry(1, 1.05, .03, 20), { at: [0, cuffY - .002, cuffZ], scale: [Math.max(w * .5, wrist + .006), 1, wrist + .007] }));
+}
+/** A sleeved forearm hanging down −y from the origin, with the folds a rolled cuff leaves. */
+export function forearmGeometry(length: number, wrist = .034, elbow = .047) {
+  return fuse(
+    placed(new THREE.CylinderGeometry(wrist, elbow, length, 14), { at: [0, -length / 2, 0] }),
+    ...[.07, .15].map(y => placed(new THREE.TorusGeometry(wrist + (elbow - wrist) * y / length + .0006, .003, 6, 18), { at: [0, -y, 0], turn: [Math.PI / 2, 0, 0] })));
+}
+/**
+ * A finger of three round segments from its knuckle at `into`'s origin. The
+ * first segment is `into`'s first child; `mid` and `tip` are the two joints
+ * beyond the knuckle, which curl about x (negative closes towards the palm).
+ */
+export function buildFinger(into: THREE.Object3D, mesh: Mesher, glove: THREE.Material, length: number, radius: number) {
+  const first = length * .45, second = length * .31, third = length * .24;
+  const segment = (parent: THREE.Object3D, span: number, r: number) => mesh(parent, new THREE.CapsuleGeometry(r, span, 4, 10), glove, 0, span / 2, 0);
+  segment(into, first, radius);
+  const mid = new THREE.Group(); mid.position.y = first; into.add(mid); segment(mid, second, radius * .94);
+  const tip = new THREE.Group(); tip.position.y = second; mid.add(tip); segment(tip, Math.max(.001, third - radius * .8), radius * .87);
+  return { mid, tip };
+}
+/** A thumb of two segments about `into`'s origin, `reach` long, its end turned in towards the palm. */
+export function buildThumb(into: THREE.Object3D, mesh: Mesher, glove: THREE.Material, reach: number, radius: number) {
+  const first = reach * .52, base = -reach * .38;
+  mesh(into, new THREE.CapsuleGeometry(radius, first, 4, 10), glove, 0, base + first / 2, 0);
+  const tip = new THREE.Group(); tip.position.y = base + first; tip.rotation.x = -.42; into.add(tip);
+  const span = Math.max(.001, reach * .48 - radius * 1.7);
+  mesh(tip, new THREE.CapsuleGeometry(radius * .9, span, 4, 10), glove, 0, span / 2, 0);
+  return tip;
+}
 
 /**
  * A gloved hand and forearm for a viewmodel that has to open and close: fingers
  * point along +y, the palm faces −z and the arm trails away down −y. Rigid
- * parts on two-joint fingers, posed by `setGrip`, in the same materials as the
+ * parts on three-joint fingers, posed by `setGrip`, in the same materials as the
  * reload hands in `fps-viewmodel`.
  */
 export function createViewmodelHand(left: boolean, { glove, pad, sleeve, mesh }: ViewmodelHandKit) {
   const group = new THREE.Group(); group.name = left ? 'viewmodel-hand-left' : 'viewmodel-hand-right';
-  const box = (into: THREE.Object3D, w: number, h: number, d: number, material: THREE.Material, x = 0, y = 0, z = 0) =>
-    mesh(into, new RoundedBoxGeometry(w, h, d, 1, Math.min(w, h, d) * .22), material, x, y, z);
-  box(group, .066, .078, .042, glove);
-  box(group, .054, .034, .009, pad, 0, .012, .024);
   // First finger on the thumb side, so a pinch is that finger and the thumb.
-  const side = left ? 1 : -1;
+  const side = left ? 1 : -1, w = .066, h = .078, d = .04;
+  mesh(group, palmGeometry(w, h, d, side), glove);
+  mesh(group, gloveArmourGeometry(w, h, d, -.05, .004), pad);
   const fingers = [0, 1, 2, 3].map(i => {
-    const base = new THREE.Group(); base.position.set(side * (.0235 - i * .0157), .037, -.004); group.add(base);
-    const length = [.025, .028, .026, .021][i], tip = new THREE.Group(); tip.position.y = length; base.add(tip);
-    box(base, .0138, length + .004, .016, glove, 0, length / 2, 0);
-    box(base, .0118, .012, .004, pad, 0, length * .55, .0085);
-    box(tip, .0128, length * .85, .0145, glove, 0, length * .4, 0);
-    return { base, tip };
+    const base = new THREE.Group(); base.position.set(side * (.0235 - i * .0157), .034, -.003); group.add(base);
+    return { base, ...buildFinger(base, mesh, glove, [.058, .064, .06, .048][i], [.0074, .0076, .0072, .0066][i]) };
   });
-  const thumb = new THREE.Group(); thumb.position.set(side * .032, -.012, -.012); group.add(thumb);
-  const thumbTip = new THREE.Group(); thumbTip.position.y = .03; thumb.add(thumbTip);
-  box(thumb, .02, .034, .023, glove, 0, .015, 0); box(thumbTip, .017, .03, .019, glove, 0, .013, 0);
-  // Cuff, then a sleeve long enough to leave the frame whatever the pose.
-  box(group, .07, .024, .056, pad, 0, -.05, .004);
+  const thumb = new THREE.Group(); thumb.position.set(side * .032, -.004, -.012); group.add(thumb);
+  const thumbTip = buildThumb(thumb, mesh, glove, .062, .0098);
+  // A sleeve long enough to leave the frame whatever the pose.
   const arm = new THREE.Group(); arm.position.set(0, -.058, .008); arm.rotation.x = -.22; group.add(arm);
-  mesh(arm, new THREE.CylinderGeometry(.034, .047, .62, 10), sleeve, 0, -.31, 0);
-  for (const y of [-.05, -.12]) { const fold = mesh(arm, new THREE.TorusGeometry(.037 + -y * .02, .004, 5, 14), sleeve, 0, y, 0); fold.rotation.x = Math.PI / 2; }
+  mesh(arm, forearmGeometry(.62), sleeve);
   /** 0 open and flat, 1 a closed fist; `pinch` brings the first finger and thumb together on top of that. */
   const setGrip = (closed: number, pinch = 0) => {
-    fingers.forEach(({ base, tip }, i) => {
+    fingers.forEach(({ base, mid, tip }, i) => {
       const curl = i === 0 ? closed + (.62 - closed) * pinch : closed;
-      base.rotation.x = -.06 - curl * 1.3; tip.rotation.x = -curl * 1.42;
+      base.rotation.x = -.06 - curl * 1.2; mid.rotation.x = -.08 - curl * 1.3; tip.rotation.x = -.05 - curl * .75;
     });
     thumb.rotation.set(-.28 - closed * .55 - pinch * .3, 0, -side * (.62 - closed * .36 - pinch * .3));
-    thumbTip.rotation.x = -closed * .55 - pinch * .25;
+    thumbTip.rotation.x = -.2 - closed * .5 - pinch * .25;
   };
   setGrip(.8);
   return { group, arm, setGrip };
