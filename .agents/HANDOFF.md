@@ -7223,3 +7223,38 @@ Plan and eye-level views reviewed in `marina-layout.html` on the 5175 server.
 Not run: the browser smokes (`test:browser`, `test:fps:districts`, dragon-boat
 and Marina access smokes) and no live first-person walk; movement was checked
 through the kernel tests only.
+
+## 2026-11-15 — Surface detail on the carried guns
+
+First-person guns now get tiling surface textures on top of their flat
+materials. New module `src/game/weapon-surface.ts`; tests in
+`weapon-surface.test.ts`.
+
+- Three families, sorted by material name with a metalness/roughness fallback
+  (`surfaceFamily`): steel, polymer, rubber. Glass, lenses, sight dots,
+  cartridges, physical materials and anything transparent are left alone.
+- Per family, two generated `DataTexture`s shared by every gun: a packed map
+  (R cavity occlusion, G roughness where 128 means unchanged, B metalness) and a
+  detail normal map. Steel is 512 px over 16 cm, polymer 256 px over 6 cm,
+  rubber stippling 256 px over 2.6 cm (`SURFACE`).
+- The guns have no usable UVs, so the shader hook projects along the three model
+  axes (six texture reads a pixel). It multiplies the material's own roughness
+  and metalness and bends its normal, so skins, accents and wet weather still
+  apply. It chains any earlier `onBeforeCompile` and adds `|weapon-surface-v1`
+  to the program key; textures and tuning are uniforms, so families share a
+  program.
+- Applied only through `dressCarriedWeapon` in `armory-visuals.ts`, which
+  `fps-engine.ts` now calls in place of `dressWeapon`. The armory preview, range
+  racks, thumbnails, enemy and third-person guns are unchanged.
+- `scripts/fixtures/weapon-lineup.html?surface=1` shows it on any platform.
+
+Things to know: the occlusion channel is micro-cavity shading that matches the
+normal map, not baked ambient occlusion of seams and recesses; that still needs
+a per-vertex bake. Grain under about a millimetre is below a pixel at carry
+distance, so in play the visible change is the grip stippling, the polymer
+pebble and uneven highlights on steel. There is no graphics setting gating it.
+
+Checked: `pnpm test` (435 files, 4,385 tests), `pnpm typecheck`; the line-up
+fixture, and the Marina Bay range through CDP on the 5175 server (SAR 21 and
+P30, hip and inspect) with no shader or console errors. Not measured: frame
+cost on a real GPU or a phone. Not run: the browser smokes.

@@ -9,6 +9,7 @@ import { fitWeaponAccessories } from './weapon-accessory-models';
 import { buildWeaponBipod } from './weapon-bipod';
 import { applyEnemyWeaponConfig } from './enemy-weapon-models';
 import { fitMagazineAmmo } from './magazine-ammo';
+import { applyWeaponSurface } from './weapon-surface';
 
 /** Each preview owns its materials. Restore originals before disposing the source GLB. */
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
@@ -71,6 +72,11 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
     originals.forEach(([object, material]) => object.material = material);
     materials.forEach(m => m.dispose()); texture?.dispose(); accessories.removeFromParent(); disposeModel(accessories);
   };
+}
+/** The first-person copy: dressed as issued, then given the close-range surface detail only it is seen with. */
+export function dressCarriedWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
+  const undress = dressWeapon(root, weapon), strip = applyWeaponSurface(root);
+  return () => { strip(); undress(); };
 }
 export function disposeModel(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();

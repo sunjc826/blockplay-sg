@@ -141,7 +141,7 @@ import { minimapContactRange, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '
 import { MINIMAP_SIGHT_SECONDS, minimapMarkers, minimapSightings, type MinimapCloud } from './fps-minimap-contacts';
 import type { VehicleKind } from './vehicle-rules';
 import { VEHICLE_COMBAT, vehicleBlastDamage, type VehicleDamageStage } from './vehicle-combat';
-import { dressWeapon } from './armory-visuals';
+import { dressCarriedWeapon } from './armory-visuals';
 import { createArenaRuntime, FIGURE_POSE, standInFigures, type FigurePose } from './arena-runtime';
 import type { ArenaActor, ArenaBark, ArenaEnvironment, ArenaHeat, ArenaSnapshot, ArenaVitals } from './arena-rules';
 import { CALLOUT_COOLDOWN, CALLOUT_PAGES, getPlayerCallout, wheelSlot } from './player-callouts';
@@ -1432,7 +1432,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.armor = Math.min(hud.armor, equipment.armor); vehicles.setSkins(equipment.vehicleSkins);
     loadout = createPooledLoadout(specs, equipment.carriedFamilies);
     undress.splice(0).forEach(dispose => dispose());
-    weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+    weapons.forEach((model, family) => { undress.push(dressCarriedWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
     effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
     expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
   }
@@ -1666,7 +1666,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         loadout = replacePooledWeapon(loadout, previousSpecs, previousCarry, specs, equipment.carriedFamilies, family);
       }
       arenaRuntime.updateLoadout(fieldProfile);
-      undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, index) => undress.push(dressWeapon(model, specs[index])));
+      undress.splice(0).forEach(dispose => dispose()); weapons.forEach((model, index) => undress.push(dressCarriedWeapon(model, specs[index])));
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
       hud.lootNotice = !changed && wasCarried ? `+${specs[family].capacity} rounds for ${specs[family].name}.` : `${item.name} equipped for this expedition.`;
     } else if (collected.kind === 'armor' && item && armorResult) {
@@ -1717,7 +1717,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     trigger = false; pullBuffer = 0; triggerSpent = false; dryFireSpent = false;
     ads = touchAim = actualAim = false; resetWeaponRecoil();
     undress.splice(0).forEach(dispose => dispose());
-    weapons.forEach((model, i) => { undress.push(dressWeapon(model, specs[i])); model.visible = i === family; weaponStyles[i] = effectStyleForWeapon(specs[i]); });
+    weapons.forEach((model, i) => { undress.push(dressCarriedWeapon(model, specs[i])); model.visible = i === family; weaponStyles[i] = effectStyleForWeapon(specs[i]); });
     hud.weapon = family;
     effects.attachMuzzle(muzzleSocket(weapons[family], FPS_WEAPONS[family].id)); effects.setStyles(weaponStyles, family);
     options.onLoadout?.(equipment);
@@ -2018,7 +2018,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
       if (comesWithCargoKit(item.id) && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
       arenaRuntime.updateLoadout(fieldProfile);
-      undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressWeapon(model,specs[index])));
+      undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressCarriedWeapon(model,specs[index])));
       weaponStyles[family] = effectStyleForWeapon(specs[family]);
       switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
     }
@@ -3479,7 +3479,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     resupplyEquipment(loadout, specs, equipment.carriedFamilies, supplies, { ammunition: true, supplies: {} }, carrierAccessible());
     if (comesWithCargoKit(item.id)) supplyProxyMagazines(loadout, family);
     keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
-    weapons.forEach((model, index) => { undress.push(dressWeapon(model, specs[index])); weaponStyles[index] = effectStyleForWeapon(specs[index]); });
+    weapons.forEach((model, index) => { undress.push(dressCarriedWeapon(model, specs[index])); weaponStyles[index] = effectStyleForWeapon(specs[index]); });
     if (sameHand) {
       ads = false; touchAim = false; cantWanted = false; cant = 0; resetWeaponRecoil();
       effects.attachMuzzle(muzzleSocket(weapons[family], FPS_WEAPONS[family].id)); effects.setStyles(weaponStyles, family);
@@ -4029,7 +4029,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           hud.weapon = equipment.carriedFamilies[0];
           loadout = createPooledLoadout(specs, equipment.carriedFamilies);
           keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
-          weapons.forEach((weapon, index) => { undress.push(dressWeapon(weapon, specs[index])); weapon.visible = index === hud.weapon; });
+          weapons.forEach((weapon, index) => { undress.push(dressCarriedWeapon(weapon, specs[index])); weapon.visible = index === hud.weapon; });
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
           effects.setStyles(weaponStyles, hud.weapon);
           expedition.onEquipment(copyProfile(fieldProfile));
@@ -4043,7 +4043,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
           vehicles.setSkins(equipment.vehicleSkins);
           hud.weapon = equipment.carriedFamilies[0];
           keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
-          weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+          weapons.forEach((model, family) => { undress.push(dressCarriedWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
           effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
           expedition?.onEquipment(copyProfile(fieldProfile)); options.onLoadout?.(equipment);
         }
@@ -5092,7 +5092,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     rangeArmory?.setCarried(carriedVariants(equipment));
     weapons.push(loaded[0], loaded[1], ...FPS_WEAPONS.slice(2).map(spec => {
       const model = buildServiceWeapon(spec.id)!; templates.push(model); return model;
-    })); weapons.forEach((w, i) => { undress.push(dressWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
+    })); weapons.forEach((w, i) => { undress.push(dressCarriedWeapon(w, specs[i])); handling.push(createWeaponHandling(w, i)); rig.add(w); w.visible = i === hud.weapon; });
     playerBody.setWeaponModels(weapons);
     effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id));
     effects.setStyles(weaponStyles, hud.weapon);
@@ -5221,7 +5221,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       hud.weapon = equipment.carriedFamilies[0];
       loadout = createPooledLoadout(specs, equipment.carriedFamilies);
       keepShadersLinked(); undress.splice(0).forEach(dispose => dispose());
-      weapons.forEach((model, family) => { undress.push(dressWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
+      weapons.forEach((model, family) => { undress.push(dressCarriedWeapon(model, specs[family])); model.visible = family === hud.weapon; weaponStyles[family] = effectStyleForWeapon(specs[family]); });
       effects.attachMuzzle(muzzleSocket(weapons[hud.weapon], FPS_WEAPONS[hud.weapon].id)); effects.setStyles(weaponStyles, hud.weapon);
       options.onLoadout?.(equipment); hud.message = ''; publish(); return true;
     },

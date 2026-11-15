@@ -2,14 +2,14 @@
 body{margin:0;background:#8a959b;color:#10161a;font:13px system-ui}canvas{display:block}.labels{position:absolute;top:0;left:0;width:100vw;height:75vw;pointer-events:none;display:grid;grid-template-columns:repeat(var(--cols),1fr);grid-template-rows:repeat(var(--rows),1fr)}.labels span{align-self:start;padding:8px 12px;font-weight:600}.labels em{display:block;font-style:normal;font-weight:400}
 </style></head><body><div class="labels" id="labels"></div><script type="module">
 // Every playable platform, dressed as issued, for model review.
-// ?page=N (four platforms a page) · ?only=<index> for one platform at six angles, &view=0..7 for one of them large · ?flat=1 for a grey clay pass.
+// ?page=N (four platforms a page) · ?only=<index> for one platform at six angles, &view=0..7 for one of them large · ?flat=1 for a grey clay pass · ?surface=1 for the first-person surface detail.
 import * as THREE from '/node_modules/three/build/three.module.js';
 import { GLTFLoader } from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
 import { buildServiceWeapon } from '/src/game/service-weapon-models.ts';
-import { dressWeapon } from '/src/game/armory-visuals.ts';
+import { dressWeapon, dressCarriedWeapon } from '/src/game/armory-visuals.ts';
 import { createProfile, resolveLoadout } from '/src/game/armory-state.ts';
 import { FPS_WEAPONS } from '/src/game/fps-rules.ts';
-const query = new URLSearchParams(location.search), only = query.get('only'), page = Number(query.get('page') ?? 0), flat = query.has('flat');
+const query = new URLSearchParams(location.search), only = query.get('only'), page = Number(query.get('page') ?? 0), flat = query.has('flat'), surface = query.has('surface');
 const loadout = resolveLoadout(createProfile()), loader = new GLTFLoader();
 const indices = only !== null ? [Number(only)] : FPS_WEAPONS.map((_, i) => i).slice(page * 4, page * 4 + 4);
 const single = query.get('view'), all = [[0, .12], [Math.PI, .12], [-.75, .3], [-2.35, .3], [-Math.PI / 2, .1], [0, 1.45], [2.2, .25], [1.57, .12]];
@@ -23,7 +23,7 @@ for (const index of indices) {
   const spec = FPS_WEAPONS[index];
   const model = index < 2 ? (await loader.loadAsync(`/models/field-kit/${spec.id}.glb`)).scene : buildServiceWeapon(spec.id);
   if (!model) continue;
-  if (loadout.weapons[index]) dressWeapon(model, loadout.weapons[index]);
+  if (loadout.weapons[index]) (surface ? dressCarriedWeapon : dressWeapon)(model, loadout.weapons[index]);
   let meshes = 0, triangles = 0; const materials = new Set(), geometries = new Set();
   model.traverse(o => { if (o.isMesh && o.visible) { meshes++; geometries.add(o.geometry); (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => materials.add(m)); triangles += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; if (flat) o.material = clay; } });
   const scene = new THREE.Scene(); scene.add(model, new THREE.HemisphereLight('#e8f2ff', '#5b6150', 2.2));
