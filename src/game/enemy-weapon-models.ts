@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeStaticParts } from './weapon-part-merge';
 import { ENEMY_WEAPON_LAYOUT, isEnemyWeaponId, type EnemyWeaponId } from './enemy-weapon-layout';
 
 /**
@@ -19,6 +20,7 @@ export function buildEnemyWeapon(id: string): THREE.Group | undefined {
   if (id === 'xm8-inspired') buildXm8(kit);
   else if (id === 'g36-inspired') buildG36(kit);
   else buildMg4(kit);
+  mergeStaticParts(root);
   applyEnemyWeaponConfig(root, id, ENEMY_WEAPON_LAYOUT[id].defaultConfig);
   return root;
 }

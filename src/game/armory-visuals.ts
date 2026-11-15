@@ -14,7 +14,7 @@ import { fitMagazineAmmo } from './magazine-ammo';
 export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
   root.userData.wetSurface = true;
   const skin = itemById(weapon.equipment.skin), originals: [THREE.Mesh, THREE.Material | THREE.Material[]][] = [];
-  const materials: THREE.Material[] = [];
+  const materials: THREE.Material[] = [], copies = new Map<THREE.Material, THREE.Material>();
   let texture: THREE.CanvasTexture | undefined;
   if (skin?.palette) {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
@@ -33,7 +33,9 @@ export function dressWeapon(root: THREE.Object3D, weapon: EquippedWeapon) {
     if (!(object instanceof THREE.Mesh)) return;
     originals.push([object, object.material]);
     const dressed = (Array.isArray(object.material) ? object.material : [object.material]).map(source => {
-      const m = source.clone() as THREE.MeshStandardMaterial; materials.push(m);
+      // One dressed copy per authored material, so parts that shared a material still do.
+      const shared = copies.get(source); if (shared) return shared;
+      const m = source.clone() as THREE.MeshStandardMaterial; materials.push(m); copies.set(source, m);
       if (/olive|polymer/i.test(source.name) && texture) { m.map = texture; m.color.set('#ffffff'); m.roughness = skin?.id === 'skin-gold' ? .32 : .72; m.metalness = skin?.id === 'skin-gold' ? .65 : .08; }
       if (/machined|raised/i.test(source.name) && weapon.accent) { m.color.set(weapon.accent); m.metalness = .55; }
       return m;

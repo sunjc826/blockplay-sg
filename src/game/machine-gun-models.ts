@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildWeaponBipod } from './weapon-bipod';
+import { mergeStaticParts } from './weapon-part-merge';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { MACHINE_GUN_LAYOUT, type MachineGunId } from './machine-gun-layout';
 
@@ -162,6 +163,7 @@ export function buildMachineGun(id: MachineGunId) {
     rod('carry-handle-stem', new THREE.Vector3(.025, .23, -.18), new THREE.Vector3(.085, .285, -.18), .006, steel);
     cylinder('carry-handle', .012, .11, .085, .285, -.123, polymer);
   }
+  mergeStaticParts(root);
   root.add(buildWeaponBipod(id)!);
   socket('muzzle', 0, y, front - .03); socket('eject', heavy ? .095 : .063, y, -.05);
   return root;
