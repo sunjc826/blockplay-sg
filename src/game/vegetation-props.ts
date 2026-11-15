@@ -60,7 +60,7 @@ export function createVegetationKit() {
       const trough=kind==='snake-trough',base=trough?.44:.5;
       if(trough){add(wood,cube,[0,.22,0],[1.6,.44,.64],'#a8aba0');add(wood,cube,[0,.447,0],[1.46,.015,.5],'#413c2a');root.userData.streetPropColliders=[{min:[-.8,0,-.32],max:[.8,.45,.32]}];}else pot(.5,.57);
       for(const cx of trough?[-.48,0,.48]:[0])for(let i=0;i<9;i++){
-        const a=i*2.4,h=.53+(i%4)*.1,p=[cx+Math.sin(a)*.12,base+.04,Math.cos(a)*.12];
+        const a=i*2.4,h=.53+(i%4)*.1,p=[cx+Math.sin(a)*.12,trough?.45:base+.04,Math.cos(a)*.12]; // rooted in the soil surface
         const m=leaf(p,.13,h,a,.06+(i%3)*.12,'#41684c');
         // Thin alternating transverse patches follow each blade's local surface.
         for(let j=1;j<6;j++){const band=add(foliage,cube,[0,0,0],[.09,h*.022,.006],'#98ad7c');band.position.set(0,h*(.1+j*.12),.018);band.position.applyQuaternion(m.quaternion);band.position.add(m.position);band.quaternion.copy(m.quaternion);}

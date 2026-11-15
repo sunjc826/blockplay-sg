@@ -3,7 +3,7 @@
   "version": 1,
   "threads": [
     {
-      "id": "vending-surface-intent",
+      "id": "vending-surface-intent-2",
       "asset": "prop/vending",
       "title": "Make the interaction face easy to find",
       "kind": "design-note",
@@ -12,13 +12,13 @@
         "z": 0,
         "level": "Whole model"
       },
-      "mapRevision": "model-73c93fca",
+      "mapRevision": "model-c5a258bd",
       "events": [
         {
-          "id": "vending-surface-intent-1",
-          "at": "2026-11-11T12:00:00.000Z",
+          "id": "vending-surface-intent-2-1",
+          "at": "2026-11-15T10:50:00.000Z",
           "author": "ai",
-          "body": "Observation: the vending model has a distinct front face and a fixed footprint. The front should be readable from the approach, while its base and sides should not suggest extra usable space. Tradeoff: oversized screen or trim accents can improve readability but overwhelm the everyday street-furniture silhouette. Review the front at gameplay distance, then check side clearance in the level. Source: src/game/street-props.ts."
+          "body": "Supersedes thread vending-surface-intent (model-73c93fca, 2026-11-11), whose model fingerprint changed in the 2026-11-15 prop audit: the coin plate now reaches down behind the yellow button, which used to float 3 cm in front of the body, and every prop is rebuilt to rest on y=0. The front face, footprint and silhouette were kept. Original note, unchanged: Observation: the vending model has a distinct front face and a fixed footprint. The front should be readable from the approach, while its base and sides should not suggest extra usable space. Tradeoff: oversized screen or trim accents can improve readability but overwhelm the everyday street-furniture silhouette. Review the front at gameplay distance, then check side clearance in the level. Source: src/game/street-props.ts."
         }
       ]
     },

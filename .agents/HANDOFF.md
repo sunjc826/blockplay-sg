@@ -7146,3 +7146,33 @@ removed, since `model-review.test.ts` requires every published note to match the
 current model. Checked with `weapon-lineup.html` pages 2–4, `proxy-weapons-smoke`
 (pass, run against 5175/9224), `pnpm test` (all pass) and `pnpm typecheck`.
 Not checked in live first-person play: the default loadout carries no cargo gun.
+
+### Street prop audit and fixes (2026-11-15)
+
+Audit of the 35 `/prop-designs` models (measured in a throwaway vitest harness and
+viewed in the gallery), then fixes in `street-props.ts`:
+
+- Knock-over: `createPropMotion` used to turn every prop a rigid 90° about the
+  shot's perpendicular and floor it on a loose box, so props balanced on an edge
+  or corner and round ones hovered (drum ~12 cm). It now falls about the nearest
+  of the prop's own axes, to the angle where its middle is lowest (`restAngle`,
+  cached per kind), and floors on true vertices.
+- Solids: planter collides only up to its concrete rim; chess and hawker sets are
+  a table plus four seats (`streetPropColliders`), which adds obstacles in eight
+  districts. Planter/pot foliage is now folded blades on `visualCover` materials.
+- Models: every prop is built to rest on y=0 from precise bounds; cone bands are
+  real frusta; tray-return header is on the front posts and its stacks sit on the
+  shelves; vending coin plate reaches the button; picnic top has bearers; pallets
+  rest on each other; trough blades start in the soil.
+- Catalogue width/depth/height of the 25 furniture pieces are now the measured
+  geometry, with a test. Plant sizes stay clearance envelopes (some overstate,
+  e.g. money-pole .85 listed vs .61 built).
+- Gallery has a `RoomEnvironment` so steel reads as steel (it was near-black).
+- `asset-notes.json`: vending note carried forward as `vending-surface-intent-2`.
+
+District placements are identical before and after in all 23 districts (position
+and audit dumps compared). Checked: `pnpm test` (433 files), `pnpm typecheck`,
+`pnpm test:props` on 5175/9224, gallery by eye. Not done: `pnpm build`, live
+first-person play, the navigation rebake that the new solids feed. Left alone:
+sites still lift props 2.5 cm (`groundOffset`); six catalogue props (planter,
+bollard, cabinet, vending, terracotta pot, wheelie bin) are placed in no district.

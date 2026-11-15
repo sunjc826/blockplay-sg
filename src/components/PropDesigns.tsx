@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { createPropMotion, createStreetPropKit, STREET_PROPS, type PropMotion, type StreetPropKind } from '../game/street-props';
 import { STREET_PROP_RESEARCH } from '../game/street-prop-research';
 import { navigate } from '../lib/routes';
@@ -18,6 +19,8 @@ export default function PropDesigns() {
     const scene=new THREE.Scene();scene.background=new THREE.Color(night?'#15282d':'#c9c7b7');
     const kit=createStreetPropKit(),model=kit.create(selected);scene.add(model);motion.current=createPropMotion(model,selected);
     scene.add(new THREE.HemisphereLight(night?'#9bbdcf':'#f0f5ec','#6a6454',night?1.5:2.8));
+    // Districts light metal from the sky; without something to reflect, steel renders as near-black.
+    const pmrem=new THREE.PMREMGenerator(renderer),studio=new RoomEnvironment(),reflections=pmrem.fromScene(studio,.04);scene.environment=reflections.texture;scene.environmentIntensity=night?.25:.45;
     const extent=Math.max(4,spec.width*.8,spec.height*.65);
     const sun=new THREE.DirectionalLight(night?'#9dbfe9':'#fff2d2',night?2:3.5);sun.position.set(-extent,extent*2,extent);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,near:.1,far:extent*6});sun.shadow.normalBias=.025;scene.add(sun);
     const floorGeometry=new THREE.CircleGeometry(Math.max(2.8,spec.width*.8),64),floorMaterial=new THREE.MeshStandardMaterial({color:night?'#293d40':'#b4b2a3',roughness:1});
@@ -36,7 +39,7 @@ export default function PropDesigns() {
       frame=requestAnimationFrame(render);
     };
     setStatus('');frame=requestAnimationFrame(render);
-    return()=>{cancelAnimationFrame(frame);observer.disconnect();motion.current=null;kit.dispose();floorGeometry.dispose();floorMaterial.dispose();grid.geometry.dispose();(grid.material as THREE.Material).dispose();sun.shadow.dispose();renderer.dispose();renderer.domElement.remove();delete node.dataset.ready;};
+    return()=>{cancelAnimationFrame(frame);observer.disconnect();motion.current=null;kit.dispose();reflections.dispose();pmrem.dispose();studio.dispose();floorGeometry.dispose();floorMaterial.dispose();grid.geometry.dispose();(grid.material as THREE.Material).dispose();sun.shadow.dispose();renderer.dispose();renderer.domElement.remove();delete node.dataset.ready;};
   },[selected,night,spec]);
   const react=()=>{if(motion.current?.hit(new THREE.Vector3(-.8,.1,-.6)))setStatus(spec.behavior==='breakable'?'Broken into fragments. Reset to rebuild.':'Knocked over. Reset to stand it up.');};
   return <main className="prop-designs">

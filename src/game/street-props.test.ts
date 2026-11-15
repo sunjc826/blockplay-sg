@@ -8,6 +8,7 @@ import { createGameplayRayIndex } from './gameplay-ray-index';
 import { firstVisibleHit } from './fps-raycast';
 import { STREET_PROP_SITES } from './street-prop-sites';
 import type { StreetPropPlacement } from './district-street-props';
+import { isVegetationKind } from './vegetation-props';
 
 describe('street prop models and motion',()=>{
   it('builds finite, grounded models with shared resources',()=>{
@@ -19,6 +20,52 @@ describe('street prop models and motion',()=>{
       root.traverse(o=>expect(o.matrixWorld.elements.every(Number.isFinite)).toBe(true));
       expect((root.children[0] as THREE.Mesh).geometry).toBe((copy.children[0] as THREE.Mesh).geometry);
     }}finally{kit.dispose();}
+  });
+  it('rests every model on the ground and keeps the furniture catalogue to its true size',()=>{
+    const kit=createStreetPropKit();
+    try{for(const spec of STREET_PROPS){
+      const root=kit.create(spec.kind);root.updateMatrixWorld(true);
+      const bounds=new THREE.Box3().setFromObject(root,true),size=bounds.getSize(new THREE.Vector3());
+      expect(Math.abs(bounds.min.y),spec.kind).toBeLessThan(.001);
+      // Plant sizes are clearance envelopes, checked in vegetation-props.test.ts.
+      if(isVegetationKind(spec.kind))continue;
+      for(const [actual,listed] of [[size.x,spec.width],[size.z,spec.depth],[size.y,spec.height]]){
+        expect(actual,spec.kind).toBeLessThanOrEqual(listed+.001);expect(actual,spec.kind).toBeGreaterThan(listed-.015);
+      }
+    }}finally{kit.dispose();}
+  });
+  it('lays a toppled prop on a side, on the floor, whatever the direction of the hit',()=>{
+    const kit=createStreetPropKit();
+    try{for(const spec of STREET_PROPS.filter(p=>p.behavior==='movable'))for(let k=0;k<8;k++){
+      const root=kit.create(spec.kind);root.position.set(5,2,1);root.rotation.y=.7;
+      const motion=createPropMotion(root,spec.kind);motion.hit(new THREE.Vector3(Math.cos(k*Math.PI/4+.3),.1,Math.sin(k*Math.PI/4+.3)));
+      for(let i=0;i<200;i++)motion.update(1/60);
+      root.updateMatrixWorld(true);const lying=new THREE.Box3().setFromObject(root,true);
+      expect(Math.abs(lying.min.y-2),`${spec.kind} ${k} touches the floor`).toBeLessThan(.002);
+      // Balanced on an edge or corner it would stand taller than its own footprint.
+      expect(lying.max.y-lying.min.y,`${spec.kind} ${k} lies flat`).toBeLessThanOrEqual(Math.max(spec.width,spec.depth)+.02);
+    }}finally{kit.dispose();}
+  });
+  it('keeps solid volumes to the solid parts',()=>{
+    const kit=createStreetPropKit();
+    try{
+      const planter=kit.create('planter'),[body]=planter.userData.streetPropColliders;
+      expect(planter.userData.streetPropColliders).toHaveLength(1);expect(body.max[1]).toBeLessThan(.8);expect(body.max[2]).toBeCloseTo(.425);
+      const leaves=planter.children.filter(m=>(m as THREE.Mesh<THREE.BufferGeometry,THREE.Material>).material.userData.visualCover);
+      expect(leaves.length).toBeGreaterThan(0);expect(new THREE.Box3().setFromObject(leaves[0]).max.y).toBeGreaterThan(1.1);
+      // The corners between the chess seats and beside the hawker table are open floor.
+      for(const [kind,count,x,z] of [['chess-table',5,.9,.9],['hawker-table',5,.9,0]] as const){
+        const solids=kit.create(kind).userData.streetPropColliders as {min:number[];max:number[]}[];
+        expect(solids).toHaveLength(count);
+        expect(solids.some(s=>x>s.min[0]&&x<s.max[0]&&z>s.min[2]&&z<s.max[2]),kind).toBe(false);
+        expect(solids.some(s=>s.min[0]<0&&s.max[0]>0&&s.min[2]<0&&s.max[2]>0),kind).toBe(true);
+      }
+      // Both reflective bands stand proud of the cone at their own height.
+      const cone=kit.create('cone'),bands=cone.children.find(m=>(m as THREE.Mesh<THREE.BufferGeometry,THREE.MeshStandardMaterial>).material.color.getHexString()==='e6e5ce') as THREE.Mesh;
+      const position=bands.geometry.getAttribute('position'),slope=(y:number)=>.22-(y-.08)*.1848/.76;let high=0;
+      for(let i=0;i<position.count;i++){const y=position.getY(i)+bands.position.y;high=Math.max(high,y);expect(Math.hypot(position.getX(i),position.getZ(i))).toBeGreaterThan(slope(y)+.003);}
+      expect(high).toBeGreaterThan(.65);
+    }finally{kit.dispose();}
   });
   it('breaks or tips only reactive props, settles and restores every transform',()=>{
     const kit=createStreetPropKit();

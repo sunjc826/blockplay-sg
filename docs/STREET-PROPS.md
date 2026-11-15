@@ -8,8 +8,12 @@ studies.
 | Behavior | Models |
 | --- | --- |
 | Fixed, solid scenery | Rain-garden planter, estate bench, reflective bollard, utility cabinet, cold-drinks machine, cycle stand, picnic set, kopitiam table, parasol, delivery pallets, bagged supplies, community noticeboard, blue commingled recycling bin, fixed hawker dining set, tray-return rack, mosaic chess set, letterbox bank, hooded park bin |
-| Breakable decoration | Slatted produce crate, terracotta plant pot |
-| Movable decoration | Roadwork cone, kopitiam stool, estate wheelie bin, delivery hand trolley, workshop drum |
+| Breakable decoration | Slatted produce crate, terracotta plant pot, and the potted snake plant, money plant and bird’s-nest fern |
+| Movable decoration | Roadwork cone, kopitiam stool, estate wheelie bin, delivery hand trolley, workshop drum, money plant on a coir pole |
+
+Six catalogue models are gallery-only for now: no furnishing in `SITE_FURNITURE`
+uses the planter, bollard, utility cabinet, drinks machine, terracotta pot or
+wheelie bin.
 
 [Singapore research](SINGAPORE-PROP-RESEARCH.md) informs both new models and
 placement. `street-prop-sites.ts` attaches furniture to named existing features:
@@ -26,16 +30,25 @@ types and their relationships; exact game positions and dimensions are authored.
 `streetPropPlacements` records a site's purpose for each object, while
 `streetPropSiteAudit` records acceptance and rejection reasons.
 
-Fixed fixtures contribute movement bounds and rendered bullet cover. Parasols
-use a narrow pole collider and a separate canopy above head height, leaving
-space to walk underneath. Bounds
-come from the original model geometry before batching, so rendering precision
-cannot change collision. Production navigation is rebaked by the normal build.
+Fixed fixtures contribute movement bounds and rendered bullet cover. A fixture
+is solid across its whole bounds unless it lists its own solids in
+`streetPropColliders`: parasols use a narrow pole and a separate canopy above
+head height, the planter is solid only up to its concrete rim, and the chess
+and hawker sets are a table plus four seats, so the floor between them stays
+open. Planter and pot leaves are foliage (`visualCover`) and never stop rounds.
+Bounds come from the true vertices of the original model before batching, so
+rendering precision cannot change collision. Every model is built to rest on
+y=0; the 2.5 cm a site adds (`groundOffset`) is the only gap to the floor.
+The catalogue's width, depth and height are the measured geometry, held by a
+unit test; plant sizes remain clearance envelopes. Production navigation is rebaked by the normal build.
 
 Small props are cosmetic: visible infantry and vehicle rounds can fracture or
 tip them, using the round segment clipped to its actual collision. They do not
 block walking, stop bullets, absorb blasts or become cover. Motion uses bounded
-floor gravity, damping and settling; there is no full rigid-body simulation,
+floor gravity, damping and settling. A toppled prop falls about whichever of
+its own axes is nearest the push and turns to where its middle is lowest, so a
+bin lies on a side and a cone on its base edge and tip, resting on its real
+vertices; there is no full rigid-body simulation,
 prop-to-prop collision or vehicle pushing. Fragment motion remains within 1.15 m
 of the original footprint; whole props move at most 0.8 m along each horizontal
 axis. Reactions are local presentation, not network-authoritative state. A world
