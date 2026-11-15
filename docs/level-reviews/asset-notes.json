@@ -23,7 +23,7 @@
       ]
     },
     {
-      "id": "oicw-silhouette-intent",
+      "id": "oicw-silhouette-intent-2",
       "asset": "weapon/ff-oicw",
       "title": "Keep the two systems visually distinct",
       "kind": "design-note",
@@ -32,13 +32,13 @@
         "z": 0,
         "level": "Whole model"
       },
-      "mapRevision": "model-4134f4ea",
+      "mapRevision": "model-c60aa7e8",
       "events": [
         {
-          "id": "oicw-silhouette-intent-1",
-          "at": "2026-11-11T12:00:00.000Z",
+          "id": "oicw-silhouette-intent-2-1",
+          "at": "2026-11-15T09:30:00.000Z",
           "author": "ai",
-          "body": "The catalogue describes stacked rifle/launcher muzzles, an integrated upper body and separate feed silhouettes. Those differences are the visual explanation for the two firing modes. Tradeoff: too much upper-body mass can hide the supporting rifle profile. Review both sides and a small on-screen silhouette before adding detail. This concerns the fictional game model’s visual readability. Source: src/game/proxy-weapon-models.ts."
+          "body": "Supersedes thread oicw-silhouette-intent (model-4134f4ea, 2026-11-11), whose model fingerprint changed when the cargo weapons were given rounded and stepped cross-sections on 2026-11-15. The side outline, muzzle heights and feed positions were kept; the upper shell now narrows towards the launcher muzzle. Original note, unchanged: The catalogue describes stacked rifle/launcher muzzles, an integrated upper body and separate feed silhouettes. Those differences are the visual explanation for the two firing modes. Tradeoff: too much upper-body mass can hide the supporting rifle profile. Review both sides and a small on-screen silhouette before adding detail. This concerns the fictional game model’s visual readability. Source: src/game/proxy-weapon-models.ts."
         }
       ]
     }

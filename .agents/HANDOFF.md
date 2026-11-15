@@ -7053,3 +7053,74 @@ adds a `skyTint` from the district's authored background. Kit districts pass
   shows grey below the horizon; Raffles' shaded street is darker; every district
   shares one cloud field; indirect light fades in ~6 s after entering Changi.
   Evidence `.cache/district-looks/<district>/`.
+
+## 2026-11-15 — Weapon model audit; P30 rebuilt
+
+Audit of all 16 platforms from `scripts/fixtures/weapon-lineup.html` (new:
+`?page=0..4`, `?only=<index>`, `&view=0..7` for one large angle; prints meshes,
+triangles and materials per gun). Findings: four build styles that do not match
+(GLB SAR/Ultimax, detailed procedural MGs and enemy guns, merged-slab proxy guns,
+raw-box P30); `dressWeapon` clones a material per mesh, so a G36 is 184 draw
+calls against about 10 for a proxy gun; the eight proxy guns are constant-width
+extrusions; only the GLBs carry textures.
+
+Done: P30 rebuilt in `service-weapon-models.ts` (312 → about 3.7k triangles):
+one frame/grip outline with finger scallops and beavertail, a trigger guard with
+a real opening, chamfered slide, bored muzzle, three-dot sights, controls. Slide
+bounds, sight heights, sockets and the magazine node are unchanged, so the reload
+and fittings needed no retuning. The separate `__grip` mesh is gone (part of
+`__frame`); `fps-pistol-reload.test.ts` now checks the magazine against the frame
+outline. Eight `p30-*.webp` thumbnails regenerated. ExtrudeGeometry note: a
+negative `bevelOffset` caps over holes in three r180.
+
+Not done: merging static parts per material, widths and grips on the proxy guns,
+shared grain textures. P30 checked in the live Marina Bay range through CDP on
+the running Chrome (hip, aimed three-dot picture, inspect, empty reload): no
+clipping or misalignment seen. The built-in browser pane blocks pointer lock.
+
+### Weapon draw calls (2026-11-15)
+
+`weapon-part-merge.ts` (`mergeStaticParts`) folds the static parts under each
+parent into one mesh per material at the end of `buildMachineGun`,
+`buildEnemyWeapon` and the P30. Groups (feed cover, magazine, config sets, belt
+rounds, bipod) keep their nodes; parts addressed by name (the `NAMED` set, and
+anything with `sight` in its name) stay separate. `dressWeapon` now clones each
+authored material once instead of once per mesh. Dressed meshes / materials:
+G36 184/184 → 41/14, XM8 155/152 → 49/15, FN MAG 139/125 → 62/10, CIS 50
+135/121 → 64/10, MG4 130/116 → 65/10, P30 36/36 → 27/5. Triangle counts and
+renders unchanged. What is left on the MGs is the belt (24) and bipod (17).
+A new part that code or a test finds by name must be added to `NAMED`.
+
+Tests: full suite had one real failure (sight-line test excluded front-sight
+parts by name; fixed by keeping sight parts). Four district tests
+(regions, street-props, world-night-lights, world-zones queenstown) time out at
+5 s on this loaded VM with or without the merge (measured 4.9 s vs 5.0 s).
+`scripts/fixtures/enemy-weapons.html` throws in `dressWeapon` (undefined model)
+and lists only the cargo guns; not looked into.
+
+### Cargo guns reshaped (2026-11-15)
+
+The eight Freedom Force / Collective cargo guns in `src/game/proxy-weapon-models.ts`
+were constant-width extrusions. `side()` now takes a `Section`: `round` turns the
+edges over (default by material: furniture 8 mm, panels 6, receiver 4, dark 3) and
+`top/bottom/front/rear` scale the width linearly towards that end. The authored
+outline is still the silhouette: the caps are inset and the holes grown by the
+bevel, because a negative `bevelOffset` caps over holes in three r180. New
+`block()` is a rounded box for cheek rests, butt pads and feed boxes.
+
+Per gun: SCAR pair, Smart Power and Consensus Builder receivers step in to the
+rail; grips are oval and flare at the foot; magazines have floorplates; barrels
+have a gas block and thicker root; stocks and the bullpup/OICW/QTS shells are
+rounded, the OICW shell and bullpup fore-end narrowing forwards. The shared pins,
+groove and ejection-port details sat at a fixed x and floated off the narrower
+receivers; they now follow per-gun `flank` / `shelf` half-widths.
+
+Side outlines, sockets, sight tunnels, optics and hand positions are unchanged.
+Triangles rose about 1.1–1.6k a gun (largest dressed: Foreign Intervention 9.3k).
+`docs/level-reviews/asset-notes.json`: the OICW design note is pinned to a model
+fingerprint, so it was carried forward as thread `oicw-silhouette-intent-2`
+(new fingerprint, links the old ID, quotes the original body) and the old thread
+removed, since `model-review.test.ts` requires every published note to match the
+current model. Checked with `weapon-lineup.html` pages 2–4, `proxy-weapons-smoke`
+(pass, run against 5175/9224), `pnpm test` (all pass) and `pnpm typecheck`.
+Not checked in live first-person play: the default loadout carries no cargo gun.

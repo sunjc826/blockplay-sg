@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildOpenReflex, REFLEX_WINDOW, windowRadius, windowShape, type SightWindow } from './weapon-sight-housings';
 
@@ -27,6 +28,28 @@ export interface ProxyWeaponModel {
   dispose(): void;
 }
 type Point = readonly [number, number];
+/**
+ * How a side-profile part is shaped across its width: `round` is the radius its
+ * edges are turned over by, and the rest scale the width towards that end of the
+ * part, so a stock can thin towards the comb or a grip flare at its foot.
+ */
+interface Section { round?: number; top?: number; bottom?: number; front?: number; rear?: number }
+
+/** An outline moved `distance` inwards along its mitres (outwards when negative). */
+function inset(points: readonly Point[], distance: number): Point[] {
+  const n = points.length;
+  let area = 0;
+  points.forEach(([u, v], i) => { const [nu, nv] = points[(i + 1) % n]; area += u * nv - nu * v; });
+  const turn = area > 0 ? 1 : -1;
+  return points.map(([u, v], i) => {
+    const [pu, pv] = points[(i + n - 1) % n], [nu, nv] = points[(i + 1) % n];
+    const a = Math.hypot(u - pu, v - pv) || 1, b = Math.hypot(nu - u, nv - v) || 1;
+    const ax = -(v - pv) / a, ay = (u - pu) / a, bx = -(nv - v) / b, by = (nu - u) / b;
+    // Clamped, so a sharp corner cannot throw its mitre across the part.
+    const reach = turn * distance / Math.max(.4, 1 + ax * bx + ay * by);
+    return [u + (ax + bx) * reach, v + (ay + by) * reach] as const;
+  });
+}
 
 /** The Soft Power's red dot: its window's centre, its place on the rail, and its lens relative to that. */
 const SCAR_DOT_Y = .2025, SCAR_DOT_Z = -.03, SCAR_DOT_LENS = -.009;
@@ -70,16 +93,39 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     for (const hole of holes) { const path = new THREE.Path(hole.map(([u, v]) => new THREE.Vector2(u, v))); path.closePath(); shape.holes.push(path); }
     return shape;
   };
-  // Stylized outside surfaces, authored in game units rather than fabrication dimensions.
-  const side = (points: readonly Point[], width: number, m = metal, holes: readonly (readonly Point[])[] = []) => {
-    const shape = profile(points.map(([z, y]) => [-z, y]), holes.map(hole => hole.map(([z, y]) => [-z, y])));
-    const geometry = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: true, bevelSize: .0015, bevelThickness: .0015, bevelSegments: 1, steps: 1, curveSegments: 4 });
-    geometry.translate(0, 0, -width / 2); add(geometry, m, 0, 0, 0, 0, Math.PI / 2);
+  const block = (w: number, h: number, d: number, x: number, y: number, z: number, m: THREE.Material = furniture, radius = .008, rx = 0) =>
+    add(new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w * .45, h * .45, d * .45)), m, x, y, z, rx);
+  /**
+   * Stylized outside surfaces, authored in game units rather than fabrication
+   * dimensions. The outline is the part's silhouette: three grows an extrusion by
+   * its bevel, so the caps are drawn that much inside it and the holes that much
+   * outside (a negative bevel offset would cap over the holes instead).
+   */
+  const side = (points: readonly Point[], width: number, m = metal, holes: readonly (readonly Point[])[] = [], section: Section = {}) => {
+    const round = Math.min(section.round ?? (m === furniture ? .008 : m === trim ? .006 : m === dark ? .003 : .004), width * .42);
+    const flip = (outline: readonly Point[]) => outline.map(([z, y]) => [-z, y] as const);
+    const shape = profile(inset(flip(points), round), holes.map(hole => inset(flip(hole), -round)));
+    const depth = width - round * 2;
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: round, bevelThickness: round, bevelSegments: round > .0055 ? 3 : 2, steps: 1, curveSegments: 4 });
+    geometry.translate(0, 0, -depth / 2);
+    const { top = 1, bottom = 1, front = 1, rear = 1 } = section;
+    if (top !== 1 || bottom !== 1 || front !== 1 || rear !== 1) {
+      // Each scale is linear along its axis, which keeps the flat sides flat.
+      const ys = points.map(point => point[1]), zs = points.map(point => point[0]);
+      const y0 = Math.min(...ys), y1 = Math.max(...ys), z0 = Math.min(...zs), z1 = Math.max(...zs);
+      const position = geometry.getAttribute('position');
+      for (let i = 0; i < position.count; i++) {
+        const v = THREE.MathUtils.clamp((position.getY(i) - y0) / (y1 - y0), 0, 1), u = THREE.MathUtils.clamp((-position.getX(i) - z0) / (z1 - z0), 0, 1);
+        position.setZ(i, position.getZ(i) * THREE.MathUtils.lerp(bottom, top, v) * THREE.MathUtils.lerp(front, rear, u));
+      }
+      geometry.computeVertexNormals();
+    }
+    add(geometry, m, 0, 0, 0, 0, Math.PI / 2);
   };
   const opening = (front: number, rear: number, bottom: number, top: number): Point[] => [[front, bottom], [rear, bottom], [rear, top], [front, top]];
   const vented = (front: number, rear: number, y: number, n: number, m = metal) => {
     const holes = Array.from({ length: n }, (_, index) => { const z = front + .025 + (rear - front - .05) * index / n; return opening(z, z + (rear - front - .05) / n * .65, y + .026, y + .051); });
-    side([[front, y], [rear, y], [rear, y + .085], [front + .02, y + .085], [front, y + .065]], .063, m, holes);
+    side([[front, y], [rear, y], [rear, y + .085], [front + .02, y + .085], [front, y + .065]], .063, m, holes, { round: .004 });
   };
   const rail = (front: number, rear: number, y: number) => {
     box(.028, .04, rear - front, 0, y - .012, (front + rear) / 2, dark);
@@ -87,19 +133,24 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     for (let z = front + .008; z < rear; z += .022) box(.045, .009, .009, 0, y + .01, z, dark);
   };
   const grip = (z: number) => {
-    side([[z - .021, .025], [z + .02, .015], [z + .045, -.105], [z + .005, -.11]], .035, furniture);
-    side([[z - .075, .025], [z - .075, -.035], [z + .005, -.04], [z + .012, .023]], .025, furniture, [opening(z - .062, z - .005, -.026, .014)]);
+    // An oval in section, a little fuller at the foot.
+    side([[z - .021, .025], [z + .02, .015], [z + .045, -.105], [z + .005, -.11]], .037, furniture, [], { round: .013, bottom: 1.08, top: .94 });
+    side([[z - .075, .025], [z - .075, -.035], [z + .005, -.04], [z + .012, .023]], .022, furniture, [opening(z - .062, z - .005, -.026, .014)], { round: .003 });
     box(.008, .026, .009, 0, -.004, z - .018, dark, -.25);
     for (const x of [-.021, .021]) box(.004, .012, .024, x, .018, z + .004, dark);
   };
   const magazine = (z: number, height: number, curve: number, breadth = 1) => {
     drawingMagazine = !animatingLauncher;
-    side([[z - .035 * breadth, .035], [z + .03 * breadth, .035], [z + .033 * breadth, -.025], [z + .022 * breadth - curve, -height], [z - .043 * breadth - curve, -height + .008], [z - .04 * breadth, -.02]], .031 * breadth, dark);
+    side([[z - .035 * breadth, .035], [z + .03 * breadth, .035], [z + .033 * breadth, -.025], [z + .022 * breadth - curve, -height], [z - .043 * breadth - curve, -height + .008], [z - .04 * breadth, -.02]], .031 * breadth, dark, [], { round: .004 });
+    // A floorplate, proud of the body all round.
+    side([[z + .025 * breadth - curve, -height - .002], [z - .046 * breadth - curve, -height + .006], [z - .0455 * breadth - curve, -height + .016], [z + .0255 * breadth - curve, -height + .008]], .031 * breadth + .005, metal, [], { round: .002 });
     for (const x of [-.017 * breadth, .017 * breadth]) for (let i = 0; i < 3; i++) box(.002, height * .65, .003, x, -height * .43, z + (-.022 + i * .019) * breadth - curve * .35, metal, Math.atan2(curve, height));
     drawingMagazine = false;
   };
   const muzzle = (front: number, start: number, y: number, shroud = false) => {
     cylinder(.012, start - front, 0, y, (front + start) / 2);
+    // A gas block and a thicker root, where the barrel leaves the fore-end.
+    cylinder(.0145, .1, 0, y, start - .04); cylinder(.018, .028, 0, y, start - .036, metal);
     const length = shroud ? .105 : .045, radius = shroud ? .025 : .019;
     const section = [[.008, 0], [radius, 0], [radius, length], [.008, length], [.008, 0]].map(([r, v]) => new THREE.Vector2(r, v - length / 2));
     add(new THREE.LatheGeometry(section, 20), dark, 0, y, front + length / 2, Math.PI / 2);
@@ -173,24 +224,27 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   let front = -.6, foreZ = -.28, magZ = -.105, gripZ = .025, muzzleY = .083;
   let launcherFront: number | undefined, launcherMagZ: number | undefined;
   const launcherY = .175;
+  // Half the receiver's width where the shared pins and the ejection port sit on it.
+  let flank = .034, shelf = .034;
   if (id === 'ff-oicw') {
     launcherMagZ = .25;
     // OICW exterior: upper bullpup launcher body over a conventional rifle.
     // These are visual shells and art sockets, not simulated weapon internals.
-    side([[-.34, .105], [-.18, .07], [.19, .07], [.22, .015], [.37, .015], [.39, .055], [.38, .25], [-.28, .25], [-.34, .19]], .105, furniture);
-    side([[-.32, .015], [.095, .015], [.115, .083], [-.275, .12], [-.32, .09]], .065, metal);
+    side([[-.34, .105], [-.18, .07], [.19, .07], [.22, .015], [.37, .015], [.39, .055], [.38, .25], [-.28, .25], [-.34, .19]], .105, furniture, [], { round: .016, front: .86 });
+    side([[-.32, .015], [.095, .015], [.115, .083], [-.275, .12], [-.32, .09]], .065, metal, [], { round: .006 });
+    flank = .0325; shelf = .0525;
     grip(.025); magazine(-.13, .17, .024); magZ = -.13;
     // The upper assembly's rear feed is a separate, broad rectangular exterior box.
     drawingMagazine = animatingLauncher;
-    box(.057, .19, .11, 0, .009, launcherMagZ, dark);
+    block(.057, .19, .11, 0, .009, launcherMagZ, dark, .006);
     box(.063, .014, .12, 0, -.087, launcherMagZ, metal);
     for (const x of [-.031, .031]) for (const z of [.224, .263]) box(.003, .12, .005, x, .004, z, metal);
     drawingMagazine = false;
-    box(.112, .26, .027, 0, .13, .398, dark);
+    block(.112, .26, .03, 0, .13, .398, dark, .012);
     // Projecting rifle fore-end and palm ledge below the upper launcher's barrel.
     side([[-.435, .005], [-.205, .005], [-.20, .087], [-.40, .087], [-.44, .047]], .073, metal,
-      [opening(-.397, -.367, .028, .053), opening(-.347, -.317, .028, .053), opening(-.297, -.267, .028, .053)]);
-    box(.068, .024, .12, 0, -.004, -.31, dark);
+      [opening(-.397, -.367, .028, .053), opening(-.347, -.317, .028, .053), opening(-.297, -.267, .028, .053)], { round: .005 });
+    block(.068, .024, .12, 0, -.004, -.31, dark, .009);
     // Two visibly different bore heights, with the smaller rifle projecting farther.
     muzzleY = .055; front = muzzle(-.60, -.415, muzzleY); foreZ = -.30;
     launcherFront = -.455;
@@ -220,20 +274,21 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   } else if (id === 'cc-qts11') {
     // Original QTS-11-inspired outside silhouette, kept leaner than the XM29.
     launcherMagZ = .115;
-    side([[-.30, .025], [.14, .025], [.14, .125], [-.27, .125]], .071);
-    side([[-.30, .12], [.13, .12], [.14, .20], [.09, .225], [-.27, .225], [-.30, .205]], .079, furniture);
+    side([[-.30, .025], [.14, .025], [.14, .125], [-.27, .125]], .071, metal, [], { round: .005 });
+    side([[-.30, .12], [.13, .12], [.14, .20], [.09, .225], [-.27, .225], [-.30, .205]], .079, furniture, [], { round: .013 });
+    flank = shelf = .0355;
     vented(-.455, -.285, .022, 3, furniture);
     grip(.02); gripZ = .02; magazine(-.125, .17, .03); magZ = -.125;
     // The launcher's short box feeds in behind the grip, ahead of the open stock.
     drawingMagazine = animatingLauncher;
-    box(.05, .12, .07, 0, -.03, launcherMagZ, dark);
+    block(.05, .12, .07, 0, -.03, launcherMagZ, dark, .005);
     box(.054, .012, .074, 0, -.086, launcherMagZ, metal);
     drawingMagazine = false;
     // Skeletal stock is real negative space, not a second launcher-feed box.
     side([[.135, .105], [.34, .14], [.385, .105], [.38, -.055], [.31, -.055], [.27, .014], [.135, .025]], .043, furniture,
-      [[[.173, .052], [.29, .04], [.34, .075], [.326, .107], [.174, .082]]]);
-    box(.057, .17, .025, 0, .032, .39, dark);
-    box(.052, .024, .115, 0, .13, .30, metal);
+      [[[.173, .052], [.29, .04], [.34, .075], [.326, .107], [.174, .082]]], { round: .006 });
+    block(.057, .17, .028, 0, .032, .39, dark, .009);
+    block(.052, .024, .115, 0, .13, .30, metal, .009);
     muzzleY = .06; front = muzzle(-.69, -.44, muzzleY); foreZ = -.34;
     launcherFront = -.565;
     // One stepped hollow shell avoids coplanar barrel/rim surfaces.
@@ -250,16 +305,19 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
       box(.049, .045, .004, 0, .286, -.204, glass);
       box(.045, .038, .004, 0, .284, .094, glass);
     }
-    box(.05, .06, .17, -.055, .255, -.13, trim);
+    block(.05, .06, .17, -.055, .255, -.13, trim, .01);
     box(.035, .04, .004, -.055, .255, -.217, glass);
     for (const x of [-.043, .043]) {
-      box(.005, .032, .12, x, .176, .025, trim);
-      box(.007, .009, .026, x, .177, .025, accent);
+      box(.005, .032, .12, Math.sign(x) * .0405, .176, .025, trim);
+      box(.007, .009, .026, Math.sign(x) * .0405, .177, .025, accent);
     }
   } else if (id === 'ff-scar-l' || id === 'ff-scar-h') {
     // Same visual family, independently authored receiver and magazine envelopes.
     const heavy = id === 'ff-scar-h', receiverFront = heavy ? -.23 : -.19, width = heavy ? .081 : .068;
-    side([[receiverFront, .02], [.145, .02], [.15, .10], [.125, .137], [receiverFront + .015, .137], [receiverFront, .11]], width);
+    // The upper steps in to the rail, as the extruded original does.
+    side([[receiverFront, .02], [.145, .02], [.15, .10], [.142, .116], [receiverFront + .004, .116], [receiverFront, .11]], width, metal, [], { round: .005 });
+    side([[receiverFront + .006, .106], [.14, .106], [.125, .137], [receiverFront + .015, .137]], width * .66, metal, [], { round: .006 });
+    flank = shelf = width / 2;
     const foreEnd = heavy ? -.47 : -.415;
     vented(foreEnd, receiverFront + .005, .034, heavy ? 5 : 4); rail(foreEnd - .006, .135, .148); grip(.025);
     magZ = heavy ? -.135 : -.105;
@@ -267,8 +325,8 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     // The H's wider box magazine is supported by a deeper, wider external well.
     box(heavy ? .064 : .048, heavy ? .048 : .025, heavy ? .115 : .084, 0, heavy ? .014 : .026, magZ, metal);
     side([[.15, .105], [.22, .102], [.25, .145], [.355, .145], [.395, .105], [.39, -.066], [.326, -.066], [.302, .015], [.16, .023]], .05, furniture,
-      [[[.186, .043], [.285, .043], [.302, .075], [.235, .075]]]);
-    box(.064, .027, .115, 0, .148, .302, furniture); box(.062, .163, .024, 0, .025, .40, dark);
+      [[[.186, .043], [.285, .043], [.302, .075], [.235, .075]]], { round: .007 });
+    block(.064, .03, .115, 0, .1465, .302, furniture, .012); block(.062, .163, .027, 0, .025, .40, dark, .009);
     box(.073, .068, .016, 0, .079, .15, dark);
     for (const x of [-1, 1]) {
       box(.004, .027, .125, x * (width / 2 + .003), .075, -.035, trim);
@@ -278,10 +336,12 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     optic(heavy ? 'prism' : 'reflex', heavy ? -.065 : SCAR_DOT_Z);
     front = muzzle(heavy ? -.68 : -.575, foreEnd + .01, .083); foreZ = heavy ? -.32 : -.275;
   } else if (id === 'ff-longwatch') {
-    side([[-.195, .035], [.15, .035], [.15, .135], [-.175, .135], [-.195, .11]], .076);
+    side([[-.195, .035], [.15, .035], [.15, .116], [-.19, .116], [-.195, .11]], .076, metal, [], { round: .005 });
+    side([[-.188, .106], [.143, .106], [.143, .135], [-.175, .135]], .05, metal, [], { round: .006 });
+    flank = shelf = .038;
     vented(-.45, -.19, .033, 6); rail(-.46, .13, .148); grip(.025); magazine(-.105, .105, 0);
-    side([[.15, .115], [.37, .12], [.405, .085], [.40, -.07], [.32, -.07], [.30, .035], [.15, .035]], .053, furniture);
-    box(.065, .045, .145, 0, .133, .294, furniture); box(.058, .15, .027, 0, .018, .41, dark);
+    side([[.15, .115], [.37, .12], [.405, .085], [.40, -.07], [.32, -.07], [.30, .035], [.15, .035]], .053, furniture, [], { round: .012 });
+    block(.065, .045, .145, 0, .133, .294, furniture, .016); block(.058, .15, .03, 0, .018, .41, dark, .009);
     for (const x of [-.025, .025]) box(.012, .014, .20, x, .007, -.39, dark);
     for (const x of [-.025, .025]) box(.018, .047, .02, x, .027, -.295, dark);
     for (const x of [-.04, .04]) box(.008, .025, .12, x, .087, -.06, trim);
@@ -289,21 +349,22 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
   } else if (id === 'ff-intervention') {
     // M200 exterior study: long exposed barrel, round fore-end and open chassis.
     cylinder(.043, .33, 0, .083, -.015, metal);
-    side([[-.18, .015], [.15, .015], [.17, .082], [.13, .12], [-.16, .12]], .069, metal);
+    side([[-.18, .015], [.15, .015], [.17, .082], [.13, .12], [-.16, .12]], .069, metal, [], { round: .007 });
+    flank = .0345; shelf = .043;
     grip(.05); gripZ = .05; magazine(-.09, .115, 0, 1.12); magZ = -.09;
     cylinder(.048, .31, 0, .083, -.335, furniture);
     cylinder(.052, .022, 0, .083, -.195, dark);
     cylinder(.052, .023, 0, .083, -.40, metal);
     // Open carry handle is below the fore-end, separate from the trigger guard.
     side([[-.425, .045], [-.40, -.10], [-.17, -.10], [-.15, .035]], .029, metal,
-      [[[-.39, .015], [-.37, -.068], [-.20, -.068], [-.18, .015]]]);
-    box(.034, .021, .15, 0, -.105, -.285, dark);
+      [[[-.39, .015], [-.37, -.068], [-.20, -.068], [-.18, .015]]], { round: .008 });
+    block(.034, .021, .15, 0, -.105, -.285, dark, .008);
     // Collapsing-style twin rods leave daylight below the cheek rest.
     for (const x of [-.024, .024]) cylinder(.007, .29, x, .056, .285, dark);
-    box(.058, .027, .16, 0, .128, .345, furniture);
-    side([[.275, .055], [.30, .055], [.30, .137], [.275, .137]], .045, furniture);
-    side([[.405, .145], [.465, .145], [.475, -.055], [.425, -.055], [.405, -.01]], .052, furniture);
-    box(.061, .20, .021, 0, .044, .48, dark);
+    block(.058, .027, .16, 0, .128, .345, furniture, .011);
+    side([[.275, .055], [.30, .055], [.30, .137], [.275, .137]], .045, furniture, [], { round: .006 });
+    side([[.405, .145], [.465, .145], [.475, -.055], [.425, -.055], [.405, -.01]], .052, furniture, [], { round: .011 });
+    block(.061, .20, .024, 0, .044, .48, dark, .009);
     // Rear monopod and splayed bipod are static display equipment.
     box(.017, .10, .018, 0, -.10, .435, dark);
     box(.04, .012, .035, 0, -.153, .435, metal);
@@ -330,13 +391,14 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
       box(.007, .009, .026, x, .074, .018, accent);
     }
   } else if (id === 'cc-gatekeeper') {
-    side([[-.28, .018], [.285, .018], [.30, .13], [.24, .17], [-.18, .155], [-.28, .09]], .075, furniture);
-    side([[-.17, .145], [.21, .145], [.21, .253], [-.16, .253], [-.20, .21]], .038, dark, [[[ -.145, .17], [.17, .17], [.17, .224], [-.13, .224]]]);
+    side([[-.28, .018], [.285, .018], [.30, .13], [.24, .17], [-.18, .155], [-.28, .09]], .075, furniture, [], { round: .013 });
+    side([[-.17, .145], [.21, .145], [.21, .253], [-.16, .253], [-.20, .21]], .038, dark, [[[ -.145, .17], [.17, .17], [.17, .224], [-.13, .224]]], { round: .006 });
+    flank = shelf = .0375;
     grip(-.055); magazine(.165, .18, .045); magZ = .165; gripZ = -.055;
-    side([[-.32, .06], [-.22, .12], [-.08, .12], [-.09, .005], [-.25, -.008], [-.28, -.065], [-.31, -.045]], .064, trim);
+    side([[-.32, .06], [-.22, .12], [-.08, .12], [-.09, .005], [-.25, -.008], [-.28, -.065], [-.31, -.045]], .064, trim, [], { round: .012, front: .8 });
     for (const x of [-.04, .04]) box(.004, .06, .17, x, .075, -.185, trim);
     box(.006, .055, .095, -.04, .07, .18, metal); box(.006, .012, .04, -.044, .105, .17, accent);
-    box(.078, .135, .02, 0, .078, .30, dark);
+    block(.078, .135, .024, 0, .078, .30, dark, .009);
     // A low sight block leaves the carry bridge, rather than a SAR-style scope tube, dominant.
     if (playable) {
       // The red dot on a low block, its window where the aiming ray has always been.
@@ -345,21 +407,23 @@ export function buildProxyWeapon(id: ProxyWeaponId, playable = false, mode: 'rif
     } else { box(.042, .03, .09, 0, .27, -.04, metal); box(.027, .015, .003, 0, .27, -.087, glass); }
     front = muzzle(-.50, -.29, .083); foreZ = -.23;
   } else {
-    side([[-.255, .024], [.125, .024], [.14, .09], [.10, .125], [-.255, .125]], .068);
+    side([[-.255, .024], [.125, .024], [.14, .09], [.118, .11], [-.255, .11]], .068, metal, [], { round: .005 });
+    side([[-.25, .10], [.12, .10], [.10, .125], [-.25, .125]], .046, metal, [], { round: .006 });
     vented(-.47, -.255, .034, 4, furniture); rail(-.47, .10, .14); grip(.015); magazine(-.12, .165, .025); magZ = -.12; gripZ = .015;
-    side([[.13, .09], [.24, .09], [.27, .13], [.355, .13], [.37, -.06], [.305, -.06], [.29, .025], [.13, .025]], .046, furniture);
-    box(.058, .045, .12, 0, .14, .30, trim); box(.06, .17, .024, 0, .028, .38, dark);
+    side([[.13, .09], [.24, .09], [.27, .13], [.355, .13], [.37, -.06], [.305, -.06], [.29, .025], [.13, .025]], .046, furniture, [], { round: .011 });
+    block(.058, .045, .12, 0, .14, .30, trim, .015); block(.06, .17, .027, 0, .028, .38, dark, .009);
     for (const x of [-.035, .035]) box(.007, .032, .14, x, .072, -.05, trim);
     box(.008, .009, .032, -.041, .085, -.04, accent);
     optic('prism', -.075); front = muzzle(-.64, -.45, .083); foreZ = -.32;
   }
   for (const x of [-.041, .041]) {
-    for (const z of [-.14, .075]) add(new THREE.CylinderGeometry(.005, .005, .004, 8), dark, x, .052, z, 0, 0, Math.PI / 2);
-    if (id !== 'cc-gatekeeper') box(.003, .0025, .20, x, .043, -.025, dark);
+    const at = Math.sign(x) * (flank + .0005);
+    for (const z of [-.14, .075]) add(new THREE.CylinderGeometry(.005, .005, .004, 8), dark, at, .052, z, 0, 0, Math.PI / 2);
+    if (id !== 'cc-gatekeeper') box(.003, .0025, .20, at, .043, -.025, dark);
   }
   // Small receiver features provide depth in oblique views without simulated internals.
-  box(.008, .025, .09, .039, .084, id === 'cc-gatekeeper' ? .17 : .014, dark);
-  box(.025, .012, .02, .046, .06, id === 'cc-gatekeeper' ? .12 : -.025, metal);
+  box(.008, .025, .09, shelf + .002, .084, id === 'cc-gatekeeper' ? .17 : .014, dark);
+  box(.025, .012, .02, flank + .009, .06, id === 'cc-gatekeeper' ? .12 : -.025, metal);
   if (animatingLauncher) magZ = launcherMagZ!;
   const geometries: THREE.BufferGeometry[] = [];
   for (const [m, list] of parts) {
