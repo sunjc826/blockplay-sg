@@ -3,6 +3,7 @@ import { buildDistrictWorld } from './district-world';
 import { getWalkSurfaces, getTraversalObstacles, surfaceContains } from './vertical-routes';
 import { createVerticalMovement } from './vertical-movement';
 import { createVerticalNavigator } from './vertical-navigation';
+import { createSwimmingMovement } from './swimming';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { overlapsObstacle } from './region-collision';
 import { canPaddle, MARINA_BRIDGE_PIERS } from './marina-water';
@@ -119,4 +120,17 @@ it('leaves every road, spawn, stamp, range target and combat anchor on open grou
   // Sector anchors and encounter spawns must also clear stair feet and their low headroom.
   for (const p of [...REGION_SECTORS['marina-bay'].flatMap(s => s.anchors), ...zone.encounterSpawns])
     expect(movement.canOccupy(p.x, 0, p.z, .4, 1.8), JSON.stringify(p)).toBe(true);
+});
+
+it('walks the bridge deck at full speed in the player movement that knows about water', () => {
+  const swim = createSwimmingMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
+  const h = MARINA_HELIX;
+  let state = { x: -20, y: h.deck, z: h.z, velocityY: 0 }, swimming = false;
+  // One second of 5 m/s walking in 60 frames, over open water all the way.
+  for (let i = 0; i < 60; i++) { const next = swim.move(state, 5 / 60, 0, 1 / 60); swimming ||= next.swimming; state = next; }
+  expect(state.x).toBeCloseTo(-15, 1); expect(state.y).toBeCloseTo(h.deck, 2); expect(swimming).toBe(false);
+  // Jumping the rail still ends in the bay.
+  let fall = { x: 0, y: h.deck + 1.3, z: h.z + h.width / 2 + .8, velocityY: 0 }, wet = false;
+  for (let i = 0; i < 120 && !wet; i++) { const next = swim.move(fall, 0, .02, 1 / 60); wet = next.swimming; fall = next; }
+  expect(wet).toBe(true);
 });

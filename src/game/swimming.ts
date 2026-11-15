@@ -20,6 +20,8 @@ export function createSwimmingMovement(world: VerticalWorld) {
   const overDeck=(x:number,z:number)=>MARINA_CAMP_DECKS.some(d=>x>=d.minX&&x<=d.maxX&&z>=d.minZ&&z<=d.maxZ&&(!d.footprint||insideFootprint(d.footprint,x,z)));
   /** Between a ladder's rails at the deck edge, where walking on means climbing down. */
   const atLadder=(x:number,z:number)=>MARINA_SWIM_EXITS.some(p=>{const out=(x-p.x)*p.dx+(z-p.z)*p.dz,along=Math.abs((x-p.x)*p.dz-(z-p.z)*p.dx);return along<=.55&&out>=-.6&&out<=1.2;});
+  /** Water only slows a body that is down at it. A deck well above the surface (the Helix Bridge) is dry going. */
+  const reachesWater=(x:number,y:number,z:number)=>y<2&&isWater(x,z);
   /** `leaping` is for callers that track no vertical state, such as the arena's authority. */
   function move(state:VerticalState,dx:number,dz:number,dt:number,radius=.38,height=1.8,extra:readonly Obstacle[]=[],gravity={rise:15,fall:15},leaping=false) {
     if(!water.length) return {...dry.move(state,dx,dz,dt,radius,height,extra,gravity),swimming:false};
@@ -28,18 +30,18 @@ export function createSwimmingMovement(world: VerticalWorld) {
     for(let i=0;i<steps;i++){
       const wet=isWater(next.x,next.z)&&next.y<=.35;
       let sx=remainingX/(steps-i),sz=remainingZ/(steps-i);
-      const targetWet=isWater(next.x+sx,next.z+sz);
+      const targetWet=reachesWater(next.x+sx,next.y,next.z+sz);
       if(wet||targetWet){const d=Math.hypot(sx,sz),scale=d>0?Math.min(1,SWIMMING.speed*tick/d):1;sx*=scale;sz*=scale;}
       remainingX-=remainingX/(steps-i);remainingZ-=remainingZ/(steps-i);
       // Resolve each axis so a quay or a hull does not prevent sliding along it.
       for(const [ax,az] of [[sx,0],[0,sz]]){
-        const fromWet=isWater(next.x,next.z)&&next.y<=.35,toWet=isWater(next.x+ax,next.z+az);
+        const fromWet=isWater(next.x,next.z)&&next.y<=.35,toWet=reachesWater(next.x+ax,next.y,next.z+az);
         if(fromWet&&!toWet&&!canClimb(next.x+ax,next.z+az))continue;
         // Solid ground keeps its edge: only a jump off a deck, or a ladder, goes in. Walking
         // stops a body's width short, so a body on the lip jumped or climbed there and may go on.
         const overWater=isWater(next.x,next.z),onLip=water.some(o=>overlapsObstacle(o,next.x,next.z,radius,1e-5));
         const stepsOff=overDeck(next.x,next.z)&&(leaping||onLip||next.y>0||next.velocityY>0||atLadder(next.x,next.z));
-        if(!overWater&&toWet&&!stepsOff&&next.y<2)continue;
+        if(!overWater&&toWet&&!stepsOff)continue;
         const traversal=overWater||stepsOff||onLip?afloat:dry;
         const blockers=fromWet||MARINA_QUAY_RAILS.some(o=>overlapsObstacle(o,next.x,next.z,radius,1e-5))?extra:railed;
         const result=traversal.move(fromWet?{...next,y:0,velocityY:0}:next,ax,az,tick/2,radius,fromWet||toWet?SWIMMING.bodyHeight:height,blockers,gravity);
