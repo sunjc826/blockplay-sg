@@ -7176,3 +7176,50 @@ and audit dumps compared). Checked: `pnpm test` (433 files), `pnpm typecheck`,
 first-person play, the navigation rebake that the new solids feed. Left alone:
 sites still lift props 2.5 cm (`groundOffset`); six catalogue props (planter,
 bollard, cabinet, vending, terracotta pot, wheelie bin) are placed in no district.
+
+### Marina Bay routes and levels (2026-11-15)
+
+Owner's brief: Marina read as landmarks dropped on a flat grid. Four changes, all
+through vertical places so players, bots and vehicles share them. Detail in
+`docs/MARINA-COMBAT.md` ("Ground routes and levels").
+
+- `src/game/marina-routes.ts` (new): Helix Bridge over the bay at z = −36 (3.6 m
+  deck in five bays, pods, four quay stairs, two piers also in `canPaddle`);
+  Esplanade plaza, two tiers of steps and a 2.4 m concourse the shells now stand
+  on; a 1.2 m lawn terrace on the east half of the south promenade.
+- `marina-landmarks.ts`: the Flyer stair tower became a clad service core with an
+  annex, plus `flyer-terminal` (3 m boarding ring round the wheel, grand stair,
+  west stair, undercroft kiosks, 9 m roof terrace). Route places are appended to
+  `MARINA_LANDMARK_PLACES`, so the per-connection walk test covers them.
+- `marina-scene.ts`: the old shore slab "Helix" is gone, five north-row towers
+  (i = 1..5) are removed so the Esplanade faces the bay, the shells are lifted
+  onto the concourse, two shore palm pairs made way for the bridge stairs, lawn
+  palms are rooted on the lawn, and the helix tubes, plaza paving and hedges are
+  added in world metres after compaction.
+- Moved to ground beside the terraces: the "Esplanade gardens" stamp (now on the
+  plaza), two `bay-crossing` and two `esplanade` sector anchors. Removed: the
+  three northern cover walls in `marina-combat.ts`.
+- `dragon-boat-ai.test.ts`: the "boards after the player waits" wait went from 1 s
+  to 2 s. Bot route planning is time-sliced and the quay stairs add graph nodes
+  near the south jetty; crews now board at about 1.5–2 s instead of 1 s.
+
+Things to know: a single long floor gives the navigator only nine samples, which
+is why the span is five floors (bots could not find the pod openings otherwise).
+Stamps are collected only with feet at ground level (`feetY <= .35`), so none may
+sit on raised ground. The wheel's leg feet are full-height 2D colliders that
+stand on the boarding platforms. The minimap does not draw raised walkways.
+`scripts/fixtures/marina-layout.html` renders plan and perspective review views;
+the app's browser pane screenshots a WebGL canvas as black, so it copies each
+frame into an image.
+
+Also in this pass: stairs that meet a floor may rise no steeper than 3 in 8, or
+the wide-walker diagnostic (radius 0.65) cannot step between flight and landing
+(`STAIR_RUN` in `marina-routes.ts`). Sector cover labels follow the geometry:
+`bayfront` is now `broken` (the lawn terrace) and `bay-crossing` is `open` (the
+towers are gone). One more `bay-crossing` anchor moved off a bridge stair foot.
+
+Checked: `pnpm test` (434 files, 4,374 tests), `pnpm typecheck`, `pnpm build`.
+Plan and eye-level views reviewed in `marina-layout.html` on the 5175 server.
+Not run: the browser smokes (`test:browser`, `test:fps:districts`, dragon-boat
+and Marina access smokes) and no live first-person walk; movement was checked
+through the kernel tests only.

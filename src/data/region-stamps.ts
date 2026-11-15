@@ -7,7 +7,8 @@ export const MARINA_STAMPS = [
   { name: 'Lotus museum', x: 103, z: -77 },
   { name: 'SkyPark', x: 126, z: 65 },
   { name: 'Waterfront terraces', x: -191, z: 95 },
-  { name: 'Esplanade gardens', x: -25, z: -185 },
+  // On the plaza at the foot of the Esplanade steps: stamps are collected at ground level.
+  { name: 'Esplanade gardens', x: -25, z: -130 },
   { name: 'Bayfront greenway', x: 214, z: 17 },
   { name: 'Southern gardens', x: 25, z: 140 },
   { name: 'Garden canopy walk', x: 327, z: 140 },

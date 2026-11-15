@@ -757,6 +757,7 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
 - `src/game/npc-barks.ts`: what bots say, by faction, rank and role, and the director that rations it; `player-callouts.ts`: the callout wheel catalog; `squad-orders.ts`: what an order makes allies do. The host says both into `ArenaSnapshot.barks`. See [callouts and barks](CALLOUTS.md).
 - `src/game/helicopter-autopilot.ts`: weighted drivable AI mission choices, passenger reservation deadlines and collision-checked pilot controls; scripted air events remain separate.
 - `src/game/marina-landmarks.ts`: walkable SkyPark, Flyer overlooks and Gardens canopy routes, with three elevated supply objectives. See [Marina combat](MARINA-COMBAT.md).
+- `src/game/marina-routes.ts`: Marina's ground-level changes of height: the Helix Bridge over the bay, the Esplanade steps and concourse, and the promenade lawn. The Flyer terminal sits with the other landmarks. See [Marina combat](MARINA-COMBAT.md#ground-routes-and-levels-2026-11-15).
 - `src/game/world-zones.ts`: district/checkpoint graph.
 - `src/components/AdventureCompanion.tsx`, `RegionGuide.tsx`: companion panels.
 - `src/game/adventure.ts`, `learning-guide.ts`: objective and read-only guide adapters.

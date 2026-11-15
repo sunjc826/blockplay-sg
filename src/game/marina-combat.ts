@@ -42,9 +42,9 @@ export const MARINA_GARDEN_WALLS = [
   {x:145,z:119,width:14,depth:1.4,height:1.05},
   {x:-52,z:177,width:1.2,depth:14,height:2.6},
   {x:46,z:179,width:1.2,depth:13,height:2.6},
-  // Northern crossing and west/east approaches: intermittent cover, open roads.
+  // West/east approaches: intermittent cover, open roads. The northern crossing
+  // is covered by the Esplanade steps and their planted blocks (marina-routes).
   ...[-80,-20,40].map(z=>({x:-200,z,width:1.2,depth:16,height:2.6})),
-  ...[-70,-15,40].map(x=>({x,z:-132,width:14,depth:1.2,height:2.6})),
   ...[-45,35,115].map(z=>({x:211,z,width:12,depth:1.2,height:2.6})),
   ...[-50,70,130].map(z=>({x:320,z,width:12,depth:1.2,height:2.6})),
 ].map(w=>({...marinaPoint(w),width:w.width*S,depth:w.depth*S}));

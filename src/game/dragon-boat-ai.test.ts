@@ -80,7 +80,10 @@ describe('host-owned dragon boat crews',()=>{
       q.env.playerSpawn={x:-20.5,z:24,yaw:0};q.arena.addPlayer('p','Player',0,0,undefined,undefined,true);
       q.arena.setInput('p',{...bot(q.arena,'p'),playing:true});advance(q.arena,.5);expect(red(q.arena).occupants[0]).toBeNull();
       expect(q.arena.vehicleAction('p','enter','dragon-boat-red')).toBe(true);advance(q.arena,.5);expect(red(q.arena).occupants.filter(Boolean)).toHaveLength(1);
-      advance(q.arena,1);expect(red(q.arena).occupants.filter(Boolean).length).toBeGreaterThan(1);
+      // Route planning is time-sliced, so the first crew boards within 2 s rather than on a fixed tick.
+      // Stop at the first boarder: a full boat leaves the player no seat to switch to.
+      for(let n=0;n<40&&red(q.arena).occupants.filter(Boolean).length<2;n++)q.arena.step(.05);
+      expect(red(q.arena).occupants.filter(Boolean).length).toBeGreaterThan(1);
       expect(q.arena.vehicleAction('p','switch')).toBe(true);advance(q.arena,2);expect(red(q.arena).occupants[0]).toBeNull();
     }finally{q.world.dispose();}
   });

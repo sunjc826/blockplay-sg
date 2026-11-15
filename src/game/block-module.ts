@@ -99,7 +99,7 @@ export const SHAPE_FREEFORM_ZONES: Record<string, readonly FreeformZone[]> = {
     { name: 'Marina Bay Sands towers and SkyPark', minX: 81, maxX: 106, minZ: -50, maxZ: 31 },
     { name: 'Shoppes podium, barrel roof and fins', minX: 66, maxX: 81, minZ: -48, maxZ: 34 },
     { name: 'ArtScience Museum', minX: 66, maxX: 96, minZ: -81, maxZ: -51 },
-    { name: 'Helix Bridge', minX: 12, maxX: 54, minZ: -62, maxZ: -55 },
+    { name: 'Helix Bridge', minX: -56, maxX: 56, minZ: -41, maxZ: -31 },
     { name: 'Esplanade shells', minX: -50, maxX: 20, minZ: -119, maxZ: -101 },
     { name: 'Supertree Grove', minX: 165, maxX: 192, minZ: -1, maxZ: 79 },
     { name: 'Conservatories', minX: 156, maxX: 189, minZ: -121, maxZ: -40 },

@@ -17,6 +17,7 @@ import { captureRainReceivers } from './rain-receivers';
 import { MARINA_GARDEN_PAVILIONS, MARINA_GARDEN_WALLS, MARINA_GARDEN_KIOSKS } from './marina-combat';
 import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
+import { MARINA_HELIX, MARINA_ESPLANADE, MARINA_LAWN } from './marina-routes';
 import { MARINA_LOOK } from './district-look';
 import { createAmbientDrift, foliageDriftSources, type DriftSource } from './ambient-drift';
 import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
@@ -133,6 +134,8 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // Unique curved members (Shoppes roof arches, conservatory ribs) share one
   // merged draw per material instead of one draw per tube.
   const curved = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  // Curved steel authored after compaction, already in world metres.
+  const curvedMembersWorld: THREE.BufferGeometry[] = [], forecourt = mat('#9c9d97');
   const curvedMembers = (material: THREE.Material) => { const list = curved.get(material) ?? []; curved.set(material, list); return list; };
   // Ground and the sand apron are laid round the basin rather than across it,
   // so looking down into the bay shows its bed and walls, not a lawn.
@@ -184,17 +187,23 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const frondGeo = geo(new THREE.BufferGeometry()); frondGeo.setAttribute('position', new THREE.Float32BufferAttribute(frondVertices, 3)); frondGeo.computeVertexNormals();
   const palmLeaf = mat('#2e6631', { side: THREE.DoubleSide });
   const trunkGeo = geo(new THREE.CylinderGeometry(0.18, 0.32, 1, 7));
-  function palm(x: number, z: number, height = 11, parent: THREE.Object3D = scene, collision = true) {
-    const stem = new THREE.Mesh(trunkGeo, trunk); stem.position.set(x, height / 2, z); stem.scale.y = height; stem.castShadow = true; parent.add(stem); treePart(stem, x, 0, z, height);
+  function palm(x: number, z: number, height = 11, parent: THREE.Object3D = scene, collision = true, base = 0) {
+    const stem = new THREE.Mesh(trunkGeo, trunk); stem.position.set(x, base + height / 2, z); stem.scale.y = height; stem.castShadow = true; parent.add(stem); treePart(stem, x, base, z, height);
     for (let j = 0; j < 10; j++) {
       const frond = new THREE.Mesh(frondGeo, palmLeaf);
-      frond.position.set(x, height, z); frond.rotation.y = j / 10 * Math.PI * 2; frond.rotation.z = (j % 3) * 0.15;
-      frond.castShadow = true; parent.add(frond); treePart(frond, x, 0, z, height, 1.8);
+      frond.position.set(x, base + height, z); frond.rotation.y = j / 10 * Math.PI * 2; frond.rotation.z = (j % 3) * 0.15;
+      frond.castShadow = true; parent.add(frond); treePart(frond, x, base, z, height, 1.8);
     }
-    if (collision) collider(x, z, 1, 1, height + 1);
+    if (collision) collider(x, z, 1, 1, base + height + 1);
   }
-  for (let x = -84; x <= 84; x += 14) { palm(x, 75, 8.5 + Math.abs(x % 3)); box(x, 0.12, 75, 2, 0.24, 2, hedge); }
-  for (let z = -80; z < 50; z += 26) { palm(-89, z); palm(89, z); }
+  // Palms on the raised lawn (marina-routes) are rooted in it, not in the paving below.
+  for (let x = -84; x <= 84; x += 14) {
+    const base = x * S > MARINA_LAWN.minX && x * S < MARINA_LAWN.maxX ? MARINA_LAWN.y / S : 0;
+    if (Math.abs(x * S - (MARINA_LAWN.minX - MARINA_LAWN.ramp)) < 1.5) continue; // the foot of the west ramp
+    palm(x, 75, 8.5 + Math.abs(x % 3), scene, true, base); box(x, base + 0.12, 75, 2, 0.24, 2, hedge);
+  }
+  // The two northern pairs made way for the Helix Bridge stairs on each shore.
+  for (let z = -28; z < 50; z += 26) { palm(-89, z); palm(89, z); }
   for (let x = -65; x <= 70; x += 45) {
     box(x, 0.7, 58, 4, 0.25, 1, trunk); box(x - 1.4, 0.35, 58, 0.2, 0.7, 0.6, dark); box(x + 1.4, 0.35, 58, 0.2, 0.7, 0.6, dark); collider(x, 58, 4, 1, 1.4);
     box(x, 1.05, 58.45, 4, 0.55, 0.12, wood);
@@ -345,14 +354,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     const a = i * 2.4, r = 13 + i % 8;
     const lily = new THREE.Mesh(lilyGeo, hedge); lily.rotation.x = -Math.PI / 2; lily.position.set(135 + Math.cos(a) * r, 0.22, -110 + Math.sin(a) * r); scene.add(lily);
   }
-  // Stylized Helix crossing beside the north shore, aligned with the driveable loop.
-  box(55, 0.2, -98, 67, 0.5, 7, cream);
-  const tubeMat = steel;
-  for (const phase of [0, Math.PI]) {
-    const points: THREE.Vector3[] = [];
-    for (let i = 0; i <= 100; i++) { const theta = i / 100 * Math.PI * 8 + phase; points.push(new THREE.Vector3(23 + i * 0.64, 3 + Math.sin(theta) * 2.8, -98 + Math.cos(theta) * 3.8)); }
-    const tube = new THREE.Mesh(geo(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 120, 0.16, 5, false)), tubeMat); scene.add(tube);
-  }
   // City-side skyline uses the same colored solid façades as Joyride.
   const towerColors = ['#557c96', '#81969f', '#607c94', '#98a1a4'];
   function tower(x: number, z: number, w: number, h: number, d: number, index: number) {
@@ -375,7 +376,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     if (index % 2) box(x, h + 9, z, 0.5, 10, 0.5, steel);
   }
   for (let i = 0; i < 6; i++) tower(-148 - i % 2 * 22, -100 + i * 38, 22, [76, 109, 64, 92, 62, 84][i], 25, i);
-  for (let i = 0; i < 8; i++) tower(-130 + i * 36, -153, 19 + i % 3 * 3, 30 + (i * 17) % 48, 20, i);
+  // The row keeps its ends only: the five towers that stood between the bay and
+  // the theatres are gone, so the Esplanade faces the water across its steps.
+  for (const i of [0, 6, 7]) tower(-130 + i * 36, -153, 19 + i % 3 * 3, 30 + (i * 17) % 48, 20, i);
 
   // New connected district circuit: original bay retained, with a longer route
   // behind the skyline and Sands. Distances remain compressed for game pacing.
@@ -445,21 +448,23 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     0, 0, 1, 0, 0.38, 0, -1, 0, -0.75,
   ], 3));
   sunshadeGeo.computeVertexNormals();
+  // Both shells stand on the theatre concourse (marina-routes), not on the lawn.
+  const lift = MARINA_ESPLANADE.concourse.y / S;
   const sunshade = mat('#b8b9a6', { roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
   for (const x of [-60, 10]) {
     const dome = new THREE.Mesh(pavilionGeo, mat('#899996', { roughness: 0.5, metalness: 0.18 }));
-    dome.position.set(x, 1, -183); dome.scale.set(21, 12, 13); scene.add(dome); collider(x, -183, 42, 26, 14);
+    dome.position.set(x, 1 + lift, -183); dome.scale.set(21, 12, 13); scene.add(dome); collider(x, -183, 42, 26, 14 + lift);
     for (let i = 0; i < 18; i++) {
       const angle = i / 18 * Math.PI * 2;
-      beam(new THREE.Vector3(x + Math.cos(angle) * 21, 1, -183 + Math.sin(angle) * 13), new THREE.Vector3(x + Math.cos(angle) * 10, 11.5, -183 + Math.sin(angle) * 6), 0.45, cream);
+      beam(new THREE.Vector3(x + Math.cos(angle) * 21, 1 + lift, -183 + Math.sin(angle) * 13), new THREE.Vector3(x + Math.cos(angle) * 10, 11.5 + lift, -183 + Math.sin(angle) * 6), 0.45, cream);
     }
     // Reviewed esplanade-distant/shell images: a glazed lower drum under each
     // segmented roof. All additions sit inside its existing collision footprint.
-    box(x, 1.4, -183, 38, 2.8, 24, dark);
+    box(x, 1.4 + lift, -183, 38, 2.8, 24, dark);
     for (const side of [-1, 1]) {
-      box(x, 1.35, -183 + side * 12.1, 37.5, 2.4, 0.15, glass);
-      box(x, 2.85, -183 + side * 12.3, 39, 0.3, 0.5, pale);
-      for(let dx=-18;dx<=18;dx+=3)box(x+dx,1.4,-183+side*12.35,0.14,2.6,0.18,steel);
+      box(x, 1.35 + lift, -183 + side * 12.1, 37.5, 2.4, 0.15, glass);
+      box(x, 2.85 + lift, -183 + side * 12.3, 39, 0.3, 0.5, pale);
+      for(let dx=-18;dx<=18;dx+=3)box(x+dx,1.4+lift,-183+side*12.35,0.14,2.6,0.18,steel);
     }
     // Dense triangular sunshades, rather than a smooth pumpkin-like dome.
     for (let row = 0; row < 8; row++) {
@@ -468,13 +473,14 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
         const azimuth = (i + (row % 2) * 0.5) / count * Math.PI * 2;
         const dx = Math.sin(polar) * Math.cos(azimuth), dy = Math.cos(polar), dz = Math.sin(polar) * Math.sin(azimuth);
         const facet = new THREE.Mesh(sunshadeGeo, sunshade);
-        facet.position.set(x + dx * 21.1, 1 + dy * 12.1, -183 + dz * 13.1);
+        facet.position.set(x + dx * 21.1, 1 + lift + dy * 12.1, -183 + dz * 13.1);
         facet.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / 21, dy / 12, dz / 13).normalize());
         facet.scale.set(1.35, 1, 1.15); scene.add(facet); qualityDetails.esplanadeSunshades++;
       }
     }
   }
-  for (const x of [-88, -27, 43]) { palm(x, -202, 9); box(x, 0.5, -202, 6, 1, 3, hedge); collider(x, -202, 6, 3); }
+  // The middle palm made way for the stair that drops from the concourse between the shells.
+  for (const x of [-88, 43]) { palm(x, -202, 9); box(x, 0.5, -202, 6, 1, 3, hedge); collider(x, -202, 6, 3); }
   // Additional city blocks put an inhabited edge around the expanded route.
   for (let i = 0; i < 4; i++) tower(-251, -160 + i * 73, 18, 35 + i * 13, 28, i);
   for (let i = 0; i < 5; i++) tower(-150 + i * 74, -245, 26, 32 + i % 3 * 14, 18, i);
@@ -765,6 +771,52 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   }
   scene.userData.marinaCombat = { name:'Compact landmark circuit', authored:true, layoutScale:S,
     walls:MARINA_GARDEN_WALLS.length,pavilions:MARINA_GARDEN_PAVILIONS.length,kiosks:MARINA_GARDEN_KIOSKS.length };
+  // Helix Bridge, in world metres. The deck, stairs and piers are walkable
+  // structure (marina-routes); this is the steel that names it: two pairs of
+  // counter-wound tubes round the deck, clear of anyone standing on it.
+  const hx = MARINA_HELIX, helixSteel = mat('#c2cacc', { roughness: .3, metalness: .7 });
+  for (const [turns, radius, thickness] of [[7, 1, .1], [-7, .93, .07]]) for (const phase of [0, Math.PI]) {
+    const points: THREE.Vector3[] = [];
+    for (let i = 0; i <= 168; i++) {
+      const t = i / 168, theta = t * Math.PI * 2 * turns + phase;
+      points.push(new THREE.Vector3((t * 2 - 1) * (hx.halfSpan - .4), hx.deck + 1.5 + Math.sin(theta) * 2.7 * radius, hx.z + Math.cos(theta) * 3.3 * radius));
+    }
+    curvedMembersWorld.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 336, thickness, 5, false));
+  }
+  const helixTubes = mergeGeometries(curvedMembersWorld); curvedMembersWorld.forEach(g => g.dispose());
+  if (helixTubes) { const mesh = new THREE.Mesh(geo(helixTubes), helixSteel); mesh.name = 'marina-helix-bridge'; mesh.castShadow = true; scene.add(mesh); }
+  // Hoops tie the tubes to the deck edge every 5.5 m and light the walk at night.
+  for (let x = -hx.halfSpan + 2.75; x < hx.halfSpan; x += 5.5) for (const side of [-1, 1])
+    box(x, hx.deck + 1.75, hx.z + side * (hx.width / 2 + .16), .1, 3.5, .1, helixSteel);
+  // Paved landings where the stairs meet each quay.
+  for (const side of [-1, 1]) box(side * hx.stairX, .05, hx.z, 6.4, .1, hx.width + 2 * hx.stairRun + 3, forecourt);
+
+  // Esplanade forecourt: a paved plaza at the road, planting on the blocks that
+  // split the steps, and lamp standards on the concourse edge.
+  const ep = MARINA_ESPLANADE, epWidth = ep.maxX - ep.minX, epX = (ep.minX + ep.maxX) / 2;
+  box(epX, .05, (ep.plazaZ + ep.foot) / 2, epWidth + 8, .1, ep.plazaZ - ep.foot, forecourt);
+  for (let x = ep.minX + 5; x < ep.maxX; x += 8) box(x, .105, (ep.plazaZ + ep.foot) / 2, .1, .012, ep.plazaZ - ep.foot - 2 * DETAIL, dark);
+  for (const [from, to] of ep.lowerBlocks) {
+    box((from + to) / 2, ep.terrace.y + .3, (ep.foot + ep.terrace.minZ) / 2, to - from - .6, .6, 1.6, hedge);
+    collider((from + to) / 2, (ep.foot + ep.terrace.minZ) / 2, to - from - .6, 1.6, ep.terrace.y + .6);
+  }
+  for (const [from, to] of ep.upperBlocks) if (to - from > 4) {
+    const z = (ep.terrace.maxZ + ep.concourse.minZ) / 2;
+    box((from + to) / 2, ep.concourse.y + .35, z, to - from - .8, .7, 1.4, hedge);
+    obstacles.push({ minX: from + .4, maxX: to - .4, minZ: z - .7, maxZ: z + .7, minY: ep.concourse.y, maxY: ep.concourse.y + .7 });
+    for (const x of [from + 1.2, to - 1.2]) { box(x, ep.concourse.y + 2.2, z, .16, 4.4, .16, steel, scene, true); box(x, ep.concourse.y + 4.45, z + .5, .5, .12, 1.3, dark); }
+  }
+  // Promenade lawn: a stone kerb round the turf and a clipped hedge on the road side.
+  const lw = MARINA_LAWN, lawnX = (lw.minX + lw.maxX) / 2, lawnWidth = lw.maxX - lw.minX;
+  box(lawnX, lw.y + .05, lw.minZ + .3, lawnWidth, .1, .6, forecourt);
+  // The hedge stops short of both ramp heads, leaving their full width to walk.
+  box(lawnX, lw.y + .35, lw.maxZ - .4, lawnWidth - 3.2, .7, .6, hedge);
+  obstacles.push({ minX: lw.minX + 1.6, maxX: lw.maxX - 1.6, minZ: lw.maxZ - .7, maxZ: lw.maxZ - .1, minY: lw.y, maxY: lw.y + .7 });
+  box((lw.block[0] + lw.block[1]) / 2, lw.y + .3, (lw.foot + lw.minZ) / 2, lw.block[1] - lw.block[0] - .6, .6, 1.6, hedge);
+  collider((lw.block[0] + lw.block[1]) / 2, (lw.foot + lw.minZ) / 2, lw.block[1] - lw.block[0] - .6, 1.6, lw.y + .6);
+  // Flyer forecourt reaches the road, so the grand stair has an approach.
+  box(154.8, .05, -142.7, 14, .1, 14.2, forecourt);
+
 
   // Promenade on the block module, in world metres: 1 m granite slabs that
   // abut with no joints (their tone varies instead), a boardwalk of 0.5 m

@@ -32,6 +32,8 @@ export const MARINA_SWIM_EXITS = [
   {x:0,z:-3.6,dx:0,dz:1},{x:0,z:-20.4,dx:0,dz:-1},{x:8.4,z:-12,dx:1,dz:0},
   {x:-21.4,z:24,dx:-1,dz:0},{x:21.4,z:-48,dx:1,dz:0},
 ];
+/** Helix Bridge piers standing in the bay. Boats collide with them; the deck above is clear of the water. */
+export const MARINA_BRIDGE_PIERS: readonly Obstacle[] = [-32, 32].map(x => ({ minX: x - .6, maxX: x + .6, minZ: -37.5, maxZ: -34.5 }));
 const railLine = (minX: number, maxX: number, minZ: number, maxZ: number): Obstacle => ({ minX, maxX, minZ, maxZ, maxY: 2 });
 /** The rendered quay railing, open only where a jetty meets the promenade. Taller than a jump. */
 export const MARINA_QUAY_RAILS: readonly Obstacle[] = [
@@ -61,7 +63,7 @@ export function canPaddle(x: number, z: number, yaw: number, otherHulls: readonl
   const c = Math.cos(yaw), s = Math.sin(yaw), corners = [-1, 1].flatMap(side => [-1, 1].map(end => ({ x: x + c * side * .95 + s * end * 4.5, z: z - s * side * .95 + c * end * 4.5 })));
   if (corners.some(p => p.x < MARINA_WATER.minX + .3 || p.x > MARINA_WATER.maxX - .3 || p.z < MARINA_WATER.minZ + .3 || p.z > MARINA_WATER.maxZ - .3)) return false;
   // Separating axes for a rotated boat against each axis-aligned deck/hull.
-  return ![...MARINA_CAMP_DECKS, ...otherHulls].some(o => {
+  return ![...MARINA_CAMP_DECKS, ...MARINA_BRIDGE_PIERS, ...otherHulls].some(o => {
     if(o.footprint){
       const points=o.footprint,axes=[{x:c,z:-s},{x:s,z:c},...points.map((p,i)=>({x:p.z-points[(i+1)%points.length].z,z:points[(i+1)%points.length].x-p.x}))];
       return axes.every(axis=>{const hull=corners.map(p=>p.x*axis.x+p.z*axis.z),deck=points.map(p=>p.x*axis.x+p.z*axis.z);return Math.min(...hull)<Math.max(...deck)&&Math.max(...hull)>Math.min(...deck);});

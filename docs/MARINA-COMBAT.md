@@ -194,8 +194,8 @@ coasting/braking, clear jetties, camera models and reset behaviour.
 ## Playable landmarks and AI drivable helicopters
 
 MBS now has two separate service stair towers leading to a covered SkyPark
-fighting deck at 66.4 m. The Flyer has service stairs and fixed overlooks at
-18 m and 33 m. Gardens by the Bay has two stair approaches to a connected
+fighting deck at 66.4 m. The Flyer has a terminal, a service core and fixed
+overlooks at 18 m and 33 m (see the next section). Gardens by the Bay has two stair approaches to a connected
 7.2 m canopy walk and terraces. Each landmark has a capturable supply site,
 bringing Marina to ten facilities while retaining the three ground fronts.
 These access structures are authored gameplay additions, not architectural
@@ -206,6 +206,40 @@ and landing/dismount support are not part of this pass.
 navigation targets the actual elevated floor; supply sites do not create
 unsupported rooftop reinforcement spawns. Both SkyPark entrances, both garden
 entrances and the Flyer access are tested through the normal movement kernel.
+
+## Ground routes and levels (2026-11-15)
+
+Marina's base ground is flat. `marina-routes.ts` adds the places where a walk
+round the bay changes height, all through the shared vertical-places system
+(walk surfaces, stairs and solid terraces), so players, bots and vehicles obey
+the same geometry:
+
+- **Helix Bridge.** A 110 m footbridge 3.6 m over the bay's northern third
+  (z = −36), from the west quay to the museum side, with two viewing pods.
+  Each landing has a stair north and south along the quay; the shore walk
+  continues under the landing. Two piers stand in the water and are part of
+  `canPaddle`. It replaces the slab that lay on the north shore.
+- **Esplanade steps.** The five skyline towers that stood between the bay and
+  the theatres are removed. A paved plaza at the waterfront road rises in two
+  tiers (1.2 m, 2.4 m) to a concourse the shells now stand on. Planted blocks
+  split each tier into three flights; side and rear stairs leave the concourse.
+  The three free-standing cover walls of the old northern crossing are gone.
+- **Promenade lawn.** The east half of the south promenade steps up 1.2 m to a
+  planted lawn with bay-side steps, a ramp at each end and a wall to the road.
+  The west half stays level for the range, spawn and vehicle bays.
+- **Flyer terminal.** The bare service stair is now a clad core (closed to the
+  north and the road, open to the wheel) with an annex. Boarding platforms at
+  3 m wrap the foot of the wheel, joined at both ends, with a grand stair from
+  the forecourt, a west stair, an open undercroft with two kiosks, and a roof
+  terrace at 9 m. The 18 m and 33 m gantries are unchanged.
+
+Roads stay at grade and clear; `marina-routes.test.ts` walks every route, checks
+bot routes over the bridge and up the steps, and checks that roads, spawns,
+stamps, range targets and authored ground anchors stay off the raised ground.
+The "Esplanade gardens" stamp and three sector anchors moved to ground beside
+the terraces. These are authored gameplay levels inspired by the waterfront, not
+surveyed ones, and no reference image informed them. Review views:
+`scripts/fixtures/marina-layout.html` (`?top=x,z,span` or `?cam=…&at=…`).
 
 `helicopter-autopilot.ts` provides drivable mission selection and normal pilot
 controls. Existing squads can choose to stay infantry, transport passengers,
