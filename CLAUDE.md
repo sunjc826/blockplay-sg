@@ -13,6 +13,12 @@ Single maintainer (@sunjc826), so the branch-and-review dance is overhead:
 - **Pull requests are optional.** Raise one when it makes a change easier to
   read or discuss; you may merge it immediately yourself without waiting for a
   review or approval.
+- **Commit and push when the work is done, without being asked.** The owner
+  usually only inspects the final result on the deployed site, so finished,
+  checked work that stays uncommitted is work they cannot see. Once a change is
+  complete and the checks below pass, commit your own hunks and push. Hold back
+  only when the owner says to, the work is half-finished or experimental, or a
+  check is failing; say so in the summary.
 - Push with `git push -u origin main`. On network failure, retry up to four
   times with exponential backoff (2s, 4s, 8s, 16s).
 - Never force-push or rewrite published history on `main`.
