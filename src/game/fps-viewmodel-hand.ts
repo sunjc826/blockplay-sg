@@ -38,16 +38,28 @@ export function palmGeometry(w: number, h: number, d: number, thumb: number) {
     placed(new THREE.SphereGeometry(heel, 12, 8), { at: [-thumb * w * .27, -h * .16, -d / 2 + heel * .6], scale: [1, 1.5, .6] }));
 }
 /** The glove's armour: a plate on the back of the hand and the band at the wrist. */
-export function gloveArmourGeometry(w: number, h: number, d: number, cuffY: number, cuffZ: number, wrist = .034) {
+export function gloveArmourGeometry(w: number, h: number, d: number, cuffY: number, cuffZ: number, wrist = .028) {
   return fuse(
     placed(new RoundedBoxGeometry(w * .78, h * .4, .008, 3, .0038), { at: [0, h * .1, d / 2 + .001] }),
-    placed(new THREE.CylinderGeometry(1, 1.05, .03, 20), { at: [0, cuffY - .002, cuffZ], scale: [Math.max(w * .5, wrist + .006), 1, wrist + .007] }));
+    placed(new THREE.CylinderGeometry(1, 1.04, .034, 20), { at: [0, cuffY - .004, cuffZ], scale: [Math.max(w * .47, wrist + .005), 1, (wrist + .005) * .84] }));
 }
-/** A sleeved forearm hanging down −y from the origin, with the folds a rolled cuff leaves. */
-export function forearmGeometry(length: number, wrist = .034, elbow = .047) {
-  return fuse(
-    placed(new THREE.CylinderGeometry(wrist, elbow, length, 14), { at: [0, -length / 2, 0] }),
-    ...[.07, .15].map(y => placed(new THREE.TorusGeometry(wrist + (elbow - wrist) * y / length + .0006, .003, 6, 18), { at: [0, -y, 0], turn: [Math.PI / 2, 0, 0] })));
+/**
+ * A sleeved forearm hanging down −y from the origin. Wider across the hand (x) than through it, narrow at
+ * the wrist and swelling into the muscle below it, with loose folds that wind round the sleeve.
+ */
+export function forearmGeometry(length: number, wrist = .028, elbow = .043) {
+  const tube = new THREE.CylinderGeometry(1, 1, length, 20, 26), at = tube.getAttribute('position');
+  const ease = (from: number, to: number, t: number) => { const k = Math.min(1, Math.max(0, (t - from) / (to - from))); return k * k * (3 - 2 * k); };
+  for (let i = 0; i < at.count; i++) {
+    const x = at.getX(i), z = at.getZ(i), t = .5 - at.getY(i) / length, around = Math.atan2(z, x), reach = t * length;
+    // Out to the muscle's widest about 0.2 m down, then a little slimmer towards the elbow.
+    const girth = wrist + (elbow - wrist) * (ease(.02, .2, reach) * 1.12 - ease(.24, .5, reach) * .12);
+    const folds = ease(.015, .07, reach) * (.034 * Math.sin(reach * 58 + around) + .022 * Math.sin(reach * 37 - around * 2 + 1.3));
+    const r = girth * (1 + folds);
+    at.setXYZ(i, x * r, at.getY(i) - length / 2, z * r * .8);
+  }
+  tube.computeVertexNormals();
+  return fuse(placed(tube));
 }
 /**
  * A finger of three round segments from its knuckle at `into`'s origin. The

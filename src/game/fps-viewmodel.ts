@@ -45,7 +45,7 @@ export function createWeaponHandling(model: THREE.Group, index: number) {
     const thumb = new THREE.Group(); thumb.name = 'grip-thumb'; thumb.position.set(left ? .035 : -.035, -.002, -.014); thumb.rotation.z = left ? -.55 : .55; group.add(thumb);
     buildThumb(thumb, mesh, glove, .052, .0092);
     // Long enough that the elbow end stays out of frame through a reload or an inspect.
-    const forearm = mesh(group, forearmGeometry(FOREARM, .026, .041), sleeve, 0, -.0531, .0059); forearm.rotation.x = -.28; forearm.name = 'hand-forearm-stub';
+    const forearm = mesh(group, forearmGeometry(FOREARM, .024, .04), sleeve, 0, -.0531, .0059); forearm.rotation.x = -.28; forearm.name = 'hand-forearm-stub';
     return group;
   };
   const curlFingers = (group: THREE.Object3D, clasp = 0, trigger = 0) => jointed.get(group)!.forEach(({ joint, bend, mid, tip }, i) => {

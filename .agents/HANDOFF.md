@@ -7308,3 +7308,7 @@ firing hand sits .019 higher, under the tang with its first finger in the guard;
 wraps over the firing fingers instead of through them; both forearms drop away steeply. The wrist band is no wider
 than the hand (`w * .5`) and the gun-hand wrist is slimmer. From the first-person hip view the hands are still mostly
 behind the wrists: the forearms are thick for the hand and the pistol sits low and far out in the shared hip pose.
+
+Forearms (2026-11-15): `forearmGeometry` is no longer a cone with two torus rings (it read as bamboo). It is an oval
+tube, narrow at the wrist, widest about 0.2 m down, with shallow folds winding round the sleeve; the wrist band follows
+the hand's flat section. Hand size is unchanged (about three-quarters of life size against the guns).
