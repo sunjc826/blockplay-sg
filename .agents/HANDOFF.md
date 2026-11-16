@@ -7319,3 +7319,10 @@ every authored pose and held object still meets the palm where it did; the gun h
 tests measure it. The CIS 50's spade grips close all four fingers right round (`tight` in `curlFingers`). Seen in the
 fixture on all eighteen guns, both hands, reload frames on SAR 21, P30, XM8 and the bolt gun, and in
 `utility-animation.html` (frag, finale shell, bandage, first-aid kit, ammo pouch). Not seen in live play.
+
+**Swimming animation (2026-11-16).** Swimming had no hands: the rig was hidden and the eye bobbed on a sine.
+`fps-swim-hands.ts` adds a first-person breaststroke and a treading scull with the free hands, the stroke sound on
+each pull (was a 1.25 s timer) and a head lift with it (`swimMotion`, off under reduced motion). Wired in
+`fps-engine.ts` beside the mantle hands. Hands go under when the sidearm is shown. Seen in `hand-models.html?swim=`
+and in the real engine through `dragon-boats.html?swim` (stroke, tread, sidearm); `pnpm test:swimming`-style CDP
+smoke not run.
