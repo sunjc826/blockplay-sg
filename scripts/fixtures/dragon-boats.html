@@ -52,7 +52,7 @@ if(params.has('gallery')){
     options.arena={session:createSoloSession('Swimmer'),profile:createProfile(),botCount:0,composition:'assault',environment:{bounds:MARINA_BOUNDS,move:moveInMarina,spawns:[{x:-30,z:50}],playerSpawn:{x:-20.5,z:24,yaw:Math.PI/2,pitch:-.06},endless:true}};
   }
 
-  window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);document.body.classList.add('fps-game');document.body.dataset.touch=hud.inputMode==='touch'?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsVehicleHud,{hud}),hud.swimming?React.createElement('div',{className:'fps-swim-status',role:'status'},'SWIMMING · '+(hud.swimCanFire?'SIDEARM HIP FIRE · LOW ACCURACY':'STOP TO USE SIDEARM')+' · CLIMB OUT AT GOLD LADDERS'):null,hud.inputMode==='touch'?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));},options);
+  window.engine=createFpsEngine(document.getElementById('world'),hud=>{window.hud=structuredClone(hud);document.body.classList.add('fps-game');document.body.dataset.touch=hud.inputMode==='touch'?'on':'off';root.render(React.createElement(React.Fragment,null,React.createElement(FpsVehicleHud,{hud}),hud.swimming?React.createElement('div',{className:'fps-swim-status',role:'status'},'SWIMMING · '+(hud.swimCanFire?'SIDEARM READY · AIM TO STEADY':'STOP TO USE SIDEARM')+' · CLIMB OUT AT GOLD LADDERS'):null,hud.inputMode==='touch'?React.createElement(TouchControls,{hud,engine:window.engine??null,mode:'range',onMenu:()=>window.engine.pause()}):null));},options);
   document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').remove();};
 }
 </script></body></html>

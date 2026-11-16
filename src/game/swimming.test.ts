@@ -78,6 +78,8 @@ describe('Marina swimming and Merlion islet',()=>{
   a.setInput('p',{...actor(a),weapon:2,playing:true});a.shoot('p',actor(a),{x:0,y:0,z:-1},2);expect(actor(a).shots).toBe(0);
   a.step(.3);a.shoot('p',actor(a),{x:0,y:0,z:-1},2);expect(actor(a).shots).toBe(1);
   const ray=swimmingShotDirection({x:0,y:0,z:-1},()=>1);expect(Math.abs(ray.x)).toBeGreaterThan(.04);expect(Math.hypot(ray.x,ray.y,ray.z)).toBeCloseTo(1);
+  // One-handed aim steadies it to about a third of the hip scatter.
+  const aimed=swimmingShotDirection({x:0,y:0,z:-1},()=>1,true);expect(Math.abs(aimed.x)).toBeLessThan(Math.abs(ray.x)*.4);expect(Math.abs(aimed.x)).toBeGreaterThan(0);
   expect(swimmingCanFire(0,0)).toBe(false);expect(swimmingCanFire(2,1)).toBe(false);expect(swimmingCanFire(2,0)).toBe(true);
  }finally{world.dispose();}});
 });

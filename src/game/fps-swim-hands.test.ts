@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { SWIM_PULL_AT, SWIM_STROKE_SECONDS, advanceSwim, createSwim, createSwimHands, swimMotion } from './fps-swim-hands';
 
-const run = (state: ReturnType<typeof createSwim>, seconds: number, speed: number, swimming = true, hands = true) => {
+const run = (state: ReturnType<typeof createSwim>, seconds: number, speed: number, swimming = true, hands = true, more: { forward?: number; armed?: boolean } = {}) => {
   let pulls = 0;
-  for (let t = 0; t < seconds; t += 1 / 60) if (advanceSwim(state, swimming, hands, speed, 1 / 60)) pulls++;
+  for (let t = 0; t < seconds; t += 1 / 60) if (advanceSwim(state, { swimming, hands, speed, ...more }, 1 / 60)) pulls++;
   return pulls;
 };
 
@@ -36,6 +36,30 @@ describe('the swimming stroke', () => {
     expect(state.afloat).toBeLessThan(.01);
     expect(state.phase).toBe(0);
   });
+  it('swims a different stroke backward: the head leans back and dips on the push', () => {
+    const state = createSwim();
+    expect(run(state, SWIM_STROKE_SECONDS * 3, 1.25, true, true, { forward: -1.25 })).toBe(3);
+    expect(state.back).toBeGreaterThan(.95);
+    const push = swimMotion({ ...state, phase: SWIM_PULL_AT + .25 }), rest = swimMotion({ ...state, phase: .05 });
+    expect(push.bob).toBeLessThan(rest.bob - .02);
+    expect(rest.pitch).toBeGreaterThan(.03);
+    // Sideways is the forward stroke, and stopping keeps whichever it was.
+    run(state, 2, 1.25, true, true, { forward: 0 });
+    expect(state.back).toBeLessThan(.05);
+  });
+  it('swims with the left hand alone while the right holds a sidearm', () => {
+    const state = createSwim();
+    run(state, 1, 1.25, true, true, { armed: true });
+    expect(state.armed).toBe(1);
+    expect(swimMotion({ ...state, phase: SWIM_PULL_AT + .25 }).roll).toBeGreaterThan(.02);
+    const hands = createSwimHands(new THREE.Group()), [left, right] = hands.root.children;
+    hands.update(state);
+    expect([left.visible, right.visible]).toEqual([true, false]);
+    run(state, 1, 1.25);
+    hands.update(state);
+    expect(right.visible).toBe(true);
+    hands.dispose();
+  });
 });
 
 describe('the swimming hands', () => {
@@ -53,6 +77,18 @@ describe('the swimming hands', () => {
       if (last) expect(right.position.distanceTo(last)).toBeLessThan(.02);
       last = right.position.clone();
     }
+    // Backward they push out ahead with the palms raised, on a path of their own.
+    let apart = 0; last = null;
+    for (let i = 0; i <= 200; i++) {
+      hands.update({ ...createSwim(), afloat: 1, stroke: 1, back: 1, phase: (i / 200) % 1 });
+      expect(left.position.x).toBeCloseTo(-right.position.x, 6);
+      expect(right.position.z).toBeLessThan(-.25);
+      if (last) expect(right.position.distanceTo(last)).toBeLessThan(.02);
+      last = right.position.clone();
+      hands.update({ ...createSwim(), afloat: 1, stroke: 1, phase: (i / 200) % 1 });
+      apart = Math.max(apart, right.position.distanceTo(last));
+    }
+    expect(apart).toBeGreaterThan(.1);
     // A narrow screen brings them in.
     hands.update({ ...createSwim(), afloat: 1, stroke: 1, phase: .55 });
     const wide = right.position.x;

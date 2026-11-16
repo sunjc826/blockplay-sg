@@ -29,7 +29,7 @@ import { transportRayDistance } from './combat-transports';
 import { createMerlionPresentation } from './merlion-presentation';
 import { createMerlionVisuals } from './merlion-visuals';
 import { createMerlionController, nearMerlion, merlionMouth, merlionDirection, MERLION, type MerlionAction, type MerlionState, type WaterActor } from './merlion-gameplay';
-import { createSwimmingMovement, SWIMMING, swimmingCanFire } from './swimming';
+import { createSwimmingMovement, SWIMMING, swimmingCanFire, swimmingSidearm } from './swimming';
 import { isDragonBoat, DRAGON_BOAT_SPAWNS, MARINA_SWIM_EXITS } from './marina-water';
 import { VEHICLE_KINDS, vehicleName, type VehicleSpawns } from './vehicle-rules';
 import { createWeaponShoulderMotion } from './weapon-shoulder-motion';
@@ -2097,7 +2097,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   function toggleAim() {
     if(merlionOperating())return;
-    if(swimming()) return;
+    if(swimming() && !swimmingCanFire(hud.weapon,carry.length())) return;
     if (pilotEnabled || hud.phase !== 'playing' || hud.arenaSelf?.alive === false || loadout[hud.weapon].reloadRemaining > 0) return;
     stopInspect(); touchAim = !touchAim; canvas.focus({ preventScroll: true }); publish();
   }
@@ -2708,14 +2708,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null); swimHands.update(null);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !weaponSwitch && !swimming() && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !weaponSwitch && (!swimming() || swimmingCanFire(hud.weapon,carry.length())) && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     if (aiming && !wasAiming && hud.phase === 'playing') handsSound('world-aim', .05);
     wasAiming = aiming;
     actualAim = aiming;
     // Heavier carry costs time to settle the sights as well as ground speed.
     aimProgress = THREE.MathUtils.damp(aimProgress, aiming ? 1 : 0, 15 * (aiming ? movement().aimSpeed * aimSpeedScale(foodEffects) * arenaConditionModifiers(conditions).aim : 1), dt);
     const aim = smoothStep(aimProgress);
-    rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle()) && (!swimming() || swimmingCanFire(hud.weapon,carry.length()));
+    rig.visible = (!options.arena || hud.arenaSelf?.alive !== false) && (!vehicles.active || firstPersonVehicle()) && (!swimming() || swimmingSidearm(hud.weapon));
     const poseStance = stance(), crouching = poseStance !== 'stand' && !slide.active;
     slideWeight = THREE.MathUtils.damp(slideWeight, slide.active ? 1 : 0, slide.active ? 14 : 8, dt);
     mantleWeight = THREE.MathUtils.damp(mantleWeight, mantle.active ? 1 : 0, mantle.active ? 16 : 9, dt);
@@ -2751,8 +2751,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (wet !== wasSwimming && hud.phase === 'playing' && !vehicles.active) handsSound(wet ? 'combat-water-enter' : 'combat-water-exit', 0, wet ? 1 : 1.2);
     wasSwimming = wet;
     // The stroke (see fps-swim-hands): the water is heard as each pull begins, and the head comes up with it.
-    const handsFree = wet && !rig.visible && hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false;
-    if (advanceSwim(swim, wet, handsFree, speed, dt) && hud.phase === 'playing') handsSound('combat-swim-stroke', stepSide = -stepSide, .9);
+    // With the sidearm out the right hand keeps it clear of the water and the left swims alone.
+    const handsFree = wet && hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false;
+    if (advanceSwim(swim, { swimming: wet, hands: handsFree, armed: wet && rig.visible, speed, forward: forwardSpeed }, dt) && hud.phase === 'playing') handsSound('combat-swim-stroke', stepSide = -stepSide, .9);
     const stroke = swimMotion(swim);
     const motionScale = motionPreference?.matches ? 0 : 1, swimScale = wet ? motionScale : 0;
     const gait = bodyMotion.gait, gaitWeight = bodyMotion.gaitWeight * motionScale;
@@ -2772,7 +2773,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const fitted = specs[hud.weapon].accessories;
     spreadAngle = weaponSpread(bloom[hud.weapon], hud.weapon, aim, crouching, moving) * accessorySpreadScale(fittedWeaponDevices(weaponDevices, fitted).laser ? fitted : { ...fitted, rail: undefined }, aim);
     spreadAngle *= slideSpread(slide);
-    if(swimming()) spreadAngle=Math.max(spreadAngle,SWIMMING.spread);
+    if(swimming()) spreadAngle=Math.max(spreadAngle,THREE.MathUtils.lerp(SWIMMING.spread,SWIMMING.aimSpread,aim));
     const spreadPixels = Math.tan(spreadAngle) * canvas.clientHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     hud.crosshairSpread = THREE.MathUtils.damp(hud.crosshairSpread, Math.max(3, spreadPixels), 20, dt);
     const state = loadout[hud.weapon], remaining = state.reloadRemaining / reloadDuration(specs[hud.weapon], emptyReload[hud.weapon]);
@@ -2923,11 +2924,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     handsView = grenadeMotion?.view ?? supply?.view ?? { pitch: 0, roll: 0 };
     // The support hand is the one on the ledge.
     const climbing = mantleHands.update(rig.visible && hud.phase === 'playing' ? mantle : null, camera, projectionScale);
-    const tucked = (supply && supply.weaponTuck > 0) || (climbing && climbing.release < 1) ? handling[hud.weapon] ?? null : null;
+    const tucked = (supply && supply.weaponTuck > 0) || (climbing && climbing.release < 1) || wet ? handling[hud.weapon] ?? null : null;
     swimHands.update(swim, viewCamera.aspect);
     if (tuckedHandling !== tucked) { tuckedHandling?.setSupportHand(true); tucked?.setSupportHand(false); tuckedHandling = tucked; }
     const weaponTuck = supply?.weaponTuck ?? 0;
     if (weaponTuck > 0) { rig.position.x += weaponTuck * .03; rig.position.y -= weaponTuck * .15; rig.position.z += weaponTuck * .05; rig.rotation.x -= weaponTuck * .36; rig.rotation.y -= weaponTuck * .14; rig.rotation.z -= weaponTuck * .46; }
+    if (swim.armed > .001) {
+      // Swimming forward the pistol rides high with its muzzle up; going backward it stays levelled ahead; aiming overrides both.
+      const held = swim.armed * (1 - aim), high = held * swim.stroke * (1 - swim.back), cover = held * swim.stroke * swim.back, beat = stroke.lift * motionScale;
+      rig.position.x += high * .05 + cover * .02; rig.position.y += high * (.1 - beat * .035) + cover * (beat * .02 - .02) + held * (1 - swim.stroke) * stroke.bob * motionScale * .5;
+      rig.position.z += high * .1; rig.rotation.x += high * (.75 - beat * .12) + cover * .05; rig.rotation.y += cover * .1; rig.rotation.z -= high * .25 - cover * beat * .08;
+    }
     const weaponDown = Math.max(supply?.weaponDown ?? 0, grenadeMotion?.weaponDown ?? 0);
     if (weaponDown > 0) { rig.position.x += weaponDown * .12; rig.position.y -= weaponDown * .62; rig.rotation.x -= weaponDown * .9; rig.rotation.z -= weaponDown * .35; }
     if (switching) {
@@ -3891,6 +3898,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       x: position.x, y: eyeHeight() + vertical, z: position.z, yaw, pitch,
       ...(localLift?{liftOffset:Math.max(.55,Math.min(2.65,relativeFeet+eyeHeight()))}:{}),
       waterFire: merlionOperating() && trigger && hud.phase==='playing',
+      ...(actualAim && swimming() ? { aiming: true } : {}),
       ...(vehicles.active ? { vehicleControls: sharedVehicleControls() } : {}),
       prone, weapon: hud.weapon, playing: hud.phase === 'playing', reloading: loadout[hud.weapon].reloadRemaining > 0,
       ...(supplyUse ? { supply: supplyProgress(supplyUse) } : {}),
@@ -4788,7 +4796,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const previousPosition = position;
         position = next;
         vertical = next.y; velocityY = next.velocityY;
-        if(swimming()){prone=false;keyboardCrouch.clear();ads=touchAim=actualAim=false;if(supplyUse)endSupply();if(grenadeHeld){grenadeHeld=null;grenadeFireHeld=false;grenadePicker=null;}}
+        if(swimming()){prone=false;keyboardCrouch.clear();if(!swimmingCanFire(hud.weapon,carry.length()))touchAim=actualAim=false;if(supplyUse)endSupply();if(grenadeHeld){grenadeHeld=null;grenadeFireHeld=false;grenadePicker=null;}}
         if ((expedition || rangeTravel) && !vehicles.active && vertical <= .35 && velocityY <= 0) {
           const crossing = resolveWorldBorderCrossing(region, previousPosition, position, { yaw, pitch });
           if (crossing) { commitTravel(crossing, true); return; }

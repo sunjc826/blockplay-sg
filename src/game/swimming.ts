@@ -2,11 +2,15 @@ import { createVerticalMovement, type VerticalWorld, type VerticalState } from '
 import { insideFootprint, overlapsObstacle, type Obstacle } from './region-collision';
 import { MARINA_CAMP_DECKS, MARINA_QUAY_RAILS, MARINA_SWIM_EXITS } from './marina-water';
 
-export const SWIMMING = { speed: 1.25, eyeHeight: .2, bodyHeight: .65, stillSpeed: .12, spread: .085, settleSeconds: .25 } as const;
-export const swimmingCanFire = (family: number, speed: number) => family === 2 && speed <= SWIMMING.stillSpeed;
-export function swimmingShotDirection(ray: {x:number;y:number;z:number}, random:()=>number) {
-  const yaw=Math.atan2(ray.x,ray.z)+(random()*2-1)*SWIMMING.spread;
-  const pitch=Math.asin(Math.max(-1,Math.min(1,ray.y)))+(random()*2-1)*SWIMMING.spread;
+export const SWIMMING = { speed: 1.25, eyeHeight: .2, bodyHeight: .65, stillSpeed: .12, spread: .085, aimSpread: .03, settleSeconds: .25 } as const;
+/** The sidearm is the one gun kept in hand in the water: the other hand does the swimming. */
+export const swimmingSidearm = (family: number) => family === 2;
+export const swimmingCanFire = (family: number, speed: number) => swimmingSidearm(family) && speed <= SWIMMING.stillSpeed;
+/** `aiming` is the one-handed aim a still swimmer can take, which steadies the shot. */
+export function swimmingShotDirection(ray: {x:number;y:number;z:number}, random:()=>number, aiming=false) {
+  const spread=aiming?SWIMMING.aimSpread:SWIMMING.spread;
+  const yaw=Math.atan2(ray.x,ray.z)+(random()*2-1)*spread;
+  const pitch=Math.asin(Math.max(-1,Math.min(1,ray.y)))+(random()*2-1)*spread;
   return {x:Math.sin(yaw)*Math.cos(pitch),y:Math.sin(pitch),z:Math.cos(yaw)*Math.cos(pitch)};
 }
 

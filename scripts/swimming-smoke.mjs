@@ -28,11 +28,11 @@ try{
   await evaluate("window.engine.setInput('w',false);window.engine.setInput('shift',false);window.engine.setInput('fire',false);window.engine.switchWeapon(2)");
   await wait('window.hud.weapon===2 && window.hud.swimCanFire===true');
   if(process.env.SWIM_SHARED) assert.equal(await evaluate('window.hud.arenaSelf?.swimming'),true);
-  await evaluate('window.engine.toggleAim()');await delay(250);assert.equal(await evaluate('window.hud.aiming'),false);
+  await evaluate('window.engine.toggleAim()');await delay(250);assert.equal(await evaluate('window.hud.aiming'),true);
   await evaluate("window.engine.setInput('fire',true)");await wait('window.hud.shots>0');await evaluate("window.engine.setInput('fire',false)");
   const crossing=await evaluate('({x:window.hud.x,z:window.hud.z,swimming:window.hud.swimming,weapon:window.hud.weapon,shots:window.hud.shots,aiming:window.hud.aiming,spread:window.hud.crosshairSpread})');
   await shot('treading-sidearm');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await delay(250);await shot('swimming-phone');
   assert.deepEqual(errors,[]);await fs.writeFile(new URL('results.json',output),JSON.stringify({passed:true,crossing,errors},null,2));
-  console.log('PASS real FPS swimming: shoreline entry, sprint held, rifle fire refused, stationary sidearm, ADS refused, wide spread, touch HUD; three rendered Merlion views.');
+  console.log('PASS real FPS swimming: shoreline entry, sprint held, rifle fire refused, stationary sidearm, one-handed ADS, touch HUD; three rendered Merlion views.');
 }finally{try{await evaluate('window.engine?.dispose()');}catch{}ws.close();await fetch(`${chrome}/json/close/${tab.id}`).catch(()=>{});}

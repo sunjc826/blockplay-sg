@@ -200,6 +200,8 @@ export interface ArenaSnapshot {
 export type ArenaHeat = { sector: string } & Record<SquadFaction, number>;
 export interface ArenaInput {
   x: number; y: number; z: number; yaw: number; pitch: number; weapon: number; playing: boolean; reloading?: boolean; prone?: boolean; vehicleControls?: VehicleControls;
+  /** Sights up. Only a still swimmer's sidearm reads it, for the steadier aimed shot. */
+  aiming?: boolean;
   /** How far through using a supply the player is (0..1), so everyone else sees them patching up or eating. */
   supply?: number;
   waterFire?: boolean;
@@ -341,7 +343,7 @@ export interface VehicleCrewTransfer {
 }
 interface InternalActor {
   spawnWeapons?: { weapons: ArenaWeapon[]; allowed: number[] };
-  swimBudget?:number; lastSwimInput?:number; swimmingUntil?:number;
+  swimBudget?:number; lastSwimInput?:number; swimmingUntil?:number; swimAiming?:boolean;
   vehicleBoardAfter?: number;
   boatIslandUntil?: number; boatGuard?: number;
   evacuating?: { x: number; z: number; until: number };
@@ -977,6 +979,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       if(moved>SWIMMING.stillSpeed*dt)entry.swimmingUntil=elapsed+SWIMMING.settleSeconds;
       Object.assign(actor,{x:next.x,z:next.z,y:next.y+(next.swimming?SWIMMING.eyeHeight:actor.swimming?1.75:clamp(input.y,PRONE_EYE_HEIGHT,1.75)),yaw:input.yaw%(Math.PI*2),pitch:clamp(input.pitch,-1.5,1.5),prone:!next.swimming && input.prone===true && input.y<=PRONE_EYE_HEIGHT+.02});
       if(next.swimming)actor.swimming=true;else delete actor.swimming;
+      entry.swimAiming=next.swimming&&input.aiming===true;
       return;
     }
     const riding=traversalWorld?.lifts?.find(l=>l.id===actor.lift && insideLift(l,actor));
@@ -1038,7 +1041,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (distance(origin, entry.actor) > 1.5 || ammo.cooldown > 1e-7 || ammo.reloadRemaining > 0) return { ...EMPTY_SHOT };
     const length = Math.hypot(direction.x, direction.y, direction.z); if (length < 0.5 || length > 1.5) return { ...EMPTY_SHOT };
     let ray = { x: direction.x / length, y: direction.y / length, z: direction.z / length };
-    if(entry.actor.swimming) ray=swimmingShotDirection(ray,random);
+    if(entry.actor.swimming) ray=swimmingShotDirection(ray,random,entry.swimAiming===true);
     if (!roundReady(ammo, entry.weapons[weapon])) { startReload(entry, weapon); return { ...EMPTY_SHOT }; }
     const recoilDamage = unsupportedRecoilDamage(entry.weapons[weapon], entry.actor.prone === true, entry.actor.y <= floorAt(entry.actor) + 1.17, !entry.actor.prone && entry.actor.y <= floorAt(entry.actor) + 1.17);
     if (recoilDamage) {

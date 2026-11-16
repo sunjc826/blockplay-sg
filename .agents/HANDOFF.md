@@ -7334,3 +7334,12 @@ each pull (was a 1.25 s timer) and a head lift with it (`swimMotion`, off under 
 `fps-engine.ts` beside the mantle hands. Hands go under when the sidearm is shown. Seen in `hand-models.html?swim=`
 and in the real engine through `dragon-boats.html?swim` (stroke, tread, sidearm); `pnpm test:swimming`-style CDP
 smoke not run.
+
+**Swimming: backward stroke, sidearm strokes, one-handed aim (2026-11-16).** Going backward the hands now push the
+water away from the chest (`BACK` keys, `state.back`) and the head leans back. With the sidearm selected the rig stays
+visible in the water, its support hand hidden, and the left swim hand strokes alone; the pistol rides muzzle-up going
+forward and levelled going backward (rig offsets beside the weapon tuck in `fps-engine.ts`). Buff: a still swimmer can
+aim the sidearm (one-handed), scatter `SWIMMING.aimSpread` .03 against .085 at the hip; `ArenaInput.aiming` carries it
+to the authority (`swimAiming`), optional so older clients still validate. Touch shows the Aim button when
+`swimCanFire`. `scripts/swimming-smoke.mjs` now expects the aim to be allowed but was not run. Seen in the real engine
+through `dragon-boats.html?swim` on touch input; multiplayer not exercised beyond unit tests.

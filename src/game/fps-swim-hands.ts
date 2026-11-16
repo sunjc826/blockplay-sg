@@ -16,19 +16,32 @@ export interface SwimState {
   afloat: number;
   /** Seconds of treading, for the scull. */
   tread: number;
+  /** 0 swimming forward, 1 backward: the hands push the water away instead of pulling it past. */
+  back: number;
+  /** 0 both hands swim, 1 the right holds a sidearm clear of the water and the left swims alone. */
+  armed: number;
 }
-export const createSwim = (): SwimState => ({ phase: 0, stroke: 0, afloat: 0, tread: 0 });
+export const createSwim = (): SwimState => ({ phase: 0, stroke: 0, afloat: 0, tread: 0, back: 0, armed: 0 });
+export interface SwimInput {
+  swimming: boolean;
+  /** Whether there are hands free to swim with at all. */
+  hands: boolean;
+  /** A sidearm is in the right hand. */
+  armed?: boolean;
+  speed: number;
+  /** Speed along the view, negative going backward. Defaults to forward. */
+  forward?: number;
+}
 const damp = (from: number, to: number, rate: number, dt: number) => to + (from - to) * Math.exp(-rate * dt);
 
-/**
- * Steps the stroke. `hands` is whether the hands are free to swim with (not holding a sidearm).
- * Returns true on the step a pull begins, which is when the water is heard.
- */
-export function advanceSwim(state: SwimState, swimming: boolean, hands: boolean, speed: number, dt: number) {
+/** Steps the stroke. Returns true on the step a pull (or a push, going backward) begins, which is when the water is heard. */
+export function advanceSwim(state: SwimState, { swimming, hands, armed = false, speed, forward = speed }: SwimInput, dt: number) {
+  state.armed = armed ? 1 : damp(state.armed, 0, 12, dt);
   if (!swimming) { state.afloat = damp(state.afloat, 0, 12, dt); state.stroke = damp(state.stroke, 0, 8, dt); state.phase = 0; return false; }
   const moving = speed > MOVING;
   state.afloat = damp(state.afloat, hands ? 1 : 0, hands ? 7 : 12, dt);
   state.stroke = damp(state.stroke, moving ? 1 : 0, moving ? 7 : 3.5, dt);
+  if (moving) state.back = damp(state.back, forward < -MOVING * .6 ? 1 : 0, 6, dt);
   state.tread += dt;
   // A stroke that has begun is finished, then the hands stay out in front until the next.
   if (!moving && state.phase === 0) return false;
@@ -38,14 +51,19 @@ export function advanceSwim(state: SwimState, swimming: boolean, hands: boolean,
   return moving && before < SWIM_PULL_AT && state.phase >= SWIM_PULL_AT;
 }
 
-/** What the head does: it comes up out of the water on each pull, and rides the swell while treading. */
+/**
+ * What the head does. Forward it comes up out of the water on each pull; backward it leans back and dips as the
+ * hands push; with one arm swimming it rolls onto that arm; treading, it rides the swell.
+ */
 export function swimMotion(state: SwimState) {
   const pull = Math.min(1, Math.max(0, (state.phase - SWIM_PULL_AT) / (PULL_END - SWIM_PULL_AT + .12)));
-  const lift = Math.sin(Math.PI * pull) ** 2 * state.stroke, idle = 1 - state.stroke;
+  const lift = Math.sin(Math.PI * pull) ** 2 * state.stroke, idle = 1 - state.stroke, back = state.back;
   return {
-    bob: lift * .05 - state.stroke * .012 + idle * Math.sin(state.tread * 2.4) * .018,
-    pitch: lift * .03,
-    roll: idle * Math.sin(state.tread * 1.2) * .008,
+    /** 0..1 through the effort of this stroke, for anything else that moves with it. */
+    lift,
+    bob: lift * (.05 * (1 - back) - .03 * back) - state.stroke * .012 + idle * Math.sin(state.tread * 2.4) * .018,
+    pitch: lift * .03 * (1 - back) + state.stroke * back * .045,
+    roll: idle * Math.sin(state.tread * 1.2) * .008 + state.armed * lift * .035,
   };
 }
 
@@ -60,11 +78,19 @@ const STROKE: Key[] = [
   { t: .76, x: .08, y: -.27, z: -.34, yaw: -.5, pitch: .2, roll: -.45, grip: .22 },
   { t: .9, x: .04, y: -.22, z: -.44, yaw: -.3, pitch: .36, roll: -.2, grip: .12 },
 ];
+/** Backward: from the chest the palms push the water away forward and out, then slide back in edge-on. */
+const BACK: Key[] = [
+  { t: 0, x: .1, y: -.25, z: -.33, yaw: .1, pitch: 1.05, roll: 0, grip: .1 },
+  { t: .16, x: .12, y: -.2, z: -.38, yaw: .15, pitch: 1.2, roll: .1, grip: .06 },
+  { t: .42, x: .25, y: -.15, z: -.54, yaw: .4, pitch: 1.05, roll: .25, grip: .06 },
+  { t: .58, x: .31, y: -.17, z: -.56, yaw: .55, pitch: .55, roll: .3, grip: .1 },
+  { t: .8, x: .22, y: -.23, z: -.44, yaw: .15, pitch: .2, roll: -.1, grip: .14 },
+];
 const FIELDS = ['x', 'y', 'z', 'yaw', 'pitch', 'roll', 'grip'] as const;
 type Pose = Record<typeof FIELDS[number], number>;
 /** A smooth curve through the keys, round the loop. */
-function strokePose(phase: number, into: Pose) {
-  const n = STROKE.length, p = ((phase % 1) + 1) % 1;
+function strokePose(keys: readonly Key[], phase: number, into: Pose) {
+  const STROKE = keys, n = STROKE.length, p = ((phase % 1) + 1) % 1;
   let i = n - 1; while (i > 0 && STROKE[i].t > p) i--;
   const at = (k: number) => STROKE[((k % n) + n) % n], time = (k: number) => at(k).t + Math.floor(k / n);
   const t0 = time(i), t1 = time(i + 1), span = t1 - t0, u = (p - t0) / span;
@@ -102,16 +128,19 @@ export function createSwimHands(parent: THREE.Object3D) {
     } };
   const hands = [-1, 1].map(side => ({ side, ...createViewmodelHand(side < 0, kit) }));
   hands.forEach(hand => root.add(hand.group));
-  const stroke = {} as Pose, tread = {} as Pose, turn = new THREE.Quaternion(), inverse = new THREE.Quaternion(), toShoulder = new THREE.Vector3();
+  const stroke = {} as Pose, back = {} as Pose, tread = {} as Pose, turn = new THREE.Quaternion(), inverse = new THREE.Quaternion(), toShoulder = new THREE.Vector3();
   return {
     root,
     /** Poses the hands for this frame, or puts them away for `null`. A narrow view (`aspect`) brings them in to stay on screen. */
     update(state: SwimState | null, aspect = 16 / 9) {
       if (!state || state.afloat < .01) { root.visible = false; return; }
       root.visible = true;
-      strokePose(state.phase, stroke); treadPose(state.tread, tread);
+      strokePose(STROKE, state.phase, stroke); strokePose(BACK, state.phase, back); treadPose(state.tread, tread);
+      for (const f of FIELDS) stroke[f] += (back[f] - stroke[f]) * state.back;
       const k = state.stroke, squeeze = Math.min(1, Math.max(.45, aspect / 1.5)), mix = (f: typeof FIELDS[number]) => tread[f] + (stroke[f] - tread[f]) * k;
       for (const { side, group, arm, setGrip } of hands) {
+        group.visible = side < 0 || state.armed < .5;
+        if (!group.visible) continue;
         // They come up from under the chest as the body settles into the water.
         group.position.set(side * mix('x') * squeeze, mix('y') - (1 - state.afloat) * .3, mix('z') + (1 - state.afloat) * .12);
         group.quaternion.setFromAxisAngle(Y, -side * mix('yaw')).multiply(turn.setFromAxisAngle(X, mix('pitch'))).multiply(FLAT)

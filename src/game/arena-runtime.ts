@@ -83,6 +83,7 @@ export function validArenaInput(value: unknown): value is ArenaInput {
     (value.liftOffset === undefined || finite(value.liftOffset) && value.liftOffset>=.5 && value.liftOffset<=2.75) &&
     (value.waterFire === undefined || typeof value.waterFire==='boolean') &&
     (value.prone === undefined || typeof value.prone === 'boolean') &&
+    (value.aiming === undefined || typeof value.aiming === 'boolean') &&
     (value.supply === undefined || finite(value.supply) && value.supply >= 0 && value.supply <= 1) &&
     (value.vehicleControls === undefined || validVehicleControls(value.vehicleControls));
 }

@@ -115,7 +115,7 @@ export default function TouchControls({ hud, engine, mode, onMenu, crossing = fa
   } else {
     if(!hud.swimming) pad.push(act('crouch', 'Crouch', <ChevronsDown size={17} />, { onClick: toggleCrouch, 'aria-pressed': crouched, 'data-on': crouched || undefined }));
     if(!hud.swimming) pad.push(act('prone', hud.prone ? 'Stand' : 'Prone', <ArrowDownToLine size={17} />, { onClick: () => { setCrouched(false); engine?.setInput('z', true); }, 'aria-pressed': hud.prone, 'data-on': hud.prone || undefined }));
-    if(!hud.swimming) pad.push(act('aim', hud.grenadeHeld ? 'Underarm lob' : 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': aimPressed, 'data-on': aimPressed || undefined }));
+    if(!hud.swimming || hud.swimCanFire) pad.push(act('aim', hud.grenadeHeld ? 'Underarm lob' : 'Aim', <Crosshair size={17} />, { onClick: () => engine?.toggleAim(), 'aria-pressed': aimPressed, 'data-on': aimPressed || undefined }));
     pad.push(act('reload', 'Reload', <RefreshCw size={17} />, { onClick: () => engine?.reload(), disabled: hud.reloading > 0 }));
     if(!hud.swimming) pad.push(act('jump', 'Jump', <ChevronsUp size={17} />, { onClick: () => engine?.jump() }));
     // Only a weapon that carries them shows these, each in a slot of its own.

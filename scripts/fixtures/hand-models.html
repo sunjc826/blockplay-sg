@@ -2,7 +2,7 @@
 <!-- The gun hands and the free hands, for checking shape by eye.
      ?weapon=0..4 through the hip camera, &yaw=&pitch= to orbit the gun (radians), &zoom= to close in on the grip, &reload=0..1 for a reload frame.
      ?free=1 shows the two free hands instead, &grip=0..1 &pinch=0..1.
-     ?swim=0..1 shows the swimming hands through the eye at that fraction of a stroke, &tread=seconds for treading water instead.
+     ?swim=0..1 shows the swimming hands through the eye at that fraction of a stroke, &tread=seconds for treading water instead, &back=1 the backward stroke, &armed=1 the left hand alone.
      ?mantle=0..1 shows the climb through the eye at that fraction of it, &lift= ledge height, &vault=1, &look= pitch. -->
 <style>body{margin:0;background:#83969e}canvas{display:block}</style>
 <script type="module">
@@ -34,7 +34,7 @@ if(q.has('mantle')){
   const {createSwimHands,createSwim}=await import('/src/game/fps-swim-hands.ts');
   const water=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshStandardMaterial({color:'#2f6f7c',roughness:.3,depthWrite:false}));water.renderOrder=-1;water.rotation.x=-Math.PI/2;water.position.y=-.2;scene.add(water);
   camera.rotation.x=n('look',-.06);const hands=createSwimHands(camera);scene.add(camera);
-  window.pose=(phase,tread)=>{hands.update({...createSwim(),afloat:n('afloat',1),stroke:tread==null?1:0,phase:phase??0,tread:tread??0},camera.aspect);renderer.render(scene,camera);};
+  window.pose=(phase,tread)=>{hands.update({...createSwim(),afloat:n('afloat',1),stroke:tread==null?1:0,phase:phase??0,tread:tread??0,back:n('back'),armed:n('armed')},camera.aspect);renderer.render(scene,camera);};
   window.pose(q.has('swim')?n('swim'):null,q.has('tread')?n('tread'):null);
 }else if(q.has('free')){
   const m=c=>new THREE.MeshStandardMaterial({color:c,roughness:.8}),kit={glove:m('#474b39'),pad:m('#202722'),sleeve:m('#626a50'),mesh(into,g,mat,x=0,y=0,z=0){const o=new THREE.Mesh(g,mat);o.position.set(x,y,z);into.add(o);return o;}};
