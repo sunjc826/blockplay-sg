@@ -28,6 +28,7 @@ import { playMenuSound, prepareMenuAudio, stopMenuHover } from '../lib/menu-audi
 import { hasMenuTheme, setMusicCue } from '../lib/music';
 import { markTitleScreenSeen, needsTitleScreen, startsFromTitleScreen, titleLogoPlacement } from '../lib/title-screen';
 import { useMenuDesign } from '../lib/menu-design';
+import { panelArtworkUrl, preloadModeArtwork } from '../lib/menu-artwork';
 import './game-menu.css';
 import './next-gen-menu.css';
 
@@ -111,6 +112,8 @@ function ActivityMenu({ screen, profile }: { screen: ActivityScreen; profile: Re
   const { title, activities } = ACTIVITY_MENUS[screen];
   const nextGen = useMenuDesign() === 'next-gen';
   const parent = parentRoute(screen);
+  // A selector opened directly still has the next one's pictures to fetch.
+  useEffect(() => { if (nextGen) preloadModeArtwork(); }, [nextGen]);
   return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <MenuHeader className="activity-navigation" profile={profile} action={nextGen && <a className="menu-header-settings next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}>
       <BackLink to={parent} />{nextGen && <span className="next-gen-mode-title" aria-hidden="true">{title}</span>}
@@ -149,21 +152,11 @@ function panelScene(route: Route) {
   return route.includes('hardpoint') ? 'objective' : route.includes('free-for-all') ? 'solo' : 'squad';
 }
 
-/** Mode illustrations are shared by solo/host routes, independently of the home panorama. */
-const MODE_ARTWORK: Partial<Record<Route, string>> = {
-  'single-player': 'mode-open-world', world: 'mode-open-world',
-  'multiplayer-menu': 'mode-find-room', multiplayer: 'mode-find-room',
-  'training-menu': 'mode-training', training: 'mode-training', tutorial: 'mode-tutorial',
-  'team-deathmatch': 'mode-team-deathmatch', 'host-team-deathmatch': 'mode-team-deathmatch',
-  hardpoint: 'mode-hardpoint', 'host-hardpoint': 'mode-hardpoint',
-  'free-for-all': 'mode-free-for-all', 'host-free-for-all': 'mode-free-for-all',
-};
-
 function PanelArtwork({ route, index, shared = false }: { route: Route; index: number; shared?: boolean }) {
   const scene = panelScene(route);
   const caption = scene === 'city' ? 'EXPLORE' : route === 'multiplayer' || route === 'multiplayer-menu' ? 'CONNECT' : ['squad', 'solo', 'objective'].includes(scene) ? 'COMPETE' : 'PREPARE';
   return <span className="next-gen-artwork" aria-hidden="true">
-    {!shared && <span className="next-gen-image" style={{ backgroundImage: `url('/images/menu/${MODE_ARTWORK[route] ?? 'operations'}.jpg')` }} />}
+    {!shared && <span className="next-gen-image" style={{ backgroundImage: `url('${panelArtworkUrl(route)}')` }} />}
     <span className="next-gen-grid" />
     <span className="next-gen-index">{String(index + 1).padStart(2, '0')}<span> / {caption}</span></span>
     <span className="next-gen-reticle" />
@@ -470,6 +463,8 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     playMenuSound('click');
     setTitle(current => current === 'shown' ? 'leaving' : current);
   };
+  // From the title screen on, so the mode selectors open with their artwork already loaded.
+  useEffect(() => { if (nextGen) preloadModeArtwork(); }, [nextGen]);
   useEffect(() => {
     prepareMenuAudio();
     document.addEventListener('visibilitychange', stopMenuHover);

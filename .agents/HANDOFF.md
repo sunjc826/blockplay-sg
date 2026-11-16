@@ -7320,6 +7320,14 @@ tests measure it. The CIS 50's spade grips close all four fingers right round (`
 fixture on all eighteen guns, both hands, reload frames on SAR 21, P30, XM8 and the bolt gun, and in
 `utility-animation.html` (frag, finale shell, bandage, first-aid kit, ammo pouch). Not seen in live play.
 
+Selector artwork preload (2026-11-16): the next-gen home menu (title screen included) now fetches and decodes the
+seven mode illustrations and `operations.jpg` after the page's `load`, through `preloadModeArtwork` in
+`src/lib/menu-artwork.ts`, which also now holds `MODE_ARTWORK`. The image elements are kept for the life of the page,
+so the panels' CSS backgrounds reuse them without a request. Skipped for Classic and when the browser asks to save
+data. Seen through Playwright on a 4 Mbit/s throttle: no image request after clicking Single Player or Multiplayer and
+the artwork is in the first screenshot (140 ms); without the change the panels were blank at that point. Not run: the
+browser smokes.
+
 **Swimming animation (2026-11-16).** Swimming had no hands: the rig was hidden and the eye bobbed on a sine.
 `fps-swim-hands.ts` adds a first-person breaststroke and a treading scull with the free hands, the stroke sound on
 each pull (was a 1.25 s timer) and a head lift with it (`swimMotion`, off under reduced motion). Wired in
