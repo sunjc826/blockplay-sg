@@ -16755,3 +16755,34 @@ worktree; `hud-layout-smoke` (39 combinations) and `jump-traversal-smoke` on
 SwiftShader against the 5175 server; wheel cycling through CDP in the Orchard
 range. Not run: `test:browser`, `test:touch`, `test:pwa`, `test:fps:districts`
 and the rest of the browser smokes; a real GPU or a phone.
+
+## 2026-11-17 — Ground detail pass: slab joints, asphalt patches, road paint
+
+Owner asked for more world detail within the blocky style, without decisions
+on their side. First of two planned passes (ground now, buildings next).
+
+- **Slab joints** in the district look's surface shader (`paving` in
+  `SurfaceVariation`, `LOOK_SURFACE_*` in `district-look.ts`): 4 cm joints on a
+  1 m grid plus a small per-slab tone, on grey up-facing ground. Asphalt-dark
+  ground gets sparse repair patches. Off with the rest of the surface pass on
+  low detail.
+- How the shader knows what is paving: merged ground caps now carry a
+  `lookGround` vec3 (world X, world Z, the cap's narrower side) from
+  `ground-surface-ownership.ts`; other geometry reads zero and falls back to the
+  scale of a unit box, for raised decks and roofs. Under 2.5 m across gets
+  nothing, which is what keeps road paint, vehicles and furniture plain.
+- **Road paint** in scene-kit's `streetGrid` (19 kit districts): gutter strips,
+  solid edge lines, and at grid junctions zebra crossings and stop lines.
+  Flat paint only; no colliders.
+- Marina's promenade is already separate 1 m slabs, so it is unchanged. Marina,
+  Raffles and Queenstown roads are hand-built and have no new paint.
+- Cost: about 100 ms more build time per kit district and 4-12% more triangles
+  (the asphalt cap is cut round each painted stripe); one more material.
+
+Checked: `pnpm test` (443 files, 4,423 tests), typecheck, build; by eye on the
+real GPU through `district-water.html` in Bishan, Chinatown, Tuas, Sentosa and
+Marina at street level and from 40 m. Not measured: frame cost. Not run: the
+browser smokes, night or rain views, a phone.
+
+Next in this line: building pass (ground-floor bays and canopies, roof parapets
+and rooftop clutter), then façade furniture and ground decals.

@@ -151,6 +151,11 @@ export function createSceneKit(options: SceneKitOptions) {
    * Returns nothing to collide with: districts place their own footprints
    * clear of these centrelines. Lines are module road paint (0.2 m wide,
    * 5 m dashes on a 12 m pitch) and kerbs are a module kerb high.
+   *
+   * Between junctions each carriageway also gets a darker gutter strip and a
+   * solid edge line along both sides. Where two grid roads cross, every arm
+   * gets a zebra crossing and a stop line on the approaching half (traffic
+   * keeps left). All of it is flat paint: nothing here collides or gives cover.
    */
   function streetGrid(options: {
     ew: readonly number[]; ns: readonly number[]; edgeX: number; edgeZ: number;
@@ -170,15 +175,35 @@ export function createSceneKit(options: SceneKitOptions) {
     };
     const horizontal = runs(edgeX, [...ns, ...(loop?[-edgeX,edgeX]:[])]);
     const vertical = runs(edgeZ, [...ew, ...(loop?[-edgeZ,edgeZ]:[])]);
+    const gutter = mat(`#${(asphalt as THREE.MeshStandardMaterial).color.clone().multiplyScalar(.7).getHexString()}`, .95);
+    const gutterWidth = 0.5, edgeInset = 1, stripe = 0.5, crossing = 3, setback = 1;
+    /** Paint along one stretch of road between junctions. `along` maps (distance along, offset across) to x and z. */
+    const dress = (from: number, to: number, centre: number, stops: readonly number[], place: (along: number, across: number, length: number, breadth: number, material: THREE.Material, lift?: number) => void) => {
+      if (to - from < 2) return;
+      for (const side of [-1, 1]) {
+        place((from + to) / 2, centre + side * (width / 2 - gutterWidth / 2), to - from, gutterWidth, gutter, .075);
+        place((from + to) / 2, centre + side * (width / 2 - edgeInset), to - from, lineWidth, line);
+      }
+      for (const [end, toward] of [[from, 1], [to, -1]] as const) {
+        // Only where this stretch meets another grid road, and only when it is long enough to hold both ends' paint.
+        if (!stops.some(stop => Math.abs(Math.abs(end - stop) - width / 2) < 1e-3) || to - from < 2 * (setback + crossing + 2)) continue;
+        const near = end + toward * setback, far = near + toward * crossing;
+        for (let across = -width / 2 + gutterWidth + stripe; across < width / 2 - gutterWidth - stripe / 2; across += stripe * 2) place((near + far) / 2, centre + across, crossing, stripe, line);
+        // Traffic keeps left: a stretch entered at `from` is left by the lane on its far side.
+        place(far + toward * 1, centre + toward * width / 4, 0.4, width / 2 - gutterWidth, line);
+      }
+    };
     for (const z of ew) {
       box(0, 0, z, edgeX * 2, 0.12, width, asphalt);
       for (let x = -edgeX + 6; x < edgeX; x += 12) box(x, 0.09, z, dash, 0.025, lineWidth, line);
       if (kerb) for (const side of [-half, half]) for (const [a,b] of horizontal) box((a+b)/2, kerbY, z + side, b-a, kerbHeight, 3, kerb);
+      for (const [a,b] of horizontal) dress(a, b, z, ns, (along, across, length, breadth, material, lift = .09) => box(along, lift, across, length, 0.025, breadth, material));
     }
     for (const x of ns) {
       box(x, 0, 0, width, 0.12, edgeZ * 2, asphalt);
       for (let z = -edgeZ + 6; z < edgeZ; z += 12) box(x, 0.09, z, lineWidth, 0.025, dash, line);
       if (kerb) for (const side of [-half, half]) for (const [a,b] of vertical) box(x + side, kerbY, (a+b)/2, 3, kerbHeight, b-a, kerb);
+      for (const [a,b] of vertical) dress(a, b, x, ew, (along, across, length, breadth, material, lift = .09) => box(across, lift, along, breadth, 0.025, length, material));
     }
     if (!loop) return;
     for (const z of [-edgeZ, edgeZ]) {
