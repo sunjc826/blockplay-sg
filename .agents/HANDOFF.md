@@ -16821,3 +16821,10 @@ Same line, later on 2026-11-17: rain streaks under the roof edge of building-siz
 walls (`STREAKS` in `world-night-lights.ts`, key `-windows-v5`), and drain grates
 and manhole covers in `streetGrid` (flat dark boxes, kit districts only). Checked:
 `pnpm test` (444 files, 4,431 tests), typecheck, build, and by eye in Bishan.
+
+Milky overviews (2026-11-17): the haze's `floor` share now thins with the eye's
+height (`hazeAmount` and the GLSL in `district-look.ts`), so the 160 m deployment
+and respawn views see through the layer; street level changes by under 3%. Seen
+in Tuas from 160 m before and after. Still open from that list: Tuas's sea edge
+showing grey below the horizon, the slow indirect-light fade entering Changi, and
+one shared cloud field.

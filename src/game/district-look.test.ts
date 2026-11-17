@@ -58,6 +58,9 @@ describe('district look', () => {
     // A tower top at 200 m, 500 m away, stands clearer than its base.
     expect(hazeAmount(500, 2, 200, fogNear, fogFar, haze)).toBeLessThan(at500 * .7);
     // Rain closes the view in.
+    // From a 160 m overview the same stretch of ground is much clearer than along the street, and street level barely moves.
+    expect(hazeAmount(300, 160, 0, fogNear, fogFar, haze)).toBeLessThan(hazeAmount(300, 2, 0, fogNear, fogFar, haze) * .45);
+    expect(hazeAmount(300, 2, 0, fogNear, fogFar, haze)).toBeGreaterThan(.97 * hazeAmount(300, 0, 0, fogNear, fogFar, haze));
     expect(hazeAmount(300, 2, 0, WEATHER.showers.fogNear, WEATHER.showers.fogFar, haze)).toBeGreaterThan(hazeAmount(300, 2, 0, fogNear, fogFar, haze));
   });
 

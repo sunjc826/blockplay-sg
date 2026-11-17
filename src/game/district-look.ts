@@ -324,14 +324,16 @@ export function skyColorAt(p: Pick<LookPalette, 'zenith' | 'horizon' | 'ground' 
 /**
  * Share of a surface's colour replaced by haze: exponential fog starting at half
  * the weather's fog near, reaching half at 45% of the way from near to far
- * (at ground level), thinning with height above `base` (a `floor` share never
- * thins), integrated along the ray.
+ * (at ground level), thinning with height above `base`, integrated along the ray.
+ * A `floor` share does not thin along the ray, so far towers never stand wholly
+ * clear, but it does thin with the eye's own height: an aerial view looks down
+ * through the layer rather than along it, and was milky when the floor stayed whole.
  */
 export function hazeAmount(distance: number, eyeY: number, pointY: number, fogNear: number, fogFar: number, haze: DistrictLook['haze']) {
   const start = fogNear * .5, density = Math.LN2 / Math.max(1, fogNear + (fogFar - fogNear) * .45 - start);
   const h0 = Math.max(eyeY - haze.base, 0) / haze.height, h1 = Math.max(pointY - haze.base, 0) / haze.height, dh = h1 - h0;
   const heightTerm = Math.abs(dh) < 1e-3 ? Math.exp(-h0) : (Math.exp(-h0) - Math.exp(-h1)) / dh;
-  return 1 - Math.exp(-density * Math.max(0, distance - start) * (haze.floor + (1 - haze.floor) * heightTerm));
+  return 1 - Math.exp(-density * Math.max(0, distance - start) * (haze.floor * Math.exp(-h0) + (1 - haze.floor) * heightTerm));
 }
 
 /** Three's ACES filmic tone mapping (r180), for the colour a linear value lands on the canvas as. */
@@ -645,7 +647,7 @@ export const LOOK_FOG_GLSL = /* glsl */`
   float lookH0 = max(cameraPosition.y - lookHaze.x, 0.0) / lookHaze.y, lookH1 = max(vExposureWorld.y - lookHaze.x, 0.0) / lookHaze.y;
   float lookDh = lookH1 - lookH0;
   float lookHeight = abs(lookDh) < 1e-3 ? exp(-lookH0) : (exp(-lookH0) - exp(-lookH1)) / lookDh;
-  float lookFog = 1.0 - exp(-lookDensity * max(0.0, lookDistance - lookStart) * (lookHaze.z + (1.0 - lookHaze.z) * lookHeight));
+  float lookFog = 1.0 - exp(-lookDensity * max(0.0, lookDistance - lookStart) * (lookHaze.z * exp(-lookH0) + (1.0 - lookHaze.z) * lookHeight));
   vec3 lookDir = lookRay / max(lookDistance, 1e-4);
   vec3 lookFogColor = mix(lookSkyColor(normalize(vec3(lookDir.x, max(lookDir.y, 0.0), lookDir.z))), fogColor, lookFlat);
   gl_FragColor.rgb = mix(gl_FragColor.rgb, lookFogColor, lookFog);
