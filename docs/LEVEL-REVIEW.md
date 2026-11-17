@@ -284,6 +284,15 @@ offline recovery, concurrent replies and authentication on the model test board.
 
 ## Daily debug workspace
 
+**Numbers before drawings.** `pnpm analyse:layout` prints, for every district
+or one (`-- --district marina-bay`), the share of land under buildings, the
+share under raised footing, and how much of the 120 m disc round a standing
+soldier is in sight, overall and by north, middle and south thirds
+(`src/game/layout-metrics.ts`; `--json`, `--cell`, `--reach`). It is 2D at eye
+height and only colliders block, so foliage and terrain folds are not counted.
+Use it for the reading of a district before proposing changes, and again after
+a build to show what moved.
+
 `/debug` now opens the last design workspace (map/model) without starting a game.
 Use the left tool rail and district selector to switch tasks, or **Focus
 workspace** to hide the desktop rail. On a small screen, **Tools** opens the

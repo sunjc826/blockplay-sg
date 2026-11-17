@@ -100,6 +100,7 @@
     "audit:map-surfaces": "node --experimental-strip-types scripts/map-surface-audit.mjs",
     "audit:shape-language": "node --experimental-strip-types scripts/shape-language-audit.mjs",
     "analyse:cover": "node --experimental-strip-types scripts/cover-report.mjs",
+    "analyse:layout": "node --experimental-strip-types scripts/layout-report.mjs",
     "sector:anchors": "node --experimental-strip-types scripts/sector-anchors.mjs",
     "analyse:verticality": "node --experimental-strip-types scripts/verticality-report.mjs",
     "test:rooms": "node scripts/public-rooms-check.mjs",
