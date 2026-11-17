@@ -224,6 +224,7 @@ import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, withinReach, ty
 import { armorPickup, type ArmorPickupAction } from './armor-pickup';
 import { createSunShadows } from './fps-sun-shadows';
 import { createWorldOcclusion } from './world-occlusion';
+import { createViewmodelOcclusion } from './viewmodel-occlusion';
 import { createVisionSystem } from './fps-vision';
 import { waterSplashExposure, createLensEffects } from './fps-lens';
 import { activePalette, advanceVision, iffActive, iffOnly, nvgAimingActive, createVisionState, cycleVisionPalette, stepVisionButton, toggleVision, VISION_MOUNT_SECONDS, visionViews, type ThermalPalette, type VisionKind, type VisionSpec } from './vision-devices';
@@ -555,6 +556,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   skipHiddenMatrixUpdates(viewScene, { forcedToo: true });
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
   const wetView = createWetSurfaces(viewScene, true);
+  const viewOcclusion = createViewmodelOcclusion(renderer, viewScene, viewCamera);
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!checkpoint?.vision && !!equipment.vision);
   const iffTracker = createIffTracker();
@@ -4998,6 +5000,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const descent = hud.phase === 'deploying' ? deploymentIntro.frame(eyeHeight() + vertical, pitch, deploymentRoof) : null;
       const blurAmount = descent && !motionPreference?.matches && !getEnvironmentSettings().reducedEffects ? descent.blur : 0;
       deploymentBlur.present(blurAmount); canvas.dataset.deploymentBlur = blurAmount.toFixed(4);
+      // The gun and hands get their own occlusion, on the same setting and under the same vision limits as the world's.
+      canvas.dataset.viewOcclusion = String(viewOcclusion.prepare(rig.visible && !overviewActive() && atmosphere.light.occlusion && !vision.thermal && !nvgAiming));
       renderer.clearDepth(); renderer.render(viewScene, viewCamera);
       const { lighting } = atmosphere.light, air = atmosphere.air;
       if (getGraphicsSettings().lensEffects) lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
@@ -5083,7 +5087,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A compiled shader still needs a pipeline per target format, built on first draw there.
     scopeRenderer.warm(world.scene, camera); opticReflections.warm(world.scene, camera);
     // Occlusion builds its passes and links them on first use, which would otherwise be the first frame of the descent.
-    occlusion.render(atmosphere.light.occlusion);
+    occlusion.render(atmosphere.light.occlusion); viewOcclusion.prepare(atmosphere.light.occlusion);
     keepShadersLinked();
     // Redraw with restored visibility in the same task; warm-up is never presented.
     renderer.clearDepth(); renderer.render(viewScene, viewCamera);
@@ -5321,7 +5325,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       targets.forEach(target => target.label?.dispose());
       targetGeometry.dispose(); headGeometry.dispose(); targetMaterial.dispose(); effects.dispose();
       rangeStation?.dispose(); rangeArmory?.dispose();
-      scopeRenderer.dispose(); opticReflections.dispose(); ammoPlacementHands.dispose(); supplyHands.dispose(); mantleHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
+      scopeRenderer.dispose(); opticReflections.dispose(); viewOcclusion.dispose(); ammoPlacementHands.dispose(); supplyHands.dispose(); mantleHands.dispose(); grenadeHands.dispose(); grenadeVisuals.dispose(); sunShadows.dispose(); occlusion.dispose();
       swimHands.dispose();
       renderer.setRenderTarget(null); renderer.renderLists.dispose();
       if (!options.surface) fpsSurface.dispose();

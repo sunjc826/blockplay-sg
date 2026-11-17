@@ -76,12 +76,12 @@ describe('applying weapon surfaces', () => {
     expect(steel.userData.weaponSurface).toBe('steel'); expect(lens.userData.weaponSurface).toBeUndefined();
     // three keys programs on the hook's source, so two patched materials still share one program.
     const other = gun(); applyWeaponSurface(other.root);
-    expect(steel.customProgramCacheKey()).toMatch(/\|weapon-surface-v1$/); expect(other.steel.customProgramCacheKey()).toBe(steel.customProgramCacheKey());
+    expect(steel.customProgramCacheKey()).toMatch(/\|weapon-surface-v2$/); expect(other.steel.customProgramCacheKey()).toBe(steel.customProgramCacheKey());
     const shader = compile(steel);
     expect(shader.uniforms.surfacePacked.value).toBeInstanceOf(THREE.DataTexture);
     expect(shader.uniforms.surfaceTuning.value.x).toBeCloseTo(1 / SURFACE.steel.tile);
     // Every hook must have found its anchor in three's shader, or the detail silently goes missing.
-    for (const marker of ['surfaceData.g', 'surfaceData.b', 'surfaceBend', 'surfaceShade']) expect(shader.fragmentShader, marker).toContain(marker);
+    for (const marker of ['surfaceData.g', 'surfaceData.b', 'surfaceBend', 'surfaceShade', 'surfaceRelief']) expect(shader.fragmentShader, marker).toContain(marker);
     expect(shader.vertexShader).toContain('vSurfacePosition = position');
     expect(shader.fragmentShader.match(/uniform sampler2D surfacePacked/g)).toHaveLength(1);
   });

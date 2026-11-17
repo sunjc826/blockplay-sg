@@ -126,6 +126,8 @@ const fragmentGloss = `vec3 surfaceN = normalize(vSurfaceNormal);
 vec3 surfaceW = pow(abs(surfaceN), vec3(4.));
 surfaceW /= surfaceW.x + surfaceW.y + surfaceW.z;
 vec3 surfaceP = vSurfacePosition * surfaceTuning.x;
+// Sized to read at carry distance; a few centimetres from the eye the same relief would fill the view as noise.
+float surfaceRelief = smoothstep(.06, .32, length(vViewPosition));
 vec4 surfaceData = texture2D(surfacePacked, surfaceP.zy) * surfaceW.x + texture2D(surfacePacked, surfaceP.xz) * surfaceW.y + texture2D(surfacePacked, surfaceP.xy) * surfaceW.z;
 roughnessFactor = clamp(roughnessFactor * mix(1., surfaceData.g * 2., surfaceTuning.z), .045, 1.);`;
 const fragmentMetal = 'metalnessFactor *= mix(1., surfaceData.b, surfaceTuning.z);';
@@ -136,12 +138,12 @@ vec3 surfaceZ = texture2D(surfaceNormal, surfaceP.xy).xyz * 2. - 1.;
 surfaceX = vec3(surfaceX.xy + surfaceN.zy, abs(surfaceX.z) * surfaceN.x);
 surfaceY = vec3(surfaceY.xy + surfaceN.xz, abs(surfaceY.z) * surfaceN.y);
 surfaceZ = vec3(surfaceZ.xy + surfaceN.xy, abs(surfaceZ.z) * surfaceN.z);
-vec3 surfaceBend = normalMatrix * (normalize(surfaceX.zyx * surfaceW.x + surfaceY.xzy * surfaceW.y + surfaceZ * surfaceW.z) - surfaceN) * surfaceTuning.y;
+vec3 surfaceBend = normalMatrix * (normalize(surfaceX.zyx * surfaceW.x + surfaceY.xzy * surfaceW.y + surfaceZ * surfaceW.z) - surfaceN) * surfaceTuning.y * surfaceRelief;
 #ifdef DOUBLE_SIDED
 surfaceBend *= faceDirection;
 #endif
 normal = normalize(normal + surfaceBend);`;
-const fragmentOcclusion = `float surfaceShade = mix(1., surfaceData.r, surfaceTuning.w);
+const fragmentOcclusion = `float surfaceShade = mix(1., surfaceData.r, surfaceTuning.w * surfaceRelief);
 reflectedLight.indirectDiffuse *= surfaceShade;
 reflectedLight.indirectSpecular *= surfaceShade;
 reflectedLight.directDiffuse *= mix(1., surfaceShade, .5);`;
@@ -171,7 +173,7 @@ export function applyWeaponSurface(root: THREE.Object3D) {
         shader.fragmentShader = after(fragment, 'aomap_fragment', fragmentOcclusion);
       };
       // The textures and tuning are uniforms, so every family shares one program per base material variant.
-      material.customProgramCacheKey = function () { return `${key.call(this)}|weapon-surface-v1`; };
+      material.customProgramCacheKey = function () { return `${key.call(this)}|weapon-surface-v2`; };
       material.userData.weaponSurface = family; material.needsUpdate = true;
     }
   });
