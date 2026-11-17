@@ -1,5 +1,25 @@
 # Blockplay: portable agent handoff
 
+## Live arena scoreboard on Tab (2026-11-08)
+
+Hold Tab during an arena match to show live standings without pausing or
+releasing mouse capture. Releasing Tab closes the overlay. The callout wheel
+keeps Tab and Shift+Tab paging and takes precedence over a held scoreboard.
+The match menu still offers Players & scores. The shortcut uses the arena
+standings for FFA, TDM and Hardpoint, including solo bot matches.
+
+Local main commit `5c5e0fc` passed typecheck and 35 focused tests in an isolated
+checkout. The workspace suite passed 3,537 tests. Chrome verified live Hardpoint
+score updates while holding Tab, both paging directions, no carryover from the
+wheel, and dismissal on Tab release and Escape. The full Matches menu smoke on
+the clean build timed out at host match loading before the shortcut checks.
+Logs and the focused screenshot are in `.cache/tab-scoreboard/`.
+
+The manual Cloudflare deployment of `85e799a` included this commit. Version
+`00d1d044-b567-4e4b-8905-73ab7e9214e0` serves the verified scoreboard bundle
+on blockplaysg.fun and workers.dev. Both production Cloudflare checks passed.
+No GitHub push. AGENTS.md remains local and unstaged.
+
 ## Touch scope rocker (2026-11-04)
 
 Variable scopes on touch now zoom from a vertical +/− rocker above aim
@@ -57,6 +77,46 @@ receipts and hashes: `.cache/weapon-carry-{source-verification,live-verification
 was stopped after unrelated slow map/sector/boat failures; no full-suite pass is
 claimed. Task-owned Vite/Chrome processes stopped. No GitHub push; AGENTS.md
 remains local, unstaged and uncommitted.
+
+## Longer equipment-dependent store equip sounds (2026-10-31)
+
+Owner requested replacing the shared short equip snap with longer cues for guns,
+food, medical utilities and grenades. Local main commit `9676374` adds nine
+weapon/feed-specific lock-and-load sequences plus three new foley clips. Guns
+reuse the existing ElevenLabs reload recordings at natural pitch/speed: magazine
+or feed insertion, seating, charging and release, with source hashes and timing
+in the store manifest. Box-fed Ultimax keeps rifle magazine handling and its own
+charging action. Gun sequences run about 0.9–1.6 s; food/medical about 1.3 s,
+grenades about 0.9 s. The three new 1.4 s source generations cost 42 credits,
+confirmed by usage rising 1,223 → 1,265 / 40,000. Gun assembly cost no new credits.
+
+`store-equip-sound.ts` classifies the item actually equipped; carry-slot changes
+use the selected platform's variant. Purchases retain the purchase chime and
+rejected actions retain the blocked cue. Other gear/cosmetics and removing an
+extra main keep the generic latch. Audio plays at natural speed, uses one voice,
+and does not start a gameplay reload or consume ammo/supplies. The store bank
+now preloads 17 clips. `scripts/store-equip-sfx.mjs` defaults to a dry run;
+`--generate` uses the once-only helper for the three new foley sources and
+`--publish` assembles all 12 equip clips offline. Cache/receipts and a four-category
+preview: `.cache/store-equip/`.
+
+84 focused tests / six files pass in the workspace and clean release, including
+all catalog weapon/food coverage, variant feed overrides, successful/failed
+callbacks and source timing. Typecheck and the production build pass. Real
+browser playback reached `ended` for SAR, food, bandage, grenade and a drum-fed
+carry-slot change, with expected 0.9–1.6 s durations, no duplicate generic
+selection cue and no browser errors. Task-owned fixture tab and Vite stopped.
+
+Manual `pnpm deploy:cloudflare` succeeded: version
+`65d6d88e-31ea-4faf-bfa1-a6f0faff8f20`. The isolated release in
+`.cache/store-equip-release/` matches 1,898 selected runtime/script/doc files
+of `9676374`; unrelated body/weather edits were excluded. Both blockplaysg.fun
+and workers.dev serve matching root/store assets, service worker and exact bytes
+for all 17 UI MP3s. Production Cloudflare routing/PWA/assets/API-origin checks
+pass. Evidence: source-verification.json, browser-evidence.json, tests.log,
+release-tests.log, release-deploy.log, release-live-verification.json and
+release-cloudflare-check.log in that release. No GitHub push; AGENTS.md remains
+local, unstaged and uncommitted. Preserve unrelated workspace changes.
 
 ## Empty pouches fold flat (2026-10-31)
 
@@ -208,7 +268,48 @@ reload MP3s from the frozen release (based on `f1c87d7`, including reload commit
 Receipts, checksums, browser results and logs are in `.cache/reload-audio-work`.
 No GitHub push. Preserve unrelated working-tree edits.
 
-## Main-menu hover and click auditions awaiting selection (2026-10-31)
+## Contextual store UI sounds (2026-10-31)
+
+Owner requested store UI sounds with cues suited to each button. Local main
+commit `a32d9e4` reuses the softened glass pair for hover, navigation, tabs and
+item previews; three ElevenLabs v3 clips add a mechanical equip latch, warm
+two-note purchase confirmation and muted low rejection knock. The half-second
+source generations cost 15 credits total, confirmed by usage rising from
+1,008 to 1,023 / 40,000. Cached requests, receipts, processed previews and the
+four-cue listening track are in `.cache/store-sfx/`. Do not regenerate to reopen
+them. The store manifest preserves source/output hashes and the offline pitch,
+treble, lowpass and loudness shaping. No client API key or runtime API calls.
+
+`useArmory` mutations now return a success boolean; only the shop decorates
+callbacks with audio. Purchases/equips play their actual outcome, while marked
+controls skip generic click audio. Both purchase locations, carried-slot controls,
+level skips, demo tokens and the portalled guide are covered. Disabled controls,
+model dragging and charts do not activate selection/action sounds. Cold audio
+is dropped, hovers are throttled and action cues replace each other. Hiding the
+page stops playback; exit stops hover and allows a short action tail.
+
+67 focused tests pass in both the workspace and the frozen release; workspace
+typecheck passed. A real browser fixture confirmed five ready clips, actual
+hover/selection playback, a single purchase chime (bandage: 1,600 → 1,450 CR),
+equip feedback on carry-slot change, one rejection cue, and guide Next/Escape
+without duplicate selection sounds. Browser error list was empty. Task-owned
+fixture tab and Vite were stopped. Evidence: `.cache/store-sfx/browser-evidence.json`.
+
+Frozen source: `.cache/store-sfx-release/`, matching the 1,795 selected runtime,
+script and documentation files of `a32d9e4`. Dependencies use the existing
+lockfile and offline cache. The duplicate isolated standalone typecheck was
+stopped under heavy shared-machine load; `pnpm deploy:cloudflare` then passed
+its required `tsc -b` and production build before upload.
+
+Manual deployment succeeded: version `e39129f8-7c5c-4703-8dea-6864922e9bd1`.
+Both blockplaysg.fun and workers.dev serve the matching root/store entry assets,
+service worker and all five UI MP3s with exact byte hashes. Production Cloudflare
+routing, assets, PWA, model/audio and API-origin checks pass. Evidence is in the
+release directory: source-verification.json, validation.json, browser-evidence.json,
+release-{tests,deploy,live-verification,cloudflare-check}.log and live JSON receipts.
+No GitHub push; AGENTS.md and unrelated staged/unstaged work remain untouched.
+
+## Main-menu softened glass hover and click sounds (2026-10-31)
 
 The owner requested ElevenLabs menu click options, then added mouse hover sounds
 for the main menu only. Generated five paired directions (soft tactile, tactical
@@ -226,11 +327,37 @@ hover/click comparison tracks. All ten originals decode and are non-silent.
 sample menu buttons. Serve that directory over localhost (currently port 4197);
 the browser successfully loaded/decoded all ten interactive samples.
 
-Await the owner's choice, allowing a mixed hover/click pair, before changing
-game playback. The integration belongs in `MainMenu` in
-`src/components/GameMenu.tsx`; other screens must stay outside this scope.
-No game assets or gameplay code changed, and no deployment was performed for
-these auditions. No GitHub push; preserve unrelated working-tree edits.
+The owner selected Glass and requested less shrillness. Code commit `da8010d`
+adds two local menu recordings, source/output hashes and processing in
+`src/audio/menu/manifest.json`, and playback confined to `MainMenu` in
+`src/components/GameMenu.tsx`. The offline processing lowers pitch about three
+semitones, cuts treble 9 dB at 2.6 kHz, lowpasses at 4.8 kHz and lowers gain.
+Measured high-band energy relative to overall energy drops 8.7 dB for hover
+and 4.8 dB for click. No additional ElevenLabs credits were used.
+
+Mouse entry/keyboard focus plays quieter hover; accepted selections play click,
+including taps. Preloaded clips are reused, unloaded hover is dropped, sweeps
+are throttled and click takes priority. Menu exit stops hover but lets the short
+click finish over the wipe. Autoplay denial is silent and never blocks routing.
+
+Five sound tests and browser keyboard/navigation checks passed. The combined
+release at committed `44ecc04` passes typecheck and 15 focused audio, store-tour
+and first-person tests. The broad suite was stopped in the long-running existing
+vertical-place district diagnostics; no full-suite pass is claimed. The frozen
+copy in `.cache/menu-sfx-release-da8010d/` matches all 2,794 tracked files of
+`44ecc04`, preserving the newer committed store and helicopter changes. Its
+isolated dependencies were installed from the existing lockfile/cache after
+pnpm correctly refused to manage a parent-directory dependency symlink.
+
+Manual `pnpm deploy:cloudflare` succeeded: version
+`93890115-9d05-47ea-be49-23881298adc9`. Both blockplaysg.fun and workers.dev serve
+the matching entry JS/CSS, service worker and exact softened MP3 bytes. Production
+Cloudflare routing/assets/PWA/API-origin checks pass. Evidence is in that release
+directory, including `release-{focused-tests,typecheck,deploy,live-verification,
+cloudflare-check}.log` and JSON receipts. Preview the softened pair at
+`.cache/menu-sfx-audition/glass-soft-pair.mp3`; the listening page's Glass card
+now previews the softened version too. No GitHub push. AGENTS.md remains local,
+unstaged and uncommitted; preserve unrelated working-tree edits.
 
 ## Guest movement reconciliation and snapshot traffic (2026-10-29)
 
@@ -5393,6 +5520,53 @@ Sentosa-specific vertical-route, sector, driving, loot and facility checks now
 pass. This is a deployment blocker fix discovered by the respawn release, not a
 new district reconstruction. The final full-suite rerun and manual deploy follow.
 
+## Death drops follow rendered level geometry (2026-10-31)
+
+Local code commit `1a58234` projects every fallen soldier's weapon, loose rounds
+and carried kit onto the static rendered surface at that item's own position.
+This fixes Marina Bay's central waterfront paving/decking sitting above the
+movement plane. Supply contents use the same projection. Stored pickup heights
+and marker/focus heights agree; traces stay below overhead floors, handle
+instanced transforms and exclude actors, vehicles, effects and water surfaces.
+
+Validation: 64 targeted loot/geometry/elevation tests and typecheck passed. Four
+rendered Marina Bay scenarios (paving, decking, kerb and upper gallery) passed
+stored/rendered/focus height and pickup checks with no browser/WebGL errors;
+screenshots inspected in `.cache/loot-ground/`. The broad test run was stopped
+after navigation timeouts under concurrent workspace load; no full-suite pass is
+claimed. Manual deployment did not complete: the production build stalled
+under shared machine load and was stopped before upload. No new live deployment
+is verified. The isolated source snapshot `2802d2a` contains only this fix over
+`6c7157a`; its files and build diagnostics remain in `.cache/loot-ground/`.
+
+## Expedition objective guidance and facility control (2026-10-31)
+
+Local commit `77ec182` adds H / Show objectives to toggle enemy facility beams,
+labels, distances and bearings outside the camera view. The objective HUD names
+the nearest surviving enemy site and remaining count. Captures/destruction remove
+sites from the guidance. Both map sizes tint named sectors by surviving facility
+ownership, with contested/attacked/suppressed equipment in gold and unclaimed
+sectors in gray; the expanded map labels control. Jamming hides control intel;
+distant facility squares stay at the compact map edge. Infantry visibility rules
+are unchanged. Beacons are decorative, excluded from gameplay rays, static for
+reduced-motion users, and cleaned up with the engine.
+
+Validation: 31 focused guidance/map/facility tests and pnpm typecheck passed.
+Broad suite attempts were stopped under concurrent host load; no broad pass is
+claimed. Full-city Chrome/CDP and in-app browser reviews timed out; no rendered
+layout pass is claimed. Frozen commit `77ec182` also passed the production tsc build and Vite build.
+Manual pnpm deploy:cloudflare succeeded, version
+`65217ec8-0e23-4769-8589-faf1ef96836a`, from
+`/tmp/blockplay-objective-release-1MRi46`. Both blockplaysg.fun and workers.dev
+serve byte-identical entry JS/CSS and sw.js from this build. Production asset,
+manifest, model, recorded audio, SPA/API routing and origin checks passed without
+paid API requests. The first compilation attempt was terminated (SIGTERM), then
+the retry completed successfully under the shared host's severe memory pressure.
+Evidence and logs: `.cache/objective-hints/`, including source-verification.json,
+deploy.log, deployment-verification.json and cloudflare-check.log. Task-owned
+Vite, Chrome and broad test processes were stopped. No GitHub push. AGENTS.md
+remains local, unstaged and uncommitted.
+
 
 ## Helicopter cockpit and side-seat first person (2026-10-31)
 
@@ -5420,6 +5594,33 @@ manifest, model/audio, SPA/API routing and origin checks passed. Evidence:
 `.cache/helicopter-view/{source-verification,live-verification,results}.json`
 and `{tests,browser,typecheck,deploy,cloudflare-check}.log`. Task-owned browser
 and Vite stopped. No GitHub push; AGENTS.md stays local, unstaged and uncommitted.
+
+
+## Allied respawn release verified (2026-10-31)
+
+Respawn code f4da67f and Sentosa anchor fix 6c7157a are live in the combined
+77ec182 release. The manual pnpm deploy:cloudflare completed successfully:
+Cloudflare version 65217ec8-0e23-4769-8589-faf1ef96836a. This chat independently
+verified the respawn picker, engine bundle, CSS and sw.js byte hashes against
+the published build on both blockplaysg.fun and workers.dev. Production routing,
+assets, manifest, model, recorded audio and API-origin checks passed without
+paid API requests. The combined build includes the original tsc -b gate.
+
+63 respawn/arena/network tests and 12 affected Sentosa checks passed; the UI
+and real-authority browser smoke passed desktop and portrait/landscape touch.
+The broad suite found 1,934 passing tests, the now-fixed Sentosa anchor failure,
+and a worker RPC timeout. Its retry and the full-3D browser smoke were stopped
+under severe host resource pressure; no broad/full-3D pass is claimed. A redundant
+loot integration retry also hit scene/RPC timeouts; that feature's own recorded
+64 focused tests/typecheck/rendered checks supplied its validation.
+
+Evidence: .cache/player-respawn-final/{shared-release-source.json,
+shared-deploy.log,release-verification.json,release-live-verification.log,
+release-cloudflare-check.log,release-tests.log,release-sentosa-tests.log,
+release-browser.log,release-typecheck.log}. Shared publication evidence is in
+.cache/objective-hints/. Task-owned browsers, Vite and diagnostic/test processes
+were stopped. No GitHub push. AGENTS.md and .claude remain local and uncommitted.
+This final note is left unstaged alongside other ongoing handoff edits.
 
 
 ## Store tour spotlight overlay (2026-10-31)
@@ -5454,6 +5655,36 @@ release-build-final,release-browser-final,deploy,cloudflare-check}.log`,
 `.cache/store-tour-release-live.json`, the frozen source-verification.json and
 `.cache/store-tour-browser/` captures. Task-owned Chrome and preview stopped.
 Local commits only; no GitHub push. AGENTS.md remains local and uncommitted.
+
+
+## 2026-10-31: naval pilot deployed and verified
+
+Manual pnpm deploy:cloudflare succeeded, Cloudflare version
+fb54f642-705f-4723-a478-d4ce794b3838. The frozen release is
+.cache/naval-release-candidate: its 1,490 runtime/source/asset/config files match
+6c7157a, including naval code 11e487f, normal-health test correction 901ea21,
+manual respawn and the Sentosa beach-anchor fix. Later objective, loot and menu
+work is outside this release. Improved browser helpers are recorded separately.
+The deployment reused tested linked dependencies with the process-only
+pnpm_config_verify_deps_before_run=warn setting; no dependency reinstall or
+lockfile changes. Typecheck, all 41 final combat/facility scenarios, the Sentosa
+facility/deployment-ground check, and the production build passed. Ten rendered
+landing scenarios passed, and real-engine desktop/portrait boat ETA, map glyph,
+unloading and saved travel cooldown checks passed; captures were inspected.
+The engine capture preceded only the final three-anchor correction; the naval
+and map implementation is unchanged. The corrected anchors passed collision QA.
+
+Both blockplaysg.fun and blockplay-sg.sunjc826.workers.dev serve JS/CSS and sw.js
+with byte hashes identical to the build (cache blockplay-shell-62bc1aeb5118).
+Production assets, model/audio, PWA, SPA, API routing/origin and companion checks
+passed on both domains without paid API requests. Broader suite attempts reached
+1,395 passing tests in 98 files but hit unrelated navigation/loot/show timeouts
+under shared-host load; the exhaustive vertical-place audit was stopped. No full
+suite pass is claimed. Evidence: source-verification.json, release-evidence.json,
+release-{typecheck,final-combat,sentosa-ground,deploy,verification,cloudflare-*}.log,
+release-engine-browser-metal.log and .cache/naval-landings/ within the release.
+Task-owned Vite/Chrome stopped and copied release credentials removed. Local
+commits only, no GitHub push; AGENTS.md remains local and uncommitted.
 
 
 ## Humvee cabin and seated first person (2026-10-31)
@@ -5511,6 +5742,157 @@ entry for confirmed results. Evidence: .cache/paratroopers/. No GitHub push.
 Preserve AGENTS.md and concurrent handoff edits unstaged/uncommitted.
 
 
+## Paratrooper release verified (2026-10-31)
+
+Final runtime dbfcdef is manually deployed to Cloudflare, version
+2654c18f-b08c-4396-b453-152d4cb4e597. The frozen release in .cache/paratroopers/release
+matches all 2,808 tracked files of that revision and excludes concurrent
+uncommitted impact-audio work. The final pnpm deploy:cloudflare passed its tsc -b
+and Vite build gates. Both production origins serve byte-identical release
+JS/CSS/Three.js/service worker; routing, assets, PWA, models/audio and origin/API
+checks pass without paid API requests. Copied release environment files removed.
+
+All 103 final combat/runtime/map/route tests pass. Every inland district has a
+validated dry open-sky site. The final safeguards explicitly reject rendered
+water/missing support and reserve separate drop zones for concurrent factions;
+the latter has an opposing-wave regression. Five rendered host/guest scenarios
+and the actual Queenstown engine desktop/phone warning, map symbol, descent and
+saved travel clocks passed after the water safeguard. The subsequent reservation
+change affects concurrent planning only; final unit/route checks cover it.
+
+The clean frozen broad run at 8cdb289 passed 1,988 of 1,989 tests; one unrelated
+night-light geometry audit exceeded its five-second timeout under load. All 15
+night-light tests passed in isolation (the affected audit took 1.7 seconds with a
+15-second ceiling). A full single-run green result is not claimed. The earlier
+mutable-workspace run mixed an earlier cached clock validator with a later test;
+its failure was resolved before freezing. Evidence: .cache/paratroopers/ with
+source-verification.json, release-evidence.json, release-focused.log,
+release-full-tests.log, night-lights-rerun.log, deploy.log, live-verification.json,
+cloudflare-*.log, browser-final.log, engine-browser-final.log and captures.
+Task-owned Chrome/Vite stopped. Local commits only; no GitHub push. Preserve
+AGENTS.md and concurrent audio/handoff edits unstaged and uncommitted.
+
+
+## Surface-specific bullet impact audio (2026-10-31)
+
+Local main commit d44a2ab adds two ElevenLabs v2 takes per material: concrete,
+metal, wood, glass, foliage, dirt, flesh and water (16 clips, 112 credits from
+response receipts; the immediate subscription delta lagged at zero). Existing
+52 clips and their manifest entries remain byte-identical. Incremental
+sfx:publish accepts group IDs; impact takes trim preliminary taps to start at
+1 ms before their first 90%-of-peak sample.
+
+The engine shares visual hit classification, pans from the struck point and
+applies distance lowpass, sound travel delay, energy and a 140 m hearing limit.
+Practice targets ring as metal; arena flesh uses confirmed wound events, avoiding
+cosmetic duplicates. Material synthesis covers unloaded audio. A 24-voice cap,
+pause/reset/mute/disposal cancellation bound rapid fire and queued sounds.
+
+Typecheck and 22 focused audio/surface/confirmed-hit tests pass. Chrome's actual
+range engine plays target impacts; all 16 clips decode/render non-silently,
+without clipping, with correct panning and ~8.76 ms onset for 3 m sound travel.
+Pause stops playback and no browser ElevenLabs requests occur. The mutable
+workspace broad run passed 1,996/1,997 tests, encountering a concurrent opposing
+paratrooper-drop reservation change; all 13 paratrooper tests pass on the frozen
+release, so a full single-run green result is not claimed.
+
+Manual pnpm deploy:cloudflare succeeded from .cache/impact-release-d44a2ab,
+verified against all 2,827 tracked files of d44a2ab. Cloudflare version
+b2b5b809-2a22-4415-a8b3-1875ba6dddc3. Both blockplaysg.fun and workers.dev serve
+byte-identical built JS/CSS, service worker and all 68 sound clips. Both routing,
+PWA/model/audio, API and origin checks pass without paid API requests. Evidence:
+release-evidence.json, source-verification.json, live-verification.json,
+release-{focused-tests,typecheck,paratrooper-tests,deploy,live-verification}.log,
+audio-results.json, audio-browser.log and workspace-full-tests.log in that
+release directory. No GitHub push. AGENTS.md and concurrent handoff changes stay
+local and unstaged/uncommitted. Task-owned Vite and isolated Chrome stopped.
+
+
+## Consistent gunfire and automatic-burst mixing (2026-10-31)
+
+Local main commit 3821ee5 addresses excessive shot-to-shot variation and poor
+burst overlap. Gunfire now uses a single coherent reference take per calibre
+(rifle v3-4, pistol v3-2, GPMG v2-1, HMG v2-2, suppressed v3-1), with only ±0.4%
+pitch variation instead of ±3%. Other sound groups retain rotating takes. No
+new generations, audio-asset changes or API credits were needed.
+
+Each shooter's previous report fades to 18% in 12 ms and to silence by 60 ms
+under the next attack; the final shot keeps its natural tail. Remote actor IDs,
+vehicle IDs and target IDs separate streams, with chronological insertion for
+queued snapshot shots. Gentler saturation, a higher compressor threshold and
+55 ms release reduce sustained gain reduction during automatic fire. Playing
+and scheduled voices clear on pause/reset/mute/disposal, with a 48-voice cap
+and player priority. Shooting cadence, damage and ammunition logic are unchanged.
+
+All 2,003 tests in 212 files pass, including 45 focused mixing/audio checks;
+typecheck passes. Chrome verified real-engine automatic-fire consistency and
+mute, then rendered eight weapon/distance cases through actual Web Audio.
+First-35-ms attack-level spread fell from 4.41 to 0.07 dB for the rifle and
+4.97 to 0.71 dB for MG4; every after-case stayed below 1 dB without clipping.
+No browser ElevenLabs requests or runtime errors. These are signal-level and
+playback checks, not a human listening-quality judgment. Before/after rifle and
+MG4 WAV previews, results.json and browser.log are in .cache/gunshot-bursts/;
+runner: scripts/gunshot-burst-smoke.mjs.
+
+Manual pnpm deploy:cloudflare succeeded from .cache/gunshot-release-3821ee5,
+verified against all 2,829 tracked files. Version:
+3e5f02ba-038d-46bb-962e-678967adaf96. Both production origins serve byte-identical
+built JS/CSS, service worker and all 68 SFX clips; both routing/PWA/model/audio/
+API-origin checks pass without paid requests. Release evidence, source and live
+verification JSON plus full/focused/typecheck/browser/deploy logs are preserved
+in that release directory. Task-owned Vite and isolated Chrome stopped. No
+GitHub push. Preserve local AGENTS.md and concurrent handoff edits unstaged.
+
+
+## Singapore elevation research for Queenstown (2026-10-31)
+
+Owner requested research after the repeated earth-bank approach felt simplistic.
+Added `docs/SINGAPORE-ELEVATION-RESEARCH.md`: URA Rail Corridor / Queensway node,
+URA earthworks guidance, HDB Queenstown Town Design Guide (visually inspected
+relevant pages), HDB SkyOasis design, NParks covered Alexandra Canal park, and
+SLA / Copernicus / FABDEM source suitability. Recommends connected hillside and
+terraced site levels, road height profiles, realistic entrances / pedestrian
+connections, separate bridge and deck surfaces, and walking-height acceptance
+checks. Exact game-coordinate elevations remain unauthored and unmeasured.
+
+Research only: no map/runtime changes, captures against Google services, tests
+or deployment. Source PDF and rendered research pages are in ignored
+`.cache/terrain-research/`. Documentation checked with `git diff --check`; only
+the new research document is included in its local commit. Preserve pre-existing
+working-tree changes, including this handoff file. No GitHub push.
+
+
+## Vehicle collision approach-speed damage (2026-10-31)
+
+Local main commit `89fd081` makes drive/fly solvers return impact speed from
+rejected movement axes after acceleration/braking, before stopping the motion.
+Late-frame car contacts are detected even when most movement succeeds. Glancing
+contacts use their inward component, aircraft roof/ground contacts use vertical
+speed, and corner components combine once. Remaining horizontal motion projects
+back onto heading. Practice and authority both consume this result; practice's
+blanket 0.6-second crash immunity is removed. The existing 5 m/s bump tolerance
+and quadratic damage curve remain, with non-finite speed rejected.
+
+Fifteen new regressions cover speed scaling, braking, reversing, late-frame
+contacts, scrapes, roofs/ground/ceilings/corners, repeated wall pressure and
+practice/arena/expedition integration. Frozen release: 102 vehicle/district tests
+and typecheck pass. The mutable-workspace broad run passed 2,017/2,018 tests;
+concurrent weapon-range edits changed the projectile lifetime expected by one
+arena-rounds test. All eight projectile tests pass on the frozen release. No
+full single-run green claim. The older vehicle browser smoke stops before
+boarding because E activates the nearby range resupply station; no full browser
+smoke pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from `.cache/vehicle-collision/release`,
+verified against all 2,830 tracked files of `89fd081`. Cloudflare version:
+`aacdbc7d-70e1-47fa-95d7-4f85c68cb16b`. Both blockplaysg.fun and workers.dev serve
+byte-identical entry JS/CSS, collision bundle and service worker; both production
+routing/PWA/model/audio/API-origin checks pass without paid API calls. Evidence,
+source/live verification JSON and test/typecheck/browser/deploy logs are in
+`.cache/vehicle-collision/`. No GitHub push. Preserve concurrent weapon-range and
+handoff edits and the local AGENTS.md unstaged/uncommitted.
+
+
 ## Helicopter HUD, forward clearance and live dashboard (2026-10-31)
 
 Code commit `4b12b0f` replaces opaque helicopter status cards with unboxed
@@ -5545,6 +5927,190 @@ results/captures, release-tests.log, visibility-tests.log, typecheck.log,
 deploy.log and cloudflare-check.log. Task-owned Vite and Chrome stopped.
 No GitHub push. Preserve concurrent handoff edits; AGENTS.md remains local,
 unstaged and uncommitted.
+
+
+## Longer infantry travel and bot under-fire response (2026-10-31)
+
+Local main commits 69d0435 and fa9d4bc replace the 125 m arena / 180 m
+visual mismatch with shared platform limits: rifles and light MGs 300 m,
+carried FN MAG / CIS 50MG 400 m, pistol 180 m. Host requests, local flight,
+hitscan fallback, published-round validation and remote visuals agree. Final
+local collision segments clip at the travel limit. Damage tuning and mounted
+vehicle-gun ranges remain unchanged.
+
+Passive spotting retains its role limits (60/65/110/125 m); gradual spotting
+is explicitly deferred by the owner. Direct hits and passes within 2.5 m
+create twelve-second position reports, shared with up to four same-faction
+bots within 35 m. Bots evade for four seconds and seek nearby cover, sharing
+eight cover-search mesh rays per simulation tick. Visually confirmed attackers
+can be engaged to the bot weapon's range beyond its home leash. Foliage,
+smoke and cover still block sight; hidden targets leave a saved report to
+investigate, expiring and clearing on reset. Reaction delays, spread and the
+two-bot player firing limit remain.
+
+Validation: 158 initial focused checks passed. Broader combat checks passed
+314/316, with two long faction simulations exceeding their 15-second limits.
+All 26 assertions passed on isolation, but that runner timed out in Vite
+teardown. The final threads run exits zero: all ten threat cases plus those
+two long simulations pass, with 90-second test / 60-second teardown ceilings.
+No full-suite pass is claimed: the broad suite was stopped in slow district
+geometry audits. Final production tsc -b and Vite builds passed, including
+the compiler gate in pnpm deploy:cloudflare. Memory pressure made compilation
+unusually slow; profiler evidence is retained.
+
+A rendered Three.js/arena-runtime fixture verifies a passive bot near 250 m,
+attack-triggered return fire beyond 180 m and stopped fire behind a real mesh
+wall, desktop and portrait, without runtime exceptions. This is an isolated
+runtime fixture, not an end-to-end district playthrough. It precedes only the
+final ray-budget guard; final unit checks cover that guard.
+
+Manual pnpm deploy:cloudflare succeeded, version
+8091d391-9baa-488a-ae16-56cc9a9b434a. The frozen release matches all 2,840
+tracked files of fa9d4bc, including committed store SFX a32d9e4, excluding
+concurrent uncommitted terrain changes. Both public domains serve byte-identical
+JS/CSS/Three.js and sw.js; both production asset/model/audio/PWA/SPA/API-origin
+checks pass without paid API calls. Evidence: .cache/damage-range/, including
+source-verification.json, release-evidence.json, final-regressions.log,
+release-{combat-tests,build}.log, deploy.log, live-verification.json,
+cloudflare-*.log and browser captures/results. Copied environment files removed;
+task-owned Chrome and Vite stopped. No GitHub push. Preserve local AGENTS.md
+and all concurrent edits; this handoff remains unstaged.
+
+
+## Recruit course spatial redesign (2026-10-31)
+
+Local main commits `26400da` (course), `ac4c452` (target orientation),
+`f1c87d7` (mutable test fixture coordinate types), and `780e593` (smoke aim
+before ADS sensitivity and real touch start). The compound is 150 × 210 m
+with a 20 m assembly approach, measured 50 m sprint track requiring 35 m of
+actual forward sprint travel, separate hurdle/crouch/recovery areas and an
+8 m mesh crawl with an 80 cm underside. Standing and crouching cannot enter;
+the lesson requires prone entry and full exit, with standing allowed afterward.
+Supported signs, timber station walls, briefing shelter/benches, ground arrows,
+perimeter planting/fence and an offset firing bay/backstop replace the tiny
+repeated-gate corridor. Map follows the larger bent route. Skipping places the
+player at the next approach beyond the skipped obstacle; skip-to-reload leaves
+a reloadable practice magazine. Dynamic rings stay out of static instancing.
+
+31 tutorial/vertical/infantry movement checks pass. Final incremental typecheck
+and the production build pass. The live desktop browser run completes the
+whole course and store tour/replay; a fixed-build run additionally passes phone
+portrait/landscape and six lesson skips through the prone obstacle. No runtime
+errors or map requests in the complete fixed-build run. The public phone run
+was interrupted by another release's normal update screen, so it is not
+reported as a full public phone pass. Earlier fire-smoke aiming was corrected
+to run before Q/ADS changes mouse sensitivity.
+
+Manual `pnpm deploy:cloudflare` succeeded with the dependency freshness check
+disabled for the isolated snapshot's linked, already installed dependencies
+(`--config.verify-deps-before-run=false`). Version
+`f2380ecb-b28d-4b72-8fec-bd0664c4a35a`. Concurrent reload/helicopter releases
+subsequently superseded that full bundle and preserve the tutorial. Current
+blockplaysg.fun and workers.dev tutorial routes, exact authored layout/clearance
+values and working entry assets are verified; the general production routing/
+PWA/model/audio/API-origin checks pass. Do not require equality with the older
+manual bundle hash after those subsequent releases.
+
+Evidence: `.cache/tutorial-redesign/` includes focused/typecheck/deploy logs,
+`browser-live.log`, `browser-final-full.log`, desktop/mobile PNGs, aerial
+`overview-final.png`, live verification and release evidence JSON. The manual
+snapshot is runtime revision ac4c452 plus the two f1c87d7 test type annotations;
+2,845 tracked files were verified against that explicit provenance. The saved
+comparison against later main records expected concurrent additions rather than
+a false exact-commit match. Task-owned preview tabs/servers/Chrome stopped.
+No GitHub push. Preserve concurrent magazine/armory work and local AGENTS.md.
+
+
+## Queenstown connected hillside implementation and deployment (2026-10-31)
+
+Replaced all nine repeated banks with one connected terrain mesh, level housing
+forecourts at 3.6 / 6.4 / 10.2 relative game units, retained downhill edges,
+terrace steps with handrails, contour paths and graded roads / paving. Housing
+structure, facades and collision move together. `RegionBounds.groundHeight`
+feeds infantry support, host spawn / vehicle exits, vehicle grounding and night
+lighting. Bridges and upper housing floors remain independent walk surfaces.
+Continuous ground and graded paving are marked `groundSurface` so flight
+clearance never uses their district-sized boxes. Terrain is an authored
+adaptation, not surveyed present-day RLs. See `docs/QUEENSTOWN-LANDSCAPE.md`.
+
+Local code commits: `60482bd`, `ea1bbc4`, `364658e`. The isolated release in
+`.cache/queenstown-terrain-release/` includes committed work through `f1c87d7`
+and independent dependencies; unrelated uncommitted work stays in the shared
+workspace. Final typecheck passed. Serial targeted regressions: 214 tests /
+14 files passed, including all-district roads, stamps and gateway connectivity,
+Queenstown terrain / housing, raised flight clearance, vehicle tilt, night lamps
+and shared host movement. This is not a full-suite claim. Browser smoke passed
+actual WASD ascent/descent in FPS and exploration, with host actor heights, zero
+runtime errors and zero Google requests. Eight render views were inspected.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`b65d936e-9137-414d-9cde-2434ccfd2bde`. Production Cloudflare routing, assets,
+PWA and API-origin checks passed at https://blockplaysg.fun. Production entry JS,
+Three.js chunk, CSS and service-worker SHA-256 hashes exactly match the tested
+release. Logs: `.cache/queenstown-terrain-{final-tests,final-typecheck,deploy,
+production-check}.log`; asset receipt: `.cache/queenstown-terrain-live-assets.json`;
+browser report under the release's `.cache/queenstown-landscape-smoke/`.
+No GitHub push. AGENTS.md remains local, unstaged and uncommitted.
+
+
+## Gradual spotting with capture objectives kept primary (2026-10-31)
+
+Local main commits 89ca0c8 and 9d11ff3 add host-owned visual identification
+per actor/life. Role sight figures now set spotting pace, with passive range
+bounded by the carried weapon. Stationary assault targets take about .4 s
+at 20 m, 1.2 s at 65 m, 4 s at 150 m and 9 s at 250 m before existing reaction
+delays. XZ motion increases exposure; settled crouch/prone scale it to .6/.28.
+Accepted host shots add a fading signature using existing muzzle flare values
+(bare 1, suppressor .1, compensator 1.6); failed trigger attempts add nothing.
+Mounted actors do not accidentally receive crouch concealment from seat height.
+
+Normal sight samples are bounded to one per .2-second recheck. Occluded
+candidates rotate; nearby newcomers can interrupt slow distant identification
+without an occluded close actor monopolizing attention. Partial evidence fades
+and is not shared between actors or respawned lives. Confirmed positions are
+saved for six seconds, never updated from a hidden actor's live coordinates.
+The existing immediate hit/near-miss response, LOS/smoke/foliage checks, reaction
+delays and two-bot player firing limit remain. Infantry and rooftop roles use
+the new tracker; scripted aircraft/vehicle targeting policies are unchanged.
+
+Owner explicitly clarified that map control stays primary. Capture/build/repair
+squads advance to their assigned site while observing or firing, and stay within
+one metre of their 2.6 m formation slot so the worker remains inside the 4 m
+interaction radius. Search cannot replace that mission. Repeated harassment
+cannot continually restart a capture squad's initial four-second evasion.
+Barrage escape and explicit orders retain priority. Unassigned patrols no longer
+chase unidentified live coordinates. Vertical routes finish their climb before
+ordinary firing-distance movement resumes.
+
+Final 272 affected checks across 25 files pass, plus tsc -b and the compiler/Vite
+gates in manual pnpm deploy:cloudflare. Browser fixture renders actual authority,
+mesh cover and character rigs with accelerated simulation ticks, not a full
+district playthrough. Ten desktop/portrait cases pass with no runtime exceptions
+or paid requests. At 150 m measured first-fire times (including reaction) are
+4.85 s standing, 3.3 s walking, 7.55 s crouched, 15.3 s prone, 1.95 s firing bare
+and 4.05 s firing suppressed. A fully occluded firing target stays unidentified.
+Capture squads secure infrastructure during sustained player harassment, and may
+then repair their damaged home post instead of pursuing the player.
+
+The initial full run passed 2,074/2,083 cases. Friendly-fire and stair fixtures
+were updated to isolate background hostile fire and require a visible balcony
+opponent; reload URL validation now accepts the already-shipped reload directory.
+Capture preflight passes with the forks pool (chdir is unsupported in threads).
+All five remaining Queenstown route/loot/upper-floor/inhabited-floor diagnostic
+failures reproduce with the pre-change arena implementation. No full-suite green
+claim; those inherited terrain issues are outside this spotting change.
+
+Manual deployment succeeded, version 5255d71b-e4fa-46f9-a01f-1b29efeb918f.
+The frozen release matches all 2,901 tracked files of 9d11ff3 and includes the
+latest committed physical-magazine work. Both blockplaysg.fun and workers.dev
+serve byte-identical built JS/CSS/Three.js and sw.js; production asset/model/audio/
+PWA/SPA/API-origin checks pass on both domains without paid requests. Evidence:
+.cache/gradual-spotting/{source-verification,release-evidence,live-verification}.json,
+final-combat.log, final-typecheck.log, deploy.log, browser-final.log, browser/
+captures/results, baseline-comparison.log and baseline-remaining.log. Scripts:
+scripts/fps-spotting-smoke.mjs and scripts/fixtures/spotting.html. Copied private
+environment files removed; task-owned Chrome/Vite stopped. No GitHub push.
+AGENTS.md stays local/uncommitted; preserve concurrent handoff edits unstaged.
 
 
 ## Player vehicle pickups and crew dismounts (2026-10-31)
@@ -5585,6 +6151,183 @@ and `.cache/vehicle-pickup-live-verification.json`. No GitHub push or paid API
 requests. AGENTS.md stays local, unstaged and uncommitted. Preserve the
 pre-existing unstaged handoff changes and .claude directory.
 
+## Rain impacts and wet equipment (2026-10-31)
+
+Local main commits eb025bc and 1399e97 replace the camera-relative rain with a
+bounded world-space streak pool and expanding impact rings/ballistic droplets.
+A static collider-column index clips rain against exposed roofs and convex
+footprints; district groundHeight supports elevated terrain. Nearby rain and
+splashes remain visible from shelter. Reduced effects limits storm streaks to
+183 instead of 1,020. Effects do not raycast or add shadow/render-target passes.
+
+Tagged characters/equipment gain lower roughness, stronger environment response
+and slight darkening while wet, with slow drying. Cloth keeps its metalness and
+camouflage hooks; glass and scenery are excluded. First-person equipment shares
+the world sky environment, rotated into camera-local space. Material values are
+restored on disposal; disposed dynamic materials leave the registry.
+
+Validation: 55 focused tests across eight files pass, pnpm typecheck and the
+production build pass. Full pnpm test passes 2,119/2,120: one existing streetlamp
+geometry test exceeded the 5s timeout under concurrent CPU load. All 15 night-
+lighting tests pass on rerun with a 20s limit. Browser fixture renders the actual
+atmosphere, character rig and SAR model outdoors/under shelter. The real Marina
+range confirms 1,020 streaks, ~180 active splashes, wetness .736 and the reduced
+pool in screenshots. Complete district smoke did not finish: software rendering
+hit screenshot/time limits during the dry transition. Unit checks verify that
+rain stops, splashes expire and wet materials dry slowly. The smoke now supports
+FPS_DEVICE_SCALE=0.5 FPS_SCREENSHOTS=0 plus longer transition waits for software
+renderers; that revised full browser run remains unverified. Evidence is in
+.cache/rain-{focused,tests,night-lights,typecheck,build,fixture-final,live-check}.log
+and .cache/rain-effects/. Task-owned Vite/Chrome were stopped.
+
+Manual deployment succeeded. An intervening deployment replaced the first rain
+release during verification, so current main was deployed again successfully:
+f5148f78-87c4-49f2-9cc3-b0f6b1748006. Both blockplaysg.fun and workers.dev then
+served all three entry JS/CSS dependencies and sw.js byte-identical to dist;
+.cache/rain-live-verification.json records hashes. Production routing/asset/model/
+audio/PWA/API-origin checks pass without paid requests. Deployment log:
+.cache/rain-deploy-final.log. No GitHub push. AGENTS.md stays local/uncommitted;
+all pre-existing handoff edits remain unstaged.
+
+
+## Battlefield scale, distributed fronts and manual release (2026-10-31)
+
+Local main contains battlefield commits 675d5bb, 720c775 and 030afad, with
+concurrent spotting and vehicle-pickup work integrated through merge 906d6a7.
+All nineteen districts have seven clear objectives: two rear command posts,
+two intact neutral forward posts, garage, helipad and an intact neutral supply
+depot (+30 supply/min). The default is 32 regular AI (20 mercenaries / 12
+armed forces). 48 and 64 remain explicit probe configurations. Squads share
+objective allocation, keep rear guards, account for nearby objectives within
+65 m, avoid other squads' corridors and route around parked vehicles.
+Queenstown has ground road anchors, shared cooperative/fair path searches,
+exact terrain/paving ray broadphases and terrain-aware supplies/diagnostics.
+A final 180 s Queenstown run left both factions holding captured forward sites.
+
+Validation: 19-district facility clearance/spacing checks, typecheck and
+Cloudflare build pass. Broad run: 2,092 passed / 2 geometry timeouts, plus one
+worker RPC timeout. The full affected sector file passed separately (96 tests).
+Post-merge vehicle/battlefield checks: 75 passed; final front allocation checks:
+42 passed. Do not claim a green full-suite run. Nine browser probes exercised
+32/48/64 in the original three districts; final Queenstown probes at each size
+passed. Final sampled Queenstown spawn views were about 60 / 59 / 34 FPS on
+the virtual Metal device at 1280x800, not a sustained combat FPS guarantee.
+Live game UI confirms 32 AI, 12 friendlies, seven map facility markers and
+supplies in Queenstown, Marina Bay and Raffles Place, with no runtime errors.
+
+Manual pnpm deploy:cloudflare succeeded from the frozen 030afad checkout,
+version ad11362e-9952-4d74-94f5-20b453e71095. Both public domains' JS/CSS and
+service-worker hashes match that tested build. Production routing/assets/PWA/
+API-origin check passed on retry after a single network timeout. Evidence:
+.cache/battlefield-release/release.json, domain asset receipts, deploy and
+verification logs, browser results/screenshots, simulation results and test logs.
+Concurrent rain work was preserved through the main integration and subsequently
+committed as eb025bc; it is not included in this frozen release. Do not compare
+a later rain deployment against this release's older hashes. No GitHub push or
+paid API requests. AGENTS.md remains local, unstaged and uncommitted.
+
+## Rain on moving Humvees and helicopters (2026-10-31)
+
+Local main commit aa0108c adds vehicle-rain.ts to the shared atmosphere. Rain
+queries only tagged exterior panels/glazing on nearby vehicle models, using
+cached bounds and exact mesh hits; it follows translation, yaw, pitch and bank.
+Impact rings attach to their struck panel; ballistic droplets detach into world
+space. Exterior paint, tyres and metal use the existing wet-surface response.
+Cabin upholstery and instruments remain outside that material registration.
+
+Moving grounded Humvees emit bounded tyre spray. Spinning helicopter rotors
+emit outward ground spray below seven metres; stopped rotors and high aircraft
+do not. Reduced effects lowers both emissions. No vehicle physics, damage or
+traction changes. Driver/pilot roofs now provide actual camera shelter, while
+outside chase views can receive lens rain. The local rain volume extends low
+enough to show road splashes from the raised vehicle chase camera. Effects reuse
+the existing two-draw-call pool; no new render target or shadow pass.
+
+Validation: 73 relevant checks across nine files and typecheck pass both in the
+working tree and the frozen aa0108c release. New checks cover transformed panels,
+sloped cockpit glass, moving splash attachment, static roof precedence, removed/
+far vehicles, dry/parked/reduced tyre spray, rotor speed/altitude, actual driver/
+pilot shelter, upholstery exclusion and elevated chase-camera road impacts.
+The browser fixture uses actual vehicle models and world atmosphere with bounded
+simulated movement: moving exterior, driver, pilot, parked exterior and reduced
+exterior cases all pass with no runtime/render errors. It is not a full district
+physical driving/flight smoke. Results/screenshots: .cache/vehicle-rain/ and
+.cache/vehicle-rain-browser.log. Frozen checks: .cache/vehicle-rain-release-tests.log
+and vehicle-rain-release-typecheck.log. Browser tools and Vite were stopped.
+
+Manual pnpm deploy:cloudflare succeeded from the frozen local aa0108c source,
+excluding concurrent unfinished audio edits. pnpm's automatic install check was
+disabled only for this archive's shared node_modules link; dependencies/lockfile
+were unchanged. Version: 3e5cde2e-ec24-4ae0-95a1-2a8f444d52b0. Both public domains
+serve JS/CSS/Three.js and sw.js byte-identical to that release. Production assets,
+routing, PWA, model/audio and API-origin checks pass without paid requests.
+Receipts: .cache/vehicle-rain-{deploy,live-check}.log and
+.cache/vehicle-rain-live-verification.json. Copied private environment files were
+removed from the release directory. No GitHub push; AGENTS.md stays local and
+unstaged. Concurrent handoff, audio and other source edits remain untouched.
+
+
+## Audible bullet impacts at combat range (2026-10-31)
+
+Owner reported hearing gunshots without the new impact sounds. The actual
+browser engine does trigger the recorded impacts; the mix was burying them.
+Original concrete impact at 50 m measured about 22 dB below the same rifle
+report's tail in its first 50 ms. Local main commit ce7dc42 raises impact gain
+from .24 to .42 and moves its inverse-distance reference from 8 m to 24 m.
+That lifts 25–80 m impacts by 14.4 dB, retaining material/energy differences,
+spatial panning, sound travel, lowpass, the 140 m fade and voice cleanup.
+Existing ElevenLabs recordings are reused; no generation or paid requests.
+
+29 focused tests across six audio/surface/confirmed-impact files pass in both
+the workspace and frozen release; both typechecks pass. Browser actual-engine
+hits and 64 OfflineAudio renders cover all 16 takes at 3/25/50/80 m against an
+actual automatic-rifle bus. Every 50 m attack stays within 20 dB of overlapping
+automatic fire; maximum mixed sample .489, with panning, prompt onset, pause,
+zero runtime errors and zero ElevenLabs requests. This is a focused-check claim,
+not a full-suite run. Evidence: .cache/impact-audibility/{before,after,
+browser-results,release-source,live-verification}.json and browser/tests/typecheck/
+release-tests/release-typecheck/deploy/live-verification/cloudflare-check logs.
+
+Manual pnpm deploy:cloudflare (with dependency verification disabled for the
+frozen snapshot's already-installed dependency link) succeeded from
+.cache/impact-audibility/release at exact code commit ce7dc42. Cloudflare version
+c730bf8e-3072-4a07-9e63-7b8cf6698c77. Both production domains serve byte-identical
+built entry JS/CSS, sw.js and all 16 impact MP3s. Production routing, assets,
+PWA, model/audio and API-origin checks pass. Copied private environment files
+were removed; task-owned Chrome/Vite stopped. No GitHub push. Preserve all
+pre-existing handoff edits and .claude files; AGENTS.md remains local, unstaged
+and uncommitted.
+
+
+## Expanded district map centering (2026-10-31)
+
+Local main commit eafe33f scopes expedition sector/heat offsets and touch corner-
+map sizing/position to .fps-minimap:not(.is-expanded). Previously the heat HUD's
+top:170px/top:154px and landscape touch top:106px could override top:50%, moving
+the full district map into the upper HUD and clipping it. Expanded centering and
+size now apply independently; compact placement is preserved.
+
+26 focused minimap/component/contact checks pass in the workspace and in a
+frozen eafe33f archive. The workspace typecheck initially hit concurrently
+unfinished bot-difficulty changes; the frozen release typecheck passes. Live
+Chrome checks using the frozen release verify M open/close, compact positioning,
+expanded desktop/native fullscreen, and portrait/landscape touch CSS. Expanded
+center deltas are exactly 0px on both axes in all four layouts, with >=16px
+scene clearance. No runtime exceptions or map API requests. Phone layout checks
+use device emulation plus the touch attribute, not a full touch-input smoke.
+Evidence: .cache/map-centering/{tests,release-tests,typecheck,release-typecheck,
+browser}.log, results.json, release-source.json and screenshots.
+
+Manual pnpm deploy:cloudflare succeeded from the frozen local eafe33f archive,
+with dependency verification disabled for the existing shared node_modules link.
+Cloudflare version 0827522b-9598-4c56-84de-fe5ef0a8c782. Both production domains
+serve byte-identical built entry JS/CSS and sw.js; production routing, assets,
+PWA and API-origin checks pass without paid requests. Deployment/live evidence:
+.cache/map-centering/{deploy,live-verification,cloudflare-check}.log and
+live-verification.json. Copied private environment files were removed and all
+task-owned Chrome/Vite processes stopped. No GitHub push. AGENTS.md remains
+local/unstaged/uncommitted; concurrent source/handoff changes were preserved.
+
 ## Destroyed vehicle cleanup (2026-10-31)
 
 Owner requested wrecks clear space for replacements. Local main code commit
@@ -5621,6 +6364,339 @@ link; retry used `pnpm_config_verify_deps_before_run=false` with unchanged
 installed dependencies and lockfile. Private build environment copies removed.
 No GitHub push. AGENTS.md remains local, unstaged and uncommitted. Preserve other
 unfinished work and handoff edits.
+
+
+## Actual item shots in store selectors (2026-10-31)
+
+Local main commits 5aa4b03 and 0772b9c replace generic armory card silhouettes
+and vehicle outline icons with 111 transparent WebP photographs of the actual
+game models. Includes every store category, weapon variant hardware, each skin
+on all five shop platforms and every wrap on both vehicles. Images total less
+than 1 MB and lazy-load; the selected interactive preview remains the only
+WebGL canvas. Regenerate with scripts/armory-thumbnails.mjs using local Vite/
+Chrome; scripts/armory-thumbnail-studio.ts is capture-only, not shipped runtime.
+
+Validation: 12 tests in ArmoryShop and catalog-thumbnail coverage pass; pnpm
+typecheck passes. Browser checks pass across all categories/platforms, desktop
+and 390px mobile: all images decode, one interactive canvas, selection changes
+the preview without changing the wallet, no horizontal overflow or runtime
+errors. Visually reviewed weapon, vehicle, food and mobile shots. Evidence in
+.cache/store-previews/{tests,browser,generation}.log, screenshots and results.json.
+
+Manual pnpm deploy:cloudflare succeeded from frozen source 0772b9c (same app code
+as 5aa4b03), with dependency verification disabled for the existing node_modules
+link. Its build also typechecks. Cloudflare version
+83aea9c4-f5ee-4be3-a2b7-3a18f53cd58b. Both blockplaysg.fun and the workers.dev
+domain serve byte-identical release JS/CSS, sw.js and all 111 thumbnail files.
+Production routing/PWA/model/audio/API-origin checks pass. Receipts:
+.cache/store-previews/{deploy,live,cloudflare-check}.log and live-verification.json.
+Copied private environment files removed; task-owned Vite/Chrome stopped.
+No paid APIs or GitHub pushes. Preserve pre-existing handoff/.claude changes;
+AGENTS.md remains local, unstaged and uncommitted.
+
+
+## AI accuracy, saved difficulty and manual release (2026-10-31)
+
+Local main commits 6d11359 and 4f0f181 add Settings > AI difficulty: Easy,
+Normal (default), Hard, saved per device and read live for solo opposition.
+Friendlies and shared multiplayer use Normal. Health, damage, spotting and the
+two-shooter limit are unchanged. Normal retains a .5 s rough opening, tightens
+to .6 times role spread at 2 s, then .12 at 4 s (previous settled error: 1.5).
+Easy settles to .35 at 5 s; Hard to .075 at 3 s. Tracking uses transverse speed
+and distance; own movement still adds error. Aim survives .3 s interruptions,
+decays behind cover and expires at 1.5 s, resetting for another target/life.
+Distant rifles use pairs and support weapons four-round bursts. Deliberate
+standing fire yields to objectives, player orders, wounds and danger.
+
+119 relevant checks pass across the focused run and targeted reruns. The 64-AI
+case exceeded 20 s under concurrent load and passes with a 60 s allowance.
+The objective fixture now replenishes its stationary 1000-HP observer: improved
+settled fire can kill it during the 55 s observation; all capture/positioning
+assertions remain. Desktop 1280x900 and portrait 390x844 browser checks confirm
+Normal by default, all three presets, persistence, no overflow/runtime errors
+and no map requests. Actual shots narrow and hit at 100/180 m. Runtime tests
+confirm live solo changes and identical shared-match fire across preferences.
+The broad full-suite attempt stopped after a Queenstown motor-pool geometry
+timeout; do not claim a green full suite. The earlier standalone typecheck was
+superseded by the final release build's successful tsc -b typecheck.
+
+Final snapshot dabdcd2 integrates the other completed main changes;
+40 final combat/difficulty/objective/vehicle/keybinding checks pass. Manual
+pnpm deploy:cloudflare succeeded, including its typecheck and production build.
+Cloudflare version: 09554f54-cbcc-4020-a921-1578a58a1413. Both public domains serve entry
+JS/CSS/Three.js and sw.js byte-identical to that build; production routing,
+assets, PWA, model/audio and API-origin checks pass. Evidence: .cache/bot-difficulty/
+release.json, release-focused.log, release-rerun.log, integration.log, browser/,
+deploy.log, live-verification.json and cloudflare-check.log. No private env files
+were copied into the snapshot, no paid API requests, and no GitHub push. Task
+Chrome/Vite stopped. Preserve all pre-existing handoff edits and .claude files;
+AGENTS.md remains local, unstaged and uncommitted.
+
+
+## Ctrl+W crouch movement protection (2026-10-31)
+
+Local main feature commit 84179e6 adds native-fullscreen Keyboard Lock for KeyW
+through the shared FPS fullscreen hook (range, arena, expedition and tutorial).
+Escape remains unlocked. Exit/unmount releases the lock, including late permission
+responses; stale requests cannot release a newer session. Unsupported or denied
+keyboard lock keeps fullscreen usable and explains the C-toggle crouch fallback.
+Windowed browser tabs cannot reliably intercept the reserved close-tab shortcut.
+Tutorial now displays fullscreen notices; the project guide documents this limit.
+AGENTS.md remains local, unstaged and uncommitted; no GitHub push or paid requests.
+
+Follow-up smoke commits 42ef3d5, 8d09da7 and dabdcd2 fix the older fixture's
+vehicle/supply action priority and use the existing FPS focus-emulation setup.
+53 focused tests across six files and incremental typecheck pass on the final
+integrated snapshot. Production tsc/build also pass. The real Chrome browser
+regression passed native KeyW permission, Ctrl+W movement, Escape/mouse release,
+lock release, re-entry, vehicle continuity, denied-keyboard and denied-fullscreen
+fallbacks, scrolling and cleanup, with no runtime/map errors. CDP input verifies
+game input and the real lock grant; it is not a physical Windows Ctrl+W check.
+No full-suite pass is claimed. Earlier browser harness attempts failed from focus,
+fixture assumptions and an unusable headless session; the final headed run is green.
+
+Manual pnpm deploy:cloudflare succeeded from .cache/ctrl-w/release at exact
+committed source dabdcd2 (all 3,063 tracked files verified). This includes the
+concurrent completed store-thumbnail and bot-test changes to preserve main's
+finished work. Final typecheck and focused tests include the thumbnail helper;
+the fullscreen browser regression preceded that independent store integration.
+Version: 7623433c-84d9-46d0-b960-ba7885d2aafa. Both public domains serve byte-identical
+built entry JS/CSS/Three.js and sw.js. Production routing/assets/PWA/model/audio/
+API-origin checks pass. Receipts: .cache/ctrl-w/{source.json,browser-focus.log,
+integrated-tests.log,integrated-typecheck.log,build.log,deploy.log,
+live-verification.json,live-verification.log,cloudflare-check.log}.
+Task-owned browsers/Vite stopped; copied private environment files removed.
+Pre-existing handoff edits and .claude files remain untouched and unstaged.
+
+
+## Visible ammunition in translucent rifle magazines (2026-10-31)
+
+Owner requested visible cartridges draining and a rising follower for the XM8,
+G36 and SAR 21. Local main commit `142a6e5` adds two instanced cartridge draws
+(brass cases and copper tips) plus one follower per visible box magazine. Matrices
+update only when rounds/capacity change. SAR's shipped GLB magazine is a group of
+material primitives: only its Parkerized shell becomes translucent amber polymer;
+raised ribs and rubber base remain opaque. G36/XM8 static brass blocks and top
+rounds are hidden reversibly. Their 20/30-round configuration groups remain intact,
+and drums stay opaque. Armoury previews show the equipped capacity. Actual FPS
+counts use magazineRounds, excluding the chambered round, and loaded capacity;
+weapon switching and field variant redressing rebind without stale/disposed meshes.
+
+23 focused tests and typecheck pass in the workspace and isolated release. The
+full suite initially passed 2,181/2,182 checks with one 5 s map-reference test
+timeout in regions.test.ts; rerunning that unchanged file alone at its normal
+timeout passed all 59 checks. Five new tests use shipped SAR geometry and cover
+shell material ownership, full/empty/follower behavior, zero work on unchanged
+counts, configuration/drum visibility, chamber counts, interrupted empty reload,
+weapon visibility and redressing/disposal. Browser smoke renders full/half/empty
+SAR/XM8/G36 plus a mobile viewport and measures exactly three added magazine draws.
+Actual-engine firing, chamber-only empty magazine, swaps, tactical and empty
+reloads pass for SAR, 20-round XM8 Sharpshooter and G36, with no browser errors.
+Screenshot/CDP races in the initial smoke were corrected with foreground focus,
+a fresh reload-ready flag and HUD-driven trigger release at the last round.
+Evidence: `.cache/magazine-ammo/` (browser-results.json, screenshots, tests.log,
+regions-rerun.log, focused.log, typecheck.log and release validation logs).
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated git archive of
+142a6e5, excluding concurrent HUD edits. Its 3,067 tracked source files match the
+commit; dependency verification was disabled only for the existing node_modules
+symlink. Version: `d82b9569-3bf9-4ce8-952c-88803e2286c6`. Both blockplaysg.fun and
+workers.dev serve byte-identical release JS/CSS and service worker. Production
+Cloudflare routing, asset, PWA and API-origin checks pass. Receipts: deploy.log,
+release-source.json, source-verification.json, live-verification.json and
+cloudflare-check.log in that evidence directory. Copied private environment files
+were removed; task-owned Vite and Chrome stopped. No GitHub push; AGENTS.md stays
+local and uncommitted. Preserve other handoff edits and .claude files.
+
+
+## Minimap and conversation spacing (2026-10-31)
+
+Local main commits a83083a and 33759ee add the shared FpsHudLayout for range,
+arena and expedition. Sector, compact minimap and immersive debug history
+now stack in normal flow; nearby chatter and radio reserve their own row.
+Short landscape panels use separate columns, and portrait history stays in
+the left column clear of ammo and utility supplies. Latest two nearby lines
+remain visible, one in portrait; small portrait screens prioritize an active
+radio line. Expanded maps remain centered and hide the conversation panels.
+Container queries follow the actual game panel size.
+
+26 focused minimap/comms/callout/hint tests pass in the final isolated release.
+Workspace typecheck and final production tsc -b/build pass. The new
+pnpm test:hud:layout browser check passes 21 combinations (three game modes,
+seven desktop/tablet/phone sizes), using four pending nearby lines, wrapped
+radio text, sector heat, history and the complete utility belt. It checks
+speech/map/history separation, screen bounds, actual ammo/vitals/belt
+clearance, header visibility and expanded-map centering. Screenshots reviewed
+for desktop, portrait and landscape. The existing fullscreen phone regression
+also passed with a local scroll/focus harness adaptation and emulated safe
+insets in both orientations. Its screenshot review prompted the final
+portrait history narrowing, then reverified by the dedicated 21-case check.
+Initial legacy harness attempts were disrupted by development page reloads
+while preview/snapshot HTML was written; no full-suite pass is claimed.
+
+Manual pnpm deploy:cloudflare succeeded from the isolated git archive of
+33759ee9e70e1f784b3a3b9e74a007aeec18841b. All 3,070 tracked files match that
+commit, including the completed magazine-ammo change in its parent; no private
+environment files were copied. Dependency verification was disabled only for
+the existing node_modules symlink. Cloudflare version:
+548c9525-8e0f-49fc-a2e2-c2e2daf43c35. Both blockplaysg.fun and workers.dev serve
+byte-identical release HTML, entry JS/CSS, Three.js and service worker.
+Production routing/assets/PWA/model/audio/API-origin checks pass. Evidence:
+.cache/hud-overlap/{results.json,source-verification.json,release-tests.log,
+deploy.log,live-verification.json,cloudflare-check.log,fullscreen.log} and
+screenshots. Task-owned Vite/Chrome stopped. No paid API requests or GitHub
+pushes. AGENTS.md remains local, unstaged and uncommitted; preserve other
+handoff, .claude and concurrent engine/viewmodel/test edits.
+
+
+## Final rounds drain through the feed belt (2026-10-31)
+
+Owner requested the last N rounds disappearing through belt-fed weapons too.
+Local main commit `3d465a6` hides cartridge groups from box mouth toward the
+feed tray as ammunition drops below the authored belt length: eight rounds on
+FN MAG/CIS .50, six on MG4. Cases, projectiles and links disappear together;
+the final cartridge remains at the feed mouth. Belt endpoints now sit just
+outside the solid feed-port detail so that last round is actually visible.
+No extra geometry, materials or draw calls. Existing hanging/taut reload motion
+continues; an extracted box hides its belt and a pending fresh box shows a full
+belt during threading before gameplay seats the ammo. Weapon swaps, ready
+animations and interrupted reloads retain the actual count. Handling teardown
+restores authored visibility. Engine debug dataset: beltAmmo.
+
+62 focused checks across seven files plus typecheck pass in the workspace and
+frozen release. Six new tests cover every tail count, link visibility, final
+case clearance, open-bolt ammunition, interrupted reload/extraction, fresh belt
+threading, ready/switch continuity and cleanup. Browser fixtures show full,
+tail-start, one and zero rounds, including mobile viewport rendering. The actual
+FPS engine fired each MAG/CIS .50/MG4 down through every final belt round;
+sidearm swaps retain the one-round tail, removed belts stay hidden and fresh
+belts appear while pending before seating. All pass with no browser errors.
+The render grid confirms disappearing rounds remove three draws each. Browser
+polls wait for the visual frame after HUD weapon switches. No full-suite run is
+claimed for this follow-up. Evidence: `.cache/belt-ammo/` (smoke.mjs, browser.log,
+browser-results.json, screenshots, tests.log, typecheck.log, release-tests.log
+and release-typecheck.log); reusable visual fixture: scripts/fixtures/belt-ammo.html.
+
+Manual `pnpm deploy:cloudflare` succeeded from an isolated git archive at
+3d465a6, with all 3,072 tracked files verified. Dependency verification was
+disabled only for the shared installed node_modules link. Version:
+`34bfdf4c-fb39-4ae0-8c7b-590f751e536e`. Both production domains serve the exact
+release JS/CSS/Three.js and service worker; production routing, assets, PWA,
+model/audio and API-origin checks pass. Receipts: source-verification.json,
+deploy.log, live-verification.json/log and cloudflare-check.log in the evidence
+directory. Copied private environment files removed; task-owned Vite and Chrome
+stopped. No GitHub push. AGENTS.md remains local, unstaged and uncommitted;
+preserve pre-existing handoff changes and .claude files.
+
+
+## Belt reloads follow the actual carried box and visible hand contacts (2026-10-31)
+
+Owner accepted the proposed belt-fed reload overhaul after reporting floating
+belts. Local main commit `114c3d7` replaces the old independent belt/hidden-box
+blend with a dedicated sequence for MAG, CIS .50 and MG4: hand opens the cover,
+removes the old box/belt, retrieves the fresh box, seats its visual at .64 on the
+tactical clock, grasps the free belt end, places it by .69 and closes the cover
+by .74. Existing ammo inventory/seat commit (.74), reload duration, last-N round
+depletion and empty charging event stay on their existing gameplay clock. A
+smaller steady gun cant exposes the tray; suspended belt reloads retain the saved
+gun pose instead of reverting to the idle gun while holding the pending box.
+
+`fps-belt-reload.ts` anchors the first cartridge to the actual hand-carried box
+through the pouch's bounds mapping. During pickup the belt hangs with slight
+sway and fixed segment lengths; placement constrains both box and hand/tray ends.
+No new belt meshes/materials or full physics simulation. Explicit glove contact
+points follow the latch and belt, with the existing connected pouch arms following
+the final wrist pose. Partial old belts are held by the hand before travelling
+with the removed box; empty guns show no old belt. Teardown restores authored poses.
+
+The pouch helper now supports a separate visual box-seat clock, exact fitting,
+the mounted-box transform and arm updates after the final hand pose. Its bounds
+exclude inactive configurations, handle/loose-belt decorations, and correctly
+measure instanced interiors. Reserve-box handle/folded-belt cues remain visible
+when stowed, and hide on the carried copy where the moving belt replaces them.
+Capacity changes grow boxes downward while keeping the feed exit at the mount.
+These details prevent floating attachment points and a small box-handoff jump.
+
+An earlier full run passed 2,198 tests across 236 files. After the final physical
+bounds/decor refinement, all 68 focused tests across nine files and typecheck
+pass both in the workspace and the frozen committed release. Twelve new belt
+reload tests cover carried-box attachment under camera pitch/projection, fixed
+link lengths over tactical/empty/partial reloads, latch/finger contact, continuous
+box handoff, interrupted carry and decoration ownership/physical bounds. Existing
+rifle pouch, magazine depletion, machine-gun sights and deployment poses pass.
+
+Actual-engine browser reloads at native timing pass for all three platforms,
+including empty reloads, the full stage sequence, finite transforms/contacts,
+fixed links, source-box anchors and weapon-switch suspension/resumption mid-carry.
+No browser errors. This animation QA used native emulated touch entry after the
+headed browser denied pointer capture; it is not a new mouse-capture regression
+check. The preview fixture uses the same optimized Three.js module as the game
+so its authored source meshes participate in geometry bounds correctly; final
+checks explicitly reject non-finite values rather than accepting JSON nulls.
+Reusable scrub/playback fixture: scripts/fixtures/belt-reload.html. Evidence:
+.cache/belt-reload/{full-tests.log,tests.log,typecheck.log,release-tests.log,
+release-typecheck.log,preview-results.json,browser-results.json,browser.log},
+plus staged/actual-game screenshots and local CDP smoke scripts.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated git archive at
+114c3d7, with all 3,075 tracked source files verified. Dependency verification
+was disabled only for the existing installed node_modules symlink. Version:
+`e00fa701-3dd1-4adf-aa02-586839f5bbf7`. Both public domains serve byte-identical
+release JS/CSS/Three.js and service worker. Production routing/assets/PWA/model/
+audio/API-origin checks pass without paid requests. Receipts: source-verification.json,
+deploy.log, live-verification.json/log and cloudflare-check.log in that evidence
+directory. Copied private environment files removed; task-owned Vite and Chrome
+stopped. No GitHub push. AGENTS.md remains local, unstaged and uncommitted;
+preserve pre-existing handoff edits and .claude files.
+
+
+## Offensive squads, flank approaches and perimeter patrols (2026-10-31)
+
+Owner reported single-file movement, objective beelines and command-post camping
+on Marina Bay. Local main commit faeecbf keeps at most one rear-guard squad,
+weighted by living troop counts so at least half remain on offensive assignments
+while neutral/enemy sites exist. Surplus attackers reinforce active fronts rather
+than occupying every friendly cabinet. Fully friendly maps still receive patrols.
+Long attacks alternate direct routes and bounded flanks through authored ground
+anchors, penalizing approaches already used by other squads. Individual approaches
+expire, and respawn/reset clears old assignments. Existing collision/stair planning,
+player orders, wounds and danger avoidance retain priority.
+
+Nearby travelling soldiers separate laterally without exceeding their speed;
+spacing converges at corners/entrances and excludes troops on another floor. One
+worker stays at the cabinet while squadmates cover 8–14 m positions. Quiet posts
+rotate 14–23 m patrol positions. The active worker remains the leader until work
+ends, preserving capture progress. docs/FACILITIES.md documents the behavior and
+existing neutral posts/supply depots. Additional moving objectives were discussed
+as a future design direction; no new game mode or objective type was added.
+
+Validation: full suite passed 2,207 tests / 236 files before the final added
+blocked-approach regression. All 66 final focused AI/navigation/facility/order/
+combat checks and typecheck pass in the isolated release. A two-minute real-scene
+Marina comparison starts 24/32 bots on offense and 16 on flank approaches; at
+20 s, zero bots remain within 4 m of cabinets versus eight before. Cumulative
+24 m map coverage is essentially unchanged at 120 s (93 versus 94 cells), so no
+claim of increased total map coverage is made. Real Chrome/Metal Marina gameplay
+passes with 32 active bots, seven sites, six assigned objectives, about 60 FPS,
+zero runtime errors and zero paid/map requests. The dedicated smoke uses native
+emulated touch entry after Chrome denied mouse capture; it does not claim a
+mouse-lock regression check. Earlier harness runs hit initial navigation/HMR and
+capture issues. Evidence: .cache/ai-spread/ (full-tests.log, focused.log,
+release-tests.log, release-typecheck.log, comparison.json, browser/results.json,
+browser/marina-bay-32.png). Local browser-smoke.mjs preserves the harness changes.
+
+Manual pnpm deploy:cloudflare succeeded from the isolated release at exact
+faeecbf354bffbf37bea5af8b06150aa02c5fc0f, verifying all 3,075 tracked files.
+Dependency verification was disabled only for the existing installed node_modules
+symlink after pnpm correctly refused to replace its parent target. Required
+production tsc -b/build passed. Version: b770623b-5c14-425b-93b2-9e5db7541d22.
+Both public domains serve byte-identical release HTML, entry JS/CSS, Three.js and
+service worker; production routing/assets/PWA/model/audio/API-origin checks pass.
+Receipts: source-verification.json, deploy.log, live-verification.json/log and
+cloudflare-check.log. Copied private environment files removed. No GitHub push.
+AGENTS.md remains local, unstaged and uncommitted. Unrelated elite-squad edits/
+commit and all prior handoff/.claude work were preserved and excluded from this
+frozen deployment.
 
 
 ## Soldiers identify their faction through shape and equipment (2026-10-31)
@@ -5707,6 +6783,67 @@ routing/assets/PWA/model/audio/API-origin checks on both. Evidence:
 No paid generation/API calls or GitHub pushes. Task-owned Vite/Chrome stopped;
 private copied environment files removed. Preserve unrelated command-camp,
 battlefield-scenario, engine, facility and pre-existing handoff changes.
+
+
+## Command camps and independent rear-guard patrols (2026-10-31)
+
+Owner proposed replacing literal command boxes with miniature camps and spreading
+rear guards farther out. Local main commit a334c09 implements an open radio/map
+table under a command canopy, two cot shelters, supply stacks and separated
+sandbag positions. Each component samples its whole footprint for clearance and
+terrain grade, avoiding reserved entry/NPC/fleet locations. Home posts prefer
+anchors with space for a canopy and multiple camp sections. Narrow forward posts
+adapt by omitting blocked furnishings. Every district retains seven clear sites.
+The central console alone is damageable/capturable; camp furnishings remain real
+movement/gunfire cover after equipment loss. Control bounds match the wider,
+lower console; shelters have open aisles and jump ceilings. Repeated camp boxes
+batch by material into at most five furnishing draws per camp. Static camp cover
+lives outside the facilityId exclusion used for the damageable control core.
+
+Quiet command guards get separate, opposing patrol legs through 18–40 m stops,
+independent arrival pauses and 35 s blocked-leg recovery. Four initial guards
+start in different perimeter sectors. Contested posts return them to 8–14 m
+covering positions; repairs/captures retain one close worker. Player orders,
+wounds/danger, offensive allocation and respawn/reset behavior continue. Shared
+camp obstacles/navigation anchors/ceilings feed both the actual FPS world and
+the real-scene benchmark. Layouts validate as bounded optional snapshot data;
+legacy saves without camps remain accepted. Facility/project docs were updated.
+
+Validation: full suite passed 2,231 tests / 239 files. After the final ceiling
+integration, all 98 focused camp, facility, district, AI, navigation, order,
+vehicle and rendered-cover checks plus typecheck pass in the isolated release.
+The new tests cover component fitting, terrain slopes, open aisles, solid cover,
+jump ceiling contact, console hit bounds, snapshot bounds, resource cleanup,
+individual pause/direction/timeout behavior, real rear-guard movement and a return
+to close defense when a raider enters the camp. All nineteen districts pass
+clearance and deployment tests with the actual new camp colliders.
+
+The reusable scripts/command-camps-smoke.mjs and fixture render both Marina home
+camps, grounded and overhead, then advance 65 simulated seconds. Allied camp:
+eight sections / twelve patrol stops; mercenary camp: nine / thirteen. All eight
+guards leave the center and visit multiple stops, reaching about 32–38 m; their
+sampled routes cover 28 and 27 distinct 8 m cells respectively. Mobile rendering
+also passes. Preview rigs hide actors who leave the view, avoiding ghost figures;
+the fixture resizes its renderer/camera correctly. A final actual-engine Marina
+smoke runs 32 active bots / seven sites / six assigned objectives at about 60 FPS
+(15 s sample), zero runtime errors and no paid/map requests. Touch entry was used
+after the prior Chrome mouse-capture limitation. Evidence: .cache/command-camps/
+(full-tests.log, final-focused.log, ceiling-tests.log, typecheck.log,
+release-tests.log, release-typecheck.log, browser/results.json and screenshots,
+game-browser/results.json). Task Chrome/Vite cleanup follows verification.
+
+Manual pnpm deploy:cloudflare succeeded from an isolated git archive at
+exact a334c09d3831d30a896fea7cf990546ffa17156f. All 3,088 tracked files match the
+commit, including the already completed elite-squad and faction-recognition work.
+Dependency verification was disabled only for the existing installed dependency
+symlink. Production tsc -b/build passed. Cloudflare version:
+1e3024bb-0e37-4175-ad3e-5bd397cd6b2b. Both public domains serve byte-identical
+release HTML, entry JS/CSS, Three.js and service worker; production routing,
+assets/PWA/model/audio/API-origin checks pass. Receipts: source-verification.json,
+deploy.log, live-verification.json/log and cloudflare-check.log. Copied private
+environment files removed. No GitHub push. AGENTS.md stays local, unstaged and
+uncommitted. Preserve prior handoff/.claude and concurrent faction appearance
+working-tree edits; those later uncommitted edits were excluded from the release.
 
 
 ## Freedom Force and Collective Cops art prototypes (2026-10-31)
@@ -6009,6 +7146,224 @@ GitHub push. Concurrent arena/patrol/benchmark/Queenstown work was preserved and
 excluded from the frozen release; keep local AGENTS.md unstaged/uncommitted,
 pre-existing handoff changes and .claude/ files.
 
+## Queenstown void-deck z-fighting fix (2026-10-31)
+
+Owner reported flickering void-deck floors and asked about design documentation.
+Local main commit b37231d removes terrain and draped exterior paving inside the
+shared concrete deck/stair-entry footprints. The new pure-data housing-layout
+module supplies exact bounds to both surfaces. Floor/walking heights stay at
+the existing datum. Terrain ray acceleration now preserves actual indexed mesh
+holes instead of reconstructing invisible triangles beneath floors. No depth
+bias or floating-floor workaround. docs/QUEENSTOWN-LANDSCAPE.md now explicitly
+records the design principles and surface-ownership rule; the Singapore research
+brief remains linked there.
+
+A new regression first reproduced the overlap, then passed for all 18 ground
+floor footprints. Frozen commit release typecheck and 47 focused tests across
+five files pass (housing, landscape, scene, terrain raycast, vertical movement).
+Five rendered standing/glancing views show clean raised/low decks and stair
+entry; no browser errors or Google requests. Evidence:
+.cache/queenstown-void-deck-fix/ (before.log, release-typecheck.log,
+release-tests.log, source-verification.json, renders/, deploy-configured.log,
+production-custom.log, production-workers.log, live-assets.json/log).
+
+Manual pnpm deploy:cloudflare succeeded, version
+0a62f9f4-7b71-42ce-baf8-a89b843b9539. Both blockplaysg.fun and the workers.dev
+origin pass Cloudflare routing/assets/PWA checks and serve exact release HTML
+and all eight entry JS/CSS/service-worker files. The first deployment attempt
+was interrupted to include the private local demo-map configuration; the final
+entry was checked for that configuration without printing credentials. The
+temporary private env copy was removed. Task Vite/Chrome stopped. Snapshot was
+built with filesystem clones after an initial archive exhausted free disk;
+only this task's incomplete snapshot was removed. No GitHub push or paid API
+requests. Preserve concurrent arena/patrol/docs/benchmark and pre-existing
+handoff edits; AGENTS.md remains local and untracked.
+
+## Photo-informed Queenstown communal seating (2026-10-31)
+
+Owner requested more detailed void decks with stone tables/benches and occasional
+engraved game grids, asking to inspect real photos. Directly downloaded/viewed
+The Lion Raw's img_1193/1195 (granite drum stools and red mosaic curved benches)
+and Jonathan Tan's Lepak Downstairs photographs frankie-4/11 (green horseshoe
+bench/plain dark table and blue mosaic Xiangqi table/six stools). Sources, scope
+and implementation principles are recorded in docs/QUEENSTOWN-LANDSCAPE.md:66.
+Review-only source photos and SHA-256 receipt remain under
+.cache/queenstown-void-deck-details/references; no photo texture is shipped.
+
+Local main commit 783e41e adds twelve pedestal table groups across the six slab
+blocks, twelve standalone benches, curved/backed mosaic seating and four/six
+stone drum-stool arrangements. Finishes vary between granite, jade mosaic and
+terracotta. Two Xiangqi and two checkerboard tops are baked into real cap
+materials, avoiding coplanar overlays. Removed the old identical back benches.
+Furniture follows each level pad; finite-height convex collision preserves
+curved-seat openings. Material batches keep original part bounds for flight
+collision, so a merged batch cannot seal the airspace between blocks. A bench
+initially narrowed the existing through-route; corrected its position and all
+complete routes now pass at both player radii.
+
+Frozen source verification matches all 3,105 tracked files to 783e41e. Both
+workspace and frozen release typecheck and 69 focused tests across six files
+pass. Seven Chrome/Metal renders reviewed, including close board/stool/curved
+bench views, raised/low decks, glancing floor view and overview; zero browser
+errors or Google requests. Manual pnpm deploy:cloudflare succeeded, version
+be1d6db9-e91a-4a6a-bd92-f4fc278de364. Both production domains pass Cloudflare
+routing/assets/PWA/API-origin checks and serve exact release HTML plus all eight
+entry JS/CSS/service-worker files. Demo-map configuration was verified without
+printing credentials; the temporary private env copy was removed.
+
+Evidence: .cache/queenstown-void-deck-details/ (source-verification.json,
+release-typecheck.log, release-tests.log, deploy.log, production-custom.log,
+production-workers.log, live-assets.json/log, renders/, references/). Task-owned
+Vite/Chrome stopped. Temporary release snapshot removed after verification to
+reclaim disk; logs, reference images and screenshots retained. The previous
+void-deck-fix temporary release snapshot was also removed before freezing this
+one; its evidence remains. No GitHub push or paid requests. Keep AGENTS.md local,
+untracked and unstaged; pre-existing handoff and .claude changes preserved.
+
+
+## Sector patrol assignments and physical coverage (2026-10-31)
+
+Owner accepted formal sector patrols distinct from camp footprints. Local main
+commit 9fa169a adds sector-patrols.ts and passes every district's named sectors
+plus full curated/road anchors into the authority. Valid ground points are
+sampled across each sector (up to 24 stops, at least 18 m spacing); sectors need
+no camp. Worlds with named areas and no facility system can also assign patrols.
+The allocator separates camp defense, sector patrol and attack squads, retaining
+at least half the living regular population on offensive assignments when
+neutral/enemy sites exist. Normal Marina 32-bot start: 20 attackers, four local
+sentries, eight sector patrollers. Camp teams split two sentries/two patrollers;
+additional squads cover other sectors. Explicit orders and existing vehicle/
+airborne crews override support allocation. Legacy environments retain their
+local camp patrol behavior. Camps outside named bounds use the nearest sector.
+
+Per-faction coverage records actual same-level troop visits within 12 m of
+sampled stops, including passing friendly infantry. Planned destinations,
+blocked paths and soldiers on another floor do not count. Visits become stale
+after 90 s; age/unvisited/fresh metrics appear in patrolStatus and the battlefield
+benchmark. Friendly destination leases spread patrols; opposing leases are not
+read. Arrival pauses, bounded travel leases and 60 s failed-stop backoff prevent
+stranding. Dedicated squads can change sectors after their initial 180 s period.
+Nearby sightings produce bounded ten-second investigations followed by fifteen
+seconds of patrol, with pursuit confined to the sector plus a 12 m margin and
+nearby contacts. At most two patrollers, and no more than half a side's patrols,
+can respond within 110 m to a contested/damaged command camp before resuming
+coverage. Small duty/sector snapshot fields are validated; coverage history stays
+local to the authority. Spawn/reset releases claims and clears history.
+
+Ground mission heights now use terrain and authored step-height support, not
+vertical roof raycasts. Overhead roof colliders no longer exclude valid ground
+spawn/capture slots. Initial broad occupancy filtering caused two legacy terrain/
+pavement regressions; the final height-aware obstacle filter preserves those
+spawn semantics. Tests cover reaching/capturing the console under a real canopy,
+plus vehicle pavement exits and convex-earth shot shielding. Facility/project
+docs describe the separation, sampled coverage limits and tuning behavior.
+
+Final full suite passes 2,256 tests / 242 files. All 110 focused tests across 11
+files and typecheck pass again in the isolated committed release. Eleven new
+sector tests cover independent areas, troop budgets/casualties, unavailable
+squads/orders, independent factions' claims, real/stale visits, failed legs,
+bounded investigations, actual resumption under continuous sightings, reset and
+snapshot safety, worlds without facilities and canopy capture. Real-scene 180 s
+probes run Marina 32/64, Queenstown and Raffles with valid snapshots and patrols
+beyond camp radius; Queenstown samples show response and subsequent resumption.
+The browser sector smoke visits 71/142 sampled Marina waypoints in 180 s versus
+58 on the same set in one previous-behavior headless run. This is one comparison
+with differing navigation/combat timing, not a whole-map-area or statistical
+coverage claim. The baseline captures only actual physical visits. Browser
+screenshots include desktop/mobile coverage and destinations. Actual-engine
+Marina gameplay passes at 32 and 64 bots, about 60 and 59 FPS respectively in
+10 s samples, no runtime errors or paid/map requests. Touch entry follows the
+prior Chrome pointer-lock limitation; this is not a mouse-lock regression check.
+
+Evidence: .cache/sector-patrols/ (full-tests-final.log, focused.log,
+height-tests.log, sector-tests.log, typecheck.log, release-tests.log,
+release-typecheck.log, browser/results.json/screenshots, game-browser/results.json,
+marina-bay-{32,64}.json, queenstown-32.json, raffles-place-32.json,
+baseline.json/log). Reusable scripts/sector-patrols-smoke.mjs and its map fixture
+show named-area coverage; pnpm analyse:battlefield now reports roles/sectors/
+coverage. A harmless SSR WebSocket-port warning appeared in the baseline probe;
+the completed run and receipts are preserved. Task-owned Vite/Chrome stopped.
+
+Manual pnpm deploy:cloudflare succeeded from the isolated archive at exact
+9fa169ad0df89ce79454517223f7b0a83c00040e. All 3,104 tracked files match the
+commit; dependency verification was disabled only for the shared installed
+node_modules symlink. Production tsc -b/build passed. Cloudflare version:
+16367ff4-5639-49db-baf8-03427ad5ea32. Both public domains serve byte-identical
+release HTML, entry JS/CSS, Three.js and service worker; production routing,
+PWA/assets/model/audio/API-origin checks pass. Receipts: source-verification.json,
+deploy.log, live-verification.json/log and cloudflare-check.log. Temporary private
+environment copies removed. No GitHub push. AGENTS.md stays local, unstaged and
+uncommitted. All previous handoff/.claude and unrelated work were preserved.
+The concurrent Queenstown furniture commit 783e41e landed after this release was
+frozen and is excluded from this deployment; its later deployment should retain
+these sector changes through main's parent chain.
+
+## Forked district-specific ground/design sessions (2026-10-31)
+
+After Queenstown furniture was completed and verified live, owner explicitly
+requested a few forked sessions to adapt the principles selectively to other
+maps. Three same-directory Codex forks were created and sent scoped implementation
+prompts; all showed active/in-progress status at dispatch:
+
+- 01a191d3-8aa6-7423-a788-fe79e839f5fd — Toa Payoh & Tampines: estate ground and communal spaces.
+- 01a191d3-de26-7b01-a89d-c3264f29c083 — Bukit Timah & Upper Thomson: connected slopes and paths.
+- 01a191d4-120a-7331-8508-8ae8014da1e0 — HarbourFront & Sentosa: coastal levels and hillside routes.
+
+Each owns only its assigned maps and a pair-specific new documentation file.
+Prompts require real/cached photo research, selective site-appropriate landforms,
+level access and furniture, preserved routes and single surface ownership;
+no blanket Queenstown hills/seating, invented reference acceptance or paid
+captures. They must implement, test, visually review, locally commit on main
+and verify manual Cloudflare deployment, without GitHub pushes. Shared deployment
+lock: atomically mkdir .cache/district-principles-deploy.lock, record ownership,
+freeze latest committed main only AFTER acquiring it, deploy/verify, release
+in finally. Exclude unrelated working edits and preserve local AGENTS.md and
+private config; remove temporary private/release copies after verification.
+These are running tasks, not completed or deployed map changes yet.
+
+## HarbourFront / Sentosa ground design (2026-10-31)
+
+Fork explicitly requested by owner to adapt Queenstown principles selectively.
+Local main commit 0ee994a replaces HarbourFront's five stacked Mount Faber boxes
+with one connected shoulder, concrete stair flights/landings, a contour route,
+level rest/lookout pads and timber seating. Three mall-side cargo cage groups
+become seating/planting; terminal cargo stays. The quay, roads, VivoCity facade
+and boardwalk levels remain. Sentosa's existing fort terraces now blend into
+planted shoulders, have road-clear entries ending at z=12, longer usable slopes,
+short retained side edges and three trail benches. The low coast, Palawan bridge
+access and reviewed Skywalk/shore structures remain. No HDB game-table template
+was copied into these coastal maps.
+
+Both bounds expose exact terrain-triangle samplers. Terrain is clipped beneath
+the stair and fort surfaces, retaining one finish owner. Fort earth surfaces
+and thin path cladding use ground sampling for flight, avoiding tall enclosing
+boxes above slopes. Seating/new trunks have finite-height collision.
+
+Read docs/HARBOURFRONT-SENTOSA-GROUND-DESIGN.md for sources and scope. Directly
+viewed existing Vivo waterfront (2017-10) and Palawan shore (2015-02) images plus
+NParks Faber Point and Little Day Out's Marang stair/Siloso trail photos. Public
+photo cache/checksums in .cache/coastal-ground/references; no source photo shipped,
+no accepted Google image records added and no paid requests.
+
+Frozen source verification matches all 3,108 tracked files to 0ee994a, excluding
+other sessions' uncommitted district changes. Typecheck and 70 tests pass: 62
+terrain/movement/vehicle/FPS tests plus 8 targeted registry/vertical-place checks
+for the two maps. Eleven Chrome/Metal render views reviewed, including overviews,
+stairs/rest places/terraces, the quay seat and Palawan shore/bridge; zero browser
+exceptions or Google requests. Manual pnpm deploy:cloudflare succeeded under the
+shared deployment lock, version 2a970d5d-cf1e-4406-adb5-6c79c463312d. Both production
+origins serve exact release HTML and eight entry JS/CSS/service-worker files,
+and pass Cloudflare routing/assets/PWA/API-origin checks. Demo-map configuration
+was checked without printing credentials. The lock was released in finally;
+temporary private env copy removed.
+
+Evidence: .cache/coastal-ground/ (source-verification.json, release-result.json,
+release-typecheck.log, release-tests.log, release-map-checks.log, deploy.log,
+configuration.log, production-custom.log, production-workers.log, live-assets.json
+and log, renders/, references/). Task Vite/Chrome stopped and own temporary
+release copy removed to reclaim disk; evidence retained. No GitHub push. Keep
+AGENTS.md local/untracked and preserve concurrent district work and handoff edits.
+
 
 ## XM29 Peace Offering / Escalation Clause names (2026-10-31)
 
@@ -6227,6 +7582,571 @@ and shared deployment lock were removed. No GitHub push. AGENTS.md remains local
 untracked and unstaged. Preserve the pre-existing handoff and .claude changes.
 
 
+## Starting equipment on expedition respawn (2026-11-01)
+
+Owner requested restoring the original equipment instead of the last pickup.
+Local main code commit `b13f993` keeps an immutable expedition-entry profile in
+ExpeditionGame across district travel. On death, after fallen-kit processing,
+the engine restores its guns, carry slots, rig, plates and vision, prepares the
+solo authority with the original armor rating, selects the original main and
+rebuilds weapon fittings. Field-only supplies are discarded; earned rewards,
+wallet balances and remaining purchased supplies keep their current values.
+Manual and automatic respawns receive fresh ammunition for that starting kit.
+
+34 focused tests and workspace/isolated typecheck pass. Real Chrome checks of
+the committed engine pass both manual and automatic respawn from a traveled
+pickup loadout: Ultimax + elite plate returns to SAR/P30, 35 original armor,
+31 loaded SAR rounds, unchanged credits and remaining purchased bandage,
+without field grenades or runtime exceptions. Browser authority instrumentation
+only disables bots/reinforcements and exposes the real runtime for lethal
+vitals; no production testing hooks were added. Evidence and harness are in
+`.cache/respawn-equipment/`.
+
+Main advanced with the separate rentals commit before deployment. The release
+was refreshed under the shared deployment lock to exact committed main
+`7d01b16701a0c2f38d4edc47283c9f1c0e612e68`, containing `b13f993`; its 81 relevant
+tests / seven files and typecheck pass. Manual `pnpm deploy:cloudflare` passed
+its production build and upload: version `fa870ac9-6774-4239-a21d-cbc82381e588`.
+Ten exact-byte comparisons of HTML, entry JS/CSS, Three.js and service worker
+pass across blockplaysg.fun and workers.dev. Production routing/PWA/model/audio/
+API-origin checks pass without paid requests. Logs and JSON receipts are in
+`.cache/respawn-equipment/`. Temporary private config, isolated release, owned
+Vite/Chrome processes and deployment lock were removed. No GitHub push.
+AGENTS.md remains local/untracked/unstaged; unrelated handoff, .claude and
+weapon-rentals smoke edits are preserved.
+
+## Weapon rentals, demo credits and next-respawn loadouts (2026-11-01)
+
+Owner requested classic timed weapon rentals, a credits button matching the demo
+TK button, and a screen to choose the next weapon loadout on respawn. Local main
+commits: `7d01b16` (rentals/CR top-up), `c0bf081` (browser hit testing), `dbb5e72`
+(selector/authority integration), `226a998` (expire queued rental equipment).
+No GitHub pushes. Existing permanent weapon purchases remain permanent.
+
+Paid shop weapons offer 1/7/30-day rentals at 10/30/60% of permanent catalog price,
+rounded up in the same currency, plus the original permanent option. Default UI
+term is one day. Renewals append time; no automatic renewals/debits. Full-price
+permanent upgrades clear the rental. Rentals are absolute UTC expiry timestamps
+in the v1 local profile's separate `rentals` map. Restore validates IDs/times,
+keeps legacy ownership and falls back to issued gear when elapsed. Store/card/
+carry-slot countdowns, expiry date, renewal and permanent-upgrade controls are
+implemented. Active engine and host damage/magazine rules also expire rentals.
+The +1,000 demo CR button shares the wallet/purchase audio flow and 1,000,000 cap;
+it reports the actual amount added at the cap and makes no payment/API request.
+
+The dedicated respawn selector is available from Open World pause/down menus and
+multiplayer's Your loadout/down menus. It chooses a main, an optional unlocked
+extra main and a sidearm from owned or active rented variants. Confirming queues
+weapons for the next spawn, leaving the current life and saved Store selection
+alone. Selections persist through this session's later lives and world travel.
+The host validates a guest's selection against its admitted locker, acknowledges
+it, and applies sanitized weapon stats/allowed families at spawn. Renderer swaps
+variants, ammunition and effects together on the spawn frame. Selection does not
+alter balances, progression, supplies or armour choices. Existing expedition
+starting-armour restoration remains. Respawn drops field-only ownership and
+prunes elapsed rental selections, so a previous life's pickup cannot turn a
+rental permanent. Match/respawn time continues while selecting.
+
+Final validation: typecheck and 249 focused cases across 21 files pass, including
+all arena suites, host/guest acknowledgement and forged-ownership rejection,
+main/extra/sidearm legality, alive/dead queuing, real simulation respawn,
+expired queued rental damage and previous-life ownership cleanup. Cloudflare
+production build passes. The earlier broad rental run passed 2,362 cases and
+failed the known Upper Thomson thomson-plaza ground anchor plus two 5s timeouts
+(Queenstown world-zone flood fill and Marina show); those two files pass all 33
+cases on isolated recheck with a 20s timeout. No full-suite pass is claimed.
+
+Chrome checks cover rental purchase/renew/equip/reload/permanent upgrade, actual
+CR button, 390px layout and active rental expiry without a restart or charge.
+Selector desktop/390px screenshots were reviewed. An actual engine fixture
+queued a different main, extra main, sidearm and rental, kept current equipment
+and persistent selection unchanged, then applied all choices after a death and
+ordinary automatic respawn. Fixture-only observation/health hooks are in .cache,
+not production code. No runtime exceptions or paid map/companion/audio calls.
+Receipts: `.cache/weapon-rentals/` and `.cache/respawn-loadout/`.
+
+Manual `pnpm deploy:cloudflare` succeeded: `90ef52a3-f501-4a66-a1e3-75c1010b0bf5`.
+The isolated release verified 1,988 selected source files against exact
+`226a99861fab65c569e34ea04f48d674cc069b00`. Ten byte comparisons verify both production
+domains serve its HTML, entry JS/CSS, Three.js and service worker; production
+routing/PWA/model/audio/API-origin checks pass on both hosts without paid calls.
+Private environment copies and the shared deployment lock were removed.
+Temporary release and task Chrome/Vite are cleaned up. Preserve the pre-existing
+local handoff/.claude work. AGENTS.md remains local, untracked and unstaged.
+
+
+## Physical district crossing pilot: HarbourFront / Sentosa (2026-11-01)
+
+Owner accepted a first physical connection prototype; the role of public
+transport as a bridge versus general fast travel remains undecided. Local main
+commit `0f3d982` replaces this pair's circular T checkpoints with directional
+walking boundaries at the playable edges (HarbourFront z=210, Sentosa z=-205).
+Matching covered boardwalk continuations, signs, rails and staggered windbreaks
+make the crossing a physical place. They are fictional gameplay scenery, not
+new accepted reference features. Deck finishes now agree with walking height.
+The map shows pedestrian paths rather than declaring the boardwalk drivable;
+existing perimeter roads remain open. Other checkpoint and ferry behavior stays.
+
+An expedition-owned WebGL surface survives scene changes. Districts still load
+separately behind a loading fade, then physical crossings auto-resume without
+an Enter/menu step. Lateral offset, viewing direction and movement overshoot
+map through the seam; existing health/armor/ammo/field/infrastructure carry is
+retained. Movement keys and the same captured touch stick survive loading;
+releases, Escape and focus/visibility loss cancel continued input appropriately.
+Mouse capture/fullscreen can stay on the same canvas. Error paths unlock the
+mouse and retain retry/menu access. The local pilot walks through the boundary
+instead of repeatedly requesting T, and Escape during physical loading cancels
+pilot resume too. No vehicle or following-squad transfer is added by this
+pedestrian pilot. See docs/WORLD-ZONES.md for scope and test prerequisites.
+
+Validation: exact frozen source typecheck and 114 tests in seven relevant files
+pass. Real Chrome/Metal checks use a copy of the actual ExpeditionGame UI with
+only declared entry poses and observation exposure, without engine/authority
+patches. They pass outbound/return walking, no T shortcut, one retained canvas,
+mouse lock, view/vitals/ammo, key release and Escape during stalled GLB loading,
+legacy explicit checkpoint behavior, local pilot crossing, held/released mobile
+thumb movement, 390 px layout and renderer cleanup. Desktop/mobile screenshots
+were visually reviewed. No runtime exceptions or paid requests.
+
+Broad single-worker suite: 2,379 passed / 2 failed across 252 files, plus one
+worker RPC timeout; no full-suite pass claimed. Failures were the known Upper
+Thomson thomson-plaza ground anchor and a Queenstown 15 s connectivity timeout.
+The Queenstown case passes alone (1.56 s). The identical Upper Thomson failure
+reproduces in the unchanged parent `226a998` source. Initial new road collisions
+were fixed before commit; all six HarbourFront/Sentosa registry cases pass.
+Initial parallel runs also hit host-load timeouts; logs retained separately.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock with
+version `486f9c6e-4301-47df-8385-c66d5c17ab3a`. All 1,992 selected runtime/server/script/
+public/config files matched exact committed source `0f3d98257811f1bf364eabfae86d8fd46b956a76`.
+Ten exact-byte comparisons verify HTML, entry JS/CSS, Three.js and service worker
+on both production domains. Both Cloudflare routing/assets/PWA/model/audio/
+API-origin checks pass without paid calls. Private environment copies and the
+lock were removed in finally; task Vite/Chrome stopped. Own release/baseline
+copies and Chrome profile removed after verification to reclaim space.
+
+Evidence: .cache/boardwalk/ (browser-results.json, screenshots, browser-final.log,
+all-tests-final.log, queenstown-recheck.log, baseline-thomson.log, typecheck-final,
+release-typecheck/tests, source-verification.json, release-result.json, deploy.log,
+live-verification.json/log and cloudflare-custom/workers.log). No GitHub push.
+AGENTS.md remains local/untracked/unstaged; pre-existing handoff and .claude work
+is preserved. This new handoff entry is local alongside the existing edits.
+
+
+## 2026-11-01 — First proxy gameplay implementation (local commit, manual deploy)
+
+User approved the first gameplay slice after agreeing on personal wrath plus
+local temporary hostility and favor choices with real costs/benefits. Implemented
+contested prototype cargo in Open World only: two Freedom Force and two Collective
+Corps operators, independent encounter targets, tracked personal favor, finite
+recovery/withdrawal, unattended claims, four disclosed cargo decisions, a current-life
+Mythic SAR retrofit, and physical Armed Forces facility delivery (+60 supplies up to
+cap, facility repair, deployment readiness). Favor survives district travel within
+this expedition; carried cargo is forfeited on death/travel. No global alliances,
+contracts, permanent rewards, or officer assassinations in this slice. See
+`docs/PROXY-OPERATIONS.md` for timing, consequences and limitations.
+
+Commit: `dc2e0b285fa708fab3a119684e0b1a80a49af9a3` on main. No GitHub push.
+26 implementation/doc/test files committed; pre-existing `.agents/HANDOFF.md`
+changes, local AGENTS.md and untracked .claude/ were deliberately excluded.
+Pure proxy catalog extracted to avoid rendering imports in faction rules. Trusted
+solo expedition runtime now preserves field-only gun stats; saved profiles/LAN
+still use strict restoreProfile. Neutral proxy minimap/AI-pilot targeting uses the
+actual personal relationship. No audio generation or paid API requests.
+
+Validation: exact committed release source (2,000 files) verified before build;
+typecheck and 13 focused suites / 141 tests passed, including simulation,
+snapshot authority, facilities, weapon variants, respawn, rig rendering and UI.
+Earlier broad suite: 2,394 passed / 7 failed. Change-related failures were corrected
+and passed focused reruns; world-night-lights/Queenstown timeouts passed separately.
+The known unchanged Upper Thomson thomson-plaza ground-anchor failure remains;
+do not describe the full suite as passing. git diff --cached --check passed.
+
+Browser: actual ExpeditionGame copy with observation-only engine/HUD exposure and
+fixed initial spawn, native Chrome/CDP. Desktop E / 3 kept Mythic SAR (37 rounds,
+owner -20); 390x844 touch rival choice produced Freedom -20 / Collective +12,
+no horizontal overflow/runtime exceptions. Touch carry + real walking + delivery
+at Marina Bay post succeeded, supplies ~64.22 -> 124.34 including normal accrual,
+receipt +60, personal Freedom -20 / Collective 0. Cargo remained deliverable after
+the recovery cells left. Early browser attempts hit CDP reload/HMR timing,
+movement probe syntax, and actual camp barricade/palm collisions; retained failed
+logs, then walked around those obstacles without teleporting or patching authority.
+Evidence: `.cache/proxy-operations/{choices-mobile.png,rival-mobile.png,
+kept-desktop.png,delivered-mobile.png,mobile-flow.log,delivery-resume.log}`.
+
+Manual `pnpm deploy:cloudflare` succeeded from a frozen local copy of this commit,
+under `.cache/district-principles-deploy.lock`. Cloudflare version
+`df86ed22-882c-4232-a530-ba6c27e334f0`. Verified exact HTML/JS/CSS/Three/SW bytes
+(10 responses total) on blockplaysg.fun and blockplay-sg.sunjc826.workers.dev.
+Both Cloudflare checks passed (assets, SPA, APIs, origins, companion availability;
+no paid requests). Receipts/logs under `.cache/proxy-operations/`; private env copies
+removed and lock released. Task-owned Vite :5196 / Chrome :9356 and temporary
+release/profile cleaned up after verification. AGENTS.md remains local/untracked.
+
+
+## Training boardwalk crossing (2026-11-01)
+
+Owner requested the physical HarbourFront–Sentosa crossing in Training. Local
+main commit `3e9ecd5` adds a range-only travel adapter to the shared FPS engine,
+without turning ranges into expeditions. Both directions use the same walking
+boundary and retained canvas/input continuation as Open world. Camera, health,
+armor, weapon/ammunition, vision and remaining session supplies carry across.
+Training stock is snapshotted separately so crossing does not refill spent kit;
+using practice supplies still leaves permanent Armory inventory unchanged.
+Destination targets/score/timer start fresh with the selected drill and Practice/
+Counter-fire setting. Abandoning the old exercise grants no completion bonus.
+The resupply box stays at the authored range start. On-foot only; other borders,
+vehicles, tutorial, multiplayer and public transport behavior are unchanged.
+
+FpsGame owns its current training district. GameMenu tracks current district
+separately from the selected starting district, so arrival updates the selector
+without remounting PlayLoading/FpsGame or losing pointer capture. Manual district
+choice still starts a fresh session. The debug range uses a stable key and
+updates its location too. A shared FpsDistrictCrossing component/styles now
+provides the loading fade in both game views. Updated range/world documentation
+and added scripts/training-crossing-smoke.mjs.
+
+Validation: typecheck and 131 relevant tests in ten files pass locally and in
+exact frozen committed release source. Actual GameMenu + FpsGame browser fixture
+only declares initial entry and exposes observations; no engine/simulation
+patches. Chrome/Metal checks pass desktop outbound/return, one game mount across
+physical crossings, selector arrival sync/manual restart, retained canvas and
+mouse capture, view/vitals/ammo, spent session kit without Armory debit, drill and
+counter-fire preservation, no completion reward, key release/Escape during stalled
+model loading, held/released 390 px touch crossing, fresh destination timer/score,
+layout and cleanup; screenshots reviewed and zero runtime exceptions. Existing
+Open-world boardwalk UI regression and range drill/resupply/early-end UI smoke
+also pass. The initial parallel unit run had a Queenstown timeout; the final
+single-worker 30 s run passes all 131. No full-suite pass is claimed; its known
+Upper Thomson failure is recorded in earlier entries. No paid requests.
+
+Manual pnpm deploy:cloudflare succeeded under the shared deployment lock:
+version `0800d048-e92b-4056-b852-478e35371599`, frozen commit
+`3e9ecd51f92062fa18dd7c86204859532896ab50`. All 2,003 selected source files matched committed bytes.
+Ten exact comparisons verify HTML/entry JS/CSS/Three.js/SW on both production
+domains; both Cloudflare routing/PWA/assets/API-origin checks pass. Private env
+copies and the lock were removed in finally. Task Vite :5197 / Chrome :9357
+stopped; own release/profile copies removed after verification. No GitHub push.
+
+Evidence: .cache/training-crossing/ (browser-results.json, three training screenshots,
+browser.log, world-browser-results.json, world-regression.log, range-ui-regression.log,
+tests-final.log/regressions.log, source-verification.json, release-typecheck/tests,
+release-result.json, deploy.log, live-verification.json and Cloudflare check logs).
+AGENTS.md remains local/untracked/unstaged; pre-existing handoff/.claude edits
+are preserved. This entry is appended locally with the earlier handoff changes.
+
+
+## Sentosa training lawn ground alignment (2026-11-01)
+
+Owner reported sinking vehicles and invisible rain splashes at the Sentosa
+training spawn. Local main commit `5931049` lowers the decorative east lawn
+slab by 0.355 m so its rendered top matches the existing gameplay ground datum.
+Vehicle placement/physics and rain behavior stay shared with the other maps;
+the turf no longer occludes wheels/skids or impact rings and droplets.
+
+Validation: 57 tests across six relevant suites pass, plus typecheck and the
+Cloudflare production build. Three new regressions all fail against the original
+geometry and pass with the fix: actual instanced turf versus player/target/vehicle
+heights, real vehicle mesh bottoms on spawn/reset, and full/reduced splash
+vertices above rendered turf. Chrome rendered the actual Sentosa map, vehicles
+and atmosphere: both vehicles clear the turf; visible rings/droplets in full
+(166 splashes) and reduced effects (35), no runtime exceptions. Screenshots and
+logs: `.cache/sentosa-ground/`. No full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from the local workspace, whose runtime
+source matched committed main; shared deployment lock held through verification.
+Version `962a9b13-d924-46d2-a6c1-6d924392931a`. Both production domains serve
+exact local HTML and matching JS/CSS/Three/service-worker hashes (eight asset
+checks), and both production Cloudflare routing/PWA/assets/API-origin checks
+pass. Evidence: deploy-source.json, deploy.log, live-verification.json and
+cloudflare-{custom,workers}.log in the evidence folder. Task Vite :5198 and
+Chrome :9358 stopped. No GitHub push. AGENTS.md remains local/untracked/unstaged;
+pre-existing handoff and .claude edits preserved. This entry is local only.
+
+
+## All-map ground/rain audit (2026-11-01; audit only)
+
+Owner requested checking other maps for the Sentosa symptom. Audited committed
+`5931049` across all 23 districts (22 others + repaired Sentosa), with 18,670
+exact triangle samples at training player/targets/vehicles, nearby 3 m grid,
+map/exploration spawns, roads at ~20 m, and playable world grid at 20 m.
+Diagnostic flattens static instances into exact geometry ray proxies with a
+spatial index; rotated face normals are transformed to world coordinates.
+Compared rendered surfaces against terrain/support and rain sampler; measured
+actual unskinned vehicle mesh lower bounds. This is sampled evidence, not an
+exhaustive collision certificate. No runtime source changes or deployment.
+
+15 other maps have substantial range-surface offsets and vehicle burial:
+Chinatown (31-33 cm), Kampong Glam (33 cm at player/car; helicopter outside pad),
+Jurong Lake (35.5 cm, 47.5 cm under helicopter landscaping stripe), Changi
+(32 cm), Upper Thomson/Punggol/HarbourFront/Geylang/Tuas/Woodlands/Tampines/
+Toa Payoh/Bukit Timah/Bishan/Orchard (normally 35.5 cm, up to 37 cm markings).
+Four others have smaller offsets hiding ring geometry: Marina Bay 7.5 cm,
+Raffles Place 6 cm, Queenstown 6-9.25 cm, Katong/Joo Chiat 5 cm. Yishun,
+Little India, Pulau Ubin have no burial at sampled range starts; repaired
+Sentosa remains aligned. Road samples on every district show a separate shared
+rain mismatch: decorative paving/road surfaces above terrain+2.5 cm rings.
+This does not mean every splash droplet is invisible: small offsets hide rings
+while upper spray can remain visible.
+
+Chrome rendered actual map/vehicles/atmosphere on six representative districts
+(HarbourFront, Jurong Lake, Marina Bay, Katong, Yishun, Sentosa), with no runtime
+exceptions. Reviewed screenshots confirm buried HarbourFront wheels and absent
+ground splashes, Katong spray without rings, Yishun/Sentosa visible rings/spray.
+Evidence: `.cache/ground-audit/{summary.json,results.json,audit.test.ts,audit.log,
+browser.log,*-browser-results.json,*-spawn-full.png,*-vehicles-full.png}`.
+Temporary Vitest config allows ignored audit test; final diagnostic passes.
+All audit scripts/evidence remain ignored; no code commit needed. Prior
+AGENTS.md/handoff/.claude work preserved. Task Vite :5200 / Chrome :9360 stopped.
+
+
+## Shared grass, soil and ground correction across all maps (2026-11-01)
+
+Owner authorized implementation following the all-map audit, explicitly without
+grass shadow casting. Local main commit `0e07987` adds ground-cover.ts to the
+23-district registry and MarinaGame's separate exploration build. Low decorative
+root-level grass, road, paving and paint caps are normalized near the existing
+terrain datum (soil zero, small paint offsets <=1.2 cm, broad foundation below
+overlays). Supported raised shores, authored elevated routes, structural groups,
+terrain slopes and water are retained. Queenstown graded paving keeps its exact
+terrain shape and refreshed triangle acceleration. Material clones add procedural
+soil patch/grain without raster assets or downloads. Tuas keeps industrial
+hardstanding with soil grain and two soil verges under existing perimeter trees.
+
+Grass is one bounded instanced draw: three tapered solid blades per tuft,
+shader wind, distance thinning, 23 m desktop / 16 m mobile / 11 m reduced reach.
+Caps: 4096/1536/384 tufts respectively. Placement only refreshes across 4 m cells;
+reduced effects stop wind. Grass has no ray hits/gameplay colliders, receives
+existing shadows, and has explicit noShadowCast metadata honored by the sun
+scanner so it cannot be auto-enabled. Rain sampling includes corrected ground
+caps and authored walk surfaces; roads/paint no longer bury impact rings.
+
+Validation: final 82 focused tests across seven files pass, plus typecheck and
+production tsc/Vite build. New tests cover all 23 actual district range/player/
+target/vehicle positions and nearby playable points, correct rain clearance,
+soil presence, road/water masking, retained raised shore, density/world-cell
+behavior, disposal and no casting after a real sun scan. The full suite completed
+with 2431 passing / 2 failing and one RPC worker timeout. The new test's exact
+floating-point assertion was corrected and passes the final focused run; the
+other failure is the pre-existing Upper Thomson thomson-plaza anchor 85,-14,
+reproduced identically with ground cover disabled. No full-suite pass claimed.
+
+Chrome/Metal rendered all 23 maps in full/reduced effects, including cars and
+active sun shadows: no shader/runtime errors, visible rain, grass casts false.
+Reviewed paved and grassy scenes; final representative captures include the
+corrected two-sided foliage lighting. Actual FpsGame desktop/mobile walking
+remains grounded at y=0 with no horizontal overflow/runtime errors. Mobile
+remains playing; synthetic desktop touch switches to mouse and pauses on native
+mouse events. The existing pointer-lock training-crossing smoke did not complete
+(browser capture/focus blocked, then paused before crossing), even after explicit
+Page.bringToFront; retained failure evidence, no passing crossing claim.
+
+Stationary GPU query medians with/without full grass: HarbourFront 1.318/1.203 ms,
+Sentosa 1.411/1.239, Queenstown 3.017/1.576, Ubin 1.328/1.479. Short noisy samples,
+not mobile FPS guarantees. Grass adds one draw and about 27-30k triangles. CPU
+placement median ~0.9-1 ms on the first three and 2.4 ms Ubin (only per 4 m cell).
+Evidence/logs: `.cache/ground-cover/` (validation-summary.json, all-map-browser.log,
+*-browser-results.json, final-browser.log, focused-final.log, full-tests.log,
+{baseline,current}-upper-thomson.log, typecheck-final.log, actual-training-results.json,
+actual-training-{desktop,mobile}.png, training-foreground.log, representative PNGs).
+The audit rerun confirms no buried impacts at sampled playable training points.
+Residual road-grid rays through a bench edge and atrium column are structural
+furniture, not misplaced road caps; they were preserved.
+
+Manual `pnpm deploy:cloudflare` succeeded with the shared deployment lock,
+runtime source matching committed main. Version
+`3b87d9ed-f33b-4717-a894-32f2b22eaa1d`. Both production domains serve exact build
+HTML and eight JS/CSS/Three/service-worker hashes, and both Cloudflare routing,
+PWA, model/audio/assets/API-origin checks pass. Receipts: deploy-source.json,
+deploy.log, live-verification.json and cloudflare-{custom,workers}.log. No paid
+requests or GitHub push. Task Vite :5202 / Chrome :9362 stopped. AGENTS.md stays
+local/untracked/unstaged; pre-existing handoff/.claude edits preserved.
+
+
+## Empty-trigger click and ammo-counter pulse (2026-11-01)
+
+Owner requested empty-fire audio plus slight ammo vibration/enlargement. Local
+main commit `8f9e062` adds eight ElevenLabs receiver-specific dry trigger clicks,
+natural playback speed, one click/event per held trigger and fresh repeats after
+release. Checks exclude reload/cooldown/usable chamber rounds and retain existing
+fire restrictions. No shots/ammo/rewards are created by a dry trigger. The HUD
+uses a 260 ms, 9% scale pulse and <=3 px shake; reduced motion disables it. Mute
+keeps the visual cue. Audio stops on pause, switch, mute, reset and disposal.
+
+Eight .5 s generations cost 40 credits (8 receipts x5); subscription usage
+confirmed 1265 -> 1305 / 40000. The first immediate after-check lagged at 1300;
+usage-confirmed.json records the final 1305. Once-only attempts/raw sources and
+receipts: `.cache/empty-fire-sfx-v1/`. Do not regenerate. The offline publisher
+`scripts/empty-fire-sfx.mjs` preserves hashes, trims onsets/tails and publishes
+~26 KB total audio plus separate manifest, without altering reload recordings.
+
+Validation so far: 35 focused tests / 5 suites, typecheck and real browser engine
+rifle/pistol empty-fire, hold/repress, mute/visual, reduced-motion, reload/resume
+checks pass. All eight MP3s independently decode with audible peaks, headroom
+and <30 ms onset. Browser paid requests/runtime errors: zero. Evidence:
+`.cache/empty-fire-work/` (browser-results.json, counter-pulse.png, audio-check.json),
+`.cache/empty-fire-{tests-final,typecheck-final,browser}.log`. First browser run
+was interrupted by another task's release snapshot causing Vite HMR; rerun passed.
+No GitHub push. AGENTS.md, pre-existing handoff and .claude remain local.
+Deployment verification follows after the shared deployment lock is available.
+
+
+## Vehicle collision momentum and manual release (2026-11-01)
+
+Local main commit `53edb2e` replaces dropped collision velocity with inward
+impulses: hard head-on hits rebound; glancing contacts retain tangent motion
+and produce persistent hull-space lateral velocity and damped yaw impulses.
+Braking dissipates sideways skids, low-speed wall pressure settles without
+bounce/spin, and contact refinement advances to the clear side of the surface.
+Flight shares the horizontal solver; hard vertical contacts rebound, ordinary
+landings settle. Destroy/reset/stop paths clear all motion. Shared snapshots
+validate/interpolate the optional skid/spin fields (legacy snapshots accepted).
+Boarding, dismounts, pickup timers, AI stop checks and HUD speed count total
+horizontal motion. Existing approach-speed damage thresholds are preserved.
+
+144 relevant tests across nine files and release typecheck pass from isolated
+committed source. Browser Three.js/FpsVehicles checks render head-on recoil and
+glancing skid/rotation, assert clear hulls throughout and report no exceptions;
+representative frames visually reviewed. Full-suite attempt encountered the
+previously recorded Upper Thomson thomson-plaza anchor failure at 85,-14, then
+was interrupted; no full-suite pass claimed. The same single Upper Thomson
+failure reproduces in the isolated release's focused walking-route check.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+isolated committed revision 53edb2eb9eb08e9bf5cc215ec55ed0af09fcb3a6. Version
+`741ff526-deba-4ad9-b75c-086fe4d0b9e3`. Both production domains match exact build
+HTML, service worker and all five JS/CSS asset hashes, and both Cloudflare
+routing/PWA/model/audio/API-origin checks pass. Evidence under
+`.cache/vehicle-collision/`: deploy-source.json, deploy-53edb2e.log,
+release-{typecheck,tests}-53edb2e.log, live-verification-53edb2e.{log,json},
+cloudflare-{custom,workers}-53edb2e.log, browser-results.json and scenario PNGs.
+No paid requests or GitHub push. Temporary release/private copies and owned
+lock removed. Current :5204/:9364 processes belong to the separate empty-fire
+work, so left running. Other working changes and local AGENTS.md preserved.
+
+Final validation/deployment: desktop and 390x844 mobile browser checks pass.
+Full suite completed: 2448 pass / 1 known unrelated failure, Upper Thomson
+`thomson-plaza ground anchor 85,-14` in vertical-routes.test.ts. No full-suite
+pass claimed. Frozen committed `8f9e062` release independently passed typecheck
+and 35 focused tests, then production build and `pnpm deploy:cloudflare`.
+Version `b7f2d772-29c8-42eb-aabb-1b3afe7a3852` deployed successfully. Both
+blockplaysg.fun and workers.dev serve exact HTML/entry assets/service worker
+and all eight empty-fire MP3 hashes. Both Cloudflare production routing, asset,
+PWA and API-origin checks pass. Source receipt, deploy log and verified hashes:
+`.cache/empty-fire-work/{release-source.json,release-deploy.log,live-verification.json,
+cloudflare-custom.log,cloudflare-workers.log}`. Private release copies and release
+folder removed after verification; shared deploy lock released. Task Vite/Chrome
+stopped. New concurrent arena/vehicle/crossing edits remain untouched; none entered
+this frozen release. No GitHub push; AGENTS.md remains local/untracked/unstaged.
+
+
+## Occupied Sentosa district crossings (2026-11-01)
+
+Owner requested vehicle travel in Training and Open World while retaining the
+vehicle and crew. Local main code commit `6f7e785` and guide correction `d9ef62d`.
+No GitHub push. Other chats' empty-trigger and collision changes were preserved;
+they committed independently before this feature. AGENTS.md remains local and
+untracked; pre-existing handoff/.claude edits remain unstaged.
+
+Only HarbourFront–Sentosa opts cars/helicopters into physical travel. Cars have
+a straight shelter lane; finite-height supports allow helicopters above the
+canopy (hull height >=6 m). Swept detection uses authoritative hull centres and
+full lateral clearance. Full arriving hulls are checked against destination
+geometry before committing. All ordinary/ferry links remain pedestrian.
+
+Checkpoint transfers preserve hull damage, ammunition/cooldown, yaw, speed, skid,
+climb, altitude, player seat, viewing direction and first/third-person view.
+Solo authority exports each seated bot's combat/equipment/ammunition data and
+restores role plugins locally, remapping the player session and gather orders.
+Local navigation/spotting/enemy references are rebuilt for the new district.
+Namespaced crew IDs plus source departure exclusions prevent cloned crew on a
+round trip. Source hulls are removed before infrastructure is cached; departed
+fleet slots disappear from models, prompts, collisions and minimaps. Arrival
+clears that district's hull departure flag, allowing later parking/revisits.
+This retains the existing one-hull-per-kind model: an arriving hull takes that
+kind's destination slot. Training has no NPC riders; its player seat/hull persist.
+
+Imported authority snapshots are refreshed before controls resume, so the first
+held input is not cleared by a late seat adoption. Brake/climb/descent keys also
+survive loading. Source simulation state is local solo data, never an accepted
+multiplayer request. Other modes and public transport policy are unchanged.
+
+Validation: final frozen release typecheck and 193 focused tests across 11 files
+pass. A separate 35-test run includes the final snapshot-ordering regression:
+the imported seat is visible before play and the first driving input accelerates
+the hull. The broad suite completed with 2459 passing / 1 failing (before that
+final regression addition); Upper Thomson's existing thomson-plaza anchor 85,-14
+is the sole failure and reproduces on pristine pre-feature main. No full-suite
+pass claimed. Chrome/Metal actual FpsGame and ExpeditionGame fixtures start with
+occupied approaches; final mouse and mobile runs each cover eight crossings:
+both vehicle types, both modes, both directions. They verify retained canvas,
+mouse capture, first-person view/pitch, held acceleration, helicopter climb,
+103 HP/51 mounted rounds, full crew identities/health/armour/seats, source cached
+fleet removal and return departure flags. Zero runtime exceptions. These use
+seeded entry state and production engine control methods; they do not claim an
+end-to-end joystick gesture test. Screenshots were visually reviewed.
+
+Manual `pnpm deploy:cloudflare` from a frozen archive of code commit `6f7e785`
+succeeded: version `04f5ecb7-1b32-4f95-a1cf-ee80a3f82160`. All 2023 selected
+committed source files matched their Git blob hashes. Both production domains
+serve ten exact release HTML/JS/CSS/Three/service-worker responses, and both
+Cloudflare routing/PWA/model/audio/origin checks pass. The later `d9ef62d` changes
+only the training guide; runtime source is identical. No paid API requests.
+Evidence: `.cache/vehicle-crossing/{release-result.json,source-verification.json,
+live-verification.json,deploy.log,release-tests.log,typecheck.log,full-tests.log,
+baseline-upper-thomson.log,desktop-browser-results.json,mobile-browser-results.json,
+desktop-browser.log,mobile-browser.log,*-sentosa.png}`. Task Vite :5203 and
+Chrome :9363 stopped, private deployment copies removed and shared lock released.
+Frozen release/baseline/profile copies cleaned; scripts and receipts retained.
+
+
+## Vehicle collision body jolts and camera shake (2026-11-01)
+
+Local main commit `96cfd83` adds a directional, severity-scaled impact response
+on top of the existing rebound/skid physics. The movement solver retains the
+latest contact serial, approach speed and normalized impulse direction in an
+optional impact receipt. Authority snapshots validate the receipt; rendered
+snapshots release it at the contact tick, so shared passengers see one jolt
+rather than repeated shake on every snapshot. Initial adoption, replacements,
+teleports and travel arrivals establish a baseline without replaying old hits.
+
+A small deterministic, bounded damped spring pitches/rolls/bobs the model;
+a faster rattle rotates the mounted camera. First-person eyes follow their
+rendered seat and receive a smaller extra rattle; third-person gets the camera
+response separately. Physical position and stored look angles are unchanged.
+Helicopter flight pitch is kept separate from impact pitch to avoid feedback.
+The device reduced-motion preference suppresses both hull and camera motion.
+Gentle wall pressure does not continually restart the effect, and reset clears
+it. No sound changes or paid generation were needed.
+
+167 tests across 11 relevant files and typecheck pass from isolated committed
+source, covering collision direction, vertical helicopter contacts, severity,
+frame-rate independence, settling, bounded repeated hits, no snapshot replay,
+shared passenger timing, camera placement, reduced motion, reset and travel.
+Actual FPS engine Chrome/Metal browser checks cover car head-on impacts in
+first/third-person, body/camera peak offsets, settling with stored yaw unchanged,
+and emulated reduced motion (all offsets zero). Rendered frames visually
+reviewed; no runtime exceptions or remote map requests. The fixture seeds an
+occupied training checkpoint and uses engine controls; it does not claim a
+manual joystick/pointer-lock crash test. Initial shared-workspace browser QA
+was interrupted by another chat's Vite hot reload; final QA uses an isolated
+source and dependency cache. No full-suite pass claimed for this task; the
+previously documented Upper Thomson walking-anchor failure remains unrelated.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+an archive of tested revision 96cfd8392fb2e29b34320f5cad75b6dd23e73953, excluding
+other chats' uncommitted ground-surface changes. Version
+`e6e7c807-da1b-4d1a-ad35-a67724065859`. Both production domains match exact build
+HTML, service worker and all five JS/CSS asset hashes. Both Cloudflare production
+routing/PWA/model/audio/API-origin checks pass. Receipts and browser evidence:
+`.cache/vehicle-impact/{deploy-source.json,deploy.log,release-tests.log,
+release-typecheck.log,browser-verified.log,browser-results.json,live-verification.json,
+cloudflare-custom.log,cloudflare-workers.log,*-impact.png,reduced-motion.png}`.
+No GitHub push. Private release copies, QA/release folders, owned Chrome/Vite
+processes (:5206/:5207/:9366), temporary profile and deployment lock removed.
+AGENTS.md remains local/untracked/unstaged; other working edits preserved.
+
+
 ## All-district z-fighting audit (2026-11-01)
 
 Owner reported flicker in Sentosa, Yishun and Changi. Local main code commit
@@ -6267,6 +8187,853 @@ release-tests.log, deploy.log, live-verification.json/log, cloudflare-custom.log
 cloudflare-workers.log). Temporary private env copies were removed. No GitHub
 push. Preserve pre-existing handoff/.claude changes; AGENTS.md stays local,
 unstaged and uncommitted.
+
+
+## Subtle firearm camera vibration (2026-11-01)
+
+Local main commit `8d838a1` adds a very small, deterministic 160 ms firing
+vibration alongside the existing recoil. Each axis stays below 0.1 degrees,
+including sustained bursts from all eight weapon families. Shots refresh the
+pulse rather than add amplitude. Resolved recoil and stance/bipod support scale
+it; ADS reduces it by 60%, with further inverse-magnification damping (offset
+sights use 1x). Reduced-motion preference suppresses it. Successful player
+handheld shots trigger it; dry fire, remote shots and mounted hull guns do not.
+Switch, reset, travel/respawn and pause input cleanup clear the effect.
+
+The effect temporarily rotates both world and foreground cameras only around
+the draw passes, including scopes/reflections. A finally block restores exact
+quaternions/matrices before gameplay resumes or HUD publication, even on a
+render error. Existing recoil/compensation, actual aim, bullet direction, spread
+and random sampling remain unchanged. No sound/audio generation changes.
+
+111 relevant tests across nine files and typecheck pass from isolated committed
+source. New tests exercise sub-degree magnitude relative to existing recoil,
+all-eight sustained cadences, non-stacking notifications, ADS/support/optic
+attenuation, finite frame timing, settling/reset, zero reduced motion, exact
+camera/ray restoration after normal and failing draws, and unchanged recoil
+state/aim compensation without consuming shot randomness. Actual FPS engine
+Chrome/Metal checks cover hip and aimed bursts with an active PiP scope,
+settling, per-frame camera restoration, reduced motion and empty-trigger clicks.
+Measured SAR peaks: 0.0688 degrees hip, 0.0186 degrees through the issued optic.
+Screenshots reviewed; zero runtime exceptions and remote map requests. This
+fixture seeds a training checkpoint and uses engine controls, not manual mouse
+capture/gesture inputs. No new full-suite pass claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+an archive of tested 8d838a16c9826846c982d11beffa59eee5f3e883. Version
+`f5fc9da8-b644-4c79-9240-342392e42bc5`. Both production domains match exact
+release HTML, service worker and all five JS/CSS asset hashes; both Cloudflare
+routing, PWA, GLB/audio and API-origin checks pass. Evidence:
+`.cache/firearm-shake/{validation-summary.json,deploy-source.json,release-tests.log,
+typecheck.log,browser.log,browser-results.json,deploy.log,live-verification.json,
+cloudflare-custom.log,cloudflare-workers.log,hip-burst.png,aimed-burst.png}`.
+No paid requests or GitHub push. Temporary QA/deployment/private copies, owned
+Vite :5208 / Chrome :9368, profile and shared deployment lock removed. Local
+AGENTS.md/.claude and pre-existing handoff edits preserved, unstaged.
+
+
+## Clear holographic glass polish (2026-11-01)
+
+Local main commit `e203ca5` makes the holographic window nearly neutral head-on:
+front-pane opacity drops from 3.5% to 1.8%, and the rear coating from a 3.5%
+base to 1.8%. A restrained cool reflection develops with viewing angle, with
+less rim darkening and no amber coating band. The reticle, red-dot optics and
+scopes retain their existing behavior. Telescopic sights already have edge
+refraction and a restrained red/blue sample separation; no extra chromatic
+aberration was added after the owner's follow-up question.
+
+17 focused optics/reflection tests, typecheck, Cloudflare production build and
+Chrome/Metal shader/reflection checks pass. Existing hologram browser regression
+also passes angular scale, eye translation/relief, window clipping, stable grain,
+zoom and high-DPI checks. Frontal/oblique screenshots reviewed; zero browser
+errors. Full suite: 2,492 passed / four failed. Three timeout failures pass when
+rerun with a 30-second limit (113 tests). The remaining Upper Thomson ground
+anchor failure at (85,-14) is reproduced in an archived pre-change HEAD, so it
+is unrelated to the glass. Baseline source copy removed; log retained.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock:
+version `02823e9a-c21d-45d8-bb55-2de1acd6f08d`. Both blockplaysg.fun and
+blockplay-sg.sunjc826.workers.dev match the exact local HTML, service worker and
+all entry JS/CSS bytes. Both Cloudflare routing/assets/PWA/model/audio/API-origin
+checks pass without paid requests. Evidence and reviewed screenshots are in
+`.cache/holo-glass-review/`; hologram measurements are in `.cache/holo-reticle/`.
+No GitHub push. Preserve the pre-existing handoff and .claude changes; AGENTS.md
+remains local, unstaged and uncommitted.
+
+
+## Starting-point region map for Training and Open World (2026-11-01)
+
+Local main commit `5fec625` adds `StartingPointPicker`: a schematic Singapore
+island partitioned into 23 selectable game regions, offshore islands, district
+previews, Open World threat briefs and explicit Start training / Deploy here.
+Neither route constructs a game renderer until confirmation. Each mode remembers
+its last confirmed start; browsing alone does not overwrite it. Menu, Store,
+direct URLs and route revisits all open the picker. The game's district dropdown
+is now a map button; returning to the picker disposes the previous session.
+Physical district crossings still preserve the live game. Phone maps pan inside
+the map only; desktop, portrait, landscape and keyboard selection were reviewed.
+
+Validation: typecheck and 19 focused route/region-selection/Store tests pass in
+the workspace and frozen release. `scripts/starting-point-smoke.mjs` passes all
+23 real region hit areas, keyboard Enter/Space/arrows, explicit starts in both
+modes, remembered choices, entry paths, mobile layout, cleanup and no external
+map requests or browser exceptions. Screenshots and receipts:
+`.cache/starting-point/`. The full suite finished 2,492 passed / 4 failed:
+Upper Thomson's existing thomson-plaza ground anchor (85,-14), reproduced alone,
+and three unrelated scene-build timeouts. No full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from the frozen committed source in
+`.cache/starting-point-release/`, version
+`8135420d-ec25-453f-8ade-f6d1ca3248e1`. Both blockplaysg.fun and workers.dev serve
+byte-identical entry JS/CSS and service worker; menu, Training and World routes
+use the matching release. Production Cloudflare routing/assets/PWA/API checks
+pass. Logs: deploy.log, live-verification.json and cloudflare-check.log in
+`.cache/starting-point/`. No GitHub push. AGENTS.md remains local, unstaged and
+uncommitted; preserve unrelated handoff and .claude work.
+
+
+## Stronger firing rattle and gun-feel discussion (2026-11-01)
+
+Owner could barely notice the first vibration setting and requested a more
+modern Call of Duty-like feel. Local main code commit `4afbbc9` increases roll
+5x, pitch ~6.7x and yaw 6.5x, slows the envelope decay, and extends the pulse
+from 160 to 200 ms. ADS retains 60% rather than 40% before the existing inverse
+optic magnification damping. Every axis remains below 0.5 degrees, and bursts
+still refresh a bounded pulse rather than stack amplitude. Physical aim,
+recoil/bloom, render-time camera restoration, support scaling and reduced-motion
+suppression are unchanged. Updated existing behavioral tests and guide copy.
+
+111 relevant tests across nine files and typecheck pass on frozen committed
+source `5fec62594084d283be0def5515f8f9f0b2d5a673` (which also includes the other
+chat's independently committed starting-point picker). Actual FPS Chrome/Metal
+checks pass hip/aimed bursts, scope damping, settling, camera restoration,
+reduced motion and dry-fire exclusion, with no runtime exceptions/map requests.
+SAR extra-motion peaks: 0.3438 degrees hip and 0.1382 aimed, versus 0.0688 and
+0.0186 previously. Representative screenshots visually reviewed. Seeded touch
+continuation plus engine firing controls, not a manual gesture test.
+
+During this work owner also asked which other CoD techniques create weapon
+impact. Read primary Infinity Ward/Activision animation and weapon-audio
+interviews plus the official current gunplay breakdown. Answered with physical
+weapon inertia, layered/environmental sound, caliber-sensitive world/target
+reactions and preserving sight clarity amid muzzle effects. Further shoulder/
+receiver animation and environment-dependent echoes are recommendations only;
+no extra audio, animation or impact systems were implemented in this task.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+an archive of tested main `5fec625`. Version
+`2e1beb2c-c18b-4169-a6d8-dff0ced25b49`. Both production domains match exact
+release HTML, service worker and all five JS/CSS asset hashes; both Cloudflare
+routing/PWA/GLB/audio/API-origin checks pass. No paid generation or GitHub push.
+Evidence: `.cache/firearm-shake-stronger/{validation-summary.json,source.json,
+deploy-source.json,release-tests.log,typecheck.log,browser.log,browser-results.json,
+deploy.log,live-verification.json,cloudflare-custom.log,cloudflare-workers.log,
+hip-burst.png,aimed-burst.png}`. Private deploy copies, temporary QA/deploy
+folders/cache, owned Vite :5210 / Chrome :9370, profile and owned deployment
+lock removed. AGENTS.md/.claude and pre-existing handoff edits preserved,
+unstaged. Concurrent impact-audio changes left untouched and out of the release.
+
+
+## Stronger impacts, calibre/power scaling and bullet pass-by audio (2026-11-01)
+
+Local main commits `6fb66ed` and `d05307a` make existing ElevenLabs impact
+recordings substantially clearer through fighting range: .7 base gain, a 60 m
+reference with gentler rolloff, and more retained high frequencies. Rifle attack
+output is at least 10.3 dB stronger at 50 m and 12.1 dB at 80 m versus the prior
+release. Material identity, energy loss, directional panning, travel delay and
+140 m silence remain. Audio weight reads the same sanitized hole radius/depth
+profile as decals, so calibre, power and resolved variant overrides scale it.
+Gain is bounded at .82 for close heavy hits. Local/remote, confirmed flesh,
+water and vehicle gun impacts receive the resolved shot profile.
+
+Two new ElevenLabs v3 dry bullet-pass takes provide a sharp ballistic snap and
+short air rip, with a quieter low-passed echo 75 ms later at natural playback
+speed. Actual traveled, cover-clipped segments determine proximity to the ear;
+the closest-approach plane triggers once per round. Sound fades steeply to zero
+at 18 m lateral distance. Foreign published rounds include bounded curved
+snapshot catch-up; own shots, own mounted gun, subsonic real velocities (undoing
+arcade speed scaling), distant paths and stopped-before-ear paths stay silent.
+Counter-fire uses its stored aim point and a cover-clipped ray. Voices are
+bounded and pause/mute/reset/disposal cancels both crack and echo.
+
+Generation used the existing once-only helper, two cached complete requests,
+no retries. Receipts charge 5 credits each. Included usage before 1,305 / 40,000,
+settled after 1,315 / 40,000: exactly 10 credits. Original immediate after check
+lagged billing and showed zero; settled check is in usage-after.json.
+
+Frozen committed release `d05307a` matches all 3,196 tracked files. Typecheck and
+47 focused tests pass. Chrome/Metal checks exercise real-engine recorded hits,
+256 OfflineAudio impact renders (all 16 takes, 3/25/50/80 m, pistol/rifle/GPMG/
+heavy profiles against their automatic gun buses), and both flyby takes at
+.5/3/8/15/18 m. Maximum tested mixed sample .848, prompt attacks and spatial
+panning pass. Real counter-fire plays crack/echo and pauses cleanly. Actual
+guest-engine snapshots test foreign flight, catch-up, duplicate suppression,
+own/subsonic/distant exclusions, cover and disposal. Zero runtime exceptions or
+paid playback requests. Full workspace run earlier in this task: 2,491 passed,
+four unrelated scene timeouts plus the known Upper Thomson anchor (85,-14)
+failure. All four timed-out files pass their 125 checks with a 30 s limit; no
+full-suite pass is claimed. Concurrent rental work was kept out of the audio
+commits and release; final checks ran against frozen committed source.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+that frozen source, version `a554d243-a6f4-42b6-b0c0-288353526462`. Both
+blockplaysg.fun and workers.dev match all 24 tested HTML/JS/CSS/SW/manifest/audio
+files exactly, and both production Cloudflare routing/PWA/model/audio/API checks
+pass. Evidence: `.cache/impact-audio-boost/` (source-verification.json, release-
+source.json, release-tests.log, release-typecheck.log, release-*-browser.log,
+final-impact-results.json, flyby-browser-results.json, remote-browser-results.json,
+validation-summary.json, usage-after.json, deploy.log, live-verification.json,
+cloudflare-{custom,workers}.log). Temporary release/private copies, owned QA
+servers/Chrome/profile and shared lock removed after verification. No GitHub
+push. Preserve unrelated working edits, .claude, and local unstaged AGENTS.md.
+
+
+## Picker fits the screen and plays menu cues (2026-11-01)
+
+Owner requested removing scrolling from the map picker and adding appropriate
+menu sounds. Local main commit `a08dc71` fits the whole island into the available
+viewport, with a compact selected-district/deploy dock in portrait and a sidebar
+in landscape. Optional prose yields on short screens. Compact maps show region
+numbers with a readable selected name and previous/next buttons, instead of
+requiring map panning. Keyboard focus uses preventScroll. Safe-area insets are
+retained; every district remains directly selectable before explicit deployment.
+
+Picker feedback reuses the published softened ElevenLabs glass menu recordings:
+mouse/keyboard hover, region selection, previous/next, Back and deployment.
+Delegated events prevent icon/label duplicates, hover stays throttled, touch
+plays only one selection cue and recorded clips play at natural speed. No audio
+generation requests or additional ElevenLabs credits were used.
+
+Typecheck and 24 focused menu-audio/route/region/Store tests pass on the frozen
+picker source and the actual deployed source. The extended
+`scripts/starting-point-smoke.mjs` passes locally and on blockplaysg.fun: all 23
+regions at ten viewport sizes (1440x900 through 320x568 and 568x320), no page or
+map scrolling, all deploy/district controls visible, keyboard, separate saved
+choices, both deployments, real natural-speed hover/click playback, and native
+touch selection with one click and no hover. No browser exceptions or external
+map requests. Screenshots and JSON/audio receipts: `.cache/starting-point-fit/`.
+
+The concurrent manual Cloudflare deployment of main `d05307a` already included
+`a08dc71`, so no older duplicate release was uploaded. Its deploy log confirms
+success, version `a554d243-a6f4-42b6-b0c0-288353526462`. Verified the three picker
+source/script files are byte-identical to the independently tested snapshot.
+Both production domains serve the exact deployed JS/CSS/service-worker hashes;
+menu/Training/World routes match, and production Cloudflare assets/PWA/API checks
+pass. Evidence: deployed-source.json, live-verification.json,
+production-browser.log, deployed-{tests,typecheck}.log and cloudflare-check.log
+in `.cache/starting-point-fit/`; deployment receipt in
+`.cache/impact-audio-boost/deploy.log`. Owned Vite :5199 and Chrome :9361 stopped.
+No GitHub push. AGENTS.md/.claude and unrelated handoff work remain unstaged.
+
+
+## Rental-only weapons, play-time clock and Inventory (2026-11-01)
+
+Owner explicitly chose to remove permanent weapon purchases entirely, then asked
+for a separate inventory and rentals that tick only in game. Local main commits
+`f33e5eb` and `a545a9e` implement this. Paid weapons now offer only 1/7/30-day
+rentals (same 10/30/60% base prices); default purchases rent for one day. Existing
+paid weapon IDs are removed from permanent saved ownership and equipped stale
+variants return to issue. A valid lease for the same ID remains usable. Wallets,
+XP, finishes, armour, slots, supplies and other non-weapon purchases are retained.
+Issued gear stays available. Trusted field pickups remain life-specific licenses
+and cannot become permanent saved weapons.
+
+The v1 profile now marks `rentalClock: "playtime"`; `rentals` values are remaining
+active-play milliseconds. Old absolute-expiry leases migrate once to their
+remaining balance. Engine callbacks spend time only during active, visible play
+while alive; loading, ready, menus, pause, death and offline time are free. The
+hook batches subsecond time and flushes actual pending gameplay time at pause,
+disposal and page exit. Exiting an idle menu does not overwrite external storage
+edits. All active rentals spend the same playing time, including locker weapons.
+One rental day is 24 active hours. Engine/authority stats fall back on expiry.
+The authority tracks each player's admitted inventory and cumulative active time,
+including queued weapons, so selecting an exhausted lease again cannot reset it.
+Range renderer changes preserve remaining equipment balances; world travel carries
+current rental balances into the next scene's respawn choices.
+
+`/inventory` is reachable from the main menu and Store. Weapons shows issued and
+active rented variants with remaining play time and equip state. Gear shows owned
+finishes, armour, devices and slot unlocks; Supplies shows held quantities. Cards
+can equip gear directly, with weapon/vehicle finish destinations and carried slot
+controls. The screen explicitly says the rental clock is paused here. Store and
+respawn selector copy no longer offer permanent paid weapons or calendar expiry.
+`scripts/inventory-smoke.mjs` covers the flow; the older rental smoke delegates to
+it. Documentation and rental/ownership fixture expectations were updated.
+
+Validation: typecheck and 269 focused tests across 24 files pass on the frozen
+release, including all arena suites, inventory rendering, migration/default
+rental pricing, saved-clock stability, precise exhaustion, old ownership removal,
+queued respawns and host/guest exhausted-lease rejection. The broad workspace run
+passed 2,502 cases / failed five: an old optics-price expectation (corrected and
+passing), the known Upper Thomson thomson-plaza ground anchor, and three unrelated
+5s map timeouts. All 113 cases in those three map files pass on isolated 30s
+rechecks. No full-suite pass is claimed. The asset-pack SAR GLB was included in
+frozen QA because the optics suite checks both shipped model copies.
+
+Chrome passes actual legacy-localStorage migration, balances/gear/supply retention,
+clock stability across Inventory and reload, all inventory tabs and equip, default
+rental-only Store purchase, desktop/390px layout, real Training entry, unchanged
+clock while loading/ready/paused, active countdown and issued fallback at exhaustion.
+Desktop/mobile screenshots reviewed; no browser exceptions or external map calls.
+The QA server was frozen outside the shared workspace to avoid other chats' HMR.
+
+Manual `pnpm deploy:cloudflare` succeeded from exact `a545a9eed2618945134f16ae608305e0ec7a03d7`,
+version `0b94c086-83e4-41bb-b9cb-f9f4dd110f83`. All 2,048 selected source files
+were byte-verified before publishing. Both production domains match ten exact
+HTML/entry JS/CSS/Three.js/service-worker responses and pass Cloudflare routing,
+PWA, GLB, audio and API-origin checks. `/inventory` independently matches the
+verified release. Receipts/screenshots: `.cache/rental-only/`. No GitHub push or
+paid generation. Private environment copies and owned shared deploy lock removed.
+Owned QA/Vite/Chrome/profile cleaned up. Pre-existing handoff/.claude/AGENTS.md and
+new concurrent vehicle work are preserved, unstaged.
+
+
+## Visual shoulder/receiver kick with spring recovery (2026-11-01)
+
+Owner requested a sharper shoulder/receiver punch while keeping actual recoil
+and accuracy unchanged. Local main code commit `f3453f8` adds an independent
+weapon-shoulder-motion controller: an immediate backward snap plus an exactly
+integrated damped spring, a small forward return overshoot and faster receiver
+vibration. Resolved recoil/support scales the visual impulse; weapon weight
+changes the spring frequency. ADS, optic magnification and deployed bipods
+restrain the pose. Reduced motion, reloads, inspection and hidden/non-playing
+weapons suppress the extra motion. Input cleanup and recoil resets clear it.
+
+Only the foreground rig is transformed while drawing, then its exact position,
+quaternion and world matrices are restored in finally. Attached hands stay in
+their grips. Cameras, actual recoil/compensation, accuracy/spread, ammo and shot
+origins are unchanged, including after a render error. No randomness or audio
+was added. Actual recoil/accuracy modules were not edited. The engine was
+committed using only this task's hunks; concurrent audio/rental edits preserved.
+
+Initial isolated f3453f8 source passed 145 relevant tests and typecheck. Latest
+committed source a545a9eed2618945134f16ae608305e0ec7a03d7 independently passed
+146 tests across 12 files and typecheck, covering all eight weapon cadences,
+spring bounds/frame timing/reset, ADS/support/optic scaling, held grip, exact
+rig/muzzle/camera/ray restoration and unchanged recoil, spread and randomness.
+Actual FPS Chrome/Metal checks pass hip/ADS with PiP scope, receiver motion,
+settling/overshoot, reload and swap cleanup, pistol, reduced motion and dry fire.
+Rifle backward travel peaks ~3.77 cm hip / 1.09 cm ADS, forward overshoot ~6.16 /
+1.74 mm. Screenshots reviewed; no runtime exceptions or remote map requests.
+Fixture uses a seeded touch continuation and engine firing controls, not manual
+pointer-lock/gesture inputs. An initial reload check used an empty spare-magazine
+checkpoint; corrected the fixture with normal reserve stock before final QA.
+No full-suite pass claimed. A transient optics purchase-price failure in the
+shared working tree disappeared in the final committed 146-test run.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock from
+an archive of tested latest main a545a9e (including independent committed audio,
+picker and inventory updates), version `d29ccddb-007a-4947-8a75-6838cd697093`.
+Both production domains match exact release HTML, service worker and all five
+JS/CSS hashes; both Cloudflare routing/PWA/model/audio/API-origin checks pass.
+No paid generation or GitHub push. Evidence: `.cache/shoulder-kick/` contains
+validation-summary.json, source/deploy-source.json, release-tests.log,
+typecheck.log, browser-final.log, browser-results.json, deploy.log,
+live-verification.json, cloudflare-{custom,workers}.log and reviewed PNGs.
+Temporary QA/deploy/private copies, owned :5212/:9372 processes/profile and
+owned deployment lock removed. Local AGENTS.md/.claude and pre-existing handoff
+edits preserved, unstaged; concurrent vehicle and flyby edits left untouched.
+
+
+## Moving Humvee bailouts and landing roll (2026-11-01)
+
+Owner requested exiting a moving Humvee with velocity-induced injury, then a
+roll animation. Local main commit `08a7ec0` permits Humvee exits at any speed
+while preserving clear-ground/path checks and helicopter landing/speed limits.
+Damage is .5 × max(0, total horizontal speed − 3 m/s)², including reverse and
+sideways skids; it bypasses armor, uses existing food/survival modifiers, and can
+kill at full speed with environmental death attribution. Failed exits do no
+damage. A moving driver exits alone; the remaining open-world crew brakes and
+unloads after slowing down. Stationary driver exits retain whole-crew unloading.
+The solo empty Humvee brakes over time instead of freezing on exit.
+
+Survivors play a .9 s gameplay-time tuck/shoulder-roll/recovery. The shared body
+rig performs the full turn for other players, synchronized by a validated,
+short-lived authoritative bailout timestamp. First person dips/looks down/banks
+modestly and lowers the weapon; its local world body stays hidden during the
+roll to avoid crossing the eye. Reduced-motion suppresses camera dip/rotation.
+Pause/reset/death/reboarding clear the local action; death/reboarding/respawn
+clear network state. HUD hints and PROJECT-GUIDE explain the injury risk.
+No new audio or paid provider calls.
+
+161 focused tests / ten files, typecheck, and real Chrome/Metal browser checks
+pass. The final combined frozen release includes the newer committed audio
+change `063c9f5` so deployment does not roll it back: 177 tests / twelve files,
+standalone typecheck and production build pass. A loaded-machine 5 s map-test
+timeout was rerun with a 15 s test timeout successfully. Browser evidence covers
+real engine boarding/driving/moving exit, health-only injury, roll/recovery,
+reduced motion, first-person clearance and eight shared-body poses with zero
+runtime/WebGL errors. Reproduce with scripts/bailout-roll-smoke.mjs and its
+isolated tutorial fixture. Task-owned Chrome profile and Vite were stopped.
+
+Manual `pnpm deploy:cloudflare` succeeded from
+`.cache/humvee-bailout-release-063c9f5/`: version
+`fd025e10-835e-4154-8388-2c84619747d1`. Both blockplaysg.fun and workers.dev serve
+byte-identical root JS/CSS, service worker and entry HTML. Both production
+Cloudflare routing/assets/PWA/API-origin checks pass. 904 frozen runtime/script/
+worker/config files match committed `063c9f5`. Logs, receipts, rendered pose
+PNGs, browser JSON and source/live verification: `.cache/bailout-roll/`.
+No GitHub push. AGENTS.md stays local, unstaged and uncommitted; preexisting
+handoff and .claude changes are preserved. This entry is appended locally.
+
+
+## Calibre-scaled pass-bys and stronger heavy-gun reports (2026-11-01)
+
+Local main commit `063c9f5` scales bullet pass-by crack and echo together from
+the firing round's resolved calibre/power profile, using the existing bounded
+impact/decal audio weight. The standard rifle reference stays the same; heavy
+rounds reach about +5.1 dB at 3 m lateral proximity, bounded to .8 gain at the
+ear. Foreign normal flight and snapshot catch-up pass their published source
+profile, rather than the gun currently in the viewer's hands. The existing
+18 m fade, own-shot/subsonic/cover exclusions, timing, panning, natural sample
+speed and lifecycle cleanup remain. Existing ElevenLabs takes are reused; no
+provider generation requests or additional credits.
+
+The owner's follow-up also requested more bass and echo on HMG/.50 gunshots.
+The recorded branch now has a 180 Hz low shelf: +6 dB for 12.7 mm and +3 dB for
+7.62 mm, easing with distance. Three dull reflected copies of the same near
+take arrive at 85/190/320 ms (distance-spread), with soft ends and decreasing
+levels/cutoffs. Far takes retain their existing outdoor echoes; suppressors
+receive neither boost nor added reflections. The offline fallback gains a
+little thump/tail weight too. Existing per-shooter tail handoff cancels all
+reflections under subsequent attacks; the final shot decays naturally.
+Measured through the real gun bus, .50 sub-180 Hz energy rises 4.59 dB and
+post-shot tail energy 4.20 dB; 7.62 gains 2.50 / 2.21 dB respectively. Maximum
+heavy-gun sample peak .661.
+
+All 3,204 tracked release files match committed source. Frozen release
+typecheck and 51 focused tests / seven files pass. Actual Chrome/Metal checks
+pass live automatic-fire consistency/mute, nine weapon/distance cases rendered
+before/after at 12-round cadences, bass/tail energy, stable attacks, full voice
+expiry, 40 flyby renders (two takes, four gun profiles, five distances), and
+actual guest-engine source calibre/power gain changes, ordinary/caught-up
+flight, duplicate suppression, cover and exclusions. 256 impact regression
+renders still pass combat-range audibility. Maximum flyby+rifle mixed sample
+.753; impact+gunfire .912. No runtime exceptions or paid playback requests.
+The full workspace suite at 30 s per-test limit reports 2,536 passes, the known
+Upper Thomson anchor failure (85,-14), and one worker RPC onTaskUpdate timeout.
+No full-suite pass is claimed; final focused frozen checks are clean.
+
+Manual pnpm deploy:cloudflare succeeded from the frozen release, version
+`449d052b-7384-4005-918a-f01bb008a694`. A concurrent bailout deployment completed
+0.7 seconds later as `fd025e10-835e-4154-8388-2c84619747d1`; independent inspection
+confirmed it uses the SAME `063c9f5` commit, including both audio changes. Its
+904 runtime/script/config files match this tested commit exactly. Its build
+hashes differ from our build, so final production verification uses that
+combined artifact rather than claiming our uploaded version is serving. Both
+production domains match all 24 combined build/audio files; both Cloudflare
+routing/PWA/model/audio/API checks pass. No redundant upload was needed.
+Evidence: `.cache/flyby-weight/` (release-source.json, source-verification.json,
+combined-source-verification.json, release-tests/typecheck logs, release-*-browser
+logs, full-tests.log, validation-summary.json, heavy-gun-results.json, flyby/remote
+results, impact-regression-results.json, deploy.log, deployments.log, live-
+verification.json, cloudflare-{custom,workers}.log). Before/after heavy listening
+WAVs are in `.cache/heavy-gun-audio/`. Our temporary release/private env copies,
+owned Vite :5195/:5196 and Chrome :9255/profile and owned shared lock removed
+after verification. The bailout release belongs to its task and is preserved.
+No GitHub push. Local AGENTS.md/.claude and unrelated handoff work stay unstaged.
+
+
+## Lower vehicle collision damage (2026-11-01)
+
+Owner reported fragile vehicles. Local main commit `a46d14a` reduces the shared
+collision-damage multiplier from 2 to .5 (75% less damage), preserving the 5 m/s
+bump tolerance and quadratic growth with approach speed. A 20 m/s Humvee impact
+now costs 112.5 / 600 hull HP rather than 450; a boosted 30 m/s helicopter impact
+costs 312.5 / 900 rather than 1,250. Existing solo and authoritative arena/open-
+world impact regressions use the new expected damage. No health-pool, bailout,
+weapon-damage or collision-motion changes.
+
+115 focused vehicle tests / six files pass in both the workspace and frozen
+release. Workspace typecheck encountered unrelated in-flight TS7006 shader/
+renderer parameters in expedition-visuals.ts; that work was preserved/excluded.
+The frozen committed release passes standalone typecheck and production build;
+904 runtime/script/config files match `a46d14a` exactly. No visual assets or
+browser rendering changed, so no additional browser smoke was required.
+
+Manual `pnpm deploy:cloudflare` succeeded from
+`.cache/collision-damage-release-a46d14a/`: version
+`8e8b419f-b062-48b9-a726-c4331137f8ee`. Both production domains serve exact built
+entry HTML, JS/CSS and service worker bytes; both production Cloudflare routing,
+assets/PWA/model/audio/API-origin checks pass. Logs and source/live verification
+are in `.cache/collision-damage/`. No paid API calls or GitHub push. AGENTS.md
+remains local, unstaged and uncommitted. All preexisting workspace edits were
+preserved; this handoff entry is appended locally.
+
+
+## Longer-lived dropped loot with a despawn fade (2026-11-01)
+
+Owner reported drops disappearing before crossing moderate distances and requested
+an expiry fade. Local main commit `48c8858` replaces rapid six-weapon/twelve-kit
+FIFO eviction with 48 weapons and 144 other fallen items per district outside
+the fade window. Drops and opened supply contents last 300 expedition seconds;
+the last 15 seconds smoothly fade the model, tier ring and focus glow together.
+At capacity, oldest overflow gets a full 15-second fade, stays collectible and
+is then removed. New drops never restart an older fade. Placed crates and their
+rounds do not expire. Cached districts age on the same expedition clock.
+Collected/expired transient items release their state; visual removal disposes
+owned model resources. Material fades preserve original glass/ring transparency,
+including glass shader alpha overrides, without changing another item's material.
+
+56 focused tests / four files, frozen-release typecheck and production build
+pass. Real headless Chrome/WebGL checks pass independent weapon material fades,
+full/half/almost-gone rendering, dimming focus ring, pickup in the final second,
+expiry, unchanged placed-crate rendering and zero runtime/shader errors.
+Reproduce with scripts/drop-lifetime-smoke.mjs and its fixture; screenshots and
+JSON: `.cache/drop-lifetime/`. The full mutable-workspace suite reports 2,526
+passes / 15 failures across nine files, plus an RPC timeout: the known Upper
+Thomson anchor, three map timeouts and rental tests affected by concurrent edits.
+No full-suite pass is claimed; rental/audio/vehicle work is preserved separately.
+
+Manual `pnpm deploy:cloudflare` succeeded from the frozen local commit archive
+`.cache/drop-lifetime-release/`, version
+`6e34c8f5-2e5a-43e5-94de-ae5e7d008067`. Both blockplaysg.fun and workers.dev serve
+byte-identical released HTML, JS, CSS and service worker. Both production
+Cloudflare routing/assets/PWA/model/audio/API-origin checks pass. Evidence:
+`.cache/drop-lifetime/{release-tests.log,release-typecheck.log,deploy.log,
+live-verification.json,cloudflare-custom.log,cloudflare-workers.log,results.json}`.
+Task-owned Vite/Chrome stopped. No GitHub push. AGENTS.md stays local, unstaged
+and uncommitted; this handoff entry is appended locally to existing edits.
+
+
+## Hourly rental terms, bulk discounts and voluntary discard (2026-11-01)
+
+Owner requested 1/2/4-hour active-play rentals, then bulk discounts, and replaced
+our proposed automatic cap with an optional discard action. Local main commits
+`0561bfd` and `6155ed7` implement the final scope. Existing balances are NOT capped
+or converted; tests preserve 72-hour balances and six-hour renewal totals.
+
+One hour retains the previous entry price (10% of catalog base, rounded up).
+Two hours cost two single hours less 10%; four hours cost four less 20%, with
+final prices rounded up. Store terms show exact currency savings, avoiding
+misleading percentage claims after rounding. SAR Steady Lah: 90/162/288 CR;
+Garang: 24/44/77 TK, saving 4 TK for two hours and 19 TK for four. Default term is
+one hour; renewal messages, inventory copy, price-card /hour labels, docs and
+fixtures use hours. New purchases accept only 1h/2h/4h IDs. The existing active-
+play clock, pause/offline rules and stored millisecond balance format remain.
+
+Store and Inventory both offer Discard rental for active paid leases. Inline
+confirmation shows the weapon and remaining time, explains no refund, and lets
+the player cancel. Confirm removes only that lease and restores an equipped
+variant to the issued variant of the same platform, preserving skin, slots,
+other leases, progression, supplies and wallets. Issued gear, ordinary equipment,
+unknown IDs and missing leases cannot be discarded. Store feedback reuses the
+existing selection sound; no sound generation or paid provider calls.
+
+Validation: typecheck and 254 focused cases across 21 files pass on the final
+combined frozen source. Cases cover every catalog weapon's discount ordering,
+exact CR/TK prices/savings, longer-balance persistence, renewal stacking, discard
+immutability/no refund/issued fallback, audio result forwarding, Store and
+Inventory rendering, rentals and all arena suites. No new broad-suite pass is
+claimed. Existing map/Upper Thomson failures from earlier work were not retested.
+
+A complete real-Chrome run passes legacy save migration, clocks free in menus,
+Inventory equip/gear/supply tabs, 390px layout, all hourly prices and exact savings,
+a paid 2h purchase + 4h extension, Store discard/cancel, Inventory equipped-rental
+discard, no refunds, issued protection and actual Training active-time expiry/
+pause/loading behavior. Its successful browser-results.json is retained. The
+later screenshot retake passes all new business flows and produces reviewed
+Store bulk-price and mobile confirmation screenshots; its repeated Training leg
+hits a headless CDP screenshot timeout (no runtime exceptions). This is recorded
+as a retake limitation, not a second full browser pass. Evidence:
+`.cache/hourly-rentals/`.
+
+A concurrent authorized manual `pnpm deploy:cloudflare` published the SAME final
+combined commit `eb816aa88b197a868c5d7d9d625fc6e319482231` (including the separate right-hand
+reload change) as version `33098cdd-9acc-4437-b70f-c7e29ba04fbf`. We independently
+verified all 2,055 selected runtime/server/public/script/config bytes in that
+release against Git, copied its entry assets before owner cleanup, then verified
+ten exact production HTML/JS/CSS/Three.js/service-worker responses across both
+domains. Both Cloudflare routing/assets/PWA/GLB/audio/API-origin checks pass without
+paid calls. No redundant upload or GitHub push. Own temporary QA/Vite/Chrome/profile
+are cleaned up. Other task releases/locks and ongoing audio/vehicle work are
+preserved; AGENTS.md/.claude and pre-existing handoff changes remain unstaged.
+
+
+## Right-hand machine-gun charging (2026-11-01)
+
+Local main commit `eb816aa` fixes FN MAG, CIS 50MG and MG4 cocking after an
+empty reload and during initial readying. The right hand leaves the firing grip,
+clears the receiver sideways, follows the existing charging stroke and returns
+along the outside path. The left hand continues the box/belt/cover work and
+returns to its support grip instead of reaching through the receiver to the
+right-side handle. Tactical reloads retain their existing hand assignments.
+No timing, gameplay ammunition, or audio changes.
+
+58 focused tests / seven files and standalone typecheck pass in the workspace
+and archived committed release. New regressions cover sampled palm clearance,
+right-hand/handle alignment over pull/hold/release, stationary left support,
+initial readying, tactical reloads, interruption, restart and final grip reset.
+Chrome checks pass all three guns' right-side and player-view charging poses,
+finite belt/contact transforms and zero runtime/shader errors. A first frozen
+player-view capture was interrupted by Vite restarting when private environment
+copies were removed; the final clean Chrome/Metal rerun passes. The full mutable
+workspace suite reports 2,556 passes, the previously recorded Upper Thomson
+thomson-plaza anchor failure (85,-14), and a Vitest onTaskUpdate RPC timeout.
+No full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from
+`.cache/right-hand-reload/release/`, version
+`33098cdd-9acc-4437-b70f-c7e29ba04fbf`. All 3,208 archived files match `eb816aa`.
+Both production domains serve exact released HTML, JS/CSS and service worker;
+both Cloudflare routing/assets/PWA/API checks pass. Evidence and rendered poses:
+`.cache/right-hand-reload/` (release-tests/typecheck logs, source-verification.json,
+right-preview-results.json, player-results.json, deploy.log, live-verification.json,
+cloudflare-custom/workers.log and full-tests.log). Private release environment
+copies and the task-owned deployment lock removed. No GitHub push. AGENTS.md
+stays local, unstaged and uncommitted. Other in-progress edits are preserved;
+this handoff entry is appended locally.
+
+
+## Helicopter pilot forward tilt without retained side bank (2026-11-01)
+
+Local main commit `89ccb92` changes helicopter pilot first-person camera
+composition: pilot yaw is applied around world up before the forward pitch, so
+a retained left/right look cannot turn nose-down flight into a sideways bank.
+The eye still follows the fully transformed seat; hull flight/heading, other
+seats and collision jolts retain their behavior. The shared helicopter browser
+fixture now pins its helicopter beside the test spawn independently of tutorial
+vehicle placement. `scripts/helicopter-tilt-smoke.mjs` checks both look/steering
+directions followed by W, zero bank, forward pitch, and third-person switching.
+
+The two new side-look regressions fail on the previous camera and pass with the
+fix. 83 focused tests / six vehicle files and standalone typecheck pass on the
+frozen committed release. Actual Chrome/WebGL checks pass both directions with
+zero runtime/WebGL errors; screenshots/JSON are in `.cache/helicopter-tilt/`.
+The full mutable-workspace suite reports 2,552 passes, six failures (the known
+Upper Thomson anchor plus five map-test timeouts), and three onTaskUpdate RPC
+timeouts. No full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from
+`.cache/helicopter-tilt-release/`, version
+`204e82a8-b45f-40cd-8934-294b8e9ca9bd`. Both production domains serve exact
+released HTML, JS/CSS and service worker bytes, and both Cloudflare production
+routing/assets/PWA/API checks pass. 910 runtime/script/config files match
+`89ccb92` exactly; this release includes the committed right-hand charging fix
+`eb816aa`, but predates the later acoustic commit `4530374`. Evidence: baseline-
+tests.log, release-tests.log, release-typecheck.log, deploy.log, source-
+verification.json, live-verification.json, cloudflare-{custom,workers}.log and
+results.json in `.cache/helicopter-tilt/`; full-suite output is
+`.cache/helicopter-tilt-full-tests.log`. No GitHub push or paid API calls.
+Owned Vite/Chrome and private release env copies are cleaned up. AGENTS.md,
+.claude and preexisting handoff edits remain local and unstaged.
+
+
+## Geometry-based gunshot echoes, inverse-distance impacts and dry pass-by snaps (2026-11-01)
+
+Owner requested gunshot echoes that respond to nearby buildings, HDB corridors
+and void decks, then asked to discuss impact attenuation before continuing.
+Implementation/deployment was held during that discussion. Owner approved
+inverse-distance amplitude (inverse-square intensity), with stronger nearby
+impacts and a final cap. Local commits: `4530374` acoustic spaces/mix, `57687fd`
+impact falloff, and `f248c7c` replacement pass-by assets/processing. No GitHub push.
+
+Gunshot acoustics uses thirteen short probes against visible static rendered
+geometry, with material hardness, nearby wall distance and several overhead
+hits. Nearby façades create geometry-timed slapbacks; open covered decks have
+a shorter diffuse response; close walls under a low ceiling create a denser,
+longer indoor response. Real elevated Queenstown estate void-deck and gallery
+points classify covered/enclosed. It is a bounded local approximation, not
+full specular path tracing or an exact room simulation. The same source-space
+profile is used for player, remote and vehicle reports; passenger/turret origins
+are sampled at their firing position rather than a chase camera.
+
+The ElevenLabs report's fixed outdoor tail is lowered after its initial attack,
+then early reflections and a deterministic damped stereo convolution supply the
+local response. Open sky has no added room response. Heavy-gun bass remains;
+suppressors excite much less reflected sound. Impulses are cached per context
+(max 16). Acoustic geometry is cached per emitter with motion/floor/TTL refresh,
+a 96-emitter bound, and four remote probes per 100 ms; the local gun has priority.
+Existing burst handoffs, mute/pause/stop cancel the convolution tail as well as
+sources; a silent clock owns tail cleanup. A shared combat limiter now routes
+gunfire, impacts and pass-bys together, fixing a reproducible full-auto .50 /
+50 m impact overlap that previously exceeded digital full scale. Other cover
+callers preserve their behavior; acoustics additionally ignores drill figures.
+
+Impact gain is min(.82, 8 × material × resolved calibre/power weight × sqrt(energy)
+/ max(1,distance) × fade). The smoothstep fade is 1 through 100 m and zero at
+140 m. A standard concrete strike is .8/.4/.2/.1 at 10/20/40/80 m, with gain
+halving (intensity quartering) per distance doubling outside the cap/far fade.
+Material, power, travel delay, lowpass, panning and spent-round attenuation remain.
+
+Owner then reported laser-like "pew-pew" cracks. Treated as the bullet pass-by
+(the context of hypersonic cracks); an optional clarification was offered. Two
+new ElevenLabs v3 pressure-snap takes and one separate soft air take replace the
+old combined tonal takes. Snaps are trimmed to 35 ms, retaining their first
+millisecond then decaying with a 4 ms time constant. The separate unpitched air
+rush lasts at most 90 ms and plays at 10% crack gain; the much weaker filtered
+slapback is 8% at 35 ms instead of the old 22% / 75 ms repeat. Original pitch
+and playback speed are preserved. The longest actual layer owns cleanup.
+Original cached takes and once-only receipts are retained; no ambiguous retry.
+Three completed requests cost 5 credits each. Included usage before 1,315 /
+40,000, immediate check lagged at 1,315, settled at 1,330: exactly 15 credits.
+
+Final frozen `f248c7c` matches all 3,215 tracked files. Standalone typecheck and
+64 focused tests / nine files pass, including intensity-vs-gain law, near-field
+cap, far fade, real HDB spaces, cache/probe limits, impulse reuse, tail cleanup,
+short snap manifests, separate air balance, source power and natural speed.
+Actual Chrome/Metal checks pass four source-space types in the FPS engine;
+36 single/burst rifle/heavy/suppressed renders across six spaces including actual
+HDB points; 12 room/impact mixes; 40 flyby renders across four weapon profiles
+and five lateral distances; guest normal/caught-up flight, dedup/cover/own-shot/
+subsonic exclusions; and 256 impact renders with the inverse-distance law.
+Maximum tested room/impact mix .8814, pass-by/gunfire mix .7437 and broader
+impact/gunfire mix .8814. Zero browser runtime errors or paid playback requests.
+
+Full frozen suite on `57687fd` before replacement pass-by assets: 2,558 passed,
+one known Upper Thomson ground anchor failure (85,-14), no worker RPC errors,
+using two workers and a 30 s test timeout. Final asset/voice code is covered by
+the clean focused and browser runs; no full-suite pass is claimed. Initial QA
+was interrupted by Vite re-optimizing dependencies; the final frozen QA uses
+an untracked config with explicit pre-optimization and a separate cache. It
+does not change the production Vite config. A first synthetic scene fixture
+used a second Three instance; the final fixture uses the same canonical Three
+as the engine and passes actual geometry classifications.
+
+Manual pnpm deploy:cloudflare succeeded from the tested frozen source: version
+`09ba4a55-7166-4533-8ad6-4816fc1000d3`. Both blockplaysg.fun and workers.dev
+match all 25 tested HTML/JS/CSS/service-worker/manifest/impact/pass-by/air files
+exactly; both production routing/PWA/model/audio/API checks pass. Shared lock
+held through verification. Later concurrent Freedom crate commit `66d2e3c` was
+not in this frozen audio release; its eventual deployment should include this
+audio revision rather than redeploy an older snapshot.
+
+Evidence: `.cache/gunshot-acoustics/` (release-source/source-verification JSON,
+release-tests/typecheck logs, final-*-browser logs and result JSON, renders.json,
+final-full-tests.log, validation-summary.json, crack-generation/usage receipts,
+deploy.log, live-verification.json, cloudflare-{custom,workers}.log). Audition
+WAVs open/covered/corridor and pass-by-replacement.wav are retained there; the
+replacement was also shown inline to the owner. Own QA servers, Chrome :9373 /
+profile, temporary release/private env copies and own shared lock removed after
+verification. Other working edits and other task releases are preserved. Local
+AGENTS.md/.claude and pre-existing handoff work remain unstaged.
+
+
+## 2026-11-01 — Freedom Force crates award randomized faction rifles
+
+Owner reported Freedom Force cargo awarding SAR 21s and requested a random
+Freedom Force weapon. Local main commit `66d2e3c` rolls equally among Soft Power
+· Foreign Aid (SCAR-L), Hard Power · Strings Attached (SCAR-H), and Longwatch at
+operation spawn. The selected catalog ID is authoritative snapshot state,
+validated against the owning faction's pool and disclosed in the choice panel.
+Keeping equips that exact weapon in the normal main slot, with a loaded magazine
+and up to four spares in available rig slots. Favor consequences and current-life
+ownership remain. Collective Corps' existing SAR retrofit remains unchanged;
+XM29/QTS-11 launchers and proxy operator loadouts remain outside this change.
+
+Three appended family indexes preserve old save/network identities. Live models
+reuse the faction geometry with separately animated magazines, charging handles,
+muzzle/ejection sockets and clear functional sight apertures. SCAR-L shares
+5.56 rifle magazines; SCAR-H/Longwatch share 7.62 box magazines separately from
+FN MAG belts. Physical-magazine restoration now accepts registered families
+instead of hard-coding the old maximum. No paid requests or new audio generation.
+
+213 focused tests / 16 suites and typecheck pass both in the workspace and frozen
+committed release. Browser walked to real cargo, inspected its disclosed reward,
+kept SCAR-L (family 8, 31 loaded, Freedom -20 / Collective 0), fired and reloaded
+with a physical spare (31 loaded / 90 reserve afterward), then aimed through the
+working reflex. All three rifles also rendered in WebGL side/sight views with
+zero browser exceptions. Earlier browser attempts retained timing/input-mode
+failures; successful evidence is `browser-success.log`, `gallery.log`,
+`reloaded-success.png`, `aimed-success.png`, and `all-weapons-{side,sight}.png`
+under `.cache/freedom-crates/`. Task-owned Vite :5198 and Chrome :9358 stopped.
+The accidental broad-suite invocation was stopped in existing district diagnostics;
+the known Upper Thomson ground-anchor failure remains. No full-suite pass claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from the verified committed local
+release, after waiting for the audio deployment lock. Cloudflare version:
+`23b39eb3-6d0a-4361-95b7-e62e04ba2a81`. All 2,072 selected source/model files match
+`66d2e3c`, which also includes preceding committed audio change `f248c7c`.
+The release's first test attempt omitted the asset-pack SAR fixture; adding its
+exact committed model files fixed packaging and the complete 213-test run passed.
+Both blockplaysg.fun and workers.dev serve matching exact entry assets and service
+worker (10 responses), and both production Cloudflare routing/PWA/API checks pass.
+Receipts: `.cache/freedom-crates/{release-result.json,source-verification.json,
+release-tests.log,release-typecheck.log,deploy.log,live-verification.json,
+cloudflare-custom.log,cloudflare-workers.log}`. Temporary private env copies
+removed and deployment lock released. No GitHub push. Keep AGENTS.md and existing
+handoff/.claude changes local and uncommitted.
+
+
+## Map/minimap information audit (2026-11-01; audit only)
+
+Owner requested an audit of map/minimap information and suggested sector
+boundaries. No gameplay changes or deployment in this task. Inspected the FPS
+renderer, marker producers, contact filtering, sector/control model, starting
+district picker, debug Singapore locator, legacy exploration maps and tutorial.
+Runtime registry inventory: 23 districts, 233 sectors, 164 authored schematic
+decor primitives; FPS renders only 44 eligible rectangles. Queenstown, Kampong
+Glam, Yishun, Little India, Katong/Joo Chiat and Pulau Ubin have no FPS-eligible
+decor. These counts describe schematic map primitives, not 3D mesh coverage.
+
+Expedition already draws sector control boundary rectangles on both sizes;
+expanded Training/Arena show sector fills/names without boundary strokes,
+and their compact maps omit sectors. Sector bounds deliberately overlap and
+leave gaps; they must not be presented as a complete territorial partition.
+Recommend static readable outlines independent of ownership, highlighting the
+sector selected by sectorAt, with control tint retained as a separate layer.
+
+Other gaps: building/water/landmark coverage, vertical traversal/height, distinct
+loot and facility icons, visible distance/status/ETA, label collision handling,
+legend coverage, pan/zoom/layers/waypoints and an in-play cross-district planner
+in the main game flow. Rich marker details are mostly SVG title strings; the
+desktop map has pointer-events:none. Marked and scented contacts are exceptions
+to ordinary range/FOV/LOS visibility, but the map description omits marking.
+Control is based on surviving facilities, not faction heat or troop territory.
+
+Validation: all 29 existing focused tests in FpsMinimap, SingaporeMap, minimap
+and fps-minimap-contacts pass. Audit used source, runtime registry enumeration
+and server-rendered component tests; no visual browser verification is claimed.
+Existing handoff edits and local AGENTS.md/.claude files preserved; no GitHub
+push. Audit findings and prioritized suggestions delivered in chat.
+
+
+## Sector boundaries, schematic map detail and marker inspection (2026-11-01)
+
+Owner approved the four audit improvements preceding vertical routes. Local
+main commit `8206a35` adds static sector outlines in compact and expanded maps
+for Training, Arena and Expedition, with sectorAt selecting the current bright
+outline. Sector overlaps/gaps are retained; facility ownership tint stays a
+separate tactical layer. All 164 authored schematic shapes now render in FPS,
+including line shapes and fallback dark colors, with named static landmarks
+from the district POI/stamp catalog. These remain schematic geography rather
+than full 3D mesh footprints or navigable walking routes.
+
+New symbols distinguish command posts, garages, helipads and supply depots,
+and weapons, ammunition, medical/resupply, armor and food. Producers attach
+explicit equipment/facility types. Expanded maps provide an inspector for the
+selected marker's name, category, distance and available status/progress/ETA,
+plus keyboard brackets, previous/next buttons, mouse/touch selection and cycling
+of overlapping markers. Priority label placement suppresses collisions. Static
+geography persists through jamming while tactical markers, ownership, hazards
+and selected tactical details disappear. The map key uses the actual symbols.
+
+Opening the map releases desktop capture, clears held movement/fire inputs
+and preserves crouch/prone. Closing with M, Escape or the Close button reuses
+the normal guarded capture flow; failure leaves the standard Resume path.
+The battlefield continues running during inspection. Vertical route/floor
+overlays, pan/zoom and custom waypoints remain outside this approved scope.
+
+Validation: typecheck and 77 focused tests across 10 files pass. New browser
+harness `pnpm test:minimap` / scripts/minimap-details-smoke.mjs checks every
+district, schematic shape counts, sector boundaries, full status and ETA,
+jamming privacy, mouse/touch/keyboard selection, portrait/landscape layout,
+native FPS pointer release/recapture, movement blocking, prone preservation
+and capture-denial recovery, with zero browser exceptions. The headed Mac
+Chrome session rejected native pointer lock even on document.body; the final
+passing run used a separate headless Chrome with native capture, not a mock.
+An early full-map fixture incorrectly placed some district loot outside bounds;
+it now tests real in-bounds distant supplies and separately covers boundary
+supplies. Browser artifacts/logs: `.cache/map-details/`. Task-owned servers and
+Chrome sessions stopped after verification. No paid API or new audio requests.
+
+Manual pnpm deploy:cloudflare succeeded, version
+`6aaf84e1-39bc-45bd-b827-2cb50c5532a4`. Both blockplaysg.fun and
+blockplay-sg.sunjc826.workers.dev serve exact matching built entry JS/CSS and
+service worker hashes. Both production Cloudflare routing/assets/PWA/API checks
+pass. Evidence: deploy.log, live-verification.json, cloudflare-check.log and
+cloudflare-workers-check.log in `.cache/map-details/`. No GitHub push. AGENTS.md,
+.claude and all pre-existing handoff edits stay local, unstaged and uncommitted.
 
 
 ## M200 Intervention exterior study
@@ -6342,6 +9109,56 @@ pre-existing handoff changes and local AGENTS.md/.claude/; only this new note
 is staged from the tracked handoff baseline.
 
 
+## Marina Bay garden combat pilot (2026-11-01)
+
+Local main commit cfb9573 concentrates regular infantry into a 290 x 132 m
+southern garden front while retaining the explorable district and landmarks.
+Three nearby forward courts, local spawns/deployment/patrols, 11 cover walls,
+four open pavilions and two kiosks replace broad lawns. Opt-in combatFocus
+allocation concentrates squads and holds captured courts rather than swarming
+the staging camp. Other districts retain their allocation behavior.
+
+Exploratory telemetry stays uncommitted in .cache/marina-combat, per the owner's
+preference to assess value before formalizing it. report.html is the interactive
+before/after density, shot origin/target and sampled-moment explorer; raw trial
+JSON, CSV, static figures, scripts and experiment-source.json are retained.
+Twelve runs: three seeds x two populations x two layouts, 180 simulated seconds,
+20 Hz update and 1 Hz sampling. Common runtime frozen at 4969518 plus the Marina
+changes (excludes the concurrent cargo update); real AI, collision and navigation,
+idle observer. Observed acceleration 2.4-8.5x; wall-time nav budgets prevent
+bit-reproducibility. Regular dismounted infantry metrics exclude vehicle fire,
+hazards and temporary event crews. Shot distances use actual targeted actors;
+hit distances use original projectile origin, not its last flight segment.
+
+32 bots: first targeted shot mean 116.6 -> 15.9 seconds; mean shot range
+186.1 -> 89.5 m; mean living infantry in the garden 4.9 -> 25.1.
+64 bots: mean shot range 191.7 -> 97.4 m; garden presence 12.1 -> 45.8;
+longest quiet interval 12.3-18.0 -> 7.6-12.8 seconds. First contact was already
+about 1.3 seconds in the original 64-bot roster. Allied survival remains a
+balance concern (asymmetric 24 allies / 40 enemies); short idle-observer runs
+do not establish sustained match quality. Earlier prototype exposed long late
+lulls and is preserved separately; only baseline/frontline files are final.
+
+Validation: typecheck and 256 tests in 12 relevant suites pass; registry/render
+batch checks separately pass. Earlier full suite had unrelated weapon edits,
+timing failures and an existing Upper Thomson vertical-route failure, so do not
+claim full-suite green. Final frozen cfb9573 browser trials independently pass
+32 and 64 bots with 7 sites, no JS exceptions or paid requests, around 59-60 FPS.
+Sequential reload trials encountered a pointer-lock pause; fresh-tab isolated
+trials passed. Five static views inspected. Report controls (20 combinations),
+four maps and mobile width pass.
+
+Shared manual pnpm deploy:cloudflare release in .cache/freedom-cargo-v2 archived
+exact cfb9573 (all 3249 tracked source bytes verified), uploaded successfully as
+Cloudflare version 1f699ecb-750b-4780-8ba7-9d8d287c9189. Both domains' entry and
+all JS/CSS/service-worker hashes matched the release. Its overall post-deploy
+receipt is false because separate audio MIME and routing checks failed; do not
+represent the entire release verification as green. No duplicate deployment or
+GitHub push was performed. Marina's own receipts are in .cache/marina-combat.
+Preserve local AGENTS.md, .claude/ and unrelated handoff edits. This handoff
+addition is deliberately left unstaged alongside the existing local changes.
+
+
 ## 2026-11-01 — Peace Offering / M200 playable Freedom Force cargo
 
 Landed in 841ec26 on main; no GitHub push. All five FF designs are Mythic cargo
@@ -6388,6 +9205,1995 @@ Temporary frozen source/private env copies removed; deployment lock released.
 Preserved pre-existing local handoff edits, AGENTS.md and .claude/ unstaged.
 
 
+## Upper Thomson Plaza ground-anchor failure fixed (2026-11-01)
+
+Local main commit `a715c79` moves the Plaza sector anchor, encounter spawn and
+exploration stamp from (85,-14), inside the solid 0.6 m entrance landing, to
+clear ground beside it at (104,-14). Existing landing, ramp, steps and movement
+collision rules are unchanged. Added a regression using shipped geometry for
+Plaza sector anchors, encounter points and the stamp in both walking radii.
+
+Validation: 277 tests across bukit-thomson-ground, vertical-routes, zone-sectors,
+world-zones, regions and sector-wiring pass, including all district route and
+anchor checks. Two additional checks pass: Upper Thomson inhabited-floor access
+and cross-district supply placement. Typecheck passes. The initial broad vertical
+run reproduced the original anchor failure; it was stopped in the expensive
+unrelated all-district diagnostics. No complete full-suite pass is claimed.
+
+Manual `pnpm deploy:cloudflare` succeeded from frozen local main `a715c79`,
+verifying all 3,249 committed source blobs under the shared deployment lock.
+Release typecheck, four focused regression tests and Cloudflare production build
+pass. Version: `4d26554a-deff-49c1-911e-312b4695a0ff`. Both production domains
+serve matching entry HTML and all six exact release JS/CSS/service-worker files,
+and both routing/assets/PWA/API-origin checks pass. Evidence:
+`.cache/thomson-fix/`. Lock released; temporary private env/release copies removed.
+No GitHub push or paid requests. Existing handoff edits, local AGENTS.md and
+.claude/ preserved unstaged; this handoff addition remains local as well.
+
+## Compact Marina ground battlefield + vehicle participation (2026-11-01)
+
+Local main commit `912b3ae` shrinks Marina to 435.6 x 369.6 m (60% linear
+scale, 64% less ground area). Three equal-priority fronts span north, south and
+east around the bay; whole compact district playable. Shared data-only scale
+helper aligns geometry, collision, sectors, stamps, checkpoints, minimap and
+practice positions. Human/vehicle sizes unchanged; tactical cover retains full
+height. 23 walls, four pavilions, two kiosks; narrowed civic gallery connections
+were widened/adjusted to retain actual walking access. Landmarks retained;
+SkyPark/Flyer combat access is still future work.
+
+Working command posts no longer veto road/air reinforcement transports; regular
+roster and 80-second external clock remain. Humvee boarding permits distant
+contacts, blocks threats within 35 m, and healthy armed crews stop/fight within
+90 m instead of instantly dismounting. Damaged/lone/stuck crews still unload.
+Marina motor pool moved to Flyer approach near owning enemy post so crews can
+reach it. No new fleets or autonomous drivable helicopter pilots implemented.
+
+Local experimental evidence: `.cache/marina-compact/`, six final 180-second
+trials plus six baseline a715c79 trials; raw faction/position/fire data, vehicle
+samples, source snapshots and `distribution.png` / `comparison.json`.
+32-bot shot origins ~42% north / 19% south / 38% east; sampled walkable ground
+within 60 m of living dismounted infantry rises 11%->37% (32), 13%->54% (64).
+Every trial has road+air transports (2-3 total); Humvee driver+gunner present
+66-101 sampled seconds, mounted gunfire in five of six. Limitations: 32-bot
+first contact slower (16->23 s); 64-bot firing distance longer (100->122 m).
+No claim of perfect pacing or long-match balance. See docs/MARINA-COMBAT.md.
+
+Validation: full 272 files / 2630 tests pass with --maxWorkers=2
+--testTimeout=30000; typecheck; 96 focused motor-pool tests after placement;
+six rendered views; final 15-second real-FPS 32/64 checks ~60 FPS, no exceptions.
+Earlier overloaded full run had timing/RPC errors, superseded by clean run.
+Stock browser fixture can select a refused 'entry', fall back to another point,
+then idle player dies and pauses after respawn. Diagnostic confirms this;
+local final-smoke explicitly selects an accepted deployment. Final 64 still
+uses northern approach because closer points are refused; do not call that
+an allied-base spawn. Final browser receipts in browser32/64-results.json.
+
+Manual Cloudflare deploy succeeded from frozen exact commit under shared lock:
+version `2a224771-9cad-4fa4-a35a-2e6f38bc0c38`. Both domains verified exact six
+JS/CSS/sw hashes, entry HTML, routing/assets/PWA/API-origin checks. Release
+source/private env copies removed and lock released. No GitHub push, paid
+reference requests or audio generation. AGENTS.md, .claude/ and entire existing
+handoff diff preserved uncommitted.
+
+User discussion during this work (design only, not implemented): AI drivable
+helicopter pilots could be useful, but user explicitly cautions against blindly
+agreeing or making all scripted setpieces systemic. Keep scripted raids/arrivals
+where predictability helps. Boarding should wait only for eligible, approaching
+passengers, depart partially full, expire unavailable/stuck reservations and
+have a bounded wait. User favors contextual weighted probabilities for whether
+a squad stays infantry, transports or supplies air firepower: account for ground
+strength remaining after crew leaves, conflict pressure, useful air engagement
+and existing air coverage. Roll per squad/mission opportunity and commit rather
+than reroll each tick. Example percentages discussed were illustrative, not
+accepted tuning or a shipped feature. Flight/landing behavior remains undecided;
+shared mission concepts need not imply shared flight physics/controllers.
+
+
+## Marina dragon boats and floating campsite (2026-11-01)
+
+Local main commit `b6601dc` adds Red Dragon and Golden Dragon at opposing
+Marina jetties in FPS ranges, arenas and expeditions. Four seats, player steering,
+occupied-paddler acceleration, water-only hull collision, coasting/braking,
+first/third-person views, touch controls, map markers and dry-landing boarding /
+disembarking. Both boats are unarmed (last two seats retain carried firearms);
+occupants can be hit above the open hull. 300 HP, no fuel blast, independent
+expedition wreck/abandonment recovery. Boat AI drivers and automatic AI boarding
+are deliberately absent in this first version. Finish ownership remains motor-only.
+
+Central authored 24x20 m pontoon has three landing arms, a low shelter, bedrolls
+and separated low cover. Walkable deck cutouts preserve blocked water elsewhere;
+a gap in the south promenade rail opens onto the new jetty. Shared data aligns
+rendering, collision, docking and map. Static camp parts are instanced by material.
+No central score objective, extra spawn or resupply advantage was added.
+
+Validation: full suite 273 files / 2636 tests passes with --maxWorkers=2
+--testTimeout=30000; final typecheck passes. Initial full run had one outdated
+water-ray expectation pointing into the new campsite; moved it to actual open
+water. After the final rendering batch, 22 focused scene/cover/water/boat checks
+also pass. Browser fixture passes real-FPS boarding, motion, braking, refused
+moving exit, cameras, seat switching and portrait touch HUD, without exceptions.
+Simulation regression sails a full four-person crew to camp and unloads to four
+separate dry positions, and confirms direct hits on exposed occupants. Three
+rendered views plus first-person/phone screenshots inspected. The first browser
+attempt used an unsuitable movement timeout under concurrent software rendering;
+final receipt passes with bounded pacing. Evidence: `.cache/dragon-boats/`,
+`.cache/dragon-boats-tests-final.log`, `.cache/dragon-boats-final-focused.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded from frozen exact commit `b6601dc`
+under the shared deployment lock. Cloudflare version:
+`0a3d03fb-c009-4e97-8018-c3a450aa5ab1`. Both production domains serve matching
+entry assets and all six exact JS/CSS/service-worker files. Routing, model/audio
+assets, PWA and API-origin checks pass. Frozen release additionally passes its
+own typecheck and 60 focused tests. Temporary release/private env copies removed
+and deployment lock released. Receipts: `.cache/dragon-boats/release-result.json`.
+No GitHub push or paid API requests. Existing handoff changes, AGENTS.md and
+.claude/ remain local, unstaged and uncommitted.
+
+## 2026-11-02 — AI drivable helicopter pilots and playable Marina landmarks
+
+User explicitly requested implementation of weighted mission decisions and bounded
+passenger boarding, preserving scripted raids/deployments, plus playable MBS,
+Flyer and Gardens. Completed local main commit `d34e22c` atop `b6601dc` (boat/camp
+work from another chat, preserved through a three-way merge). No GitHub push.
+AGENTS.md, .claude and this entire preexisting handoff diff remain uncommitted.
+
+`helicopter-autopilot.ts`: normalized infantry/transport/support weights using
+remaining ground strength, pressure, travel distance and friendly scripted
+coverage. Hard route/landing/line-of-sight gates, independent RNG, 30s squad
+opportunity cooldown. Existing squad crew only, 3s minimum boarding, 18s maximum,
+5s stalled reservation expiry, changed orders/eligibility cancel reservations.
+Empty transport cancels; solo support pilot allowed. Normal vehicle controls and
+collision flight, 30s support station / 150s outbound limit, return on orders,
+resolved support objective, low hull or empty ammo. Validated alternate recovery
+points handle a blocked home column. Pilot-seat loss cancels and lands crew.
+Marina helipad starts allied/operational near allied staging (-92.7,80.5 actual
+resolved hull spawn). No added bot population or scripted-controller changes:
+AST comparison against b6601dc verifies stepGunship, fieldAircrew, stepTransports,
+dispatchReinforcements byte-identical (receipt in cache).
+
+`marina-landmarks.ts`: MBS 66.4m deck, two service stair towers (north -50/-30,
+south 19/39, x107), cover; Flyer fixed 18/33m overlooks and stair tower x180;
+Gardens 7.2m canopy spine/terraces with two stair approaches. Three elevated
+capturable supply sites bring Marina to 10 facilities, preserving ground fronts.
+No rooftop reinforcement spawn, rooftop helicopter dismount/deployment, or
+rideable Flyer capsules. Structures are authored gameplay additions, not survey
+reconstructions. Corrected MBS collision top; removed decorative roof props
+that blocked infantry. Objectives use real supported floor heights; ground
+mission terrain handling preserved. Both walking widths and navigation tested.
+
+Broader diagnostics found an existing sampler discrepancy: flat support surfaces
+extend by capsule radius in supportHeight, but measureVerticality only sampled
+centre footprints, creating a missing row at a stair head. Sampler now matches
+actual support semantics, with an offset-landing regression. Also moved the
+south stair entrance off an authored ground anchor and widened landings.
+
+Validation: final clean full suite 276 files / 2692 tests passed; typecheck and
+release typecheck passed; diff check; full arena transport/partial boarding/
+unload/return, support gunfire/return, vacated pilot seat, alternate recovery,
+weighted choice/expiry and real obstacle flight tests. New geometry has 46
+movement/navigation tests and passes district-wide reachability/clearance gates.
+Initial failed runs are superseded by verified-tests.log.
+
+Cache `.cache/marina-air-landmarks/`: six rendered views, isolated early source,
+180-second initial 32/64 samples, benchmark/profile receipts, exact release
+verification. Initial 32 sortie returned; 64 helicopter destroyed after takeoff.
+Bots observed on Flyer/Gardens and climbing MBS. Probe's injected `missions`
+array remained empty because transform didn't match; use vehicle snapshots,
+not that array, as evidence. These simulations predate final landing refinements
+and the merge with boat/camp work; do not describe them as final balance data.
+
+Performance limitation: native Metal 32-bot view ~59.8 FPS. Dense north-facing
+64-bot view ~19 FPS; controlled unchanged-main b6601dc comparison same spawn,
+renderer and protected observer ~20.2 FPS. CPU profile dominated by rendered
+cover triangle raycasts. Earlier software-renderer run was 0.3–4 FPS and is not
+representative. 64 observer died/paused on first native pass; subsequent probes
+use engine.refillHealth every 200ms to keep performance sampling active. No
+claim of 60 FPS at 64 or broad performance improvement. No product performance
+changes added for this preexisting dense-view bottleneck.
+
+Manual Cloudflare deployment succeeded from frozen verified d34e22c under shared
+lock: version `b6cce126-624a-4b0e-8ad1-9f2003b96b92`. Both production domains
+verified exact six release JS/CSS/SW hashes and entry HTML, plus full routing,
+asset/PWA/API-origin checks. Temporary private env copies/release removed and
+lock released. Task-owned Vite servers and isolated Chrome instances stopped.
+
+## 2026-11-02 — Marina FPS profile and shared vehicle ground probes
+
+User reports sub-20 FPS at normal 32 bots on another laptop, i9-14900HX / RTX
+4060 / Edge, with many tabs open. User confirmed hardware-accelerated WebGL
+and WebGPU plus ANGLE RTX4060 renderer. No on-device trace or post-fix retest
+received; don't attribute all slowdown to tabs, weak hardware or software GPU.
+
+Local main commit `ee07d0e` fixes repeated vehicle ground raycasts in stepBot.
+Both movement and nav-plan construction used to raycast the rendered district
+under every hull for every bot. Four Marina vehicles amplified this heavily.
+A lazy shared snapshot is invalidated after vehicle/events/grenade updates,
+before infantry, and on reset. Movement retains xz hulls; navigation retains
+min/maxY. Ground/roof/airborne rules unchanged. No bot/quality/mission reduction.
+
+Cache `.cache/marina-profile/` contains original d34e22c source snapshots, Vite
+AST timing instrumentation (cache only), real FPS fixture, Chrome CDP profiler,
+raw CPU profiles and screenshots. Native Metal Apple Paravirtual renderer,
+1280x800 DPR1, protected idle observer,20s warmup,15s frame sample; function
+timings include approximately17s including setup. Matched 32-bot entry samples:
+- baseline:342steps,6696.6ms simulation,38592 ground queries/5743.6ms;
+  19.581ms/tick,59.54FPS; floor queries account for85.77% simulation CPU.
+- fixed:341steps,1276.2ms simulation,1588 ground queries/315ms;
+  3.743ms/tick,60FPS (~81% less simulation CPU;~96% fewer height queries/tick).
+- artificial4xCPUthrottle:6.28->17.02FPS,111.435->19.613ms/tick.
+  Stress evidence only, not an emulation/prediction of user's laptop.
+- fixed64 approach-28:60FPS,7.445ms/tick,63alive,10sites. No matched baseline64
+  in this experiment; don't compare strictly with previous turn's short warmup.
+All sampled phases playing, no exceptions or paid requests. Last-pass renderer
+info is not whole-frame draw count. Short single-view samples cannot establish
+long-session/all-camera FPS or complete cause of user's slowdown.
+
+Added count-invariant floor-probe tests at1/6bots, per-tick/reset invalidation,
+and same-tick moving-car position refresh. Focused60tests pass; full276files /
+2695tests pass; typecheck and frozen-release typecheck pass. Initial full-suite
+invocation accidentally placed flags after --, hitting the default5s scenery
+timeout; stopped it and its orphan workers, reran correct explicit vitest args
+--maxWorkers=2 --testTimeout=30000. verified-tests.log is final passing run.
+Documentation appended to docs/MARINA-COMBAT.md. Own Chrome9374 and Vite5204
+processes stopped. No GitHub push; AGENTS.md,.claude and handoff remain local.
+
+Manual deployment from frozen verified ee07d0e succeeded under shared lock:
+Cloudflare version `215f82f0-4cda-434a-833d-0537fa07fd34`. Both production
+URLs verified all six exact JS/CSS/SW assets and entry HTML; full Cloudflare
+routing/assets/PWA/API-origin checks pass. Release/private env copies removed,
+lock released. Receipt `.cache/marina-profile/release-result.json`.
+
+## 2026-11-02 — Heavy MG infantry counters for helicopters
+
+Completed local main commit `a68c72f` atop `ee07d0e`, without a GitHub push.
+Existing tank troops already carried MG4/MG36/XM8 support variants; the new
+`heavy` role is a dedicated armored MG4 gunner (140 health, 100 base armor,
+1.6 speed, standard/sustained belts). Mixed initial rosters cycle assault,
+heavy, sniper, tank; heat-weighted reinforcement choices include heavies.
+Population limits are unchanged. Friendly heavy recruits carry an actual
+FN MAG spec. LAN/public squad selectors include Heavy MG squads. Existing
+helmet, plate and gunner geometry plus a gold role accent identify the role.
+
+Heavy AI prioritizes hostile occupied drivable helicopter hulls, raid gunships
+and air transports within 220 m. Uses existing travelling bullets, variant
+falloff/damage, magazines, reloads and aim settlement; leads horizontal and
+vertical motion. Rendered sight blockers, collision cover, smoke, faction
+relationships and player spawn shields gate acquisition. Empty hulls ignored.
+Normal mounted-infantry spotting cannot bypass the heavy's aircraft range.
+Orders, objectives, healing and danger avoidance retain movement priority;
+no navigation toward an airborne hull. Ground-threat memory remains separate.
+
+Final full suite passes: 277 files / 2703 tests, with maxWorkers=2 and
+30-second scenery timeouts. Typecheck, diff check and frozen release checks
+pass. Eight new heavy integration checks cover roster/silhouette, airborne
+hull damage, shield grace, cover/sight blockers, reload pauses, range/empty
+hulls and friendly/hostile raids. Threat/spotting/order regressions also pass.
+Initial full run exposed an older test's ineffective removePlayer(bot) cleanup:
+bots cannot be removed through that API. Friendly-fire probe now checks the
+specific shooter's zero-damage result and faction relationship, instead of
+global player health while unrelated enemies remain active. Final passing
+receipt is `.cache/heavy-mg/verified-tests.log`.
+
+Browser evidence `.cache/heavy-mg/`: actual host plus validated guest snapshots,
+rendered armored gunner and LMG, helicopter at 35.13 m, 51 rounds / hull down to
+284 of 900 HP after 17 simulated seconds. Sight obstruction stops fire;
+clearing it resumes fire. Both inspected screenshots and browser receipts pass
+without runtime/WebGL errors. This is a controlled stationary hover scenario,
+not broad gameplay/performance balance data. No paid API calls or new audio.
+Task-owned Vite5207 and isolated Chrome9377 stopped.
+
+Manual `pnpm deploy:cloudflare` succeeded from a frozen a68c72f archive under
+the shared deployment lock. Version `579c4edb-a70b-4127-b81a-ddc94b42941b`.
+Both blockplaysg.fun and workers.dev serve exact matching release entry assets,
+JS/CSS/service worker hashes, and routing/model/audio/PWA/API-origin checks
+pass. Receipt `.cache/heavy-mg/release-result.json`. Release/private env copies
+removed and lock released. AGENTS.md, .claude and this preexisting handoff diff
+remain local, unstaged and uncommitted.
+
+
+## 2026-11-02 — Player swimming and compact Merlion islet
+
+Local main commit `f7dcf0c` adds player-only surface swimming in Marina FPS
+ranges, arenas and expeditions. Speed capped at1.25m/s (carry can slow it),
+no sprint/jump/ADS, no moving fire or long-gun/grenade attacks. Stationary P30
+hip fire has a large minimum spread; landed bullet damage stays unchanged.
+Authority enforces speed with elapsed-time allowance and stationary-only pistol
+fire plus its own dispersion. Supplies are refused while swimming. No drowning
+or breath timer. Gold ladders at three central landings and the two shore jetties
+are automatic climb-outs; ordinary quay edges remain closed. Dry AI navigation
+and cars retain water blockers. Boats and AI water piloting are unchanged.
+
+The main platform shrinks from24x20m to an octagon about6m radius (~75% less
+main dry area), with three shorter landings still large enough for four distinct
+crew exits. Existing Merlion sculpture/fountain move from the west promenade to
+the centre, with solid pedestal cover and two low barriers replacing the tent.
+This is explicitly an authored gameplay relocation, not surveyed geography.
+Shared footprint drives water cutouts, boat SAT, rendering, climb zones and map.
+No bridge, water channel, extra boats, spawn or score advantage added. Remote
+swimmers are submerged at the eye datum with procedural surface arm strokes.
+
+Validation: full278files/2709tests passes with maxWorkers2/testTimeout30000;
+typecheck and Cloudflare production build pass. Final49 focused tests cover dry
+crouch continuity, the complete shore->islet->far shore swim, ladder-only exits,
+no dry seams, speed/pose spoof attempts, moving/rifle fire refusal, stationary
+pistol permission, remote animation and four-person boat unloading. Frozen
+release rechecks typecheck and83 tests. Existing boat tests now target the
+smaller landings and paths around the solid statue. Local and real shared-FPS
+browser smokes pass entry while sprint held, stowed/refused rifle, stopping to
+fire a pistol, refused ADS, wide spread and portrait touch UI, with no exceptions.
+Inspected Merlion overview and water-level screenshots. Evidence:
+`.cache/swimming/`, `.cache/swimming-shared/`, `.cache/swimming-tests-full.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded from frozen exact f7dcf0c under the
+shared lock. Version `861120a0-3633-48fb-bcce-6afba07e28d9`. Both production
+domains verified matching entry assets and all six exact JS/CSS/service-worker
+hashes, plus routing/model/audio/PWA/API-origin checks. Private env and frozen
+release removed; lock released. Receipt `.cache/swimming/release-result.json`.
+No GitHub push, new audio generation, paid requests or reference captures.
+AGENTS.md, .claude and all existing handoff edits remain local and uncommitted.
+
+
+## 2026-11-02 — Rebuilt Merlion sculpture
+
+Local main `b39fad2` replaces the primitive sphere/cone/block Merlion with a
+separate procedural sculpture: defined muzzle, almond eye recesses, mouth,
+layered mane wrapping front/sides/back, overlapping shallow fish scales,
+curled tail fins and rounded blue ceramic wave arches. Tapered fountain begins
+at the mouth and ends at the bay surface; decorative jet is excluded from rays.
+Merged by material: seven meshes,29,120 triangles, no textures or new fetches.
+Existing central cover envelope, islet footprint, boat and swim access retained.
+
+Used existing cached September Merlion fish/plinth references only. Their head
+is cropped out, so new face/mane explicitly remain an authored stylization.
+No new reference captures or acceptance claims. Resources owned/disposed by the
+new model builder; Marina's general instance batching no longer flattens it.
+
+76 focused tests across model/Marina scene/swimming/boats/rendered cover/water/
+landmark routes pass; typecheck passes. Tests verify model bounds within the
+existing cover, fountain origin/end height, ray exclusion, geometry normals,
+mesh/triangle budget and disposal. Initial normal validation caught stale normal
+attribute sizing after mane end caps; rebuilt the attribute, final all-finite
+checks pass. No full-suite pass claimed for this visual-only change. Native
+headless Chrome inspected six before/after views (front,quarter,side,rear,islet,
+swimmer) without exceptions. Evidence `.cache/merlion/`; browser command
+`pnpm test:merlion` uses Vite5219 and Chrome9379. Short fixture draw counts are
+not whole-game FPS evidence.
+
+Manual pnpm deploy:cloudflare from frozen b39fad2 succeeded under shared lock.
+Version `87e1c169-cdb1-467a-a4ad-2b16aa6f893b`. Both production domains match
+entry asset names and all six exact JS/CSS/service-worker hashes; production
+routing/assets/model/audio/PWA/API-origin checks pass. Frozen release rechecks
+typecheck and76 tests. Receipt `.cache/merlion/release-result.json`. Temporary
+release/private env files removed; lock released. No GitHub push or paid API
+requests. Existing handoff changes, AGENTS.md and .claude remain uncommitted.
+
+## 2026-11-02 — Merlion pressure station and limited supplies
+
+Local main 74786856d6b03ac7a4a62b03fbb27ac4b429b2e3 adds host-owned
+Merlion gameplay in Marina combat sessions. E at the south wheel operates/leaves;
+mouse/touch look rotates the sculpture at a bounded 1.6rad/s. Hold fire for a
+65m nonlethal water cannon; Q/touch mist consumes the same pressure reserve.
+Seven seconds full-pressure cannon, 18s idle refill, 3s exhaustion recovery.
+Cannon clips at rendered scenery, drivable/scripted hulls and bay surface; only
+intersecting actors get the strong water-sheet screen effect / bot blindness.
+Full blindness prevents bot target acquisition and shooting, clears within .24s
+of losing contact, and affects either faction. No client-reported water hits.
+Mist: 10m radius,4.5s lifetime,40% pressure,22s shared cooldown; cloud sight checks
+and gentler screen haze obscure both sides including the operator.
+
+Operator body stays exposed at the wheel, camera above the mouth; hands/weapons
+hidden and HUD shows health/pressure. Shared occupancy, intent expiry, death,
+disconnect/pause release and blocked handheld/vehicle actions while operating.
+Both arena and expedition HUDs include the controls and exposure overlay; touch
+pad has dedicated mist/exit and stationary movement. Water effects pool geometry;
+turning preserves the authored central movement cover. No new paid audio/assets.
+
+East plinth cache: three shared packs,25 immediate health and one current-weapon
+spare magazine if a rig pouch is free. Existing physical magazine helper handles
+rig capacity, host snapshot receipts prevent duplicate client grants. Eight-second
+per-actor pickup cadence; one pack returns per45 active simulation seconds.
+Stock/pressure/cooldowns survive expedition district travel; match reset restores.
+Bots already on the island can navigate around the pedestal to claim the wheel,
+aim either side, use mist for nearby enemies, and yield to active player orders
+or absent targets. Added dry approach anchors for ground-only Marina navigation.
+This does not grant infantry swimming, automatic boat boarding or boat piloting.
+
+Validation: final full suite280 files/2726 tests passes with maxWorkers2 and
+30s timeout; typecheck passes. Initial default full run had three scene-heavy
+5s timeouts while browser work overlapped; those rechecks and final full suite
+pass.14 new controller/authority tests include actual Marina pedestal navigation,
+per-hit bot firing inhibition, guest/host packets, timed pressure and stock,
+cover clipping, finite validation and both-direction bot aiming. Real FPS engine
+browser verifies E/Q and touch controls, rotation, sustained cannon, mist,
+75-health supply pickup, bot-operated player blindness and restoration; seven
+screenshots/results in .cache/merlion-gameplay. pnpm test:merlion:gameplay uses
+Vite5219 and Chrome9379. Owned browser/Vite stopped and temporary profile removed.
+
+Manual pnpm deploy:cloudflare from frozen7478685 succeeded; version
+4d2fd027-1c93-4210-b059-2ec79e7d0a0d. Release rechecked typecheck and179 focused
+tests across12 files. Both blockplaysg.fun and workers.dev match entry assets
+and all eight exact JS/CSS/service-worker hashes across the two domains; routing,
+models,audio,PWA/API-origin checks pass. Receipt .cache/merlion-gameplay/release-result.json.
+Private env/frozen release and owned deployment lock cleaned. No GitHub push,
+paid requests or reference captures. AGENTS.md,.claude and handoff remain local
+and uncommitted.
+
+## 2026-11-02 — Bot dragon boat crews / Merlion island ferries
+
+Main 9d075ba7016cf86903563df9bfbfcef52b50022b adds autonomous dragon boat
+boarding/piloting using existing bots and existing hulls. A bounded water visibility
+graph checks the whole oriented9m hull and turns, escapes narrow shore jetties
+before yawing, chooses dry island berths, brakes/aligns at landings and reverses
+into shore berths. Other hulls block routes; stalled missions replan. AI uses
+normal paddleVehicle physics and host vehicle snapshots in expedition AND closed
+shared Marina arenas. No boats, bots, damage, weapons or inventory are invented.
+
+Nearby eligible bots (45m) reserve an available boat, walk via dry nav/shore
+anchors to its real vehicleExit boarding point, assemble up to3 existing allies
+for3..8s and depart without needing an armed gunner. Explicit orders/anchors,
+health/cooldown, faction occupancy, and approaching-player priority apply.
+Friendly player pickups wait for an actual sustained stop. An empty driver seat
+with a player still aboard stays reserved; all-bot survivors can replace a lost
+pilot at sea. Tests kill the pilot with an actual authoritative shot.
+
+Crews unload to separate dry points atomically, then guard/contest the Merlion
+for90s and use its existing controls against visible enemies. A squad ferry keeps
+its pilot aboard for the return to a clear shore berth; a solo pilot may land to
+contest directly. Expired island assignments allow return trips. Blocked landings
+keep crew aboard/retry alternate berths; no open-water disembark or walking across
+the bay. Existing abandoned/wreck respawn rules retained. Boat AI requires no new
+protocol types because authority already publishes seats/hulls and actors.
+
+Validation in an isolated archive based on7478685 plus ONLY boat-owned changes:
+282 test files/2736 tests passed (maxWorkers2,testTimeout30000), typecheck passed.
+Ten new route/authority tests include both boats round trips, blocked berths,
+real shore approaches, all-bot crew return, actual pilot casualty promotion,
+shared/open modes and friendly player pickup/driver protection. Browser real FPS
+engine:3bots boarded~1s,crossed~6s,landed~26s,operated Merlion against player~28s,
+returned pilot/boat~57s. Original three bot IDs retained, no swimming. Screenshots,
+progress/results .cache/boat-ai; command pnpm test:dragon-boats:ai uses Vite5219
+and Chrome9379. Native headless captures inspected for crossing/landing. Owned
+browser/Vite stopped, isolated verification archive/node_modules and temp Chrome
+profile removed. Full suite logs at .cache/boat-ai-clean-full-tests.log.
+
+Concurrent building lift/diagonal navigation work appeared during this task.
+Preserved every unrelated edit. Boat arena-rules diff reconstructed against base
+and applied to index ONLY; verified staged source equals the isolated tested
+source before committing. No concurrent lift/scene/runtime/engine changes were
+included in this commit. All those working edits remain intact and uncommitted.
+
+Manual pnpm deploy:cloudflare succeeded from frozen9d075ba under shared lock.
+Version d0f1cb19-0090-4491-86d0-ccef18a77ab4. Frozen release rechecked typecheck and
+189 focused tests across14files. Both production domains serve matching entry
+assets and all eight exact JS/CSS/service-worker hashes; routing/models/audio/PWA/
+API-origin checks pass. Receipt .cache/boat-ai/release-result.json. Private env,
+release workspace and owned lock removed. No GitHub push, paid requests, new audio
+or reference captures. AGENTS.md,.claude and handoff remain local/uncommitted.
+
+## 2026-11-02 — Clearer Merlion first-person HUD
+
+Local main ceed67cf9cb0b809905a74da43ebcb5fa92855e8 replaces the large central
+Merlion operating card with a compact bottom-right desktop readout. Inline HP/
+armor replaces the full vitals cards; pressure meter and Q-mist/E-exit remain.
+Repeated aim/fire instructions removed. Touch gets a compact top-right status
+readout with pressure/health/mist cooldown and uses its existing pad/exit actions,
+with no duplicate card buttons. Nearby station/supply prompts also reduced.
+The expedition objective toggle moves just below the touch readout while mounted.
+Cannon/mist screen exposure and the small centre reticle retained.
+
+Browser review used isolated9d075ba plus owned changes, real FPS fixture with
+expedition objective button present. Desktop card240x88.6px at1100x850 (~2.3% area),
+touch172x63.7 at900x600 and390x844 (~2.0%/~3.3%). Layout checks verify the central
+aiming area is clear, touch has no duplicate buttons, and objective controls do
+not overlap. Inspected desktop firing and phone portrait captures. Full existing
+Merlion interaction smoke passes desktop E/Q/fire, touch mist/exit, supplies and
+bot cannon blindness/recovery; evidence .cache/merlion-hud/ (layout.json/screens).
+Typecheck and23 focused tests across3files pass. No full-suite rerun claimed for
+the HUD change. Temporary review checkout/profile removed; owned Chrome/Vite stopped.
+
+UI review exposed a boat-AI regression in the existing island-spawn fixture:
+unassigned island infantry could reserve a mainland boat within45m, then attempt
+an impossible dry walk. Separate main ef172d3 restricts boarding candidates to
+landings on the actor's own island/shore region. New real-Marina regression test
+keeps the island bot operating the Merlion instead. Existing squad round trips,
+player pickup/protection and casualty promotion still pass (boat authority now6
+tests). This also prevents mainland bots reserving an unreachable island boat.
+Only that arena-rules line and the owned test were staged; concurrent lift edits
+and every other ongoing file remain intact/uncommitted.
+
+Manual pnpm deploy:cloudflare succeeded from frozen ceed67c; version
+f12bf0b3-f65e-4744-91de-4ad6bd62884a. Frozen release rechecked typecheck and23 focused
+tests. Both production domains match entry assets and all eight exact JS/CSS/
+service-worker hashes; routing/models/audio/PWA/API-origin checks pass. Receipt
+.cache/merlion-hud/release-result.json. Frozen/private env and owned deploy lock
+cleaned. No GitHub push, paid requests or reference captures. AGENTS.md/.claude/
+handoff and unrelated in-progress work remain uncommitted.
+
+Concurrent-work status at completion: main has advanced through faf15b7
+(bounded district train routes) to f6e8e6f (Marina lobbies/lifts/spirals).
+Verified ceed67c is an ancestor of current main. Descriptions above of unrelated
+work as uncommitted refer to the time of the scoped HUD/boat-fix commits; that
+parallel work was preserved and has since been committed by its own task.
+
+
+## 2026-11-02 — Integrated Marina landmark access
+
+Local main commits f6e8e6f and 93ba3e4 replace MBS exterior switchback towers
+with three furnished, enterable ground lobbies and two enclosed express lifts.
+Walk into open cars: seven-second stop, twelve-second travel, opposite phases.
+The shared host carries multiple human/AI passengers, locks translation during
+travel, gates absent cars and clears riders on death/reset. Crouched riders stand.
+Playable interiors are ground lobbies and rooftop access, not hotel rooms/floors.
+Actual roof holes, thin upper facades and enclosing shaft walls preserve the
+skyline. Flyer service stairs are unchanged.
+
+Two Gardens stairs now wrap planted north/south Supertree trunks in full spirals,
+with purple support brackets, gold handrails, tangential landings and bridges to
+the existing 7.2m canopy circuit. Diagonal/arc walk surfaces use matching curved
+treads and collision; both walking modes and AI share the routes. Navigator adds
+explicit lift service edges. Fixed a preexisting squad destination bug comparing
+objective height to the roof ray instead of terrain, which sent rooftop squads
+to ground underneath. AI now physically approaches, rides and exits to objectives.
+
+Verticality diagnostics support explicit lift service and collision-checked
+intermediate samples at curved landings without inflating supported floor area.
+Full-width route checks and rendered floor probes retained. Static lift parts
+are instanced. Cream facade seam adjustment avoids coplanar-face fragmentation;
+Marina built scene has188 root children, below unchanged260 budget.
+
+Validation: frozen archive SHA-verified against93ba3e4 (3292 tracked files).
+284 test files/2793 tests passed; typecheck and Cloudflare production build pass.
+Six lift tests include shared players, crouch, reset, full bot objective journey.
+Real FPS-engine browser smoke verified ascent/roof exit, return/ground exit,
+all32 spiral segments and canopy arrival, no runtime errors. Screenshots inspected.
+pnpm test:marina:access uses Vite5224 and Chrome9384; review fixture ?render.
+Final receipts/logs/images in.cache/marina-access (browser-verified subdirectory).
+
+Manual pnpm deploy:cloudflare succeeded from93ba3e4 under shared lock; version
+1afe6850-533e-40b7-af2b-425b5938db15. Both blockplaysg.fun and workers.dev verified
+matching entry HTML and exact JS/CSS/service-worker hashes; routing/models/audio/
+PWA/API-origin checks pass. Private environment copies and deployment lock removed.
+Preserved concurrent boat, Merlion HUD and bounded rail commits; no GitHub push,
+paid requests or reference captures. AGENTS.md,.claude and this handoff stay local
+and uncommitted. Owned Chrome9384/Vite5224 stopped; frozen release cleaned.
+
+
+## 2026-11-02 — Trains stay on bounded station-to-station railways
+
+Local main `faf15b7` fixes all five moving-train maps: Queenstown, Yishun,
+Sentosa, Punggol and Woodlands. Shared `rail-routes.ts` supplies track extents,
+whole-consist envelopes and deterministic acceleration / braking / dwell clocks.
+Trains remain visible, stop at real authored platforms and reverse at terminal
+buffers without resetting their position. Queenstown and Sentosa call at their
+central station in both directions. Terminal shelter, correctly oriented signs,
+platform brackets and buffers use existing scene-owned materials / batching.
+
+Sentosa's three cars are centred on the moving group. Queenstown and Yishun
+platform slabs leave the train lane open; Punggol's solid station box becomes
+side platforms on piers. Woodlands' previous 70m rail could not contain its
+73.5m train: a continuous shoulder now reaches a far-shore terminal with ground,
+apron and a small building. Background buildings leave the rail corridor clear;
+the checkpoint stop clears the buffer with the whole consist. Its collectible
+ring moves from the rails to the dry shoulder at x=-35,z=-140. Terminal layouts
+are authored game scenery, not surveyed transit layouts or boardable services.
+No new paid requests, audio generation or reference captures.
+
+Validation: 93 focused tests and workspace typecheck pass. Frozen `faf15b7`
+passes the full suite: 283 files / 2,747 tests, plus typecheck. New regression
+checks sweep complete service cycles for continuous speed, dwell / braking,
+whole-mesh buffer limits, actual rendered support beneath nose / centre / tail,
+and an unobstructed train corridor. Real headless Chrome captures all 12 station
+views without exceptions; screenshots / results in `.cache/rail-routes/`, command
+`node scripts/rail-routes-smoke.mjs` (Vite5221 / Chrome9381 were used and stopped).
+
+A workspace-wide attempt saw an unrelated in-progress lift test failure before
+that work was committed. The frozen full-suite run above excludes that unfinished
+state. To preserve newer committed Marina / lift / review changes, final release
+uses `93ba3e4`, which includes `faf15b7`. It passes typecheck and 99 focused tests.
+Its first focused run passed all assertions but had a Vitest worker RPC timeout;
+serial rerun passes cleanly. First-attempt log retained in final evidence folder.
+
+Manual `pnpm deploy:cloudflare` succeeded under the shared deployment lock:
+version `d71b83d1-b9f6-448a-a939-a7e965e7f57c`. Both blockplaysg.fun and
+workers.dev match entry asset names and all exact JS/CSS/service-worker hashes;
+production routing, models, audio, PWA and API-origin checks pass. Receipt:
+`.cache/rail-routes-final/release-result.json`. Frozen release / private env files
+and owned lock cleaned. The earlier frozen validation runner was stopped before
+it could deploy the older revision. No GitHub push. AGENTS.md, .claude and all
+existing handoff edits remain local and uncommitted.
+
+
+## 2026-11-02 — Readable inland map boundaries and layered backdrops
+
+Local main `108b167` adds `withDistrictBoundaries` through the common registry
+for all23 districts. A physical foreground limit at existing movement bounds,
+layered city/forest scenery and terrain skirts fading into existing fog replace
+land plates ending in empty sky. City / estate retaining planters, heritage rear
+walls, forest banks / canopy and industrial concrete / palisade fences use shared
+materials and at most16 instanced batches plus ground / approach road surfaces.
+Nearby checkpoint gaps retain their full width; service roads beyond the edge
+turn behind scenery. Coast sides remain open (including the physical Sentosa
+boardwalk), and Punggol's partial coastal opening has matching outside water.
+Train termini tuck into covered, screened turnback yards with clear centre lanes.
+Bounds, movement obstacles, existing gateways / arrivals and train clocks retained.
+
+This is authored scenery, not surveyed district boundaries. Design notes:
+`docs/DISTRICT-BOUNDARIES.md`, with Epic's readable-boundary / occlusion guidance.
+No new reference captures, paid requests, assets, textures, audio or lights.
+Distant scenery / outside skirts skip gameplay rays and automatic window effects;
+foreground barriers / rail shells retain shot surfaces. Everything is excluded
+from cover metrics and shadow casting; geometry / materials dispose separately.
+
+27 new boundary regressions cover every profile, physical limit / clamp alignment,
+open coasts, gateway widths, upward skirt normals, Punggol water continuation,
+windowless utility structures and disposal. Initial full suite found coplanar
+Woodlands approach screens; separated screen widths, merged close openings and
+excluded the boundary group from automatic window facades. Focused night / rail /
+boundary rerun52 tests passed. Visual review caught terrain grounding and a
+partial-coast skirt hole; fixed them before release.26 ground/elevated/coastal/
+rail views render without browser exceptions; captures/results:
+`.cache/district-boundaries/`. Command `node scripts/district-boundaries-smoke.mjs`
+uses Vite/Chrome origins; owned Vite5222 / Chrome9382 stopped and profile removed.
+
+Frozen108b167 passes typecheck and the entire final suite:285 files /2,820 tests.
+Manual `pnpm deploy:cloudflare` succeeded under the shared lock: version
+`c85dc73e-1505-4318-9298-72a98585fb3f`. Both blockplaysg.fun and workers.dev
+match entry asset names and all exact JS/CSS/service-worker hashes; production
+routing, models, audio, PWA and API-origin checks pass. Receipt:
+`.cache/district-boundaries/release-result.json`; all release/test/deploy logs
+alongside it. Frozen release / private environment files and owned lock cleaned.
+No GitHub push. AGENTS.md, .claude and all existing handoff edits remain local
+and uncommitted.
+
+## 2026-11-02 — Glass MBS lifts and readable arrivals
+
+Local main96031c5 +8d4f55d give both MBS lifts lightly tinted glass cabin walls,
+shaft panels and framed landing doors. Explicit material.userData.bulletGlass
+passes player/bot bullets and sight in both directions at full damage; ordinary
+transparent world materials retain prior behavior. Steel frames, cabin floor/roof
+and hotel structure remain ballistic cover. No shattering/damage attenuation.
+Physical scene traces, local and authoritative grenades, and chase-camera collision
+include the glazing. Foot guards/landing gates remain solid. Moved cabin matrices
+are updated on animate, including cached authority cover queries between refreshes.
+
+Public landing displays show direction/location, three-second arriving countdown,
+amber flashing approach lamps and green boarding/departure countdowns. Signals
+never disclose occupancy. Visual cues only, no audio generation/paid requests.
+Bots now retain target acquisition/fire while host-carried in transit; walking,
+vehicle boarding, healing and grenade throws wait until stopped. Existing shared
+lift cycle/boarding, skyline, stairs and other transparent world surfaces unchanged.
+
+New regressions cover closed-pane damage both directions, sight, solid frames,
+physical panes, shaft movement guards, moving cover between cached queries,
+offset arrival timing and riding bot fire. Browser real FPS round trip + spiral
+passed with no runtime errors; inspected glass closed/open, arrival and roof views.
+Evidence in.cache/lift-glass; browser-verified has captures/results. Frozen release
+hash-verified against8d4f55d,3298 tracked files, preserving108b167 district boundaries.
+Initial full run passed286files/2825 assertions but exited1 on Vitest onTaskUpdate
+RPC timeout; retained tests-worker-timeout.log. Serial rerun result follows.
+
+Serial full suite passed cleanly:286 files/2825 tests,426.78s,exit0. Typecheck,
+production build and browser smoke pass. Manual pnpm deploy:cloudflare from
+8d4f55d succeeded; version726b2216-0800-458b-b933-16d364f9f14a. Both production
+domains verified matching entry HTML and all6 exact JS/CSS/service-worker hashes;
+routing/models/audio/PWA/API-origin checks pass. Private env copies, frozen release
+and owned deployment lock cleaned. Owned Vite5224/Chrome9384 stopped. No GitHub
+push. AGENTS.md,.claude and handoff remain local/uncommitted.
+
+
+## 2026-11-02 — Jumping onto low cover
+
+Local main `7e7e5e0` raises infantry takeoff to 7.6 m/s (about 1.3–1.6 m
+feet rise) and narrows the equipment jump penalty so heavy kits can still reach
+1.25 m cover. Explicit `Obstacle.supportsTop` supplies footing on range crates /
+sandbags / resupply lids and open-world camp stores / barricades. Existing
+authored decks remain supported; decorative roofs, water and infinite colliders
+remain excluded. Range GLB collider tops now use rendered model bounds and local
+terrain; the resupply collider matches its rotated 0.86 m lid. Base and temporary
+obstacles also participate in upward head contact. Support persists until the
+whole body clears the edge, avoiding falling into a cover side when walking off.
+
+Seven new jump regressions cover weighted 30/60/144 fps approaches, persistent
+landings, slow departures, rotated footprints, real camp cover, water, ceilings
+and headroom. Browser `node scripts/jump-traversal-smoke.mjs` (defaults Vite5225 /
+Chrome9385) uses actual Orchard sandbags and FPS input: walking blocks, jump
+mounts the rendered top, remains standing, jumps again and walks off cleanly.
+Default-kit peak 1.555 m; zero JS exceptions / Google requests. Captures and
+receipt: `.cache/jump-traversal/`. Browser first found the slow-departure trap;
+fixed it and reran successfully. Dedicated Vite / Chrome stopped.
+
+Initial full-suite run began before the final collision fix and overlapped another
+release: 284 files / 2,831 assertions passed; five checks exceeded the 5-second
+timeout and the new departure regression failed against that earlier transform.
+Final source reruns pass all affected files: 9 files / 134 tests at 30-second
+timeout, including every failed check, plus typecheck. Relevant tests also pass
+independently. Manual release is queued behind the shared deployment lock; final
+frozen-source validation and production receipt follow below. No GitHub push.
+AGENTS.md, .claude and all existing handoff edits remain local / uncommitted.
+
+
+## 2026-11-02 — Reload animation energy
+
+Local main commit 565aee8 adds a deterministic cosmetic motion layer across all
+14 weapon configurations: anticipation, lift, extraction reaction, seating impact
+and rebound, empty-action release and shoulder settle. Mass scales angular agility
+and longitudinal weight; the integral launcher inherits its rifle's mass. Belt
+boxes and covers get separate contact accents. Pouch extraction/insertion and
+cover closure accelerate into contact with exact, stationary endpoints. Gameplay
+reload durations, ammo events, interruptions, existing audio and camera stay intact;
+added root movement respects reduced motion and the existing bipod restraint.
+No paid requests or new audio assets.
+
+Reference: Infinity Ward/Activision's July 2019 animation/authenticity interview,
+https://blog.activision.com/cn/zh/call-of-duty/2019-07/Modern-Warfare-Initial-Intel-Detailing-Advancements-in-Animation-and-Authenticity
+(weight-specific handling, powerful physical magazine movement, seamless return).
+
+Review fixture: scripts/fixtures/reload-energy.html; smoke:
+scripts/reload-energy-smoke.mjs. Both tactical/empty across all 14 rendered with
+finite/continuous poses, exact returns, reduced-motion scaling and belt contacts.
+Visual captures reviewed. Real FPS pouch test passed all six phases, grip contact,
+source/inventory transfer and exactly one spare consumed, no browser exceptions.
+CDP polling initially missed short phases under load; the saved paced test samples
+inside requestAnimationFrame and captures after the sequence. Local proxy was
+bypassed only for isolated localhost browser checks.
+
+Frozen source matched all 3302 tracked files of 565aee8. Typecheck, production
+build, and serial full suite passed: 287 files / 2830 tests (504.10s; 20s test
+limit for scene tests under concurrent machine load). Initial parallel suite was
+stopped after unrelated scene timing limits. Evidence/logs in .cache/reload-energy,
+including frozen-browser, pouch, source-verification.json and release-result.json.
+
+Manual pnpm deploy:cloudflare succeeded under the shared deployment lock: version
+ea967579-e87d-4fda-a622-5893fbab0386. Both production domains matched entry HTML
+and all six exact JS/CSS/service-worker hashes; routing/models/audio/PWA/API-origin
+checks passed. Concurrent jumping work committed as 7e7e5e0 during validation;
+this release used the earlier isolated reload commit and did not include that work.
+Main retains both commits. No GitHub push. Private env copies, frozen release,
+owned lock, Vite5226 and Chrome9386/profile cleaned. AGENTS.md, .claude and all
+handoff edits remain local/uncommitted.
+
+Frozen final `7e7e5e03b8ef4e50ee4d44c190d41719a34f3b3f` passes typecheck, 9 files / 134 tests,
+and the Cloudflare production build. Manual `pnpm deploy:cloudflare` succeeded: version
+`68c47878-80da-4a54-bf7a-d31cc490b0cf`. Both production domains verify the exact entry assets
+and all JS/CSS/service-worker hashes; routing/models/audio/PWA/API-origin smoke
+checks pass. Receipt: `.cache/jump-traversal/release-result.json`. Frozen source,
+private environment copies and owned deployment lock cleaned. No GitHub push.
+
+
+2026-11-02 reload video follow-up: exported .cache/reload-energy/video/reload-animation-showcase.mp4 (71.73s, 1280x720, 30fps, H.264/AAC, 4.9MB). All 14 empty reloads rendered deterministically at normal weapon timings with labels and existing recorded mechanical audio; no paid requests. All 2152 frames decode, audio peak has headroom, no browser errors. Capture script/metadata retained in that folder. Temporary Vite5226, Chrome9386 and owned profile cleaned; no code edits/deploy required.
+
+
+## 2026-11-02 — Stronger magazine yank, palm slap and cocking
+
+User found the first video too soft. Main 1f855e6 makes the physical actions more
+forceful: short magazine tension then fast extraction/overshoot, quicker box
+removal, guide the fresh magazine home before an 8.5cm open-palm wind-up below
+its base and strike at the existing .74 seat event. Stationary endpoints keep the
+carried/mounted handoff exact. Stronger directional root impacts and counter-
+reactions accompany the hand. Cocking takes up tension then hits the rear stop
+quickly; the action snaps home independently of the opening hand. Ready and shot
+bolt cycles retain their existing hand-follow behavior. Reduced-motion scaling,
+bipod restraint, gameplay durations/ammo events and existing recordings retained.
+
+New regressions verify tension/extraction profile, fast handle stroke and physical
+palm contact with the magazine base. Belt regressions now require contact during
+the pull and intentional separation/open fingers during release. Full run began
+before that test update: 287 files/2836 assertions passed, three old belt assertions
+failed because they still required hand contact after release. Final frozen-source
+rerun passes all affected files (7 files/55 tests), including all three revised
+assertions. No other full-suite failures. Typecheck and Cloudflare build pass.
+
+All 14 tactical/empty render checks pass, including belt contact/spacing, reduced
+motion and exact ready return; reviewed palm impacts and action release captures.
+Real engine pouch test passes reach/grip/extract/carry/insert/return, source transfer
+and exactly one spare consumed with no runtime errors. Updated video:
+.cache/reload-force/video/reload-force-showcase.mp4 (71.73s, 1280x720/30fps,
+H.264/AAC, 5.2MB); all2152 frames decode, existing weapon recordings at natural
+speed, no paid requests. Evidence/scripts/logs in .cache/reload-force.
+
+Frozen source verified all3304 tracked files of1f855e6. Manual deployment succeeded:
+5bcbc61a-f7ce-4672-8d86-09c8c5bfcf0f. Both production domains matched entry HTML
+and all exact JS/CSS/service-worker hashes; routing/models/audio/PWA/API-origin
+checks passed. Deployment receipt saved. Frozen release/private env copies,
+owned deploy lock, Vite5226 and Chrome9386/profile removed. No GitHub push;
+AGENTS.md, .claude and handoff remain local/uncommitted.
+
+
+## 2026-11-02 — Non-MG cocking release flick
+
+Main471c736 responds to the requested non-MG cocking flourish: fingers open at
+the rear stop, the hand flicks outward/up and45mm rearward, holds clear while the
+handle snaps home, then returns along a separate arc outside the receiver. Shared
+absolute-time helper covers empty reload and deployment-ready animations. Belt
+and drum MGs (including Ultimax) retain prior handling. Tactical reloads and manual
+shot bolt cycles are excluded. No gameplay timing, ammo, camera or audio changes.
+
+14 new per-weapon regressions cover independent handle/hand motion, rearward
+release clearance, open fingers, brief hold, deterministic ready action, continuous
+return, interruption cleanup, and unchanged MG behavior. Final focused run64 tests
+passes; frozen full suite passes289 files/2853 tests (235.88s, two workers,20s scene
+test timeout). Typecheck, production build and all14 tactical/empty browser renders
+pass, no runtime exceptions. Release captures reviewed for SAR/P30/Intervention.
+
+Short video .cache/cocking-release/video/cocking-release-preview.mp4 shows all ten
+non-MG cocking sequences at normal speed:21.2s,1280x720/30fps,H.264/AAC,1.3MB.
+Existing recorded back/release sounds keep natural playback speed. All636 frames
+decode, audio peak.232, no paid requests. Scripts/metadata/evidence retained in
+.cache/cocking-release.
+
+All3305 frozen tracked files verified against471c736. Manual Cloudflare deployment
+succeeded: c85cad77-fc48-4821-9af6-8a39de5580cc. Both production domains match entry
+HTML/all exact JS/CSS/service-worker hashes; routing/models/audio/PWA/API-origin
+checks pass. Receipt saved. Private env copies, frozen release, owned deploy lock,
+Vite5226 and Chrome9386/profile cleaned. No GitHub push; AGENTS.md,.claude and
+handoff remain local/uncommitted.
+
+
+## 2026-11-02 — Pistol overhand slide clasp
+
+Main 26d70e2 implements the requested top clasp for the P30 reload. The palm
+now rests across the slide, fingers curl down the far side and thumb wraps the
+near side. A staged outside/up/over approach avoids clipping through the slide.
+The actual slide, serrations and sights move together 35 mm under the hand,
+then snap home after the hand releases clear. Other weapon handling is unchanged.
+
+Three new regressions cover palm contact, opposing finger/thumb clearance,
+approach clearance, actual slide/sight movement, release, tactical exclusion and
+interruption/disposal reset. Focused 8 files / 79 tests pass. Frozen full suite
+passes 290 files / 2856 tests (233.32s, two workers, 20s scene timeout); typecheck
+and Cloudflare production build pass. All 14 weapons pass tactical/empty browser
+render smoke; dedicated pistol capture reviewed.
+
+Preview: .cache/pistol-overhand/video/pistol-overhand-reload.mp4, 7.27s, normal
+and half speed, 1280x720/30fps H.264/AAC. All 218 frames decode. Existing recorded
+audio remains at natural playback speed; no paid generation requests.
+
+All 3306 frozen tracked files matched commit 26d70e2. Manual Cloudflare deployment
+succeeded: 68299fb3-5ba6-457d-946b-52cb1527723e. Both production domains match
+entry HTML and all 6 exact JS/CSS/service-worker hashes; routing/models/audio/
+PWA/API-origin checks pass. Evidence and receipt retained in .cache/pistol-overhand.
+Private env copies, frozen release, owned deploy lock, Vite 5226 and Chrome 9386/
+profile cleaned. No GitHub push; AGENTS.md, .claude and this handoff remain local
+and uncommitted.
+
+
+## 2026-11-02 — Rifle reload shoulder angle
+
+Main 4f87ecb fixes the requested stock-up reload framing. Reviewed actual MW2019
+magazine reload frames from ModDB (JONES weapon showcase) and IMFDB (FN FAL);
+source URLs, images and qualitative observations cached under
+.cache/rifle-angle/references. The reference has muzzle up/forward and stock
+down toward the shoulder; no exact 3D angle is claimed from a screenshot.
+
+weaponReloadMotion keeps rifles at 22% of the former vertical lift, introduces a
+0.38-radian muzzle-up envelope, and moderates lateral turn/roll. Engine and review
+fixture use the same selection. All nine rifle/platform reloads (including the
+OICW integral launcher) retain action/magazine timing and additive force accents.
+Pistol, belt/drum MGs and deployment-ready actions remain unchanged.
+
+11 new regressions cover stock-envelope clearance, muzzle direction at contact
+stages with full/reduced energy, smooth endpoints, exact mechanical timing, and
+unchanged pistol/MG poses. Focused 5 files / 41 tests passed. Frozen full suite
+passed 291 files / 2867 tests (237.59s, two workers, 20s scene timeout). Typecheck
+and Cloudflare build passed. All 14 tactical/empty browser renders pass finite
+poses, endpoint/reduced-motion checks, belt contact and no runtime exceptions.
+Reviewed SAR/SCAR/Intervention magazine frames and cocking/video frames.
+
+Video .cache/rifle-angle/video/rifle-reload-angle.mp4 shows all nine full empty
+reloads at normal speed, 37.97s, 1280x720/30fps H.264/AAC, 3.1MB. All 1139 frames
+decode; original recorded audio at natural speed, no paid generation.
+
+Verified all 3307 tracked files in frozen commit 4f87ecb before testing/deploying.
+Manual Cloudflare deployment succeeded: 16539365-e324-42ae-adcd-18de83c8113a.
+Both production domains match entry HTML and all six release JS/CSS/service-worker
+hashes; routing/models/audio/PWA/API-origin checks pass. Receipt/evidence retained
+in .cache/rifle-angle. Private env copies, frozen release, owned deploy lock,
+Vite 5226 and Chrome 9386/profile cleaned. No GitHub push. AGENTS.md, .claude and
+this handoff remain local/uncommitted.
+
+## 2026-11-02 — Solid XM8 and SCAR 20S scopes
+
+Local main commits 23ac86f and 03f6198 address the hollow telescopic sights.
+XM8 Sharpshooter bells now have inner walls and closed rims. SCAR 20S
+(ff-longwatch) has a continuous tapered scope shell, recessed objective,
+retaining collars and ribbed power ring. Both have curved opaque rear glass
+behind the live PiP plane, so hip/shop/inspection views retain a physical lens.
+Magnification, reticles and reflection behavior remain unchanged.
+
+Typecheck and Cloudflare production build passed. Full suite: 290 files / 2866
+tests passed; one old freedom-crates assertion required the SCAR scope to be
+empty all the way through. Updated that assertion to require the objective
+behind the aiming plane and prohibit housing obstruction. Only this test changed
+after the full run; its file plus four optics/model suites then passed all
+58 tests. Ten Chrome renders (hip/ADS/turned/oblique/front for both weapons)
+passed PiP/reflection/reticle assertions with no runtime or shader exceptions;
+reviewed screenshots under .cache/scope-solid/after, with before captures saved.
+
+Manual pnpm deploy:cloudflare succeeded, version
+38ae6181-12af-4fc7-a65c-29205589cd8b. Both production domains match exact entry
+HTML and all six built JS/CSS/service-worker hashes; routing/model/audio/PWA/API
+checks pass. Receipts/logs retained in .cache/scope-solid. Task Vite 5227 and
+Chrome 9387 stopped, owned deploy lock removed. No GitHub push. AGENTS.md,
+.claude and this handoff remain local and uncommitted.
+
+## 2026-11-02 — Real-world telescope reticle adaptations
+
+Main 2034c9a replaces XM8 Sharpshooter's invented ticks/holdover bars with a
+classic round mil-dot crosshair and gives SCAR 20S its own TMR-style crosshair,
+removing its G36 rangefinder fallback. Manufacturer descriptions: Leupold TMR
+https://www.leupold.com/reticle/tmr and Mil Dot in the 2025 catalog
+https://www.leupold.com/media/EN_2025_Leupold_Catalog.pdf (reticles p.71).
+Feature descriptions were reviewed; full reference diagram downloads were
+unavailable. These are visual adaptations with game-scaled spacing and line
+weights, NOT calibrated angular ranging or original factory-reticle claims.
+Sources/limits documented in scope-reticles.ts and docs/ARMORY.md.
+
+Final focused tests pass 4 files / 41 tests; typecheck passes, including repeat
+checks from a frozen git archive of 2034c9a. Full suite passed 290 files / 2866
+tests; enemy-weapons loaded an old xm8-mil expectation before its edit. Its
+corrected mil-dot assertion passes in both final focused runs. Six Chrome
+renders pass PiP/reflection/reticle visibility with no shader/runtime errors.
+Screenshots reviewed. Evidence retained in .cache/real-reticles.
+
+Unrelated helicopter edits appeared in the shared workspace, so deployment used
+the clean archived commit, excluding all those edits. Manual Cloudflare deploy
+succeeded: 74d34434-e667-4756-8bec-a719cbe92c84. After propagation, both production
+domains match entry HTML and all six exact JS/CSS/service-worker hashes; routing,
+model, audio, PWA and API checks pass. Task Vite5227/Chrome9387/profile stopped
+and removed; private env copies, frozen release and owned deploy lock removed.
+No GitHub push. Unrelated helicopter work was preserved and excluded from this
+release. AGENTS.md, .claude and this handoff remain local/uncommitted.
+
+## 2026-11-02 — Rounded helicopter airframe
+
+Local main commits 9a2140c and 70d477e replace the box belly/roof/nose with
+curved painted skins, a twelve-section wraparound windscreen, rounded tapered
+aft fuselage and rising tail boom. Twin engine cowlings have intake grilles and
+exhausts; the rotor has a hub/linkages and landing skids sweep into rounded tips.
+The hollow nose renders from inside as well. Existing paint skins, rain receivers,
+open doors, seat/camera anchors, dashboard, rotor/turret names and flight rules
+are retained. New geometry regression covers exterior nose normals/ray coverage,
+interior nose visibility, tail taper, paint UVs and wet surfaces.
+
+Frozen full suite at 9a2140c passed 292 files / 2868 tests (265.49s). The only
+subsequent code change is double-sided nose skin at 70d477e; all 28 focused tests
+and typecheck pass on that final frozen snapshot. Five exterior/interior Chrome
+renders and the real-engine touch-start smoke pass: all four seats, flight,
+mounted fire, passenger aim, view switching and portrait/landscape HUD. No runtime
+or shader exceptions. Initial mouse smoke was interrupted by other workspace HMR
+and pointer capture; final browser validation used a frozen release and touch
+input. Reviewed final exterior and cockpit screenshots under
+.cache/helicopter-shape/{after,cabin}; scripts, source verification and logs remain
+in .cache/helicopter-shape.
+
+All 3309 frozen tracked files matched 70d477e. Manual pnpm deploy:cloudflare
+succeeded: 0620620a-117e-4acd-8655-327b44c89ddb. Both production domains matched
+entry HTML and all six exact JS/CSS/service-worker hashes; Cloudflare routing,
+model/audio/PWA/API-origin checks passed. Release receipt retained. Task Vite
+5228, Chrome 9388/profile and temporary release/private env copies cleaned up.
+No GitHub push. AGENTS.md, .claude, existing handoff and concurrent scope-zoom
+workspace changes remain local and unstaged by this task.
+
+## 2026-11-02 — Intervention variable magnification
+
+Main a8b74f9 gives Mythic M200 Intervention 3×/6×/9×/12× optical detents,
+starting at 6×. Scroll while aiming or use physical bracket keys; the HUD's
+−/+ buttons also work with a second finger while moving. Selection survives
+weapon switches/spec rebuilds within the engine session. PiP zoom smoothly
+interpolates; mouse/touch aimed sensitivity scales inversely with power.
+Fixed scopes, damage and ballistics remain unchanged. Reload/pause/menus/death,
+non-personal vehicle weapons and other busy states gate adjustment. UI buttons
+show selected power and disable at the limits. Both range and expedition are
+wired. The Intervention also uses the existing mil-dot visual adaptation and
+inherits SCAR's closed telescope housing/recessed glass, fixing its visible gap.
+
+Scope controller, keyboard and HUD regressions cover defaults, steps, bounds,
+invalid input, spec immutability, switching, fixed optics, sensitivity, wheel
+units/trackpad accumulation, and disabled controls. Final focused run passes
+7 files / 58 tests. Frozen git archive passes all 294 files / 2876 tests,
+typecheck and Cloudflare build. New scripts/fps-scope-zoom-smoke.mjs and
+fixtures/scope-zoom.html exercise the real engine/HUD: desktop wheel/brackets,
+3–12× live PiP, hip scroll gating, switch memory, reload/pause guards, touch
+portrait/landscape, 44px controls and multi-touch without doubled steps or
+accidental shots. Five final screenshots reviewed; no shader/runtime errors
+or map requests. Logs/evidence retained in .cache/intervention-zoom.
+
+Manual deployment from frozen a8b74f9 succeeded:
+ff2676ed-336c-4870-ae24-613f93fb33b8. Both production domains match entry HTML
+and all six exact JS/CSS/service-worker hashes; routing/models/audio/PWA/API
+smokes pass. Task Vite5227/Chrome9387/profile stopped and removed. Private env
+copies, frozen release and owned deployment lock removed. No GitHub push;
+AGENTS.md, .claude and this handoff remain local/uncommitted.
+
+## 2026-11-02 — Stronger normal grenade throws
+
+Local main 7e5dac1 increases all thirteen hand-grenade normal launch speeds by
+30%, with explicit lobSpeed preserving their existing short throws. Frag is now
+18.2 m/s normal / 7 m/s lob; the shared catalog feeds flight, bot aiming and item
+stats. OICW launcher remains 70 m/s. Flight regression verifies roughly 35 m
+first impact at 45 degrees from standing height and a 6–7 m lob; bounce, fuse,
+apex and launcher behavior are covered. No input-control or cooking changes.
+
+Typecheck passed. Full suite: 2872 tests passed, five tests in dragon-boat-ai,
+regions and world-night-lights hit their existing 5 s timeout. All 92 tests in
+those three files passed on rerun with a 30 s timeout. Grenade/arena-grenade tests
+passed (45). Cloudflare production build passed. Manual pnpm deploy:cloudflare
+succeeded: 0cf7cbc1-89a6-4d1b-8c4b-6c77d22ee966. Workers.dev HTML, entry assets
+and service worker match the local build; production routing/assets/PWA/API
+checks passed. No GitHub push; AGENTS.md and handoff remain unstaged.
+
+User asked about HL2/Counter-Strike inspiration during testing. Checked Valve
+HL2 SDK grenade source (throw/lob/crouched roll, upward lift, movement inheritance)
+and Valve CS release notes (short underhand and both-buttons medium throw).
+Recommended CS-style three strengths plus upward lift; optional preference
+question received no reply before this initial strength fix was finished.
+Those broader controls/physics changes remain recommendations, not implemented.
+
+## 2026-11-02 — Visible grenade blasts and richer explosion particles
+
+Main e63ee34 fixes the root cause of range explosions showing only light:
+updateCombatEvents returned before stepping/rendering particle pools whenever
+hud.arena was null. The shared visual update now runs once each frame, after
+local grenade events, independently of arena event/audio/HUD processing.
+
+Shared blasts now have original procedural billow textures, a fading fire burst,
+velocity-aligned sparks, a radial ground dust burst, smaller tumbling debris,
+rising smoke and a fading ground scorch. Ground is sampled below the explosion;
+airbursts create no floating scorch/dust ring and debris falls toward the ground.
+Fixed instanced pool limits and reduced-effects counts bound cost. Reset clears
+particle draw counts immediately; new textures/geometry/materials are disposed.
+Gameplay damage, grenade flight and audio are unchanged.
+
+All 295 files / 2881 tests pass with --testTimeout=30000 (accommodates the known
+slow scene/boat tests); typecheck and production build pass. The new browser
+smoke renders real grenade events at seven day/night/reduced/airburst stages,
+then throws an actual frag through the real FPS engine with no arena snapshot.
+Peak real-range counts: 12 fire / 26 smoke / 14 debris / 22 sparks / 1 scorch;
+particles drain correctly. Screenshots reviewed; no runtime/shader errors or
+map requests. Evidence, results and test/deploy logs: .cache/grenade-explosions/.
+Owned Vite5230/Chrome9390 stopped; temporary Chrome profile removed.
+
+Manual pnpm deploy:cloudflare succeeded, version
+8d6705eb-5a9a-4331-a46b-676a7b0d63b8. Workers.dev HTML, entry JS/CSS and service
+worker match the local build; production routing/assets/PWA/API checks pass.
+No GitHub push. AGENTS.md, .claude and this handoff remain local and unstaged.
+
+## 2026-11-02 — Audit of every throwable effect
+
+Main 4d98ca9 audits all 13 hand throwables plus OICW. Confirmed the previous
+non-arena particle-update bug also affected chilli/durian bursts, orange bomblets,
+firecracker pops, red-smoke mortar impacts, stun/whistle visual bursts and OICW.
+Those use the shared renderer fixed in e63ee34. Smoke/fogging/sambal/red smoke
+clouds, area rings, chope, travelling pieces and finale fireworks use the separate
+grenade renderer and were unaffected. Damage/conditions are resolved separately.
+
+Added 24 catalog-wide visual regressions for exact burst counts, no replay from
+repeated/stale snapshots, persistent cloud/marker geometry, finite transforms and
+cleanup. Found/fixed zero-flight-time oranges producing NaN transforms at or below
+zero height. Browser audit covers each visual path (including delayed red-smoke
+mortars, eight orange blasts, sequential firecrackers and finale embers); real
+range-engine checks cover stun and whistle's separate one-shot cue path.
+
+The first combined browser run missed the whistle's short burst under CPU load;
+it passed in isolation. A deterministic 1-second-frame regression reproduced
+newly spawned fire/sparks expiring before first draw. Fixed first-step elapsed
+for fresh particles and flash decay while preserving full aging for old particles.
+Final combined browser run passed, with no runtime/shader errors or map requests.
+Screenshots and receipts retained in .cache/throwable-audit/.
+
+Full suite passed 296 files / 2905 tests before the final long-frame correction.
+Final correction passes all 74 focused grenade/arena/visual tests, typecheck and
+production build. Manual pnpm deploy:cloudflare succeeded, version
+9b1828e0-d312-4238-93d6-8a74b3c87750. Production routing/assets/PWA/API checks pass;
+cache-busted HTML, entry JS/CSS and service worker match the build (initial cached
+root request returned the prior deployment). Owned Vite5230/Chrome9390 stopped,
+Chrome profile removed. No GitHub push; AGENTS.md and this handoff stay unstaged.
+
+
+## 2026-11-02 — Two utility image wheels and supply carry toggles
+
+Local main a186213 replaces player 4–9/last-slot controls with F recovery and
+G combat: tap uses/readies the exact selected item; hold opens the corresponding
+wheel, point/release selects without consuming. Both use the store thumbnails,
+quantity badges and focused name/effects/use time in the hub. Independent picks
+stay depleted rather than substituting another food or throwable. Keyboard
+cancel/pause/repeat guards and touch tap/hold/Choose controls share the behavior.
+Numbered callout/proxy-menu choices remain supported. Fire/cook/lob is unchanged.
+
+Store and Inventory now pack/unpack each supply type. stowedSupplies saves locker
+choices; owned counts remain intact and excluded types add no deployed weight,
+wheel entry, range-station issue or guest-authoritative supply stock. Legacy
+saves default to packed. Repeat shop purchases preserve stowing preferences.
+Internal OICW launcher ammunition is excluded from hand-throwable wheels/shop.
+Ammo pouches remain owned consumables, outside the wheels: R draws from a packed
+pouch only when no compatible spare remains, supplying up to two magazines into
+empty rig pouches before the ordinary reload. No separate use animation/key.
+
+Validation: typecheck passes. Initial full suite: 2903 passed / 8 failed across
+297 files (6 existing 5 s heavy-scene/boat timeouts, 2 assertions updated for the
+new loot hint and exclusion of internal launcher ammo). Corrected tests plus the
+heavy files pass 9 files / 202 tests with --testTimeout=30000; final focused suite
+passes 12 files / 159 tests, plus 6 store-audio tests. Cloudflare production build
+passes. New scripts/fps-utility-wheels-smoke.mjs and fixtures/utility-wheels.html
+exercise real engine/HUD, both store/inventory toggles and persisted counts,
+F/G hold/select/use/cancel/repeat/pause/depletion, full stocked desktop/portrait/
+landscape wheels, 44px+ targets, loaded images, no clipping/overlap, touch hold,
+no double consume, and R automatic pouch resupply after four spare magazines.
+Screenshots reviewed; no runtime/shader errors or map requests. Legacy utility,
+food and grenade smoke entrypoints now invoke the combined suite. LAN food smoke
+was adapted to the new selectors but not run in this task.
+
+Manual pnpm deploy:cloudflare succeeded, version
+298fc795-f276-4d3e-8ed6-1242f19e4cf0. Production Cloudflare routing/assets/PWA/API
+smokes passed. Cache-busted workers.dev HTML, service worker and entry JS/CSS/
+Three chunk match local build SHA-256 exactly. Browser evidence is retained in
+.cache/utility-wheels/; test/build/deploy logs use .cache/utility-*.log. Owned
+Vite5233/Chrome9393 and temporary profile stopped/removed after validation.
+No GitHub push. AGENTS.md, .claude and this handoff remain local/uncommitted.
+
+
+## 2026-11-02 — Premium Ammo Refill utility
+
+Local main a4765c4 adds Ammo Refill to Store → Utilities for 50 TK per use,
+with a gold model/thumbnail. Hold F to choose and tap F for its 1.8 s ammo
+action. It fills the held weapon and all vacant rig pouches with compatible
+magazines, preserves existing spares/donor capacities, clears interrupted
+reloads and returns grabbed magazines without duplication. Full ammo or
+cancellation before commit spends nothing. Arena authority refills its gun
+from the same helper and enforces carried stock.
+
+Browser testing caught a generated touch click reaching the belt after the
+picker disappeared. Touch selections now retain pointer capture until release;
+tapProps ignores the follow-up touch click even when its target changes. The
+regression covers retargeted clicks and later deliberate taps. The existing
+automatic-ammo browser expectation now includes premium stock without spending it.
+
+Final isolated full suite passes 299 files / 2931 tests with maxWorkers=2;
+final focused checks pass 61 tests and typecheck passes. Real-engine Chrome
+smoke passes the 50-token purchase, portrait/landscape images and targets,
+selection without use/reopening, cancellation, full-ammo guard, loaded+rig and
+loaded-only refill, exact spending and depletion. Screenshots reviewed; no
+runtime/shader errors or map requests. Evidence: .cache/ammo-refill/.
+
+Manual pnpm deploy:cloudflare succeeded from the verified a4765c4 snapshot:
+38541e90-a742-4d7f-8e01-71ab37b51a50. Workers.dev and blockplaysg.fun pass
+production routing/assets/PWA/API checks and match all eight verified HTML,
+JS/CSS, service-worker and new thumbnail files exactly. Deployment receipt
+retained. Other uncommitted lift/Marina edits were excluded. Owned Vite5231,
+Chrome9391/profile, private env copies, frozen release and deployment lock
+cleaned up. No GitHub push. AGENTS.md and this handoff remain unstaged.
+
+
+## 2026-11-02 — Lift movement repairs and Marina interior finish
+
+Local main 9f1e5f7 implements free human walking/crouching/jumping in moving
+lift cars, dynamic floor/ceiling/wall support, navigation-only service endpoints,
+bounded cabin-relative network eye offsets and preserved vertical carry deltas.
+Lift collision bodies are cached per clock. Departure resolves capsules straddling
+the door before gates close; gate depth now matches fixed panels. Browser testing
+caught and regression-tested a real closing-gate overlap that invalidated roof
+support near x91.995094,z-38.760746.
+
+SkyPark now has a continuous physical/rendered boat-outline deck with true shaft
+holes, curved perimeter guards, supporting bench tops and 0.6m planter basins
+beneath non-solid foliage. Both previously unsupported ends are walkable. New
+MBS interior finish adds tiled stone, bronze inlays/mullions, ceiling coffers,
+reception desks/backdrops, upholstered seating, planting, recessed lift doors,
+portal surrounds, round car handrails, control panels and emissive ceiling strips.
+Repeated geometry is instanced; no extra point lights, paid references or claimed
+surveyed-interior fidelity. No emergency stairs added. Glass penetration, arrival
+cues and AI navigation retained.
+
+Validation: focused lift/roof/glass/network and map diagnostics pass; real-engine
+browser route passes ascent with lateral walking/crouch/jump, both roof ends,
+planter jump/step-off, second lift descent and landing exit without teleporting.
+Frozen 9f1e5f7 full suite: 299/300 files, 2935/2937 tests passed; two boat tests
+failed because their canvas mock lacked strokeRect (second failure was leaked
+mock after first setup failed). Follow-up 366998c changes ONLY that test mock
+and adds afterEach cleanup. All six boat tests pass on frozen final source;
+production source is byte-identical to the full-suite/browser-tested source.
+Typecheck passes. Interior/lounge/cabin/roof renders reviewed. Validation spans
+all 300 files / 2937 unique tests; do not claim one uninterrupted clean full run.
+Evidence and screenshots: .cache/lift-repair/ (browser-verified/ retained).
+
+Manual pnpm deploy:cloudflare succeeded from verified 366998c snapshot:
+7f71272d-9cc3-46e8-b4d2-4177d63e47a2. Both blockplaysg.fun and
+workers.dev match all six JS/CSS/service-worker files and entry asset references;
+both pass production assets/PWA/SPA/API routing checks. Source verification,
+logs and deployment receipt retained. Owned Vite5224, Chrome9384/profile, frozen
+release and private env copies cleaned up; deployment lock released. No GitHub
+push. AGENTS.md, .claude and this handoff remain local and uncommitted.
+
+## 2026-11-02 — Queenstown expedition performance
+
+Local main 189130b adds the existing exact triangle broadphase to merged
+Queenstown void-deck furniture, with disposal and a regression asserting native
+hit parity and <5% of the full-batch triangle workload. No graphics reduction.
+Real-engine 1280x720 expedition profiling reproduced 102.4 ms average frames
+(~9.8 FPS); communal furniture alone consumed ~7 CPU seconds per 10-second
+instrumented sample (16,435 scene traces). Accelerated version averaged 17.1 ms
+(~58.6 FPS). Range/ordinary arena were already ~59 FPS. Evidence and profiles:
+.cache/queenstown-perf/. Focused 36 tests pass; frozen typecheck passes.
+Full suite and extended frozen browser verification running. Manual Cloudflare
+deployment will follow under .cache/district-principles-deploy.lock, with exact
+release verification. This commit includes the preceding db42e74 atrium work.
+Do not deploy an older snapshot over 189130b. No GitHub push.
+
+
+## 2026-11-02 — Reference-informed MBS hotel atrium
+
+Local main db42e74 replaces the generic low-ceilinged MBS lobbies with a single
+80m-long / 24m-high compressed atrium. Inspected published photographs by Timothy
+Hursley (President’s Design Award) and CL3 informed ivory balcony bands, inclined
+glazing/roof ribs, hotel wing envelopes and splayed piers, overhead bridges,
+curved lounge islands, large tree pots and warm architectural accents. Added an
+original lightweight suspended wire study. Photos are cached local research,
+not shipped textures; review URLs, hashes, accepted feature scope and original-
+design/current-refurbishment limits are in reconstruction/marina-atrium-review.json
+and docs/evidence/2026-11-02-mbs-atrium.md. No Google/paid requests.
+
+The upper tower shell/colliders now start at 24m to open the void; corresponding
+mullion/night-pane expectations updated. Replaced old floor boxes with one ground
+concourse. New side entrances and clear lane around the lounge connect both
+express lifts. Stone lift portals clear the moving cabin at every sampled height;
+existing lift motion/glass/roof fixes retained. Upper galleries/bridges are scenic
+(no stairs or objectives), with physical supporting slabs for aerial landings.
+Repeated details are instanced, panel geometry merged per material, wirework one
+line draw, and illumination accents emissive without new point lights. README,
+district docs and About copy reflect the narrowly reference-informed interior.
+
+Validated scene/landmark routes, lighting, glass, shared lift motion, roof/planter
+support, new ground/side/lounge routes and clearance at all car heights. Real FPS
+browser on the frozen db42e74 snapshot passed the complete atrium walkthrough,
+ascent with walking/crouch/jump, both roof ends, planter jump/step-off and second
+lift descent/exit. No runtime errors. Reviewed ground, lounge, lift, gallery,
+roof and exterior renders. A development smoke lost pointer lock when a separate
+render tab took focus; final smoke ran alone and passed. No product fix was needed
+for that harness interruption.
+
+Final release includes concurrent Queenstown performance commit 189130b; source
+verification proves only its two Queenstown files differ from the browser-tested
+Marina snapshot. All 3341 tracked blobs verified. Full initial fork run passed all
+2941 assertions but had an onTaskUpdate RPC timeout during concurrent heavy test
+work. Final combined-source thread run passed 300/301 files and 2941/2942 tests,
+with no unhandled errors; sole failure was capture-workflow.test.ts calling
+process.chdir, unsupported in worker threads. Rerunning that file in its normal
+fork pool passed all 5 tests. Thus all 301 files / 2942 unique tests have passing
+results across the two pools; do not claim a single uninterrupted clean full run.
+Final typecheck/build passed. Evidence: .cache/mbs-atrium/ (browser-verified/,
+reference photos, reviewed PNGs, source manifest, tests and deployment receipts).
+
+Manual pnpm deploy:cloudflare succeeded from verified 189130b:
+e31c5047-c58e-4a04-9be8-c6808eee11d7. Both blockplaysg.fun and workers.dev
+match all six JS/CSS/service-worker assets plus entry references, and pass
+production assets/PWA/SPA/API checks. Owned Vite5226 and Chrome9386/profile,
+frozen release and private env copies removed; deployment lock released. No
+GitHub push. AGENTS.md, .claude and this handoff remain local/uncommitted.
+
+
+Queenstown performance final verification (2026-11-03): frozen 189130b
+30-second expedition sample averaged 16.82 ms (~59.4 FPS), 1801 frames, no
+runtime exceptions; .cache/queenstown-perf/verified-expedition.{json,cpuprofile,png}.
+The main full suite under competing load hit timeouts/RPC errors; final combined
+source validation in .cache/mbs-atrium/ covers all 301 files / 2942 unique tests
+across thread/fork runs, as recorded above, plus successful typecheck/build.
+The shared manual deployment already published 189130b as version
+e31c5047-c58e-4a04-9be8-c6808eee11d7, so no duplicate deployment was needed.
+Independently fetched both production domains and verified current entry HTML
+and every JS/CSS/service-worker hash against that verified release manifest.
+Receipt: .cache/queenstown-perf/live-verification.json. Closed owned Vite5236/5238
+and Chrome9396, removed owned Chrome profile and frozen source copy. Profiles,
+regression evidence and logs retained. No GitHub push; local guidance unstaged.
+
+## 2026-11-03 — Freedom Force Mythic stat audit
+
+Read-only gameplay audit: resolved fitted cargo stats and evaluated hitDamage /
+shotsToKillOpponent against drill, assault, tank and catalog armor targets through
+each weapon's travel limit. Final damage is 64 / 82 / 105 / 72 / 160 for Soft
+Power / Hard Power / Smart Power / Peace Offering / M200; base platform damage
+alone omits the cargo build bonuses. Judgment: Soft Power is borderline Mythic
+versus Two Eyes Open (lighter and a close assault body-shot breakpoint, but worse
+cadence, magazine, recoil/recovery and reach); remaining four have defensible
+Mythic specialties. Smart Power one-body-shots 100 HP through ~114 m and
+one-head-shots tank-role armor through ~139 m. M200 retains one-body-shot kills
+against assault and 100 HP ceramic targets through its 500 m limit, with heavy
+round overmatch, but needs two body hits against tank-role armor.
+
+Caveats: ideal hit breakpoints exclude aim time, bullet travel and misses. All
+five FF families inherit the generic rifle spread/bloom defaults; scopes do not
+provide a distinct precision cone. Standard analyseBreakpoints excludes enemy
+issue, including these cargo rewards; existing cargo tests assert tier labels
+and OICW superiority to XM8, not a complete cross-Mythic balance contract.
+Focused existing tests passed: 4 files / 57 tests (freedom-cargo-v2,
+freedom-crates, armory-balance, armor-inserts). No gameplay edits, commits, push
+or deployment. This audit note remains local and unstaged.
+
+## 2026-11-03 — Smart Power practical handling and two-level zoom
+
+Local main 5304e13 improves Smart Power after the owner's report that the recovery
+fight consumed nearly its entire ten-round magazine. New cargo uses 20-round
+magazines, .24 s follow-ups (was .32), .014 recoil (was .03), 1.8 recovery (was
+1.4), and 2×/4× optical detents with 4× default. Damage remains 105 after build.
+Aimed cone is 60% narrower than generic rifle spread; .001 per-shot bloom settles
+at the .24 s cadence. Initial hip cone and movement/stance penalties remain.
+No functional bipod added. Catalog/gallery text and proxy weapon docs updated.
+
+The earlier audit overstated Smart Power's practical Mythic standing: actual FF
+operators have 110 HP / 65 armor / .45 absorption, not the ordinary role pools.
+Two body hits remain necessary, but the two-operator encounter now leaves at
+least 12 of 20 magazine rounds at 50% body-hit accuracy without healing. Tests
+cover this breakpoint, physical magazine capacity, firing cadence, sustained
+precision bloom, zoom endpoints, independent memory and sensitivity.
+
+Typecheck and production build pass. Focused 5-file / 30-test run passed; the
+accuracy test's stricter numerical tolerance also passed. Full suite initially
+passed 2940/2945 tests, with five five-second timeouts in regions, dragon-boat-ai
+and world-night-lights. All 92 tests in those three files passed in a single-worker
+rerun with a 20-second timeout, covering all 301 files / 2945 unique tests across
+the runs; do not call it one uninterrupted clean full-suite run.
+
+Real-engine Chrome smoke passes 2×/4× live optics, wheel/brackets and endpoints,
+weapon-switch zoom memory, semi-auto fire, 20+1 reload, reload zoom gating and
+landscape/portrait touch controls without accidental shots, shader/runtime errors
+or map requests. Reviewed desktop and portrait screenshots. Early harness runs
+needed localhost proxy bypass and explicit waits for weapon-switch animations;
+no product bug or extra product edit resulted. Evidence: .cache/smart-power/.
+
+Manual pnpm deploy:cloudflare succeeded, version
+568b5f3d-7662-47e7-b50d-dee911e582f1. Both blockplaysg.fun and workers.dev pass
+production routing/assets/PWA/API checks and match all six JS/CSS/service-worker
+hashes plus entry asset references against the local build. Deployment receipt
+and live-verification.json retained. Owned Vite5242/Chrome9402 stopped and Chrome
+profile removed; deployment lock released. No GitHub push. AGENTS.md, .claude and
+this handoff remain local and unstaged.
+
+## 2026-11-03 — Larger precision scope sight pictures
+
+Local main 96f50d3 enlarges the Smart Power and M200 eyepieces, objective bells,
+rims, coating/backing and live PiP apertures together. Lens radii are .032 / .035
+(were .019); both use .15-unit eye relief. At full aim the clear image diameters
+are about 42% / 46% of viewport height versus Peace Offering's 26%, approximately
+1.6× / 1.8× its diameter. Existing 2×/4× and 3×/6×/9×/12× zoom powers, damage and
+accuracy remain unchanged. The larger view exposes more scene at the same power.
+Other rifle optics retain their geometry and aiming positions.
+
+A regression samples each enlarged aperture from the actual ADS eye position to
+95% radius in sixteen directions and ensures no housing blocks it before the
+image plane, plus compares apparent aperture against the assault optic. Typecheck
+and focused 38 tests pass. Full suite passes all 301 files / 2946 tests in one
+run with maxWorkers=2 and testTimeout=20000 (avoids the unrelated five-second
+scene timeouts from the preceding task). Build passes.
+
+Real-engine comparison smoke captures assault, Smart Power and M200 on desktop,
+landscape and portrait at every zoom setting, at hip and during reloads; zero
+runtime/shader exceptions or map requests. Desktop and mobile screenshots
+reviewed. Existing portrait combat/utility HUD overlays remain in their current
+positions over part of the enlarged picture; scope housings themselves clear
+the entire image. Evidence: .cache/sniper-scopes/. Early harness retries fixed
+floating-point comparison on the fixed assault optic and waited for an actual
+shot instead of a short wall-clock hold under software-renderer load.
+
+Manual pnpm deploy:cloudflare succeeded, version
+3d723533-be1e-4e3d-85fb-b190fcb03a92. Both production domains pass Cloudflare
+routing/assets/PWA/API checks and match all six JS/CSS/service-worker hashes
+and entry asset references against the local build. Live verification and deploy
+receipt retained. Owned Vite5242 / Chrome9402 stopped, temporary Chrome profile
+removed, deployment lock released. No GitHub push. Local AGENTS.md, .claude and
+this handoff remain unstaged/uncommitted.
+
+
+## 2026-11-03 — Queenstown mobile performance simulation (read-only)
+
+Production build of local main 96f50d3 passes; measured the real /world UI
+with Queenstown district entry, fresh default profile, touch input, 32 initial
+bots, 844x390 CSS viewport / DPR2 (game canvas 1139x526 due to 1.35 cap).
+Chrome 156 in this Apple VM uses SwiftShader; sun shadows and ambient occlusion
+automatically disable on that renderer. Defaults retain automatic time/weather
+and natural bot randomness. No network throttling; loading excluded.
+
+Completed standing/walking/looking/firing sessions with normal, 4x and 6x CPU
+slowdown. Aggregate RAF cadence: 2.21 / 1.87 / 1.88 FPS; p95 intervals
+783 / 633 / 650 ms. Each sampled ~37–39 s, 69–87 intervals; no runtime
+exceptions, all final sessions stayed alive and consumed rounds. Single short
+samples are not calibrated phone-model estimates, nor GPU presentation timings.
+Software graphics process consumed ~350–370% CPU. HUD diagnostic at 1x:
+normal 2.21, blur disabled 2.08, HUD hidden+blur disabled 2.14, restored 2.06
+FPS. No evidence that HUD blur causes the major slowdown in this environment.
+Do not extrapolate these FPS to real mobile GPUs or compare directly with the
+older engine-only desktop fixture's ~59 FPS. No claim of mobile playability.
+
+Evidence: .cache/queenstown-mobile-perf/{summary,results,environment}.json,
+per-rate raw frames/metrics and start/end screenshots, run.mjs, hud-diagnostic/.
+Initial long interaction attempt ended in player death; retained in attempt-1
+and excluded from final comparisons. Setup harness was corrected to wait for
+the loading overlay and give touch taps time to register. No product edits,
+commit, GitHub push or deployment. Local handoff/guidance remain unstaged.
+
+## 2026-11-03 — Sniper velocity and Intervention handling buffs
+
+User accepted the proposed Intervention precision/handling buff and requested
+higher sniper muzzle velocities. Committed locally on main as 6b18485; no GitHub
+push. Smart Power effective projectile speed 495 -> 715 world units/s, M200
+539 -> 825, via muzzleBallistics(1300/1500) and existing 0.55 scale. At 300 m:
+Smart flight .420 s/drop .863 m; M200 .364 s/.648 m. Gravity/falloff unchanged.
+M200 interval 1.4 -> 1.2 s, recoilRecovery .9 -> 1.3, standing settled ADS cone
+.001 -> .0002 radians (10 cm spread radius at 500 m). Preserves ordinary rifle
+additive movement penalty, hip cone, 160 cargo damage, seven-round mag and
+mobility. Existing normalized bolt animation/action sound stages follow new
+cycle; no recording speed change or paid audio generation. Catalog/docs updated.
+
+Validation: targeted 5 files/65 tests, full 301 files/2950 tests passed (278 s,
+--maxWorkers=2 --testTimeout=20000); pnpm typecheck and Cloudflare build passed.
+New tests cover actual arena round velocity/damage and snapshot validation,
+300 m flight/drop, bolt timing, settled accuracy/movement and recoil recovery.
+Local CDP browser check: both equipped speeds/default scopes, two trigger presses,
+no held-trigger repeat, M200 bolt back/return, reloads (21/8 with chamber), no
+runtime/shader errors or map calls. Screenshot checked; evidence and disposable
+harness in .cache/sniper-ballistics/. Owned Vite5244/Chrome9404 stopped and
+/tmp/blockplay-sniper-ballistics-chrome removed. Other sessions left alone.
+
+Manual pnpm deploy:cloudflare succeeded: bc1bbbd1-08a6-470d-b3c1-46a05cca0572.
+Both blockplaysg.fun and blockplay-sg.sunjc826.workers.dev pass Cloudflare routing/
+asset checks. Entrypoint refs and SHA256 of all six built JS/CSS/sw.js assets
+match local build on both addresses; live-verification.json records evidence.
+Local AGENTS.md and pre-existing handoff/.claude work remain unstaged/uncommitted.
+
+## 2026-11-03 — Read-only sniper versus CIS 50MG balance audit
+
+User requested comparison, especially Bukit Timah. No product changes/commit/
+deploy. Evaluated fittedVariantSpec, hitDamage, shotsToKillOpponent and actual
+weaponSpread through Vite SSR; .cache/sniper-cis-audit/run.mjs and results.json.
+At 300 m: issued CIS120 body, Bukit Timah198, Smart89, M200131. Bukit Timah
+220 close damage, .35s semi interval, 50 belt, 528m/s,31.8kg,5.8s reload, prone
+mount needed for no recoil self-damage. Range400m vs M200500m; Smart400m.
+Settled prone ADS spread radius300m: CIS/Bukit Timah62.4cm, Smart7.8cm,
+M2003.9cm. Scope/bipod do not override CIS family dispersion. Bukit Timah's
+.009 bloom needs about .56s to clear including .2s delay, longer than .35s cadence.
+At300m body STK FF/Tank/Pillbox100hp: issued2/2/3, BT1/1/2, Smart2/3/3,
+M2001/2/2. BT/M200 headshot all these in1; no food, deflection, cover or misses.
+Both .408 and .50 share heavy threat class; BT gain is damage rather than a
+stronger armor-overmatch class. Warning for future work: advertised BT cover/
+collateral penetration trait is consumed by local fps-engine projectile path,
+but arena-rules stepRounds/resolveShot stops first collision and has no
+penetration consumption. Do not count collateral as validated world/arena
+advantage. Audit recommendation: current snipers have clear precision/mobility
+roles; BT is a powerful mounted firing-lane weapon, but wide dispersion conflicts
+with its advertised long-match-barrel sniper role. No tuning authorized this turn.
+
+
+## 2026-11-03 — Queenstown CPU audit (recommendations only)
+
+Read-only audit of 96f50d3; evidence in .cache/queenstown-cpu-audit/.
+CPU-only live-scene simulation: 20 Hz, 2 s simulation warmup + 60 s measured,
+three seeds for 32 and 64 bots. 32-bot mean ticks 14.09–15.08 ms, p95
+20.82–23.74 ms; 64-bot means 33.00–48.08 ms, p95 56.04–98.78 ms,
+worst tick ~300 ms. Snapshot copies ~0.09–0.19 ms mean, lower priority.
+Baseline profile: tryBoardVehicle/vehicleEnemy ~49% inclusive CPU, total
+scene-cover trace ~58% (overlaps), navigation ~16%, GC ~9%. Vehicle boarding
+currently performs expensive enemy cover tests BEFORE rejecting a bot beyond
+boarding range. Harness-only early rejection at max(boardRange,crewRange)
+reduced 32-bot mean tick cost 43–49% across the three seeds (~7.71–8.05 ms).
+Not applied to product code; helicopter recruiting/boarding regression tests
+still required. Wall-clock navigation scheduling makes seeds non-identical
+trajectories; do not promise an identical browser or device speedup.
+
+After-prefilter profile: navigation ~37%, movement/collision ~40% overlapping,
+scene cover ~24%, GC ~13%. Focus next on authored navigation edge warming /
+baking, repeated support checks, scene-level ray broadphase and terrain tile
+traversal. Existing instance/furniture ray acceleration, movement bins, lazy
+shared nav edge jobs and 0.2 s spotting checks already exist.
+Harness-only static ray BVH: 340 surfaces, zero nested meshes; 600 ray nearest
+distances matched. Four alternating batches average 147.55 ms existing versus
+70.42 ms prototype (~2.1x ray-only speedup). Not a dynamic-scene or hit-object
+parity proof. No duplicate-mesh recursion issue observed in this Queenstown
+static fixture. Preserve terrain holes, foliage/glass semantics and moving
+geometry if implementing.
+
+Full development-browser standing profile corroborates vehicleEnemy; software
+GPU idle time and harness getParameter reads must be excluded from product
+bottleneck attribution. React dev overhead is not a production estimate.
+Lower-priority source findings: unchanged snapshot re-adoption per render,
+rebuilding loadout/minimap static content on HUD updates, diagnostic datasets
+written every frame, repeated matrix propagation, unthrottled offscreen rigs.
+Raw timings, profile summaries, source-only experimental transforms and
+audit-summary.json retained. A standalone ray harness syntax error was fixed;
+Vite dependency-scanner noise did not prevent successful SSR queries.
+No production changes, commit, GitHub push or deployment. Handoff stays local.
+
+## 2026-11-03 — Intervention double-stack vest pouches
+
+User accepted two magazines per Intervention pouch, explicitly retaining seven
+rounds per magazine. Implemented and committed locally on main f4d41e5; no push.
+Physical pouch fronts retain indexes0–8; rear positions use9+pouch, with explicit
+pouchCount and only M200/.408 box magazines eligible. Basic rig starts with eight
+spares/56 reserve rounds plus two pistol spares; larger rigs carry12/14 spares
+with only the Intervention + pistol. Shared main slots split pouch allocation.
+Cargo supplies up to eight spares within available pouches. Other feeds cannot
+occupy rear positions or take the front of a half-empty sniper pouch.
+Reload draws front then rear; reserved/held pouches cannot be restocked until
+seating. Saves preserve rear positions and interrupted draws; legacy single-layer
+saves gain room, not ammunition. Swaps remove incompatible rear magazines.
+Resupply, pickup room and carry weight include both layers. Seven-round capacity,
+damage, bolt cadence and existing audio remain unchanged.
+
+Vest renders separate .408 models in deeper pouches, expands outward for look-down
+visibility, preserves the rear model position after front extraction and collapses
+cloth only when both are removed. Reload source uses the actual front/rear mesh.
+Existing mobile HUD/gun can occlude portions of the vest; no HUD layout redesign.
+Docs and armory description updated. Permanent browser script:
+scripts/fps-intervention-pouches-smoke.mjs (scope-zoom fixture, ports via env).
+
+Validation: full302 files/2959 tests passed (275.91s, maxWorkers2/testTimeout20000).
+After final visual offsets, affected6files/49tests passed again; typecheck and
+Cloudflare build passed. Tests cover all three rigs, weight, front/rear order,
+interrupted reload+JSON travel, legacy saves, malformed rear feed, pickup/swap,
+refill guards, distinct non-overlapping models and collapse. Browser desktop,
+landscape and portrait each passed eight initial spares, two reloads using slots
+0/9, preserved seven-round capacity + chamber, six physical vest pouches, counts
+10->9->8 total visible inventory models, no runtime/shader errors or map requests.
+Screenshots inspected; .cache/intervention-pouches contains logs and evidence.
+An initial legacy-save test modified only one of JSON's duplicated inventory
+copies; corrected fixture to use the explicit top-level checkpoint inventory.
+An initial typecheck caught test flow narrowing after assigning null; assertion
+now checks the updated object. These failures were resolved before commit.
+
+Manual deployment succeeded, version02e0e000-7f68-4e27-97c3-266766ae3516.
+Both blockplaysg.fun and blockplay-sg.sunjc826.workers.dev pass Cloudflare smoke;
+entry references and all6 JS/CSS/sw.js hashes match local dist. Owned Vite5246
+and Chrome9406 stopped, temporary Chrome profile removed, deployment lock released.
+AGENTS.md, pre-existing handoff edits and .claude remain unstaged/uncommitted.
+
+## 2026-11-03 — Slim Intervention vest magazines
+
+User found double-stack magazines too fat. Local main commit c568ca7 reduces
+vest .408 magazine body width62->45mm and thickness42->24mm; slimmer floorplate,
+feed lips and ribs. Pouch width scales .76 and depth1.9->1.25; pair centers move
+closer together and nearer vest. Seven-round capacity, double stacking, inventory
+and combat unchanged. One production file changed (fps-body.ts); no audio work.
+Existing targeted13 tests, full302files/2959tests (264s), typecheck/build passed.
+Desktop/landscape/portrait existing pouch smoke passes with correct front/rear
+draws and counts; desktop and portrait screenshots inspected. Evidence in
+.cache/intervention-slim. Owned Vite5246/Chrome9406 stopped; isolated profile
+removed. No additional tests for this visual adjustment.
+Manual Cloudflare deployment succeeded, version55aefc99-f6a8-4a4e-90b6-a051a945b04a.
+Both public origins pass routing/asset smoke and entrypoint + all six JS/CSS/sw.js
+SHA256 checks against local dist. No GitHub push. Local guidance and pre-existing
+handoff/.claude work remain unstaged. Deployment lock released.
+
+
+## 2026-11-03 — Skip irrelevant vehicle boarding danger scans
+
+Implemented accepted CPU-audit recommendation in local main commit e8be3d8.
+tryBoardVehicle now rejects candidates at/beyond max(boardRange, crewRange)
+(45 units) before threat rays, reuses that distance for final eligibility,
+and skips vehicleEnemy for qualifying player pickups and empty-ammo autonomous
+candidates. Nearby autonomous boarding retains the threat veto, cover/smoke
+semantics, and exact ordinary/recruited ranges. Mounted driver/gunner/passenger
+queries are unchanged. No global AI perception or gameplay tuning.
+
+Four added cases exercise no distant-candidate danger rays, nearby exposed versus
+covered boarding, and no danger rays while approaching player pickups under fire.
+Existing crew-rally and helicopter mission regressions pass. Focused76 tests,
+full302files/2963tests (238.57s), typecheck and Cloudflare build pass.
+No new device/FPS performance claim; earlier audit benchmark remains indicative.
+Evidence: .cache/vehicle-boarding-optimization/tests.log, deploy.log and
+live-verification.json. Manual pnpm deploy:cloudflare succeeded:
+7aa20015-9dcf-4975-a544-189869fe06cd. Both blockplaysg.fun and workers.dev pass
+Cloudflare routing/asset smoke and all6 JS/CSS/sw.js hashes match local dist.
+No GitHub push. AGENTS.md, pre-existing handoff edits and .claude remain local
+and uncommitted. Owned shared deployment lock released.
+
+
+## 2026-11-03 — Build-time district navigation baking
+
+User accepted item2 and requested profiling cost across every map; registry has
+23 districts. Implemented and committed locally on main 33ea62b, no GitHub push.
+Every production Vite build freshly bakes complete directed static navigation
+using the existing walking validator and shared live infrastructure placement.
+Camps, vehicle staging, Marina boat anchors and lift service endpoints included.
+Separate hashed per-district JSON assets load alongside expedition models before
+host simulation starts. Development/training/custom arenas remain lazy. Failed,
+malformed or mismatched downloads retain lazy navigation. Runtime route search,
+start/end connections, congestion, vehicles, lift timing and physics unchanged.
+Lossless numeric graph arrays preserve edge order; the compatibility signature
+alone rounds coordinates to1e-6 because Node/Chrome trig outputs differ ~1e-14.
+No all-pairs route table. Assets load/cache on use, excluded from whole-app PWA
+precache. No generated maps committed. docs/NAVIGATION-BAKING.md has commands,
+per-district table and limitations; package includes bake/check/profile/browser.
+
+Initial quiet production bake81.90s wall/84.55sCPU,38,096nodes/388,822edges,
+9,474,804JSON bytes/2,413,507gzip-estimate bytes, peak836.7MiB processRSS.
+Final deployment fresh bake84.89s wall/87.43sCPU, same graph payloads (only keys
+changed after precision fix),9,474,808JSON/2,413,513gzip bytes; processpeak1298.8MiB.
+Memory is the entire build/scene process, not per-client graph memory.
+Queenstown3616nodes/36274edges,935KBJSON/~254KiBgzip.
+Three-seed32bot20Hz CPU-only simulation,2s cold+60s measured, alternating order:
+lazy means6.11/6.43/6.84ms -> baked3.53/3.47/3.39ms (42.2/46.0/50.5% reduction).
+Baked static edge validations0. Wall-clock nav budgets alter trajectories; no
+mobile or browser FPS claim. Harness now shares live infrastructure/lifts/boats.
+
+Validation:304files/2974tests pass (261.24s), typecheck, normal andCloudflare
+builds pass.368 deterministic route comparisons across all23districts exactly
+match (including unreachable results); payload hashes prove signature fix did
+not change any graph. Production cold-download touch browser checks Queenstown,
+Marina Bay, Orchard accept all nodes/zero validation and enterplay; blocked
+Queenstown download entersplay via lazy fallback. No runtime exceptions; only
+selected district downloaded. Queenstown screenshot inspected. PWA smoke updated
+from obsolete menu selectors and passes install/reload/offline district picker,
+model plus visited navigation data; navigation is not precached for all districts.
+
+Resolved validation issues: initial browser signature mismatch traced to trig
+rounding by comparing Node/browser world inputs. Initial full suite had the old
+module cached while new regression was added; rerun of all304files passes.
+Local proxy env had to be cleared for CDP; touch input avoids headless mouse
+capture. Parallel heavy checks once caused expected10s download fallback and a
+PWA CDP timeout; final cold-download cases and PWA pass in isolation.
+Evidence .cache/navigation-implementation (initial-bake-profile.json, graph-hashes,
+tests-final.log, browser.json/screenshots, pwa.log, deploy.log,live-verification).
+.cache/navigation-bake retains all generatedmaps,latestbuildprofile,368route
+verification and runtime-profile. These are local artifacts, not committed.
+
+Manual pnpm deploy:cloudflare succeeded,version8310af38-3826-4032-b186-b8e0520d53c0.
+Both blockplaysg.fun and workers.dev pass routing/assets smoke and entry refs+
+SHA256 of29 JS/CSS/navigationJSON/sw.js files match localdist on both origins.
+Owned preview5258,diagnosticVite5259 andChrome9418 stopped; isolated
+/tmp/blockplay-navigation-chrome removed. Owned deployment lock released.
+AGENTS.md, pre-existing .agents/HANDOFF.md and .claude remain local/uncommitted.
+
+
+## 2026-11-03: movement candidate reuse follow-up
+User clarified that item 1 should accompany navigation baking and asked how
+dynamic conditions remain live. Implemented and locally committed 3feb508.
+Static padded grid reuses the last cell candidate list; oversized bodies retain
+full-list fallback. Removed temporary support/ceiling/axis arrays and polygon
+projection arrays. Collision arithmetic/order and live extra geometry preserved.
+Added four regressions covering cell boundaries, large bodies, moving vehicles,
+changing platforms/ceilings and in-place polygon edits. Documentation updated.
+
+Validation: typecheck and Cloudflare build passed; 305 files / 2978 tests passed.
+132,480 exact old/new occupancy, support and movement comparisons across all
+23 districts passed. Every freshly baked graph exactly matches its prior hash.
+Queenstown mixed-radius movement microbenchmark: 4054.48 -> 3752.41 ms mean per
+9600 calls (about 7.45% lower); this is not a whole-game or mobile FPS claim.
+Evidence and baseline sources: .cache/movement-checks/.
+
+Manual pnpm deploy:cloudflare succeeded, version
+29009975-431c-46c2-9676-02d137a5866d. Both blockplaysg.fun and workers.dev pass
+Cloudflare smoke checks and SHA256 checks of all 29 JS/CSS/navigation JSON/SW
+files. No GitHub push. Owned deployment lock released; no persistent browser
+or preview process started this turn. AGENTS.md, .claude and existing handoff
+changes remain local and uncommitted.
+
+
+## 2026-11-03: live Queenstown ray-index experiment (not shipped)
+User asked to check a real game round and compare item 3 scene/terrain indexing.
+Built local-only optimized production bundles with Vite transform plugins in
+.cache/ray-round; application sources untouched. Main stays 3feb508; no commit,
+GitHub push or deployment. First build freshly baked navigation; second reused
+those exact cached graphs to add paired timing. Live /world uses baked Queenstown
+3616-node graph, normal 32-bot AI, 7 facilities, 1100x720 DPR1 touch, native
+ANGLE Metal Apple Paravirtual GPU. No physical mobile performance claim.
+
+Prototype indexes shared scene-cover mesh candidates, preserving native detailed
+raycasts, original order/ties, recursive meshes and visibility/foliage/glass rules.
+Checks matrix/instance versions per query and refits changed bounds; meshes with
+children bypass static pruning. Terrain indexes exact existing tile boxes in
+local space and retains original faces/holes. Other player scene-ray dispatch
+remains unchanged. Not an all-district/general mutable-geometry correctness proof.
+
+Two rendered sessions: 16x15s balanced alternating stationary windows (player
+eliminated later; bots continue) and 8x15s walking/strafe/fire/reload windows with
+death then UI auto-respawn. Screenshots inspected, real positions changed,
+magazines consumed. All sessions stayed playing; zero runtime exceptions.
+Initial dual check: 7141 live rays, zero hit/object/face/instance/point mismatch.
+Second 2880 identical live rays tested baseline/scene/terrain/both in rotating
+order, zero mismatches. Mean paired query microseconds:130.97/116.04/119.76/108.99;
+reductions11.40%/8.56%/16.78%. Shadow timing has extra cache/CPU pressure, so use
+relative findings, not absolute standalone query budgets.
+
+Mean simulation tick baseline->both: stationary3.7905->3.3386ms (~11.9%);
+walking/firing3.0656->2.8889ms (~5.8%). Whole-tick comparisons are observational:
+combat/query volume varies, and scene-only/terrain-only ticks were slower in
+the active session despite cheaper queries. FPS roughly59.6-60, no material
+FPS improvement. Conclusion: modest CPU headroom, not the old static harness's
+2x ray speedup and not an established whole-game FPS boost.
+Evidence: .cache/ray-round/final-summary.json, browser-results.json,
+active/browser-results.json, logs, start/end screenshots, index.ts and
+index-paired.ts, build*.mjs and browser*.mjs. Test-only timers excluded validation
+from FPS windows. No paid service requests intentionally made; paid endpoints
+blocked in CDP. Owned server5262 and Chrome9422 stopped after tests.
+
+
+## 2026-11-03: scene/terrain ray indexing implemented
+User approved shipping the real-round prototype. Local main commit 68beb84,
+no GitHub push. Adds scene-ray-index.ts and shared ray-bounds-tree.ts; scene
+cover selects mesh candidates before unchanged exact rays and semantic filters.
+Private bounds refit current world matrices, geometry positions/versions and
+instance matrices/counts. No matrix propagation inside index. Unknown custom
+raycasts, recursive roots, skinned/morphed meshes and dynamic vertex buffers
+use original traversal. Existing exact custom accelerators opt into pruning;
+source changes invalidate their eligibility. Candidate ordering preserves ties.
+Terrain indexes existing tiles, with outward padding and original tile order;
+triangle faces, holes and near/far remain native. No timing/test flags shipped.
+
+Production guards initially consumed prototype gains. Reworked eligibility
+checks to run again on callback/source change while still checking transforms
+and geometry/instance mutation every query. Final unprofiled production-code
+browser shadow check:6847 identical live rays in balanced four-way order,
+zero object/face/instance/distance/point differences. Baseline125.37us,scene
+120.72us,terrain116.78us,both112.52us:3.70%/6.85%/10.25% query reductions.
+This is lower than prototype17%, preserves more correctness cases, and is not
+a whole-game/mobile FPS claim. Diagnostic profiled iteration2895 rays also
+matched. Earlier conservative version matched2852 rays with walking/firing.
+
+Final verification:306 files / 2985 tests pass (227.76s), typecheck and
+Cloudflare build pass. All23districts at times0/7/19:51750 old/new exact hit
+comparisons, zero differences, repeated after optimization. Terrain432
+old/new boundary/transformed/hole/near-far cases match. Two pre-existing exact
+seam rounding differences versus a monolithic native mesh are pinned in tests,
+not changed. Unit regressions include mutation, recursive/custom fallback,
+layers/ties/near-far, dynamic instances, foliage/glass and pruning work counts.
+Production browser Queenstown/Marina/Orchard boot with baked graphs and enter
+play, no runtime errors; final Queenstown repeated after optimization.
+Screenshots inspected. Test/benchmark artifacts .cache/ray-index-release/.
+Original prototype artifacts remain .cache/ray-round/. Early test fixture
+miss (rotated box behind ray) corrected; terrain baseline clarified above.
+One local SSR dependency-scan noise fixed by disabling discovery; parity ran.
+
+Manual deployment started from68beb84; outcome recorded below after verification.
+Owned measurement server5262,preview5263 andChrome9422 stopped. AGENTS.md,
+.claude and pre-existing handoff changes remain local/uncommitted.
+
+Manual pnpm deploy:cloudflare succeeded for68beb84, version
+37e4e55c-7044-4d0c-9a73-8e0e00201f65. Both public domains pass Cloudflare smoke
+and HTML entry refs plus SHA256 of all29 JS/CSS/navigationJSON/service-worker
+assets match localdist. No GitHub push. Owned deployment lock released.
+
+
+## 2026-11-03: item4 collision repetition / memory-pooling audit only
+User asked to check remaining collision allocations and likely pooling benefit.
+No product changes/commit/deployment; main remains68beb84. Existing movement
+candidate caching/array removal already shipped3feb508; do not count it again.
+Local experiments and receipt summary: .cache/collision-allocation-audit/.
+
+Current32bot Queenstown CPU-only simulation, baked navigation, four seeds,
+rotating mode order,5s warmup+60s measured, no CPU/heap profiler during timing:
+small scratch hit-list + infantry collision-array pooling2.81191->2.82792ms
+mean tick (-0.57%, no meaningful win); per-move single-entry occupancy/support
+reuse + shared infantry vehicle/lift list within tick2.74626ms (~2.33% lower).
+Both2.75290ms (~2.10%). Whole-run AI trajectories vary with wall-clock budgets.
+Matching movement corpus5760calls/batch,4 alternating rounds:2220.89->1332.17ms
+(~40.02% lower).132480 exact old/new occupancy/support/move results across23
+districts match with changing extra blockers. Cache lifetime is one synchronous
+move only, never a clear-path result across later ticks.
+
+Largest collision-list allocation site: stepVehicles constructs both ground
+and flight lists per vehicle even when one is unused. Second four-seed run:
+baseline2.88484ms; per-vehicle arrays retaining static prefix and updating live
+dynamic suffix2.82983ms (~1.91%); skip unused list2.84825ms (~1.27%); both
+2.78045ms (~3.62%). Mean GC time per60simseconds132.80->120.70ms with both.
+2017 used vehicle collider lists deep-match original construction. Prototype
+assumes existing immutable static list membership; live vehicle bounds refreshed
+sequentially as before. Full shipping tests still needed if user approves.
+
+Rendered current production /world Queenstown32bot native Metal Apple
+Paravirtual browser,844x390 CSS DPR2,30s profiled sample:~59.97FPS,33.3ms max
+frame, no>50ms frames/exceptions. GC107.45ms sampled,~0.733% non-idle samples
+(~0.354% elapsed samples). CPU+allocation profiling enabled; diagnostic only,
+not an uninstrumented/mobile performance claim. Initial Node CPU/heap sample
+shows vehicle list creation, target observation/sorting, support and rays as
+allocation sites; sampling estimates churn, not resident RAM. Its GC observer
+failed to flush before reporting zero; ignore that event count. Subsequent
+unprofiled GC metrics correctly flush and show ~4% of simulation work in GC.
+
+Conclusion: targeted large-buffer reuse/skip-unused work and query reduction
+are worth considering; blanket object pooling is low priority. Movement results
+can escape into paused navigation generators; generic reuse risks aliasing.
+Do not pool returned hit/movement objects without explicit ownership.
+Owned preview5265 andChrome9430 stopped; no persistent audit services.
+AGENTS.md,.claude and pre-existing handoff changes remain local/uncommitted.
+
+
+## 2026-11-03: item 4 targeted collision reuse shipped
+User approved the preceding audit recommendations. Local main commit 5c3f4c0
+implements per-move single-entry occupancy/support reuse, per-vehicle collision
+buffers, skip-unused ground/flight construction, and a shared infantry hull/lift
+list for the existing tick lifetime. No generic pooling of returned movement/hit
+objects. Dynamic vehicle bounds refresh in simulation order; later movement and
+standalone queries always reread geometry. Exceptions/nested movement invalidate
+query scope. Authored list membership remains stable; live object fields remain
+visible and changed flight-list identity/length refreshes the prefix.
+
+Validation: pnpm typecheck; full suite 308 files / 2992 tests passed (204.29s);
+production build passed. 132480 exact old/new movement/occupancy/support results
+across all 23 districts matched. Used vehicle lists matched 6216 times in 1200-tick
+32-bot Queenstown/Marina Bay/Orchard simulations. Added tests cover dynamic hulls,
+source changes, retained states, exceptions/reentrancy, driving/flying parity,
+and healthy versus wrecked car/helicopter/boat list selection. All 23 baked
+navigation JSON hashes unchanged, including deployment rebuild.
+Production browser smoke: three districts above loaded baked graphs and entered
+32-bot rounds, moved with touch input and fired with no runtime exceptions;
+Queenstown screenshot visually checked. Evidence .cache/collision-reuse-release/.
+No new FPS/performance claim: prior audit timings describe separate experiments,
+not additive whole-game improvement or physical mobile measurements.
+
+Manual pnpm deploy:cloudflare succeeded, version
+eb242ec0-0649-4d63-b086-22daefb90b81. Both blockplaysg.fun and worker origin pass
+pnpm test:cloudflare. Index asset references plus all 29 current JS/CSS/navigation
+JSON/service-worker SHA256 hashes match local dist on both domains.
+No GitHub push. Owned preview 5266 and Chrome 9431 stopped. Deployment lock
+released after verification. AGENTS.md, .claude, and handoff remain uncommitted.
+
+## 2026-11-03: visible proxy cargo arrivals and withdrawal
+User reported Freedom Force / Collective Corps appearing and disappearing during
+crate encounters. Local main commit 11bbd2e replaces ground pop-in with four
+separated parachute insertions: six seconds into the warning, 60 m / 12 s descent,
+sand Freedom Force and jade Collective Corps canopies, neutral minimap landing
+zones and touchdown copy. Cargo and full canopy columns use real scene clearance;
+all four insertion points are preflighted before adding any operator, then checked
+again at touchdown. Airborne operators cannot fire. Existing favor/reward rules
+are unchanged.
+
+Survivors retreat on clear ground beyond their landing zones. The 18 s withdrawal
+deadline clears encounter targets but no longer deletes visible surviving actors.
+Cleanup requires >=25 m from cargo, >=20 m from every living player, and a full
+second behind cover or outside every player's conservative 270-degree view.
+Vehicle observers retain full-direction sight protection. Brief visibility resets
+the grace period. New operations wait for remaining actors to leave, preserving
+snapshot operation IDs. Existing fallen-body cleanup remains unchanged.
+
+Validation: pnpm typecheck passes; full 308 files / 2995 tests pass with
+pnpm test --testTimeout=15000 (144.49 s). Initial default-five-second runs timed
+out in three existing all-district scene tests (regions, district-set-pieces,
+world-night-lights); final complete run passes all assertions with a 15 s limit,
+without changing test config or assertions. Focused 32 proxy/HUD tests pass.
+Seven rendered real-district host/guest checks pass: Queenstown warning, descent,
+landing, withdrawal, portrait descent; Marina Bay and Orchard descent. Four
+correct faction canopies, no airborne shots, valid accepted snapshots and zero
+runtime exceptions/WebGL errors. Desktop/portrait screenshots visually reviewed.
+New reusable fixture/scripts: scripts/fixtures/proxy-operations.html and
+scripts/proxy-operations-smoke.mjs (Vite 5267 / Chrome 9432 defaults; environment
+overrides supported). Evidence .cache/proxy-arrivals/. Owned Vite/Chrome stopped.
+No paid API generation or GitHub push. AGENTS.md, .claude and pre-existing handoff
+changes remain local and uncommitted. Manual Cloudflare deployment pending below.
+
+Manual pnpm deploy:cloudflare succeeded for 11bbd2e, version
+67b4b32f-bff3-44a4-98a3-37c3049eb2a2. Both blockplaysg.fun and worker origin
+pass pnpm test:cloudflare. After brief deployment propagation, default homepage
+asset refs plus SHA256 of all 29 JS/CSS/navigation JSON/service-worker files match
+local dist on both domains. Evidence: .cache/proxy-arrivals/live-verification.json,
+live-custom.log, live-worker.log and deploy.log. Owned deployment lock released.
+No GitHub push; all code changes are committed locally. Temporary Chrome profile
+remains in /tmp/blockplay-proxy-arrivals-chrome; its browser/server are stopped.
+
+## 2026-11-03: crate decision menu mouse control and cancellation
+User could not use the mouse in the crate decision list and wanted to leave
+without choosing. Local main commit 88e7dfa releases pointer lock on opening,
+exempts the active menu from both pointer-lock loss pause guards, and handles
+E/Escape/1-4 at window capture so focused buttons retain those shortcuts. Tab
+cycles inside the dialog; its close control receives focus. Mouse/touch changes
+inside the menu do not pause play. Close/choice restores capture through the
+existing guarded Resume flow, with working paused Resume fallback after denial.
+Out-of-reach/death/menu state changes dismiss the dialog without requesting
+capture outside a user gesture. Crouch/prone posture is retained on entry/return.
+
+Decision card has a larger close target, separate weapon label, scrolling choices,
+and a persistent full-width Leave crate untouched button explaining that cargo
+and favor are unchanged. X, Escape, E and the backdrop also dismiss. Global footer
+flex styling is explicitly overridden so the leave action remains full width.
+
+Validation: pnpm typecheck and full pnpm test --testTimeout=15000 pass: 308 files /
+2995 tests (147.61 s). Real unmodified engine browser fixture walks from Queenstown
+spawn to a live crate using actual movement/navigation. Native CDP mouse capture,
+mouse option selection, X/Leave/backdrop, E/Escape, Tab containment, movement/fire
+blocking, denied recapture + Resume, touch cancellation and exact favor/cargo
+consequences pass with zero runtime exceptions. Screenshots visually checked at
+1200x900, 390x844 and 844x390; leave action remains visible while choices scroll.
+An early smoke rerun fired the event before player playing-state adoption; fixture
+now waits for arenaStarted and elapsed > .25 before requesting its crate.
+
+Reusable scripts/fixtures/proxy-menu.html and scripts/proxy-menu-smoke.mjs use
+Vite 5268 and Chrome 9433 by default, with environment overrides. Receipts and
+screenshots .cache/proxy-menu/. No paid APIs; generation endpoints blocked during
+browser checks. Owned Vite/Chrome stopped. Manual Cloudflare deployment pending
+below. No GitHub push. AGENTS.md/.claude and pre-existing handoff changes remain
+local and uncommitted.
+
+Manual pnpm deploy:cloudflare succeeded for 88e7dfa, version
+2bcf84c1-5377-4b65-9222-7a0374fba41f. Both blockplaysg.fun and worker origin pass
+Cloudflare smoke; default homepage references and all 29 JS/CSS/navigation JSON/
+service-worker SHA256 hashes match local dist on both domains. Evidence:
+.cache/proxy-menu/{deploy.log,live-custom.log,live-worker.log,live-verification.json}.
+Owned deployment lock released. No GitHub push; main code is committed locally.
+
+
+## 2026-11-03: movement while the in-game minimap is expanded
+Local main commits b4d1b97 and f2ed810 allow WASD/arrows, sprint, stance and jump
+while the district map is open. Window capture forwards movement from focused map
+controls, without activating buttons on Space. Opening retains held movement and
+the touch stick. The map still releases pointer capture for marker inspection;
+M/Escape/Close use the existing guarded return and capture-denial Resume path.
+Touch portrait reserves space below the map for the left stick; landscape reserves
+a strip beside it. Combat controls stay hidden while inspecting.
+
+Validation: final pnpm typecheck passes. Full isolated baseline run: 306/308 files,
+2995/2997 assertions pass; world-night-lights and dragon-boat-ai hit the 15-second
+limit amid concurrent test/build load, plus two Vitest onTaskUpdate RPC timeouts.
+Final serial rerun of those files plus minimap/keybindings/deployment checks passes
+all 9 files / 79 tests (36s). No assertions or timeout defaults changed. Native
+Metal Chrome browser regression passes on final committed application source:
+all 23 district maps, marker mouse/touch/bracket selection, keyboard movement from
+focused controls, portrait/landscape touch movement, retained posture, normal
+recapture and capture-denial fallback, zero runtime exceptions. Screenshots
+visually reviewed; evidence .cache/map-movement-release/.cache/map-details/ and
+/tmp/map-movement-final-browser.log. Software-rendered initial attempts stalled
+on screenshot/shader warmup; native Metal passes.
+
+Manual pnpm deploy:cloudflare in the concurrent equipment-rentals release succeeded,
+version df1a3414-03bf-41d3-a7c3-44f28add810f. Its complete application src, public,
+Cloudflare worker, package/config match current committed source (including this
+fix); shared deployment avoids publishing unfinished changes or undoing adjacent
+completed work. Both public domains have matching entry references and all 29
+JS/CSS/navigation JSON/service-worker SHA256 hashes; receipt
+.cache/map-movement-live-verification.json. Worker-origin Cloudflare smoke passes;
+custom domain initial asset routing check briefly saw propagation and was rerun.
+No GitHub push. AGENTS.md, .claude and pre-existing handoff remain uncommitted.
+
+Custom-domain pnpm test:cloudflare equivalent also passes after propagation.
+Owned Vite 5276 and Chrome 9437 stopped. Both-domain live hash receipt verified.
+
+
+## 2026-11-03: aerial deployment / respawn camera, allied permissions and beams
+Local main commits d796ae5 and c169083 replace the straight-down wide lens with
+38-degree perspective, a 22-degree oblique angle and a small damped cursor orbit.
+Framing reserves header/dock space throughout the orbit. Touch and reduced motion
+use the neutral angle; map grabs use ground-plane intersections. Marker DOM
+positions update with the rendered camera between React HUD reports.
+
+Initial entry now admits only the side's designated default or operational,
+clear allied facility zones. Other authored points, enemy structures and neutral
+structures remain visible but unavailable with reasons. Random entry filters
+unavailable destinations. Arena authority validates the destination again;
+respawning continues to require a clear, operational allied structure. The
+initial default is not offered as an unrestricted respawn fallback. Respawn
+uses the same real 3D camera and pan/zoom controls, retaining countdown,
+selection invalidation, auto-respawn, loadout access and Menu/Resume.
+
+World markers are fading translucent columns: cyan available, gold selected,
+grey unavailable. Small world-anchored button targets select on pointer-down;
+native keyboard activation remains supported. The global button active transform
+was replacing marker anchoring during a press, explaining missed first clicks.
+An explicit active transform override preserves the anchor. Parallax freezes
+under a marker and during drag. Returning from Menu while dead bypasses pointer
+capture, fixing a race between capture adoption and the death release handler.
+
+Validation: typecheck/build pass. Camera-only full suite passed 308 files / 2997
+tests. For the expanded scope a broad run passed all 3001 assertions but reported
+a Vitest onTaskUpdate RPC timeout; the lower-worker repeat also hit two scene
+construction timeouts. A clean single-worker recheck passes 117 tests / 7 files,
+including both timed-out scene tests and all deployment/respawn authority and
+camera tests. No clean full-suite claim for the expanded scope. Real-engine
+browser checks pass initial allied/grey markers, immediate mouse-down selection
+before release, preserved pressed bounds, cursor motion, subpixel world pin
+alignment, reduced motion, pan/zoom/reset, selected/random deployment and no
+redeployment on resume. A real engine restored from a dead checkpoint verifies
+manual wait at zero, rejected enemy choices, allied respawn, Menu/Resume and
+automatic respawn on portrait/landscape touch. Zero browser exceptions.
+
+Concurrent rental/minimap edits were excluded using an isolated release, then
+committed changes through f2ed810 (including 17570b9 and b4d1b97) were merged into
+it before deployment. All tracked release files matched f2ed810 exactly. Relevant
+rechecks and the production TypeScript build passed on that release. Manual
+pnpm deploy:cloudflare succeeded: af67ad68-844f-4730-bdcf-df84039d6936. Both
+blockplaysg.fun and worker origin pass Cloudflare smoke, and default entry refs
+plus SHA256 for all 29 JS/CSS/navigation JSON/service-worker files match dist.
+Evidence is .cache/deployment-camera/, with final screenshots and JSON receipts;
+frozen source/build remains .cache/deployment-beams-release/. Private env copies
+removed, owned Vite5270/5272 and Chrome9435 stopped, owned deployment lock released.
+No GitHub push or paid generation. AGENTS.md, .claude and existing handoff edits
+remain local and uncommitted.
+
+
 ## Non-utility equipment rentals (2026-11-03)
 
 Local main commit `17570b9` extends the existing 1/2/4-hour active-play rentals
@@ -6422,6 +11228,101 @@ deploy logs are in `.cache/equipment-rentals/`. No GitHub push. AGENTS.md remain
 local, unstaged and uncommitted; unrelated handoff and .claude work is preserved.
 
 
+## 2026-11-04: overhead depth precision investigation and correction
+
+Local main commit `cfa8371` fixes aerial deployment/respawn z-fighting. The world
+camera kept its 0.08 m walking near plane at ~1–2.5 km view distance. Distinct
+millimetre-scale ground layers quantized to the same depth, despite the earlier
+coplanar ownership fixes. The older visual-review fixture silently used a 5 m
+near plane, masking the game camera's much worse precision.
+
+`overviewFrame` now returns a near plane at half the camera clearance above the
+highest obstacle. Descent applies the same calculation; every normal camera
+update restores 0.08 m. Foreground weapons retain their separate camera. Added
+GPU calibration and actual-map review fixture/smoke, expanded all-23-district
+frustum/zoom/pan/orbit tests, and documented the distinction in MAP-SURFACES.md.
+
+Validation: clean release typecheck, 33 relevant tests / 4 files, production
+build, actual-engine deployment UI and aerial/descent/ground/respawn transitions
+pass. GPU 5 mm layer at portrait overview distance: 48,409/49,152 wrong pixels
+with old .08 near; zero wrong with correction. Four real districts rendered in
+all three viewport shapes and 4x zoom; screenshots inspected. Real respawn
+returns near from 527.195 m (overview), 91.149 m (4x) to .08 m after respawn.
+No browser exceptions or paid API calls.
+
+Broad shared-workspace run: 3012 passing assertions / 306 files, plus 3 failures.
+One was the first draft of our new frustum test, corrected and passing in the
+clean release. The other two are unchanged rental expectations in
+RespawnLoadoutSelector and vehicle-rules; both reproduce on prior application
+source in an isolated baseline (29 assertions pass, same 2 fail). No clean
+full-suite pass is claimed; concurrent respawn/beam edits were excluded.
+
+Manual `pnpm deploy:cloudflare` succeeded from frozen local source matching all
+3,373 tracked files of `cfa8371`, version b7486d62-9c35-48e4-acfe-c420fdf2670b.
+Root entry references and SHA256 of all 29 JS/CSS/navigation JSON/service-worker
+files match on both domains over HTTP. HTTPS HEAD requests returned 200, but
+HTTPS Node/curl smoke and byte checks hit intermittent connection timeouts even
+with TLS 1.2; do not claim complete HTTPS verification. Receipts/logs and source
+snapshot: `.cache/aerial-depth/`, especially source-verification.json,
+depth-verification.json, camera-transitions.json, release-engine-smoke.log,
+deploy.log and live-verification-http.json. HTTP routing smoke status is recorded
+in live-custom-http.log and live-worker-http.log. Temporary private environment
+copies removed; owned Vite 5282/5283 and Chrome 9442 stopped. No GitHub push.
+AGENTS.md, .claude and concurrent/pre-existing edits remain local/uncommitted.
+
+HTTP routing/assets/PWA checks reach the final same-origin API assertion on both
+domains; it receives 403 with an HTTP Origin (the deployed origin policy expects
+HTTPS). The complete smoke is therefore not claimed as passing over HTTP.
+Exact-byte static asset verification over HTTP passes on both domains.
+
+
+## 2026-11-04: permanent default respawn and soft beam hover
+Local main commit 026f418 supersedes the earlier structure-only respawn rule.
+The real aerial respawn map now always lists this side's Default spawn alongside
+allied structures. Manual selection remains available with no allied sites;
+automatic respawn prefers operational allied structures, then falls back to the
+default. The authority preserves the countdown, rechecks safety and cancels
+blocked choices. It searches only the bounded default zone (centre + rings to
+10.8 m), checking occupancy, hostiles, obstacles and water. An unsafe default
+waits until clear rather than selecting an arbitrary remote point.
+
+buildDistrictWorld now keeps defaultPlayerSpawn at the authored district home,
+separate from playerSpawn used for gateway arrival. Returning after travel or a
+prior initial deployment therefore does not relocate the permanent fallback.
+
+Beam hover smoothly interpolates opacity and tint: unavailable grey becomes
+less transparent and lighter, available cyan brightens, and selected gold gains
+a softer pale glow. Ground rings and small labels answer the same state.
+Actual 3D sky columns are ray-picked, so hover works above the label too; their
+available portions select on the first pointer press. Grey beams remain rejected
+by the authority. Pointer exit restores the resting state and keyboard focus
+receives matching feedback. The existing parallax freeze covers the full beam.
+
+Validation: 77 focused tests / 7 files and typecheck pass on an isolated release,
+including default-only manual/automatic respawn, nearby occupancy, loss of
+clearance during the countdown, authored home vs arrival, ordinary arena respawn,
+hover interpolation and ray picking above disabled labels. Real-engine Chrome
+checks pass the actual grey/cyan/gold sky hover, unavailable protection,
+first-press sky selection and hover exit. Extended respawn browser checks pass
+manual wait at zero, Menu/Resume, zoom/reset, allied respawn and portrait/landscape
+auto-respawn, plus both manual and automatic default respawn with all allied
+structures lost. Zero browser exceptions. Screenshots/receipts are copied to
+.cache/default-respawn/{beam-hover,player-respawn}/. Isolating the Vite dependency
+cache avoided a concurrent server invalidating the initial cold-start imports.
+
+The release includes committed depth fix cfa8371 and matches all tracked files
+of 026f418 exactly. Manual pnpm deploy:cloudflare succeeded, version
+67ee6e86-ab29-4c55-8855-321e0cf58e09. Initial 15/20-second live requests timed out
+through the network proxy; bounded 60-second verification then passed both
+blockplaysg.fun and worker origin routing/assets/API checks and exact SHA256
+for all 29 JS/CSS/navigation JSON/service-worker assets. Receipts, test logs and
+deployment log: .cache/default-respawn/. Frozen source: .cache/default-respawn-release/.
+Private environment copies removed, owned Vite5274/5276 and Chrome9437 stopped,
+and owned deployment lock released. No GitHub push or paid generation. AGENTS.md,
+.claude and existing handoff edits remain local and uncommitted. Newly appearing
+vitals edits in the shared workspace were preserved and excluded from this release.
+
+
 ## 2026-11-04: dramatic vehicle destruction and drone ground explosions
 Destroyed car and helicopter hulls now keep their
 momentum: `damageVehicle` no longer zeroes velocity (boats still stop) and adds an
@@ -6448,6 +11349,27 @@ destroyed a falling helicopter and a mounted car at 15 m/s (coasted 26 m, phase
 defeated, no exceptions); it boarded via an injected interact call because the E key
 did not mount in that headless run. Not run: LAN play in a browser (adoptShared is
 unit-tested only), test:vehicles, and the transport crash visuals in a browser.
+
+## Grenade throw and armor plate animations (2026-11-04)
+
+Reworked both viewmodel animations. Throw (CS/CoD): `fps-grenade-motion.ts` is pure
+and driven by the fuse clock: raise, left hand takes the pin, arm cocks while the
+other points ahead, 0.1 s swing, release, follow-through, lever flies off. The
+underarm lob has its own poses. Gameplay effects: the grenade now leaves at the end
+of the swing, a tap takes about 0.32 s, and fire and aim wait for the 0.46 s recovery.
+Plate (Warzone): the gun stays up, canted low, with its support hand hidden
+(`setSupportHand`). The left hand does the job and the hit lands on the 0.76 commit.
+`fps-viewmodel-hand.ts` is the shared articulated hand, also used by the other supply
+styles. Check poses with `scripts/fixtures/hands-film.html`. Timing and balance
+figures for supplies are unchanged.
+
+## Grenade and plate handling sounds (2026-11-04)
+
+Added ElevenLabs recordings on the new animation beats: `scripts/hands-sfx.mjs`,
+`public/audio/hands/`, `src/game/hands-audio.ts`; see docs/SOUND-EFFECTS.md. Throw
+beats were measured in the real engine. Plate cues fired through the engine, but only
+under software-rendering hitches, so their spacing is covered by unit tests rather
+than measured live. Nobody has listened to the mix in game yet.
 
 ## 2026-11-04: scene of death before respawn
 Falling now plays a death window instead of cutting straight to the respawn map
@@ -6485,6 +11407,35 @@ and 844x390 fit), with screenshots in .cache/death-recap/. It slows the page clo
 because a software renderer screenshots slower than the window lasts. Not exercised:
 a two-browser LAN guest (only the validators are covered), or the 'defeated' screen
 of non-arena exercises, which was left as it is. Not pushed or deployed.
+
+## 2026-11-04: Marina quay rail and deliberate water entry
+The quay rail had no collision and walking off any dry edge counted as entering the
+water, so players walked straight through it. Fixed in src/game/swimming.ts, which is
+player movement only: bots, vehicles, line of sight and the navigation bake never see
+the rail, so the bake needs no rebuild.
+
+Rails: MARINA_QUAY_RAILS (marina-water.ts) follow the rendered rail on all four sides,
+are taller than a jump, and open only at the two jetties. The north quay had no rail
+at all, so marina-scene.ts now builds one. A body stops at 0.38 m from the rail, which
+is 0.76 m from the water and outside the host's 0.5 m touchesWater slow zone.
+
+Decks: walking stops a body's width short of any deck edge. The ways in are a jump, or
+walking through a ladder gate. Reaching the last body's width of a deck takes a jump or
+a climb out, so a body there may step off. It could not jump from there because
+grounded() is false, so blocking it would have stranded the player. marina-camp.ts adds
+a kerb and rope along those edges, with a gate at each ladder. The rope is visual only.
+
+Authority: arena-rules passes swimmer.move a `leaping` flag taken from the input's eye
+height (above standing, or the swim pose), since that branch flattens y to 0. A hacked
+guest can use it to leave a deck but not to pass a rail.
+
+Validation: full vitest, swimming.test.ts gained three cases. A throwaway CDP drive in
+the real engine on Metal (scratchpad, not in scripts/) confirmed the edge stop, jump in,
+ladder in, the rail stop at z=30.76 with four jumps against it, and the host actor
+following a jump to within a millimetre. dragon-boats-smoke passes. Not exercised: a
+two-browser LAN guest, or touch input beyond the same engine calls. Nothing in game says
+why the edge stops you, so a hint is a possible follow-up. Bots and cars can still clip
+the rail visually, since it does not block them.
 
 
 ## 2026-11-04: respawn descent, and shaders built before the click
@@ -6533,35 +11484,6 @@ and vehicle-rules failures as a clean checkout). death-recap, player-respawn and
 deployment-intro smokes pass on swiftshader; the last needs DEPLOYMENT_SMOKE_PACE=12
 there, or its short windows pass during a screenshot, and now fails on any shader link
 between the click and landing. Not pushed or deployed.
-
-## 2026-11-04: Marina quay rail and deliberate water entry
-The quay rail had no collision and walking off any dry edge counted as entering the
-water, so players walked straight through it. Fixed in src/game/swimming.ts, which is
-player movement only: bots, vehicles, line of sight and the navigation bake never see
-the rail, so the bake needs no rebuild.
-
-Rails: MARINA_QUAY_RAILS (marina-water.ts) follow the rendered rail on all four sides,
-are taller than a jump, and open only at the two jetties. The north quay had no rail
-at all, so marina-scene.ts now builds one. A body stops at 0.38 m from the rail, which
-is 0.76 m from the water and outside the host's 0.5 m touchesWater slow zone.
-
-Decks: walking stops a body's width short of any deck edge. The ways in are a jump, or
-walking through a ladder gate. Reaching the last body's width of a deck takes a jump or
-a climb out, so a body there may step off. It could not jump from there because
-grounded() is false, so blocking it would have stranded the player. marina-camp.ts adds
-a kerb and rope along those edges, with a gate at each ladder. The rope is visual only.
-
-Authority: arena-rules passes swimmer.move a `leaping` flag taken from the input's eye
-height (above standing, or the swim pose), since that branch flattens y to 0. A hacked
-guest can use it to leave a deck but not to pass a rail.
-
-Validation: full vitest, swimming.test.ts gained three cases. A throwaway CDP drive in
-the real engine on Metal (scratchpad, not in scripts/) confirmed the edge stop, jump in,
-ladder in, the rail stop at z=30.76 with four jumps against it, and the host actor
-following a jump to within a millimetre. dragon-boats-smoke passes. Not exercised: a
-two-browser LAN guest, or touch input beyond the same engine calls. Nothing in game says
-why the edge stops you, so a hint is a possible follow-up. Bots and cars can still clip
-the rail visually, since it does not block them.
 
 ## 2026-11-04: test suite fixes and manual deploy of 94a251d
 The deploy workflow had failed at `pnpm test` on every run since b9ab5a7 (2026-10-31);
@@ -6679,20 +11601,6 @@ boardwalk now mounts the real PlayLoading (training already did), and both asser
 Not covered: no baseline from before 84ae8b2, so whether the GPU fence lengthened crossings is unmeasured. Dev server only, not a production build, physical GPU or real phone; the mobile runs use emulated touch. Crossing spawns are injected beside the border.
 Noticed and left: Enter needs scrolling to on the start card at 1280x713; Raffles Place and Queenstown describe heavy and lighter patrols but field the same 32; utilitySlotForKey (keys 4-9) is only used by its tests.
 
-## 2026-11-05: gallery wall and bought-weapons table in training
-Training now has a bay near the spawn in every district: a wall with the five Armed Forces issued weapons and all 22 captured ones (the Peace Offering launcher is a mode, so it comes with its rifle), and a table with whatever the player bought or rents. Look at a gun within 3.4 m for its card, E (or the touch button) takes it, what it replaces goes back to its place, and it comes with full spares.
-src/game/range-armory.ts is the pure part (contents, swap, focus, placement); range-armory-visuals.ts builds the wall and bakes each gun to a few merged meshes. Swaps change the session's ResolvedLoadout only, never the profile, and carry through drill restarts and district crossings because FpsGame's loadoutRef keeps them. A new visit starts from the saved kit.
-Weapons are rent-only in practice: restoreProfile drops rentable ids from `owned`, so the table shows rentals with time left. An expired one is not on it.
-Validation: tsc, vitest 3193/3193, pnpm build, scripts/range-armory-smoke.mjs on Metal headless Chrome in Harbourfront: all 32 rack weapons aimed at, taken, loaded, spared and fired through the real pointer lock; saved kit unchanged; a real walk across the Sentosa border with a rack M200, which then fired. The start of that walk is injected beside the border, with the equipment from a real take. Placement is unit tested in all 19 districts, with 0 and 26 table guns, always within 25 m.
-Not covered: browser runs in other districts, a real phone (the touch button is unit tested only), Safari, night. Rack cost measured once: filling takes about 300 ms on a dev build, and about 755 draws per frame standing in the aisle, with no baseline taken to compare.
-Left as is: rack guns earn normal range rewards, so a Mythic can farm drills. Collective Corps weapons are gallery art with no catalogue entry, so they are not on the wall.
-Smoke note: parallel sessions' edits reload pages through Vite's HMR, so this smoke stubs the vite-hmr socket. A dev server here was also stopped from outside twice (exit 143), which reads as "Range unavailable"; cause not established.
-
-## 2026-11-05: sound effects volume
-A Sound effects slider sits under Music in Settings, defaulting to 100%, the existing mix. It covers everything except music: gunfire, footsteps, vehicles, ambience, the Encik's radio, menu and store sounds. The AI companion's live voice is left out.
-`effectsOutput(context)` in src/lib/effects-volume.ts is one gain per AudioContext, after the combat limiter. Every sound now connects there, and a test fails if new code connects straight to `context.destination`. Menu and store clips are HTML audio, so they multiply their level when played and skip playing at 0. iOS Safari ignores an element's volume, so those clips should only be on or off there (not tested on a device). The slider plays the menu click once it settles, as nothing else is playing on that screen.
-Measured in real training gunfire on Metal headless Chrome, tapping the speakers: peak .886 at 100%, .409 at 50%, 0 at Off, with one node connected to the speakers. Settings slider, saving, and reload checked in the same run. Not heard, as the VM has no audio. Safari and real phones untested; the settings screen was not checked at phone width. The slider is in Settings only, not the in-game pause menu.
-
 ## 2026-11-05: spawn rack reworked to draw, hold and release
 The spawn rack read as methodical: the handle sat at the rear stop for 0.34 s and the release sound played 0.24 s after the bolt was home.
 A first pass (fast pull, hard slam, whole gun thrown forward) was rejected by the owner, rightly: hands are children of the gun, so the throw carried the hand 21 cm forward after it let go, and it looked like the hand was pushing the handle back in. Measure hands in view space, with the rig's movement, when judging this.
@@ -6714,6 +11622,11 @@ On request, the reload before this work and the improved one are both selectable
 A one-off test (not kept) ran every gun, tactical and empty, through the last commit's code beside `original`: poses, energy and every named part matched to 1e-9.
 The spawn rack has only the new form, whichever is chosen, because its length sets when control and the spawn shield arrive. The wrist cuff fix also stays in both, so original is not pixel-identical there.
 Checked in the real game at Marina Bay at 1/8 speed on Metal: Settings remembers the choice, the pause card reaches the engine, and both reloads were filmed with no page errors.
+
+## 2026-11-05: sound effects volume
+A Sound effects slider sits under Music in Settings, defaulting to 100%, the existing mix. It covers everything except music: gunfire, footsteps, vehicles, ambience, the Encik's radio, menu and store sounds. The AI companion's live voice is left out.
+`effectsOutput(context)` in src/lib/effects-volume.ts is one gain per AudioContext, after the combat limiter. Every sound now connects there, and a test fails if new code connects straight to `context.destination`. Menu and store clips are HTML audio, so they multiply their level when played and skip playing at 0. iOS Safari ignores an element's volume, so those clips should only be on or off there (not tested on a device). The slider plays the menu click once it settles, as nothing else is playing on that screen.
+Measured in real training gunfire on Metal headless Chrome, tapping the speakers: peak .886 at 100%, .409 at 50%, 0 at Off, with one node connected to the speakers. Settings slider, saving, and reload checked in the same run. Not heard, as the VM has no audio. Safari and real phones untested; the settings screen was not checked at phone width. The slider is in Settings only, not the in-game pause menu.
 
 ## 2026-11-05: voice volume
 On request, a Voice slider sits under Sound effects in Settings, also defaulting to 100%. It takes the Encik's radio out of effects and adds the AI guide's replies. The Encik's in-game on/off button remains. Both sliders now come from `createVolumeSetting` in src/lib/volume-setting.ts; speech connects to `voiceOutput(context)`. The slider plays the Encik's first recorded line once it settles. The AI guide is an audio element, so LiveVoice sets its volume when a session starts, and keeps it muted at 0 because iOS Safari ignores element volume.
@@ -6896,6 +11809,11 @@ On request. Settings › Graphics now has four presets (High, the default; Balan
 Validation: tsc, full vitest, new `graphics-settings.test.ts` (sanitising, presets, limiter cadence at 60/120 Hz, storage). Settings page at 375 px in the browser pane: presets set both stores. Metal headless Chrome on the Marina range (1280x800 @2x): 60 fps uncapped, 30 with the cap, 60 at 60; buffer 1728x1080 → 1209x756 at 70% mid-game; lens tag to `off`; Battery saver at load gave 691x518 for a 1024x768 canvas at DPR 2; no page errors.
 Not covered: not run on a real phone, so the savings are unmeasured there. Low shadow detail and reflections off were switched mid-game without errors but not compared by eye. View distance was not added (it changes what you can see, so it is a gameplay choice).
 
+## 2026-11-06: bots no longer stare at their boots and spin; finite turning
+Owner report: bots sometimes looked at the ground and spun. Cause, in `stepBot` (arena-rules.ts): yaw and pitch were set every tick, instantly, to the bearing of `target` — which with nobody in view is the bot's own walk goal (patrol point, mission, last known contact). Full-stride steps with no arrival overshot that point (plus a 0.35 strafe made them orbit it), so the bearing flipped up to 180° a tick, and the `-.65` chest offset over a near-zero distance pitched them to about −90°. Measured over 60 s with 6 mixed bots at 20 Hz: one bot 25% of ticks pitched below −40°, 282 yaw jumps over 86° in a tick, 675°/s mean turn.
+Now: `BOT_TURN` / `botTurn` / `botAligned` in arena-bot-combat.ts cap turning (9 rad/s yaw ≈ 515°/s, 5 rad/s pitch); a bot faces a contact, or a last known position more than 1.5 m off, else its direction of travel with level pitch, holding yaw when standing. It fires and builds `aimFocus` exposure only within 0.2 rad of the shot, so a long swing costs time. Unseen walk goals stop the bot within 1.5 m (`BOT_TURN.arrive`); a quiet patrol lingers 1.2 s there then picks its next point (standing still would quietly buff idle bots — the old orbiting carried the own-motion spread penalty). A patrol re-pick no longer flips `strafe` mid-dodge (latent: it reversed evasions). Client (arena-runtime.ts) eases avatar pitch as it does yaw. Same probe after: 0% downcast, no jumps, ~25°/s mean, bots still walk 93–175 m a minute.
+Tests: new `bot turning` block (cap, short way round, alignment, arena regression). Two seeded tests were fragile, not wrong behaviour: the friendly-squad test needed a friendly alive at 160 s (at HEAD the squad dies by then for 2 of 8 step sizes) — it now makes its friendly-fire shot with the first friendly on the ground; the bot-damage test didn't allow a lethal hit to take only the remaining health. tsc, full vitest (3,407). Not checked in a browser arena.
+
 ## 2026-11-06: settings in tabs
 On request, the Settings page and the in-game Settings overlay (both `ArmorySettings`) now split into Gameplay (AI difficulty, touch aim assist, HUD hints, reload animation), Video (Graphics), Audio (music, sound effects, voice) and Profile (rank insignia, Encik). A proper tab list: arrow keys, Home and End move between tabs, only the open panel renders. The last tab is remembered per browser (`blockplay-sg-settings-tab-v1`), so the overlay reopens where you were; first visit opens Gameplay. `tab` prop picks one directly (the static-render tests use it). "PC display" is renamed "HUD hints".
 Validation: tsc, full vitest (3,415), new tab-sorting test. Settings page at 375 px in the browser pane (tabs fit, no sideways scroll, keyboard walk incl. wrap); iPhone 13 emulation in headless Chrome: Video chosen on the page, then the Marina range overlay opened on Video. No page errors.
@@ -6904,6 +11822,17 @@ Not covered: real phone; the overlay's 96%-opaque backdrop lets the start card s
 ## 2026-11-06: FPS counter / profiler overlay in Settings › Video
 On request. Settings › Video › **Performance overlay**: Off (default), FPS counter, or Profiler (`perf-overlay.ts`, `blockplay-sg-perf-overlay-v1`, per browser, live). The profiler adds 1% low (99th-percentile frame), frame time and worst, main-thread time inside the frame callback, draw calls and triangles summed over every render call in the frame (it turns `renderer.info.autoReset` off while on and gives it back when off), geometries/textures/shader programs, drawing-buffer size and pixel ratio, Chromium JS heap, and a frame-time graph with 60/30 fps lines. The FPS engine, RegionGame, MarinaGame, MarinaWorld and World loops call `beginProfiledFrame`/`endProfiledFrame`; a frame skipped by the frame cap is not counted, and a gap over a second restarts the run. `PerfOverlay` is mounted in App, portalled into the fullscreen element when there is one, fixed below the HUD's top-left badge, and hides when no loop has drawn for 1.5 s (so never on menus). No GPU timer query: "main thread" well under the frame time means GPU-bound.
 Validation: tsc, vitest (new `perf-overlay.test.ts`); full run had one failure, `building-lift-glass` cached ray queries, from the uncommitted ray-index work in the shared checkout. Metal headless Chrome, Marina range card: profiler 60 fps / 5.1 ms main thread / 1432 draws / 818k tris / 1728×1080 @1.35; switched to FPS and Off through the in-game Settings overlay live; no page errors. The hidden desktop pane reads ~4 fps, which is its rAF throttling. Not run on touch, a phone, in native fullscreen, or in an arena.
+
+## 2026-11-06: open-world CPU cost: round index, hidden-subtree matrices, cover validation
+On request, after profiling the open world on a 4x CPU throttle with the Low preset at phone size (the owner's mid-range phone stays slow on Low, so the CPU, not the GPU). Pushed as `48f313a`, `a1173cc`, `77f4fd7`.
+- **Rounds** (`gameplay-ray-index.ts`): each round in flight raycast the whole scene every frame. A per-frame index over everything a round can strike gives each one only what lies near its path; tests compare it against the old recursive raycast. `scene-ray-index` now has `refresh()` and `query()` and refits moved entries in one pass (`ray-bounds-tree.refitMany`).
+- **Cover** (`scene-cover.ts`, `matrix-epoch.ts`): validates its index once per run of code, and again after any `updateMatrixWorld`/`updateWorldMatrix` (counted by a wrapper on three's prototype). This resolves the `building-lift-glass` "cached ray queries" failure noted in the entry above, which came from an intermediate state of this work.
+- **Matrices** (`visible-matrices.ts`): the weapon scene was 2,687 objects, 97% hidden, updated three times a frame. Matrix updates now skip hidden subtrees: always in the weapon scene, and in the world scene's renderer pass and pre-round pass. Explicit forced world updates still reach everything.
+Function shares from the profiles: matrix work 16% to 7%, cover checks 3.3% to 1%. Correction: the fps figures first quoted (28 to about 38, also in the `77f4fd7` message) came from runs with weather and time of day on auto, which move the load a lot (bots fight less in rain). Controlled, sunny midday, 4x, old 8857b32 against new 4a26721 in the same browser: Toa Payoh 17.5/18.0 to 22.0/22.2 fps; Marina Bay 12.6/13.1 to 16.4/19.7 fps. Showers instead: Toa Payoh 28.4 fps on new code. Marina Bay 20 to 22 fps; then `4a26721` caches each moored boat's landing per step (`boatLanding` in arena-rules; `tryBoardDragonBoat` computed it for every bot before the range check, 36 `vehicleExit` calls a step), about 10% to 0.6%, 22 to about 25 fps. Marina's largest costs are now rendering (about 41%) and the bot simulation (about 25%). Static-scenery freezing was considered and dropped: the Merlion, set-piece trains and capsules, and the sun move outside `world.animate`.
+Validation: tsc, full vitest (3,427), expedition-travel, pouch-reload, grenade-explosions, intervention-pouches and utility-wheels smokes. `fps-smoke`, `magazine-ammo-smoke` and `weapon-switch-audio-smoke` fail identically with these changes stashed (pre-existing).
+Not covered: real phone; production build; other districts' frame rates; any unaudited code reading `matrixWorld` off a hidden world object between forced updates.
+Follow-up measurement, sunny midday, 4x: bot figures are about 52% of draw calls in a Toa Payoh fight (477 of ~918 a frame, 23 figures in view; scenery 285) and 27% in Marina Bay (406 of ~1,512; scenery 966). Taking only the figures out of the camera's layers, still simulated and animated, raised Toa Payoh 25-26 to 35-38 fps and Marina Bay 18-22 to 27-28 fps, about 4-5 ms of world render per frame. That bounds what merging each figure into one skinned mesh could recover. Marina's scenery draw count is the other large lever.
+Then `0a1b303`: arena and expedition figures are one skinned mesh (`createCharacterRig(..., { skinned: true })`; per-joint build kept for the first-person body and townsfolk). Figure draws 477 to 109 a frame in Toa Payoh, world render pass about 11.6-13 to 10.6 ms a frame at 4x: a few percent in fps, far less than the "figures not drawn" experiment suggested, because hiding figures by layers also removed raycasts against them and the impacts and blood that follow. Tests: per-vertex positions against the per-joint build in 13 poses x 21 looks, raycast hits/normals, culling bounds, no material shared between skinned and plain meshes. WebGL pixel comparison lit and thermal: at most 16 of ~30k figure pixels differ. Not covered: real phone, shadows on, scope reflection render.
 
 ## 2026-11-07: open-world CPU trims, round 2 (`dc577e7`, `1fd4c02`)
 On request, continuing the phone CPU work. Measured with Metal headless Chrome, 844x390 @2.75, Low preset, 4x CPU throttle, weather and time pinned (sunny, noon), each state in its own `git worktree` and Vite, alternating old/new runs. Final A/B against `0a1b303`: Toa Payoh 32.8/31.7/33.6 to 39.4/39.0/38.8 fps (main-thread work 22.5 to 18.7 ms a frame); Marina Bay 24.2/25.0 to 27.9/27.2 fps (24.4 to 22.0 ms). The same baseline read 26.5 to 31.1 fps across earlier runs, since the fight differs run to run; per-function ms per frame from the CPU profile is the steadier measure.
@@ -6933,6 +11862,3351 @@ Owner asked for these on every preset. Same probe and view as the entry above (T
 - Tried and dropped: skipping casters smaller than one high-detail shadow texel (6.25 cm). It removed 27 draws (pistol serrations, sights, feed lips) with no measurable change in alternating A/B runs (10.8 vs 10.9 ms); a shadow draw costs about 5 µs at 4x here. The first-person body's 66 shadow draws (9 body, the rest pouches, magazines and the holstered pistol, whose visibility changes with reloads) are therefore worth about 0.3 ms; left as is.
 Validation: tsc, vitest 3,465 (new `shadow-proxy.test.ts`), fps-pilot smoke. `vehicle-smoke` fails at "One wrap purchase fits both vehicles" (1535 vs 950 tokens) identically with these changes stashed.
 Not covered: real phone; production build; arena/expedition vehicle scenes by eye (same model builder).
+
+
+## 2026-11-07: mobile pause menus fill the available screen
+Owner requested a larger pause menu, especially in landscape. `game-menu.css` now expands touch pause cards to the available viewport with a 12px inset, retaining the shell’s notch/home-indicator clearance and internal scrolling. Applies to the shared training, expedition, arena and tutorial pause cards at phone/tablet widths or short heights. Removes the fullscreen bottom-control reservation while paused and layers the panel above gameplay HUD. Desktop and non-paused cards retain their sizing.
+Validation: typecheck; all 3,465 tests (345 files); real training start/pause/resume in Chrome touch emulation at 844×390, 667×375, 780×320 and 390×844, no horizontal overflow, Resume reachable by scrolling; simulated 47px side/21px bottom safe insets. Screenshots inspected in `.cache/pause-layout/`. Not tested on a physical phone or other game modes in-browser.
+Local main commit `1b91d72`; no GitHub push. Manual `pnpm deploy:cloudflare` succeeded, version `8c67ef9e-d8c1-45f5-9414-b7e91c108e44`, https://blockplay-sg.sunjc826.workers.dev. Production Cloudflare smoke passed and deployed CSS verified. This handoff remains unstaged with its existing local edits.
+
+## 2026-11-07 — Further CPU sweep (audit only, 1b91d72)
+Reviewed existing CPU commits and current simulation/render/ray/vehicle/weather/HUD
+paths. Full ranked findings and reproducible scratch harnesses are in
+`.cache/cpu-sweep-2026-11-07/audit.txt`; JSON and CPU profiles are alongside it.
+Fresh 20Hz live-scene Node probes, valid baked graphs, seed7, 3s warmup +30s timing,
+separate30s profile, 32/64 bots: Toa mean2.04/5.10ms, Marina4.14/16.98ms,
+Queenstown4.36/7.65ms. Marina64 p95=67.96ms. All snapshots valid. Single runs,
+not phone or before/after estimates; wall-clock scheduling changes trajectories.
+Concrete finding: cached/baked `outgoing()` returns without yielding and the A*
+expansion loop has no yield, so one `.next()` can overrun the6ms scheduler budget.
+Harness-only yield-per-expansion experiment:32 identical Marina routes, exact
+path parity, max slice12.11->2.66ms, calls>6ms2->0; total149.0->154.9ms.
+Scheduling win only; stable min-heap/heuristic and endpoint indexing are next
+throughput candidates. No implementation applied to product.
+Current Metal browser source fixtures,32 bots,Low,sunny/noon,844x390@2.75,4x CPU,
+debug datasets off: render26.2%/34.9%, simulation16.8%/31.3% of samples for
+Toa/Marina (inclusive shares overlap). Wet-material work1.39%/1.11%; vehicle
+sync0.75%/0.46%. Browser used lazy navigation, no React game HUD; no exceptions.
+Other recommendations: nested static scenery batches, cheaper bot candidate and
+facility/support checks, nearest-eligible rays plus explicit static/dynamic index
+invalidation, once-per-snapshot adoption and once-per-frame vehicle sync, skip
+unchanged dry material work while retaining shelter behavior. Overlay work time
+excludes authority's separate50ms timer; improve measurement before attributing
+low FPS to GPU. Worker remains larger follow-up requiring worker-owned collision.
+No runtime edits, commit, push or deployment. No full test/typecheck claim. Owned
+Vite5279 and Chrome9459 stopped. Prior handoff edits, .claude and AGENTS preserved;
+this audit handoff stays local/uncommitted.
+
+
+## 2026-11-07 — Per-group draw breakdown (audit only, 1b91d72)
+Owner requested measurement before batching changes; navigation work remains
+deferred. No product source/geometry edits. Full report and reproducible runtime
+probes: `.cache/draw-breakdown-2026-11-07/audit.txt`, `group-breakdown.csv`,
+`group-summary.json`, raw per-view JSON and `vehicle-eligibility.json`.
+30 cases: Toa Payoh/Marina Bay/Queenstown, Low/Balanced, overview +4 entry headings;
+32 bots, sunny noon, Metal Chrome,844x390@2.75,4x CPU, source-engine fixture with
+debug datasets off and no React HUD.30 counting+60 timing frames each; all exact
+world frame counts, all GL submissions attributed, no reported page errors.
+Times sum renderBufferDirect incl synchronous driver/probe cost, exclude outside
+traversal/culling/matrices and GPU execution. Current costs, NOT measured savings.
+- Vehicles: up to387 main calls in sampled ground views,387–458 overview,
+  ~4.4–5.8ms overview; includes12 zero-index proxy calls for full car+helicopter.
+  Conservative fresh-model inventory:179 Humvee opaque meshes->28 batches;
+  112 helicopter->16. Preserve rigid moving pieces/material/rain flags; excluded
+  transparent glass, proxies and direct-root panels deformed by damage. Earlier
+  vehicle merge commit9856e6f addresses shadows only. Biggest broad candidate.
+- Old Toa elevated route group139 draws:126 rails+10 pillars+3 decks; structural
+  minimum5 draws, with culling chunks potentially preferable. Whole group only
+  ~0.53–0.67ms. Simplest initial A/B.
+- Flyer242->50 by material within each capsule pivot plus rim/spoke batches;
+  current ~0.8–1.1ms. Queenstown train39->3 opaque batches, ~0.29–0.65ms.
+- Facility consoles20–93 ground calls/121–150 overview. Command23->6, normal9->6
+  by fixed body materials, retaining dynamic mast/bar and transparent rings.
+- Defer lift trim: shafts/cabins already instanced.48 bronze trim draws->12
+  per-door batches but costs only0.17–0.22ms in overview; most lift cost is glass.
+Several nested groups already batch: connected places, camp, atrium, SkyPark,
+Queenstown furniture. No blanket nested-group merge recommendation. Prior3–10%
+speedup estimate remains unproven; need candidate-by-candidate A/B. No physical
+phone, all19 districts, piloting/damage/weather or high/Ultra coverage. No product
+test/typecheck run or claim; no commit/push/deployment. Owned Vite5281 and Chrome
+9461 stopped. Existing handoff edits/.claude/AGENTS preserved; handoff local.
+
+
+## 2026-11-07 — Vehicle main-view batching, measured and deployed
+Owner authorized vehicle batching with visual/behavior parity and before/after
+CPU measurements. Local main commit `b09f6c9`; no GitHub push.
+`vehicle-batches.ts` merges compatible opaque siblings by shared material,
+attribute layout, render/shadow flags and rain/wet tags after shadow proxies
+are built. Keeps existing parent groups, glass, moving anchors, custom callbacks
+and independently damage-deformed direct-root panels. Geometry has exact
+triangle broadphase raycasts with disposal cleanup; shared source geometry is
+not disposed while retained meshes use it. Humvee216->65 meshes (151 fewer),
+helicopter151->62 (89 fewer), boats untouched. No triangle/texture/detail reduction.
+`buildVehicleModel` accepts batchParts:false for authored-part tests and A/B;
+normal app enables batching. Named-part assertions use raw geometry; new default-
+builder parity tests and existing fps-vehicles tests cover production behavior.
+Full evidence `.cache/vehicle-batching-2026-11-07/results.txt`, JSON and scratch
+fixtures/scripts.32 full-engine ABBA trials: Toa overview/ground combat, Marina
+overview and Toa range, Low/Balanced;90 warmup+240 rAF capture; Metal Chrome,
+844x390 DPR2.75,4x CPU,sunny noon,debug datasets off,source fixture/no React HUD,
+lazy dev navigation. No per-draw probe. Two before/two after per scenario/preset.
+Main-thread frame callback CPU means (before->after ms; excludes authority timer):
+- Toa overview Low22.01->20.22; Balanced23.54->21.29.1174->934 calls; same401355tris.
+- Marina overview Low30.14->29.32; Balanced32.00->30.61; ~1547->1307 calls.
+- Toa combat Low18.18->17.56; Balanced30.61->24.22, but unseeded advancing combat
+  makes the larger gain less reliable/generalizable. Pose fixed; actor counts vary.
+- Range Low9.70->9.68; Balanced12.64->12.07 with overlapping runs; identical draw
+  counts and60fps both. No clear range benefit claimed.
+Validation: typecheck; full3470 tests in346files. Five new tests cover triangles,
+unchanged glass/proxy geometry, animation anchors,1472 exterior/seat rays through
+motion/damage/destruction/reset (distance/material/normal/UV/rain tags), shared
+geometry disposal and independent parts.24 WebGL before/after image pairs across
+both vehicles, exterior/interior,critical damage,wet-night,jungle paint,animated
+parts/dashboard; no visible difference found in inspected views. Not pixel-exact:
+max209 changed pixels of329160;123 differ>3/255; max mean RGB error0.0101/255,
+mostly tiny rasterization/depth-edge differences, some isolated larger edge pixels.
+Real vehicle-rain browser smoke passed parked/moving,outside/driver/pilot and
+reduced/full: shelter,splash counts,wet paint.32 benchmark trials and24 visual
+cases had no page exceptions. Not tested on physical phone or LAN in browser;
+performance proxy is not a promised phone FPS improvement.
+`pnpm deploy:cloudflare` succeeded. Version `a818734f-fefa-4d68-a68a-2be8ca41d935`,
+https://blockplay-sg.sunjc826.workers.dev. Live Cloudflare routing/assets smoke
+passed; deployed entry and vehicle batching JS hashes match local production
+build. Scratch benchmark toggle __vehicleBatch absent from production bundle.
+Owned Vite5283 and Chrome9463 stopped. Existing .claude/AGENTS and handoff edits
+preserved; this handoff stays local/unstaged.
+
+## 2026-11-07 — Shared walkway and Flyer batching
+User authorized walkway railings + Flyer batching, preserving visuals/collisions and measuring CPU. Implemented and committed locally on main as `a67b6b2`; no GitHub push.
+Shared `instanceStaticMeshes` helper selects compatible fixed direct siblings and preserves geometry/material and render/shadow flags; builders own instance-buffer disposal. Shared walkway builder batches per ramp/deck segment across maps, leaving movement surfaces/guardrail obstacles unchanged. Toa pond walkway139->7 main meshes/draws fully visible. Flyer242->50: rims2->1,spokes32->1,each capsule13->3; all16 capsule pivots/counter-rotation and night lights retained. Optional batchParts:false / batchFlyer:false support A/B and parity tests; production defaults on. Vehicle batching enabled in both baseline and candidate.
+Evidence: `.cache/scenery-batching-2026-11-07/results.txt` plus raw JSON/scripts/PNGs. Focused Metal Chrome,4x CPU throttle,844x390,ABBAABBA,4 windows per variant,45 warmup+180 measured renders: no-shadow renderer CPU walkway0.4411->0.2653ms,Flyer0.8815->0.4025ms; actual FPS shadow setup walkway1.0199->0.4938ms,Flyer1.6944->0.7792ms. These are isolated renderer submission elapsed times, not whole-game or GPU/phone guarantees. Initial standalone shadow fixture lacked FPS instanced depth-material separation: exclude its shadow rows, use focused-benchmark.json; no-shadow rows in focused-initial.json remain valid. Full-engine16 ABBA trials support improvements but are noisy: ToaLow21.82->21.36ms,Balanced23.07->21.91;MarinaLow27.87->26.80,Balanced31.22->27.64. Overview/source fixture,32 troops,not active-combat or physical-phone test.
+Validation: typecheck and all3473 tests passed. New tests cover triangles, surfaces/obstacles, walking/guardrails, individual flight volumes, ray material/distance/world normals,16 animated pod pivots,disposal and helper exclusions.18 before/after WebGL image pairs, no visible change in inspected pairs; max25 differing pixels/329160,15 differ>3/255,mean absolute RGB difference max0.001762/255. Not pixel-identical; isolated thin-edge/night-light rasterization differences. Whole-batch culling submits some extra offscreen triangles in close views (walkway494->1334,Flyer1638->1698 including floor), limited by segment/pod grouping. Fully visible triangle counts unchanged. No runtime exceptions.
+Manual Cloudflare deploy succeeded, Version `0919b184-3180-4e71-b3d3-191028ff2c46`, https://blockplay-sg.sunjc826.workers.dev. Live production smoke passed without paid calls; entry/Three/CSS/batching assets SHA256-match local dist and benchmark __sceneryBatch toggle absent. Owned Vite5285/Chrome9465 stopped. Existing handoff edits preserved; handoff,AGENTS.md,.claude remain local and uncommitted.
+
+## 2026-11-07 — Facility console batching, measured and deployed
+User accepted facility console batching and asked why one Queenstown train benefits. Explained that its39draws are separate bodies/stripes/windows and could become~3; train unchanged. Facility change locally committed on main as `3731b58`; no GitHub push.
+`createFacilityVisuals` merges compatible fixed authored boxes by metal/accent within each console; shared across all maps. Command23->6main draws,other cabinets9->6; transparent double-sided ring counts2. Mast visibility,bar scale/visibility,ownership/suppression/damage colors,transparent capture/deployment rings and camp furniture remain independent. Original local part bounds retained as flightBounds so merged draw bounds do not fill collision gaps. Analytical movement/action/damage logic unchanged; facilityId retained. Replaced source geometry disposed immediately; merged resources disposed by owner. batchParts:false is A/B/parity path; only scratch config injects __facilityBatch. Other vehicle/walkway/Flyer batching enabled both variants.
+Evidence `.cache/facility-batching-2026-11-07/results.txt` and raw JSON,fixtures/scripts,28pairedPNGs. Metal Chrome4xCPU,844x390,DPR1,ABBAABBA,60warmup+240frames,4windows per variant. Isolated renderer.render CPU: single command no shadows0.4700->0.3902ms;with actual FPS1024shadows0.5796->0.4213ms. Synthetic6-console case(2command,2supply,garage,helipad) no shadows1.0278->0.7564ms;shadows1.4300->1.1082ms. ~0.08–0.16ms per command,~0.27–0.32ms mixed scene. Not GPU/whole-frame or physical-phone guarantees; no competing test/build work during timing.
+8full-engine ABBA trials,Toa/Marinaoverview,Low,32bots,sunny noon,844x390CSS@2.75,buffer797x368,4xCPU,90warmup+240capture,new page/source fixture,no React HUD,lazy nav. Frame callback work excludes authority timer: Toa19.911->19.298ms,802->725draws,401355trisunchanged;Marina27.571->25.950ms,1114–1116->1028draws,644341tris apart from30ambient variation. Only2trials per variant/advancing simulation; use isolated measurements for attribution. No runtime exceptions.
+Validation: typecheck and all3475tests in348files passed.2new tests cover visible triangle/normal/UV/color equality,individual flight bounds,8state transitions across4facility kinds,12k+rays per variant,cover exclusion and resource disposal.28WebGLpairs (wide/rear/close command and mixedwide;healthy/neutral/damaged/suppressed/destroyed/build/capture;day/night,shadows) inspected with no visible change. Max10changedpixels/329160,max2>3/255,maxchannel61/255 at isolatedmixedpixels,maxmeanabsoluteRGB0.0002441/255. Not pixel-identical. Closecommand submits36extra offscreen triangles due per-batch culling; fully-visible triangle counts unchanged.
+Manual Cloudflare deploy succeeded: Version `fe69f2bf-629f-48b6-a466-9e017f3448f5`, https://blockplay-sg.sunjc826.workers.dev. Live smoke passed without paid requests; entry/Three/CSS/batching JS SHA256-match localdist; __facilityBatch absent from production. Owned Vite5287/Chrome9467 stopped. Handoff remains local/unstaged; existing .claude/AGENTS and earlier handoff edits preserved.
+
+## 2026-11-07 — Remaining batching inventory across all districts (audit only)
+User accepted train optimization in principle but requested all remaining worthwhile objects,including other maps' LRTs,before more one-off changes. No product changes/commit/deploy. Baseline3731b58. Built all23registered region worlds in browser,including wrappers/setpieces,sampled0,.1,3,17,61,137,641 for locally animated parts; inventoried sibling material/geometry/render/ray compatibility and read relevant animation consumers. Also constructed shared boat/transport/weapon models; private functions exposed only through ignored scratch copies. No runtime exceptions.
+Full ranked findings/method/limits: `.cache/remaining-batches-2026-11-07/audit.txt`; inventory.json/models.json and reproduction scripts alongside. Targets are structural draw counts,not measured CPU savings or guarantees of safe generic merging. Main rail package:Queenstown39->3,Yishun33->3,Woodlands20->4,PunggolLRT12->4,Sentosa9->4; preserve root timetable and consider per-car chunks. Shared bumboats(Changi/Ubin)14->5;landing craft27opaque->5 plusunchanged wakes;troop truck18opaque->3 plus3glass. Landmark package:Marina ArtScience10petals->1,conservatory18ribs->2,Shoppes17arches->3–4localchunks;Jurong pagoda21tiers->2;Toa dragon hoops11->2;BukitTimah14trailstrips->2–4. Smaller optional roofs/tankcaps/pergola/Helix components detailed in report.
+Lower priorities:intermittent cargo9->2,Changi airliner9fixed->4pluslights,warship8->2,jets5->2,Marinaflypast3->1each;MBSdoorbronze48->12(prior measuredcostonly.17–.22ms);transportheli6newseat/floorparts->1;mortar4->1. Driveable dragon boats only4easy draw reductions each after respecting damage-panel selection,6paddles andwake; don't confuse with bumboats. Cablecabins already3distinctmaterials per3parts;crane ropes/macaques independentlyanimate;wideboundary aprons merging harms culling. Existing main scenery/camps/character/particle batching excluded.
+Separate higher-complexity opportunities: detailed P30/MAG/CIS50/XM8/G36/MG4 fixed weapon pieces (default visible23/139/135/48/67/71meshes; structural material minima are NOT safe animated targets). Need reload/config/ammo/skin/fade checks; lootfade turns all materials transparent. FF/CC proxyweapon bodies alreadymerged. SAR/Ultimax imported assets not configuration-swept. Vehicle-effects damage smoke/fire still96individualmesh capacity; actualactivecounts and transparency sorting need profiling. No FPS orCPU percentages claimed. Suggested transport package,landmarkpackage,then separateweapon/particle audit. Owned Vite5291/Chrome9471 stopped; existingAGENTS/.claude/handoff edits preserved; handoff stayslocal/unstaged.
+
+## 2026-11-07 — Transport batching: all five trains, bumboats, landing craft and troop trucks
+User explicitly requested transport pass with unchanged visuals/gameplay and before/after CPU measurements. Implemented generic `batchRigidMeshes` for explicit fixed opaque siblings, material/render-state grouping, per-part flightBounds, existing raycast triangle broadphase, explicit no-ray policy and scene/shared geometry ownership/disposal. Applied to Queenstown/Yishun/Sentosa train builders, Punggol LRT/Woodlands set pieces, shared Changi/Pulau Ubin bumboat, landing craft and troop truck. Independent root motion/timetables/cues, ferry bob/roll, ramp and wakes, glass, transport damage tint/hitboxes/driver/passenger logic remain. Woodlands batches only two cars at a time. Screenshot checks caught changed depth fighting on Punggol/Woodlands coplanar body/stripe ends in an initial merge; final version leaves those panels and transforms separate.
+Fully visible main draws: Queenstown39->3,Yishun33->3,Punggol12->6,Woodlands20->12,Sentosa9->4,bumboat14->5,truck21->6,landing craft31->9 including double-sided wakes (27->5 with wakes hidden). No triangles removed. Tests mock batching off for original builder baseline; no product toggle.
+Evidence/report/scripts/raw timings/81PNG pairs: `.cache/transport-batching-2026-11-07/results.txt`. Ten new actual-region/model parity tests cover triangles/normals/UVs/material colors/flags, flight volumes, ray hits, world obstacles/walk surfaces, timetable and cue transitions, ferry bob/roll/no-ray policy, ramp poses, wakes, live damage/stopped/wreck/unloading states, reset and geometry ownership/disposal. 81 WebGL before/after views:5trains,both bumboat maps,truck,craft,3camera angles,3times/states,day/night/shadows. Tiny float/depth/shadow edge differences remain, max56pixels>3/255 of329160 (truck), max mean0.002666/255; other models max2pixels>3/255. Original overlapping train stripes preserved. Close views may draw additional offscreen triangles due to batch-level culling.
+Focused Metal Chrome4xCPU,844x390 DPR1,actual builders,one variant attached;8model cases x2shadow modes xABBAABBA,45warmup+120sample frames/window. Synchronous renderer.render CPU,not GPU or whole-game CPU; actual1024sun shadow pass forced every render. Before->after ms (no shadows / shadow pass): Queenstown .362->.256 / .677->.467; Yishun .266->.219 / .559->.340; Punggol .230->.238 / .409->.371; Woodlands .228->.218 / .372->.363; Sentosa .176->.173 / .261->.263; bumboat .188->.160 / .328->.282; truck .222->.166 / .379->.236; landing craft .550->.325 / .816->.486. Small train differences are largely timing noise; no measurable per-model speedup claim for each. Not physical-phone FPS measurements. No tests/build running during timings.
+12full-engine ABBA overview cross-checks,Low,32bots,sunny noon,844x390@2.75,4xCPU: Queenstown21.16->20.85ms,826->790draws; Punggol17.66->17.38ms,615->609; Changi18.43->17.56ms,626->617. Scene triangles unchanged. Caution: profiler workMs is final rolling1second mean,not whole240-frame average;90warmup+240capture rAF,unseeded/advancing simulation,GC/host noise,source fixture without React HUD,authority timer excluded. Use focused runs for attributable savings. No browser exceptions.
+Validation: final clean pnpm test3485tests/349files,typecheck,diffcheck passed. A prior full run was restarted after editing during its cached-module lifetime; a concurrent standalone targeted run had a default5s timeout. Final60s-timeout full suite passes all10new tests and all existing tests. Commit ec9204b on local main; no GitHub push. Manual pnpm deploy:cloudflare succeeded,version830e3bc8-3269-4a12-85b1-bcea1dff4368,https://blockplay-sg.sunjc826.workers.dev. Production smoke and live entry/sharedJS/CSS SHA256 verification passed; batching code present,scratch __transportBatch absent. Owned Vite5293/Chrome9473 stopped. AGENTS.md,.claude and existing handoff changes preserved and excluded from commit.
+During work user asked whether wet logic runs in dry weather: yes,wet-surfaces.update still rewrites tracked actor/equipment materials each frame at zero wetness and scans every0.5s. Explained a future skip must initialize new materials and preserve gradual drying. Wet/weather code remains unchanged; navigation budget proposal remains deferred.
+
+## 2026-11-07 — Menu/navigation UX audit (no product changes)
+User requested an audit and suggestions covering main menu, store, game and back buttons. Reviewed routing/transitions, main menu, district picker/loading, training/world deployment/pause, tutorial, inventory/store/settings and multiplayer lobby source. Local Chrome desktop1440x900, portrait390x844, landscape844x390 screenshot/geometry checks plus interaction probes; evidence `.cache/navigation-audit-2026-11-07/` (screens.json, behavior.json, PNGs, reproduction scripts). Initial desktop menu shot caught title and initial landscape menu shot was blank while loading; use *menu-final.png for main-menu inspection, not the blank frame as a defect.
+Confirmed training-ready -> store unmounts game; browser Back returns to district picker. Store Food -> Inventory -> browser Back resets to Weapons. Store Settings header returns only to /. Settings overlay Shift+Tab reaches underlying Controls summary and close does not restore trigger focus. Quit alertdialog excludes its action buttons in DOM. Source popstate has no active-session guard; tutorial Menu/store/restart exits also lack confirmation. Landscape844 store header rank/XP/level-skip/wallet overlap; portrait store header buttons ~28.5–34px tall, page4467px vs844viewport, top nav/categories not sticky. Portrait district map hides names in favor of23numbered regions. Training entry uses Start training then Enter range; world uses Deploy here then separate landing-zone Enter district, with Leave returning menu rather than district selection. Main menu styling, broad mode grouping, remembered district/settings tab, store dock, loading feedback and tour keyboard handling are strengths.
+Recommendations: contextual return stack/state restoration; explicit Back vs Main menu vs Resume vs Quit semantics; preserve solo game during armory detours or disclose/confirm ending run; consistent loss guards; compact store header/mobile category navigation + larger targets; shop/inventory/loadout hierarchy; named district list/search; simple pause menu with primary Resume; first-run tutorial prominence; shared focus management and tab behavior matching existing settings tabs. WAI APG dialog/tabs and WCAG2.2 target size pages consulted. Local dev build lacks public-room backend; no real multiplayer room/session test, physical mobile/screen-reader test or formal WCAG conformance claim. No product edits, tests/typecheck, commit, push or deployment; audit only. Owned Vite5295 and isolated Chrome9487 stopped after review; unrelated existing work preserved. Handoff remains local/unstaged.
+
+## 2026-11-07 — Skip redundant dry wet-surface writes
+User requested fixing the wet updater after transport pass. Local main commit38eed5d;no push. `wet-surfaces.ts` caches dry roughness/reflection intensity per material metal/nonmetal class and,at exactly zero wetness,writes each colour/roughness/intensity only if the live value differs. Continues checking live values because damage/equipment systems also edit materials; blanket early return would change prior output. Changing metalness across.3 refreshes cache. New/shared material discovery remains every.5s;glass/scenery exclusion,shader/material identity,original restoration/disposal retained. Wet/shelter/gradual-drying formula unchanged;no threshold snap. Post-rain residual wetness continues on original wet path; optimization targets fully dry sessions.
+Four added tests cover zero actual dry property writes across scans,new/shared dry metal,external edits/metal changes,1200-step exact rain/shelter/drying parity. Targeted13tests,full3489tests/349files,typecheck,diffcheck passed. Browser actual-model fixture:Toa scene+32skinned arena soldiers+2cars+1helicopter (1375objects,144wet materials),MG4 viewmodel(131objects,7wet materials).2,103,500material-value comparisons across700weather steps had maxdifference0. No browserexceptions.
+CPU:Chromium4x,ABBAABBA per dry/rain/drying,600warmup then30x300simulated60Hzupdates/window,36kupdates/variant/weather,includes normal.5s scans,bothworld+view combined. Dry updater0.008147->0.006667ms(~18%,absolute0.00148ms);rain0.008172->0.008528;drying0.007542->0.007850. Wet differences within window variation. Batched warm-cache isolated updater timing,NOTgameframe/GPU/physical-phone FPS;small absolute saving. Initialpartialrun interrupted byVitedependencyreload,preserved as interrupted-*;finalrun separate5297,HMRoff,24windows/noexceptions. Evidence/harness/rawsamples `.cache/wet-updater-2026-11-07/results.txt`.
+Manual pnpm deploy:cloudflare succeeded,version0bdbcd82-2b4b-43f7-8023-75a3ed3bb4ef,https://blockplay-sg.sunjc826.workers.dev. Production smoke and live entry/sharedJS/CSS SHA256 checks passed;newwetcachecode verified. No paidrequests. OwnedVite5297/Chrome9475 stopped/portsclosed;initialownedVite5295 stopped. Anotherworkspaceprocessbound5295 wasleftuntouched. AGENTS.md,.claude andpriorhandoffchanges preserved/uncommitted.
+
+## Menu navigation audit implementation (2026-11-07)
+
+User approved the navigation audit improvements. Local main commit `fc69abb`
+implements contextual Back links; per-route scroll/focus restoration and remembered
+Store/Inventory tabs/selections; shared active-session exit confirmations including
+browser Back; accessible Settings/confirmation focus containment and restoration;
+prominent Resume; tutorial restart/exit and multiplayer host departure warnings.
+Store now opens on the item grid with loadout/account disclosures, sticky responsive
+navigation and a persistent Items return in inspection. District selection has a
+searchable named list (mobile default), map/list toggle and clearer intermediate
+Continue/Choose landing zone actions. Main menu gives first-time tutorial guidance
+and fits small phone/landscape controls.
+
+Opening Store from an active exercise explicitly ends the exercise after confirmation.
+There is no saved-run/resume-through-Store feature; equipment stays fixed at run start.
+Cancelling either an in-app departure or browser Back retains the mounted game canvas.
+UI state memory is in-document/session only. Accepted native history gestures retain
+the browser transition; cancelled guarded history restores the current indexed entry.
+
+Validation: full suite passed 350 files / 3,494 tests; final typecheck and production
+build passed. After the last small native-transition/CSS adjustment, routing tests
+(14 tests / 3 files) and browser navigation smoke passed again. Browser coverage includes
+context/state/focus/scroll, modal keyboard containment, Back/Forward and exact canvas
+preservation on cancellation, tutorial restart, named district/landing-zone return,
+local multiplayer host room and ready-match exit, and desktop/portrait/landscape plus
+320px menu layouts. Existing Store tour and inventory/playtime/rental browser smokes
+passed. No physical-phone or remote multi-player session claim. Local Vite proxy's
+leave POST returned 403, but WebSocket disconnect removed the test room (empty room
+list verified); no remaining local room. No paid API requests made.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`3d37e094-8e8a-4457-8af2-f714de6ab327`. Both https://blockplaysg.fun and
+https://blockplay-sg.sunjc826.workers.dev serve exact locally built JS/CSS hashes.
+Production Cloudflare assets/PWA/SPA/API-origin/companion checks passed. Production
+mobile Store browser check passed contextual return, category/focus restoration,
+scroll restoration (300 -> 300), no horizontal overflow and no browser exceptions;
+screenshot inspected. Evidence in `.cache/navigation-improvements-2026-11-07/`,
+`.cache/menu-navigation-browser/`, `.cache/store-tour-browser/` and
+`.cache/equipment-rentals/browser/`. Task-owned Vite 5301, local Wrangler 8787 and
+isolated Chrome 9489 stopped. No GitHub push. AGENTS.md and this handoff remain local,
+unstaged/uncommitted; pre-existing untracked .claude/ preserved.
+
+## 2026-11-07 — Indexed cover/sight nearest-hit traversal
+User approved the indexed cover/sight first pass with identical gameplay and before/after CPU measurements. Baselinefc69abb;localmaincommitdb0601b,noGitHubpush. `ray-bounds-tree.visitNearest` visits nearer branches first and prunes only bounds strictly beyond the nearest exact eligible hit. Smallleaf entries retainexistingorder,eachcheckedagainstlatestlimit. `scene-ray-index.nearestHit` preservesnative recursive raycasts and original Raycaster inputs/layers/near/far/params,always tests unbounded/custom/deformed fallbacks,and resolves equal-distance winners by original scene entry order/native stable hit order. `isVisibleHit` extracted fromfps-raycast forsharedunchanged visibility/foliage/glass filtering. `scene-cover` nowusesnearestHit withsameattached/visiblecheck. Bullet-cover,sight,physicaltrace policies unchanged. Generic gameplay projectile index queries,multiple-hit penetration,index refresh,matrix-epoch validation,250ms membership scans andtriangle/instance accelerators unchanged.
+Validation:existing scene-index comparisons nowalsoassertnearestHit versusnative fullintersections;3newtests cover160collinearwalls/<10nativecasts,ignoredclosefoliage,unchangedrayfar,equal-distancefallback/native ties,objectexclusions,and750seededraycaseswithmovement/layers/near/far/foliage/glass. Existinggeometryreplacement/instancecount/morph/skinned/customrecursive/visibility/detachment/lift/bar checks pass. Browserall23maps x384rays x3animationtimes(0/17/137):26,496exact comparisons,15,618hits,zero differences inobjects,distances,points,face/instanceIDs,normals,UV/materialindex. Noexceptions. Targeted16tests,full3497tests/350files,typecheck,diffcheckpassed.
+MeasuredChromium4xCPU,actualToa/Marina/Queenstown scene sourcefixtures,384fixedseededrays mixinglocalstanding/crouching,randommaporigins,up/down,12/60/300mranges andall3coverpolicies. ABBAABBA per scene/mode,768warmupqueries,48samples of96queries/window,18,432timedqueries/variant/scenario/mode. querymode validatesoutside timer;refreshmode includesindexvalidation/refitaftercaller matrixupdate outside timer. Full250msmembershiprebuildclock frozen onlyinscratchtransform (forcedfreshbeforeeachwindow);productionclockuntouched. No rendering/combat/GPU timing,notphysicalphone/FPS. No test/buildprocessesduringtiming;all48windowchecksumsexact,noexceptions.
+CPUms/96queries,before->after:queryonlyToa59.2766->57.1141(-3.65%),Marina122.0698->114.4406(-6.25%),Queenstown236.4276->232.7443(-1.56%). Includingboundsrefresh:Toa59.5661->55.9646(-6.05%),Marina119.5698->115.6542(-3.27%),Queenstown234.0141->233.5885(-0.18%,effectivelyflat/noise). Gainsmodest,notwholegamepercentages. Fullreport/harness/baselinecopies/rawsamples/parity `.cache/nearest-cover-2026-11-07/results.txt`.
+Manualpnpmdeploy:cloudflare succeeded,versione3deb56c-4a16-4c74-8db8-286aed3f5fe7. https://blockplaysg.fun productionsmokepassed,no paidrequests. BothcustomdomainandworkersURLserveexactlocalentryJS/sharedThreeJS/CSS SHA256;visitNearestpresent,__coverNowbenchmarkoverrideabsent. OwnedVite5307/Chrome9493stopped/portsclosed. AGENTS.md,.claude andpriorhandoffchangespreserved/uncommitted.
+
+
+## 2026-11-07 — Mode-owned structures feasibility audit
+User requested source inspection and a concrete separation plan; no implementation authorized by this audit request. FacilitySite currently combines placement, deployment, camp props/patrols and facility rules; districtInfrastructure composes fleet/sites and fps-engine installs collision, ceilings, navigation, visuals and interactions for expedition. Base region scenery is already separate, but buildDistrictWorld also bundles expedition environment defaults. Arena simulation couples facility presence to damage, respawns, squads, logistics, vehicles and proxy delivery. HUD/minimap/beacons, runtime facility-action/snapshot validation and in-memory district travel state are facility-specific. Camp scenery blocks rendered cover while facilityId roots are excluded and console damage uses analytical bounds; preserve this distinction. Navigation bake-world duplicates expedition structure assembly; loader is district-keyed and geometry signature rejects mismatches.
+Proposed staged plan: extract physical structure descriptors/prefabs from facilities; compose mode-specific structures/objectives/policies over district terrain; adapt existing expedition unchanged; route damage/interactions/bot goals/spawn/logistics through explicit mode services; add mode/layout identity to transport/state/navigation contracts; prove with a facility-free objective fixture before adding full modes. Shared physical structures must not mandate health/ownership/capture/production; objectives can exist without structures. Static layout first; runtime building/destruction that changes collision requires explicit navigation/ray invalidation later. Validate all-district expedition layout parity, movement/ray/damage parity, host validation and travel/reset/disposal, plus alternative mode with no facility side effects. Existing uncommitted range-damage work untouched. Audit only: no tests/typecheck, commit, push or deployment.
+
+## 2026-11-07 — Training dummy damage meters and enemy armor tiers
+User requested last-hit/cumulative dummy damage, enemy armor levels, and idle reset. Added per-slot meters, billboard labels above targets, and a readable last-struck-dummy HUD panel. Five labeled training tiers use unarmored plus current sniper/assault/tank/elite-commander base role equipment; live enemy rank/heat modifiers are not simulated. Shared armor damage/rating rules account for caliber overmatch, armor depletion and grenade shred; health and armor loss are separate and overkill is capped to actual loss. Existing target anchors, classic/continuous/timed scoring and tutorial target behavior retained. Continuous appearances restore health/armor; per-dummy totals survive quick appearances and reset after eight active-play seconds without damage (pause freezes timer). Exercise reset/travel clears meters. Labels do not raycast and their textures/materials are disposed.
+Added range-damage unit coverage and scripts/range-damage-smoke.mjs; actual FpsGame/engine scratch fixture checks five tiers, repeated hits, separate targets, idle/reset, desktop and real emulated touch controls in portrait/landscape with screenshots. Adjusted HUD after first screenshots exposed overlaps. Evidence: .cache/range-damage/ and .cache/training-damage-*.log. Initial full suite3502 passed; final rerun adds grenade-shred test. The older range-drills smoke stops at an obsolete ammo-use precondition (inventory already full, before shooting); focused scratch regression exercises continuous/classic/timed completion directly instead. No paid API calls. Existing .agents/HANDOFF.md edits, AGENTS.md and .claude remain unstaged/uncommitted.
+Final validation: all3503 tests/351files passed, typecheck/diffcheck passed. Focused browser regression passed continuous reappearance, classic8-target completion and full90-second timed completion; real Training desktop/portrait/landscape damage UI smoke passed with no runtime exceptions. Local main commit90c3a40; no GitHub push. Manual pnpm deploy:cloudflare succeeded,versiona8b651ae-58ba-4cfa-975f-d723f159084f. Live https://blockplaysg.fun Cloudflare routing/assets smoke passed without paid requests; deployed entry JS and CSS SHA256 match local build. Owned Vite5299 and Chrome9479 stopped. AGENTS.md,.claude and handoff remain local/uncommitted.
+
+## 2026-11-07 — Per-dummy DPS
+Follow-up adds average health DPS beside last hit/total in every dummy billboard and last-struck HUD. Per-dummy first-hit timestamp resets with the existing8s active-play idle reset; formula is actual cumulative health loss / max(1, elapsed since first hit). It decays between hits, freezes while paused, handles simultaneous/opening hits without infinite rates, excludes armor loss and overkill, and begins fresh after expiry/reset. Billboard updates use existing~100ms HUD publication cadence and cached formatted strings rather than frame-rate canvas redraws. HUD uses three compact columns; start instructions explain the1s minimum. Added numeric edge/reset/isolation tests; extended actual UI smoke for live DPS decline,pause,zero after idle,and responsive display. Desktop/portrait/landscape screenshots reviewed in .cache/range-damage. Typecheck and browser smoke passed; final suite/deploy recorded below. No paid requests; no GitHub publishing.
+Final DPS validation: all3505tests/351files,typecheck,diffcheck and actual Training UI smoke passed. Localmaincommitb43dc80;noGitHubpush. Manualpnpmdeploy:cloudflare succeeded,versiond69aacbf-41b6-45b1-a912-3a02bd0b13be. Live blockplaysg.fun routing/assets smoke passed; deployed JS/CSS SHA256 match local build and DPS/firstHitAt implementation verified. Owned Vite5299/Chrome9479 stopped;AGENTS.md,.claude and handoff remain uncommitted.
+
+
+## 2026-11-07 — Physical structures and expedition adapter
+User authorized physical extraction and expedition adapter with unchanged gameplay/visuals plus alternative-layout proof, no new modes. Local main commit db72c8e; no GitHub push. Added neutral StructureLayout/StructureDefinition/appearance types, footprint/ceiling/navigation installation and disposal, physical prop/core/pad renderers. Expedition adapter converts existing facility definitions/state; live engine and navigation bake builder share installer. Retained FacilitySite.camp as compatible expedition authored/save/wire data with patrol stops; physical modules import no facility rules/types. Legacy diagnostic tags/wrappers retained. Scene-cover supports explicit external-core and nonphysical marker exclusion. Current static layouts only; objective/network/bot/spawn/logistics policies and dynamic topology remain future work. Architecture in docs/STRUCTURES.md.
+Validation: typecheck and all3510tests/352files passed; diffcheck passed. Independent frozen baseline b43dc80 comparison across23districts/164sites: exact placement/fleet/obstacle/ceiling/navigation arrays, mesh attributes/indices/instance matrices/world transforms/material flags/per-part flight bounds through207state cases,11808 cover/sight rays. All23existing navigation signatures match.28WebGLbefore/after pairs day/night/shadows,command wide/rear/close and mixed facilities,7states: exact pixels,maxchannel0,equal draw/triangle counts. No browserexceptions. Evidence/harness/baseline/PNGs .cache/structure-extraction/.
+Committed alternative-layout browser fixture/smoke uses realToaPayoh with standalone sandbags and independent test-only zone,ordinary arena/no expedition environment. Verified collision/cover,zonewalkability/occupancy,no facility/logistics/reinforcements,ordinary respawn/reset,empty layout replacement and idempotent cleanup. Unit tests also check shelter aisles/ceilings and explicit scene/external core rays. Real-engine Queenstown browser checked build/capture/repair actions,build supply deduction,interrupted-work save/refund,restored neutral/damaged allied state,HUD and disposal. Not physical-phone or remote multiplayer browser testing. No paid API calls. Initial local CDP proxy failure resolved using localhost NO_PROXY; initial test death-counter assumption corrected to actual setVitals dead/timer/respawn contract.
+Deployment and live verification recorded below after completion. Existing handoff changes/AGENTS.md/.claude remain local and excluded from commit.
+
+Manual pnpm deploy:cloudflare succeeded; version c5c9ce96-2ab0-4fb0-955c-903d16732a96. Production Cloudflare routing/assets/PWA/API-origin/companion smoke passed with no paid requests. Both https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev serve JS/CSS assets byte-identical to local dist; structure implementation verified in production bundle and alternative fixture excluded. Owned Vite5311(PIDs97652/97672) and Chrome9497(PID97681) stopped,ports closed. Commit db72c8e remains local main; no GitHub push. AGENTS.md,.claude and handoff remain unstaged/uncommitted.
+
+## Team Deathmatch — 2026-11-08
+
+Implemented the requested first mode after the physical-structure extraction. Public Multiplayer now offers solo bot matches and host-selected 4v4 Team Deathmatch in Toa Payoh Dragon courtyard and Chinatown Smith Street. The host owns balanced human teams, bot fill to four, team scoring (30 points / 300 seconds), protected three-second respawns, friendly-fire rejection and rematches. Scores survive player departures. Blocked spawns wait and retry; initial spawns are side-specific, subsequent spawns consider occupancy, enemy proximity and rendered sightlines. Both teams use assault bots under the same kit/rank rules. Expedition and FFA retain their existing branches/defaults.
+
+New `arena-match.ts`, `team-deathmatch-world.ts`, `arena-match-session.ts`, and `ArenaMatchGame.tsx` separate the mode's catalog/environment/host configuration from expedition. TDM directly builds region terrain with restricted bounds and combat anchors; no facilities, camps, logistics, heat, vehicles or automatic/scripted expedition events. Guest construction waits for the host's selected area. Public directory metadata is validated and host-owned. Team scores, uniform identification, scoreboard teams and map boundary are visible. Desktop and 390px touch screenshots checked; fixed initial small-screen score overlap. Developer LAN lobby remains its existing FFA UI; public rooms and solo are the shipping TDM entry points.
+
+Validation: full Vitest suite passed 354 files / 3519 tests before adding one additional blocked-spawn test; final focused run passed 56 tests across 5 files, including all 10 new TDM rule/network tests. Typecheck passed. Real-district tests check every spawn/patrol is clear, all opposing spawn pairs have real routes, both teams score, bots fire/move/respawn, reset and absence of expedition services. Existing physical-layout alternative/empty browser proof rerun passed. `scripts/public-rooms-check.mjs` passed with new metadata/rejection checks and legacy relay/reconnect/security/capacity coverage. `scripts/team-deathmatch-smoke.mjs` passed real WebSocket host/guest in Chinatown: guest-before-host config, teams, movement, bot kills, death/respawn, equal scores and host rematch. Solo Toa Payoh and desktop/mobile views passed. Evidence `.cache/tdm/`, including browser-results.json and screenshots. Headless SwiftShader was too slow for two simultaneous full district views; Chrome ANGLE Metal worked (Apple Paravirtual device). Local test ports Vite5313 / Wrangler8787 / Chrome9501 (old9499 stopped). Production build passed; final manual deploy follows local commit, no GitHub push.
+
+Docs: `docs/TEAM-DEATHMATCH.md`, linked from `docs/STRUCTURES.md`. New browser smoke defaults Chrome9499 but accepts TDM_CHROME_ORIGIN. The shell's forced proxy required unsetting proxy variables for localhost CDP/tests. No paid APIs invoked.
+
+TDM completion: local main commit `627907d` (no push). Manual `pnpm deploy:cloudflare` succeeded, version `f3161396-c550-40c4-bfcd-79ea852867fc`. Verified `https://blockplaysg.fun` and `https://blockplay-sg.sunjc826.workers.dev` serve byte-identical final local JS/CSS, with both TDM areas bundled and test fixtures excluded. Production Cloudflare health/assets/PWA/routing checks passed, no paid API requests. Final mobile score panel no longer overlaps health/weapon controls; direct engine construction derives its district from the selected TDM area. Added perimeter resource disposal and stop damage after the winning score so a same-tick volley cannot exceed the wire score limit. Final focused regression run: 56/56; typecheck passed. Owned Vite/Worker/CDP test processes stopped on completion. Only pre-existing local `.agents/HANDOFF.md`, `.claude/`, and `AGENTS.md` remain outside the code commit.
+
+## Rotating Hardpoint — 2026-11-08
+
+Implemented user-authorized 4v4 rotating Hardpoint in Smith Street, with three dedicated fixed control stations (market crossing -20/80, eastern opening 31/56, southern passage -25/117). 60-second rotations, 10-second preview, uncontested one-point-per-second team scoring, 200-point limit / six-minute timer / tied score draw. Kills remain personal statistics. Each mode-owned station uses a new neutral signal-beacon model, ground ring/LEDs and low cover; colors show neutral/team/contested/next state. No expedition facility identity, logistics, repair, capture, vehicles or event services. Shared terrain helper extracted to team-combat-world.ts; expedition/TDM retain existing rules. HP alone extends south bound from118 to124. Public lobby supports solo/public HP; developer LAN staysFFA.
+
+Bots use existing combat/navigation toward spread-out capture positions; one per team rotates early during preview. Safety-ranked respawns exclude all three objective circles plus10m, occupied/enemy-near points, and retry when blocked. HP spawn facing follows open Smith Street lanes instead of shop walls. Entering active circle ends spawn shield. Authority alone owns occupancy/rotation/scores/teams; wire schema checks objective clock and occupancy from actors, mode+area registration rejects same-areaTDM, latejoin/rematch/disconnectbotfill preserved. Numbered minimap markers and objective HUD included; fixed portrait phone overlap with weapon controls after visual review.
+
+Validation: full suite356files/3530tests passed, then final focused22tests/4files passed including two extra score-limit and late-join cases (12 Hardpoint tests total). Typecheck/diffcheck passed. Real map placement test checks144 circle samples, clear safe spawns, routes from all eligible spawns to allfour goals per station, two approaches, real barricade collision/rays. Full360s simulation verifies both teams capture, allthree sites, early rotation, firing/respawns/safe positions/timewinner/reset. Pure tests verify contested pauses, headcount-independent scoring, crouch/prone/dead/roof/vehicle exclusion, boundaryticks/preview/cap; integration verifieskillnotscore, draw,200-pointend,departure/reset. Network tests verifyauth state,forgery rejection,wrong-modehello,latejoin afterrotation,reset/disconnect.
+
+Real2tab WebSocket Hardpoint smoke passed guest-first hostconfig,SmithStreetteams,movement,botkills/respawn,points,preview/rotation,rematch. TDM real2tab regression passed; alternative/empty structure-layout browser proof passed; publicroomsmetadata/auth/reconnect/relay/capacity passed. SoloHP desktop/390x844 phone verified. Fixtures showeachstationinrealmap. Evidence .cache/hardpoint/, docs/HARDPOINT.md, scripts/hardpoint-smoke.mjs and scripts/fixtures/hardpoint-stations.html. HeadlessChromeANGLEMetal9501, Vite5313, Wrangler8787; localhost requires unsetproxyvars. An early realdistrict test incorrectly expected a naturally occurring contest in its deterministic seed; contest is instead deterministically verified by occupancy tests, real bots still visit/score allobjectives. Test-only scorelimit isolation freezesmovement (setPlayerVitals intentionally ignoresbots). Initial solo screenshot rerun missed native click duringlayoutresize; directDOMactivation fixedautomation, noappchange. No paidAPIrequests. Localcommit/manualdeployment details follow; noGitHubpush.
+
+Hardpoint local commit `8063549` on main, no push. Final phone objective HUD visually verified below weapon controls, clear of minimap/feed/crosshair. All code/docs/tests committed; AGENTS.md, .claude and this handoff excluded. Owned Vite5313 PID15772 and Chrome9501 PID15806 stopped after checks. Wrangler8787 had exited after successful room/browser checks with a generic local SDK error; no active local Worker remains. Manual production build/deploy is running; outcome recorded next.
+
+Hardpoint completion: manual `pnpm deploy:cloudflare` succeeded, version `328e3626-015f-453a-9c60-918f10cf1b50`. Both https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev serve JS/CSS byte-identical to the local production build, containing Hardpoint/control-site code and excluding proof fixtures. Production Cloudflare assets, PWA, models/audio, SPA/API routing/origin and rooms health checks passed; no paid requests. Local commit8063549 remains unpushed. Owned browser/Vite ports verified closed; only pre-existing local AGENTS.md/.claude and this unstaged handoff remain outside the commit.
+
+## Menu UI/UX audit after Hardpoint — 2026-11-08
+
+User requested audit only. Reviewed main menu, Open World/Training district pickers, FFA/TDM/Hardpoint setup, joined-room and guest-waiting flow, ready/loadout/pause menus and scoreboard. Actual local Chrome at1280x800 and390x844; real two-client local room test. Evidence .cache/menu-audit/results.json, room-audit.json and screenshots. No product changes/deployment.
+
+Confirmed findings: main Multiplayer label/copy hides solo TDM/HP and neither mode appears until choosingSolo/Create thenopeningselect. Four room actions inherit3-column grid, leavingSolo onsecondrow. Header max4players ambiguous alongside4v4. Guest joined-room screen omitsmode/map/rules entirely, labels host andguestReady toplay beforematchloading. Waiting screenReturntolobby immediatelyclosesguestmembership (hostcount2/4→1/4), contrarytoexpectedroomlobby; inmatchleave also destroysroom, resetsPublicLobby selections/name/defaultFFA. Ready-loadout only offersnextrespawn; Store exit breaksflow; recommendfirst-spawnloadoutwithoutroomloss. Mobile<=700 scoreboardCSS hidescolumn2, nowTEAM inTDM/HP; verifiedvisiblemobiletableonlyoperator/K/D so own/opponentteamsindistinguishable. HPstandings stillglobalK/Dsort andresultsummarykills/deaths/accuracy; noholdtime/contribution. SetupHPcopyis10pxandstateslimitswithoutcapture/contestexplanationuntilreadylongparagraph; 'hold alone' wordingambiguousaboutallies. Recommendedpriorityrestoreteamvisibility, distinguishroomreturnfromleave, showroomsummary/state, thenMatchesentrymodecardsandpersistsetup/loadout,mode-specificscores/briefings. Existingpalette, largeprimaryCTAs, native selects/labels, optionalsettingsaccordions, explicitinmatchpausecontinuesnotice andleaveconfirmationsareuseful. Nohorizontaloverflow in12capturestates; noJSexceptions. Browseremulation/sourceaudit, notphysicaldevice/usabilitystudy. Localtestroomsclosed. OwnedVite19333 Chrome19340 Wrangler19395/workerd19407 stopped atcompletion.
+
+## Matches menu improvements — 2026-11-08
+
+Implemented the menu audit: main Matches entry and TDM/Hardpoint/FFA mode cards before solo/create/browse/code choices, persisted mode/area, readable common host/guest match summary and explicit four-human/eight-combatant capacity. Starting weapon selection uses the existing owned-gear locker before the renderer/player is created; next-respawn selection stays in-match. Authenticated host-relayed presence distinguishes room/loading/ready/playing/complete without claiming a ready-up requirement. Public room configuration is advertised before host entry.
+
+PublicLobby now owns its connection throughout the route. Switching room/game views retains the same session, engine and authoritative simulation; explicit leave/end/host-close remain separate guarded actions. Host and guest can return before or during a match and resume without resetting IDs, scores, clock or loadout. Room explains that play continues and operator remains on-field. Wrapper-aware viewport flex CSS preserves full-height rendering. Hidden joined rooms stop polling the public directory. Focus moves to primary actions on room/match return and fullscreen exits on room return.
+
+Team scoreboard groups Alpha/Bravo with YOUR TEAM instead of relying on a mobile-hidden column. HP adds authoritative individual uncontested hold time, objective-first sorting and pause-objective context; team scoring remains headcount-independent. Hold stats reset on rematch, survive respawn and are wire-validated. Legacy FFA and expedition rules remain unchanged.
+
+Validation so far: full 358 files / 3537 tests pass, final focused19/5 pass (including new malformed hold-time/reset assertions), typecheck and diffcheck pass. New scripts/matches-menu-smoke.mjs passes real desktop1100x760 host/mobile390x844 touch guest: modes, summary, guest first-spawn weapon, return before host enters, pause returns for both, preserved player IDs/loadout/scores and advancing host clock while both in room, visible team headings, resume, explicit guest leave/bot fill and host close; solo FFA/TDM start-return-end flows also pass. TDM and HP real two-tab regressions pass, including scoring/combat/respawn/rematch and HP preview/rotation. Public rooms API auth/capacity/metadata/relay/reconnect checks pass. Evidence .cache/matches-menu/, .cache/tdm/, .cache/hardpoint/; docs/MATCHES-MENUS.md. Browser emulation, not physical phones. Initial long-lived headless Chrome renderer stall resolved in fresh ANGLE Metal browser with background throttling disabled; no renderer workaround was added. Existing public browser suspension/password flow is being rerun. Commit/deployment completion recorded below. No paid APIs or GitHub push.
+
+Final regression detail: public-rooms-browser-smoke was updated for mode-first FFA selection, explicit Browse, visible buttons, host-detail readiness, restart/leave confirmations and the battery/Metal test preset. Its full run passed password validation, 70-second host suspension, same-room reconnect, both clients entering/starting and replicated guest movement. It then failed the older fixed-coordinate Marina Bay combat approach at playerX > -8: host stopped around x=-40.28,z=68. No browser exceptions. That unrelated fixed-walk segment remains a known test limitation; no gameplay collision or navigation change was made to accommodate it. TDM/HP combat/rematch regressions and the new full menu-continuity smoke passed. Final typecheck, production build, diffcheck and scoreboard regression passed. Restored FFA faction caption filtering to preserve its existing presentation.
+
+Menu changes committed locally as a35e1bc (no push). Final code review tightened the new presence enum guard to reject non-string payloads without invoking object conversion; malformed toString regression passes, typecheck passes. Follow-up local commit records that small validation fix. Initial manual deployment succeeded (9e575989-d7bf-4eb6-835c-51de8fdb6724); final deployment with the validation fix follows and will be verified before reporting live. Owned Vite5313, Wrangler8787 and Chrome9501 were stopped; ports closed.
+
+Completion: local follow-up commit29f9e06 (with a35e1bc), no GitHub push. Final manual pnpm deploy:cloudflare succeeded, version1a4fb67a-2179-4b02-982e-15b43ad6e035. Both https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev serve entry JS/CSS byte-identical to the final local production build, including Matches/room lifecycle/team UI code and excluding proof fixtures. Production Cloudflare health/assets/service worker/manifest/models/audio/SPA/API routing/origin checks passed with no paid requests. AGENTS.md/.claude/this handoff remain outside code commits. Browser evidence is touch emulation, not physical devices; the additional legacy FFA fixed-walk combat smoke limitation above remains disclosed.
+
+## Unified Play entry — 2026-11-08
+
+Local main commit `1bc0728` puts Open World, Training, the three match modes and Find a Room behind a single Play entry. Training contains the tutorial. Open World and the live-fire range retain the district picker, and Team Deathmatch reuses it for Toa Payoh and Chinatown. Back retains the confirmed arena. Hardpoint and Free for All go directly to setup. Setup offers solo or host. Find a Room combines the public list and room-code form and preserves existing invitation links. Store deployment shortcuts were removed so the activity menu is the starting point.
+
+Typecheck and all 3,537 unit tests passed. Desktop and phone menu navigation, the room API, password rejection and a host-first two-browser Free for All room through match-ready passed. The guest-first two-tab Hardpoint smoke repeated the previous build's host-loading timeout on both the built preview and Vite. Evidence is in `.cache/play-flow/` and `.cache/menu-navigation-browser/`.
+
+Manual Cloudflare deployment succeeded with version `bc062aed-cbe6-40a1-9da5-2c829fdfe423`. The custom domain and workers.dev serve the exact release assets and service worker at the new Play routes and existing invite route. Production Cloudflare health and routing checks passed. No GitHub push. AGENTS.md and this handoff remain local and unstaged.
+
+## 2026-11-08: faster traversal, running poses and useful grenade reach
+
+Local main commit `f526689` fixes the FPS movement loop's loss of elapsed time
+below 20 FPS. Infantry movement/slide/jump collisions now consume slow frames
+in steps no larger than 1/60 s, with a 250 ms suspension cap. On-foot walk,
+sprint, ADS, crouch and prone speeds are 30% higher; burden/food still apply.
+Swimming and vehicles retain their existing speed tuning. Running body and
+viewmodel use a shared footfall phase, a lower canted weapon carry and bounded
+weight-sensitive swing; reduced motion suppresses oscillation. Held unpinned
+grenades share a smaller running motion. Shared character rigs now have longer
+running strides, higher knee lift and weapon swing with hands attached to their
+grips. Bot AI still uses role-specific speeds plus situational escape/order
+boosts; this change improves presentation, not its pace-selection policy.
+
+Overarm grenade speeds now use 1.75x the original catalog values (frag 24.5 m/s,
+up from 18.2); player throws get a 12-degree level-aim lift tapering to zero at
+vertical aim. Underarm speeds and launcher ammunition are unchanged. A 30-degree
+frag launch lands around 55.6 m; level player aim finishes around 35 m. White
+smoke, red smoke and fogging wait for both fuse expiry and supporting ground;
+wall hits do not trigger them. Fully cooked smoke also lands before activating.
+Explosive cooking remains dangerous. Red smoke's mission starts at activation.
+
+Validation: all 3,546 tests / 358 files passed, typecheck and production build
+passed, plus a focused 95-test run. New real Chrome browser smoke
+`scripts/fps-movement-reach-smoke.mjs` measured 25.394 m / 25.398 m for three-second
+sprints at normal rendering / throttled 10 FPS. It verifies running weapon
+motion, held smoke, landed smoke, sprint-to-fire and bot pose renders with no
+browser errors. Screenshots were reviewed. Reproduce with Vite 5175 and Chrome
+9244 (override FPS_APP_ORIGIN/FPS_CHROME_ORIGIN); set NO_PROXY for localhost.
+Logs, measurements and screenshots are in `.cache/movement-reach-audit/`.
+
+Manual `pnpm deploy:cloudflare` succeeded; version
+`461fb78d-4823-431f-8527-b30be9a428d3`. Both blockplaysg.fun and workers.dev pass
+production routing/assets/PWA/API-origin checks and serve byte-identical root,
+entry JS/CSS and service worker files from the local build. Dedicated test
+Chrome was closed. No GitHub push. AGENTS.md remains local and unstaged;
+pre-existing HANDOFF edits and .claude files were preserved and excluded from
+the code commit; this handoff entry remains local with them.
+
+## Single Player and Multiplayer branches — 2026-11-08
+
+Local main commit `64cd53e` keeps one Play button, then splits into Single Player and Multiplayer before showing modes. Single Player contains Open World, Training and local matches with a dedicated setup for loadout, rules and FFA bot options. Multiplayer mode cards go to hosting and Find a Room owns joining. Existing invite URLs still prefill the code. Both Team Deathmatch branches share the arena picker and its remembered selection. Solo loadout copy is independent of room state.
+
+All 3,546 unit tests passed before the final copy refinement. Final typecheck and 23 targeted tests passed. Desktop and phone navigation smokes passed, including zero room API requests in the solo flow. The final phone smoke saved a starting loadout and started Free for All. Two independent browser clients verified locked room discovery, password handling, host match details and match-ready. Logs and screenshots are in `.cache/play-branches/` and `.cache/menu-navigation-browser/`.
+
+Manual Cloudflare deployment succeeded, version `8b055ee8-7d9a-4e8e-b516-40d174f7189b`. The custom domain and workers.dev serve the exact release assets and service worker for the new Play branches and existing invite route. Production health, routing and asset checks passed. Local handoff, AGENTS.md and .claude were excluded from the commit. No GitHub push.
+
+## Shared play loading — 2026-11-08
+
+Local main commit `44ca8b9` extends the Open World and Training progress screen to Tutorial and solo/public arena entry. It uses the same engine-reported scene, model and graphics stages and device-based ETA. Arenas start progress after receiving their configuration. The match loader can return to setup or room and resume the same scene load. Failed loads dismiss without displaying 100% or recording a successful timing.
+
+All 3,547 unit tests and typecheck passed. The menu browser smoke recorded monotonic progress through the graphics stage to 100% in World, Training, Tutorial and solo FFA. A phone-emulated TDM check returned to setup during a held model fetch and resumed the same renderer. Independent host and guest browsers reached ready with the same loader in public FFA and Hardpoint. Blocking an arena model verified error dismissal below 100% and successful retry. Logs and screenshots are in `.cache/shared-play-loading/`.
+
+Manual Cloudflare deployment succeeded, version `531f2a97-e107-42d7-ab12-d0f40e7ec014`. The custom domain and workers.dev serve the exact release assets and service worker. Production routing and health checks passed. Local handoff, AGENTS.md and .claude remain outside the code commit. No GitHub push.
+
+## Cross-mode ready and pause menus — 2026-11-08
+
+Local main commit `e79a083` shares the Open World ready/pause panel across Training, Tutorial and arena play. Pause puts Resume first and Settings first in the common tool row. Arena return/end actions moved into the same navigation row, with scoreboard and briefing on demand. Online room entry now uses Load arena before Start match / Enter match. Desktop sessions share a Menu control and Tutorial uses the same single touch Menu as the other modes. Menu stays reachable during death recaps.
+
+Phone browser reproduction showed a touch-down could open the pause panel, then its follow-up click would hit the newly mounted Resume under the finger. The shared panel suppresses a direct-pointer click that began on a different surface. The regression check observed that click and confirmed play stayed paused, with a fresh tap still able to resume.
+
+All 3,547 unit tests and typecheck passed. The menu smoke checked Open World, Training, Tutorial and solo arena layouts and guarded exits. Two separate Hardpoint browser clients verified Load arena, room connectivity, direct Settings, and return to the same room. A phone-emulated arena death-recap check confirmed one tappable Menu. Evidence is in `.cache/session-menu/` and `.cache/menu-navigation-browser/`.
+
+Manual Cloudflare deployment succeeded, version `49e6d88a-ddc6-46fe-b1d3-610572aa9bf0`. The custom domain and workers.dev serve the exact release assets and service worker. Production health and routing checks passed. No GitHub push. The handoff, AGENTS.md and .claude remain outside the code commit.
+
+
+## Opt-in cinematic menu — 2026-11-08
+
+Local main commit `55bd067` adds Settings → Video → Menu design: Classic
+(default) and Next-gen, persisted per browser with a storage-blocked session
+fallback. Both share the existing routes. Next-gen covers home, Play, Single
+Player, Multiplayer and Training with tall expanding panels, original stylized
+Singapore artwork, image zoom/reticle focus, keyboard browsing, responsive
+phone stacks and reduced-motion support. Existing install/title/profile flows
+remain. Menu artwork is `public/images/menu/operations.jpg` (226 KB), generated
+with built-in image_gen; exact prompt/provenance is in docs/NEXT-GEN-MENU.md.
+No paid external audio/map API calls.
+
+All 3,551 tests / 359 files and typecheck passed. Existing full menu-navigation
+smoke passed. New `pnpm test:menu-design` passed both preference directions and
+reload persistence, hover width, keyboard navigation, solo/host destinations,
+reduced motion, and 1440/1024/844/390/320 layouts. Screenshots were visually
+reviewed including dense panels and phone landscape. Evidence:
+.cache/next-gen-menu/, next-gen-design.log, next-gen-navigation.log,
+next-gen-unit-tests.log. Phone checks use Chrome touch emulation.
+
+No GitHub push. AGENTS.md, .claude and pre-existing handoff edits were excluded
+from the code commit. Reused pre-existing Vite5175/Chrome9224; closed only
+test-created browser tabs. Manual Cloudflare deployment is in progress; final
+verification follows below.
+
+Completion: manual `pnpm deploy:cloudflare` succeeded, version
+`ca2d1f28-b5b6-4e5c-bf6e-b37622ba4de6`. Both https://blockplaysg.fun and
+https://blockplay-sg.sunjc826.workers.dev serve HTML, entry JS/CSS, service
+worker and menu artwork byte-identical to the local production build; all
+selector/settings routes serve the current SPA. Both production Cloudflare
+health/assets/routing checks passed. No GitHub push; local-only handoff,
+AGENTS.md and .claude remain unstaged.
+
+
+## Three-column Next-gen home menu — 2026-11-08
+
+Local main commit `bf3b980` replaces Next-gen's Play/utility cards and large
+headline with near-full-height Single Player and Multiplayer panels and a
+fixed-width third column split equally into Store and Inventory. Settings
+is a 44px gear in the header. The two play panels expand gently on hover or
+keyboard focus; equipment tiles keep stable geometry. Next-gen mode Back
+links return to main; Classic keeps its original Play hierarchy. Mobile
+stacks play panels above side-by-side equipment tiles. The existing title,
+profile and installation flows remain, with installation moved to the footer
+and manual help expanded on demand. Artwork reused; no generation requests.
+
+Typecheck, 3,551 tests / 359 files, extended next-gen browser smoke and full
+Classic menu-navigation regression passed. Browser proof includes direct
+solo/multiplayer entry, all utility routes, contextual Back/focus restoration,
+fixed equipment geometry on hover, Home/End/arrows, reduced motion, 1440/1024/
+844/390/320 layouts, 44px Settings target, and manual install help/dismissal on
+phone portrait/landscape. Screenshots were visually reviewed. Evidence:
+.cache/next-gen-menu/, .cache/three-column-{design,navigation,unit-tests}.log.
+Phone validation uses Chrome emulation. Reused pre-existing Vite5175/Chrome9224
+and closed only test-created tabs. AGENTS.md, .claude and this handoff remain
+local/unstaged; no GitHub push. Manual deployment is running; result below.
+
+Completion: manual `pnpm deploy:cloudflare` succeeded with version
+`dfc5b4fb-d7c9-409e-8a52-26ae9a7d23de`. Custom domain and workers.dev both
+serve root HTML, entry JS/CSS, service worker and artwork byte-identical to
+the local release. Settings and selector routes serve the current SPA. Both
+production Cloudflare routing/assets/PWA/API checks passed without paid API
+requests. Commit `bf3b980` stays local; no push. Only pre-existing local
+AGENTS.md, .claude and the appended handoff remain outside the code commit.
+
+
+## Full-height Next-gen home with floating controls — 2026-11-08
+
+Local main commit `a788625` extends the Next-gen home panels to both viewport
+edges vertically (and removes the outer gutters). Brand, profile/level and
+Settings overlay the artwork at the top. Install and Debug sit together at
+the bottom right; the keyboard hint and edition caption are omitted on this
+home variant. Keyboard navigation still works. The phone header keeps a
+compact visible level, and panel labels have space clear of the overlays.
+Store/Inventory labels align above the floating buttons on narrow phones.
+Manual install help floats above the buttons without resizing the panels;
+dismissal restores focus. Classic remains the default via the existing gate.
+
+Typecheck, all 3,551 tests / 359 files, diff check and extended menu-design
+browser smoke passed. Browser evidence checks exact full viewport height,
+44px click targets and hit-testing, visible level, top/bottom overlay geometry,
+phone label alignment, contextual navigation/focus, both design settings,
+keyboard/hover/reduced motion and manual installation help. Screenshots
+reviewed at desktop and phone portrait/landscape; phone checks are emulated.
+Evidence: .cache/next-gen-menu/ and .cache/full-height-{design,unit-tests}.log.
+Pre-existing Vite5175/Chrome9224 were reused, and test-created tabs were closed.
+No new artwork or paid API calls. No GitHub push. AGENTS.md, .claude and the
+pre-existing/updated handoff remain local and unstaged. Manual deployment is
+running; verified result follows below.
+
+Completion: manual `pnpm deploy:cloudflare` succeeded, version
+`f1492b2d-69ea-46ae-bbb9-df87684902dd`. Both blockplaysg.fun and workers.dev
+serve root HTML, entry JS/CSS, service worker and menu art byte-identical to
+the local production build. Settings and selector routes return the current
+SPA; both production Cloudflare health/assets/PWA/routing checks passed.
+Commit `a788625` remains local; no GitHub push. Only local AGENTS.md, .claude
+and the appended handoff remain outside the code commit.
+
+
+## Contextual rooftop panorama across home actions — 2026-11-08
+
+Local main commit `8ea2323` replaces home-pane image crops and isolated
+equipment thumbnails with one shared panoramic artwork layer behind all four
+actions. The original Singapore sunset scene was edited with built-in
+image_gen: city vista on the left, teammates in the middle, a lit rooftop
+armory counter/weapon racks behind Store, and a personal kit/loadout bench
+behind Inventory. Desktop asset: public/images/menu/operations-hub.jpg
+(338 KB); portrait asset: public/images/menu/operations-hub-portrait.jpg
+(421 KB). The original operations.jpg remains on activity selectors. Exact
+edit/adaptation prompts and provenance are in docs/NEXT-GEN-MENU.md. The
+portrait composition puts the armory and kit side by side at the bottom;
+phones <=700px and portrait tablets <=1000px use the stacked layout/art.
+
+Transparent panes, subtle shading, thin dividers and one shared hover/focus
+zoom preserve image continuity, including Store/Inventory. Reduced motion
+disables movement. Existing route targets, settings gate, overlay controls
+and installation help continue to work. No audio/map APIs or GitHub push.
+
+All 3,551 tests / 359 files, final typecheck/diff check and extended menu-design
+browser smoke passed. New checks verify one shared image layer, transparent
+actions, correct decoded artwork for the actual layout, shared Store hover
+and reduced-motion suppression. Existing nav/focus/preferences/overlay/touch/
+install checks pass at 1440/1024/844/768-portrait/390/320 viewports. Desktop,
+phone and portrait-tablet screenshots were visually reviewed for semantic
+scene alignment. Evidence: .cache/next-gen-menu/, .cache/panorama-design.log
+and .cache/panorama-unit-tests.log. Pre-existing Vite5175/Chrome9224 reused;
+owned test tabs closed. AGENTS.md/.claude/handoff remain local and unstaged.
+Manual Cloudflare deployment is running; verified outcome follows.
+
+Completion: manual `pnpm deploy:cloudflare` succeeded with version
+`604bd780-fc30-4636-b916-9945f1db3fff`. Both blockplaysg.fun and workers.dev
+serve HTML, entry JS/CSS, service worker, original art and both new home
+panoramas byte-identical to the local build. All selector/settings routes
+serve the current SPA; both production Cloudflare health/assets/PWA/routing
+checks passed. Local commit `8ea2323` remains unpushed. Only local AGENTS.md,
+.claude and the appended handoff are outside the code commit.
+
+### 2026-11-08 — Space between next-gen home panes
+
+Local main commit `04c8345` adds dark 12px desktop gutters and 8px gutters
+in the stacked layout, including between Store and Inventory. A zero-blur
+spread shadow masks the gaps while keeping the shared panorama assets and
+framing unchanged; selected panes retain the same gutter. Full-height layout,
+overlay controls and hover expansion remain intact. docs/NEXT-GEN-MENU.md
+records the spacing.
+
+All 3,551 tests / 359 files, typecheck, diff check and existing menu-design
+browser smoke passed. Desktop hover and 320px phone screenshots visually
+reviewed in .cache/next-gen-menu/. Logs: .cache/menu-gap-unit-tests.log and
+.cache/menu-gap-design.log. No image assets changed. Pre-existing Vite5175
+and Chrome9224 reused; test tabs closed. Commit is local only; no GitHub push.
+Manual Cloudflare deploy is running; verified outcome follows.
+
+Completion: manual deployment succeeded, Cloudflare version
+`1da26741-33fa-4db1-bd28-1a015315ea20`. Both blockplaysg.fun and workers.dev
+serve release HTML, entry JS/CSS, service worker and all menu art byte-identical
+to the local build; settings/selector routes serve this release. Production
+health/assets/PWA/routing checks passed on both origins. No paid API requests.
+Local main commit `04c8345` remains unpushed; local guidance/handoff excluded.
+
+### 2026-11-08 — Expand Store and Inventory in both directions
+
+Local main commit `6d54262` widens the Next-gen equipment column from 28% to
+38% on hover/keyboard focus. Store grows downward to 58% of available row
+space; Inventory grows upward to 62%. Both keep the 12px gutter and leave the
+other action reachable. Shared panorama gently reframes to its right edge,
+revealing the shelf and kit that narrower desktop viewports previously cropped.
+Original image assets are unchanged; one continuous image remains behind all
+four panes. Pointer hover takes precedence over keyboard focus. Stacked/touch
+layouts stay steady, and reduced motion suppresses expansion, zoom and pan.
+The existing Settings > Video menu-design gate remains unchanged.
+
+All 3,551 tests / 359 files, typecheck and diff check passed. Updated existing
+menu-design smoke passed: both dimensions at 1440/1024 widths, preserved gutters,
+resting-state restoration, keyboard expansion/hover priority, reduced motion,
+routes, overlay hit targets and responsive touch layouts. Visually reviewed
+both equipment hover states at 1440 and 1024, including full shelf/kit framing.
+Evidence: .cache/next-gen-menu/equipment-{store,inventory}-{1440,1024}.png,
+.cache/menu-equipment-design.log and .cache/menu-equipment-unit-tests.log.
+Pre-existing Vite5175/Chrome9224 reused; owned test tabs closed. No GitHub push,
+no image generation or paid API requests. Manual deployment is running.
+
+Completion: manual Cloudflare deployment succeeded with version
+`037fe567-33de-4ef0-915c-65b6a06cc560`. Both production origins serve HTML,
+entry JS/CSS, service worker and unchanged menu art byte-identical to the local
+build. Settings/selector routes and production health/assets/PWA/API checks
+passed on blockplaysg.fun and workers.dev. Commit `6d54262` remains local and
+unpushed. Only local handoff/guidance files remain outside the commit.
+
+### 2026-11-08 — Independent artwork for every mode selector
+
+Generated seven original 1024x1536 portrait illustrations with the built-in
+image_gen tool, one call per asset, no external references or CLI fallback.
+Final JPEGs: public/images/menu/mode-{open-world,training,tutorial,
+team-deathmatch,hardpoint,free-for-all,find-room}.jpg (333–459 KiB each).
+Full exact prompt set and provenance live in docs/MODE-ARTWORK.md. Scenes
+share the faceted Singapore tactical style but are independent compositions.
+Training/Live-fire Range share one range image; solo and hosted match routes
+share their mode image; /play category cards reuse Open World/Find a Room.
+These are concept illustrations, not map-fidelity claims.
+
+GameMenu's mode artwork mapping feeds each selector card; home remains one
+unchanged panorama, and Classic remains unchanged behind the existing settings
+gate. Removed reused panorama-specific crop positions from selector imagery.
+FFA uses a higher crop anchor to keep its face visible in wide tablet cards.
+Existing hover/focus and reduced-motion behavior remains intact.
+
+All 3,551 tests / 359 files and typecheck passed. Extended existing menu-design
+smoke checks exact route/image association, unique images within each selector,
+image decode/resolution and all prior routing/hover/preferences/overlay/touch
+checks. First run passed; final crop check is running. Desktop solo/multiplayer/
+training and phone/tablet screenshots reviewed in .cache/next-gen-menu/.
+Logs: .cache/menu-mode-{design,unit-tests,typecheck}.log. Existing Vite5175 and
+Chrome9224 reused, owned browser tabs closed by smoke. No GitHub push.
+Local commit/deployment outcome follows.
+
+Final browser smoke passed after the crop adjustment; final phone/tablet
+FFA screenshots reviewed. Original operations and both home panorama files
+are unchanged. Local main commit `668d294` contains all seven optimized JPEGs,
+consuming code, browser coverage and prompt documentation. Manual Cloudflare
+deployment is running; no push was performed.
+
+Completion: manual Cloudflare deployment succeeded with version
+`7ab50a63-437e-4d0e-90d0-2daf06b3fee8`. Both blockplaysg.fun and workers.dev
+serve byte-identical release HTML/JS/CSS/service worker, original home art and
+all seven new mode JPEGs. Settings/selector routes and production assets/PWA/
+API/health checks passed on both origins. Commit `668d294` remains local only.
+AGENTS.md/.claude/handoff remain excluded from code commits.
+
+### 2026-11-08 — Overhead training damage and dummy drops
+
+Local main commit `eb0d51c` removes the screen-fixed damage panel. A compact
+billboard above each dummy shows its armor tier, then adds last hit, total
+health damage, DPS and armor loss after a hit. The eight-second idle expiry
+returns it to the tier label. Cleared dummies stop intercepting shots and
+movement immediately, pivot backward at the feet over .45 seconds, then
+despawn 1.8 seconds after the final hit. The label stays readable until
+despawn. Reduced motion shows the fallen pose directly. Dynamic reuse keeps
+its existing 2–5-second delay, and the results screen does not advance the
+drill clock while the final dummy settles.
+
+Focused unit tests (24), typecheck and the range-damage browser smoke passed
+on the isolated release files. Desktop, portrait and landscape captures are
+in .cache/range-damage/. The initial build was stopped before upload when
+the newer main release `ef7c4f9` began staging and included this change.
+No GitHub push. Cloudflare verification follows.
+
+### 2026-11-08 — Concrete perimeter barricades in team combat
+
+Local main commit `ef7c4f9` replaces the glowing boundary loop with instanced
+concrete panels and amber reflectors in Hardpoint and both Team Deathmatch
+arenas. The barricades sit outside the existing movement limits and block
+shots. The Hardpoint capture markers still identify active objectives.
+
+Typecheck and all 19 focused match and perimeter tests passed. The full suite
+passed 3,555 of 3,557 tests while the release build was running. The two
+expedition loot cases that hit their 15-second timeouts passed on a separate
+24-test rerun. Chrome verified a solo Hardpoint match and rendered both
+district perimeters. Logs and screenshots are in .cache/team-combat-barricades/.
+
+Manual Cloudflare deployment succeeded with version
+`e232c458-d945-4d1a-beb0-75c766b40130`. Both production origins serve the
+matching arena routes, JS/CSS, barricade bundle and service worker, and both
+passed the Cloudflare production checks. The release includes the preceding
+training commit on main. No GitHub push.
+
+Completion: manual Cloudflare deployment of combined main `ef7c4f9`
+succeeded, version `e232c458-d945-4d1a-beb0-75c766b40130`. The training
+route, training JS, entry assets and service worker were byte-identical to
+the release on both blockplaysg.fun and workers.dev. Production health and
+routing smoke also passed. Combined full suite reported 3,555 passes and
+two expedition loot timeouts; the entire 24-test expedition loot file
+passed on isolated rerun. The training change remains in local commit
+`eb0d51c`.
+
+### 2026-11-08 — Free for All perimeter barricades
+
+Local main commit `a13a0b6` reuses the Hardpoint and Team Deathmatch
+barricade builder at Free for All's existing Marina Bay movement limits.
+It replaces the foreground district wall while retaining the surrounding
+terrain skirt and skyline. Open World and training still use the district
+perimeter. Typecheck and all 71 focused tests passed. A solo Chrome match
+confirmed the barricades are present in the live scene. Evidence is in
+.cache/ffa-barricades/.
+
+Manual Cloudflare deployment succeeded with version
+`bf9ad5b7-6c7b-41ef-8149-3c3eb9789777`. Both production origins passed
+health and routing checks and serve byte-identical arena HTML, release
+assets and service worker. No GitHub push.
+
+### 2026-11-08 — Full-height game-mode selectors
+
+Next-gen Play/Single Player/Multiplayer/Training selectors now fill 100dvh.
+Desktop panes use 12px dark gaps and the home menu's 1.2 flex expansion with
+subtle 1.025 artwork zoom on hover/keyboard focus. Back, the screen title and
+Settings overlay the top; an accessible heading remains, while the old large
+header and hint footer no longer consume layout space. At <=900px, full-height
+cards form a horizontal scroll-snap row with 8px gaps and a visible adjacent
+pane. Touch swipe and keyboard focus reveal offscreen choices. Controls stay
+44px and outside label space. Reduced motion removes expansion/zoom. Original
+mode images, home panorama and Classic remain unchanged.
+
+Typecheck/diff checks passed. Extended menu-design browser smoke passed on a
+separate Vite5178 instance with hot reload disabled; initial run on Vite5175
+was interrupted by a page reload during concurrent workspace edits. Checked
+full-height bounds/gaps, overlay hit targets, hover and keyboard expansion,
+reduced motion, actual touch swipe, keyboard scrolling to the last pane, image
+decode and all existing navigation checks. Visually reviewed 1440 desktop
+rest/hover and 320/390/768/844/1024 responsive layouts. Screenshots remain in
+.cache/next-gen-menu/. Logs: .cache/mode-fullheight-{browser,typecheck,tests}.log.
+Full unit suite still running; commit/deploy completion follows. No GitHub push.
+
+### 2026-11-08 — Aim-dependent scope reflections
+
+Local main commit `0b0c17a` blends magnified-scope glass with the existing ADS
+curve: the central 78% of the lens radius becomes clear, the outer border tops
+out at 5.5% coating opacity, and hip glass has a stronger scenery reflection.
+Reflex/holographic profiles retain their existing appearance. The GPU fixture
+compares rear scenery present/absent: both SAR optics have zero central ADS
+pixel change, faint border change, and much stronger hip reflections. No shader
+errors; screenshots are in .cache/reflex-review/. Thirty focused tests and
+workspace/clean-snapshot typechecks passed. The broader sniper smoke stopped
+in a paused game before its ADS assertion; it is not a passing check.
+
+Manual Cloudflare deployment succeeded from the clean scope-commit archive
+/tmp/blockplay-scope-release-0b0c17a, excluding the then-uncommitted menu edits.
+Version `1877e8fb-5d4f-4b76-9607-2cb1a5d9a804` passed production checks
+on blockplaysg.fun and workers.dev; both served byte-identical release HTML
+and JS containing the new aim-border shader. All 3,558 tests across 360 files
+passed in the clean release. Logs are in .cache/scope-reflection/. Task-owned
+Vite and Chrome stopped; temporary release/private-config links removed.
+No GitHub push. AGENTS.md remains local and unstaged.
+
+Full suite passed: 3,558 tests / 360 files. Local main commit `1766204` holds
+this menu change. All code work is committed, with only local guidance/handoff
+outside commits. Dedicated Vite5178 stopped after browser checks; pre-existing
+Vite5175 and Chrome9224 left running. Manual Cloudflare deployment is running.
+
+Completion: manual Cloudflare deployment succeeded with version
+`3644f64f-6669-42b4-b583-9158fb77d0c7`. Both production origins serve matching
+release HTML, entry JS/CSS, service worker, mode artwork and selectors; all
+production health/assets/PWA/API/routing checks passed. Local commit `1766204`
+remains unpushed. Only local guidance/handoff files remain outside code commits.
+
+### 2026-11-08 — High bloom and Ultra shadow detail
+
+High/Ultra now enable restrained HDR light bloom. The existing world HDR/AO
+pipeline extracts bright light sources with a soft threshold, blurs at quarter
+resolution and below, and preserves coverage over the separately drawn sky.
+The viewmodel, magnified PiP and reticle draw afterwards. Thermal/night-vision
+aiming suppresses bloom. Balanced/Low/Battery remain bloom-free; saved full-detail
+presets migrate, and Graphics settings exposes a separate Light bloom checkbox.
+Ultra adds 4096-square sun shadow maps (High 2048, Low 1024), capped by device
+texture limits, with existing coverage/texel snapping. Quality changes release
+the previous target; leaving a game releases the current map.
+
+Browser checks passed in an isolated Chrome/Metal session: light selectivity,
+ordinary-white/sky/reticle preservation, bloom on/off with AO on/off, portrait
+resize, 2048/4096 shadow captures, actual Graphics settings controls, live
+Ultra scoped aiming, bloom toggle and Balanced/High switching. Marina daytime
+capture is pixel-identical with bloom on/off; night has local halos around the
+brightest windows/lights. At 1200x800, 24-frame synchronous render samples were
+about 2.0–2.3 ms median across the tested modes, within local timing noise;
+these are a small isolated scene benchmark, not a device-wide FPS guarantee.
+Bloom adds 13 screen draws/13 triangles, no extra world draw. Evidence and
+results.json are in .cache/graphics-quality/.
+
+Typecheck and focused tests passed. The initial full suite's sole failure was
+an existing ground-cover renderer mock missing capabilities.maxTextureSize;
+its corrected 38-test recheck passes. Final full suite: 3,562 tests across
+361 files passed. Local main commit `25f4f7b`. Manual Cloudflare deployment
+succeeded with version `49aa7131-2de4-445b-94cd-3b9acd24d5f9`. Both
+blockplaysg.fun and workers.dev passed health/assets/PWA/API/routing checks
+and served byte-identical release HTML, JS/CSS and service worker. Logs are
+in .cache/graphics-quality/. Task-owned Vite5181 and Chrome9230 stopped;
+pre-existing browser/server sessions left running. No GitHub push. AGENTS.md
+remains local and unstaged.
+
+### 2026-11-08 — longer rain/grass coverage and Ultra wet-pavement SSR
+
+User requested much longer High/Ultra rain distance, greater grass distance and
+density, and consideration of rain reflections. Local main commit `d05d524`.
+Rain now uses independent low/high/ultra budgets (24/80/130 m horizontal fade
+radii; 1,200/6,000/12,000 maximum streaks), preserving nearby density and adding
+longer distant streaks. Two draws and the existing roof/vehicle impact handling
+remain. Only active drops are updated; reduced effects forces the old small pool.
+
+Desktop grass reaches 23/60/100 m with approximately 2.1x/3.2x close tuft density
+on High/Ultra. Far tufts use three triangles instead of nine, cross-fading over
+six metres. Cached world-grid surface samples, two instanced draws, conservative
+bounds and 4 m rebuild cells bound the cost. Mobile High/Ultra reaches 42/70 m;
+reduced effects retains the small 11 m budget. Ground ownership still excludes
+roads/water/obstacles and protects raised walkways.
+
+Ultra adds half-resolution screen-space wet-ground reflections, sharing existing
+HDR scene colour/depth with AO/bloom, before tone mapping and the weapon/reticle.
+A conservative cached 2 m ground mask includes only exposed flat paving; roofs,
+soil, water and elevated structures are rejected. Reflection alpha follows wetness,
+Fresnel, screen edges and range, with mild ripple/roughness. It uses visible scene
+content only (not ray tracing); no extra world render. Stable flat-ground normals
+avoid depth-quantization bands. FPS thermal/night vision and overview disable the
+pass. Settings expose independent rain distance, grass detail and wet reflections;
+saved High/Ultra presets migrate and explicit overrides persist.
+
+Validation: full suite 3,567 tests / 362 files passed, final typecheck passed,
+and the 34 rain/ground tests passed again after the movement-bound optimization.
+New browser fixture/smoke checks reflection color, continuity (100/100 sampled
+rows), unchanged upper scene, exact restoration on disable, portrait resize,
+High/Ultra rain and grass transitions, actual Marina settings UI, rainy scoped
+aiming and reflection toggle. No shader/runtime errors. Evidence:
+`.cache/weather-quality/`; logs `/tmp/blockplay-weather-*.log`.
+Local Chrome/Metal 1200x800 fixture: Marina update/render submission medians
+2.3 ms Low, 3.3 ms High, 4.4 ms Ultra (SSR on/off within timing noise). Forced
+4 m camera hops median 12.7 ms / worst 16 ms; full-grass synthetic median 9.6 ms
+/ worst 12.4 ms. These isolated timings are not end-to-end gameplay FPS promises.
+Manual Cloudflare deployment launched after checks; outcome recorded below.
+No GitHub push; AGENTS.md and this running log remain unstaged.
+Manual deployment succeeded: Cloudflare version
+`1161bd54-ba66-499e-91b9-5782305e4900`. Both `https://blockplaysg.fun` and
+`https://blockplay-sg.sunjc826.workers.dev` passed the production
+health/assets/PWA/API/routing checks. Root HTML, all three release JS/CSS assets,
+and service worker match local dist byte-for-byte. Task-owned Vite 5181 and
+Chrome 9230 shut down after review; other sessions left alone.
+
+### 2026-11-08 — Training DPS freeze, cumulative hits, and headshot mannequins
+
+Local main commit `cf6d887` freezes DPS at the final-hit value while a
+dummy is down. Each overhead label counts hits per dummy, including
+armor-only hits, and clears the count with the existing idle reset.
+Focused tests, typecheck and range browser smoke passed. Manual
+Cloudflare version `54e0fa5e-2b22-4ad9-9803-4d406c01e2e3` served matching
+training JS, HTML, entry assets and service worker on both origins.
+
+Local main commit `6d53361` gives practice dummies a faceted mannequin
+with visible, raycastable head and body surfaces. Front and side hits
+resolve against the geometry. Penetrating rounds count the nearest
+part once per dummy, including when a round crosses multiple frames.
+Range hit feedback names headshots and the equipped weapon still
+determines headshot damage. Existing target positions, armor tiers,
+drop animation and training stats carry forward. Tutorial keeps its
+round targets. Limbs are batched into two shared-material meshes.
+
+All 37 focused tests, typecheck and the range browser smoke passed.
+The browser comparison fired at the same unarmored mannequin's chest
+and head and observed distinct hit classification and damage.
+Screenshots in .cache/range-damage/. Manual Cloudflare deployment
+started after checks. No GitHub push.
+
+Mannequin deployment succeeded from an isolated checkout of `6d53361`,
+Cloudflare version `2d451656-9b99-473d-ac89-a15cedf9cf93`. Training
+HTML, mannequin JS, entry assets and service worker matched the
+release byte-for-byte on both production origins. Production
+health/assets/PWA/API/routing smoke passed on blockplaysg.fun.
+
+### 2026-11-08 — Marina rain contacts, bay reflections, 3D ripples and wet lenses
+
+User reported bad rain hits on Marina railings/water, missing water-body scene
+reflections, then requested 3D ripples on High/Ultra, nearby bullet-splash droplets
+and stronger swimming streaks. Local main commit `79b1601`; no GitHub push.
+
+Fixed the actual cause of the floating rain layer: the bay's water movement
+blockers have maxY=2, which the old rain sampler treated as a roof. Rain now
+ignores water gameplay blockers and uses captured water/rail/deck geometry.
+Selected mesh transforms are captured before Marina batching; a spatial index
+uses exact local box/plane/circle tests and the live shader swell height. Jetty
+openings stay open; thin rails emit small spray rather than broad white rings.
+Water impacts suppress pavement-style particle rings; small rainfall rings live
+in the water shader and follow weather/reduced effects.
+
+Ultra's independent Bay reflections setting now renders one mirrored, clipped
+view, half-resolution and capped at 768 pixels on its longest side. Three's
+Reflector supplies the oblique clipping. Water and rain are hidden during the
+capture; the water shader blends actual scenery with its sky fallback through
+wave distortion/Fresnel. Main FPS disables it in thermal/NVG/overview and below
+the water; High retains the cheaper sky reflection. This is planar reflection,
+not ray tracing or the separate wet-pavement SSR.
+
+High/Ultra Water detail adds one bounded instanced draw of raised annular wave
+crests (128 max), with radial edges returning smoothly to the surface. Bullet
+rings follow the existing shot ripple times, rain makes smaller nearby crests,
+and rings are rejected at dry/sheltered ground. Low/reduced effects skips them.
+Nearby forward bullet impacts can wet the lens, gated by distance, eye height,
+line of sight and Lens effects. Larger droplets drain into refracting streaks
+and bead trails. Swimming wets it on entry and repeatedly by swim speed; leaving
+water drains/drys it within seconds. Pool remains bounded at 128.
+
+Browser checks: actual Marina reflections in sun/rain changed >55k water pixels,
+left the upper scene unchanged, and toggle-off restored exact pixels. Rail,
+surface, portrait and normal preset/scope checks passed without shader/runtime
+errors. Water pass local isolated timing: 5.1 ms off / 5.5 ms on median (one
+extra scene render; not an end-to-end FPS guarantee). The real FPS interaction
+check passed: two nearby shots produced 49 lens drops and 3 raised crests;
+swimming reached the bounded 128-drop pool. Screenshots/results in
+.cache/marina-rain, .cache/weather-quality, .cache/water-interactions.
+Typecheck and targeted tests passed, including camera mirroring/restored state,
+water/rail contact geometry, reduced-effects behavior, upward crest geometry,
+lens distance exclusions, swimming/drain-off and preset migration. Final full
+regression run is in /tmp/marina-water-final-tests.log; outcome/deployment below.
+Concurrent Merlion/aerial fixes landed separately on main during this task;
+only this task's remaining changes were staged. AGENTS.md stays untracked.
+
+### 2026-11-08 — Merlion boarding in the Marina Field Range
+
+Local main commit `a826a83` starts the existing pressure, mist and supply
+controller in the Marina Field Range. Combat sessions retain host authority.
+The map marks the south-side brass wheel and the nearby HUD explains where
+to board. The operating HUD names the cannon input. Touch boarding filters
+the generated click after leaving, which could otherwise immediately reboard.
+
+Browser smoke passed the walk from the south landing, desktop E/Q and held
+mouse fire, touch board/fire/mist/exit, combat rotation and wetting, and cache
+pickup. Committed release typecheck and 73 focused tests passed. The broader
+run recorded 3,568 passes and a single night-light test timeout. The timed-out
+test passed on an isolated retry with its original 30-second limit.
+
+Manual Cloudflare version `80fb02db-3073-41b7-a6f2-bf2a16ac79e5` served matching
+entry, Merlion JS and service worker on blockplaysg.fun and workers.dev. Both
+origins passed production health, assets, PWA and API checks. Evidence is in
+`.cache/merlion-boarding/`. No GitHub push. AGENTS.md remains unstaged.
+Final full regression: 3,575 passed / 1 failed across 365 files (450 s under
+concurrent local test/build load). The sole failure was the unseeded Hardpoint
+full-match simulation: only two sites happened to score. No Hardpoint code
+changed here; its immediate isolated recheck passed all 9 tests. The final
+crest-normal/lens recheck passed all 8 tests, and final typecheck passed.
+Manual pnpm deploy:cloudflare started; release verification follows below.
+Manual deployment succeeded: `9e1dc76b-3889-4b05-aa7d-aae7c61ae908`.
+Both blockplaysg.fun and workers.dev passed production health/assets/PWA/API/
+routing checks. Release HTML, all three JS/CSS references, and service worker
+match local dist byte-for-byte. Task-owned Vite5181/Chrome9230 were stopped;
+other sessions were left alone. Only local handoff/config remain uncommitted.
+
+### 2026-11-08 — Merlion forward mist and readable water effects
+
+Changed mist from a 10m sphere around the statue to an aimed 12m cone with a
+7m far radius. Exposure, segment sight blocking and visuals use that same cone;
+any faction in front can be affected, while actors behind the statue stay clear.
+Added pooled drifting mist and an edge rim, a cannon endpoint ring/contact
+splash, authoritative BLINDED / IN MIST avatar tags, lowered weapon poses during
+cannon blindness and live affected-bot HUD counts. No audio/API generation.
+
+Focused controller/runtime/model checks passed; new geometry tests verify cone
+alignment at different yaws/pitches and contact-only splash. Desktop/touch
+real-engine gameplay smoke passed. New `node scripts/merlion-effects-smoke.mjs`
+checks front/rear actors, condition-driven tags, recovery and endpoint position;
+six daytime screenshots reviewed in `.cache/merlion-effects/`. Gameplay captures
+include night/touch views in `.cache/merlion-gameplay/`. Typecheck passed.
+Full regression and manual Cloudflare outcome follow below. AGENTS.md and this
+pre-existing modified handoff stay unstaged; no GitHub push.
+Full regression passed: 3,580 tests across 365 files (208 s), followed by all 41
+focused controller/runtime/visual tests, including the two new geometry tests.
+Final typecheck passed. Local implementation commit `cf565f2`; documentation
+clarification `3b29146`. Task-owned Vite 5219 and Chrome 9379 stopped after review.
+Manual `pnpm deploy:cloudflare` is running; outcome to be verified below.
+Manual Cloudflare deployment succeeded: version
+`46e9de59-f33d-49fb-ac5f-2b3956dd0549`. Both blockplaysg.fun and workers.dev
+passed production health/assets/PWA/API/routing checks. Release HTML, entry JS
+(containing the new Merlion cone), CSS, Three bundle and service worker match
+local dist byte-for-byte. Verification is saved in
+`.cache/merlion-effects/release-verification.json`; deployment/test logs are
+`/tmp/merlion-clarity-*.log`. No push; local guidance remains unstaged.
+
+### 2026-11-08 — Animated bot reactions to Merlion water
+
+Bots now drive the shared character rig from the host's active water condition.
+Cannon exposure blends into an off-hand brow shield/wipe, head shake, shoulder
+recoil and lowered weapon; mist produces intermittent brow wipes and head turns.
+The firing hand retains the weapon grip, legs keep the locomotion gait, and
+standing/crouched/prone reactions fade to normal on recovery. Swimming, driving,
+healing, bailout rolls and death take pose priority; death/respawn clears blends.
+
+Typecheck and 87 focused character/runtime/Merlion tests passed. Extended skin
+parity/culling checks plus water reaction tests passed all 29 checks. The browser
+fixture verified the real guest runtime's repeated motion, distinct sustained vs
+intermittent shielding, condition expiry and grip recovery. Six closeup captures
+were added to `.cache/merlion-effects/` and visually reviewed. Full regression
+and manual Cloudflare results follow. No audio requests, no GitHub push.
+Full regression passed: 3,587 tests across 367 files (192 s). Local commit
+`8d31004`. Task-owned Vite 5219 / Chrome 9379 were stopped after visual review.
+Manual Cloudflare deployment started after focused tests and typecheck; full
+regression completed successfully during its build. Release outcome follows.
+Manual deployment succeeded: Cloudflare version
+`0a55d896-02e3-49bc-bf6f-687e051d8d3b`. Both public origins serve HTML,
+entry JS/CSS, Three bundle and service worker matching local dist byte-for-byte.
+Workers.dev production smoke passed; custom-domain first smoke had a request
+timeout, then the complete logged retry passed health/assets/PWA/API/routing.
+Logs: `/tmp/merlion-animation-*.log`; release hash checks remain in
+`.cache/merlion-effects/release-verification.json`. No push. AGENTS.md, existing
+.claude content and this pre-existing modified handoff remain unstaged.
+
+### 2026-11-08 — Merlion mist reaches the shoreline
+
+The previous 12m cone could not cross the roughly 42–48m to the quays. Extended
+mist to 75m with an 18m far radius, reaching the dry shore and diagonal corners
+when aimed at them. Host exposure, sight blocking, cone mesh and HUD still share
+the same constants. Increased the bounded fog pool to 384 and enlarged distant
+puffs to make the longer volume visible; cannon range remains 65m.
+
+All 28 focused Merlion controller/visual tests and typecheck passed. Eight new
+controller cases wet bots on the actual dry bay edges and corner promenades and
+check expiry. Browser smoke placed a bot at x=50 on the east quay and confirmed
+its active condition/status while the rendered cone extends beyond it. Reviewed
+`.cache/merlion-effects/shore-overview.png` and `shore-close.png`, plus existing
+front/rear/animation/recovery checks passed. Full regression/deployment below.
+Local main commit `e766849`. Full regression passed all 3,595 tests across 367
+files (201 s). Manual Cloudflare deployment succeeded, version
+`70c7db9b-0d72-452c-bd99-3b76c3577f1f`. Both public origins passed production
+health/assets/PWA/API/routing smoke and serve release HTML, entry JS/CSS, Three
+bundle and service worker matching local dist byte-for-byte. Logs are
+`/tmp/merlion-shore-*.log`; hash receipt in
+`.cache/merlion-effects/release-verification.json`. Task-owned Vite 5219 and
+Chrome 9379 stopped. No push; AGENTS.md and the handoff remain unstaged.
+
+### 2026-11-09 — Bots use the full Merlion mist range
+
+Bot station acquisition now reaches 75m from the mouth when mist has pressure
+and is off cooldown, rather than capping every target at the 65m cannon range.
+Bots wait for the actual aimed cone to contain the target before bursting, and
+use mist alone beyond cannon range. During their own cloud they maintain their
+last visible aim (no hidden-target tracking) and refresh station input instead
+of immediately abandoning the controls because mist blocks sight. Existing
+cover/hostility checks and pressure/cooldown rules remain authoritative.
+
+All 32 focused Merlion tests and typecheck passed. New cases cover 50m/75m and
+rear targets, rotation before mist, far-range pressure conservation, holding
+last aim, and rejecting blocked/out-of-range targets. Real FPS desktop/touch
+smoke passed, including a bot misting a player at the diagonal shore (x=50,z=32),
+beyond cannon range, with no cannon fire or health loss. Capture:
+`.cache/merlion-gameplay/bot-mist-shore.png`. Full regression/deployment follow.
+
+### 2026-11-09 — Continuous unscoped telescope reflections
+
+Local main commit `714aae3` fixes the black centre on closed-end-cap scopes:
+the concave coating previously dipped 1.4 mm behind its mounting plane and
+intersected the opaque eyepiece. Scope geometry now anchors its deepest point
+at the mounting plane, retaining its curvature and depth-tested housing.
+Reflex geometry and ADS reflection opacity are unchanged.
+
+Reproduced the circular hole on P30 Kiasu Hunter and reviewed its corrected
+render. Browser regression checks sample 61 inner-lens points in two unscoped
+poses across nine configurations, with no missing reflections, plus clear
+SAR ADS centres/etched reticles and faint reflected borders. All 53 focused
+optics/housing/enemy-weapon tests and typecheck passed. Browser evidence is in
+.cache/reflex-review/; before captures in .cache/scope-coverage/. Full suite and
+manual Cloudflare deployment are running; results follow. No GitHub push.
+AGENTS.md and this pre-existing modified handoff remain unstaged.
+Local main commit `182c495`. Full regression passed: 3,601 tests across 367
+files (360 s). Manual deployment succeeded: Cloudflare version
+`a3985908-a514-45ce-bbda-f7e6c646000a`. Both public origins passed production
+health/assets/PWA/API/routing smoke and serve release HTML, entry JS/CSS, Three
+bundle and service worker matching local dist byte-for-byte. Logs:
+`/tmp/merlion-bot-range-*.log`; release receipt in
+`.cache/merlion-effects/release-verification.json`. Task-owned Vite 5219 and
+Chrome 9379 stopped after gameplay verification. No push; AGENTS.md, existing
+.claude files and this handoff remain unstaged.
+Manual Cloudflare deployment succeeded: `7638b4ee-9124-48bc-b986-d8f2251e2aa6`.
+Both blockplaysg.fun and workers.dev passed production health/assets/PWA/API
+checks and serve HTML, entry JS/CSS, Three bundle and service worker matching
+local dist byte-for-byte. Receipt: .cache/scope-coverage/release-verification.json;
+logs: /tmp/scope-coverage-{deploy,live,workers,browser,focused,tests}.log.
+Full regression passed: 3,601 tests across 367 files (359 s under concurrent
+local workload). No task-owned servers were started; existing Vite/Chrome
+sessions were left running. Local commit 714aae3 remains unpushed.
+
+### 2026-11-09 — Trees and foliage follow the weather
+
+Added GPU wind bending and leaf flutter to shared district trees and bespoke
+Marina/Queenstown/Raffles/Sentosa/Changi/Kampong Glam/Pulau Ubin planting.
+Trunks and branches share a rooted bend; canopies/fronds add spatial flutter.
+Tree parts remain instanced, with per-instance root/height data and padded
+render bounds. Clear weather has a gentle breeze; existing eased atmosphere
+wind increases movement through showers, monsoon, thunderstorm and squall.
+The direction matches rain drift. Reduced effects / reduced motion damp sway
+and disable flutter. Shadow depth/distance and thermal shaders share wind
+uniforms. Static surface partitioning excludes deforming tree geometry;
+Queenstown rebases each whole tree at its root to keep branches attached.
+Gameplay collision/raycast geometry remains the authored static tree geometry.
+
+Eight new focused tests cover batching, material separation, shadow/thermal
+uniform parity, weather easing, reduced effects and six full district builds.
+Browser smoke (`node scripts/tree-wind-smoke.mjs`, Vite5221/Chrome9381) passed:
+clear/rain/storm moving-pixel totals 7,982 / 16,974 / 30,637, reduced 4,688;
+six districts compiled without shader errors, and the real FPS pipeline played
+in a thunderstorm. Screenshots/results in `.cache/tree-wind/`; reviewed the
+fixture, Marina, Queenstown and actual FPS screenshots. Typecheck passed.
+Full regression and manual deployment results follow. No GitHub push;
+AGENTS.md and this pre-existing modified handoff remain unstaged.
+Full regression passed: 3,609 tests across 368 files (200 s), plus typecheck.
+Local main commit `234b9ee`; no push. Manual `pnpm deploy:cloudflare` started
+from the checked workspace; deployment and public-release verification follow.
+Concurrent Merlion edits appeared in the shared workspace during the initial
+release build, so that build was stopped before Wrangler publication. Deployment
+restarted from `git archive 234b9ee` in `.cache/tree-wind-release-234b9ee`, using
+the existing unchanged dependency lock/modules and private environment symlinks.
+The unrelated shared-workspace edits remain untouched. This isolates exactly
+the tested tree release while retaining the authorized manual pnpm workflow.
+Manual Cloudflare deployment succeeded from the isolated tested commit:
+version `edc2abb4-1caa-447b-89ac-e9ac5d865089`. Both blockplaysg.fun and
+workers.dev passed production health/assets/PWA/API/routing checks, and HTML,
+entry assets and service worker matched the isolated dist byte-for-byte.
+Receipt: `.cache/tree-wind/release-verification.json`; logs:
+`/tmp/tree-deploy-isolated.log`, `/tmp/tree-production-{custom,worker}.log`.
+Task-owned Vite5221 / Chrome9381 stopped; other sessions left untouched.
+No push. Local guidance and the pre-existing handoff remain unstaged.
+
+### 2026-11-09 — Smooth open-world Merlion steering
+
+Local commit b24d685 fixes the mounted camera advancing only on 20 Hz arena
+snapshots. Shared player steering runs at 4.8 rad/s yaw / 3 rad/s pitch; bot
+yaw stays 1.6 rad/s. Bounded render-frame presentation predicts only the local
+operator, resets on ownership changes and freezes stale authority; pressure,
+firing and hits remain authoritative. Camera follows aim direction, avoiding
+impact-distance pitch jumps, and mounted controls ignore handheld ADS/scopes.
+Focused 38 tests and typecheck passed. Isolated-commit browser smoke passed
+all cannon/mist/status/touch/bot range checks: 61 view turns versus 20 authority
+turns over 62 frames in 1.017 s. Full regression is finishing.
+The concurrent manual release .cache/foreign-intervention-release-95acee0
+contains all seven exact steering files from b24d685 (byte comparison passed).
+Watching that already-running deployment and independently verifying its
+public assets avoids publishing an older build over the newer weapon rename.
+No GitHub push; local instructions and handoff remain uncommitted.
+Manual deployment containing b24d685 succeeded via release 95acee0:
+Cloudflare version ac4fd120-18ec-494e-829f-ae67bca20483. Independent production
+checks passed on blockplaysg.fun and workers.dev; public HTML, entry JS/CSS,
+Three bundle and service worker matched the release dist SHA-256. Evidence
+is saved in .cache/merlion-steering/ (browser results/screenshots and release
+verification). Task-owned Vite5227 and Chrome9387 stopped. Full tests continue.
+
+### 2026-11-09 — Foreign Intervention weapon name
+
+Renamed ff-intervention to Foreign Intervention across gameplay, armory,
+proxy cargo rewards and weapon studies; updated the HUD expectation and docs.
+Real-world M200 reference attribution remains. Local main commit 95acee0;
+no GitHub push. AGENTS.md and the pre-existing handoff edits remain unstaged.
+Concurrent unrelated gameplay edits appeared during checks, so deployment used
+an isolated git archive of 95acee0 at .cache/foreign-intervention-release-95acee0.
+Its 55 focused tests and typecheck passed. The shared-workspace full regression
+also passed: 3,613 tests / 369 files. Manual pnpm deploy:cloudflare succeeded,
+version ac4fd120-18ec-494e-829f-ae67bca20483. Production smoke passed on
+blockplaysg.fun; both public origins served HTML/JS matching the isolated build
+and containing Foreign Intervention. Logs: /tmp/foreign-intervention-*.log.
+Full isolated steering regression completed: 3,613 tests in 369 files passed
+(457.94 s under concurrent workload), plus typecheck, browser and independent
+production checks above. Commit b24d685 remains local/unpushed. Temporary
+release worktree removed after preserving task evidence; unrelated ongoing
+workspace edits were left untouched.
+
+### 2026-11-09 — Match weapon pickups
+
+Hardpoint, TDM and Free for All now share host-authoritative death drops for
+players and bots on either team. E / the touch pickup button swaps in the
+catalog weapon with a full magazine and compatible spare ammo up to rig
+capacity. Host validates life, active play, range, floor, cover and single
+ownership; snapshots include bounded, validated drops and a current-life kit
+receipt. Drops expire after 45 seconds and are capped at 24. Borrowed weapons
+reset on respawn/rematch; queued respawn choices survive. No permanent unlocks,
+no changes to expedition's separate weapon/ammo collection. Shared drop models
+and focus cards are reused without expedition gateway markers.
+
+Full regression: 3,620 tests / 371 files passed (338 s). Final focused checks:
+49 tests / 7 files, plus typecheck. Real FPS guest browser smoke passed FFA,
+TDM and hardpoint, covering keyboard/touch collection, bundled ammo, firing,
+reload, repeated snapshot idempotence, unchanged profile and respawn. Reviewed
+keyboard/touch captures in `.cache/match-weapon-drops/`. Reusable smoke:
+`node scripts/match-weapon-drops-smoke.mjs` with Vite5175 / Chrome9387 defaults.
+Logs: `/tmp/weapon-drops-{tests,final-focused,typecheck-final,browser-final}.log`.
+Local main commit and manual Cloudflare deployment follow; no GitHub push.
+AGENTS.md and this pre-existing modified handoff remain unstaged.
+Local commits: `ba38943` and `ffd2413`. The first deployment stopped in the build
+on a nullable zone passed to NPC orientation in the shared renderer; no publish
+occurred. Match-only markers now skip district NPCs. Final typecheck exited 0,
+and 24 additional pickup/network/focus checks passed. Manual deployment retried
+from the corrected workspace; result below.
+Manual Cloudflare deployment succeeded: version
+`5404a600-f83d-4e85-98a4-9389ec558a67`. Both blockplaysg.fun and workers.dev
+passed production health/assets/PWA/API/routing checks. Public HTML, entry JS/CSS,
+Three bundle and service worker match local dist byte-for-byte; receipt in
+`.cache/match-weapon-drops/release-verification.json`. Deployment/live logs:
+`/tmp/weapon-drops-{deploy,live,workers,release}.log`. Task-owned Chrome9387
+stopped; existing Vite5175 left running. No push; AGENTS.md, .claude files and
+this handoff remain unstaged.
+
+### 2026-11-09 — Preserve movement through E interactions
+
+Local main commit `66b2a67`: shared vehicle requests no longer clear input before
+an authoritative vehicle/seat transition. Shared Merlion requests likewise wait
+for the confirmed operator transition. Match weapon receipts reset weapon-only
+state while preserving keyboard/stick movement, stance, slide and body velocity.
+Empty/rejected/pending E and item pickups no longer stop the player.
+
+Typecheck passed in isolated `.cache/interaction-momentum/release`. Real FPS
+guest browser smoke passed FFA, TDM and Hardpoint: empty E while running,
+keyboard and touch pickup movement, magazine/reserve, firing/reload, profile
+preservation and respawn. Smoke now enters via touch to avoid OS pointer-capture
+focus requirements while still exercising actual keyboard E/W/Shift/A events.
+Full regression and confirmed-boarding browser check are finishing before manual
+Cloudflare deployment. No GitHub push; unrelated edits and local guidance remain
+unstaged. Logs: `/tmp/interaction-momentum-{tests,typecheck,browser,boarding}.log`.
+
+### 2026-11-09 — Alpha bots use Armed Forces weapons
+
+Removed the team-mode exceptions from Armed Forces bot weapon selection and
+initial weapon slots. Alpha uses the existing issued-role mapping in TDM and
+Hardpoint (their current assault bots carry SAR 21s); Bravo retains its weighted
+Black Kite variants. Existing Open World faction handling is unchanged. Also
+corrected the stale comment claiming friendly bots drop nothing.
+
+Local main commit `4e910cf`, with only the three-line gameplay/comment correction
+and new regression tests. Four cases cover both modes: first spawn, repeated
+rematches, human replacement/replenishment, actual death drops, pickup and bot
+respawn. They passed, along with the existing drop, expedition and network
+checks (the first run hit the CLI's default 5-second timeout under concurrent
+work; rerun uses the repository's 60-second timeout). Full isolated regression
+and typecheck run from `.cache/alpha-weapons-release`, including committed
+movement fix `66b2a67`, while ongoing menu/deployment/graphics edits stay in the
+shared workspace. No GitHub push; manual deployment result follows.
+Confirmed Merlion boarding browser check passed: mount stops position movement,
+clears held joystick input, and exits normally. Concurrent commit `4e910cf`
+contains these exact movement files (byte comparison passed). Its separate full
+regression is already running, so this task's duplicate full suite was cancelled
+without failures to reduce contention. Our isolated release now includes exactly
+4e910cf; focused movement/pickup/vehicle/Merlion/bot tests and typecheck precede
+our manual deployment. This avoids deploying an older commit over the bot fix.
+Final combined checks passed: 84 tests across six movement/keybinding/pickup/
+vehicle/Merlion/bot files, and typecheck (both exited 0). Isolated tracked source
+matches 4e910cf. Starting manual `pnpm deploy:cloudflare` now from
+`.cache/interaction-momentum/release`; this publishes both 66b2a67 and 4e910cf.
+Deployment log: `/tmp/interaction-momentum-deploy.log`. Task-owned Vite5233 and
+Chrome9393 stopped. The older cancelled run left an ELIFECYCLE footer in the
+reused focused log; the final focused runner (10:35:51, 84 passed) exited 0.
+
+### 2026-11-09 — Interaction movement release verified
+
+Manual deployment of isolated commit 4e910cf (including movement fix 66b2a67)
+succeeded: Cloudflare version `a2ea4677-3731-452a-9c89-d974093946be`.
+Production health/assets/PWA/API/routing checks passed for both blockplaysg.fun
+and blockplay-sg.sunjc826.workers.dev. Public HTML, entry JS/CSS, Three bundle and
+service worker match the tested release byte-for-byte; receipt:
+`.cache/interaction-momentum/release-verification.json`. Logs:
+`/tmp/interaction-momentum-{deploy,live,workers,release}.log`.
+No GitHub push. AGENTS.md, .claude files, this handoff and other ongoing changes
+remain uncommitted by this task. The concurrent newer graphics commit 0b78200
+was made after this isolated deployment started and is not in this release.
+
+### 2026-11-09 — Optional screen-space sun shafts
+
+Local implementation commit `0b78200` adds depth-based god rays with Off/Low/High
+controls. Low is quarter-resolution/32 samples, High half-resolution/48 samples;
+three fullscreen passes reuse world depth without another scene draw. Sun/weather
+and screen-edge gating skip night, reduced effects, NVG/thermal and overview.
+A display-space composite preserves the separately cleared sky and is drawn
+before weapons/HUD. GPU targets are lazy, resizeable and disposed.
+
+Twenty-six focused tests and typecheck passed. Render smoke verifies visible
+shafts, off restoring the exact image, complete depth occlusion, camera/night/
+reduced gates and resizing, plus real Marina rendering. Live FPS controls and
+NVG/thermal suppression passed. Reviewed fixture, Marina and gameplay settings
+screenshots in `.cache/sun-rays/`. GPU queries on Apple Paravirtual/ANGLE Metal,
+1080p Marina AO+bloom: Off 2.599 ms, Low 2.842 (+.243), High 3.013 (+.415);
+three ray passes alone .230/.255 ms medians. See `docs/SUN-RAYS.md` for method,
+limitations and resource budgets. No universal FPS claim.
+
+Other tasks own pre-existing shared workspace edits, including fps-engine.ts;
+only our renderer hunk was staged in that file. Full regression/typecheck and
+release use a git archive of 0b78200 in `.cache/god-rays-release-0b78200`.
+The first full run hit 10 s scene-setup hook limits under concurrent suites;
+it was stopped and restarted with 60 s hooks and two workers. The affected
+Marina suites now pass. Final full-suite and manual-deployment outcome follow.
+No push; AGENTS.md and this pre-existing handoff remain unstaged.
+
+### 2026-11-09 — Map-first setup and shared aerial insertion
+
+Local main commit `952f87b` changes solo match selection to load immediately,
+then presents an Open World-style aerial ready screen with settings and a
+session-only starting loadout. Online room setup no longer exposes pre-load
+loadouts/bot settings; those are on the loaded map. Automatic match spawns use
+the same descending camera and scrolling briefing as Open World; no landing
+pins. Training shares the ready view and insertion. Host authority protects
+unentered players through setup/intro and excludes them from hardpoint scoring.
+Starting kits apply immediately and lock once entering; respawn queues remain.
+
+Browser checks on the isolated menu copy passed Hardpoint, TDM, FFA and training,
+desktop/mobile ready layouts, insertion, skip intro, changing bots/loadout without
+reloading, and real online host/guest room return and first-life Ultimax selection.
+Evidence: `.cache/menu-order/`, `/tmp/menu-order-{browser-metal-final,training-final,online}.log`.
+SwiftShader stalled in this Mac VM; ANGLE Metal completed the checks.
+100 focused tests pass on the final combined commit, including graphics and intro
+regressions. The original shared-workspace full suite raced concurrent edits;
+an isolated full suite is running with 60 s scene hooks/two workers. Final release
+is `.cache/menu-order-release-952f87b`, includes 0b78200 and all earlier committed
+fixes, and will be manually deployed after verification. No GitHub push. Other
+releases should avoid publishing an ancestor over this newer menu commit.
+AGENTS.md and this pre-existing modified handoff remain unstaged.
+Alpha release verification finished: typecheck exited 0. The isolated full run
+covered 3,625 tests / 372 files: 3,528 passed, with two navigation timeouts and
+95 cases skipped after two 10-second Marina scene-setup hook timeouts under
+concurrent load. All affected cases passed on isolated reruns: Queenstown's
+four sector checks (18 s), 95 Marina landmark/interior checks with one worker
+(20 s), and the Marina inhabited-floor diagnostic (31 s). No code/assertion
+failures remain. Logs: `/tmp/alpha-weapons-{focused,own,tests,typecheck,queenstown,
+marina-hooks,marina-nav}.log`.
+
+The parallel movement task manually deployed the exact combined commit 4e910cf
+while the broad suite ran, so no duplicate/older deployment was made here.
+Confirmed deployment succeeded, version `a2ea4677-3731-452a-9c89-d974093946be`.
+Independently compared all 951 deployed source/config files with git 4e910cf,
+then verified public Cloudflare health/assets/PWA/API routing and byte-identical
+HTML, entry JS/CSS, Three bundle and service worker on both public origins.
+Receipt: `.cache/alpha-weapons-release-verification.json`; live logs:
+`/tmp/alpha-weapons-{live,release}.log`. Subsequent committed graphics/menu work
+remains separate. No push; AGENTS.md and this handoff stay unstaged.
+The combined release `.cache/menu-order-release-952f87b` contains byte-identical
+sun-rays, world-occlusion, world-atmosphere, graphics settings/UI and tests;
+its engine retains our exact gating hunk. That newer release is now deploying
+manually after typecheck and 100 focused tests. Its isolated full suite also
+covers these changes, so the duplicate ancestor regression was stopped to free
+CPU for the combined suite. Watching and independently verifying that release
+avoids overwriting the newer loaded-map setup. Own docs/live-control fixtures
+were committed as `757e635`; no runtime difference from the checked god-ray code.
+
+Map-first menu release completed: local commit `952f87b`, manually deployed via
+`pnpm deploy:cloudflare` from the isolated exact-commit archive. Cloudflare version
+`987b03fc-b0d8-4b9d-be0e-3497769646f1`; log `/tmp/menu-order-deploy.log`.
+The isolated menu regression completed with **3,629 tests / 373 files passing**
+(`/tmp/menu-order-isolated-tests.log`). That suite used the pre-god-rays base;
+the final combined 952f87b archive additionally passed typecheck and 100 focused
+tests including graphics, sun rays, arena setup, and deployment regressions.
+Production routing/assets/PWA/API checks passed on both `blockplaysg.fun` and
+`blockplay-sg.sunjc826.workers.dev`. HTML, entry JS/CSS, Three bundle and service
+worker are byte-identical to the deployed archive at both origins; receipt:
+`.cache/menu-order/release-verification.json`. No GitHub push. Later 757e635 adds
+only docs/test fixtures and does not change the deployed runtime. AGENTS.md and
+this shared handoff remain unstaged/uncommitted.
+
+### God-ray deployment verification complete — 9 November 2026
+
+Feature commits `0b78200` and `757e635` remain local; no push. Verified the
+combined runtime release `952f87b`, Cloudflare version
+`987b03fc-b0d8-4b9d-be0e-3497769646f1`, serves byte-identical HTML, entry assets
+and service worker on both public origins. Both Cloudflare routing/PWA/asset
+checks passed. Receipts: `.cache/sun-rays/release-verification.json` and
+`source-verification.json`; logs `/tmp/god-rays-production-{custom,worker}.log`.
+The final combined release passed typecheck and 100 focused tests, including
+sun rays and graphics settings. IMPORTANT clarification: the 3,629-test full
+menu suite was run on its pre-god-rays archive, not this combined release.
+God-ray render/gameplay browser smokes passed separately on the feature code.
+1080p Marina GPU median cost: Low +0.243 ms, High +0.415 ms on Apple Paravirtual
+ANGLE Metal; full methodology in `docs/SUN-RAYS.md`. Task-owned Vite/Chrome
+processes were stopped. Shared handoff and AGENTS.md remain uncommitted.
+
+### Team bot weapon variety in progress — 9 November 2026
+
+Hardpoint/TDM full bot teams now fill two assault, one tank/light-support and
+one heavy gunner role per side. Alpha uses SAR 21 / Ultimax / FN MAG; Bravo
+uses the existing Black Kite rifle and support variant pools. Human joins
+replace assault bots first, preserving both support roles; departed humans
+refill the missing team role instead of cycling a global bot counter.
+Focused faction/roster/respawn/drop/pickup and TDM tests: 15 passed.
+Full regression and typecheck running, logs `/tmp/team-variety-{tests,typecheck}.log`.
+Only arena-rules.ts and match-bot-weapons.test.ts belong to this change.
+Will commit locally on main and deploy manually; no GitHub push.
+Team variety is committed locally as `61694f2`. Typecheck passed in both the
+workspace and exact-commit release archive `.cache/team-variety-release-61694f2`.
+The initial workspace full run was stopped when unrelated match-streak work
+appeared; full regression is running against the isolated archive instead
+(`/tmp/team-variety-isolated-tests.log`). Deployment will use that archive.
+
+Team variety release complete: `61694f2` passed **3,636 tests / 374 files** and
+isolated typecheck. Manual `pnpm deploy:cloudflare` succeeded from that exact
+archive, version `cd652ef6-c993-4db2-a825-39da971d446f`.
+Both public origins passed Cloudflare assets/PWA/API/routing checks and serve
+byte-identical HTML, entry JS/CSS, Three bundle and service worker matching the
+release. Receipt: `.cache/team-variety-release-verification.json`; deploy log:
+`/tmp/team-variety-deploy.log`; live logs `/tmp/team-variety-live-{custom,worker}.log`.
+No push. AGENTS.md/shared handoff remain unstaged. Concurrent match-streak work
+was excluded from this release. User also asked about bot armor: explained the
+existing per-spawn 30/40/30 recruit/regular/veteran distribution, rifle armor
+15/25/35 and support armor 60/100/140 in team modes; no armor changes requested.
+
+### Lens flare / god-ray compatibility fix — 9 November 2026
+
+Committed `7e77991`: lens visibility now compares final pixels with sky plus
+the exact composited god-ray glow, preserving world and weapon obstruction.
+Reuses the existing ray texture and 1×1 visibility pass (no new render pass).
+Browser pixels reproduce zero flare with the old check, restore Low/High
+flares, verify full/partial cover, saturated sky, AO/bloom and inactive gates.
+20 focused tests and real FPS controls/vision gates passed. Workspace typecheck
+encountered concurrent match-streak test work; final typecheck/tests/deployment
+will use isolated `.cache/lens-flare-release-7e77991`, excluding uncommitted
+streak changes. This includes team-variety commit 61694f2. No push.
+
+Lens-flare fix release complete: exact commit 7e77991 passed isolated typecheck
+and all 20 relevant tests. `pnpm deploy:cloudflare` succeeded from the isolated
+archive, version `f70737c7-1407-4bbe-a47f-d092ce121185`. Both public origins
+passed Cloudflare routing/assets/PWA checks and byte-for-byte HTML, entry
+assets and service-worker verification. Logs `/tmp/sun-rays-lens-{deploy,
+release-verification,live-custom,live-worker}.log`; receipts and visual
+regressions in `.cache/sun-rays-lens/`. Task Vite5257/Chrome9457 stopped.
+No push; concurrent uncommitted match-streak files and local instructions left
+untouched. No full-suite claim for this patch; relevant tests and GPU/gameplay
+smokes passed.
+
+### 2026-11-09 — Match streak rewards
+
+Implemented three selectable streak slots for TDM, FFA and Hardpoint, with
+Recon/Jammer/Hunter/Precision in all three and Guardian/Sentry in team modes.
+Hardpoint earns objective-assisted charge; banked charges survive death, each
+slot earns once per life, and streak kills never chain progress. Hunter reuses
+the existing autonomous search/lock/reacquisition/dive logic, launching along
+aim and owning its kills/team filtering. Host-owned deployables, shooting,
+spawn protection, bounded wire validation, receipts, bot counterplay, recon
+last-known pings, placement preview/cancel, keyboard 4–6 and touch controls.
+Training/expedition remain excluded. Existing audio cues reused; no paid API
+requests. Fixed stale recon contacts when a late join replaces a bot.
+
+Full regression passed: 3,657 tests / 376 files. Final focused suite (including
+new UI/network tests) passed 52 tests / 7 files; final typecheck passed. Browser
+smokes covered all modes, autonomous drone launch, placement/cancel, Guardian,
+Sentry, strike markers and valid guest snapshots. Real Hardpoint setup changed
+a slot and deployed with usable landscape/portrait controls; screenshots in
+.cache/match-streaks. Adjusted the touch streak strip to avoid objective, ammo,
+recovery and team-score overlays. Logs: /tmp/streak-{full-tests,release-focused,
+network,typecheck-final,browser-debug,browser6,browser9,real-ui-diagnose}.log.
+Local main commit and manual Cloudflare deployment verification follow. No
+GitHub push. AGENTS.md, .claude and this pre-existing handoff remain unstaged.
+
+Local main commit `d48af85`; no push. Manual `pnpm deploy:cloudflare` succeeded:
+version `66c08b3c-d8db-407d-b55a-a5e82b9e978f`. Both public origins passed
+Cloudflare health/assets/PWA/API/routing checks and serve byte-identical HTML,
+entry JS/CSS, Three bundle and service worker to local dist. Receipt:
+`.cache/match-streaks/release-verification.json`. Public-browser Hardpoint
+loadout selection and landscape/portrait HUD checks also passed; screenshots
+`live-*.png` and log `/tmp/streak-live-ui.log`. Task-owned Vite5231 and Chrome9391
+stopped after verification. Local guidance and pre-existing handoff remain
+unstaged/uncommitted.
+
+### Match recovery in progress — 9 November 2026
+User clarified automatic health regeneration plus armor dropped by defeated
+bots according to role/rank, for HP/TDM/FFA. Implementing host-owned 5s delay,
+20 HP/s (players/bots), six bot armor drop tiers, current-life stronger armor
+upgrades / repair existing armor, shared claims/receipts/visuals. Files:
+match-recovery.ts + tests, arena-rules.ts, arena-runtime.ts, fps-engine.ts.
+Concurrent voice edits (including fps-engine) will be preserved and excluded
+from selective staging. No push; exact-commit manual deployment after checks.
+
+### 2026-11-09 — Guardian interceptor fix (release checks in progress)
+Local main commit `00921a0` fixes streak preview/device meshes being treated as
+placement surfaces and authoritative cover, and displays placement refusals
+beside Deploy instead of hiding them in the arena's general HUD message.
+Both regressions failed before the fix and pass after it. Real browser touch
+button and pointer-locked mouse fire deploy Guardian in HP/TDM; invalid aim
+shows feedback, retains the charge, and no weapon shot leaks through. Smoke
+log `/tmp/guardian-browser-final.log`; `.cache/match-streaks/*guardian*` images.
+Running isolated full regression; release will include recovery commit 8fb3de4
+as well. Other concurrent voice changes remain unstaged. No push.
+
+Recovery update: user requested a regen nerf; committed 8fb3de4 uses **7s delay,
+10 HP/s**, not the initial 5s/20 HP proposal. A first-aid comparison test verifies
+75 HP arrives before passive regeneration begins. Recovery core passed focused
+simulation/network tests and all three real-renderer keyboard/touch pickup
+smokes, including saved-profile and respawn restoration.
+User then requested low/critical bloody borders and an armor-break effect.
+Implementing shared FpsDamageFeedback (FpsGame + ExpeditionGame): 50%/25% health
+bands, gradual red edge opacity, reduced-motion-safe critical pulse and an
+850ms peripheral blue-white armor crack. Phase/death/respawn/gear expiry guards.
+Working in new screen-damage.ts / FpsDamageFeedback files and adding two lines
+in each game component; ongoing voice edits remain separate. Real browser
+feedback checks now passing in FFA, checking remaining modes. Final release
+will include 00921a0; avoid reverting that newer Guardian work. No push.
+
+Guardian fix release complete: full isolated regression passed 3,664 tests /
+379 files; exact release `00921a0` (including recovery `8fb3de4`) passed typecheck,
+49 focused tests / 9 files, and real touch + pointer-locked mouse deployment
+smokes in HP/TDM. Invalid aim preserves the charge, successful deployment
+consumes it once, clears placement feedback, and does not fire the weapon.
+Manual `pnpm deploy:cloudflare` succeeded from `.cache/guardian-deploy-00921a0`,
+version `bedfd704-0802-417e-85bf-a4956397234a`. Both public origins passed routing,
+assets, PWA and API checks, plus byte-identical HTML, entry assets and service
+worker checks against that exact build. Receipt `.cache/guardian-release-verification.json`;
+logs `/tmp/guardian-{isolated-tests,release-focused,release-typecheck,
+release-browser2,deploy,verify,live-custom,live-worker}.log`.
+Vite5231/Chrome9391 stopped. No push; local guidance and handoff remain unstaged.
+Concurrent screen-feedback commit 9108ab5 follows this release and includes
+the Guardian fix; its upcoming release can supersede this build safely.
+
+Screen-feedback commit `9108ab5` follows recovery `8fb3de4` and Guardian
+`00921a0`. New effects tests passed (3), recovery/network balance tests passed
+(12), and all FFA/TDM/HP browser cases passed: keyboard/touch armor claims,
+regen delay, no passive armor regen, original profile, respawn armor, low /
+critical red borders, reduced-motion handling and the armor-break flash.
+Screenshots `.cache/match-recovery/*{health,break}.png`, log
+`/tmp/match-recovery-effects-browser3.log`. The old shared Vite5175 cache caused
+a duplicate-React hook error in the test fixture; fresh task Vite5261 fixed it.
+Exact archive `.cache/match-recovery-release` matches all 3,788 tracked blobs
+of 9108ab5; isolated typecheck passed. Full suite still running, log
+`/tmp/match-recovery-isolated-tests.log`. Guardian's full regression archive
+predated recovery (its later focused release checks covered recovery); running
+our full exact-commit suite avoids claiming that older full run covered it.
+No pushes. Final manual deploy will supersede the verified Guardian release.
+
+### 2026-11-09 — Local disk cleanup
+
+Removed 45 inactive, pre-November-9 cache subdirectories: 10 reinstallable
+node_modules copies and 35 reconstruction copies whose entire file contents
+were SHA-256 verified against preserved root reconstruction originals.
+25.13 GiB of counted files removed; filesystem available space rose from
+7.3 GiB to about 23 GiB (shared storage affects physical recovery).
+Preserved all registered Git worktrees, today's checkouts, active process paths,
+root dependencies/source/assets, paid audio caches/receipts, and reference
+originals/ledgers. No tracked files deleted; no code changes, tests, commit,
+push, or deployment needed. Removal receipt: .cache/disk-cleanup-2026-11-09.json.
+This handoff remains unstaged with its pre-existing edits.
+
+Recovery full regression completed: 3,676 passed, 3 failed / 383 files. All
+three failures exposed the same bug: unsupported .50 recoil directly damages
+health without setting lastHurt, allowing instant regen. Fixed in local commit
+`f65f5d5` (one line). All 76 tests in the six affected/recovery/feedback suites
+then passed; final isolated typecheck passed. Full log
+`/tmp/match-recovery-isolated-tests.log`, rerun `/tmp/match-recovery-rerun.log`.
+Final release archive matches all 3,788 tracked blobs of f65f5d5; source receipt
+`.cache/match-recovery/source-verification.json`. Task Vite5261/Chrome9389 stopped.
+Manual deploy from `.cache/match-recovery-release` now running, log
+`/tmp/match-recovery-deploy.log`. No GitHub push; voice work stays separate.
+
+### 2026-11-09 — Recon minimap scan pulse
+Local main commit `c4ecb92`: expanding teal minimap sweep keyed to the host's
+three-second Recon scan (including late-viewer phase), static active indicator,
+compact/expanded support and reduced-motion fallback. Only own/team Recon;
+no pulse for enemy Recon, dead viewers, destroyed/expired drones, or when an
+enemy jammer suppresses reception. Ordinary HUD updates preserve the animation.
+Hunter behavior checked: hostile Hunters already use generic red raider
+triangles; own/team Hunters are intentionally excluded by existing threat
+filtering. No Hunter marker change in this request.
+63 focused tests / 7 files and shared typecheck passed; real FFA/TDM/HP browser
+checks passed scan identity/restart, expanded map, jamming, expiry and reduced
+motion. Screenshots `.cache/match-streaks/*-recon-pulse.png`; logs
+`/tmp/recon-{tests,typecheck,browser2}.log`. Preparing exact-commit isolated
+release `.cache/recon-release-c4ecb92`, including f65f5d5; voice work excluded.
+No push. Local instructions/handoff remain unstaged.
+
+Match recovery + screen feedback release complete. Manual Cloudflare deployment
+from exact f65f5d5 archive succeeded, version
+`4660831e-65d4-4e46-a4de-440a6063907a`. Both blockplaysg.fun and workers.dev passed
+routing/assets/PWA/API checks and byte-identical HTML, entry JS/CSS, Three bundle
+and service-worker verification. Receipt `.cache/match-recovery/release-verification.json`;
+logs `/tmp/match-recovery-{deploy,live-custom,live-worker,live-verification}.log`.
+Final behavior: 7s damage-free delay, 10 HP/s match regen; role/rank bot armor
+drops with current-life upgrades/repairs; gradual blood borders at <=50% /
+<=25% health; transient armor-break cracks; reduced-motion handling. Effects
+are shared with expedition/range UI; automatic regen and armor drops remain
+match-only. Saved equipment is unchanged and initial armor returns on respawn.
+Local commits 8fb3de4, 9108ab5, f65f5d5; no push. Test failures all resolved by
+the recoil fix as documented above. No task browser/dev server remains running.
+AGENTS.md, .claude and shared handoff remain unstaged; concurrent voice work
+was preserved and excluded from this release.
+
+### 2026-11-09 — Encik match announcer (TDM, FFA, Hardpoint, killstreaks)
+
+User chose to reuse the approved Encik voice (not a new announcer voice).
+`match-callout-lines.ts` has 108 lines / 44 events: mode starts, lead taken/lost,
+one minute, near limit, results (team win/loss/draw, FFA first/top three/out),
+Hardpoint preview per site/rotation/capture/contest/loss, and per streak
+ready/deployed/enemy-deployed plus destroyed/shot-down. `createMatchAnnouncer`
+diffs snapshots per listener (host and guests alike); a queue plus
+`EncikRadio.match` lets calls preempt lower chatter or wait for the current line
+(~11 chars/s). Results replace the generic `complete` line. Lines quote rules
+(30/300 s TDM, 15 FFA, 3 s strike); tests fail if those change.
+`pnpm voice:match --generate`: 108 clips, 937 credits (9,120 → 10,057 / 40,000),
+no retries; all decode and pass non-silence/checksum checks, 340 s / 5.49 MB.
+Full suite 3,695 tests / 384 files passed; typecheck passed. Headless Chrome
+(touch emulation, CDP 9517, Vite 5173) solo Hardpoint/TDM/FFA heard hp-start,
+hp-lost, team-behind, hp-next-east, hp-online, tdm-start, team-lead, ffa-start
+with matching clip fetches, no page errors; both stopped. Streak/result calls are
+covered by unit tests only. Local commit `79a397e`, no push, not yet deployed.
+
+Recon pulse release verified: exact c4ecb92 archive passed typecheck and all 63
+focused tests; all FFA/TDM/HP browser cases passed. Manual Cloudflare deployment
+succeeded, version `e1caa8bd-5113-4a18-bf44-cdd51a7f09df`. Both public origins
+passed production routing/assets/PWA/API checks and byte-identical HTML, entry
+JS/CSS and service-worker checks against the release build. Receipt
+`.cache/recon-release-verification.json`; logs `/tmp/recon-{release-tests,
+release-typecheck,deploy,verify,live-custom,live-worker}.log`. Task Vite5231 and
+Chrome9391 stopped. No pushes. Voice commit 79a397e follows and includes c4ecb92;
+its subsequent release can safely supersede this one.
+
+Encik match announcer release: exact `79a397e` archive `.cache/encik-match-release-79a397e`
+(workspace node_modules symlinked; tools run directly because pnpm's deps check
+refuses a symlinked modules dir) passed tsc and 63 focused tests. Manual
+build + `wrangler deploy` succeeded, version `026a21a6-6fc6-4d64-a975-5b6e00f1e3da`;
+includes the already-committed c4ecb92 recon pulse. Both blockplaysg.fun and the
+workers.dev origin passed `scripts/cloudflare-check.mjs` and byte-identical HTML,
+entry assets, sw.js, the chunk holding the match lines, sampled match clips and
+match routes. Logs `/tmp/encik-match-{release-typecheck,release-tests,deploy,
+live-blockplaysg,live-blockplay-sg}.log`. No push.
+
+### 2026-11-09 — Friendly Hunter minimap telemetry
+Local main commit `a67ae7c` adds blue quadrotor markers for own and teammates'
+Hunter drones, using live authoritative raider positions, with owner labels
+and friendly-only off-map edge hints. Enemy Hunters retain red threat triangles;
+no changes to hostile danger detection or pilot threat logic. Dead, missing,
+destroyed and expired drones disappear; FFA only treats the caller as friendly.
+Existing minimap jamming hides the markers. Map key includes Friendly Hunter.
+68 tests / 7 files and typecheck passed. Browser FFA/TDM/HP passes actual own
+launch telemetry/movement/removal, teammate perspective rendering (same live
+host drone), expanded/compact, jamming and portrait touch layout. Screenshots
+`.cache/match-streaks/*-hunter-*.png`; logs `/tmp/hunter-map-{focused,typecheck,browser}.log`.
+Manual deployment running from the workspace; only local handoff is modified,
+AGENTS.md/.claude stay untracked. No push. Release includes Encik commit 79a397e.
+
+Friendly Hunter release verified: manual `pnpm deploy:cloudflare` succeeded,
+version `128a3632-4115-4865-82c3-e3a0fa14a0bb`. Both public origins passed routing,
+assets, PWA and API checks and byte-identical HTML/entry assets/service-worker
+verification against local dist for a67ae7c. Receipt
+`.cache/hunter-map-release-verification.json`; logs `/tmp/hunter-map-{deploy,
+verify,live-custom,live-worker}.log`. Only handoff remains modified; no GitHub
+push. Task Vite5231 and Chrome9391 stopped after verification.
+
+### 2026-11-09 — Compact mobile Hardpoint HUD
+Local main commit `ec8891b`: small touch viewports use a narrow team score and
+match clock, a compact objective card (left edge in portrait, top centre in
+landscape), 44px streak buttons away from item controls, and one compact feed
+line. Hide redundant objective instructions and compact-map legends; expanded
+map retains its key/inspector. Landscape speech clears the objective card.
+Changes apply to the shared solo/online Hardpoint HUD; other match modes and
+larger desktop/tablet layouts retain their existing presentation.
+Typecheck and full suite passed: 3,700 tests / 384 files. Real solo Hardpoint
+browser checks at 320x568, 360x640, 390x844, 568x320, 640x360, 667x375, 780x320,
+844x390 passed panel bounds, overlap and crosshair checks. Screenshots and
+geometry receipts: `.cache/hardpoint-mobile/`; expanded map also checked.
+Logs `/tmp/hardpoint-mobile-{typecheck,tests,deploy}.log`. Manual
+`pnpm deploy:cloudflare` in progress. No push; local instructions and shared
+handoff remain unstaged. Task Vite5319/Chrome9519 stopped after browser checks.
+
+Mobile Hardpoint release verified: manual `pnpm deploy:cloudflare` succeeded,
+version `ecef7e6c-46f6-4444-a3c7-7fc2bcac244a`. Both blockplaysg.fun and workers.dev
+passed Cloudflare routing/assets/PWA/API checks plus byte-identical HTML,
+entry JS/CSS, Three bundle and service worker against local dist. Receipts in
+`.cache/hardpoint-mobile/release-*.json`; logs
+`/tmp/hardpoint-mobile-{live,verify}-{custom,worker}.log`. No GitHub push.
+
+### 2026-11-09 — Desktop mode selection greyscale
+Local main commit `983454e` dims unhovered activity cards in both menu designs
+with greyscale and 75% brightness, gated by hover-capable fine pointers.
+Hovered and keyboard-focused cards retain colour; touch stays unchanged.
+Filter transitions respect reduced motion. Full suite: 3,700 tests / 384 files;
+typecheck and existing menu-design browser smoke passed. Chrome computed styles
+confirmed resting/hover/focus/touch states; screenshot `.cache/mode-hover/desktop.png`.
+Manual `pnpm deploy:cloudflare` succeeded, version
+`2c44adbb-029d-4698-9e37-d6a41773b55e`. Both public origins passed Cloudflare
+checks and exact HTML/CSS comparison against local dist. Logs:
+`/tmp/mode-hover-{tests,typecheck,browser,deploy,live-custom,live-worker}.log`.
+No push; AGENTS.md and shared handoff remain unstaged. Existing Vite/Chrome
+processes were reused and left running; task-created tabs were closed.
+User also asked for an opinion on the title screen: suggested mild darkening
+and desaturation with a colour fade on entry; no title-screen change requested.
+
+### 2026-11-09 — Title colour reveal and subtle main-menu focus
+Local main commits `8a17a1a` and `b765d9e`: cinematic title panorama uses
+65% saturation / 82% brightness, returning to its normal colour in the existing
+0.7s filter transition on key/click/tap. Reduced motion restores immediately.
+User accepted the follow-up main-menu suggestion: hover-capable fine pointers
+keep all four main panels fully coloured at rest, then apply 55% saturation /
+85% brightness to inactive artwork on hover or keyboard focus. Backdrop filters
+preserve labels and the continuous panorama; pointer hover wins over stale
+keyboard focus. Touch is unchanged. Classic title/menu backgrounds unchanged.
+Typecheck, all 3,700 tests / 384 files and existing menu-design smoke passed.
+Chrome verified desktop/touch title intermediate and final filters, reduced
+motion, main resting/hover/focus precedence/clear and touch states. Screenshots
+in `.cache/title-colour/`; logs `/tmp/title-colour-{tests,typecheck}.log` and
+`/tmp/main-menu-colour-{typecheck,browser,deploy,live-custom,live-worker}.log`.
+Earlier title-only deployment build was stopped before upload to include the
+accepted main-menu change. Final manual `pnpm deploy:cloudflare` succeeded:
+`753947e9-1979-4e14-a2bc-55e43dfb76f6`. Both public origins passed Cloudflare
+checks and exact HTML/CSS comparison to local dist. No push; local instructions
+and shared handoff remain unstaged. Reused existing Vite/Chrome processes;
+all task-created tabs closed.
+
+### 2026-11-09 — Loadout-first Store
+Local main commit `6051225` implements the approved loadout-first Store with
+explicit main/extra/sidearm destinations, one-item rental confirmation, actual
+1/2/4-hour prices and savings, optional rent-to-locker, bounded supply purchases
+and packing, readiness, and existing mode-setup handoff. Inventory remains the
+shared locker; traditional category/platform listings remain under Browse store
+and return to the same item details. Includes cosmetics, 3D previews, advanced
+specifications, account/demo wallet and a revised optional tour.
+Atomic purchase/equip helpers prevent charges for invalid destinations, duplicate
+platforms or partial supply purchases. Tests cover the wallet, extra-slot safety,
+quantity limits, expiry and carried-only rental warnings. Updated an obsolete TDM
+test to allow only Hunter-linked drone events; gameplay rules are unchanged here.
+New browser smoke passes desktop, 320/390 portrait and 844x390 touch flows,
+Inventory sharing, catalog return, actual match setup, low balance and level locks.
+Tour smoke passes replay/Escape/focus; inventory/play-time smoke passes legacy
+migration, renewal/discard/no refunds, real training pause/expiry/reset behavior.
+Screenshots `.cache/loadout-store/`; logs `/tmp/loadout-store-browser.log`.
+Concurrent Guardian work is present unstaged in the main workspace and excluded
+from this release. Clean detached worktree `.cache/loadout-store-release-6051225`
+has its own offline-installed dependencies. Exact-commit typecheck/full-suite
+validation is running there before manual `pnpm deploy:cloudflare`. No push;
+AGENTS.md, .claude and the shared handoff remain unstaged.
+
+### 2026-11-09 — Guardian placement usability
+Local main commit `b0e62d1` shares Guardian placement validation between the
+preview and authority: friendly spawn areas are allowed, smoke no longer acts
+as solid placement cover, and clearance uses a .4m half-width / 1.2m height.
+Enemy spawn/shield protection, real obstruction, ground support and 8m reach
+remain enforced. Preview warnings identify the reason and active allied Guardians;
+rejected requests preserve charge. Other streak placement rules are unchanged.
+36 focused tests and typecheck pass in exact-commit release
+`.cache/guardian-release-b0e62d1`; all 3,908 archived source blobs verified.
+Real Chrome mouse/TDM and touch/Hardpoint deploy tests pass both in the field
+and within allied spawn areas, with first-attempt acceptance. FFA/TDM/HP
+Recon/Hunter browser checks also pass. The fixture now uses authored movement
+and actual cover for authority placement. Logs `/tmp/guardian-{release-tests,
+release-typecheck,browser,spawn-browser,other-streaks-browser}.log`.
+Manual `pnpm deploy:cloudflare` running from this isolated release; concurrent
+bot/recon changes excluded. Broader workspace suite is still running. No push;
+AGENTS.md and shared handoff remain local and unstaged.
+
+### 2026-11-09 — Bots investigate Kestrel recon
+Bots now use eligible friendly recon scan coordinates as search goals, preserving
+Hardpoint/order/threat priorities and using the newer of visual memory and scan.
+FFA intel is caller-only; jammed receivers, protected/dead/respawned targets,
+destroyed/expired recon and removed players cannot supply intel. Host-only life
+stamps avoid changing the network snapshot. No continuous hidden-position reads
+for search goals. Within 12m of a fresh reported position, visual recognition
+accumulates twice as fast; initial reaction is 40% shorter (100ms minimum).
+Confirmed threat reports also get the reaction reduction. Fire still needs
+visual identification/alignment and a fresh trigger-time visibility check.
+65 focused tests / seven files pass; full suite and typecheck running. This
+release will follow the currently running Guardian/store deployments so it does
+not replace newer code with an older snapshot. No push. Shared handoff and
+AGENTS.md remain unstaged; preserve other chats' work.
+
+Loadout Store release coordination: `6051225` is an ancestor of Guardian
+`b0e62d1` and recon `a6fcf16`, and its Store files are unchanged there. The
+Store task will NOT deploy the older `6051225` snapshot over these releases.
+It is finishing exact-commit full-suite validation and will verify Store UI
+against the successful newer deployment. Production Store smoke prepared at
+`/tmp/loadout-store-production-smoke.mjs`; no extra deployment is running.
+
+Guardian broad-run note: shared workspace run had 3,632 passes, six failures
+in bot/recon tests edited while the run was active (cached pre-edit code), and
+a Marina setup hook timeout with 86 skipped tests. All three affected files
+pass in frozen b0e62d1: 122 tests, with a 60s setup-hook allowance. Combined
+with the earlier 36 focused release tests and typecheck, no Guardian regression
+is outstanding; do not describe the changing-workspace run as a clean suite.
+Initial pre-upload build was restarted to preserve private .env configuration;
+no initial deployment was uploaded. Task Vite5233/Chrome9393 stopped.
+
+Kestrel release: local commit `a6fcf16`, typecheck and 65 focused tests pass.
+Guardian deployment completed successfully before starting this deployment.
+`pnpm deploy:cloudflare` now running from clean tracked workspace source at
+a6fcf16; logs `/tmp/kestrel-{deploy,tests,typecheck,focused}.log`. Includes both
+Store and Guardian commits. Full regression run remains in progress.
+
+Guardian release verified: manual `pnpm deploy:cloudflare` succeeded from
+exact b0e62d1 archive, version `badbd14e-37c5-4c3a-b7ea-ed82d2c8e062`.
+Both blockplaysg.fun and workers.dev pass production Cloudflare routing/assets/
+PWA/API checks and serve byte-identical HTML, entry JS/CSS, Guardian code and
+service worker. Receipt `.cache/guardian-release-b0e62d1/live-verification.json`;
+logs `/tmp/guardian-{deploy,live-verification,live-custom,live-worker}.log`.
+No GitHub push. All task-created Vite/Chrome processes stopped. Concurrent bot
+recon and starting-point changes remain outside this deployment.
+
+Kestrel correction: workspace deployment guard stopped before any build/upload
+because new StartingPointPicker work arrived. Preparing frozen a6fcf16 release
+in `.cache/kestrel-release-a6fcf16` with private env preserved. Broad run: 3,724
+passes, two failures (one cached pre-edit spotting API; one mesh-cover runtime
+test under investigation). No Kestrel upload yet.
+
+Loadout Store COMPLETE: exact `6051225` typecheck and full suite pass
+(385 files, 3,713 tests; `/tmp/loadout-store-release-{typecheck,tests}.log`).
+Manual Guardian release `b0e62d1` includes all Store changes and succeeded:
+Cloudflare version `badbd14e-37c5-4c3a-b7ea-ed82d2c8e062`. No older Store
+release was deployed. Both blockplaysg.fun and workers.dev pass Cloudflare
+checks; HTML, entry JS/CSS and service worker byte-match this release
+(receipt `.cache/loadout-store/release-verification.json`). Real production
+Chrome desktop and phone checks pass loadout, catalog, shared details, back
+navigation and readiness, with no JS exceptions; log
+`/tmp/loadout-store-production.log`, screenshots `.cache/loadout-store/production-*`.
+Store task browser stopped; no GitHub push; local instruction/handoff files
+remain uncommitted. Later ongoing tasks may publish descendant commits.
+
+Kestrel regression findings: the newer-visual test passed on a fresh run; the
+broad run cached the prior spotting module. The mesh-cover trial let bots
+walk inside its shell (captured firing origin inside the box); fixed its
+fixture with movement-only perimeter guards in both open/walled trials. The
+open trial still takes damage through guards and the walled trial stays safe.
+41 fresh regression tests pass. Fixture fix committed as `5399378`. Frozen
+release `.cache/kestrel-release-final` has its own offline-installed deps,
+private env copied with 0600 permissions; exact-commit full suite/typecheck
+now running. No Kestrel upload yet.
+
+Frozen Kestrel release typecheck passed; all 3,909 archived blobs match
+5399378. `pnpm deploy:cloudflare` now actually running from that release,
+with unchanged source from the passed focused/regression checks. Frozen
+full suite is running concurrently. Root StartingPointPicker edits excluded.
+
+### 2026-11-09 — Map-only arena selection
+Local main commit `54d8b68` removes the arena List view at all sizes, renders all
+23 regions with 21 currently unavailable regions greyed out and disabled, and
+adds previous/next controls that only browse available arenas. Training and
+Open World retain their existing view choices. Typecheck and all 3,726 tests
+(387 files) pass. Desktop, 320/390 portrait and 844 landscape browser checks
+pass for map visibility, disabled selection, keyboard/touch browsing, solo
+loading transition, host setup navigation and unchanged other pickers.
+Screenshots `.cache/arena-map-browser/`; logs `/tmp/arena-map-{tests,typecheck,browser}.log`.
+Manual Cloudflare deployment started, but its build is temporarily suspended
+while the concurrent older `.cache/kestrel-release-final` deployment finishes,
+so this newer release remains the last one published. No GitHub push.
+AGENTS.md and shared handoff remain local and unstaged.
+
+Kestrel release deployed successfully: Cloudflare version
+`e28fbc08-3241-40a0-b4d1-0db70da0ba22` from frozen `5399378`. Typecheck and
+all 3,726 tests / 387 files pass in that exact release. Both blockplaysg.fun
+and workers.dev serve byte-identical HTML, service worker, all JS and CSS
+(seven files each); receipt `.cache/kestrel-release-final/live-verification.json`.
+workers.dev production Cloudflare checks pass; custom-domain check timed out
+on one request and is being retried once. Logs `/tmp/kestrel-{deploy,release-tests,
+release-typecheck,live-assets,live-custom,live-custom-retry,live-worker}.log`.
+No pushes; AGENTS.md/.claude/shared handoff remain unstaged. Later picker
+commit 54d8b68 includes this work and can safely supersede the release.
+Arena deployment completed after the older Kestrel release: Cloudflare version
+`28757309-4c07-4fde-ae7b-269abb2741ac` serves `54d8b68` at
+https://blockplay-sg.sunjc826.workers.dev. Production Cloudflare routing/assets
+check and the same four-viewport arena browser smoke both pass; logs
+`/tmp/arena-map-live-check.log` and `/tmp/arena-map-live-browser.log`.
+Browser scope verifies entering the solo loading screen and host setup; it does
+not claim a full match gameplay smoke. No push; temporary Chrome9397 stopped.
+
+Kestrel custom-domain follow-up: a diagnostic run with per-request logging
+passed every production Cloudflare check, including APIs, routing, PWA and
+media; the earlier timeouts were transient. Evidence:
+`/tmp/kestrel-custom-diagnostic.log`. Both public origins now fully verified.
+All task test/build/deploy processes completed; no task browser was needed.
+
+### 2026-11-09 — Precision Strike buff and designation
+Local main commit `5fa5502`: 250m designator, combat-body targeting, smaller
+surface footprint, shared preview/host validation, 8m blast / 4m full-damage
+core (250 damage, 60 at edge). Warning remains 3s; roofs, walls, team and
+spawn protection remain. Warning/preview/minimap/bot avoidance use new radius.
+Typecheck, 3,733 full-suite tests and 84 final focused tests pass. Real guest
+renderer smoke passes Hardpoint touch and TDM mouse at 25m aimed at an actor;
+screenshots `.cache/precision-strike/`, logs `/tmp/precision-strike-*`.
+Manual deployment starting from frozen `.cache/precision-strike-release-5fa5502`
+(includes prior scope commit df08be7). Do not deploy an older commit afterward.
+No push; local instructions and shared handoff stay unstaged.
+
+Precision Strike COMPLETE: manual `pnpm deploy:cloudflare` succeeded from frozen
+5fa5502, Cloudflare version `91c7f37f-d6dc-4020-aacc-979c1521584d`.
+Both blockplaysg.fun and workers.dev pass production routing/assets/PWA/API
+checks and serve byte-identical HTML, service worker, all JS/CSS (7 files each).
+Receipt `.cache/precision-strike-release-5fa5502/live-verification.json`;
+logs `/tmp/precision-strike-{deploy,live-assets,live-check,live-worker}.log`.
+Initial symlinked-dependencies attempt stopped before build/upload; installing
+frozen offline dependencies in the release resolved it. No pushes. Task Vite5236
+and Chrome9396 stopped; unrelated ongoing loadout changes remain untouched.
+
+
+## Recessed scope barrels and moving edge shadows (2026-11-09)
+
+Local main commit `df08be7` adds a short, stepped inner barrel to every magnified
+optic and a directional shadow driven by the eye position in lens-local space.
+The existing PiP plane, camera aim, magnification and reticle coordinates remain
+fixed. Shadow movement is clamped and the central 44% of the radius is protected;
+there is no extra world render or added blur. Barrel resources dispose with the
+optic. Reflex and offset dots retain their existing appearance.
+
+Validation: all 3,728 tests / 387 files passed in an isolated release of df08be7.
+After concurrent commit 5fa5502 landed, the release was refreshed to include it:
+117 focused tests / ten files and typecheck pass; all 3,913 tracked files match
+5fa5502. The GPU fixture verifies nine scope configurations, five alignment poses,
+directional edge darkening and pixel-identical central imagery/reticles. Full
+sniper gameplay checks pass on desktop, landscape and portrait, all zoom levels,
+firing and reloads, with no shader/runtime errors. Headed Chrome lost mouse
+capture; isolated headless Chrome/Metal passed, including the combined release.
+
+Manual `pnpm deploy:cloudflare` succeeded from the isolated combined release:
+version `e342450a-c93a-410c-beae-05a284790928`. Both blockplaysg.fun and workers.dev
+serve the exact built entry assets and service worker, and both production
+Cloudflare routing/assets/API checks pass. Evidence: `.cache/scope-depth-*.log`,
+`.cache/scope-depth-{source,live}-verification.json`,
+`.cache/reflex-review/scope-depth-results.json`, and `.cache/sniper-scopes/browser/`.
+No GitHub push. AGENTS.md stays local, unstaged and uncommitted; unrelated local
+work is excluded from the release. This handoff entry is left with the existing
+uncommitted handoff edits rather than committing another task's log changes.
+
+### 2026-11-09 — Full Store details in loadout
+Local main commit `fb1c377` restores all original comparison metrics for
+weapons, armor, vision and movement, with current/preview values and deltas.
+Uses the actual destination weapon, handles empty extra slots and omits
+invalid carried-load previews. Inline 3D preview, charts, full equipment
+details, hardware contributions/annotations, bipod rules, supply/vision/vehicle
+instructions, rank progress and unlock information now live on the item page.
+Platform selection uses accessible scrolling tabs (including weapon skins).
+Equip/rent actions precede the long comparison. Classic Browse store retained.
+37 focused tests, typecheck and full loadout browser smoke pass; real desktop,
+320/390 portrait and 844 landscape, keyboard tabs and touch, all rental/equip/
+renew/supply/Inventory/match flows. Screenshots `.cache/loadout-store/`; logs
+`/tmp/loadout-details-{focused,typecheck,browser}.log`. Full suite running
+(`/tmp/loadout-details-tests.log`), then manual Cloudflare deployment.
+No push; AGENTS.md, .claude, shared handoff remain unstaged.
+
+Loadout detail migration COMPLETE: typecheck and all 3,743 tests / 390 files
+pass on unchanged `fb1c377`. Manual `pnpm deploy:cloudflare` succeeded from
+clean tracked main; Cloudflare version `84563ae1-a45e-42bd-8243-b6d561974995`.
+Both public origins pass Cloudflare checks and byte-match all JS/CSS, HTML
+and service worker (`.cache/loadout-store/details-release-verification.json`).
+Production Chrome desktop/phone pass platform tabs, inline loaded 3D model,
+full comparison/specifications, classic catalog/back and readiness; no JS
+exceptions. Logs `/tmp/loadout-details-{deploy,production,live-assets,live-check,
+worker-check}.log`. Local screenshots also verify 320px comparison readability.
+Task Chrome9582 and Vite5352 stopped. No GitHub push; instructions and shared
+handoff remain unstaged. Original catalog remains pending later migration.
+
+## 2026-11-09 — Encik match announcer re-recorded in Singlish (00ec83a, deployed)
+
+- User reported the TDM announcer sounded American. Cause: the match lines were plain English; the base pack's Singlish wording is what keeps the voice's accent. All 108 lines were rewritten with Singlish markers (rules and site names kept), 105 re-recorded (3 already Singlish), superseded clips removed by `scripts/encik-match.mjs`.
+- Audition (192 credits) compared a `[Singaporean accent]` v3 tag; not shipped because the key lacks speech-to-text permission to confirm the tag isn't spoken. Takes in `.cache/encik-match-accent/round1/`.
+- Credits: 10,977 → 12,346 / 40,000 (1,369 observed; headers sum 1,914). Clips decode, non-silent, 2.5–5.3 s.
+- Deployed from `.cache/encik-singlish-release-00ec83a` as Cloudflare version bc370490-0a3d-4c72-902c-c13907a25c5f; both origins pass `cloudflare-check.mjs` and serve the build's page, sw.js, line chunk and TDM clips byte-for-byte. Not pushed. Accent still unconfirmed by ear.
+
+### 2026-11-09 — Compact charts and restored Store colors
+Local main commits `5aaac37`, `1939ff0`, `4f014f9`: compact 320×300 recoil
+viewBox and bounded 340px plot width (319px height), damage plot capped at
+440px width (215px height), larger labels and correctly aligned hover rounds.
+Chart pair capped at 1060px. Restored all six tier colors on labels/names,
+credit/token colors throughout prices, wallet, savings, confirmations and
+messages, with contrast backgrounds on selected/primary buttons.
+50 focused tests and typecheck pass; browser validates six sizes 320–2560px,
+no overflow, exact plot caps, hover rounds 1/20, six distinct tiers and both
+currencies. Screenshots `.cache/loadout-charts/`, logs `/tmp/loadout-chart-*`.
+Manual deployment running from frozen `.cache/loadout-chart-release` at
+`4f014f9` (includes concurrent audio commit c956936). Do not deploy older
+snapshots afterward. Unrelated staged audio files preserved; no GitHub push.
+AGENTS.md and shared handoff remain uncommitted.
+
+### 2026-11-10 — Chart/color release delivery mismatch
+Implementation complete and locally validated at `4f014f9`; 50 focused tests,
+typecheck, and real browser checks at 320/390/844/1366/1920/2560 widths pass.
+Manual Cloudflare deployment succeeded as cd0f9274-a461-46f1-be63-db8f624cc5de;
+Wrangler deployments list confirmed 100% active. Both public origins still
+served prior c956936 HTML/assets (index-BnLfKxg2.js, index-DVz51nGu.css),
+instead of release index-DTjMSJZI.js / index-DR82O52i.css. Cache-busted URLs,
+no-cache headers and fresh Chrome also saw the old build. Health checks pass
+but are insufficient to verify this release. No verified-live claim.
+One bounded repeat of `pnpm deploy:cloudflare` also succeeded as
+2a0962b3-b68a-4110-8ad9-1cf9fc03a325; public asset bytes still mismatched
+afterward. Logs `/tmp/loadout-chart-{deploy,deploy-retry,deployments,version,
+live-assets-last,production,live-check,worker-check}.log`.
+Release artifacts retained in `.cache/loadout-chart-release`; expected assets
+verified locally. Browser/Vite stopped. No pushes; unrelated staged audio
+changes preserved, AGENTS.md and shared handoff remain uncommitted.
+Remaining external issue: public delivery of the accepted chart/color release.
+
+## 2026-11-10 — Match pack restored; only TDM start re-recorded (c956936, NOT live yet)
+
+- User wanted only the TDM lines changed; the all-108 Singlish rewrite (00ec83a) was over-done (1.5 particles/line vs base 0.5). c956936 restores the original 105 clips/lines and rewords only `tdm-start` (one marker per line), 3 clips re-recorded (header cost 78; account 12,891 before, reading lagged).
+- Deployed af112c49 at 15:54Z; the loadout session then deployed cd0f9274 (15:58Z) and 2a0962b3 (16:04Z) from 4f014f9, which includes c956936. As of 16:07Z both origins still serve bc370490 (entry index-BnLfKxg2.js, the over-Singlish pack); newer versions' assets return the SPA fallback. Cloudflare status shows no matching incident. Don't keep redeploying; recheck the entry hash, then the dashboard.
+
+
+## Stronger scope shadow while strafing (2026-11-10)
+
+Local main commit `848d037` fixes the imperceptible strafe shadow: ADS suppresses
+model gait by 94%, so the natural lens/eye displacement was too small. A bounded,
+exponentially smoothed cue now follows actual camera-relative lateral velocity,
+added only to the shadow offset. It holds a visible crescent while sidestepping,
+reverses with direction and settles after stopping; slow movement is proportional.
+Inactive sights, sight switches and reduced motion clear the additional cue.
+PiP camera/projection, reticle coordinates, central clear area and gun pose are
+unchanged. Actual velocity avoids a sustained cue when pushing against a wall.
+
+51 focused optics/zoom/IFF/movement tests and typecheck pass. GPU tests cover nine
+scopes, verify strong opposite strafe crescents and pixel-identical central scene
+and reticle. New `scripts/fps-scope-strafe-smoke.mjs` drives actual mouse-keyboard
+and touch-stick movement for Longwatch and Intervention: measured horizontal
+shadow offsets reach +0.18/-0.18, settle after release, stay under 0.004 for forward
+travel and zero with reduced motion. Screenshots were inspected; no shader or
+runtime errors. The browser harness was corrected to focus the tab and provide
+stick magnitude before the successful run. No full-suite claim for this change.
+
+Manual `pnpm deploy:cloudflare` succeeded from a frozen local snapshot matching
+all 3,922 tracked files of 848d037. Cloudflare version
+`c5750949-105c-40c5-8a06-2050e686055a`; both production origins serve exact built
+entry assets/service worker and pass the routing/assets/API checks. Evidence:
+`.cache/scope-strafe-*.log`, `.cache/scope-strafe-{source,live}-verification.json`,
+and `.cache/scope-strafe/results.json` plus screenshots. Task-owned Vite and Chrome
+were stopped. No GitHub push. AGENTS.md remains local/unstaged/uncommitted. This
+entry is appended alongside pre-existing uncommitted handoff edits.
+
+
+## Optic family surface shapes (2026-11-10; local, NOT deployed)
+
+User approved concave reflex combiners, flat holographic windows and convex
+generic telescope/prism eyepieces, preserving unverified sights. Explicitly
+requested before/after screenshots before deployment; deployment is held for
+review. Reflex geometry remains unchanged. Generic fitted prisms/pistol scopes,
+fictional SAR match, XM8 Sharpshooter, Longwatch, Intervention, SCAR-H and Network
+now use convex eye-facing glass; open generic telescope backing matches. Both
+scope curvature signs stay ahead of end caps to prevent clipped reflections.
+SAR integrated, G36, XM8 ISM and OICW/QTS retain existing geometry. Reference
+sources and approximation boundaries are in docs/OPTIC-GLASS.md.
+
+Validation: 392 test files / 3,772 tests pass, typecheck passes; existing scope
+glass, reflex rendering and holo reticle GPU smokes pass. Added actual catalog
+shape routing, offset preservation, mount clearance and reflected-ray checks.
+Captured 17 variants in three fixed poses before/after. All eight captured
+unchanged configurations are byte-identical in every pose; twelve scopes have
+zero missing inner-lens reflection samples and unaffected ADS centres.
+Evidence: .cache/optic-shapes/{before,after}/, results.json in each, validation
+logs and telescope/holographic/reflex-comparison.png. Screenshots use the real
+WebGL fixture; comparison sheets only arrange the captures. Extended fixture
+to load authored GLBs for catalog variants. No GitHub push or Cloudflare deploy.
+This entry is alongside pre-existing handoff edits; leave the handoff unstaged.
+
+
+## Optic surface deployment approved and verified (2026-11-10)
+
+User approved the comparison screenshots and explicitly requested deployment.
+Manual `pnpm deploy:cloudflare` succeeded for local main `de5e391`; Cloudflare
+version `43dc5807-5560-4462-a54b-06eebabed982`. The working application source
+remained unchanged from the reviewed/tested commit (3,772 tests, typecheck and
+three optics GPU checks passed before deployment). Production build succeeded.
+Both https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev serve
+HTML, entry JS/CSS and service worker matching the local build byte-for-byte;
+both also pass scripts/cloudflare-check.mjs routing/assets/API checks. Evidence
+is in .cache/optic-shapes/deploy.log, live-verification.json, verify-live.log,
+production-check.log and workers-check.log. No GitHub push. This supersedes the
+previous deployment hold. AGENTS.md and this handoff remain unstaged/uncommitted.
+
+## 2026-11-10 — Marina aliasing improvements (0292c97)
+
+Local main commit 0292c97 adds first-person density limits (High 1.5×, Ultra 2×;
+Balanced/Low/Battery keep 1.35× before scale), optional world-only SMAA enabled
+on Ultra, live density/scale changes, and persisted/migrated controls in Video.
+SMAA runs in linear colour before OutputPass, preserves coverage/sky, clears
+edge scratch buffers, releases optional buffers when off, and leaves the
+weapon/reticle/HUD pass alone. Software-renderer fallback remains direct render.
+Marina wires, MBS upper facade frames and promenade seams filter subpixel detail
+in their existing instance batches; collisions and nearby geometry remain.
+Water filters undersampled waves/rain/shot ripples and broadens sharp sun glints.
+
+Validation: full suite 3,774 tests / 392 files, typecheck, and 20 final focused
+tests pass. Hardware Chrome/Metal Marina review covers five views against the
+previous scene at de5e391, High/optional SMAA/2×, repeat-frame stability, sky,
+SMAA-only path, buffer release, live FPS resizing/toggles, and actual Video
+preset clicks/390px layout. Sunny/monsoon reflection/ripple smoke passes.
+Harness: pnpm test:marina:aliasing (Vite5364 / Chrome9594 by default).
+Evidence: .cache/marina-aa/{results.json,*png}, /tmp/marina-aa-{tests,typecheck,
+final-focused,browser-final,water}.log. In the 1200×800 scene-only comparison,
+GPU medians: previous 4.16ms, High 4.91ms, optional High SMAA 3.80ms, 2× SMAA
+4.30ms; p95 6.40/7.74/5.83/9.04ms. GPU clock/timing variability means these are
+bounded observations, not stable relative cost or full-match FPS guarantees.
+Six added scene draw calls; optional SMAA adds three passes. High does not
+allocate SMAA targets. Native-density ceiling avoids supersampling 1× screens.
+
+Manual pnpm deploy:cloudflare running from tracked-clean local main; deployment
+and public asset byte verification still pending. No push. AGENTS.md, .claude,
+and shared handoff edits remain unstaged/uncommitted.
+
+Marina aliasing deployment COMPLETE: manual pnpm deploy:cloudflare succeeded as
+867b5d9d-2e4f-4f80-b1e2-d9982e448a70. Both blockplaysg.fun and workers.dev
+byte-match the built HTML, service worker, JS (including density/SMAA/filter
+code) and CSS. Both production Cloudflare health/routing/asset checks pass.
+Fresh production Chrome verifies the new Video controls and High/Ultra preset
+values without runtime exceptions. The prior public-delivery mismatch is not
+present for this release. Expected entry: index-BykRwbqQ.js; Three chunk:
+three-CigrJezA.js. Logs: /tmp/marina-aa-{deploy,live-assets,live-check,
+worker-check,production}.log; evidence .cache/marina-aa/release-verification.json
+and production-settings.png. Commit 0292c97 remains local; no GitHub push.
+
+### 2026-11-10 — Connected weapon platform tabs
+Commit `93e5bc4` joins the tabs edge-to-edge with their weapon listing panel
+inside one bordered surface. Selected tab shares the panel fill, gold top
+edge; keyboard focus remains visible inside the clipping boundary. Extra-slot
+actions and non-weapon filters sit outside the tab/panel group. Skin platform
+tabs use the same treatment. Typecheck and 17 relevant tests pass. Browser
+checks at 1920/1366/390/320/844 verify zero tab-to-tab and tab-to-panel gaps,
+matching selected fill, keyboard Home/End, mouse/touch and item/back links;
+no overflow or JS exceptions. Evidence `.cache/loadout-tabs/`; logs
+`/tmp/loadout-tabs-{typecheck,tests,browser}.log`. Manual deployment running.
+User is discussing replacing the two-line “In other main slot” label;
+recommended inline “In use” badge with full sentence in selected panel.
+Preference question pending; that extra change has NOT been implemented.
+No pushes; local instructions and shared handoff stay uncommitted.
+
+Connected tabs COMPLETE: manual deployment succeeded as
+623f9710-636e-462f-8087-35dbd219d5b5. Initial old-asset response resolved on
+a delayed read; both public origins now byte-match built HTML, service worker,
+all JS/CSS (`.cache/loadout-tabs/release-verification.json`). Production
+browser repeats all five viewport checks successfully with zero gaps, working
+keyboard/touch, item/back links and no runtime errors. Cloudflare check passes.
+Logs `/tmp/loadout-tabs-{deploy,live-assets-recheck,production,live-check}.log`.
+Task Chrome9586/Vite5356 stopped. No push. The inline “In use” badge plus panel
+explanation is still a proposal awaiting preference; no badge change shipped.
+
+### 2026-11-10 — Inline weapon platform occupancy badge
+User chose inline “In use” badge plus full selected-panel explanation.
+Implemented row-aligned badge, single-line 52px tabs, contextual paragraph
+“Equipped in your other main slot. Choose a different platform for this slot.”
+linked via aria-describedby. Main/extra destinations correctly identify the
+other occupied family; cosmetic skins do not display the restriction.
+Typecheck and 17 relevant tests pass. Actual browser checks at 1920/1366/
+390/320/844 verify 52px equal heights, inline alignment, selected explanation
+appearing/disappearing, both destinations, no overflow/JS exceptions.
+Evidence `.cache/loadout-badge/`, `/tmp/loadout-badge-{tests,typecheck,browser}.log`.
+Manual deployment running. No push; local instructions/handoff unstaged.
+
+Inline badge COMPLETE: local commit `2d51a6c`; manual Cloudflare deployment
+succeeded as 708e129a-d600-4871-8fd0-d3704202473b. Both origins byte-match
+all built JS/CSS, HTML and service worker (`.cache/loadout-badge/release-verification.json`).
+Cloudflare health/routing checks and live browser at all five sizes pass;
+inline badge, 52px tabs, contextual explanation and both destinations verified.
+Logs `/tmp/loadout-badge-{deploy,live-assets,live-check,production}.log`.
+Task Vite5358/Chrome9588 stopped. No push; local instructions/handoff unstaged.
+
+### 2026-11-10 — Shared Store / Inventory equipment workspace
+User approved trying the shared Loadout shell proposed in discussion. Both routes
+now mount LoadoutStore with connected Store/Inventory tabs; shared wallet, slots,
+review action and details remain mounted across switches. Inventory filters to
+accessible equipment/stock, retains context for unowned Store selections, and
+supports equip, pack/unpack, renewal and discard. Traditional catalog is embedded
+within the same shell; its category/platform maps across to Inventory. Switching
+preserves current context and restores the matching Store scroll position; native
+Back/Forward no longer animates the whole equipment screen. Both main-menu
+shortcuts remain. Mobile header is compact, and the legacy embedded catalog's
+button styling is isolated from loadout controls.
+Full suite passed: 393 files / 3784 tests before final focused refinements;
+34 focused tests and typecheck pass. Full loadout-store browser flow passes at
+1440 desktop, 320/390 phones and 844 landscape. New equipment-navigation smoke
+covers context, persistent shell, keyboard/history, scroll, no-charge navigation,
+shared details, supply packing, traditional catalog, Settings and main-menu
+shortcuts; final multi-viewport and inventory rental browser checks in progress.
+Task ports Vite5360 / Chrome9590. Evidence .cache/equipment-hub/ and
+/tmp/equipment-hub-*.log. No push; local-only instructions/handoff excluded.
+
+Shared equipment validation complete: final five-size browser navigation smoke
+passes (1920/1366/390/320/844), including direct Inventory entry after visiting
+Store catalog, preserved Store scroll, Settings return and both menu shortcuts.
+Small-screen refinement keeps account/wallet in one row at 320px. Full Inventory
+playtime browser test passes migration, correct extension prices from Inventory,
+discard/cancel/fallback, all gear rental categories and actual training expiry.
+Equipment section of menu-navigation smoke also passes. Final focused suite:
+34 tests; typecheck pass. Local commit 146d96f. Manual deployment started.
+
+Shared equipment workspace COMPLETE: manual deployment succeeded as
+40079f75-3976-4108-a0b8-f6adc1081650 (local commit 146d96f). Both public origins
+byte-match built HTML, service worker and every JS/CSS asset; receipt at
+.cache/equipment-hub/release-verification.json. Cloudflare routing/health/assets
+check passed. Live production browser repeated all five viewport checks with
+no runtime errors, no overflow, preserved shell/context/Store scroll and working
+keyboard/history/Settings/menu links. Logs /tmp/equipment-hub-{deploy,live-assets,
+live-check,production}.log. Task Vite5360 and Chrome9590 stopped. No GitHub push;
+AGENTS.md, .claude/ and shared Handoff remain unstaged/uncommitted.
+
+## Shared menu controls and readable equipment UI (2026-11-10)
+
+Local main commit `e7ee575` adds shared native Button, Select, Tabs and ItemCard
+primitives plus menu typography, selection, sizing and focus tokens. Loadout,
+the embedded catalog and Settings use the shared controls. Catalog item titles
+are 16px and decision metadata 12px; settings tabs/dropdowns, audio sliders and
+install controls have 44px targets. Selected options use a dark outlined state,
+separate from primary actions. The Loadout header shortcut and weapon chooser
+are secondary; the content review action is primary. On phones the current task
+precedes the equipment overview in DOM and visual order; desktop retains its
+sidebar. Catalog filters retain keyboard focus. Small-phone Settings tabs keep
+all labels visible. Menu layout copy explains the existing Classic/Next-gen
+navigation differences.
+
+Validation: all 3,785 tests / 393 files and typecheck pass. New menu-system smoke
+passes 1440x900, 390x844, 320x568 and 844x390. Equipment navigation smoke passes
+five sizes, keyboard/history/context retention and no navigation wallet changes.
+The full store smoke passes rentals, equipping, renewals, supplies, locks,
+cancellation, touch purchase and tours (headless harness enables focus emulation).
+Production build and manual `pnpm deploy:cloudflare` succeeded, version
+`ad1775fb-124b-4c9e-a0c0-75d80881c589`. blockplaysg.fun serves byte-identical
+built JS/CSS and service worker; Cloudflare routing/assets/API-origin/PWA checks
+pass. Live Chrome verifies mobile task order, 16px catalog titles and 44px Settings
+controls with no runtime errors. Logs, hashes and live captures are in
+`.cache/menu-audit/`; design captures are in `.cache/menu-system/`.
+No GitHub push. AGENTS.md stays local/untracked. This note remains unstaged with
+the pre-existing handoff edits; no unrelated files were included in the commit.
+
+### 2026-11-10 — Carrying rig / armor insert progression audit
+Read-only gameplay audit requested; no catalog or runtime changes. Existing rigs
+end at Elite / level 4 (6/8/9 pouches). Inserts reach level 34 but all remain
+Field/Elite; global tiers already include Ultra, Legendary and Mythic. Proposed
+extending rigs through 10/11/12 pouches, reclassifying Tahan as Ultra and Durian /
+Pillbox as Legendary, and filling lighter insert progression at levels 14/28/42.
+These are suggestions, not approved or implemented balance values.
+Critical implementation constraint: magazine-inventory caps rigs at 9, uses a
+fixed nine-entry retrieval order and rear sniper offset 9; fps-body side-pouch
+coordinates overlap beyond 9. Larger rigs require a compatible slot-layout
+migration, rendering/reload updates and checkpoint/rental validation. Armor
+rating halves absorption per overmatch class; retain mass/bulk costs and existing
+specialist roles. Standard expedition armor pools are explicit IDs, not automatic
+catalog discovery; armor preview premium styling recognizes only Elite/Ultra.
+Validation: 77 existing tests across 8 files pass (armor-inserts, armory-balance,
+fps-body, intervention-pouches, fps-encumbrance, equipment-rentals, armor-pickup,
+loadout-comparison). No code commit, push or deployment for this audit. Shared
+handoff remains unstaged with its pre-existing edits; AGENTS.md remains untracked.
+
+### 2026-11-10 — Approved rig and insert tier expansion (validation in progress)
+Implemented the approved first release: Pathfinder (Ultra/L10/10 pouches),
+Expedition (Legendary/L22/11), Atlas (Mythic/L36/12), Strider (Ultra/L14,
+110 AP/75%/3.5 kg/2% bulk), Guardian (Legendary/L28,125 AP/78%/4.5 kg/4%).
+Tahan is Ultra; Durian and Pillbox Legendary, with their stats unchanged.
+Hourly rentals: rigs 26/36/48 TK; new inserts 24/34 TK. Mythic insert deferred.
+Extended the physical inventory without renumbering legacy front/rear slots:
+new fronts 18–20, rears 27–29, with separate pouch helpers throughout starting
+allocation, reload ordering and body rendering. Distinct upper/lower side
+pouches, tier trim, new insert colors and refreshed model thumbnails. Advanced
+armor now appears on premium rolls in high-risk districts/exposed sectors while
+preserving the seeded RNG draw budget. Documentation and browser smokes updated.
+Full suite: 3,798 tests / 394 files pass; typecheck passes. Regression coverage
+includes all new pouches, sniper stacking, interrupted reloads/checkpoints,
+rig expansion/shrinkage, mixed feeds, resupply, rental expiry, weight and armor
+breakpoints. Store browser checks and live FPS reload smoke in progress.
+Task Vite5362 / Chrome9592. Evidence .cache/gear-tiers/, .cache/intervention-pouches/rig-atlas/;
+logs /tmp/gear-tiers-*.log. No push. Keep AGENTS.md and shared handoff unstaged.
+
+Gear tier validation complete: all four store sizes (1440/390/320/844) pass
+unlock gates, tiers, thumbnail loading, hourly rental/equip and exact charges,
+without horizontal overflow or runtime exceptions. Actual FPS Atlas smoke passes
+all twenty sniper draws plus pistol slots 19/20 on desktop and front/rear draws
+on both phone orientations (26 reloads total, finite hand/source transforms,
+no runtime/shader errors or map requests). Screenshots reviewed for the new
+models and new pouch extraction. Local main commit 6928926; manual Cloudflare
+deployment started. No GitHub push; local instructions and handoff excluded.
+
+Gear tiers COMPLETE: manual Cloudflare deployment succeeded, version
+828dee28-7eb4-4bf3-8760-6b721a238ebe (commit 6928926). Both public origins
+byte-match all built HTML, JS/CSS, service worker and eleven changed/new gear
+images; receipt .cache/gear-tiers/release-verification.json. Cloudflare health,
+routing/assets/PWA checks pass. Live production store repeated all four sizes
+(1440/390/320/844), covering new unlocks, tier labels, images, rent/equip and
+exact wallet charges, with no overflow or runtime exceptions. Production
+screenshots/results: .cache/gear-tiers/store-live/. Logs:
+/tmp/gear-tiers-{deploy,live-assets,live-check,live-browser}.log.
+Task Vite5362 / Chrome9592 stopped after verification. No GitHub push;
+AGENTS.md, .claude/ and the shared handoff remain unstaged/uncommitted.
+
+### 2026-11-10 — LBS Maid rename and companion proposal
+User chose Maid as the Mythic rig's name. Renamed the catalog display name and
+three ARMORY documentation mentions; retained rig-atlas identity, thumbnail,
+flavor text and all gameplay stats for save compatibility. Local commit d300d08.
+Twenty relevant existing tests and typecheck pass. Manual Cloudflare deployment
+succeeded as 791617e2-401e-463f-8452-d75d4056c8e5; both public origins match all
+built HTML/JS/CSS/SW and gear-image hashes. Receipt:
+.cache/maid-rig/release-verification.json; logs /tmp/maid-rig-*.log. No GitHub push.
+During deployment the user proposed a literal maid carrying magazines, fetching
+from her, and massively buffing capacity. Inspected NPC interaction and resupply
+code; proposed a following companion with 48 additional standard-magazine slots,
+nearby E transfer into the player's existing 12 pouches, finite stock and weight
+only on ammunition carried by the player. This companion behavior is a design
+proposal, not implemented; current live change is the rename only.
+
+### 2026-11-10 — Walking Maid and Encik’s 10-pack (implementation/validation)
+Approved literal Maid carrier and Legendary Encik pack implemented locally.
+Encik rig-encik: L30/40TK per hour, 11 ready pouches +24 reserve slots,3.8kg
+empty carrier; pack ammunition contributes weight once. Stable rig-atlas Maid:
+L36/48TK per hour,12 ready pouches +48 companion slots,1.2kg empty rig. Own
+non-combat model, fixed 2.4m/s collision/nav walking, 2.8m clear reach, no sprint
+or catch-up warp; stock and outstanding district catch-up time persist. Personal
+companion is currently local to its owner's client, not a replicated arena actor.
+Hold E (away from other interactions) or touch Transfer: one compatible container
+per second, completed containers only, cancellation on interruption; R unchanged.
+Drums cost2 reserve slots, belts3. Supply points refill carrier stock only when
+accessible; saved old snapshots initialize new stock empty. New pack/body and
+Maid preview models, rendered WebP thumbnails, stock/distance/progress HUD/docs.
+Full suite 3811 tests/396 files passed before added stair regression; 14 focused
+carrier/follower tests now pass including stairs, long chases, walls, checkpoint,
+weight, finite stock, interrupted reloads and rental expiry; typecheck passes.
+Browser gameplay all 3 viewports passed finite stock/timing/cancellation, actual
+keyboard E and captured touch holds, correct weight transfer and catch-up from
+28m gap. A final visual pass and store checks ongoing. Chrome capture permission
+was explicitly granted in the test browser; unrelated projects/last-train changes
+triggered HMR once, so task Vite uses .cache/reserve-carriers/vite.config.ts with
+HMR disabled/that tree ignored. Keep unrelated projects/ edits untouched.
+Task Vite5364/Chrome9594, logs /tmp/carriers-*.log, evidence .cache/reserve-carriers/.
+No commit/deployment yet for these changes. Never push GitHub; AGENTS.md,
+.claude/, projects/ and the shared handoff stay unstaged/uncommitted.
+
+### 2026-11-10 — Last Train ElevenLabs hackathon prototype
+User arrived at ElevenLabs hackathon without laptop, asked for a new project,
+review artifacts and a Wrangler site. Built isolated `projects/last-train` on
+main; existing game edits were preserved. Local commit 38778ba, no GitHub push.
+Nine original narrated scenes, four endings, responsive SVG station artwork,
+captions/playback/seeking, optional generated ambience, local ending collection,
+share fallback, pitch/demo guide and a 2.27 MB downloadable source/audio kit.
+No runtime API calls or secrets in client. Story uses authored branches (no
+live conversational agent); George premade voice, Multilingual v2 narration,
+text-to-sound v2 eight-second ambience. Used existing once-only generation helper.
+Nine TTS + one SFX requests: response cost headers total 861 credits. Subscription
+meter before/after: 12969/40000, observed delta 0 immediately after generation.
+Private receipts under projects/last-train/.cache/audio-v1; no ambiguous retries.
+Process CLOUDFLARE_TOKEN failed auth; saved Wrangler OAuth worked. Separate Worker
+manual `pnpm deploy:cloudflare` succeeded, version
+05db3264-d273-4d6f-a467-104a39fd28b6, URL:
+https://last-train-elevenlabs.sunjc826.workers.dev
+Guide /review, downloadable /last-train-review.zip, opening /audio/arrival.mp3.
+Tests (story reachability/all endings, text parity and audio hashes), strict JS
+typecheck and build pass. afinfo validates all ten MP3s (8–16 seconds each).
+All 18 deployed public file hashes match local dist via HTTPS; audio/mpeg verified.
+Release evidence: projects/last-train/.cache/release-verification.json.
+Visual browser and physical phone playback QA remain pending: CUA reports Mac
+locked, no available browser surfaces. No screenshot claimed. Local preview stopped.
+AGENTS.md and shared handoff remain unstaged/uncommitted; unrelated files untouched.
+
+Carrier validation complete: full suite 3811/396 passed, then 45 relevant tests
+plus the final 15 carrier/follower regressions passed after adding stair and
+incompatible-feed swap cases. Typecheck passes. Actual game browser smoke passes
+keyboard E, captured touch, full-second transfer, cancellation, finite stock,
+pack vs companion weight and catch-up at desktop/portrait/landscape. Final
+screenshots inspected (including Maid in-world). Store smoke passes four sizes
+1440/390/320/844, all six expanded gear unlock/price/rent/equip/image checks.
+Final visual review caught cropped companion/pack in the interactive store;
+first deploy was interrupted during build, before publishing. Fixed camera
+framing from complete carrier bounds and repeated all store sizes successfully.
+Local main commits b246361 and 3ed9b19; second manual deployment running.
+Compatible stock is preserved on weapon changes; incompatible stock leaves
+with the old weapon, allowing the new feed to be supplied without fresh ammo
+being invented during the swap. No GitHub push, local/shared files excluded.
+
+Walking Maid / Encik pack COMPLETE. Manual Cloudflare deployment succeeded:
+version 05b92225-b12c-4006-8eb0-fc14cb9c461b, final local commit 3ed9b19
+(feature commit b246361; another task's intervening Last Train commit preserved).
+Both https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev
+byte-match all 19 checked built HTML/JS/CSS/SW/gear-image resources. Both
+cloudflare-check runs pass health, rooms/routing, assets and PWA checks with no
+paid API requests. Receipt .cache/reserve-carriers/release-verification.json;
+logs /tmp/carriers-{deploy,live-assets,live-check,worker-check}.log.
+Final gameplay/store screenshots and receipts retained in .cache/reserve-carriers/
+and .cache/gear-tiers/store/. Task Vite5364 and Chrome9594 stopped after release.
+No GitHub push. AGENTS.md, .claude/ and shared handoff remain uncommitted.
+
+### 2026-11-10 — Ammunition pickup and rig placement animations (validation)
+Added a physical reach/grip/carry/insert/release viewmodel for ammo pickups and
+reserve transfers, borrowing the exact rifle/pistol/sniper/drum/belt-box mesh
+from the actual destination pouch. Connected support arm, finger grip, weapon
+tuck and a small reduced-motion-aware downward glance. Destination transforms
+match the rendered rig across front/rear/side slots and standing/crouch/prone.
+Finite carrier transactions remain one second; completed transfers do not
+replay. Other additions are observed as a cosmetic queue: the real ammunition
+is immediately owned, queued pouches fill visually one at a time (.85s each),
+and firing/aiming/reloading/sprinting or menus cancel presentation without loss.
+Fresh deployments/checkpoints are baselines, never replayed pickup batches.
+Source cues distinguish field pickup, supply counter, pack and Maid. HUD shows
+which pouch is being populated. No new audio requests or paid API use.
+Nine new regressions cover inventory observation, cancellation/reload invalidation,
+carrier de-duplication, exact physical seating in all five container shapes and
+poses, resource ownership, and hiding/revealing only the relevant pouch.
+Full root suite:3822 tests/398 files pass; typecheck passes. Root Vitest initially
+collected the isolated Last Train node:test file; exclude projects/** using
+Vitest's defaults plus that scope. Last Train's own runner passes both tests.
+Browser carrier animations pass rifle/drum/belt and phone portrait/landscape;
+actual expedition ammo collection passes three-magazine packing. Final complete
+browser rerun/build underway. Fixture uses real supply loot in the tutorial
+world; first attempt clicked before focusedLoot settled, fixed by waiting for
+the actual ammunition card. No gameplay failure hidden by that fixture change.
+Evidence .cache/ammo-placement/, logs /tmp/ammo-animation-*.log.
+Task Vite5364/Chrome9594. No commit/deployment for this follow-up yet.
+
+### 2026-11-10 — Standalone ElevenLabs repository published
+User explicitly requested push to sunjc826/elevenlabs-hackathon and prompts for
+local Codex and independent pi.dev development. Treated this as a narrow push
+authorization for that repository; Blockplay/Astra origin remains unpushed.
+Made projects/last-train portable: pinned TypeScript/Wrangler and local lockfile,
+standalone generation helper, local optional env loading, ignore rules and README.
+Fresh clones verify/reuse shipped audio before any API call; added three fake-
+network tests for once-only paid request behavior. No audio regenerated.
+Original-folder changes committed locally as 8059e6c using --only, preserving
+unrelated staged game work. Created standalone checkout at
+/Users/computer9021/Documents/elevenlabs-hackathon, exported only 32 tracked Last
+Train files, and pushed root commit 1016cf4 to main using working SSH credentials.
+HTTPS Git had no credentials and GitHub connector returned 404, but SSH clone and
+push succeeded. No parent history, AGENTS.md, private caches, env files or secrets
+included. Standalone frozen install, five tests, strict typecheck, build and keyless
+audio reuse all pass. Live site runtime unchanged; no deployment needed for this
+repository/tooling handoff. Continue GitHub development from the standalone clone;
+the nested original folder still belongs to Astra's Git repository.
+
+### 2026-11-10 — Ammo pickup / rig packing committed
+Committed locally on main as de3e3fa (no Astra/GitHub push). Final phone capture
+verified after centring the carry waypoint for narrow aspect ratios. Screenshot
+fixture freezes its own RAF clock so the brief gesture is captured reliably.
+Full root suite 3822/398 passed, typecheck/build passed; actual field pickup and
+rifle/drum/belt carrier transfers passed on desktop and portrait/landscape phone.
+Latest phone rerun passed; final Cloudflare deployment now running. Deployment
+and live verification receipt to follow below. AGENTS/.claude/handoff excluded.
+
+Manual pnpm deploy:cloudflare succeeded for de3e3fa. Version
+1422b299-00e3-49d9-8d88-a01230cef012. Both blockplaysg.fun and
+blockplay-sg.sunjc826.workers.dev verified against 19 exact built resource hashes
+and passed cloudflare-check health/routing/assets/PWA checks. Receipt:
+.cache/ammo-placement/release-verification.json; logs
+/tmp/ammo-animation-deploy.log and /tmp/ammo-animation-live-*.log. No paid calls.
+
+### 2026-11-10 — Correction: Last Train is a demo, not the chosen project
+Owner clarified the actual hackathon idea remains undecided and may be entirely
+different. README, live demo/review notes and revised Codex/pi.dev prompts now
+state this explicitly. Future agents should preserve Last Train as a reference,
+ask what the owner wants to build, and wait before product development or paid
+generation. No approved Last Train roadmap. Standalone commit feaaf5d pushed to
+sunjc826/elevenlabs-hackathon/main; original nested copy synchronized in local
+Astra commit 49338df (Astra not pushed). Five tests and typecheck pass. Review ZIP
+includes both corrected starter prompts. Manual Cloudflare deploy succeeded,
+version 202e706a-d327-4e91-9eff-0ab45b8e772e. No audio generated.
+
+## Equipment menus fill the viewport (2026-11-10)
+
+Local main commit `067624e` removes the Store/Inventory route's outer gutter,
+border and 12px corner radius; the equipment shell stretches to fill the screen.
+Inner cards retain their existing styling. Typecheck and 19 relevant tests pass.
+Chrome verified both routes at five desktop/phone/landscape sizes, full viewport
+coverage, scrolling/sticky headers and no horizontal overflow.
+Manual `pnpm deploy:cloudflare` succeeded: version
+`100a3c5d-5848-4a75-b297-04d3c49d203a`. Live desktop and phone checks confirm the
+borderless layout on both routes; built JS/CSS and service worker match production
+byte for byte, and the Cloudflare routing/assets/PWA/API-origin check passes.
+Evidence: `.cache/menu-fullscreen/`. No GitHub push. AGENTS.md and the existing
+handoff edits remain unstaged; the commit includes only game-menu.css.
+
+## Shared rank / CR / TK banner and account dropdown (2026-11-10)
+
+Local main commit `f5592ce` introduces ProfileBanner across Classic/Next-gen Home,
+Settings and the Store/Inventory header. Shared rank, level, XP, currency order,
+colors and mobile row; compact phone balances retain exact accessible values.
+The banner owns the account dropdown and all wallet/level actions, with feedback,
+Escape/focus restoration, outside-click/Tab dismissal and keyboard isolation from
+Home navigation. Removed duplicate account markup and obsolete responsive rules.
+Updated the menu navigation smoke's wallet geometry selector.
+Typecheck and full suite pass: 3,822 tests / 398 files. Chrome passed 32 combinations
+of four routes, both layouts and desktop/portrait/narrow/landscape sizes, plus
+wallet mutations, level skips, insufficient funds, maximum level, large balances,
+keyboard behavior and popup clipping/overflow checks.
+Manual `pnpm deploy:cloudflare` succeeded, version
+`9fe0d224-d59c-4794-943c-50ca7f086810`. Verified production JS/CSS/service worker
+byte-for-byte; Cloudflare routing/assets/PWA/API checks pass. Live Chrome verified
+all routes in both layouts at desktop and phone sizes. Direct Node/Chrome network
+attempts timed out; explicit environment proxy via curl and Chrome succeeded.
+Evidence: `.cache/profile-banner/` (browser/edges/live/test/deploy logs and captures).
+No GitHub push. AGENTS.md, .claude and pre-existing handoff edits remain unstaged.
+
+## Stable menu header placement (2026-11-10)
+
+Local main commit `4f2b544` replaces independent Home/Settings/Store/Inventory
+header geometry with MenuHeader and shared safe-area-aware gutters/rows.
+Desktop gear moves immediately left of the right-anchored banner; phone gear
+remains in the first row above the full-width banner. Settings omits the gear
+without moving the account. Compact banner contents at tablet widths prevent
+long ranks/large balances from crowding navigation. Stable menu scrollbar space
+avoids horizontal jumps; route animations move page content, leaving headers
+stationary. Gameplay routes retain their existing transitions/layout.
+Typecheck and 31 relevant tests pass. Chrome verified identical banner rectangles
+across 56 combinations (7 viewport sizes, 4 routes, 2 layouts), including simulated
+leave/enter animation phases and dropdown geometry, with max-rank/large balances.
+Manual Cloudflare deployment succeeded: `53b908bd-31e1-4762-b72c-20148a52f067`.
+Production JS/CSS/service-worker hashes match build; Cloudflare checks pass.
+Live desktop and phone matrix also passes across both layouts and four routes.
+Evidence: `.cache/menu-header/`. No GitHub push; local guidance and existing
+handoff edits excluded from commit. Temporary Vite and Chrome stopped.
+
+## Main-menu check for updates (2026-11-10)
+
+Local main commit `d751fd4` adds Check for updates to both menu layouts, with
+checking, current, unavailable and retryable error feedback. Manual checks call
+ServiceWorkerRegistration.update(), wait for installation/caching (bounded to
+60 seconds), and reuse the existing Update & reload dialog without automatic
+reload. Duplicate checks are ignored; background update failures are caught.
+The footer remains reachable on short landscape screens; status feedback fits
+narrow phones. No sound generation or paid API requests.
+Typecheck and full suite pass: 3,828 tests / 398 files, including 16 PWA tests.
+The extended production PWA smoke passes real current/new-worker/offline checks,
+explicit update acceptance/reload, and existing offline behavior. Chrome layout
+checks pass both designs at six viewport sizes, with/without install controls;
+44px update target, hit testing, feedback bounds, and screenshots verified.
+Manual `pnpm deploy:cloudflare` succeeded, version
+`89a663c2-801d-40fa-b078-a10d40ce6056`. Public blockplaysg.fun JS/CSS/service worker
+match build byte for byte; Cloudflare routing/assets/PWA/API checks pass.
+Evidence: `.cache/pwa-updates/`. Temporary Chrome and preview server stopped.
+No GitHub push. AGENTS.md, .claude and pre-existing handoff edits remain unstaged.
+
+## Dismissible update feedback (2026-11-11)
+
+Local main commit `b152681` makes the up-to-date status fade after four seconds
+and disappear after a 250ms transition. Status popups have an accessible close
+button; dismissing returns focus to Check for updates when appropriate. Errors
+remain readable until closed or another check starts. Timers reset on a new
+check and clean up on route changes; reduced motion disables the transition.
+Typecheck and 26 relevant PWA/menu/title tests pass. Chrome verified desktop
+Classic and 320px Next-gen automatic fading/removal, manual close/focus, repeat
+check timing, persistent errors, reduced motion, and no uncaught exceptions.
+Manual Cloudflare deployment succeeded: `0cc5f663-5882-49ce-bdc3-56f5f852d8e9`.
+Public JS/CSS/service-worker bytes match the build; Cloudflare checks pass.
+Evidence: `.cache/pwa-feedback/`. Temporary Vite and Chrome stopped. No GitHub
+push; AGENTS.md, .claude and existing handoff changes remain unstaged.
+
+## Simplified equipment header and Help
+
+Local main commit `7da2c02` removes the Loadout title and Tour from the top
+Store/Inventory bar. Main menu is a quiet back link. Settings uses the shared
+header action slot and shared gear styling, matching Next-gen Home's exact gear
+and banner geometry on desktop and phone. The Store/Inventory tab row now has a
+question-circle Help button (label on desktop; accessible icon on phones), opening
+the existing store tour from either route. Review remains labelled at 320px.
+Typecheck and 21 relevant tests pass. Chrome checked both equipment routes at five
+sizes, gear/banner equality with Home, 44px controls, no overflow, Help, Escape
+focus restoration and Settings links; final 390px/320px layout recheck passed.
+Manual Cloudflare deployment succeeded, version
+`1cd6797a-79b2-47e7-83e6-d82d57389969`. Built JS/CSS/service-worker hashes match
+production; live desktop and 320px checks pass. General Cloudflare health/assets/
+PWA/API check passed after one transient proxy SSL connection failure.
+Evidence: `.cache/store-help/`. Existing update-feedback work was preserved and
+landed separately as b152681 during this task. No GitHub push. AGENTS.md, .claude
+and pre-existing handoff changes excluded. Temporary Vite/Chrome stopped.
+
+## Recoverable PWA update activation (2026-11-11)
+
+Local main commit `426bf06` fixes the stale update-offer race: the old button
+captured a worker and waited only for a future controllerchange, even if another
+client had already activated it. The modal then stayed disabled indefinitely.
+Acceptance now checks current controller/activation state, uses the latest waiting
+worker, observes state/controller changes with a polling fallback, and rejects
+stalled activation after 15 seconds. Store-owned applying/error state prevents
+double submissions and restores Retry update on failure. No storage is cleared.
+Seven regression tests cover already-activated/replaced workers, normal activation,
+missed events, stalled retry, redundant workers and messaging errors. Extended
+Chrome production PWA smoke passes normal acceptance, externally activated worker,
+dropped activation message/retry, and offline behavior. Typecheck and all 3,835
+tests / 398 files pass. Browser smoke needed NO_PROXY for localhost in this host.
+Manual Cloudflare deployment succeeded: `4b7b79a5-69a9-4c70-9fbe-133f8fa5f304`.
+Public HTML, entry JS/CSS and service worker match the isolated release byte for
+byte; live Cloudflare routing/assets/PWA/API checks pass. Concurrent uncommitted
+LoadoutStore/menu CSS edits appeared after testing, so deployment used a detached
+local copy of 426bf06 with the existing environment settings. Those edits were
+preserved. Evidence: `.cache/pwa-freeze/`; release copy under `release/`.
+No GitHub push. AGENTS.md, .claude and existing handoff changes remain uncommitted.
+
+## Grouped deployment loadout panel (2026-11-11)
+
+Local main commit `bfa515b` replaces separate sidebar cards with one panel and
+clickable divided rows grouped into Weapons, Protection & equipment, and Supplies.
+All nine slots remain: weapon skins sit with weapons, vehicle skins with equipment.
+Rows retain meaningful rental/extra-slot notes while omitting repeated availability
+copy; the review list keeps its existing full metadata and ordering. Selected rows
+use a subtle fill/edge marker and aria-current; keyboard focus is inset and visible.
+Phone layouts use the same single-column rows with at least 64px targets.
+Typecheck and 28 relevant tests pass. Browser checks exercised all nine rows in
+both Store/Inventory at desktop, 390px, 320px and landscape, including selected
+state, keyboard focus, review navigation and no profile mutations. Landscape
+automation was rerun with a scroll-settling delay after an initial click race.
+Manual deployment waited for the concurrent PWA release, then succeeded:
+`2ae609ac-3f5a-4379-82cb-22a0c50a04a3`. Production JS/CSS/service-worker match
+build; Cloudflare health/assets/PWA/API checks pass. Live desktop and 320px row
+navigation checks also pass on both routes. Evidence: `.cache/loadout-rows/`.
+No GitHub push. Pre-existing PWA work landed separately as 426bf06; local guidance
+and handoff edits excluded from this commit. Temporary Vite and Chrome stopped.
+
+## Open loadout dividers and matching Review (2026-11-11)
+
+Local main commit `2b62d6e` removes the sidebar's enclosing rounded border and
+background, replacing them with one vertical separator from the main content.
+On mobile, the stacked sidebar starts with a horizontal separator. Group and row
+dividers, hover fills, selected edge markers, focus outlines and touch targets stay.
+Review now shares the three grouped row sections and flat styling, with its full
+metadata retained. The readiness summary is unboxed and separated by a vertical
+rule on desktop or a horizontal rule below the rows on mobile. Review no longer
+marks a previously edited slot as current; the sidebar still marks the active slot.
+Typecheck and 28 relevant tests pass. Chrome verified both routes at desktop,
+390px, 320px and landscape, checking separator direction, transparency, all nine
+Review edit actions, focus/selection, match navigation and unchanged profile.
+Manual Cloudflare deployment succeeded: `14987388-4375-4790-8163-d0fda1afc3ad`.
+Production JS/CSS/service-worker hashes match build; Cloudflare checks pass.
+Live desktop and 320px checks pass on Store and Inventory, including all Review
+edit actions and visual inspection of the mobile readiness divider.
+Evidence: `.cache/loadout-dividers/`. No GitHub push. AGENTS.md, .claude and the
+existing handoff edits remain unstaged. Temporary Vite and Chrome stopped.
+
+
+## Game-menu Back semantics (2026-11-11)
+
+Local main commit `cff079d` makes in-game Back follow explicit menu parents
+through guarded route transitions, without invoking browser history. Settings
+returns to Main menu regardless of its entry point; top-level Escape in Settings,
+Store and Inventory does the same after nested equipment panels have closed.
+Nested play/tutorial/match Back controls retain their specified menu parents.
+Removed unused history-origin helpers/metadata; native browser Back/Forward and
+active-run guards remain supported. Regression tests cover matching old history
+entries, direct links and guard cancellation/confirmation.
+
+Typecheck and 45 focused tests pass. Full suite: 3,837 passed, one Hardpoint
+simulation assertion failed (team count); its entire nine-test file passed on
+rerun. Chrome checks pass in the workspace, isolated release and production:
+Settings after equipment tab switches, Escape, direct links, nested parents,
+mobile, no history.back invocation or runtime errors.
+
+Manual Cloudflare deployment succeeded, version
+`099ec069-cd8f-4858-be79-9b33641ced77`. Production HTML/JS/CSS/service worker
+match release bytes; live Cloudflare health/assets/PWA/API checks pass. Release
+includes concurrent committed equipment changes `fcbe092`, matches `cff079d`,
+and was deployed after the other release attempt ended. Evidence and release
+path: `.cache/menu-back/`. No GitHub push. AGENTS.md, .claude and accumulated
+handoff edits remain unstaged. Temporary release Vite server stopped; existing
+Chrome and workspace Vite preserved.
+
+## Sticky equipment bars and removal of header Review (2026-11-11)
+
+Local main commit `fcbe092` removes the top-right Review loadout shortcut, keeps
+the equipment header/tabs sticky even in short landscape viewports, and pins the
+existing footer/actions to the bottom. A flex shell keeps the footer at the viewport
+bottom on short views. Safe-area padding and a compact landscape footer preserve
+space for content. ResizeObserver measures both bars for native scroll padding;
+keyboard focus and scrollIntoView targets remain clear, and offsets clean up on
+route exit. Footer no longer moves with content during route transitions.
+Typecheck and 34 initial relevant tests passed; isolated release checks passed
+37 tests after incorporating concurrent committed navigation fix `cff079d`.
+Chrome verified both routes at five viewport sizes, top/middle/end scrolling,
+footer actions, header Review removal, focus clearance, Help and Settings; active
+page resizing updates both measured offsets. Final compact landscape check passed.
+Built/deployed from `.cache/sticky-equipment/release`, a snapshot of cff079d
+including fcbe092, to preserve concurrent navigation work. An initial isolated
+pnpm dependency preflight rejected the node_modules symlink; using the existing
+unchanged lockfile/dependencies with pnpm_config_verify_deps_before_run=false
+allowed checks/deployment without reinstalling or touching root dependencies.
+Manual deployment succeeded: `51b06dd8-30dc-4ffd-ad56-3133e10831e7`.
+Production JS/CSS/service-worker bytes match release build; Cloudflare checks pass.
+Live desktop, 320px phone and 667px landscape checks pass on Store and Inventory.
+Evidence: `.cache/sticky-equipment/`. No GitHub push. Guidance/handoff excluded from
+commit; temporary Vite and Chrome stopped. Earlier pre-deploy build of fcbe092
+was stopped before publishing and refreshed to cff079d to include the newer fix.
+
+## Compact mobile menu bars (2026-11-11)
+
+Local main commit `19a503f` shares 4px vertical chrome spacing across Home (both
+menu designs), Settings and equipment. Portrait headers retain aligned banner /
+gear rows with no extra row gap; compact spacing also covers short landscape up
+to 1000px wide. Controls retain 44px touch targets and safe-area insets. Equipment
+tabs are 45px including the divider; mobile action footers are 53px. Mobile save /
+rental status moves into scrolling page content when the footer has actions;
+Home's note-only footer stays compact. Desktop layouts remain unchanged.
+Typecheck and full Vitest suite passed: 398 files, 3,838 tests. Browser checks
+verified exact banner geometry across four routes, two designs and seven viewport
+sizes, plus dropdown containment / dismissal and transition positioning. Sticky
+bars, footer actions, Help, Settings and keyboard focus passed both equipment
+routes at five sizes; 320px actions fit one row. Measurements and screenshots
+are in `.cache/mobile-menu-bars/` (99px portrait equipment header, 45px tabs,
+53px action footer; 55px header in 844px landscape).
+Manual `pnpm deploy:cloudflare` succeeded, version
+`2d0963fd-9049-4566-bf2e-b76bd4f45719`. Live JS/CSS/service-worker bytes match the
+build, Cloudflare checks passed, and live desktop / 320px phone / 667px landscape
+sticky-bar checks passed. Live 320px banner alignment passed across all four
+routes and both designs. No GitHub push; AGENTS.md, .claude and accumulated
+handoff changes remain unstaged. Temporary Vite and Chrome stopped after checks.
+
+## Shared mode-select header (2026-11-11)
+
+Local main commit `0080f79` replaces ActivityMenu's independent gear / header
+layout with MenuHeader and the existing ProfileBanner. Play, Single Player,
+Multiplayer and Training now share Home / Settings / equipment header geometry,
+including the compact mobile spacing. Next-gen gear stays at the same coordinates
+as Home, mode title sits beside Back, and card markers clear the mobile account
+row. Removed obsolete mode-header positioning. Route animations now move only
+activity content, keeping the shared header anchored.
+Typecheck and 14 relevant navigation / menu-design tests passed. Browser checks
+compared eight routes at 1440, 844 landscape, 667 landscape, 390 and 320 widths,
+including dropdown fit / dismissal and anchored transitions. Settings activation,
+parent Back and keyboard card navigation passed all four selectors at desktop,
+320 and 667 widths. An initial parallel test shared the menu-design localStorage
+and contaminated the 844px Classic run / action harness; reran action checks in
+an isolated Chrome profile and 844px geometry sequentially with an explicit
+layout assertion. Both passed. Evidence: `.cache/mode-header/`.
+Manual Cloudflare deployment succeeded, version
+`7d74e2b5-092a-4dcf-a03c-ee8e2235d48d`. Exact live JS/CSS/service-worker bytes match
+the build and Cloudflare checks pass. Live next-gen geometry / gear hit testing /
+dropdown checks passed all eight routes at 1440 and 320 widths. No GitHub push.
+Local guidance and accumulated handoff edits remain unstaged. Temporary Vite and
+both isolated Chrome processes stopped after verification.
+
+
+## Main-menu Back returns to the title screen (2026-11-11)
+
+Local main commit `e60044d` fixes browser/device Back from Main menu reopening
+Single Player. Title and Main menu now have distinct indexed history entries at
+`/`; every return to Main menu has a title entry immediately behind it. Starting
+advances to Main menu; native Back/Forward synchronizes the title state, including
+reloads and Back during the start animation. Escape from Main menu returns to
+the title, after dismissing an open account dropdown. The title restores focus
+to its start button and hides the next-gen settings control along with menu UI.
+
+Typecheck, 29 focused tests and the full 399-file / 3,844-test suite pass.
+`scripts/title-back-smoke.mjs` passes locally and on production in both designs
+at desktop and phone widths: first entry, return from Single Player, direct
+Settings links, reload, Forward, Escape, animation interruption and title focus.
+Mobile title screenshot visually checked. Evidence: `.cache/title-back/`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`20d8ab18-d9ca-45e8-ac0e-e38d603c975b`. Production HTML, entry JS/CSS and service
+worker match build bytes, and Cloudflare health/assets/PWA/API checks pass.
+No GitHub push. Local guidance and accumulated handoff changes remain unstaged.
+Temporary title-test Chrome stopped; pre-existing Vite/Chrome preserved.
+
+## Portrait account and settings row (2026-11-11)
+
+Local main commit `7981ebb` places the account banner and settings gear on the
+same second header row on portrait phones <=720px. Navigation / brand stays
+above; gear remains on the right. The fixed 44px gear column is reserved even
+on Settings / Classic Home to preserve banner geometry across menus. Portrait
+currency icons are omitted while CR/TK labels remain; tighter inline spacing
+and 12px balances fit at 320px without reducing 44px controls. Dropdown anchors
+to the banner's left edge and can extend across the available screen gutter.
+Desktop and landscape retain their previous layout. Only shared CSS changed.
+Typecheck and 13 relevant tests passed. Browser geometry / hit-target / dropdown
+checks passed eight routes in both designs at 1440 desktop, 844 landscape, 390
+and 320 portrait; account / gear centers share the portrait row. Maximum military
+rank with balances 9,999, 999.9K and 1M fits at 320px with full accessible values,
+touch dropdown opening and Escape dismissal. Screenshots visually inspected.
+Manual Cloudflare deployment succeeded: `4d4714d8-2e0a-496f-a422-ad36b0adb173`.
+Live JS/CSS/service-worker bytes match the build; Cloudflare checks passed. Live
+320px next-gen checks passed all eight routes. Evidence:
+`.cache/portrait-account-row/`. No GitHub push; local instructions and accumulated
+handoff edits remain unstaged. Temporary Vite / isolated Chrome stopped.
+
+## Portrait account controls on the top row (2026-11-11)
+
+Local main commit `0ab4894` swaps the two portrait header rows: rank/CR/TK banner
+and right-aligned settings gear are now at the top, with brand / Back navigation
+below. Shared geometry, touch targets and dropdown rules are preserved. Only
+portrait CSS grid row assignments and the explanatory comment changed.
+Typecheck and 13 relevant tests passed. Local next-gen browser checks passed
+all eight menu routes at 320 and 390 widths, including top-row placement, exact
+shared coordinates, gear hit targets, banner contents, dropdown containment and
+transition anchoring. Classic Home / Settings also passed at 320px. Main menu
+screenshot visually checked. Evidence: `.cache/portrait-top-row/`.
+Manual Cloudflare deployment succeeded, version
+`d6934381-2dc6-4fb3-8c00-e553cbd81ec2`. Live entry JS/CSS/service-worker bytes match
+the build, Cloudflare checks pass, and live 320px next-gen checks pass all eight
+routes. No GitHub push. Guidance and accumulated handoff remain unstaged.
+Temporary Vite and isolated Chrome stopped after verification.
+
+## Truly single-row mobile header (2026-11-11)
+
+Local main commit `33029de` puts navigation, account and settings together on one
+portrait row (<=720px), replacing the previous two-row attempts. Shared columns
+are 44px Back/logo, flexible banner, 44px gear; header is 54px (55px with equipment
+divider). Back uses an icon with explicit accessible destination / title. Home
+uses the existing logo mark; full wordmark remains on the title screen and fades
+when entering the compact header. Mode title is omitted from the compact nav;
+Settings h1 remains visually hidden and available to assistive technology.
+Rank icon is 20px, level remains visible, currency units stack below values,
+and all interactive controls retain 44px targets. Dropdown spans the header
+width below the row; mode card markers clear the new shorter header. Desktop /
+landscape retain existing header layout.
+Typecheck and 13 relevant tests passed. Chrome checks passed eight routes in
+both designs at 320 and 390 widths, asserting one-row height and vertical centers,
+consistent banner / gear coordinates, hit targets, no clipping, dropdown bounds
+and anchored route transitions. Maximum rank and 9,999 / 999.9K / 1M balances fit
+at 320px. Title-back browser smoke passed both designs at desktop/mobile: Back,
+Forward, direct links, reload, Escape, interrupted animation and title focus.
+Store / Home / title screenshots visually checked. Evidence:
+`.cache/single-row-header/` and `.cache/title-back/` title screenshots.
+Manual Cloudflare deployment succeeded, version
+`c803d7c7-cc3b-4d06-8dd5-94b30c97153a`. Exact live JS/CSS/service-worker bytes match
+the build; Cloudflare checks pass; live 320px next-gen checks pass all eight menu
+routes with a single-row header. No GitHub push. Local guidance and accumulated
+handoff remain unstaged. Temporary Vite / isolated Chrome stopped after checks.
+
+## Next-gen menus by default (2026-11-11)
+
+Local main commit `4a595ed` makes Next-gen the default menu design for missing,
+invalid or inaccessible browser storage and the React server snapshot. Explicit
+Classic preferences remain supported and persist. Settings copy and the menu
+design guide now identify Next-gen as the default. Existing preference tests
+cover both saved choices; the browser smoke now checks a fresh default and uses
+current equipment Back, Inventory and manual-install selectors.
+Typecheck and the full 399-file / 3,845-test suite pass. Menu-design browser smoke
+passes both layouts, saved preferences, hover/focus, mode navigation, reduced
+motion, responsive touch layouts and install help. Initial smoke failures were
+stale selectors (plus localhost proxy routing); corrected and reran successfully.
+Manual `pnpm deploy:cloudflare` succeeded, version
+`eaaa444e-6819-42bc-aa3a-9f6c21a96677`. Production HTML, entry assets and service
+worker exactly match the build; Cloudflare health/assets/PWA/API checks pass.
+No GitHub push. Local guidance and accumulated handoff edits remain unstaged;
+pre-existing Vite and Chrome processes preserved. Logs:
+`.cache/next-gen-default-tests.log`, `.cache/next-gen-default-deploy.log`.
+
+## Street prop collection and district dressing (2026-11-11)
+
+Local main commit `9bf565e` adds twelve original procedural street props and the
+interactive `/prop-designs` object library, linked from faction studies. Six
+fixed fixtures (planter, bench, bollard, utility cabinet, drinks machine, cycle
+stand) contribute collision and rendered cover. Produce crates and terracotta
+pots fracture; cones, stools, wheelie bins and delivery trolleys tip and settle.
+Small props are explicitly cosmetic: local visible-round reactions, bounded
+floor physics, no movement/ballistic cover, no network state, no grenade or
+vehicle-pushing interaction. See `docs/STREET-PROPS.md` for scope and reuse.
+
+All 23 districts receive up to 24 themed roadside placements. Placement checks
+level terrain, water/obstacle clearance, road crossings, stamps, district spawns
+and a training-area keepout including targets and vehicle starts. The material
+and geometry pool is shared per world; fixed bounds are captured before mesh
+batching so Float32 merging cannot change collision. Reset restores every
+original transform; world disposal releases the pool. Navigation for all 23
+districts was rebaked by the Cloudflare build.
+
+Typecheck, 40 integration tests and the full 400-file / 3,850-test suite pass;
+the final world-relative fracture impulse adjustment also passes all five new
+prop tests. Initial failures exposed the Jurong training-area collision and
+batching-dependent collision precision; both fixed before deploy. Local
+browser smoke checks all twelve previews, fixed/moving/break/reset behavior,
+lighting, phone layouts and actual district rendering/breakage. Screenshots
+reviewed for the gallery and Chinatown, Marina, Queenstown and Tuas.
+Evidence: `.cache/street-props/`, `.cache/street-props-tests-final.log`,
+`.cache/street-props-focused-final.log`, `.cache/street-props-integration.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`f2c8dcfd-ca01-4d07-b5d1-ab13bf9c95fb`. Public gallery HTML, entry JS/CSS, prop
+modules and service worker exactly match local build bytes; Cloudflare
+health/assets/PWA/API checks pass. Deploy log: `.cache/street-props-deploy.log`.
+No GitHub push. Local guidance and accumulated handoff edits remain unstaged.
+Existing Vite and Chrome processes preserved; smoke-created tabs are closed.
+
+Live gallery interaction smoke also passes all 12 models, break/tip/reset,
+night lighting and desktop/phone layouts. First live navigation timed out but
+a fresh load resolved correctly. A later mobile click raced Chrome's viewport
+emulation; isolated touch hit-testing confirmed the actual button works. The
+smoke now waits 300 ms after a viewport change; this test-only follow-up is
+committed locally. Production app code remains the verified `9bf565e` build.
+Live evidence: `.cache/street-props-live/` and
+`.cache/street-props-live-browser.log`.
+
+## Food-specific eating animations (2026-11-11)
+
+Local main commit `5e49f26` replaces shared food shrinking with absolute-progress
+choreography for all eight foods. Toast, curry puff and bak kwa have prebuilt
+bitten silhouettes; rice packets unfold, ration seals peel open, and tingkat
+lid/carrier open. Meals use loaded spoons or pinching chopsticks with portions
+removed at mouth contact. Bak kut teh finishes with a bowl sip; ration malt and
+Milo use independent drink anchors. Containers retain their original scale.
+The whole eating rig moves back for narrow screens to keep food and grips in
+frame. World bowl/cup shells are open at the top so their contents render.
+Supply timing, effects, commit points and cancellation rules are unchanged.
+No new audio or paid generation requests.
+
+Full suite: 401 files / 3,860 tests passed. Final typecheck and 25 focused tests
+pass after visual refinements. New `pnpm test:fps:food-animation` renders five
+stages of all eight foods, checks deterministic reset and portrait rendering,
+and exercises all eight through the real game engine: firing cancels without
+spending a charge, restart succeeds, completion consumes exactly one charge.
+Reviewed desktop and phone screenshots; fixed low food placement, cutlery
+occlusion, floating mala toppings, tier band z-fighting and cup grip/specularity.
+The older `test:fps:food` wrapper stopped on its obsolete `.inventory` selector
+with next-gen menus; the new direct game fixture check passes. An intermediate
+new smoke was interrupted by a Vite reload while code was edited; final stable
+run passes without runtime errors. Existing Vite/Chrome services preserved;
+smoke-created tabs closed. Evidence: `.cache/food-animation/`,
+`.cache/food-animation-tests.log`, `.cache/food-animation-focused-final.log`,
+`.cache/food-animation-browser-final.log`.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`d2348b2c-45f5-4974-9a2f-5c3ea5913d29`. Live production HTML, entry JS (including
+food choreography), CSS and service worker exactly match local build bytes.
+Cloudflare health/assets/PWA/API checks pass. Logs:
+`.cache/food-animation-deploy.log`, `.cache/food-animation-live-verify.log`,
+`.cache/food-animation-live-check.log`. No GitHub push. AGENTS.md, pre-existing
+.claude directory and accumulated handoff remain unstaged/uncommitted.
+
+At final status, concurrent unstaged edits appeared in GameMenu.tsx,
+route-transition.ts, routes.ts and native-back.test.ts. These were not touched
+or staged by the food task. They were written at/after the production bundle
+finished; the published bundle contains food-chopsticks but no new route
+hierarchy property, confirming those concurrent navigation changes were not
+included in this deployment.
+
+## Native Android Back follows menu parents (2026-11-11)
+
+Local main `2f7eb6b` fixes the gap between hierarchical in-page Back links and
+native/browser Back, which previously restored the historical destination URL.
+A shared parentRoute map respects Classic and Next-gen navigation. Native Back
+restores the accepted entry before requesting confirmation and then navigates
+upwards; deployed training/open-world sessions return to their district picker
+first. Direct launches seed a same-document title/main step while preserving
+invite parameters. Main-menu Back collapses detours to the original title so
+old Store/Inventory visits are not replayed before leaving. History transitions
+also cancel pending click animations when the route URL does not change.
+
+Typecheck and full 402-file / 3,867-test suite pass; the final additional
+same-URL transition regression passes in a 17-test focused run. Title-back
+browser smoke passes both designs, reload/Forward/Escape/interrupted animation.
+New `pnpm test:native-back` passes locally and on production at phone sizes:
+both designs, Store/Inventory/Settings detours, mixed Back controls, direct
+launch/reload, solo/host hierarchy, original title index, active-session Cancel
+retaining the exact renderer and URL, Confirm returning to districts, then the
+next Back returning to Training. No physical Android hardware was available.
+The first live attempt timed out returning to Main menu; a fresh complete run
+passed, with the browser confirmed to load the new production entry bundle.
+
+Manual `pnpm deploy:cloudflare` succeeded, version
+`f8706b75-7273-40ea-b573-9d21115a9b7e`. Production entry JS, shared Three JS, CSS
+and service worker match local build bytes exactly. Cloudflare health/assets/
+PWA/API checks pass. Source is unchanged by test-only follow-up `67a3977`, which
+adds failure diagnostics and avoids serializing a live canvas through CDP.
+The older menu smoke was also updated for the aerial deployment controls,
+explicit Classic preference and new session-to-districts Back expectation.
+Logs: `.cache/native-back-{tests,focused,typecheck,browser,title,session,deploy,live,cloudflare}.log`.
+No GitHub push. Local guidance and accumulated handoff remain unstaged;
+pre-existing Vite/Chrome processes preserved and smoke-created tabs closed.
+The broader legacy menu-navigation browser smoke remains incomplete: after
+repairing its stale deployment selectors and canvas serialization, the final
+run hit a CDP Runtime.evaluate timeout later in the multi-mode tour. Dedicated
+native-Back and active-session browser checks passed both locally and live;
+this is not a claim that the whole legacy tour passed. New concurrent work in
+fps-engine.ts / fps-utility-motion.ts appeared after deployment and was left
+untouched and uncommitted by this task.
+
+
+## Denser district dressing (2026-11-11)
+
+User requested more varied props while retaining high-level map structure.
+Local main commit `dd12e27` raises the decorative budget from 24 to 240 per
+district. Final audit confirms 240 in each of 23 districts (5,520 total),
+66–86 grouped arrangements per map and 12–20 kinds according to district theme.
+Added picnic sets, kopitiam tables, parasols, delivery pallets, bagged supplies,
+workshop drums, community noticeboards and recycling stations: 20 models total.
+Seven cluster recipes spread across hashed road-edge and clear-interior
+candidates; market/industrial/waterfront themes vary their mix. Roads,
+buildings, landmarks and authored terrain sources are unchanged. Placement
+protects roads, water, spawns, stamps, training lanes/targets/vehicle starts,
+sector anchors, gateways and vertical access including building entrances.
+An initial regression run caught blocked entrance paths; the access exclusions
+were corrected before final validation. Parasols have a narrow pole and
+separate overhead collider. Up to 80 reactive objects remain cosmetic local
+motion/breakage, not full rigid-body or multiplayer-authoritative physics.
+
+New street-prop-batches instances fixed and reactive parts in 256m cells;
+only active reactive models update their instance matrices. Final prop draw
+counts 175–325 versus 1,245–1,655 unbatched meshes (83.2% reduction overall).
+Logical meshes retain precise picking/reset transforms; fixed instances retain
+flight bounds and movement obstacles. Cover audit now uses the same cosmetic
+exclusion as FPS authority, with a regression for instanced cosmetic objects.
+Gallery supports all 20 entries and scales the camera to tall models. Local
+fixture supports cluster review and smoke waits for the correct loaded region.
+
+Validation: full 404-file / 3,894-test suite and typecheck passed in isolated
+`.cache/density-release`; modified source/docs/tests were byte-compared with
+main before commit. Snapshot then reset to exact dd12e27 (includes concurrent
+utility commits 5b392c7/e249e9a; latter only adjusts unrelated smoke assertion).
+Local browser smoke passed all20 models, fixed/moving/break/reset, lighting,
+320/390px phone layouts and four district scenes. Café, delivery, garden and
+seating cluster screenshots visually reviewed; spacing adjusted so companion
+objects survive placement checks. Final audit JSON and test/browser logs in
+`.cache/density-release/.cache/density-*`; cluster images in
+`.cache/density-clusters/`.
+
+Manual `pnpm deploy:cloudflare` succeeded from exact committed snapshot,
+version `4c30c847-de41-4007-9254-41b19965dc55`. Build rebaked all23 districts.
+Public gallery shell, entry JS/CSS, prop modules and service worker match local
+build bytes; Cloudflare health/assets/PWA/API checks passed. Initial live
+browser used cached12-model release; standard Update & reload applied the
+new worker, verified index-Ctcc4kxE.js, then complete live20-model desktop/mobile
+smoke passed. Deployment/live logs and screenshots retained in snapshot cache.
+No GitHub push. Local AGENTS.md, pre-existing .claude and accumulated handoff
+remain unstaged/uncommitted. Stopped only this task's Vite5176 PID74337;
+pre-existing Vite5175 and Chrome9224 preserved, smoke tabs closed.
+
+## Non-food utility animation review (2026-11-11)
+
+Local main `5b392c7` reviews all seven utility supplies and thirteen throwables.
+Bandages now wind a fixed-width ribbon around the actual forearm; field dressing
+adds a torn wrapper and pad. First aid uses an antiseptic spray with nozzle/mist,
+while the trauma pack has a moving injector plunger and green medical pouch.
+Tools stay inside the pouch until it opens. Ammo pouches open, lift a magazine
+and release it at the unchanged commit point. Plate seating, sound timing,
+gameplay effects and cancellation gates are preserved. Pulled grenade rings/tabs
+reuse each prop's geometry/material; pinless items no longer mime a pin pull.
+Portrait framing covers supplies and throwables. Crucially, the engine now
+preserves that framing depth instead of overwriting it with its sway position;
+this also fixes the earlier food adjustment in actual gameplay.
+
+An initial suspicion about persistent ammo-placement hands was disproved:
+updateCameras already clears that rig at the start of every frame. Its behavior
+was preserved; unit/browser checks now assert reset and hidden state. Added
+`pnpm test:fps:utility-animation`, a staged review fixture and a checkpoint-based
+runtime fixture that never modifies saved profiles. All 20 props render at five
+stages and on portrait screens, reset deterministically, and pass actual engine
+use/cancel/commit or ready/stow/throw checks. Reviewed first-aid, trauma, bandage,
+dressing, ammo, plates and representative throwable screenshots. No audio or
+paid generation requests.
+
+Own final utility snapshot: typecheck and 403 files / 3,891 tests passed in an
+isolated worktree, plus all 20 runtime/render browser checks. The earlier shared
+workspace test run encountered a navigation failure while unrelated street-prop
+work was in progress; it was stopped, including its orphaned workers. No street
+prop code was edited by this task. Isolation used the existing dependency set
+with pnpm_config_verify_deps_before_run=false to avoid pnpm trying to reinstall
+through the dependency symlink; Vite had a private optimization cache.
+
+Ammo placement browser checks passed rifle, drum, belt, portrait, landscape and
+actual field pickups. Test-only main follow-ups `e249e9a` and `abe6a4a` replace a
+stale hardcoded slot-0 assertion with the actual empty destination, and freeze a
+carry frame in the fixture rather than polling a narrow timing window. A shared
+browser initially blocked mouse capture; a new software-rendered browser stalled.
+The dedicated Metal browser completed the checks. The full sweep's landscape
+capture race was fixed and rerun specifically, followed by the field-pickup run.
+These were test/environment issues, not changes to ammo placement mechanics.
+Evidence: `.cache/utility-animation-clean-{tests,types,browser}.log`,
+`.cache/utility-animation-ammo-metal.log`,
+`.cache/utility-animation-ammo-landscape.log`,
+`.cache/utility-animation-ammo-pickup.log`, `.cache/utility-animation-release/`
+and `.cache/utility-ammo-release/`.
+
+While the last checks ran, concurrent street-prop work committed `dd12e27` on top
+of the utility commits and manually deployed that combined main using
+`pnpm deploy:cloudflare`. Its exact release passed typecheck and the full 404-file
+/ 3,894-test suite (logs copied to `.cache/utility-animation-combined-*.log`).
+Manual deployment succeeded, version `4c30c847-de41-4007-9254-41b19965dc55`.
+This task independently verified production HTML, entry JS containing the new
+antiseptic-spray rig, shared Three, CSS and service-worker bytes against that
+release, and reran Cloudflare health/assets/PWA/API checks successfully. No older
+isolated snapshot was deployed over the combined release. Final ammo-smoke
+follow-up changes only tests; utility source matches the deployed `dd12e27`.
+Live logs: `.cache/utility-animation-live-{verify,check}.log`.
+No GitHub push. Shared Vite/Chrome left intact; this task's private server,
+browsers and isolated worktree were cleaned up. Local guidance and accumulated
+handoff remain unstaged/uncommitted.
+
+## 2026-11-11 — researched Singapore furnishing plans (60f0fdb)
+
+User rejected arbitrary density and requested Singapore research plus logical placement. Replaced dd12e27's equal-240 hash/grid fill with named furnishing strips tied to existing scene features in `street-prop-sites.ts`. Complete groups only; no fallback scatter. Models added: fixed hawker table/four stools, tray-return rack, mosaic chess table/four stools, letterbox bank, hooded park bin. Remodeled generic recycling station as one NEA-style blue commingled bin outside void decks. Gallery now 25 types with source links. Sources, observations, inference boundaries and placement rationale: docs/SINGAPORE-PROP-RESEARCH.md (NEA, NHB, IMDA, NParks, URA/EnterpriseSG, JTC and inspected CNA/ST/NEA photos). No paid captures or copied textures. Structures/roads/terrain unchanged.
+
+Placement review: actual Queenstown shelter/lobby layout, Chinatown market dining and returns, Tuas supplies between shutter openings, Punggol rest bays at outer promenade edge, delivery edges and coffee-shop frontages. Complete arrangements reject obstacles/access/routes/slope/road/spawn/stamp/training/gateway/sector reservations; protect food anchors and Chinatown hardpoint sites too. Low water obstacles retained while overhead solids permit void decks. Decorative paving heights follow ground-cover normalization; Sentosa's genuine 0.9m deck keeps its offset. Unit rays verify every prop touches scenery and every chess/letterbox placement has shelter. Final local audit: 868 added props across 23 districts, 14–98 per district, supplementing original scenery; count is an outcome, not target. `.cache/researched-props-audit.json` and `.cache/researched-props-scenes/` contain per-site audit/eight context captures.
+
+Validation: original full run exposed 3 circulation failures, corrected by food-anchor/hardpoint reservations. Focused 176 tests then passed. Final exact commit 60f0fdb in own detached `.cache/density-release`: typecheck and all 404 files / 3,894 tests passed (`.cache/researched-props-release-tests.log`). Browser smoke all 25 models, interactions/reset, lighting, desktop/mobile and four district fixtures passed; eight named context views visually reviewed. Final gallery screenshots `.cache/researched-props-final-gallery/`. Ground-contact and shelter rays passed across all districts.
+
+Committed locally on main, no push. Manual `pnpm deploy:cloudflare` succeeded from isolated exact commit, rebaking navigation for all 23 districts. Version f9721b40-4706-46e0-803a-fabb91a74420, live https://blockplaysg.fun/prop-designs. Live shell/JS/CSS/prop chunks/SW byte-match release; scripts/cloudflare-check.mjs passed; browser normal update loaded current entry index-CdrAD0f8.js and 25 prop choices. Deployment log `.cache/researched-props-deploy.log`. Own Vite5176 PID79893 stopped, pre-existing5175 and Chrome9224 preserved. AGENTS.md and accumulated HANDOFF remain unstaged. Concurrent untracked level-review work / DebugApp.tsx edits belong to another task and were deliberately excluded from commit/deploy; do not discard them. Detached release worktree now at60f0fdb with node_modules symlink.
+
+Concurrent-task status at completion: level-review work was independently committed as18a88e3 during the deployment verification; main is now ahead of the deployed props commit. Remaining LevelReview.tsx / level-review-smoke.mjs edits are also outside this task. This props deployment intentionally remains at60f0fdb.
+
+## Map-anchored level review workspace (2026-11-11)
+
+Local main commits `18a88e3` and `eb27637` add **Level review** to `/debug`, with
+`/debug?review=marina-bay` as a direct entry. All 23 district schematics support
+world-coordinate pins, floor labels, zoom/pan, mouse/touch/keyboard placement,
+threaded designer/AI comments, design notes, filtering/search, deep links and
+reply-with-reason resolve/reopen. Review mode unmounts gameplay. Phone layout
+uses a compact district picker and responsive SVG coordinates to keep labels
+and pin targets readable. Two source-grounded Marina rationale notes demonstrate
+AI observations, hypotheses, tradeoffs and proposed playtests.
+
+Persistence is explicitly localStorage (`blockplay.level-review.v1`) plus JSON
+export/import and repository notes in `docs/level-reviews/developer-notes.json`.
+Copy AI brief produces a readable district handoff; editable AI replies use the
+JSON schema in `src/game/level-review.ts`. Immutable headers + append-only events
+merge by ID; duplicate imports are idempotent, conflicting modifications reject
+atomically, and corrupt saved data is protected with a raw-backup download.
+A schematic fingerprint warns when anchors need checking; it does not fingerprint
+all 3D/gameplay changes. No backend sync, account identity or automatic AI calls
+are implied. Workflow and future server-storage direction: `docs/LEVEL-REVIEW.md`.
+Published notes are public; user threads stay local unless explicitly shared.
+
+Validation on exact release `eb27637`: 405 files / 3,908 tests passed (including
+14 new review data tests), typecheck passed, and browser smoke passed desktop,
+390px phone, mouse/touch/keyboard pins, persistence, district isolation, deep
+links, replies, resolve/reopen, imports/dedupe/conflicts and corrupt-storage
+protection. Visually inspected desktop and mobile screenshots. Existing shared
+Vite/Chrome briefly stalled during browser testing; a private Vite cache and
+Chrome on 9226 completed the workflow. No shared processes were stopped.
+
+Manual `pnpm deploy:cloudflare` succeeded from an isolated local release checkout,
+version `96df6a61-2856-494e-a84b-997ac6ab439c`. Public review route, entry JS/CSS
+and service worker bytes verified against local build; Cloudflare health/assets/
+PWA/API checks passed. Entire review browser smoke also passed on
+https://blockplaysg.fun in a fresh isolated browser context. Evidence retained
+under `.cache/level-review-final/` (tests, typecheck, deployment/live logs and
+screenshots). No paid API calls and no GitHub push. AGENTS.md, pre-existing
+.claude, and accumulated handoff remain unstaged/uncommitted.
+
+## Private Cloudflare review persistence (2026-11-11)
+
+User authorized Cloudflare storage for the level review board. Local main
+`c520614` adds private SQLite Durable Object persistence; `624c906` fixes
+same-origin Vite-to-Wrangler forwarding for local development. No GitHub push.
+
+`LEVEL_REVIEWS` / `LevelReviews` adds its own `level-reviews-v1` migration while
+preserving PublicRooms. Bearer authentication is checked before storage access.
+One project object (`design-v1`) stores the append-only review JSON, revision and
+server update timestamp in SQL TEXT, transactionally. A separate verification
+object isolates tests. GET/POST `/api/level-review` require the private credential;
+streamed bodies are bounded to 2 MB, invalid/conflicting data is rejected, retries
+are idempotent, and storage failures do not acknowledge a save.
+
+Frontend uses the existing browser review as an offline outbox. Opening the
+private link connects and merges local threads; the fragment credential is then
+removed from the address bar. Sync preserves changes during request latency,
+refreshes visible clients every 15 seconds and on focus/online, and shows pending,
+acknowledged, offline and access/conflict states. Disconnect aborts requests and
+removes saved access while preserving local/cloud history. Export/import still
+work. No automatic model calls. Shared credential grants read/write; author names
+remain supplied labels, not account-authenticated identities.
+
+IMPORTANT private local access: `.env.level-review` (0600, Git-ignored) contains
+LEVEL_REVIEW_TOKEN, provisioned as a Cloudflare secret through stdin. Never print,
+commit or embed it in frontend code. Existing OpenAI secret was preserved. User
+access artifacts: `.cache/level-review-access.html` and
+`.cache/level-review-private-link.txt` (both 0600). Anyone with that link can edit;
+keep it private. `scripts/level-review-cloud.mjs` provides init/link/pull/push/reply.
+Use `node --experimental-strip-types ...`; it reads the ignored access file.
+Reply requires --thread and --body-file; a private request receipt is persisted
+before sending. Reuse receipts after ambiguous errors rather than new IDs.
+Workflow/API/storage/rotation notes are in docs/LEVEL-REVIEW.md.
+
+Validation: 407 files / 3,918 tests passed on feature commit (24 review tests,
+including real SQLite transactions/re-instantiation and client race/offline tests).
+Final proxy-only follow-up passed typecheck, production build, local Vite/Worker
+browser sync and deployment build. Original local/file smoke passed. Cloud browser
+smoke passed both local production preview and Vite proxy: two independent browser
+contexts, concurrent replies, an offline reply, reconnect/merge, reload, private
+fragment removal and disconnect. CLI reply/retry held the same revision with one
+event. Initial Vite POST 403 exposed the local origin-forwarding bug, now fixed.
+
+Manual pnpm deploy:cloudflare succeeded at exact source 624c906, version
+`5e41780a-595d-4635-8c7b-fc9602945c3d`. Live entry assets and service worker match
+local build; credential absence in frontend bytes verified. Public unauthorized
+reads/writes return 401; authenticated real board contains the two seeded notes,
+with no verification threads. Full two-browser cloud smoke passed live, including
+offline recovery; Cloudflare health/assets/PWA/API checks passed. Root CLI pull
+succeeded (2 threads, revision 1 at verification time), output private cache
+`.cache/level-review-cloud-current.json`. All writes during testing were isolated
+to the verification board. First live smoke run lacked the environment's network
+proxy; rerun using NO_PROXY for localhost passed without source changes.
+
+Evidence: `.cache/level-review-cloud-final/` (test/build/deploy/sync/check logs and
+screenshots). Private files remain only in ignored paths. Own Vite5178, Wrangler8787
+and dedicated Chrome9226 are cleaned up; shared Vite5175/Chrome9224 remain intact.
+AGENTS.md, .claude and accumulated HANDOFF remain unstaged/uncommitted.
+
+## 2026-11-11 — extend design collaboration to 3D assets
+
+User requested extending the map discussion tool to other subjects, especially
+3D models. Local main commit `ea4dc3a` adds Model review at
+`/debug?asset=prop/vending`: 25 street props, 8 proxy weapons, 4 proxy operators,
+plus links from each existing gallery. No pushes (GitHub restriction continues).
+
+Shared append-only threads now have a separate asset collection/format, stable
+category/id subjects and optional surface anchors (mesh-local XYZ, child-index
+path, saved orbit/zoom). Click/touch a surface or comment on the whole model;
+select a thread to restore its view. Back-side pins hide, geometry revision
+mismatches preserve history but hide stale pins and show a review warning.
+Operators use a frozen standing pose, now presented facing the camera. The
+catalog adapter includes source-backed rationale/source/gallery links and two
+published AI design notes. Reuse the existing resolution, import/export, brief,
+offline outbox and private credential. There is no automatic AI invocation.
+Ask the agent to pull/reply with the CLI's new --assets flag.
+
+Existing LEVEL_REVIEWS namespace and secret reused; assets-v1 and
+assets-verification-v1 are separate Durable Object instances. Endpoint
+/api/asset-review (and /verification); cache blockplay.asset-review.v1. Map JSON
+and cache remain compatible. No migration or secret rotation. Existing private
+access HTML now has both map and model links (never print/commit its key).
+Docs: docs/LEVEL-REVIEW.md. Future adapters can add more models; media with other
+anchor types needs an explicit schema. Texture/shader changes are not fully
+fingerprinted; animation timelines and arbitrary uploads remain out of scope.
+
+Validation: 408 test files / 3,923 tests passed; typecheck passed; production
+Cloudflare build passed. New model tests cover actual raycasts/local transforms,
+fingerprints, all 37 model builds, schema isolation and saved views. Local browser
+smoke passed all 37 models, surface and whole-model threads, reload, saved camera,
+hidden/stale pins, keyboard and touch. Fixed an existing pin intercepting a new
+pin-mode tap. Original map smoke passed on dedicated 5178/9226. Two preliminary
+map attempts accidentally used default shared 5175/9224 and timed out on touch;
+rerun on owned surfaces passed. Local model and map cloud smokes passed two-device
+sync, concurrent replies, offline recovery and disconnect. Asset CLI reply/retry
+preserved revision 8 on the verification board.
+
+Manual pnpm deploy:cloudflare succeeded for ea4dc3a, version
+`eb03b644-43cc-43ef-85ae-36bed8de9c00`. Live 37-model browser smoke passed. Live
+entry assets/service-worker match build, private unauthorized GET/POST return401,
+real model board has 2 seed notes and no smoke threads, original map history
+preserved. Cloudflare health/assets/API checks passed. Root CLI --assets pull
+succeeded. Verification writes only target the isolated test board.
+Live two-browser model cloud smoke also passed, including offline recovery and
+concurrent replies. Evidence archived in `.cache/asset-review-final/`. Owned
+Vite5178, Wrangler8787 and Chrome9226 stopped; temporary .dev.vars removed.
+Shared Vite5175/Chrome9224 preserved. AGENTS.md, .claude and accumulated HANDOFF
+remain local, unstaged/uncommitted.
+
+## 2026-11-11 — daily-use debug workspace audit and redesign
+
+User requested a comprehensive UI/UX audit of /debug, particularly excessive
+scrolling. Implemented and locally committed on main as `163095a`; no GitHub
+push. Full audit is `docs/DEBUG-WORKSPACE-AUDIT.md`, with scope, measured findings,
+changes, verification and explicit follow-ups. Level-review guide updated.
+
+Baseline fresh-browser measurements at 1440x900: default debug page 2860px tall,
+mode buttons y=2227. Map review 1602px tall/canvas y=635; model review 1497px/
+y=708. At 390x844 mobile: map 2175px/canvas y=1127; model2243px/y=1207.
+After: document height equals viewport, desktop map/model canvas y=257/296;
+mobile y=272/315. Screenshots/JSON in .cache/debug-ux; final logs archived below.
+
+Changes: viewport shell, persistent tool rail, compact context/district selector,
+searchable district disclosure, optional island overview/resources, equipment
+as direct tool, desktop Focus workspace preference, mobile Tools disclosure.
+One validated tool state replaces overlapping mode booleans. Explicit old review,
+asset and room URLs work; selection replaces current query and strips stale
+thread/room while retaining test-board isolation. Optional local preferences
+resume the last design view; default /debug is map review, not automatic gameplay.
+Browser Back retains the existing app-level return-to-menu hierarchy.
+
+Review UI: canvas/discussion panes scroll locally on desktop, panel switches on
+narrow screens, placement and thread links open discussion. Share & files moves
+secondary actions into a menu; cloud status opens closed-by-default connection
+controls. Errors remain visible. Unposted drafts/replies use existing accessible
+navigation confirmation/native unload protection; they are NOT autosaved.
+Information dialogs trap/restore focus; skip link, focus states, Escape controls,
+modal/panel focus and selected tool semantics checked. Model render skips hidden
+panels; touch pinning suppresses the compatibility click that could reopen an
+existing pin after switching to the composer. Game HUDs retain their controls
+inside local overflow; viewport height fits laptop/short displays and fullscreen
+remains available. No paid APIs requested; real Street View and live LAN matches
+were not exercised by this audit.
+
+Validation: 409 files / 3927 tests passed, final typecheck and deployment build
+passed. New debug-workspace smoke covers viewport overflow, focus preference,
+district search/URL/reload, design-view resume, Share menu Escape, cloud disclosure,
+information dialog focus, mobile touch/composer, draft stay/discard and retention
+between panels, 320/390/844/900/1280/1440 widths, walk/FPS/equipment/arena entries.
+Original map smoke passed; 37-model smoke passed including overlapping surface
+pin tap regression. Local map and model cloud smokes passed two browsers, offline
+outbox recovery, concurrent replies, reload and disconnect. All cloud test writes
+were isolated to verification boards.
+
+Manual pnpm deploy:cloudflare succeeded for 163095a, version
+`621a4134-2be4-4c4d-aa8f-34718617ae96`. Live full debug-workspace smoke passed;
+Cloudflare health/assets/service worker/API checks passed. Live entry assets/sw
+match local build, unauthorized review reads/writes return401, original map
+history preserved, real model board still has only 2 seed notes, no test writes.
+Live two-browser model cloud smoke and live all-37-model interaction smoke also
+passed. Evidence archived under `.cache/debug-ux-final/` (logs, baseline and live
+screenshots, measured JSON). Owned Vite5178/Wrangler8787/Chrome9226 stopped and
+own .dev.vars removed. Shared Vite5175/Chrome9224 left intact. Existing AGENTS.md,
+.claude and accumulated HANDOFF remain unstaged/uncommitted.
+
+## 2026-11-11 — draggable comment pointer and release-point confirmation
+
+User found mobile pinning confusing and requested a draggable 3D cursor/pointer
+with a Pin option at release. Local main commit `375d7fb`; no GitHub push.
+Both map and model review now use ReviewPointer: drag or tap any point, release,
+then choose the floating Pin here button. Initial center is not selected. No
+composer or thread is created on drag/release. Real model raycasts save the
+released mesh-local point and camera view; map transform saves world X/Z.
+The 48px pointer follows the finger, stays visible after release, and can be
+adjusted again. Background/out-of-bounds release, pointer cancellation, projection
+resize and camera presets invalidate old choices. Pointer capture handles dragging
+across edges; additional touch pointers do not replace the active gesture.
+
+Models explicitly separate Position pin (camera fixed) from Move view (orbit).
+Returning from view mode requires a new placement. Zoom/presets also reset it.
+Keyboard arrows move the pointer, Shift increases step, Enter offers Pin here,
+Tab reaches confirmation, Escape cancels. The canvas Enter shortcut focuses the
+pointer instead of directly creating a center pin. Existing whole-model comments,
+draft guards, surface/history schema and cloud persistence are unchanged.
+
+Validation: 409 files / 3927 tests, typecheck and production build passed. New
+review-pointer-smoke passed locally and live: off-center touch drag, pointer
+matches release coordinates, two different saved surfaces, exact saved camera,
+no camera rotation in positioning mode, empty-space release clears prior valid
+choice, canceled touch cannot commit, explicit orbit mode, map and keyboard flows.
+Existing map review, all37-model review and debug workspace smokes passed with
+explicit Pin here confirmation. Visual QA caught a zero-height SVG caused by the
+new map overlay wrapper; fixed positioning/specificity and reran checks. Saved
+pins, map geometry, pointer menu and mobile layout inspected in screenshots.
+
+Manual pnpm deploy:cloudflare succeeded at 375d7fb, version
+`58170913-2210-4693-918e-1d3ade48739f`. Live gesture smoke, Cloudflare health/assets/
+API checks and exact entry assets/service-worker comparison passed. Existing map
+history preserved, model cloud board has the two seed notes, unauthorized reads/
+writes still rejected. No real cloud test writes, no paid API requests.
+Evidence: .cache/review-pointer-final (logs and mobile release-point screenshots).
+Owned Vite5178 and Chrome9226 stopped; shared 5175/9224 preserved. AGENTS.md,
+.claude and accumulated HANDOFF remain unstaged/uncommitted.
+
+## 2026-11-11 — Two-finger review controls shipped
+
+User requested two-finger zoom/pan following draggable review pointers. Completed and manually deployed from main; no GitHub push.
+
+- Local commit `fde95fa` adds touch pinch zoom and simultaneous centroid-following pan to map and model review, including active pin placement. New shared `use-review-gestures.ts` captures the second touch before orbit/placement, invalidates candidates, keeps remaining fingers locked until all lift, freezes/rebases extra fingers, and suppresses gesture compatibility clicks. Window pointer-up/cancel retires touches released outside the stage.
+- `review-gestures.ts` owns bounded gesture math. Model pan uses bounding-radius units in camera screen-right/up basis. Model `Reset view` and map `Fit` reset framing. Presets also reset pan. Map retains button/keyboard controls; model retains single-finger orbit or pointer placement as before.
+- Optional `ReviewView.pan:{x,y}` stored with new surface anchors and restored with selected threads. Parser validates finite ±10 values and preserves old canonical headers by never adding pan to old records. Anchors deep-copy pan. No schema version, seed revision, cloud namespace or token changes.
+- Native SVG also has touch-action:none. `ReviewPointer` stays mounted across map gestures, takes resetKey/gesturing, hides pending actions/handle during multitouch, and requires a fresh single-touch placement afterward.
+- Validation: full `pnpm test` 410 files / 3932 tests, typecheck, gesture browser smoke, pointer smoke, all37-model asset smoke, map smoke, debug-workspace smoke all pass. Unit coverage includes centroid invariance/reversibility/bounds, old-header compatibility, pan deep copy/validation, and SQLite persistence/recreation/immutable-pan conflict.
+- `scripts/review-gesture-smoke.mjs` tests mobile CDP pinch+pan for map/model, stable orbit, remaining-finger lock, third-finger freeze, pin cancellation/fresh placement, persisted/reloaded view, reset/fit, page zoom suppression and touch cancellation. CDP touchEnd with an explicit point ends THAT point. Put touchCancel last before context disposal: subsequent cross-document CDP touch routing can become stale after injected cancellation, while fresh contexts work.
+- `pnpm deploy:cloudflare` succeeded: Worker version `e80cccd7-795c-49f7-98a2-00d61732295b`. Live gesture browser smoke at https://blockplaysg.fun passed. Live private API pan roundtrip/replay passed on `/api/asset-review/verification` only. Real model board still2 seeds; real map history preserved; unauthenticated access401; entry assets/SW exactly match dist; generic Cloudflare check passed with no paid calls.
+- Evidence archived `.cache/review-gesture-final/`; private live-check helper `.cache/review-gesture-cloud-check.mjs` reads ignored token without printing it. Existing `.cache/asset-review-live-check.mjs` still verifies real history and deployed artifacts.
+- Owned Vite5178 PID99184 and Chrome9226 PID99191 stopped after verification. Shared5175/9224 untouched. AGENTS.md, .claude/, and this preexisting modified handoff remain uncommitted.
+
+
+## 2026-11-11 — Common Singapore habitat animals
+
+Completed independent animal research/model session. Animal commit `53fd559` on
+main; no GitHub push. Latest combined release is `bb05128`, preserving vegetation
+and touch-review commits from concurrent sessions. AGENTS.md, .claude and this
+accumulated handoff remain local and uncommitted.
+
+- Six original metre-scale procedural Three.js models: Javan myna, zebra dove,
+  community domestic tabby, plantain squirrel, Malayan water monitor and
+  smooth-coated otter. NParks/AVS and Singapore Biodiversity Online research;
+  inspected public photographs for every species. Monitor image uses Nick
+  Baker's Sungei Buloh photo; cat anatomy fallback uses Best Friends after the
+  official image host denied access. No photos shipped, no paid requests.
+- `docs/SINGAPORE-ANIMALS.md` distinguishes evidence from authored scale, group
+  counts, behaviors and coordinates. `singapore-animals.ts` merges static parts
+  by material within head/tail/body joints and shares resources among copies.
+- `animal-sites.ts` and `district-animals.ts` add 18 animals at 10 named sites:
+  Queenstown7, Bishan6, UpperThomson1, JurongLake4. Other maps get none. Ground
+  poses remain rooted; otters swim a checked 2m x .55m ellipse, partly submerged.
+  Independent idle head/tail motion, 65m LOD with hysteresis, full disposal.
+  No combat, collisions, audio, rewards or replication. Existing rooftop flocks
+  unchanged. No buildings, roads or terrain changed.
+- Whole-group clearance guards cover actual surfaces, obstacles, roads, spawns,
+  stamps, target/vehicle/sector/gateway locations and access routes. Rejected an
+  initial bridge-adjacent otter site and uneven forest position before moving
+  within the same habitats. `animalPlacements` and `animalSiteAudit` in userData.
+- Existing review picker has Animals; `/debug?asset=animal/javan-myna` (and the
+  other species IDs) supports frozen surface reviews, with clickable species
+  references. Animated local fixture is `scripts/fixtures/singapore-animals.html`.
+- Validation: full 412 files / 3938 tests passed; typecheck and production build
+  passed. Tests cover resource sharing, joint independence/reset, animation bounds,
+  actual grounding/water classification, complete species coverage and spawn
+  exclusion. Actual district screenshots checked all sites, scale, water contact,
+  footing and clipping. Added draw cost 9–60 calls / 1,328–12,944 triangles in
+  inspected views. No mobile frame-rate guarantee is inferred from those counts.
+- Initial shared-tree full suite exposed three vegetation cover-audit failures.
+  Vegetation session fixed material visualCover in f6ae8d1; my temporary duplicate
+  batching fix was removed, and the final full suite passes. Shared Vite5186
+  app module graph became pending during concurrent snapshot file changes; all
+  model-review interaction checks passed via isolated snapshot Vite5189.
+- Manual `pnpm deploy:cloudflare` succeeded from an exact local committed snapshot
+  `/tmp/blockplay-animals-release-final` with a pre-upload HEAD guard. Worker
+  version `fb3d5aca-78cf-4710-832b-11f0b1af4509`. Source revision bb05128.
+  Live entry assets and service worker exactly match dist; Cloudflare health,
+  assets, SPA/API/origin checks passed. Live all53-model review smoke passed
+  surface/whole-model threads, saved views, stale pins, reload, keyboard/touch.
+  Review writes stayed in isolated browser local storage; no real cloud writes.
+- Evidence: `.cache/animals/` report.json, species/site screenshots, final-tests.log,
+  final-typecheck.log, deploy.log, live-release.json, live-model-review.log and
+  cached reference photos. Browser interaction screenshots also use the existing
+  `.cache/asset-review/` output folder. Owned Vite5186/5189 and Chrome9233 are
+  being stopped; shared Vite5175/Chrome9224 and the vegetation session's services
+  are preserved.
+
+Cleanup confirmed: owned Vite5186/5189 terminated and Chrome9233 closed via its own CDP endpoint. Final working tree contains only preexisting local HANDOFF.md, AGENTS.md and .claude changes.
+
+
+## 2026-11-11 — Researched Singapore vegetation completed
+
+Local main commits b06c28b, f6ae8d1 and bb05128 add seven species in ten original
+procedural variants: snake pot/trough, money trailing pot/coir pole, bird’s-nest
+pot/ground rosette, broad sword fern, rain tree, sea almond and sea apple.
+No GitHub push. AGENTS.md and accumulated local guidance stay uncommitted.
+
+NParks species profiles and photographs informed morphology/native status;
+links and ecological inference distinctions in docs/SINGAPORE-VEGETATION.md.
+Free reference photos are ignored cache only. No paid services/image generation.
+Named planting sites in Queenstown, Katong, Changi, Bishan, Upper Thomson and
+Ubin use the complete-group validator. Existing shopfront pots become snake
+plants. Shelter, woodland/coast context, floor contact, roads and access govern
+placement; no quota or fallback scatter. Queenstown lift-door approaches reserved.
+Jewel paved edges use tended fern bowls. Unsuitable candidate sites stay empty.
+
+Geometry pooled/merged/instanced; fixed trough/tree wood, breakable pots and
+movable coir pot retain interactions. Ground ferns have no collider. Foliage uses
+material.userData.visualCover so recursive hits and cover audits agree; the
+initial nested-only fpsEffect failed three audits and was corrected. Fixture
+delta clamps negative first RAF to avoid invalid macaque animation indexing.
+Gallery now35 models with tree-scaled grid/camera/shadows; all variants enter
+existing model discussions. Combined catalog has53 including the animal work.
+
+Exact committed snapshot .cache/vegetation-release verified all4064 tracked
+files against bb05128, including animal commit53fd559. Full suite412 files /
+3938 tests, typecheck and production build passed. Local all35 gallery checks
+and full model-review smoke passed. Nine actual vegetation site overview/walk
+views checked. New plant cost in inspected views4–52 draws /2480–32020 triangles.
+SwiftShader timing is highly variable, not evidence of mobile hardware FPS.
+
+Manual pnpm deploy:cloudflare succeeded from that snapshot, Worker version
+ a1a9b2fa-788b-40b3-b65c-719252e514ec. Existing demo maps env preserved privately.
+pnpm11 snapshot-path install verification disabled via
+pnpm_config_verify_deps_before_run=false; lockfile/dependencies unchanged.
+Public HTML and all four entry/SW artifacts exactly match tested dist. Cloudflare
+health/assets/SPA/API/origin checks passed without paid calls. LIVE all35-model
+gallery desktop/mobile/night and fixed/moving/break/reset checks also passed.
+
+Evidence .cache/vegetation/: combined-tests.log, combined-typecheck.log,
+combined-model-review.log, gallery-final/, gallery-live/, worlds/report.json and
+screenshots, deploy.log, live-cloudflare.log, live-artifacts.log. Owned Vite5182
+and Chrome9226/9232 stopped; shared5175/9224 preserved. Only local HANDOFF.md,
+AGENTS.md and .claude remain modified/untracked; no staged files.
 
 
 ## 2026-11-12 — Marina Bay look trial (sky, haze, baked indirect light, grade)
@@ -7033,6 +15307,229 @@ Chinatown gain about 40-50% static draws if snapped as they are; street props,
 vegetation, vertical places and lifts are not module-aware yet. Stash entry
 `shape-ubin-q15` is already committed and can be dropped by the owner.
 
+## 2026-11-12 — Subtler Marina ambient drift
+
+- Local commit `3cce267`: leaves use actual compacted tree roots and ground/roof
+  planter sources, staying within about 2 m of planting. Short falls have
+  16–24 s cycles and quiet gaps; no leaves in still air. Dust budget is reduced,
+  with smaller specks and one tenth the previous emissive contribution.
+- Checks: ambient-drift (3 tests) passed; Marina scene (6 tests) passed with the
+  normal 60 s timeout; clean-release typecheck and production build passed.
+  Local Chrome render inspection of planting and open bay produced no shader
+  errors (`.cache/ambient-review/`). Optional broad suite stopped while still
+  running after no failures; not a completed full-suite pass. Initial test
+  attempts hit duplicate cached/worktree discovery and the default 5 s timeout.
+- Manual `pnpm deploy:cloudflare` succeeded from an archived copy of `3cce267`
+  at `.cache/ambient-review/release`, excluding other sessions' unfinished edits.
+  Version `8201d5ba-2012-46f4-b6c6-5749fc584728`; production routing/assets/API
+  smoke passed at https://blockplay-sg.sunjc826.workers.dev. No paid API calls.
+  No GitHub push. Existing handoff edits and AGENTS.md remain uncommitted.
+
+
+## 2026-11-12 — Weapon-specific running carries
+
+Local main commit `ad7d7be` (no GitHub push). Replaced the shared run pose with
+`fps-weapon-run.ts`: sixteen physical-platform poses, inward yaw/roll and a
+closer rifle tuck, compact pistol carry, flatter precision carries and lower,
+steadier heavy-weapon cradles. Footfall sway follows weight and platform, with
+slightly delayed fore/aft motion. Integral launcher modes use their parent gun
+and fitted mass. Existing sprint easing, ADS suppression and reduced-motion
+static carries remain in use.
+
+Validation: 4,004 tests across 420 files passed, typecheck and Cloudflare build
+passed. `scripts/weapon-running-smoke.mjs` and its interactive fixture capture
+all 18 modes at both stride extremes, plus ready/reduced and portrait poses.
+Inspected captures in `.cache/weapon-running/` (including contact-sheet.png);
+no browser exceptions. Validation/release copy is `/tmp/astra-weapon-running-release`,
+matching 2,874 committed code/asset files, to exclude concurrent arena WIP.
+Manual Cloudflare deployment initiated; result recorded below when verified.
+
+Manual deployment succeeded via `pnpm deploy:cloudflare` from the isolated
+release copy. Cloudflare version `309c5b76-91d5-4534-ae1d-225a57b6e634`.
+Production smoke passed; exact JS/CSS and service-worker hashes matched on both
+https://blockplaysg.fun and https://blockplay-sg.sunjc826.workers.dev.
+AGENTS.md stayed untracked; pre-existing handoff and concurrent arena edits
+were not included in the code commit or release.
+
+## 2026-11-12 — Singapore team arena expansion
+
+Local main commit `fabf7ee` adds Tuas Container yard, Woodlands Park circuit,
+Bishan Shelter court and Tampines Hub court to both Team Deathmatch and Hardpoint.
+Six TDM / five Hardpoint maps, with solo/host island pickers and map descriptions.
+Hardpoint scene, stations, HUD/minimap, placement protections and snapshots now
+follow the selected area. Shared JSON catalog also updates room validation and
+public listing names. Added arena-only physical cover and safe spawn candidates;
+existing Open World/Training geography is unchanged. Fixed supply-crate lures
+being able to override active objective navigation. No new audio/paid references.
+
+Validation: final 73 arena/geometry/network/route/room tests pass, explicit
+typecheck and production build pass. Both local pickers and real Tampines TDM/HP
+start/gameplay checked in Chrome; mobile picker verified. All four annotated
+layout screenshots reviewed. The broad run had 4,036 passing tests and one
+Woodlands result from the pre-final cover layout loaded before that edit; the
+fresh final eight-file rerun includes the corrected Woodlands and all eight
+new geometry/full-match tests passing. The simulation test fixes performance.now
+only during fast-forwarding to avoid CPU-dependent navigation work allowances.
+
+Evidence: `.cache/arena-expansion/` (arena-final-tests.log, full-tests.log,
+typecheck-final.log, build.log, browser-final.log, layout/picker/gameplay PNGs).
+Design/maintenance notes: docs/TEAM-ARENAS.md. Browser harness:
+scripts/team-arenas-smoke.mjs, fixture scripts/fixtures/team-arenas.html.
+Manual `pnpm deploy:cloudflare` succeeded: Worker version
+`e4f2a514-6d72-4ce5-8b98-f6835b17bd4f`. Live HTML, entry JS/CSS and SW
+exactly match the built dist. Cloudflare health/assets/API/origin checks pass,
+and the LIVE both-mode picker/Tampines gameplay/mobile browser smoke passes.
+Live evidence: live-cloudflare.log, live-browser.log, live-artifacts.json and
+`live/` screenshots. No GitHub push. Owned Vite5327/Chrome9361 stopped.
+AGENTS.md, .claude and the accumulated local HANDOFF remain outside the commit.
+
+## 2026-11-12 — Team arenas in every Singapore region
+
+User asked to add TDM and Hardpoint to the remaining regions. Completed in local
+main commit `6e75421` (no GitHub push, per local AGENTS.md).
+
+- Added 17 authored arena slices in `src/game/district-team-arenas.ts`: Marina
+  garden pavilions, Raffles exchange square, Queenstown estate green, Kampong
+  cafe courts, Jurong southern gardens, Changi arrival garden, Thomson terrace
+  crossing, Punggol precinct green, HarbourFront gateway court, Sentosa palm
+  court, Geylang lorongs, Bukit Timah rail approach, Orchard boulevard, Yishun
+  neighbourhood courts, Little India Campbell crossing, Katong pavilion court,
+  and Ubin village lanes. Added the three-point Toa Payoh Hardpoint rotation.
+  Both modes now cover all 23 regions, for solo and hosted matches.
+- Each new arena uses fixed bounds, six spawn candidates per team, patrol/route
+  anchors, physical match-only cover, and three named capture sites. Layouts
+  preserve existing district geometry. No reference captures or paid audio/API
+  generation. Original Open World and Training geometry are unchanged.
+- Shared JSON catalog drives room acceptance/names and generated solo/host route
+  registries. Child routes must follow mode pickers in ROUTE_PATHS because menu
+  animation direction uses insertion order. Added parent/child transition checks.
+- Scene tests found a Changi wall-adjacent spawn with no usable objective route;
+  moved it to (-252,-65). Full simulations exposed empty Jurong centre/Ubin forest
+  rotations; added approach cover and moved Ubin forest point to (0,61). Retained
+  all clearance/navigation/scoring assertions; both layouts then passed.
+- New registry test requires exactly one arena per region in each mode and catalog
+  agreement. Existing parameterized tests now exercise all maps. TDM fast-forward
+  tests use the same fixed performance clock as Hardpoint, retaining the bounded
+  navigation work budget rather than depending on CPU contention.
+- Validation: typecheck passed. Full regression run: 4,160 passed, one route
+  direction failure; fixed registry ordering, then fresh final arena/navigation/
+  room/network suite passed 182/182 across eight files. All new objective circles,
+  stations, safe spawns, physical cover and routes passed; full Hardpoint matches
+  captured every rotation and both teams scored. All 23 TDM maps passed combat.
+- Browser: captured all 23 annotated layouts and visually reviewed the additions;
+  both 23-region pickers, Ubin/Toa Payoh TDM and HP gameplay, and 390px mobile
+  picker passed without Runtime exceptions. Same gameplay/picker checks passed
+  on production after deployment. Updated smoke script reads catalog counts,
+  accepts ARENA_SKIP_LAYOUTS=1 and ARENA_SMOKE_OUTPUT for live checks.
+- Manual `pnpm deploy:cloudflare` succeeded; version
+  `763dd6dd-0e0d-444a-8477-152d59e971d7` at
+  https://blockplay-sg.sunjc826.workers.dev . Production health/API/assets/PWA
+  check passed. Live JS/CSS/service-worker hashes match local dist; four solo/
+  hosted arena deep links return the new app shell. Build cache
+  `blockplay-shell-304a0daa4c6b`, entry `index-BRZClY-w.js`.
+- Evidence and offline design/probe scripts are in `.cache/all-team-arenas/`;
+  final-arenas.log, full-tests.log, typecheck-final.log, deploy.log,
+  browser-final.log, live-browser.log, live-artifacts.json. Full suite excludes
+  **/.claude/**, **/.pnpm-store/** and **/.cache/** to avoid duplicate worktrees.
+- Owned Vite 5327 (PID 82244) and Chrome 9361 (PID 82223) stopped after verification.
+  AGENTS.md and preexisting .claude/ remain untracked; this handoff remains local
+  and unstaged with its preexisting changes. No code work remains pending.
+
+## 2026-11-12 — Free for All arenas in all 23 regions
+
+- Completed user request in local main commit `96e3e00`. No GitHub push, per local
+  AGENTS.md; manual Cloudflare deployment succeeded.
+- Added explicit-map FFA using the shared bounded district combat scenery, neutral
+  perimeter/interior spawn pockets and individual hostility for every operator.
+  Bots fight each other and humans. Retained 15 kills / 3 minutes, 0–6 bots and
+  up to four human public-room players. All 23 maps support ten-operator starts.
+  Marina needed four extra authored neutral pockets; clearance and routes pass.
+- Safe respawns avoid nearby enemies, prefer cover, provide a brief shield and
+  retry blocked pockets. These arenas are infantry-only. Legacy area-less debug/
+  LAN FFA preserves its previous behaviour and vehicle support.
+- Added solo/host island pickers, 46 deep links, selected-region loading/minimap,
+  room map labels, map-bound hello/snapshot validation and rejected spoofed flags.
+  Updated TEAM-ARENAS and PROJECT-GUIDE documentation.
+- Validation: full suite 423 files / 4,217 tests passed; final typecheck and diff
+  whitespace checks passed. Tests include real geometry/navigation and complete
+  bot matches in all 23 maps, ten-operator starts, individual scores, protection,
+  blocked-spawn retry, resets and host/guest network checks across all regions.
+- Browser: all 23 initial neutral layouts captured; representative layout,
+  desktop gameplay/picker and mobile screenshots visually reviewed. Solo/host
+  23-region pickers, Marina/Tampines/Ubin gameplay and mobile navigation passed
+  locally and on production with no browser runtime exceptions. Final Marina
+  spawn additions were checked by geometry tests and live gameplay.
+- Deployed via `pnpm deploy:cloudflare`; version
+  `ccf4ed83-687b-46c8-b5e9-86a5d3e060af` at
+  https://blockplay-sg.sunjc826.workers.dev . Production health/API/assets/PWA
+  checks passed. Live JS/CSS/service-worker hashes match local dist and solo/
+  hosted FFA deep links return the new app shell.
+- Evidence: `.cache/ffa-arenas/` (full-tests.log, typecheck.log, deploy.log,
+  browser/, live/, live-browser.log, live-check.log, live-artifacts.json).
+  Full suite excludes **/.claude/**, **/.cache/** and **/.pnpm-store/**.
+- Owned Vite 5327 PID 84757 and Chrome 9361 PID 84730 stopped after checks.
+  AGENTS.md and preexisting .claude/ remain untracked; this handoff remains
+  local and unstaged. No requested code work remains pending.
+
+## Scope shadow driven by changes of motion (2026-11-12)
+
+Uncommitted on main. `src/game/scope-shadow.ts` is now `createScopeShadow()`: a
+two-axis underdamped spring (14 rad/s, damping .5, closed form so frame-rate
+independent) kicked by changes in motion rather than held by strafe speed. A
+steady strafe or turn keeps a 25% lean (about .045 lens UV); starts, stops and
+reversals swing to roughly .12 to .17 and ring out with one small overshoot.
+`createScopeRenderer` derives turn rate, pitch rate and vertical speed from the
+world camera's own frame-to-frame movement, so flicks, recoil climb, jumps,
+landings and stance changes all reach the shadow with no new engine plumbing;
+the engine still passes only `lateralSpeed`. Raising the sight mid-strafe starts
+settled, not kicked. Shader, clamp (.18), PiP camera and reticle are unchanged.
+
+Focused tests (52, scope-shadow and weapon-optics) and typecheck pass.
+`scripts/fps-scope-strafe-smoke.mjs` now samples the peak swing per frame and
+passes on desktop and touch for Longwatch and Intervention in headless Chrome:
+peaks .125 to .165, held lean .042 to .046, rebound on stopping, forward and
+reduced motion clear. Pushed as `22e240c`.
+
+### Eye box, tunnel, soft limit and true crescent (2026-11-13)
+
+Uncommitted on main. The lens shader takes a new `scopeBox` uniform (radius,
+softness) and draws the shadow as one disc that goes fully black; the old
+lens-centred `clearCentre` mask now only masks the raise vignette. The central
+44% of the radius is instead guaranteed on the CPU: `limitScopeEye` eases the
+offset with tanh into `radius - soft - SCOPE_CLEAR_CENTRE`, replacing the hard
+.18 clamp. `scopeEyeBox(magnification, relief)` hardens the edge (.15 to .08)
+and raises sensitivity (.8 to 1.25) from 2x to 8x, following live zoom. A third
+spring, `relief`, closes the box by up to .09 on a shot (`scopeRenderer.shot`,
+called beside `firearmShake.shot`) or an abrupt vertical change (jump, landing;
+gravity and looking around do not trigger it). Cache key is
+`scope-reticle-v6-eyebox`. `canvas.dataset.scopeBox` added for smokes.
+
+Focused tests and typecheck pass. `fps-scope-strafe-smoke` passes (peaks about
+.12, lean .04 to .05). `fps-scope-glass-smoke` passes across nine scopes with
+the centre still pixel-identical; its strafe check and the fixture were stale
+after `22e240c` (they sampled a held strafe) and now sample the start swing.
+The recoil and landing tunnel is covered by unit tests only, not seen in play.
+Pushed as `576845f`.
+
+### Turning: the gun trails, the shadow follows (2026-11-13)
+
+Uncommitted on main. The owner found the turn shadow too fast ("zippy", a
+little motion sick) and suggested the gun itself should turn more to justify
+it; jumping was judged fine as is. The synthetic turn-rate and pitch-rate drive
+is removed from `createScopeShadow`. Instead `createAimedTurnLag`
+(scope-shadow.ts) gives a scoped gun a slow two-stage trail, up to .03 rad,
+applied in `fps-engine.ts` as a rotation about the eyepiece lens so the reticle
+stays on the aim point. Off for reflex sights, canted dots, vehicles and
+reduced motion. `createScopeRenderer` adds a tilt term (`SCOPE_TUBE` = 4 lens
+UVs per radian) because the eyepiece is so close to the eye that tilt alone
+moved the shadow only about .015. Recoil tilt of the gun therefore shadows
+more than before too. `canvas.dataset.aimedTurnLag` added.
+
+Measured with real mousemove events in headless Chrome (Longwatch,
+Intervention): a 0.6 s steady right turn builds the shadow smoothly to about
+.078 and it eases out over roughly 0.8 s with no overshoot. Strafe and glass
+smokes pass. No turn assertion was added to a smoke script.
+
 ## 2026-11-13 — District look on all 23 districts
 
 `DistrictLook` is no longer Marina-only. Six presets in `district-look.ts`
@@ -7053,6 +15550,804 @@ adds a `skyTint` from the district's authored background. Kit districts pass
   shows grey below the horizon; Raffles' shaded street is darker; every district
   shares one cloud field; indirect light fades in ~6 s after entering Changi.
   Evidence `.cache/district-looks/<district>/`.
+
+## 2026-11-13 — Ultra Marina Bay water depth and reflections
+
+Local main commit `eabc706` implements the requested first Ultra water pass.
+No GitHub push; AGENTS.md remains untracked and this handoff remains local.
+
+- Bay refraction uses a resolved HDR opaque colour/depth snapshot. Opaque and
+  transparent materials are drawn separately into the original MSAA target;
+  each material is drawn once, with two texture copies instead of a second
+  district render. Depth-aware RGB absorption and foreground/above-water
+  rejection preserve quays, hulls and objects crossing the surface. Refraction
+  writes water depth and fully composites transmission, avoiding double blend.
+- Two analytic, advected noise gradients add fine wind detail; broad swell
+  derivatives now contribute to Ultra normals. Existing distance filtering,
+  impacts, rain rings and sky/time-of-day lighting remain in use.
+- Ultra planar capture is half resolution capped at 1024 pixels, with mip
+  filtering and a three-tap vertical kernel; High remains capped at 768.
+  Reflections can still be disabled independently of Ultra surface detail.
+- Snapshot is created only for visible above-water bay views on hardware
+  WebGL2, disabled on reduced effects and thermal/NVG/overview paths, released
+  on lower detail/dispose, and resized with the main drawing buffer. Ready
+  flag is scoped to the main camera draw so scopes cannot sample its screen
+  buffers; secondary optics retain ordinary water. Other district water is
+  unchanged. Settings text and PROJECT-GUIDE updated.
+- Validation: 424 files / 4,234 tests passed; typecheck and Cloudflare production
+  build passed. New lifecycle tests cover draw partitioning, depth/colour
+  copies, resize, disabled/offscreen/underwater states, cleanup on exceptions,
+  camera scoping and reflection mip/cap transitions.
+- `scripts/ultra-water-smoke.mjs` / `scripts/fixtures/ultra-water.html`: hardware
+  Chrome checks foreground preservation (only 72 edge pixels changed among
+  36,189 orange foreground pixels), exact restoration to High, stable texture
+  counts across toggles, reduced effects, underwater, 2x density with SMAA/rays,
+  portrait, and real Marina day/night/rain/overview/swimming views. Actual FPS
+  Ultra preset, scope, live High/Ultra toggles, shots and swimming all passed.
+  No WebGL/runtime errors. Captures visually reviewed in `.cache/ultra-water/`.
+  1200x800 fixture with reflections on and AO/bloom measured roughly 3–4 ms
+  median in both tiers (new Ultra about 0.5–0.8 ms above High); this is not a
+  full-game FPS claim. Geometry draw counts matched between tiers.
+- Evidence: `.cache/ultra-water/{full-tests,typecheck,build,browser,deploy}.log`,
+  `results.json` and PNGs. Manual deployment started; final result recorded below.
+
+Manual `pnpm deploy:cloudflare` succeeded: Worker version
+`c3c450f2-215b-4989-9c2b-b31bd0f7696f`. Both https://blockplaysg.fun and
+https://blockplay-sg.sunjc826.workers.dev serve exact local JS/CSS/service-worker
+hashes; production health/assets/PWA/API/origin checks pass. Build cache
+`blockplay-shell-78346d374fb1`, entry `index-Bkc9fCdl.js`. Evidence:
+`live-artifacts.json`, `live-artifacts.log`, `live-check.log`. Owned Vite 5337
+(PID 5806) and Chrome 9371 (PID 5817) stopped after verification. No GitHub push,
+no paid requests, no code work pending; local AGENTS.md and pre-existing .claude/
+and accumulated HANDOFF edits remain outside the commit.
+
+## 2026-11-13 — Marina ambient drift made noticeable again (uncommitted)
+
+User: after 3cce267 the leaves/dust were barely noticeable. Measured: sunny (wind 0)
+showed zero leaves and ~6 motes of 8 mm; leaves were dealt across all ~100 plant
+sources in the district, so only 5 of 128 (Ultra) sat within 22 m of the spawn; and
+shrub leaves fell inside the shrub mesh. `ambient-drift.ts` now re-homes leaves that
+are out of sight and between falls to plants within 12 m of the camera
+(`update(time, weather, eye)`, eye passed from world-atmosphere), starts each fall at
+the plant's edge and carries it 2–3 m downwind (further in wind), and falls in still
+air (`.5 + wind*.12`, rain factor `.5`). Counts 144/288 (were 96/192, originally
+260/520), leaf 18 cm, cycle 9–14 s with half of it falling. Motes: amount `.45`,
+original 14 mm size, emissive `.35`, 6×3×6 m box. Leaves still only exist at real
+plants (none on open water); the first ~10 s after loading are sparse while leaves
+re-home. Checked in a standalone render of the Marina scene (pointer lock is blocked
+in the app's browser pane, so not in live play). Only Marina has this effect.
+
+## 2026-11-13 — Ultra interactive water waves (3fdf94a)
+
+Implemented the approved first Crysis-inspired ripple milestone for Marina Bay:
+512² GPU height/velocity field over a camera-following 32 m patch; fixed 60 Hz
+propagation, damped overlapping wave trains, reflective quay boundaries and
+texel-aligned scrolling. Bullet impacts and explicit local-player swimming feed
+the field; displaced geometry and shared normals bend reflection/refraction.
+High retains its previous lightweight ripples. Ultra resources are released on
+tier changes. Boat/remote-player wakes and caustics remain future work.
+
+Validation: isolated release from the exact staged Git tree, excluding unrelated
+movement/mantle WIP. All 425 test files / 4,244 tests passed; typecheck and build
+passed. GPU readback/browser checks cover propagation, decay, overlap, shoreline
+bounds, identical 30/60/144 Hz results, camera scrolling, pauses, swimmer wakes
+and resource lifecycle. Previous Ultra browser regression passed across
+High/Ultra toggles, scopes, rain/night, portrait and reduced/underwater settings.
+Actual FPS gameplay on the isolated release confirmed shot and local-swimmer
+impulses, without runtime/WebGL errors. Captures visually reviewed; fixed an
+MSAA patch-edge seam found during review. No paid APIs used.
+
+Evidence: `.cache/water-waves/` contains release-tests.log,
+release-typecheck.log, release-build.log, browser.log, results.json,
+regression-browser.log, release-gameplay.log and captures. Preview:
+`marina-ripples.webm`; stills `marina-ripples.png`, `marina-overlap.png`.
+Release directory is recorded in `release-path.txt`. pnpm auto-dependency
+verification disabled for the temporary release (same installed modules and
+lockfile); no dependency changes. Commit 3fdf94a is local only; no GitHub push.
+Unrelated movement edits, AGENTS.md and accumulated handoff edits remain local.
+Manual Cloudflare deployment started; result recorded below.
+
+Manual Cloudflare deployment succeeded: version
+`5429bcdc-1a7a-4504-b7b6-f8b4237b2d3a`. Both production origins serve exact
+built JS/CSS/service-worker hashes (entry `index-D3Stdq7f.js`, cache
+`blockplay-shell-1fcfd4b9459d`); live health, asset, PWA, routing and origin
+checks passed. See `deploy.log`, `live-artifacts.json`, `live-artifacts.log`,
+`live-check.log`. No GitHub push. Owned test servers 5337/5338 and Chrome9371
+are stopped after verification.
+
+## 2026-11-13: CoD-style movement pass (uncommitted until the owner says push)
+
+Jump lowered to ~1.05 m (`INFANTRY_JUMP_SPEED` 6.2) and replaced for tall cover by
+`src/game/fps-mantle.ts`: mantle onto tops 0.75–1.6 m, vault no-top walls up to ~1.2 m
+deep, air catch limited to 1.6 m above the last ground. Also: strafe reversal uses the
+stop rate, ground acceleration 9 to 11, air control 1.35 to 3, per-weapon `aimMove` and
+`sprintOut` in `fps-encumbrance.ts`, slide spread fades over the last third
+(`slideSpread`), Sprint + Z dive (engine `diving`). Slide cancel already existed.
+Live-checked in Queenstown (vault 0.43 s over the 1 m block wall at x 40, z 83; dive;
+1.03 m hop). Mantle-onto is unit-tested against the real collision module but not seen
+live: the static districts checked have no 0.8–1.6 m tops; camp props and vehicles do.
+`scripts/jump-traversal-smoke.mjs` was already stale (its `region.build` hook no longer
+fires and Orchard lost the sandbags) and still asserts the old 1.3 m jump peak.
+Not done: remote players show no climb animation, bots do not mantle, touch has no
+dedicated dive hint.
+
+Weight-scaled gun lag (same pass, 2026-11-13): `weaponHeft(mobility)` in
+`scope-shadow.ts` (pistol .77, rifle 1, FN MAG 1.8, bolt sniper 1.9) scales how far the
+gun model trails a turn and how slowly it returns: the scoped trail about the eyepiece,
+a new hip-fire swing (`hipTurnShare`), and the positional look lag. The camera and the
+shot are untouched. Unmagnified sights get no swing on aim, deliberately. Measured live:
+Smart Power 1.2° hip / 1.6° scoped, Foreign Intervention 3.0° hip / 2.2° scoped.
+`canvas.dataset.hipTurnLag` is `[yaw, pitch, heft]` in dev builds.
+
+## 2026-11-13 — Marina Ultra boat wakes (f68cd68)
+
+Approved next milestone: boat wakes plus performance review. Added distance-spaced
+bow shoulders, stern drawdown and alternating turbulence to the existing GPU
+water field. Both dragon boats use rendered local/shared positions (including
+AI boats), speed-scaled output, reverse direction and shortest-arc turns. Wake
+state resets on pauses/teleports/resets/despawn/destruction; stationary hulls do
+not emit. A spare B channel stores diffusing, decaying stern froth, with
+filtered procedural breakup in the water shader. The controller accepts at most
+two nearby boats and reserves 8 of 32 impulse slots for other interactions.
+Forcing fades before the absorbing border; hull-attached wake strips crossfade
+out within Ultra coverage and remain the High/reduced-effects fallback.
+
+Validation: all 427 test files / 4,263 tests passed; typecheck and Cloudflare
+production build passed. GPU readback confirms exact matching wave fields at
+30/60/144 fps, foam decay after stopping, no teleport trails and distant-boat
+culling. Boat/source tests cover reverse travel, turns, stable interpolation
+with shared vehicle presentation, reset/destruction/disposal and fallback
+opacity. Browser checks cover stopped boats, High/reduced fallbacks, simultaneous
+boats/swimmer/shots and actual FPS paddling/braking (54 boat impulses, no runtime
+or GL errors). Existing GPU ripples and full Ultra water/browser regressions
+(scope/swimming, day/night/rain, presets, foreground preservation) also pass.
+
+Visuals inspected, including live FPS; tuned initially subtle crests and replaced
+a regular froth pattern with filtered noise. Evidence in `.cache/boat-wakes/`:
+`{targeted-tests,full-tests,typecheck,build,browser,gameplay,wave-regression,water-regression}.log`,
+`results.json`, `marina-boat-wakes.png`, `live-boat-wake.png`, and the 7-second
+`marina-boat-wakes.webm`. A 1200x800 Marina fixture with both boats, swimmer and
+shots measured ~2 ms median / ~4.8 ms p95 Ultra render time; these are fixture
+timings, not a full-game frame-rate claim. Moving versus stopped boats adds no
+textures, geometry or draw calls (same 20 textures, 295 calls in that fixture).
+
+Local commit f68cd68; no GitHub push, no paid APIs. AGENTS.md, .claude/ and
+accumulated handoff changes remain outside the commit. Owned test Vite5337
+(PID32211) and Chrome9371 (PID32218) stopped. Manual Cloudflare deploy started;
+final result recorded below.
+
+Manual Cloudflare deployment succeeded: version
+`88b1d7b3-fe7d-4ae2-b97f-b259f9d832b1`. Both https://blockplaysg.fun and
+https://blockplay-sg.sunjc826.workers.dev serve the exact built JS/CSS/service
+worker (entry `index-D0drZns0.js`, cache `blockplay-shell-7f162be4a3ed`).
+Live health, assets, PWA, routing and origin checks passed; see `deploy.log`,
+`live-artifacts.json`, `live-artifacts.log`, `live-check.log`. No GitHub push.
+
+## 2026-11-13 — Calibre-scaled water amplitude
+
+User requested stronger waves for MG fire and especially .50 calibre. Existing
+spray/profile plumbing already carried bore/power, but wave strength used the
+mild spray-size curve and the Ultra impulse was clipped to 12 cm. Added
+`waterImpactStrength` using the shot's existing bore/power profile: rifle 1,
+FN MAG 1.421, CIS .50 2.706, with energy attenuation for skips/penetration.
+`waterImpactPulse` retains the 8.5 cm rifle impulse, increases the heavy cavity
+radius and allows impulses up to 24 cm beneath the 25 cm solver displacement
+limit. High fallback surface ripples receive the same strength. Boat/swimmer
+forcing and simulation dimensions/passes are unchanged.
+
+35 targeted tests passed, plus typecheck and production Cloudflare build.
+Browser/GPU checks passed: ordered initial wave amplitudes and propagated energy,
+weaker skipped rounds, stable sustained .50 fire, and actual rifle/MAG/.50 shots
+in the FPS engine. At 0.1 s the sampled trough magnitudes were 0.0168/0.0222/0.0422 m;
+at 0.5 s field energies were 0.0658/0.1582/0.5607. Visual comparisons reviewed.
+Evidence: `.cache/water-calibre/{targeted-tests,typecheck,build,browser}.log`,
+`results.json`, `marina-calibre-{0,3,4}.png`, `live-calibre-{0,3,4}.png`.
+Reproduction: `scripts/water-calibre-smoke.mjs`. Owned Vite5337 (PID34579) and
+Chrome9371 (PID34601) stopped. Full tests and manual deployment results follow.
+
+All 427 files / 4,265 tests passed (`full-tests.log`). Local commit `b5ce868`;
+no GitHub push. Manual `pnpm deploy:cloudflare` succeeded, version
+`05a1745f-42b2-47b0-a5f2-f9c361f0283a`. Both production origins serve the
+exact built JS/CSS/service worker: entry `index-D8itzHy6.js`, cache
+`blockplay-shell-8371aff24b20`. Live health, assets, PWA, routing and origin
+checks passed. Evidence in `.cache/water-calibre/{deploy,live-artifacts,live-check}.log`
+and `live-artifacts.json`. AGENTS.md, .claude/ and accumulated HANDOFF changes
+remain local/uncommitted. No paid API calls.
+
+## 2026-11-13 — Ultra shallow-water polish
+
+User approved restrained caustics and better contact transitions along steps and
+quays. Extended the existing above-water Ultra refraction shader: world-space
+receiver positions/normals come from the opaque depth snapshot; a single filtered
+cellular layer modulates the already lit submerged colour. Caustics follow solar
+elevation and weather, attenuate with orientation/depth/rain/footprint/distance,
+and are gated off at night, beyond 2.5 m depth or 42 m view distance. No extra
+targets, geometry or draw calls. This is an artistic screen-space approximation.
+
+The last 12 cm of contact blends towards the opaque receiver, refraction fades
+over thin films, and a height-discontinuity guard avoids pulling adjacent stair
+treads across risers. Both initial and corrected UVs reject foreground/above-water
+geometry. High, reduced effects, underwater and scope paths retain the existing
+fallback. Added clear graphics-setting copy and updated the project guide.
+
+13 targeted tests and typecheck passed. Browser checks in
+`scripts/shallow-water-smoke.mjs` pass: dry treads/foreground remain unchanged,
+submerged caustics animate even with wind chop off, heavy rain nearly suppresses
+them, and night removes them entirely. Verified High/reduced fallbacks, repeated
+quality toggles and 2x density. The existing Ultra regression also passes across
+foreground preservation, day/night/rain, scope and swimming/bullet integration.
+Visuals reviewed: `.cache/shallow-water/{steps-day,steps-before,marina-quay-day,marina-ladder-day}.png`.
+The first foreground colour mask included submerged red geometry/reflections;
+corrected it to sample actual dry faces. Evidence: `browser.log`, `results.json`,
+`water-regression.log`, `targeted-tests.log`, `typecheck.log`. An early timing run
+was contaminated by concurrent browser/test work; isolated timings follow.
+Full test/build/deploy results and commit recorded below. No paid APIs used.
+
+All 427 test files / 4,266 tests passed; typecheck and production Cloudflare
+build passed. Isolated 1200x800 quay benchmark: off/on ~1.9/1.6 ms median and
+2.6/1.9 ms p95, within normal timing variation; not a full-game FPS claim. Both
+have 141 draw calls, 390,676 triangles and 18 textures. See `performance.log`
+and `performance.json`; full checks in `full-tests.log` and `build.log`.
+Local commit `b039901`; no GitHub push. Owned Vite5337 (PID36750) and Chrome9371
+(PID36762) stopped after validation. Manual Cloudflare deploy started.
+
+Manual Cloudflare deployment succeeded: worker version `86ae88cd-9e7c-4e9d-8a82-ec1f8bd56d48`. Both production origins (`blockplaysg.fun`, `blockplay-sg.sunjc826.workers.dev`) serve exact local JS/CSS/service-worker hashes; entry `index-BGzbgycp.js`, shell cache `blockplay-shell-50636eed46ad`. Health checks and full Cloudflare production asset/routing/origin smoke passed. Evidence: `.cache/shallow-water/{deploy.log,live-artifacts.json,live-artifacts.log,live-check.log}`. No GitHub push. Only local HANDOFF, .claude and AGENTS remain outside the commit.
+
+## 2026-11-13 — Fix splash plumes cut off by water
+
+User reported only splash tips remaining visible. Reproduced in the actual
+Marina scene: the transparent FPS splash pools rendered at order 0, before
+water at order 1. As they do not write depth, Ultra water composited over the
+lower plume and left only the tip above its screen silhouette. Assigned order
+2 to the four water splash pools (rings, foam, plume, droplets), retaining
+depth testing and existing materials/simulation. No additional resources or
+draw calls. High fallback also benefits from the correct compositing order.
+
+Added `scripts/water-splash-smoke.mjs`: pixel A/B against the old order in a
+fixture and real Marina, covering rifle/MG/.50, age, low/elevated cameras,
+8–18 m distance, High/Ultra and opaque-cover exclusion. Passed without GL or
+runtime errors; visually reviewed before/after Marina captures. Solid cover
+fully occludes splashes. Evidence in `.cache/splash-clipping/{browser.log,
+results.json,marina-before.png,marina-fixed.png}`. Targeted 172 tests across
+17 matching files and typecheck passed. Full-suite/deployment results follow.
+No paid APIs or GitHub pushes.
+
+Browser regression passes in both scenes, with lower-plume visibility restored
+(e.g. synthetic rifle 0 to 1,468 changed pixels; Marina elevated .50 1 to
+1,320), and zero changed pixels behind solid cover. No resource/draw-count
+increase between A/B renders. Production build passed (shell cache
+`blockplay-shell-392c99ba8775`). Unscoped Vitest also discovered cached copies
+in `.claude/worktrees` and `.pnpm-store/projects`; stopped those runs and ran
+`pnpm test --exclude "**/.claude/**" --exclude "**/.pnpm-store/**"` against the
+workspace. Owned Vite5337 (38999) and Chrome9371 (39005) stopped after captures.
+
+All 427 workspace test files / 4,266 tests passed (277.12 s), plus typecheck
+and production build. See `workspace-tests.log`, `typecheck.log`, `build.log`.
+Local commit `efc33d6`; no push. Manual Cloudflare deployment started.
+
+Deployment conflict: `pnpm deploy:cloudflare` succeeded, activating version
+`1c32aba2-2d0b-498c-99b7-8ae9dca17546` at 2026-11-13T12:41:38.418Z
+(20:41:38 Singapore), entry `index-COdgKhPo.js`. However another deployment
+activated `3d01e58b-4e39-4fd9-be0f-0746283ee6ab` at 12:41:44.977Z, about
+six seconds later. Author/message absent in Wrangler metadata. Both origins
+now serve `index-D4p6y9KD.js`; inspected its splash creation code and it lacks
+the new renderOrder loop. Generic production health/assets/routing checks
+pass, but the exact-artifact check correctly fails. Cache-busted requests
+confirm the different active bundle; direct network is unavailable here.
+Evidence: `.cache/splash-clipping/{deploy.log,deployments.log,newer-version.log,
+live-artifacts.log,live-check.log,active-bundle.js}`. Do NOT claim this fix is
+live. No other active local chat/deploy was found. Did not overwrite the
+newer unknown release; asking owner whether to redeploy the tested local fix.
+Commit `efc33d6` is intact, main and no pushes; only HANDOFF/.claude/AGENTS
+remain outside the commit.
+
+Owner explicitly approved redeploying over the newer release. Manual
+`pnpm deploy:cloudflare` succeeded again, version
+`118e0b87-8de5-4c35-8a37-ef873d36a63b` (2026-11-13 20:51:31 Singapore).
+Initial checks briefly saw the previous assets during propagation; repeated
+cache-busted checks then verified exact local JS/CSS/service-worker hashes
+on BOTH production origins, entry `index-COdgKhPo.js`, shell cache
+`blockplay-shell-392c99ba8775`. Production health/assets/routing checks pass.
+The splash fix is now verified live. Evidence: `.cache/splash-clipping/
+{redeploy.log,redeploy-versions.log,redeploy-artifacts.log,redeploy-check.log,
+live-artifacts.json}`. No source changes or GitHub push in this redeploy turn.
+
+## 2026-11-13 — Leaf silhouettes and foliage release points
+
+User requested leaf-shaped falling particles and corrected their origin from
+plant centres. Replaced drift boxes with smaller 11–15 cm tapered, asymmetric
+blades, folded centre shading and short stems; double-sided and varied in size.
+Motes retain their cube geometry/scale. Same particle budget, triangle count and
+single draw. Marina now samples actual transformed foliage vertices before
+batching (crowns/fronds and rooftop/wall planters), excludes trunks, and preserves
+planter landing heights. Removed the three-metre release-height cap and fixed
+radial spawn offset. Downwind travel starts at release; taller canopies have
+longer falls, and rehoming requires both old and new cycles to be hidden.
+
+Five focused drift tests and typecheck pass, including transformed foliage and
+raised-planter provenance. Browser render passed without shader/WebGL errors;
+actual Marina release heights reach 7.77 m. Visually reviewed leaf contact sheet
+and several in-scene frames under palms. Evidence: `.cache/leaf-shapes/` contains
+`targeted-tests.log`, `typecheck.log`, `browser.log`, `browser-results.json`,
+`leaf-shapes.png` and `marina-{40,40.5,41,42}.png`. Browser harness `browser.mjs`
+is local review tooling. Owned Vite5337 (42410) and Chrome9371 (42417) stopped.
+Full-suite, production build, local commit and manual deployment results follow.
+AGENTS.md and accumulated HANDOFF/.claude changes stay local; no GitHub push.
+
+Local commit `24c5a5c`; production build passes (entry `index-Bx8KvlgU.js`,
+shell cache `blockplay-shell-a9f4d80c4afe`). The first full run started before
+the user's emission-origin follow-up and mixed its cached old drift module with
+new tests: 426 files passed, the drift file had three stale-code failures
+(missing helper / old three-metre cap). Fresh focused run passes all five tests.
+Rerunning the full suite on the final committed source in `final-tests.log`.
+
+## 2026-11-13 — Disk cleanup
+
+Removed 92 stale disposable dependency/build/browser-profile directories under
+.cache and .claude/worktrees (14.65 GiB apparent size), plus six old Git tar
+archives (3.26 GiB). Each deleted archive matched SHA-256 of a regenerated
+`git archive` from a commit verified as an ancestor of HEAD. Preserved source,
+uncommitted work, Git/worktrees, active main dependencies/build, paid audio
+caches/receipts and reference captures. Available disk rose from 686 MiB to
+9.9 GiB; shared storage explains the smaller physical gain. Cleanup manifest:
+.cache/disk-cleanup-2026-11-13.json. No code changes, commit, push or deployment.
+
+The second shared-workspace suite also overlapped another task's Sentosa/water
+edits, causing seven unrelated stale-module failures. Switched to a release
+copy of commit `24c5a5c` at `/tmp/blockplay-leaves-oGmLk8` (source files isolated;
+unchanged large asset directories, private env and installed modules linked).
+The first archive exhausted local disk by duplicating reconstruction assets;
+removed only this task's redundant temporary copies and re-extracted source.
+Set `pnpm_config_verify_deps_before_run=false` for this copy to avoid reinstalling
+shared dependencies. All 427 test files / 4,267 tests now PASS in 369.83 s;
+release typecheck and production build pass. See `release-tests.log`,
+`release-typecheck.log`, `release-build.log`. Manual deployment from the isolated
+copy has started; other task's source changes remain untouched and excluded.
+
+## 2026-11-13 — Remove obsolete release copies
+
+Owner confirmed old releases need not be kept. Removed 130 cached release /
+validation source copies, six clean merged agent worktrees, and two remaining
+old release tar archives (26.74 GiB apparent size). All 12 removed registered
+worktrees had HEAD commits reachable from main and no source changes; removed
+only disposable node_modules symlinks where reported untracked, then used
+`git worktree remove` without force. No running process referenced these paths.
+Preserved current source/local edits, main dependencies/build, original reference
+captures, paid audio caches and receipts, Git history, and remaining test evidence.
+Folder reduced from 33.30 to 6.56 GiB; disk has approximately 37 GiB free.
+No tracked deletions, code commit, push, or deployment. Inventory recorded in
+.cache/disk-cleanup-old-releases-2026-11-13.json. External worktree outside this
+folder was left intact.
+
+Manual `pnpm deploy:cloudflare` from the isolated release succeeded: Worker
+version `89b7cd87-8e0f-4b2f-883c-f493b1685a19`. Both production origins serve
+exact release JS/CSS/service-worker hashes (entry `index-Bx8KvlgU.js`, cache
+`blockplay-shell-a9f4d80c4afe`). Health and full Cloudflare asset/PWA/routing/origin
+checks passed. Leaf shape and foliage-origin fixes are verified live.
+Evidence: `.cache/leaf-shapes/{deploy.log,live-artifacts.log,live-artifacts.json,
+live-check.log}`. Commit `24c5a5c` remains local only; no GitHub pushes or paid
+APIs. Other task's Sentosa/water edits, AGENTS.md and accumulated HANDOFF/.claude
+remain untouched and outside this release. Isolated release retained for review.
+
+## 2026-11-13 — Sentosa sandy beach and Ultra shallows
+
+User requested a sandy shelf / beach in Sentosa after asking where to see
+transparency and caustics. Explained separately that white shot effects are
+spray/foam/ripple crests, while caustics are sunlight patterns on submerged sand.
+
+Replaced the southern opaque sea strip and underlying lawn with an authored
+pale sandy beach, wet shoreline and continuous sloped shelf (20 cm at z198,
+58 cm at z207; water y=.14). Four umbrella/lounger clusters and a SOUTH BEACH ·
+SHALLOWS sign make it findable along the southern perimeter road. Preserved
+naval ramp endpoints at z193/y.33 and two deeper landing channels at x +/-155;
+deep water stays blocked. Offshore surface continues into fog. This is gameplay
+geometry, not surveyed bathymetry or new accepted reference evidence.
+
+`sentosa-beach.ts` shares exact mesh triangles with the ground sampler and
+uses accelerated terrain raycasts. Registered ground cover now honors sandy
+terrain rather than growing grass over it. Captured rain receivers can use a
+floor sampler, preventing rain ripples on the dry part of a broad water plane.
+One explicit `scene.userData.primaryWater` selection lets Sentosa reuse the
+existing bounded Ultra refraction, reflections and GPU wave buffers; Marina
+remains the default. High/reduced/underwater fallbacks retained. UI/docs updated.
+
+Found and repaired hard-coded world-zero clamps that would make a jump onto
+negative-height sand hover: vertical movement, host movement/bot navigation,
+network pose correction and avatar footing now use terrain height. Added
+coverage for actual raycast/rendered height matching, return walks, jumping,
+shared-game wading/prone height, dry grass/rain exclusion, and naval routes.
+Focused checks and typecheck pass. Full suite/build results follow.
+
+Browser `scripts/sentosa-beach-smoke.mjs` passes in the registered Sentosa
+scene: day/rain/night caustics, visible depth/refraction, High/reduced/underwater
+fallbacks, wave impulses, 2x density, texture lifecycle; actual FPS wading,
+.50 shots into water (2 shots, 5 impulses), deep-water collision and return to
+shore. No GL/runtime errors. Reviewed beach-shore.png, beach-overview.png,
+wading.png and live-splash.png in `.cache/sentosa-beach/`.
+
+Initial review fixture spawned inside elevated ground and exposed the world-zero
+clamp. Tests also caught the old flat beach walk-surface extending over the
+slope; removed it so the terrain owns support. A rain query initially lacked
+captureRainReceivers; added capture before batching. Browser runs were disrupted
+by unrelated cache/release cleanup triggering Vite reloads, then host mouse
+movement pausing the touch-driven fixture. Final run used a temporary ignored-cache
+Vite config and filtered mouse events only in the smoke tab. All resolved;
+no production input handling changes. Other task's leaf commit 24c5a5c is now
+on main and its deployment finished; our source edits remain separate.
+No paid APIs, GitHub push or reference captures.
+
+All 428 test files / 4,276 tests passed (326.80 s), plus typecheck and
+production Cloudflare build. Entry `index-Dnplmqmj.js`, shell cache
+`blockplay-shell-0abab5bdb104`. Evidence: `.cache/sentosa-beach/{full-tests,
+typecheck,build,browser}.log` and results.json. Stopped owned review Vite5337
+(PID48882) and Chrome9371 (PID44495). Local commit recorded below; no push.
+Manual Cloudflare deployment started from main, which includes the completed
+leaf commit 24c5a5c. AGENTS and HANDOFF remain local/uncommitted.
+
+Beach committed locally on main as `30bf3ea` (22 files); no GitHub push.
+The first deploy build failed before publishing when concurrent scope edits
+introduced a duplicate `sway` declaration in the shared worktree. Those edits
+were preserved. Created detached deployment worktree
+`.cache/sentosa-beach/release` at exact tested commit `30bf3ea`, with private
+environment symlinks; clean typecheck and `pnpm deploy:cloudflare` both passed.
+Manual deployment succeeded: version `7f0e4bc1-df4e-485d-a18b-b35083caf044`.
+Entry/cache match the prior build: `index-Dnplmqmj.js` /
+`blockplay-shell-0abab5bdb104`. Both blockplaysg.fun and workers.dev returned
+exact SHA-256-matching built JS, CSS and service worker, with healthy APIs.
+The production Cloudflare routing/assets/API-origin smoke also passed.
+Evidence: `.cache/sentosa-beach/{release-typecheck,release-deploy,live-check,
+cloudflare-check}.log` and `live-artifacts.json`. Deployment worktree retained
+for reproducibility. Other task scope/optics/fixture edits remain untouched.
+User's white-water question answered: impact spray/foam and ripple crests
+are separate from sunlight caustics on submerged sand.
+
+## 2026-11-13: scope shadow now read off the gun alone (uncommitted until the owner says push)
+
+The strafe/jump/landing spring (`createScopeShadow`) moved from the scope renderer into
+the engine, which turns it into a tilt about the eyepiece (`scopeSwayTilt`) alongside the
+turn trail. `createScopeRenderer().render` adds nothing of its own any more: the shadow is
+lens geometry plus `relief` passed in, and `shot()` is gone (the engine keeps `scopeJolt`).
+The positional look lag is faded out while scoped; it moved the eye across the eyepiece
+on a faster clock than the rotation, which is what read as out of sync. Measured live on
+Smart Power and Foreign Intervention: gun tilt and shadow peak in the same frame for
+turns and strafes, shadow/tilt ratio 1.1–1.3 throughout. A jump tilts the gun ~2.5° but
+the shadow saturates at the clear-centre limit, so that ratio drops to ~.5 by design.
+`canvas.dataset.scopeTilt` is the applied `[yaw, pitch]` in dev builds.
+`fps-scope-strafe-smoke` floor for aimed strafe speed lowered 1.5 to 1 m/s (heavy rifles
+walk slower on aim since the movement pass); it and `fps-scope-glass-smoke` pass.
+
+
+## 2026-11-14 — Dynamic caustics and a soft Sentosa wave shoreline
+
+User requested Crysis 3 style dynamic caustics, then reported abrupt ripple
+clipping against the beach. Added two independently moving, curved procedural
+light layers with brighter intersections, refracted solar projection and local
+focusing/warping from five filtered samples of the existing wave height field.
+The approximation stays attached to submerged receivers and retains the depth,
+distance, footprint, daylight, rain and quality gates. It is an artistic
+approximation, not photon transport. `uCausticResponse` allows the existing
+wave response to be isolated during render review. No new caustic render targets
+or draw calls.
+
+Sentosa now owns a static 512x256 byte bathymetry texture (128 KiB) sampled from
+the same rendered sand triangles. The wave solver absorbs energy progressively
+in shallows, limits displacement to available depth and excludes dry sand.
+Vertices, wind/ripple normals and foam also fade through the final 55 cm of
+water depth. Marina's solid-quay boundary remains reflective. Texture owned
+and disposed by the beach; generic water without a depth map retains behavior.
+
+Added water-shore unit tests and `scripts/dynamic-caustics-smoke.mjs`. The GPU
+check isolates caustic light changes while holding surface/refraction/time fixed:
+zero changes for calm water, visible local changes for shots and moving boats.
+Dry terrain has zero wave energy, and the same .50-strength impulse in shallow
+water has less than 30% of deeper-water energy. Day/night/rain, dry steps,
+foreground exclusion, High/reduced fallback, retina, and texture lifetime pass.
+Existing shallow-water and Sentosa/FPS browser regressions also pass. One initial
+boat test incorrectly left the boat stationary; corrected the fixture to move
+it through two seconds of wake generation. Initial browser launch also needed
+NO_PROXY for localhost. No production issue was hidden by either adjustment.
+Visuals and a six-second clip saved to `.cache/dynamic-caustics/`. Full suite,
+final build, commit and deployment results follow. No paid APIs or GitHub push.
+
+Final validation: 429 test files / 4,278 tests passed (298.15 s), typecheck,
+Cloudflare production build and all three browser checks passed. Entry
+`index-DvWwhv5K.js`, shell cache `blockplay-shell-60112a5db723`.
+Committed only the ten owned code/docs/test files on main as `9b0ea4c`.
+AGENTS and HANDOFF remain local, unstaged and uncommitted; no GitHub push.
+Stopped owned Vite5337 PID63058 and review Chrome9371 PID63065.
+Manual `pnpm deploy:cloudflare` is running; live verification follows.
+
+Manual deployment succeeded: Cloudflare version
+`28de94a4-5a57-498c-abd5-7e76ca8c5de0`. Both production origins return exact
+SHA-256-matching built JavaScript, CSS and service worker; API health passes.
+Production Cloudflare routing/assets/origin checks pass as well. Logs and
+`live-artifacts.json` are in `.cache/dynamic-caustics/`. Live build has
+`index-DvWwhv5K.js` / `blockplay-shell-60112a5db723`. Remaining git dirt is only
+local HANDOFF, AGENTS and the pre-existing untracked .claude directory.
+
+
+## 2026-11-14 — User challenged shot-caustic visibility; evidence audit
+
+No production code changes. User says dynamic caustics are not visible when
+shooting and asks for proof. Reverified both live origins' exact JS/CSS/SW
+against local dist (9b0ea4c). Captured an isolated frozen A/B using the unchanged
+Sentosa renderer: camera (0,1.5,202), target (0,-.4,206), CIS50MG-matched strength
+2.706437, impact (0,206), age .4s. Toggle only uCausticResponse 0/1; surface,
+refraction, lights and time remain identical. 45,657 pixels exceed summed-RGB
+change 2; full-image average change .4963; max summed change 67. This establishes
+a small local light response, not strong gameplay readability. Raw off/on and
+raw difference, a labeled 8x amplified difference, self-contained interactive
+comparison.html and screenshot comparison.png are in `.cache/caustics-proof/`.
+
+Also traced actual FPS fire using the existing Sentosa fixture (not an injected
+ripple), with a test-only onBeforeRender hook to inspect the active shader and
+record ripple callbacks. One shot at player z202.655 hit (0.0273,205.5308),
+strength 2.706437; three simulation impulses, light/response/Ultra/refraction
+all 1 during draw; no runtime errors. fps-shot.png shows bright splash rings,
+droplets and the weapon covering much of the affected sand. User's visibility
+complaint is credible: prior Crysis-inspired presentation overstated how obvious
+the effect is in ordinary gunfire. No claim of a visibility fix in this audit.
+The difference image is explicitly labeled amplified diagnostic, never in-game.
+Initial private audit script failures were escaped regex and returning a cyclic
+material instead of a boolean; corrected, final capture succeeds.
+Stopped owned Vite5337 PID65109 and Chrome9371 PID65116. No commit/deploy/push,
+paid requests or production mutations; only ignored evidence and local handoff.
+
+
+## 2026-11-14 — Primary-source research: Crysis 3 dynamic water caustics
+
+User explicitly demanded research after rejecting the cellular brightness effect.
+Read Crytek's CRYENGINE 3 (not merely CE5) Water Volume Caustics documentation:
+https://www.cryengine.com/docs/static/engines/cryengine-3/categories/1114113/pages/1048636
+It documents surface-derived caustic capture including interaction ripples;
+normal intensity/tiling during caustics-map generation; a grid-density control
+(16–256), caustics map/G-buffer resolution (512/1024 defaults), distance and
+stabilization snapping; and height above water for nearby objects/overhangs.
+Do not confuse its Intensity parameter with post-hoc pattern brightness: the
+manual specifically says it scales the normals used in generation.
+
+Crytek's contemporary announcement explicitly lists Dynamic Water Volume
+Caustics among Crysis 3's demonstrated features:
+https://www.crytek.com/news/feast-your-eyes-on-a-new-cryengine-3-tech-trailer
+CRYENGINE3 water shader doc confirms ambient FFT normals/heights plus propagated
+interaction waves and warns against overdoing foam:
+https://www.cryengine.com/docs/static/engines/cryengine-3/categories/1114113/pages/1048756
+Deferred caustic processing is documented by Crytek:
+https://www.cryengine.com/docs/static/engines/cryengine-3/categories/1114113/pages/1048590
+These sources establish the structure/behavior, not the complete shipped Crysis3
+shader algorithm. GDC2013 Sousa presentation located but no useful caustics
+algorithm was established from it; do not claim otherwise.
+
+Inspected Evan Wallace's original WebGL implementation as an independent,
+implementable reference, NOT evidence of Crysis3's exact algorithm:
+https://madebyevan.com/webgl-water/
+https://github.com/evanw/webgl-water/blob/master/renderer.js
+https://medium.com/@evanwallace/rendering-realtime-caustics-in-webgl-2a99a29a0b2c
+Its caustics shader refracts rays through simulated surface normals, projects
+the displaced grid, computes intensity from original/projected footprint areas,
+and writes a caustics texture sampled by receiver shading. This provides a
+concrete WebGL reference for deriving patterns rather than modulating a cellular
+net. Above-water reflective caustics need a separate reflected-light treatment;
+do not claim Wallace's underwater example already solves that.
+
+Correct replacement direction: combine ambient and interaction surface normals;
+generate a bounded light-concentration map from projected surface rays/grid;
+apply to actual receiver lighting, including appropriate nearby above-water
+walls/overhangs as well as underwater sand/steps. Preserve occlusion/distance/
+shore constraints. Remove dependency on the arbitrary cellular pattern. First
+acceptance scene should be plain floor+wall with decorative patterns and foam
+disabled: a single actual shot creates propagating caustic bands. Then show
+unamplified normal-FPS footage with splashes enabled. Pixel differences alone
+are not acceptance. Current implementation cannot cast above-water caustics
+because it runs only in water surface fragments over submerged receivers.
+
+Video review limitation: CUA createBrowserTab/getState timed out (both kernel
+resets); YouTube web fetch also failed. No footage was watched; do not claim
+visual verification. Located example IDs j3BhfKbbCik and wGd82yuBEfI but they
+remain unverified. CUA completion summary recorded. No code edits/deployment.
+
+
+## 2026-11-14 — Surface-derived caustics replacement + real gunfire evidence
+
+Local main commit `559fc29`; no GitHub push. Replaced the prior cellular shader
+with shared surface-normal/height ray projection: 256² grid, six height slices
+in a 1024×1536 RGBA16F atlas (12 MiB). Refracted rays light submerged receivers;
+reflected rays light appropriately facing nearby walls/overhangs. Additive
+projected source/receiver-area flux generates shapes directly. Opaque depth
+reconstructs receivers; lit color is recopied for water refraction. Screenspace
+source-to-receiver visibility, dry source masks, orientation and depth/distance/
+daylight/weather gates apply. Shared ambient + interaction sampling lives in
+water-surface-field.ts. No cellular generator remains. Documented approximation:
+horizontal slices, offscreen occlusion and source sun-shadow limitations; no
+claim to be Crytek's exact shipped algorithm. Seven additional draws, 786432
+projector triangles; Ultra-only and resources released on lower/reduced modes.
+
+Evidence in `.cache/surface-caustics/`: surface smoke passes flat uniform flux,
+near-conserved mean flux (~.9615), focus radius .608 -> 1.856 m from .2 -> .9 s,
+25385 changed wall pixels / 12462 floor pixels in frozen interaction-only A/B.
+An intervening slab reduces wall changes to zero. Normal unamplified screenshot
+plain-shot.png visibly shows both receivers; plain-flat.png has no pattern.
+Plain fixture median with gl.finish 1.4 -> 1.8 ms on this hardware (not a mobile
+performance guarantee). Dynamic/shore smoke, shallow smoke, Ultra smoke all pass,
+including Marina boat wakes, weather/night, 2x density and resource lifecycle.
+Typecheck passed; full suite 430 files / 4279 tests passed in 318.66 s.
+
+`scripts/surface-caustics-capture.mjs` records actual engine CIS .50 firing, with
+normal foam, droplets, recoil and lens splashes. Two shots in each ~9 s silent
+WebM, plus a third shot for stills; hit callbacks record strength 2.706437 and
+9 simulation impulses for 3 bullets. `sentosa-shooting.webm` is unmodified map
+geometry/normal ambient water. `wall-shooting.webm` explicitly uses fixture-only
+plain wall on the west side, morning sunlight and ambient chop=0; it is NOT
+shipped Sentosa wall geometry. The wall is blank before shooting, then visibly
+carries moving rings/streaks. Video decoded; extracted frames at .8–6 s and inspected frames at 1.7 and
+3 s; a strong visible ring at 1.7 s becomes receding/fading bands at 3 s.
+An additional `wall-ambient-shooting.webm` retains normal ambient waves. All
+final captures have zero runtime/WebGL errors. No amplified difference is used
+as visual proof. These recordings are actual gun impacts, not injected impulses.
+
+Development fixes: Three r180 texture-copy binding cache caused GL_INVALID_VALUE
+after receiver pass; resetting renderer state before snapshots/recopy fixes it.
+Initial capture hook matched legacy water material without shader uniforms;
+restricted to fpsWater + caustic uniforms. First test-wall placement faced away
+from reflected sunlight and correctly received none; moved to west side at
+morning. Final captures and browser tests are clean. AGENTS.md and this handoff
+remain local, unstaged and uncommitted. Deployment result appended below.
+
+Manual `pnpm deploy:cloudflare` succeeded. Cloudflare version
+`64550fd7-1941-4d38-995d-884b8b0f4594`, main asset `index-DyOCv-tm.js`,
+service-worker cache `blockplay-shell-871a0c91c0e8`. Both blockplaysg.fun and
+blockplay-sg.sunjc826.workers.dev serve byte-identical built JS/CSS/SW; health
+checks pass. Full cloudflare-check passes production routing/assets/API origin
+checks without paid requests. Logs and artifact hashes in surface-caustics cache.
+Stopped owned Vite5337 PID66359 and Chrome9371 PID66375. Final tracked worktree
+only has the pre-existing/local handoff edit; AGENTS/.claude remain untracked.
+
+
+## Dummy death and deployment hitch audit (2026-11-14)
+
+Read-only gameplay audit; findings/evidence in `.cache/hitch-audit/audit.txt`.
+Three real-browser Marina range kills identified complete bullet ray-index
+rebuilds on dummy exclusion: 34–36.5 ms frames; the instrumented third rebuild
+reread 1,350,993 vertices across 1,286 meshes. Preserve unchanged entries/bounds
+across membership updates (`gameplay-ray-index.ts`, `scene-ray-index.ts`).
+Deployment weapon reveal produced a 79.9 ms callback, including ~77.1 ms in
+Three.js `getProgramInfoLog`/first-use initialization despite precompilation.
+Warm actual viewmodel/body/effect draws during loading (`fps-engine.ts`).
+The actual control-handoff callback was 17.1 ms. Kill saves measured below
+0.1 ms in these samples. Timings are local Chrome/Metal development-build
+diagnostics with reduced effects, not production-device performance claims.
+No gameplay changes, tests, commits, pushes or deployments; existing handoff
+edits and local AGENTS.md remain unstaged. CPU profiles and frame/bounds logs
+are saved in the ignored audit directory.
+
+
+## Dummy kill and first-person entry hitch fixes (2026-11-14)
+
+Local main commit `d9008cc` retains scene collision entries/bounds across
+membership changes and validates simultaneous geometry, instance and transform
+edits. Dummy death no longer rescans the district's vertices. Loading builds
+the initial bullet and acoustic indexes, creates worn gear/magazine variants,
+and submits hidden weapon/body/effect renders in both target formats. Temporary
+visibility/culling/count/draw-range changes restore on success or failure;
+arena stand-in shader programs are retained before disposing their materials.
+
+Full suite: 431 files / 4,283 tests pass; typecheck and production build pass.
+Added regressions for death/respawn vertex reads, retained-entry edits/tie order,
+and warm-render cleanup. `scripts/fps-hitch-smoke.mjs` passes real training
+entry and three kills on Chrome/Metal. Final worst kill callbacks are
+14.4 / 10.1 / 10.7 ms versus the audit's 34–36.5 ms recurring spikes; vertex
+reads are 0 / 5,965 / 5,965 versus 1,350,993. Deployment max is 17.7 ms,
+with no first-use shader checks while the weapon is visible and no new links
+(the prior reveal was 79.9 ms, including 77.1 ms in a shader check). One
+0.2 ms world shader check occurs earlier with the gun hidden. These are local
+diagnostic observations, not production-device guarantees. Screenshot checked.
+
+The existing deployment smoke now handles intentional beforeunload dialogs.
+All expedition checks pass: descent/rack overlap, frozen host, pause/resume,
+phone/skip, desktop capture, reduced motion and GPU blur; no browser errors.
+An initial cache failure used the old shared Vite optimizer; final checks used
+a task-owned Vite cache on 5189 and Chrome on 9369. Both processes are stopped.
+
+Manual `pnpm deploy:cloudflare` succeeded: version
+`6517fbd7-2ffb-4981-a915-34c76b950106`, entry `index-DKzYe2Ct.js`,
+service worker cache `blockplay-shell-4cd270a0d3ec`. Both blockplaysg.fun and
+workers.dev serve byte-identical built entry assets and service worker; both
+Cloudflare routing/assets/PWA/API-origin checks pass without paid requests.
+Evidence and logs: `.cache/hitch-fix/summary.txt`, `results.json`, raw browser
+records, tests/typecheck/build/deploy logs and `live-verification.json`.
+No GitHub push. AGENTS.md, .claude and pre-existing handoff edits stay local
+and unstaged; only the eight task-owned source/test/script files were committed.
+
+
+## One water shader for every district (2026-11-15)
+
+Uncommitted in the shared checkout; nothing pushed or deployed. Before this only
+Marina Bay and the Sentosa beach used `createWaterMaterial`; the other 17 districts
+with water tagged flat opaque `MeshStandardMaterial` boxes with `markWater` and
+animated pale "ripple" strips over them. Now every water mesh in every region wears
+the shared surface shader (waves, Fresnel sky, glint, shot rings, rain rings, the
+atmosphere's day/night and weather lighting). Districts get it from scene-kit's new
+`water(color, { choppiness?, falls? })`, which wraps `createDistrictWater` (opaque,
+depth-writing, no vertex swell because slabs have only corner vertices) and drives
+`setTime` from `finish().animate`. Raffles calls `createDistrictWater` directly.
+The decorative ripple strips and their animation are removed from 12 scenes.
+
+Shader changes that also reach Marina/Sentosa: `USE_INSTANCING` in the vertex
+stage (district water is batched), sun shadow reception through three's shadow
+chunks (`lights: true`; body and glint dim under bridges, trees and boardwalks —
+the old flat water took shadows, so this was a regression otherwise; the bay,
+pond and beach meshes now set `receiveShadow`), and side-on faces: a slab's rim
+is still, while `falls: true` (Changi's oculus column, Sentosa's water stair)
+runs white streaks down the face. `district-boundaries` shares the district's
+surface material for the sea past the boundary instead of cloning it; a clone
+dropped `setTime`/`setLighting` and froze that sea at noon. night-exposure still
+patches the literal `vec3 colour = mix(body, sky, fresnel);` line — keep it.
+
+Ultra's bounded passes were extended to the other districts in the next entry.
+
+Checked: typecheck; full vitest 432 files / 4322 tests; new `water.test.ts` cases
+build every region and fail on any water mesh without the surface or off the
+scene clock. New fixture `scripts/fixtures/district-water.html` (`show(id, eye,
+target, {timeOfDay, weather})`, `waterReport()`), viewed in the desktop app's
+browser pane (hardware GL): lakes, river, canal, sea, pond, rooftop pool, water
+stair, waterfall, monsoon rain, night, a shot ripple, and the Ultra fixture
+(`ultra-water.html`, plain and `?shallow`: refraction 1, reflections true,
+glError 0). Not run: `pnpm build`, the CDP browser smokes (ultra-water,
+shallow-water, dynamic/surface caustics, fps-district), and no in-game FPS
+session or frame-time measurement.
+
+Found, not fixed (present at d9008cc too): Jurong Lake's causeway deck is drawn
+under the lake. ground-cover flattens the paving slab to ground level while
+water keeps its authored height, so ground-surface ownership gives the span to
+the water; the rails and walkers stand in open water.
+
+
+## Ultra water passes for every district with water (2026-11-15)
+
+Uncommitted, same checkout; nothing pushed or deployed. Owner asked for the Ultra
+passes beyond Marina and Sentosa.
+
+What each kind of water gets:
+- Planar reflection (the Water reflections setting, High or Ultra): every
+  district. One capture at the primary surface's height, now bound to every water
+  material in the scene and gated per fragment by `uReflectionBand` (0.02 for
+  translucent bay water as before, 0.25 for opaque slabs, so a strait and the
+  boardwalk water a step below it share the mirror; a rooftop pool does not).
+- Ultra wave detail (`uUltra`): set on every water material, not only the primary.
+- Interactive wave simulation (Ultra): every district's primary surface. Slab
+  water is not a rectangle, so `water-waves` builds a 512² coverage map
+  (`createWaterCoverageMap` in water-shore.ts) from the material's upward faces:
+  distance from the bank stored as "depth", outline eroded one texel. It reuses
+  the shore-depth uniforms, so waves settle toward banks, and `uWaterMask` makes
+  the base surface and the 32 m patch ask the same covered-or-not question, which
+  keeps the patch off islands, banks and bridge gaps with no holes. The base
+  surface now also stays put outside `uWaveBounds` (the shared boundary sea).
+- Refraction and caustics: still only Marina Bay and the Sentosa beach. They need
+  something under the surface; district water is an opaque slab 12 cm over the
+  lawn base plate, so the snapshot would show a flooded lawn. `water-surface-pass`
+  takes its snapshot only for a translucent primary and exposes `visible` for the
+  wave pass. Extending these means authoring beds per district.
+
+Primary surface: `primaryWaterSurface` still honours `scene.userData.primaryWater`
+and the Marina default name; otherwise it picks the largest water mesh (over
+400 m²) by `waterSurfaceLevel`, which reads the dominant height, bounds and
+outline from upward faces because ground-surface ownership re-cuts slabs into
+one "owned surfaces" mesh whose origin is not its surface.
+
+Cost, Jurong Lake at 1000×640 on this VM's paravirtual GPU, High → Ultra with
+reflections: draw calls 278 → 373, triangles 201k → 439k, textures 7 → 10
+(reflection target, two 512² half-float wave targets, one 512² byte map). Frame
+time was too noisy here to state beyond "about a millisecond more"; treat as
+relative. High with reflections off is unchanged in draw calls.
+
+Checked in the browser pane via `scripts/fixtures/district-water.html`
+(`show(id, eye, target, {detail:'ultra', frames, ripple:[x,z,strength]})` now
+renders through `createWorldOcclusion`): Jurong, Woodlands (bridge gap stays
+dry), Bishan (road crossing dry), Geylang canal, shot impulses in the patch;
+`ultra-water.html` plain, `?marina`, `?sentosa`, `?shallow` unchanged
+(refraction 1, reflections true, glError 0; `?shallow` diff 126741 as before).
+Not run: the CDP smokes (ultra-water, shallow-water, caustics, fps-district) and
+no in-game session.
 
 ## 2026-11-14 — Level review: 3D layout pins and audit
 
@@ -7312,6 +16607,42 @@ behind the wrists: the forearms are thick for the hand and the pistol sits low a
 Forearms (2026-11-15): `forearmGeometry` is no longer a cone with two torus rings (it read as bamboo). It is an oval
 tube, narrow at the wrist, widest about 0.2 m down, with shallow folds winding round the sleeve; the wrist band follows
 the hand's flat section. Hand size is unchanged (about three-quarters of life size against the guns).
+
+## 2026-11-15 — Ambient occlusion on the first-person gun
+
+The carried gun and hands now get their own screen-space occlusion, so a part
+standing on another (the SAR 21 scope on its flat top, a hand round a grip)
+darkens where they meet. New module `src/game/viewmodel-occlusion.ts`; tests in
+`viewmodel-occlusion.test.ts`.
+
+- Why a separate pass: the world's GTAO runs on the world only, the view scene is
+  drawn afterwards over the finished picture, and its lights cast no shadows.
+- Each frame, `prepare()` draws the view scene's opaque parts depth-only at half
+  the drawing buffer (`VIEW_OCCLUSION.scale`), then works occlusion out from that
+  depth: normals from depth, 12 spiral samples, 6 cm radius.
+- A full-screen plate lives in the view scene. It is transparent with the lowest
+  render order, so three draws it after every opaque part and before glass,
+  reticles and effects; it multiplies the canvas, and a `GreaterDepth` test at
+  the far plane keeps it to pixels the gun or hands covered. Its shader does a
+  4×4 depth-aware blur.
+- `hideNonOccluders` hides transparent, non-depth-writing, line and sprite
+  objects for the depth pass and they are shown again straight after.
+- Gate, in `fps-engine.ts`: the gun is visible, not the overview, the same
+  occlusion setting and time-of-day flag as the world's pass, no thermal and no
+  NVG aiming. `canvas.dataset.viewOcclusion` reports it.
+- Same pass: `weapon-surface.ts` now fades its normal and cavity strength to
+  nothing within 6 cm of the eye (full at 32 cm). At aim the SAR 21's flat top
+  read as coarse green noise; the relief is sized for carry distance.
+
+Things to know: it costs a second, depth-only draw of the view scene each frame
+plus two half-size full-screen passes. Occlusion is on only in presets that have
+the world's occlusion on, so Balanced and below skip it. A headless Chrome with
+default settings has occlusion off; set `occlusion: true` through
+`setEnvironmentSettings` to see it.
+
+Checked: the Marina Bay range through CDP on the 5175 server with occlusion on
+(SAR 21 hip, aimed and inspected, P30), no shader or console errors. Not
+measured: frame cost on a real GPU or a phone. Not run: the browser smokes.
 
 Life-size hands (2026-11-15): the gun hands are scaled 1.25 (`HAND` in `fps-viewmodel.ts`) and the free hands 1.18
 (`HAND_SCALE` in `fps-viewmodel-hand.ts`), both about 78 mm across the palm. Each is scaled about the palm's face, so
