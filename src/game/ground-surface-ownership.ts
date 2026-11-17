@@ -44,11 +44,13 @@ export function partitionGroundCaps(caps: readonly GroundCap[]) {
     if (pieces.length !== 1 || area(pieces[0]) < area(cap) - epsilon) cuts++;
   }
   for (const [source, entries] of grouped) {
-    const positions: number[] = [], normals: number[] = [], uvs: number[] = [];
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], slabs: number[] = [];
     const point = new THREE.Vector3(), normal = new THREE.Vector3(), matrix = new THREE.Matrix4(), instance = new THREE.Matrix4();
     const inverse = source.matrixWorld.clone().invert(), normalMatrix = new THREE.Matrix3();
     const geometry = source.geometry, index = geometry.index, position = geometry.getAttribute('position'), ns = geometry.getAttribute('normal'), uv = geometry.getAttribute('uv');
-    const emit = (p: THREE.Vector3, n: THREE.Vector3, u: number, v: number) => { positions.push(p.x, p.y, p.z); normals.push(n.x, n.y, n.z); uvs.push(u, v); };
+    // `lookGround` tells the district look's paving where a cap's slabs lie: world X and Z in metres, so
+    // neighbouring caps share one joint grid, and the cap's narrower side, so road paint and trims stay plain.
+    const emit = (p: THREE.Vector3, n: THREE.Vector3, u: number, v: number, slabX = 0, slabZ = 0, span = 0) => { positions.push(p.x, p.y, p.z); normals.push(n.x, n.y, n.z); uvs.push(u, v); slabs.push(slabX, slabZ, span); };
     const removed = new Set(entries.map(e => e.cap.instance));
     // Preserve the original sides/bottoms, including their UVs and normal direction.
     for (const { cap } of entries) {
@@ -72,13 +74,14 @@ export function partitionGroundCaps(caps: readonly GroundCap[]) {
     for (const { cap, pieces } of entries) for (const r of pieces) {
       for (const [x, z] of [[r.minX,r.minZ],[r.minX,r.maxZ],[r.maxX,r.minZ],[r.maxX,r.minZ],[r.minX,r.maxZ],[r.maxX,r.maxZ]]) {
         point.set(x, cap.y, z).applyMatrix4(inverse);
-        emit(point, up, (x - cap.minX) / (cap.maxX - cap.minX), 1 - (z - cap.minZ) / (cap.maxZ - cap.minZ));
+        emit(point, up, (x - cap.minX) / (cap.maxX - cap.minX), 1 - (z - cap.minZ) / (cap.maxZ - cap.minZ), x, z, Math.min(cap.maxX - cap.minX, cap.maxZ - cap.minZ));
       }
     }
     const replacement = new THREE.BufferGeometry();
     replacement.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     replacement.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     replacement.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    replacement.setAttribute('lookGround', new THREE.Float32BufferAttribute(slabs, 3));
     replacement.computeBoundingBox(); replacement.computeBoundingSphere(); geometries.push(replacement);
     const mesh = new THREE.Mesh(replacement, source.material);
     mesh.name = `${source.name || 'Ground'} / owned surfaces`; mesh.userData = { ...source.userData, ownedGround: true };

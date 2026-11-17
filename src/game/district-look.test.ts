@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { acesFilmic, blendGrade, buildingSeed, createDistrictLook, DAY_SKY_RAYS, districtLook, extendLook, gradeColor, groundCells, hazeAmount, inverseAcesFilmic, LOOK_DEFAULTS, LOOK_PRESETS,
   lookPalette, MARINA_LOOK, skyColorAt, skyTintFrom,
-  surfaceHash, surfaceShade, wallPanels, type DistrictLook, type LookPaletteInput, type SurfacePoint } from './district-look';
+  surfaceHash, surfaceShade, wallPanels, slabJoint, slabFade, pavedShare, asphaltShare, PAVING_MIN_SPAN, type DistrictLook, type LookPaletteInput, type SurfacePoint } from './district-look';
 import { dayLighting } from './world-lighting';
 import { WEATHER } from './world-events';
 import type { Rgb } from './world-sky-light';
@@ -171,6 +171,31 @@ describe('district look surface variation', () => {
     expect(light[0] / light[2]).toBeGreaterThan(1); expect(dark[0] / dark[2]).toBeLessThan(1); expect(grey[0]).toBeCloseTo(grey[2], 6);
   });
 
+  it('draws a slab joint on every whole metre, conserves its width when a pixel is wider than it, and fades before slabs are pixels', () => {
+    // Near: a sharp 4 cm line centred on the grid, nothing mid-slab.
+    expect(slabJoint(3, .005, .04)).toBe(1);
+    expect(slabJoint(3.019, .001, .04)).toBe(1);
+    expect(slabJoint(3.03, .005, .04)).toBe(0);
+    expect(slabJoint(3.5, .005, .04)).toBe(0);
+    // Farther: a pixel a tenth of a slab wide holds 40% joint, wherever in the pixel the line falls.
+    expect(slabJoint(7, .1, .04)).toBeCloseTo(.4, 6);
+    expect(slabJoint(7.02, .1, .04)).toBeCloseTo(.4, 6);
+    let sum = 0; for (let i = 0; i < 1000; i++) sum += slabJoint(i / 1000, .1, .04);
+    expect(sum / 1000).toBeCloseTo(.04, 3);
+    expect(slabFade(.05)).toBe(1); expect(slabFade(.35)).toBe(0); expect(slabFade(.2)).toBeGreaterThan(0);
+  });
+  it('treats pale grey ground as paving and dark ground as asphalt, and neither lawn, sand nor brick', () => {
+    const linear = (hex: string): [number, number, number] => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
+    expect(pavedShare(linear('#b8b5a8'))).toBeGreaterThan(.9);
+    expect(pavedShare(linear('#8f9092'))).toBeGreaterThan(.9);
+    expect(asphaltShare(linear('#34383b'))).toBeGreaterThan(.9);
+    expect(pavedShare(linear('#eeeeea'))).toBeGreaterThan(.9);
+    for (const plain of ['#b5562f', '#d9b36a', '#34383b']) expect(pavedShare(linear(plain)), plain).toBeLessThan(.15);
+    expect(pavedShare(linear('#8aa96a'), 1)).toBe(0);
+    expect(asphaltShare(linear('#b8b5a8'))).toBe(0);
+    expect(asphaltShare(linear('#2f5a2c'), 1)).toBe(0);
+    expect(PAVING_MIN_SPAN).toBeGreaterThan(2);
+  });
   it('turns the surface pass on only for looks that ask for it, and off on reduced effects', () => {
     const frame = { background: new THREE.Color('#b9dcea'), keyColor: new THREE.Color('#fff3e2'), keyDirection: { x: .3, y: .9, z: .1 }, elevation: 64, shift: 0, night: 0, sun: 1, rain: 0, haze: 0, wind: 0,
       exposure: .9, sunIrradiance: new THREE.Color(2, 2, 2), groundColor: new THREE.Color('#707060'), dt: .1, reduced: false, lowDetail: false, gtao: false };
@@ -192,6 +217,8 @@ describe('district look presets', () => {
     surface: {
       building: { cell: 8, value: .12, hue: .035, roughness: .15 },
       ground: { coarse: 9, fine: 2.25, value: .1, hue: .06, roughness: .3 },
+      // Added with the paving pass (2026-11-17); the rest is as first tuned.
+      paving: { slab: 1, width: .04, joint: .2, value: .035, asphalt: .07 },
       wall: { grime: .25, grimeHeight: 1.2, lift: .1, liftHeight: 60, panel: [4.5, 3.3], value: .04, roughness: .25 },
     },
     contact: { base: 0, darken: .45, fade: 3, reach: 9 },

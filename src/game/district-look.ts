@@ -85,6 +85,15 @@ export interface SurfaceVariation {
    */
   ground: { coarse: number; fine: number; value: number; hue: number; roughness: number };
   /**
+   * Paved slabs: joints `width` metres wide on a `slab`-metre grid laid from one edge of each box,
+   * darkened by `joint`, with each slab's tone varied by ± `value`. Drawn only on pale, grey,
+   * up-facing ground caps and scaled unit boxes at least `PAVING_MIN_SPAN` across, so lawns, sand-coloured
+   * and painted ground, road paint, vehicles and furniture stay plain. Dark faces of the same kind
+   * (asphalt) get occasional lighter and darker repair patches of ± `asphalt` instead. Both fade
+   * out before a slab is a few pixels wide.
+   */
+  paving: { slab: number; width: number; joint: number; value: number; asphalt: number };
+  /**
    * Walls: a grimy foot over the first `grimeHeight` metres above the look's contact base (less
    * where the contact term already darkens the ambient, so the two do not double up), and a lift
    * of up to `lift` towards `liftHeight` metres, so towers lighten upwards. Blocky `panel` cells
@@ -103,6 +112,7 @@ export const LOOK_DEFAULTS: DistrictLook = {
   surface: {
     building: { cell: 8, value: .12, hue: .035, roughness: .15 },
     ground: { coarse: 9, fine: 2.25, value: .1, hue: .06, roughness: .3 },
+    paving: { slab: 1, width: .04, joint: .2, value: .035, asphalt: .07 },
     wall: { grime: .25, grimeHeight: 1.2, lift: .1, liftHeight: 60, panel: [4.5, 3.3], value: .04, roughness: .25 },
   },
   contact: { base: 0, darken: .45, fade: 3, reach: 9 },
@@ -391,6 +401,27 @@ export function groundCells(x: number, z: number, ground: SurfaceVariation['grou
   const fine = surfaceHash(Math.floor(x / ground.fine + 31.7), Math.floor(z / ground.fine + 31.7));
   return (.62 * coarse + .38 * fine - .5) * 2;
 }
+/** The narrowest box, in metres across, whose top is treated as paving or road. */
+export const PAVING_MIN_SPAN = 2.5;
+/**
+ * Share of a pixel `pixel` slabs wide, centred `coord` slabs along a box, that a joint covers: a box
+ * filter over a line `width` slabs wide on every whole slab. Mirrors the GLSL's `lookJoint` on one axis.
+ */
+export function slabJoint(coord: number, pixel: number, width: number) {
+  const d = Math.abs(fract(coord + .5) - .5), w = Math.max(pixel, 1e-4), half = width / 2;
+  return Math.max(0, Math.min(1, (Math.min(d + w / 2, half) - Math.max(d - w / 2, -half)) / w));
+}
+/** How much of the joints and slab tones is still drawn for a pixel `pixel` slabs wide: all of it near, none once slabs are a few pixels. */
+export const slabFade = (pixel: number) => 1 - smoothstep(.12, .35, pixel);
+/** Whether a linear colour reads as paving (not dark, and grey), 0-1. Road paint is kept plain by its width, not its colour. Mirrors the GLSL. */
+export function pavedShare([r, g, b]: Rgb, green = 0) {
+  const lum = .2126 * r + .7152 * g + .0722 * b, hi = Math.max(r, g, b), sat = (hi - Math.min(r, g, b)) / Math.max(hi, 1e-3);
+  return (1 - green) * smoothstep(.1, .2, lum) * (1 - smoothstep(.3, .45, sat));
+}
+/** Whether a linear colour reads as asphalt (dark and not green), 0-1. Mirrors the GLSL. */
+export function asphaltShare([r, g, b]: Rgb, green = 0) {
+  return (1 - green) * (1 - smoothstep(.06, .12, .2126 * r + .7152 * g + .0722 * b));
+}
 /** Wall panel cells at a point on a wall (`along` it and `y` up, metres), −1–1. Mirrors the GLSL on an axis-aligned wall. */
 export function wallPanels(along: number, y: number, wall: SurfaceVariation['wall']) {
   return (surfaceHash(Math.floor(along / wall.panel[0] + 7.3), Math.floor(y / wall.panel[1] + 7.3)) - .5) * 2;
@@ -431,6 +462,8 @@ export function surfaceUniforms(s: SurfaceVariation | undefined) {
     lookWallTone: { value: new THREE.Vector4(s?.wall.grime ?? 0, s?.wall.grimeHeight ?? 1, s?.wall.lift ?? 0, s?.wall.liftHeight ?? 1) },
     lookPanels: { value: new THREE.Vector4(1 / (s?.wall.panel[0] ?? 1), 1 / (s?.wall.panel[1] ?? 1), s?.wall.value ?? 0, s?.wall.roughness ?? 0) },
     lookGrassHue: { value: s?.ground.hue ?? 0 },
+    lookPaving: { value: new THREE.Vector4(1 / (s?.paving.slab ?? 1), s?.paving.joint ?? 0, s?.paving.value ?? 0, s?.paving.asphalt ?? 0) },
+    lookJointWidth: { value: (s?.paving.width ?? 0) / (s?.paving.slab ?? 1) },
     lookSeedCell: { value: s?.building.cell ?? 1 },
   };
 }
@@ -438,9 +471,12 @@ export function surfaceUniforms(s: SurfaceVariation | undefined) {
 /** Vertex side of the surface variation: coordinates that move with the mesh, and the building seed. */
 export const LOOK_SURFACE_VERTEX_DECLARATIONS = /* glsl */`
 uniform float lookSeedCell;
+attribute vec3 lookGround;
 varying vec3 vLookCoord;
 varying vec3 vLookNormal;
 varying vec2 vLookSeed;
+varying vec2 vLookSpan;
+varying vec2 vLookSlab;
 float lookSurfaceHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 `;
 /**
@@ -459,6 +495,17 @@ export const LOOK_SURFACE_VERTEX = /* glsl */`
     vLookNormal = objectNormal;
     vLookSeed = vec2(0.0);
   #endif
+  // The footprint of a scaled unit box, and metres along it from one corner, so slab joints on raised decks
+  // and roofs follow the box's own edges whichever way it is turned. Geometry authored at full size reads as
+  // one metre and gets none.
+  #ifdef USE_INSTANCING
+    vLookSpan = vec2(length(instanceMatrix[0].xyz), length(instanceMatrix[2].xyz)) * lookScale.xz;
+  #else
+    vLookSpan = lookScale.xz;
+  #endif
+  vLookSlab = (position.xz + 0.5) * vLookSpan;
+  // Merged ground caps (ground-surface-ownership) say so themselves; everything else reads zero here.
+  if (lookGround.z > 0.0) { vLookSpan = vec2(lookGround.z); vLookSlab = lookGround.xy; }
 `;
 const LOOK_SURFACE_GLSL = /* glsl */`
 uniform vec4 lookSurface;
@@ -466,9 +513,13 @@ uniform vec4 lookCells;
 uniform vec4 lookWallTone;
 uniform vec4 lookPanels;
 uniform float lookGrassHue;
+uniform vec4 lookPaving;
+uniform float lookJointWidth;
 varying vec3 vLookCoord;
 varying vec3 vLookNormal;
 varying vec2 vLookSeed;
+varying vec2 vLookSpan;
+varying vec2 vLookSlab;
 float lookSurfaceHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 // Nearest-cell value, blended across each cell edge over one pixel, settling to the mean once cells are pixel-sized.
 // w is the cell coordinate's screen derivative, taken by the caller outside any branch.
@@ -493,12 +544,32 @@ export const LOOK_SURFACE_ALBEDO = /* glsl */`
     lookTint *= vec3(1.0 + lookSurface.z * vLookSeed.y * lookShare, 1.0, 1.0 - lookSurface.z * vLookSeed.y * lookShare);
     // Derivatives once, before the branches below skip faces a term does not touch.
     vec3 lookDeriv = fwidth(vLookCoord);
+    vec2 lookSlabQ = vLookSlab * lookPaving.x, lookSlabW = max(fwidth(lookSlabQ), vec2(1e-4));
     float lookCellMix = 0.0;
     if (lookUp > 0.0) lookCellMix = (0.62 * lookCellValue(vLookCoord.xz * lookCells.x, lookDeriv.xz * lookCells.x)
       + 0.38 * lookCellValue(vLookCoord.xz * lookCells.y + 31.7, lookDeriv.xz * lookCells.y) - 0.5) * 2.0 * lookUp;
     lookTint *= 1.0 + lookCells.z * lookCellMix;
     float lookGreen = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) / max(diffuseColor.g, 1e-3) * 4.0, 0.0, 1.0);
     lookTint *= mix(vec3(1.0), vec3(1.0 + lookGrassHue * lookCellMix, 1.0, 1.0 - 1.6 * lookGrassHue * lookCellMix), lookGreen);
+    // Paving joints and slab tones on pale grey slabs; repair patches on asphalt. Mirrors slabJoint, pavedShare, asphaltShare.
+    if (lookUp > 0.0 && min(vLookSpan.x, vLookSpan.y) >= ${PAVING_MIN_SPAN.toFixed(1)}) {
+      float lookLum = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      float lookHi = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)), lookLo = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+      float lookSat = (lookHi - lookLo) / max(lookHi, 1e-3);
+      float lookPaved = (1.0 - lookGreen) * smoothstep(0.1, 0.2, lookLum) * (1.0 - smoothstep(0.3, 0.45, lookSat)) * lookUp;
+      float lookRoad = (1.0 - lookGreen) * (1.0 - smoothstep(0.06, 0.12, lookLum)) * lookUp;
+      float lookSlabFade = 1.0 - smoothstep(0.12, 0.35, max(lookSlabW.x, lookSlabW.y));
+      if (lookPaved > 0.0 && lookSlabFade > 0.0) {
+        vec2 lookJointD = abs(fract(lookSlabQ + 0.5) - 0.5), lookHalf = vec2(lookJointWidth * 0.5);
+        vec2 lookJoint = clamp((min(lookJointD + lookSlabW * 0.5, lookHalf) - max(lookJointD - lookSlabW * 0.5, -lookHalf)) / lookSlabW, 0.0, 1.0);
+        float lookTone = (lookSurfaceHash(floor(lookSlabQ) + floor(vLookCoord.xz * 0.37)) - 0.5) * 2.0;
+        lookTint *= 1.0 + lookPaved * lookSlabFade * (lookPaving.z * lookTone - lookPaving.y * max(lookJoint.x, lookJoint.y));
+      }
+      if (lookRoad > 0.0) {
+        float lookPatch = lookCellValue(vLookSlab * vec2(0.23, 0.41) + 13.1, lookSlabW / lookPaving.x * vec2(0.23, 0.41));
+        lookTint *= 1.0 + lookRoad * lookPaving.w * (smoothstep(0.88, 0.92, lookPatch) - (1.0 - smoothstep(0.08, 0.12, lookPatch)));
+      }
+    }
     // Wall panels on the mesh's own faces: x-facing walls run along z, z-facing along x, blended on curved ones.
     float lookPanelMix = 0.0;
     if (lookSide > 0.0) {
