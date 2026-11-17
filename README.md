@@ -17,7 +17,7 @@ Explore familiar Singapore neighborhoods as stylized 3D game worlds, created usi
 - Play each district's **FPS range** in Classic, Continuous or 90-second drills, with a shared armory, vehicles and a free equipment resupply box.
 - Play **Solo arena** against configurable bots.
 - The Cloudflare build supports **public multiplayer rooms**, with a global room browser, optional passwords and four-player arena matches. See [setup and test scope](docs/PUBLIC-ROOMS.md); this revision needs deployment to enable it on the public site.
-- Play on a **phone or tablet**: every 3D mode draws twin thumb sticks and on-screen actions over the scene.
+- Play on a **phone or tablet**: every 3D mode draws its controls over the scene: a move stick with drag-to-look in the FPS modes, twin sticks in walk/drive.
 - **Install it** to your home screen or desktop and keep playing offline.
 
 The public demo runs on Cloudflare Workers and redeploys from `main` on every push. The local LAN server is separate from the public-room backend; the AI companions answer only while the deployment carries a private key, and return a clear unavailable response without one. All of it is supported in the local project with additional setup.

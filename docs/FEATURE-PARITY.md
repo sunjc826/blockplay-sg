@@ -1,10 +1,10 @@
 # Driving and FPS feature comparison
 
-Updated after FPS minimap integration (2026-09-13). The region Walk/Drive views and the FPS engine share authored scenery and collision data, but use separate controllers and HUDs. The Singapore locator is an island-level district selector/route planner; it is not the local minimap.
+Updated after FPS minimap integration (2026-09-13); district and arena coverage corrected 2026-11-17. The region Walk/Drive views and the FPS engine share authored scenery and collision data, but use separate controllers and HUDs. The Singapore locator is an island-level district selector/route planner; it is not the local minimap.
 
 | Feature | Region Walk/Drive | Regional FPS practice | Open-world FPS | LAN arena |
 | --- | --- | --- | --- | --- |
-| Authored districts | All three, selected separately | Marina | All three, connected | Marina |
+| Authored districts | All twenty-three, selected separately | All twenty-three, each with its own range | All twenty-three, connected by checkpoints | All twenty-three as arena maps |
 | Local minimap | Roads, player position, collectible stamps | Local roads, facing arrow, remaining targets, parked vehicles | Local roads, facing arrow, vehicles, remaining loot, checkpoint/route markers; visible allies/enemies within the current time/weather range (up to 60 m) | Local roads, own facing arrow; visible allies/enemies within the current time/weather range (up to 60 m); scent reveals |
 | Island locator | Select region | Select region, leaves FPS | Current district, route destination, threat/loot preview | Select region, leaves session |
 | Vehicles | Car in each region; Walk/Drive buttons | Enter/exit car and helicopter | District car and helicopter, AI car crews, delayed replacements | Shared car and helicopter |
@@ -35,4 +35,4 @@ Updated after FPS minimap integration (2026-09-13). The region Walk/Drive views 
 
 This is a source-level feature audit, not a claim that the missing parity features have been implemented. The FPS minimap now has unit and browser coverage. Physical UTM mouse delivery and cross-device LAN routing still require user hardware testing.
 
-Regional practice now includes Marina Bay, Queenstown and Raffles Place with their own range layouts, vehicle spawns, minimaps and bounds. See [FPS districts](FPS-DISTRICTS.md).
+Regional practice covers every district, each with its own range layout, vehicle spawns, minimap and bounds. See [FPS districts](FPS-DISTRICTS.md).
