@@ -7380,3 +7380,47 @@ views, a hand-drawn area, a verdict. Not run: `level-review-cloud-smoke`,
 touch drawing on a phone, `test:browser`/`test:pwa`/`test:touch`. The analysis
 script is not in the repo; it dumped `world.obstacles` from a throwaway vitest
 file and ray-tested boxes. Worth making a real script before the next district.
+
+## 2026-11-17 — Low-decision upkeep: wheel cycling, heading strip, action prompt, layout report
+
+Owner asked for improvements that need no decisions from them. Five commits
+(`546b733`..`7ffd9d8`).
+
+- **Mouse wheel cycles carried guns** off the sights (`cycleWeaponFamily` in
+  `weapon-modes.ts`, wired in `scrollWheel` in `fps-engine.ts`). Aimed, the wheel
+  is still the scope's zoom ring; the map and callout wheel keep priority. Like
+  the number keys, a switch interrupts a reload.
+- **Heading strip** (`compass.ts`, `FpsHeading.tsx`) replaces the fixed setting
+  line in the range and arenas. Not on touch; expeditions never had the line.
+- **Action prompt** (`action-prompt.ts`, `FpsActionPrompt.tsx`) under the reticle
+  in range, arena and expedition: reload when the gun cannot fire, the carried
+  healing item at low health, low ammo off the sights. Details in
+  `docs/UI-HUD-AUDIT.md`.
+- **`pnpm analyse:layout`** (`layout-metrics.ts`, `scripts/layout-report.mjs`):
+  building share, raised footing and openness per district and by thirds. Marina
+  reads 6.1% built, 4.4% raised, 40% open (south third 47%). Its openness is an
+  area share clipped at the map edge, so it is lower than the 59% in the Marina
+  reading above, which counted visible ground samples.
+- `scripts/ts-extension-hook.mjs` now supplies the JSON import attribute. Without
+  it every report script importing `regions.ts` had stopped running
+  (`analyse:cover`, `analyse:verticality`, the map audits).
+- `scripts/jump-traversal-smoke.mjs` repaired; `hud-layout-smoke.mjs` extended
+  and made to wait out the map panel and loot card animations.
+- Guides corrected: district counts, jump height, F/G keys, touch look.
+
+Found and left alone:
+- `pnpm audit:map-surfaces` reports 36 surface conflicts in Marina Bay and none
+  elsewhere. `marina-scene.ts` had another session's uncommitted edits at the
+  time, so it is not established whether `main` has them.
+- The `[data-empty]` belt rules in `fps-hints.css` and `arena-player.css` match
+  nothing since the belt became two quick slots.
+- On top of the Orchard range's sandbag wall, walking along its length from a
+  test spawn 2 m west of it is blocked by something past the far end. The
+  movement kernel alone walks it. Not traced.
+
+Checked: `pnpm test` (443 files, 4,421 tests) and typecheck on the shared tree;
+typecheck, tests and `vite build` on the committed tree alone in a clean
+worktree; `hud-layout-smoke` (39 combinations) and `jump-traversal-smoke` on
+SwiftShader against the 5175 server; wheel cycling through CDP in the Orchard
+range. Not run: `test:browser`, `test:touch`, `test:pwa`, `test:fps:districts`
+and the rest of the browser smokes; a real GPU or a phone.
