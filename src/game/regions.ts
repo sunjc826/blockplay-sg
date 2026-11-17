@@ -12,6 +12,7 @@ import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import { withDistrictBoundaries } from './district-boundaries';
 import { withGroundCover } from './ground-cover';
 import { withSurfaceOwnership } from './surface-ownership';
+import { withRoofDetail } from './roof-detail';
 import type * as THREE from 'three';
 import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
 import { createRegionMovement, type Obstacle, type Position2D, type RegionBounds } from './region-collision';
@@ -529,7 +530,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
 // Every district is built with its set pieces, whatever mode builds it.
 for (const id of REGION_IDS) {
   const { build, bounds } = definitions[id];
-  definitions[id] = { ...definitions[id], build: options => withAnimals(withDistrictBoundaries(id, withSetPieces(id, withStreetProps(withSurfaceOwnership(withGroundCover(build(), bounds)), definitions[id])), bounds, options?.barricades), definitions[id]) };
+  definitions[id] = { ...definitions[id], build: options => withRoofDetail(withAnimals(withDistrictBoundaries(id, withSetPieces(id, withStreetProps(withSurfaceOwnership(withGroundCover(build(), bounds)), definitions[id])), bounds, options?.barricades), definitions[id])) };
 }
 
 export const REGIONS: readonly RegionDefinition[] = REGION_IDS.map(id => definitions[id]);

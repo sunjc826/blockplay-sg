@@ -16786,3 +16786,33 @@ browser smokes, night or rain views, a phone.
 
 Next in this line: building pass (ground-floor bays and canopies, roof parapets
 and rooftop clutter), then façade furniture and ground decals.
+
+## 2026-11-17 — Building detail pass: ground storeys and rooftops
+
+Second of the two detail passes the owner approved.
+
+- **Ground storey** in the window patch of `world-night-lights.ts` (key
+  `-windows-v4`): plinth, fascia, and per window bay a shopfront, door or blank
+  wall (`STOREFRONT`, `storefrontBay`). Only where the box's foot is within
+  0.9 m of the ground in the night map, and the facade is 6 m or wider. A share
+  of shopfronts glow faintly at night. Authored panes (`nightWindow`) are
+  untouched.
+- **Roofs** (`roof-detail.ts`, `withRoofDetail`, outermost in the `regions.ts`
+  build chain so boundary scenery is included): parapets on bare box roofs;
+  overrun, tank and condensers on bare roofs and on authored cap slabs that sit
+  on a building. Skips roofs more than 20% built on, roofs with a walk surface
+  or standable top, pitched or tilted boxes. One white instanced box mesh with
+  instance colours under a `Roof detail` group tagged `fpsEffect`, raycast off.
+  Typically 200-290 roofs and 1,300-1,900 boxes per district; a handful in the
+  nature districts, none on Ubin.
+- `scripts/fixtures/night-district.html` takes `&time=afternoon`.
+
+Checked: `pnpm test` (444 files, 4,430 tests), typecheck, build,
+`audit:map-cover` (no authority mismatches); by eye on the real GPU in
+Chinatown, Woodlands, Orchard, Bishan and Raffles by day and Chinatown at
+night. Not measured: frame cost. Not run: browser smokes, a phone. Not looked
+at closely: every district's ground storeys against authored shopfronts; the
+rule cannot tell a wall that already has modelled doors.
+
+Left for later in this line: facade furniture for HDB slabs, weathering
+streaks, ground decals, prop density, the district-look defects.
