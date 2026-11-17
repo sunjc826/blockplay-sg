@@ -75,8 +75,48 @@ Like the rest of the anchor it is part of the immutable thread header. **Copy AI
 brief** and the CLI `pull` carry it, so a reply can reason about the exact place
 and sightline. Helpers and limits live in `src/game/district-review.ts`.
 
+## Routes, areas, sightlines and verdicts
+
+A thread can carry a drawing as well as a pin, so a reading of a level can be put
+on the map instead of described: where people are meant to walk, which ground is
+dead, what sees what. Either side can draw; the AI's reading of a district is
+posted this way before any geometry changes.
+
+- **Kinds**: a *route* (two or more points, drawn with an arrow), an *area*
+  (three or more, filled) and a *sightline* (exactly two, dashed, with a dot at
+  each end).
+- **Tones**: *as built* (blue) describes the level as it is, *problem* (red)
+  says something is wrong with it, *proposal* (green) puts a change up for a
+  decision. The chips above the map hide and show each tone; a selected thread
+  stays visible.
+- **Draw**: pin a comment as usual, then **＋ Add a point** in the form and
+  place the next point; repeat. **Undo last point** removes one. With two or
+  more points choose what it is drawn as and what it shows. Points placed in
+  the 3D layout keep their height; schematic points lie on the ground. Up to
+  48 points.
+- **Read**: drawings appear in both views. In 3D they are drawn over the
+  district without a depth test, so a route stays visible behind a tower, and
+  their thickness follows the camera distance. Selecting a drawing opens its
+  thread and thickens it.
+- **Verdict**: under the reply box, **Agree**, **Disagree** and **Needs
+  rework** post a reply carrying that verdict; the comment box is optional
+  and becomes the reason. The latest verdict from the designer shows on the
+  thread list. A verdict is separate from resolving: agreeing with a proposal
+  leaves the thread open until the change is built and played.
+
+Working agreement: a proposal is not built until the designer agrees with it.
+`Needs rework` plus a redrawn route is the fastest correction.
+
+Schema: `anchor.shape: { kind: 'route' | 'zone' | 'sightline', tone: 'existing'
+| 'problem' | 'proposal', points: [{ x, z, y? }] }` in world metres, and
+`verdict: 'agree' | 'disagree' | 'rework'` on an event. The shape is part of the
+immutable thread header: to move a route, post a new thread. `anchor.x/z` is
+where the numbered pin sits. Level threads only. `pull` and **Copy AI brief**
+carry both. The AI posts a set of drawn threads with `push --file`; thread and
+event IDs must be stable so a repeated push is harmless.
+
 Deploy the Worker and the client together (the normal push does). A browser
-still running an older cached build drops `space` when it reads the board, and
+still running an older cached build drops `space` or `shape` when it reads the board, and
 its next sync is refused as a conflicting location until the app updates; no
 history is lost.
 

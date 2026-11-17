@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { ReviewAnchor, ReviewSceneView, ReviewThread } from './level-review';
+import type { ReviewAnchor, ReviewSceneView, ReviewShape, ReviewShapePoint, ReviewShapeTone, ReviewThread } from './level-review';
 import type { RegionBounds } from './region-collision';
 
 /** Vertical field of view of the review camera, in degrees. */
@@ -98,4 +98,52 @@ export function districtPinAttached(scene: THREE.Object3D, anchor: ReviewAnchor,
 export function detachedDistrictPins(scene: THREE.Object3D, threads: readonly ReviewThread[], bounds: RegionBounds, camera: THREE.Camera) {
   scene.updateMatrixWorld();
   return threads.filter(thread => !districtPinAttached(scene, thread.anchor, bounds, camera)).map(thread => thread.id);
+}
+
+/** Shared by the schematic and the 3D layout so a drawing reads the same in both. */
+export const REVIEW_SHAPE_COLORS: Record<ReviewShapeTone, string> = { existing: '#2c6fbb', problem: '#cf3f2c', proposal: '#1f9d57' };
+/** Drawn points float a little above their surface so a line on the ground is not buried in it. */
+export const districtShapePoint = (p: ReviewShapePoint, bounds: RegionBounds, lift = .6) => new THREE.Vector3(p.x, (p.y ?? districtGround(bounds, p.x, p.z)) + lift, p.z);
+/**
+ * Routes, areas and sightlines as scene geometry. They draw over the district (no depth test) so a route stays
+ * readable behind a tower, and are tagged as effects so picking and the detached-pin check ignore them.
+ */
+/** Line thickness for a camera distance, in steps, so a route is a few pixels wide from the overview and from the street. */
+export const districtShapeScale = (distance: number) => 1.3 ** Math.round(Math.log(clamp(distance / 150, .4, 6)) / Math.log(1.3));
+export function buildDistrictShapes(shapes: readonly { shape: ReviewShape; selected?: boolean }[], bounds: RegionBounds, scale = 1) {
+  const group = new THREE.Group(); group.name = 'Review drawings'; group.userData.fpsEffect = true; group.renderOrder = 20;
+  const up = new THREE.Vector3(0, 1, 0);
+  for (const { shape, selected } of shapes) {
+    const points = shape.points.map(p => districtShapePoint(p, bounds, .6 * Math.max(1, scale))), color = REVIEW_SHAPE_COLORS[shape.tone];
+    const line = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: selected ? 1 : .82, depthTest: false, depthWrite: false });
+    const radius = (shape.kind === 'sightline' ? .45 : shape.kind === 'zone' ? .6 : 1) * (selected ? 1.5 : 1) * scale;
+    const path = shape.kind === 'zone' ? [...points, points[0]] : points;
+    const add = (geometry: THREE.BufferGeometry, at: THREE.Vector3, direction?: THREE.Vector3) => {
+      const mesh = new THREE.Mesh(geometry, line); mesh.position.copy(at); mesh.renderOrder = 20;
+      if (direction) mesh.quaternion.setFromUnitVectors(up, direction);
+      group.add(mesh); return mesh;
+    };
+    for (let i = 1; i < path.length; i++) {
+      const delta = path[i].clone().sub(path[i - 1]), length = delta.length();
+      if (length < .01) continue;
+      // A sightline is drawn as dashes so it is not mistaken for somewhere to walk.
+      const pieces = shape.kind === 'sightline' ? Math.max(1, Math.round(length / (6 * scale))) : 1, direction = delta.clone().normalize();
+      for (let k = 0; k < pieces; k++) add(new THREE.CylinderGeometry(radius, radius, length / pieces * (pieces > 1 ? .6 : 1), 6), path[i - 1].clone().addScaledVector(delta, (k + .5) / pieces), direction);
+      if (shape.kind !== 'sightline') add(new THREE.SphereGeometry(radius, 8, 6), path[i]);
+    }
+    const last = path[path.length - 1], before = path[path.length - 2];
+    if (shape.kind === 'route') add(new THREE.ConeGeometry(radius * 2.6, radius * 6, 10), last, last.clone().sub(before).normalize());
+    if (shape.kind === 'sightline') for (const end of points) add(new THREE.SphereGeometry(radius * 2.4, 10, 8), end);
+    if (shape.kind === 'zone') {
+      const outline = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, p.z))), fill = new THREE.ShapeGeometry(outline);
+      fill.rotateX(Math.PI / 2);
+      const mesh = new THREE.Mesh(fill, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: selected ? .4 : .26, depthWrite: false, side: THREE.DoubleSide }));
+      mesh.position.y = Math.max(...points.map(p => p.y)) - .25; mesh.renderOrder = 19; group.add(mesh);
+    }
+  }
+  return group;
+}
+export function disposeDistrictShapes(group: THREE.Object3D) {
+  group.removeFromParent();
+  group.traverse(object => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); (object.material as THREE.Material).dispose(); } });
 }

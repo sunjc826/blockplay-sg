@@ -7343,3 +7343,40 @@ aim the sidearm (one-handed), scatter `SWIMMING.aimSpread` .03 against .085 at t
 to the authority (`swimAiming`), optional so older clients still validate. Touch shows the Aim button when
 `swimCanFire`. `scripts/swimming-smoke.mjs` now expects the aim to be allowed but was not run. Seen in the real engine
 through `dragon-boats.html?swim` on touch input; multiplayer not exercised beyond unit tests.
+
+## 2026-11-17 — Level review: drawn routes, areas, sightlines and verdicts; Marina reading posted
+
+Owner's brief: past level-design passes added geometry without analysing the
+layout, and Marina still reads as landmarks strewn on a flat plane. New working
+agreement: the AI first draws its reading of a district on the review board
+(what exists, what is wrong, what it proposes), the owner answers each thread
+with a verdict or a redrawn route, and **no proposal is built before the owner
+agrees with it**. The owner has no access to this host, so everything goes
+through the deployed board (`blockplaysg.fun/debug?review=<district>`).
+
+- Schema (`src/game/level-review.ts`): `anchor.shape { kind: route | zone |
+  sightline, tone: existing | problem | proposal, points [{x, z, y?}] }` and
+  `verdict: agree | disagree | rework` on an event. Level threads only; the shape
+  is part of the immutable header. Shared by client, Worker and CLI, so an older
+  cached client conflicts until it updates, as with `space`.
+- Board: tone chips above the map, drawings on the schematic (SVG) and in the 3D
+  layout (`buildDistrictShapes` in `district-review.ts`, no depth test, thickness
+  follows camera distance, tagged `fpsEffect` so picking ignores them), "Add a
+  point" in the compose form to draw by hand, verdict buttons under the reply box.
+  Usage in `docs/LEVEL-REVIEW.md` ("Routes, areas, sightlines and verdicts").
+- Marina reading: 17 threads `marina-read-*`, `marina-prob-*`, `marina-plan-*`
+  pushed to the cloud board with `level-review-cloud.mjs push`. Numbers behind
+  them, from the built colliders on an 8 m grid at eye height (boxes only):
+  buildings are ~6% of the land, raised floor 3.5%, mean visible share of ground
+  within 120 m is 59%, the south third 70-90%. Proposals awaiting a verdict:
+  three lanes between the command posts (Esplanade, Helix Bridge into the
+  museum, promenade through the hotel concourse), ArtScience opened as a
+  two-level hinge linked to the podium roof, the Supertree grove moved onto the
+  south lane, the south field rebuilt as two streets and a square.
+
+Checked: typecheck, `pnpm test`, `pnpm build`, `district-review-smoke` and
+`level-review-smoke` on SwiftShader, and by hand: drawings and tone chips in both
+views, a hand-drawn area, a verdict. Not run: `level-review-cloud-smoke`,
+touch drawing on a phone, `test:browser`/`test:pwa`/`test:touch`. The analysis
+script is not in the repo; it dumped `world.obstacles` from a throwaway vitest
+file and ray-tested boxes. Worth making a real script before the next district.

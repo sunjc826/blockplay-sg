@@ -4,12 +4,12 @@ import ReviewPointer from './ReviewPointer';
 import { useReviewGestures } from './use-review-gestures';
 import { getRegion } from '../game/regions';
 import type { RegionId } from '../game/region-ids';
-import { clampDistrictView, detachedDistrictPins, districtAnchorWorld, districtOverview, districtSurfaceHit, DISTRICT_REVIEW_FOV, panDistrictView, pickDistrictAnchor, placeDistrictCamera } from '../game/district-review';
-import { threadStatus, type ReviewAnchor, type ReviewSceneView, type ReviewThread } from '../game/level-review';
+import { buildDistrictShapes, disposeDistrictShapes, districtShapeScale, clampDistrictView, detachedDistrictPins, districtAnchorWorld, districtOverview, districtSurfaceHit, DISTRICT_REVIEW_FOV, panDistrictView, pickDistrictAnchor, placeDistrictCamera } from '../game/district-review';
+import { threadStatus, type ReviewAnchor, type ReviewSceneView, type ReviewShape, type ReviewThread } from '../game/level-review';
 
 /** The district as built for play, held still under an orbit camera. Pins are world-space points on its surfaces. */
-export default function DistrictReviewViewer({ district, placing, draft, threads, numbers, selected, onPick, onSelect, onCancel, onDetached }: {
-  district: RegionId; placing: boolean; draft: ReviewAnchor | null; threads: ReviewThread[]; selected?: ReviewThread; numbers: Record<string, number>;
+export default function DistrictReviewViewer({ district, placing, draft, draftShape, threads, numbers, selected, onPick, onSelect, onCancel, onDetached }: {
+  district: RegionId; placing: boolean; draft: ReviewAnchor | null; draftShape?: ReviewShape | null; threads: ReviewThread[]; selected?: ReviewThread; numbers: Record<string, number>;
   onCancel(): void; onPick(anchor: ReviewAnchor): void; onSelect(thread: ReviewThread): void; onDetached(ids: string[]): void;
 }) {
   const region = getRegion(district), bounds = region.bounds;
@@ -23,7 +23,7 @@ export default function DistrictReviewViewer({ district, placing, draft, threads
   const changeView = (next: ReviewSceneView) => { view.current = clampDistrictView(next, bounds); setPlacementVersion(n => n + 1); };
   const pickSurface = useRef<(x: number, y: number) => ReviewAnchor | null>(() => null), cancelDrag = useRef(() => {});
   const lastPlacement = useRef(-Infinity);
-  const latest = useRef({ placing, movingView, draft, threads, selected, onDetached }); latest.current = { placing, movingView, draft, threads, selected, onDetached };
+  const latest = useRef({ placing, movingView, draft, draftShape, threads, selected, onDetached }); latest.current = { placing, movingView, draft, draftShape, threads, selected, onDetached };
   const gestures = useReviewGestures(stage, gesture => {
     const a = aspect(), moved = panDistrictView(view.current, (gesture.to.x - gesture.from.x) * a, gesture.to.y - gesture.from.y);
     view.current = clampDistrictView({ ...moved, distance: moved.distance / gesture.scale }, bounds);
@@ -45,7 +45,7 @@ export default function DistrictReviewViewer({ district, placing, draft, threads
     canvas.setAttribute('aria-label', `3D layout of ${region.name}. Drag to orbit, Shift-drag or arrow keys to slide, scroll to zoom, double-click to centre on a surface. In pin mode drag the pointer and choose Pin here.`);
     node.append(canvas);
     const camera = new THREE.PerspectiveCamera(DISTRICT_REVIEW_FOV, 1, .5, 6000);
-    let world: ReturnType<typeof region.build> | null = null, frame = 0, drawn = '', detachedFor = '';
+    let world: ReturnType<typeof region.build> | null = null, frame = 0, drawn = '', detachedFor = '', drawings: THREE.Group | null = null, drawingsFor = '';
     let drag: { x: number; y: number; startX: number; startY: number; moved: boolean; pan: boolean } | null = null;
     const resize = () => { const w = Math.max(1, node.clientWidth), h = Math.max(1, node.clientHeight); renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); drawn = ''; };
     const observer = new ResizeObserver(resize); observer.observe(node); resize();
@@ -90,7 +90,13 @@ export default function DistrictReviewViewer({ district, placing, draft, threads
       const now = latest.current, known = now.threads.map(thread => thread.id).join();
       if (known !== detachedFor) { detachedFor = known; now.onDetached(detachedDistrictPins(world.scene, now.threads, bounds, camera)); }
       // The scene is held still, so a frame is only drawn when the camera or the pins change.
-      const signature = JSON.stringify([view.current, known, now.draft, now.selected?.id]);
+      const thickness = districtShapeScale(view.current.distance), shapes = JSON.stringify([known, now.selected?.id, now.draftShape, thickness]);
+      if (shapes !== drawingsFor) {
+        drawingsFor = shapes; if (drawings) disposeDistrictShapes(drawings);
+        drawings = buildDistrictShapes([...now.threads.flatMap(thread => thread.anchor.shape ? [{ shape: thread.anchor.shape, selected: thread.id === now.selected?.id }] : []), ...(now.draftShape ? [{ shape: now.draftShape, selected: true }] : [])], bounds, thickness);
+        world.scene.add(drawings); node.dataset.drawings = String(drawings.children.length);
+      }
+      const signature = JSON.stringify([view.current, shapes, now.draft]);
       if (signature === drawn) return;
       drawn = signature; placeDistrictCamera(camera, view.current); renderer.render(world.scene, camera);
       for (const el of pins.current?.querySelectorAll<HTMLElement>('[data-scene-pin]') ?? []) {
@@ -120,7 +126,7 @@ export default function DistrictReviewViewer({ district, placing, draft, threads
     frame = requestAnimationFrame(render);
     return () => {
       window.clearTimeout(building); cancelAnimationFrame(frame); observer.disconnect(); pickSurface.current = () => null; cancelDrag.current = () => {};
-      surface.removeEventListener('wheel', zoom); world?.dispose(); renderer.dispose(); canvas.remove(); delete node.dataset.ready;
+      surface.removeEventListener('wheel', zoom); if (drawings) disposeDistrictShapes(drawings); world?.dispose(); renderer.dispose(); canvas.remove(); delete node.dataset.ready;
     };
   }, [district]);
   const step = (change: (v: ReviewSceneView) => ReviewSceneView) => changeView(change(view.current));
@@ -142,6 +148,6 @@ export default function DistrictReviewViewer({ district, placing, draft, threads
       <button aria-label="Slide left" onClick={() => step(v => panDistrictView(v, .2, 0))}>←</button><button aria-label="Slide forward" onClick={() => step(v => panDistrictView(v, 0, .2))}>↑</button><button aria-label="Slide back" onClick={() => step(v => panDistrictView(v, 0, -.2))}>↓</button><button aria-label="Slide right" onClick={() => step(v => panDistrictView(v, -.2, 0))}>→</button>
       <button onClick={() => changeView(districtOverview(bounds, aspect()))}>Overview</button><button onClick={() => step(v => ({ ...v, yaw: 0, pitch: 1.5 }))}>Top</button><button disabled={!selected} onClick={() => selected && focus(selected)}>{selected?.anchor.space ? 'Restore pin view' : 'Go to pin'}</button>
     </div>
-    <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit; Shift-drag, right-drag or two fingers slide; scroll or pinch zooms. Choose Position pin when ready.' : 'Drag or tap to position the pointer on a surface, release, then choose Pin here. Scroll or pinch still zooms; Move view orbits.' : 'Drag to orbit · Shift-drag, right-drag or two fingers slide · scroll or pinch zooms · double-click centres on a surface. Faded pins are behind geometry; dashed pins came from the schematic and sit at ground level.'}</p>
+    <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit; Shift-drag, right-drag or two fingers slide; scroll or pinch zooms. Choose Position pin when ready.' : 'Drag or tap to position the pointer on a surface, release, then choose Pin here. Scroll or pinch still zooms; Move view orbits.' : 'Drag to orbit · Shift-drag, right-drag or two fingers slide · scroll or pinch zooms · double-click centres on a surface. Faded pins are behind geometry; dashed pins came from the schematic and sit at ground level. Drawn routes, areas and dashed sightlines show through buildings: blue is the level as built, red a problem, green a proposal.'}</p>
   </div>;
 }

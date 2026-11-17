@@ -10,10 +10,22 @@ export interface ReviewSurface { y: number; meshPath: number[]; view: ReviewView
 export interface ReviewSceneView { x: number; y: number; z: number; yaw: number; pitch: number; distance: number }
 /** A district pin placed on the built 3D scene: world height of the surface, and the view it was placed from. */
 export interface ReviewSpace { y: number; view: ReviewSceneView }
-export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface; space?: ReviewSpace }
+/** A drawn annotation on a district: a path people take, an area, or a line of sight between two places. */
+export type ReviewShapeKind = 'route' | 'zone' | 'sightline';
+/** What the drawing claims: how the level is now, something wrong with it, or a change put up for a decision. */
+export type ReviewShapeTone = 'existing' | 'problem' | 'proposal';
+export const REVIEW_SHAPE_KINDS: readonly ReviewShapeKind[] = ['route', 'zone', 'sightline'];
+export const REVIEW_SHAPE_TONES: readonly ReviewShapeTone[] = ['existing', 'problem', 'proposal'];
+export const MAX_SHAPE_POINTS = 48;
+/** World metres. `y` is the height of the point; without it the point lies on the ground. */
+export interface ReviewShapePoint { x: number; z: number; y?: number }
+export interface ReviewShape { kind: ReviewShapeKind; tone: ReviewShapeTone; points: ReviewShapePoint[] }
+export type ReviewVerdict = 'agree' | 'disagree' | 'rework';
+export const REVIEW_VERDICTS: readonly ReviewVerdict[] = ['agree', 'disagree', 'rework'];
+export interface ReviewAnchor { x: number; z: number; level: string; surface?: ReviewSurface; space?: ReviewSpace; shape?: ReviewShape }
 export type ReviewAuthor = 'designer' | 'ai';
 export type ReviewStatus = 'open' | 'resolved';
-export type ReviewEvent = { id: string; at: string; author: ReviewAuthor; body: string; status?: ReviewStatus };
+export type ReviewEvent = { id: string; at: string; author: ReviewAuthor; body: string; status?: ReviewStatus; verdict?: ReviewVerdict };
 export interface ReviewThread {
   id: string;
   district?: RegionId;
@@ -54,18 +66,34 @@ export function parseReview(raw: string): ReviewDocument {
       if (assets || !record(p) || !finite(p.y, 100000) || !record(v) || !finite(v.x, 100000) || !finite(v.y, 100000) || !finite(v.z, 100000) || !finite(v.yaw, 1000) || !finite(v.pitch, Math.PI / 2) || !finite(v.distance, 100000) || v.distance <= 0) throw new Error('Invalid 3D district position or saved view.');
       space = { y: p.y, view: { x: v.x, y: v.y, z: v.z, yaw: v.yaw, pitch: v.pitch, distance: v.distance } };
     }
+    let shape: ReviewShape | undefined;
+    if (t.anchor.shape !== undefined) {
+      const p = t.anchor.shape, finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 100000;
+      if (assets || !record(p) || !REVIEW_SHAPE_KINDS.includes(p.kind as ReviewShapeKind) || !REVIEW_SHAPE_TONES.includes(p.tone as ReviewShapeTone) || !Array.isArray(p.points) || p.points.length < (p.kind === 'zone' ? 3 : 2) || p.points.length > (p.kind === 'sightline' ? 2 : MAX_SHAPE_POINTS)
+        || !p.points.every(q => record(q) && finite(q.x) && finite(q.z) && (q.y === undefined || finite(q.y)))) throw new Error('Invalid drawn route, area or sightline.');
+      shape = { kind: p.kind as ReviewShapeKind, tone: p.tone as ReviewShapeTone, points: (p.points as ReviewShapePoint[]).map(q => ({ x: q.x, z: q.z, ...(q.y === undefined ? {} : { y: q.y }) })) };
+    }
     if (assets && !surface && (t.anchor.x !== 0 || t.anchor.z !== 0)) throw new Error('Whole-model notes must use a zero anchor.');
     threadIds.add(t.id);
     const events = t.events.map((e): ReviewEvent => {
-      if (!record(e) || !id(e.id) || eventIds.has(e.id) || !author(e.author) || !string(e.body, 8000) || typeof e.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(e.at) || !Number.isFinite(Date.parse(e.at)) || (e.status !== undefined && e.status !== 'open' && e.status !== 'resolved')) throw new Error('Invalid or duplicate comment. Comments need an author, UTC date and text.');
+      if (!record(e) || !id(e.id) || eventIds.has(e.id) || !author(e.author) || !string(e.body, 8000) || typeof e.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(e.at) || !Number.isFinite(Date.parse(e.at)) || (e.status !== undefined && e.status !== 'open' && e.status !== 'resolved') || (e.verdict !== undefined && (assets || !REVIEW_VERDICTS.includes(e.verdict as ReviewVerdict)))) throw new Error('Invalid or duplicate comment. Comments need an author, UTC date and text.');
       eventIds.add(e.id);
-      return { id: e.id, at: e.at, author: e.author, body: e.body, ...(e.status ? { status: e.status } : {}) };
+      return { id: e.id, at: e.at, author: e.author, body: e.body, ...(e.status ? { status: e.status } : {}), ...(e.verdict ? { verdict: e.verdict as ReviewVerdict } : {}) };
     });
-    return { id: t.id, ...(assets ? { asset: t.asset as string } : { district: t.district as RegionId }), title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level, ...(surface ? { surface } : {}), ...(space ? { space } : {}) }, events: sortEvents(events) };
+    return { id: t.id, ...(assets ? { asset: t.asset as string } : { district: t.district as RegionId }), title: t.title, kind: t.kind as ReviewThread['kind'], mapRevision: t.mapRevision, anchor: { x: t.anchor.x, z: t.anchor.z, level: t.anchor.level, ...(surface ? { surface } : {}), ...(space ? { space } : {}), ...(shape ? { shape } : {}) }, events: sortEvents(events) };
   });
   return { format: assets ? 'blockplay-asset-review' : 'blockplay-level-review', version: 1, threads };
 }
 export const sortEvents = (events: readonly ReviewEvent[]) => [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+/** The designer's latest decision on a thread, if they have given one. */
+export const threadVerdict = (thread: ReviewThread): ReviewVerdict | undefined => sortEvents(thread.events).reduce<ReviewVerdict | undefined>((verdict, event) => event.author === 'designer' && event.verdict ? event.verdict : verdict, undefined);
+/** Length of a drawn route or sightline in metres, heights included; the perimeter of an area. */
+export function shapeLength(shape: ReviewShape) {
+  const points = shape.kind === 'zone' ? [...shape.points, shape.points[0]] : shape.points;
+  let length = 0;
+  for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].z - points[i - 1].z, (points[i].y ?? 0) - (points[i - 1].y ?? 0));
+  return length;
+}
 export const threadStatus = (thread: ReviewThread): ReviewStatus => sortEvents(thread.events).reduce<ReviewStatus>((status, event) => event.status ?? status, 'open');
 
 /** Append-only union: repeat imports are harmless; edits to existing IDs are rejected. */
@@ -101,5 +129,5 @@ export function reviewPoint(x: number, z: number, bounds: MapBounds) {
   return { x: Math.round(Math.max(bounds.minX, Math.min(bounds.maxX, x)) * 10) / 10, z: Math.round(Math.max(bounds.minZ, Math.min(bounds.maxZ, z)) * 10) / 10 };
 }
 export function reviewBrief(document: ReviewDocument, target: string) {
-  return [`Design review: ${target}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => (t.asset ?? t.district) === target).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z}${t.anchor.surface ? ` · y=${t.anchor.surface.y} · mesh path ${t.anchor.surface.meshPath.join("/")} · view ${JSON.stringify(t.anchor.surface.view)}` : ""}${t.anchor.space ? ` · y=${t.anchor.space.y} (placed on the 3D scene) · view ${JSON.stringify(t.anchor.space.view)}` : ""} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
+  return [`Design review: ${target}`, 'Please reply by thread ID. Explain intent, tradeoffs and how to verify each proposal. Add events; preserve existing IDs and coordinates. Resolve only after the designer reviews the change.', ...document.threads.filter(t => (t.asset ?? t.district) === target).map(t => `\n[${t.id}] ${t.title} (${threadStatus(t)})\n${t.kind} · x=${t.anchor.x}, z=${t.anchor.z}${t.anchor.surface ? ` · y=${t.anchor.surface.y} · mesh path ${t.anchor.surface.meshPath.join("/")} · view ${JSON.stringify(t.anchor.surface.view)}` : ""}${t.anchor.space ? ` · y=${t.anchor.space.y} (placed on the 3D scene) · view ${JSON.stringify(t.anchor.space.view)}` : ""}${t.anchor.shape ? ` · ${t.anchor.shape.tone} ${t.anchor.shape.kind} through ${t.anchor.shape.points.map(p => `(${p.x}, ${p.z}${p.y === undefined ? '' : `, y=${p.y}`})`).join(' ')}` : ""} · ${t.anchor.level} · ${t.mapRevision}\n${sortEvents(t.events).map(e => `${e.author === 'ai' ? 'AI developer' : 'Designer'} · ${e.at}${e.status ? ` · ${e.status}` : ''}${e.verdict ? ` · verdict: ${e.verdict}` : ''}\n${e.body}`).join('\n\n')}`)].join('\n');
 }
