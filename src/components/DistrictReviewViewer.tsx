@@ -23,7 +23,8 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
   const changeView = (next: ReviewSceneView) => { view.current = clampDistrictView(next, bounds); setPlacementVersion(n => n + 1); };
   const pickSurface = useRef<(x: number, y: number) => ReviewAnchor | null>(() => null), cancelDrag = useRef(() => {});
   const lastPlacement = useRef(-Infinity);
-  const latest = useRef({ placing, movingView, draft, draftShape, threads, selected, onDetached }); latest.current = { placing, movingView, draft, draftShape, threads, selected, onDetached };
+  const [slides, setSlides] = useState(false);
+  const latest = useRef({ placing, movingView, slides, draft, draftShape, threads, selected, onDetached }); latest.current = { placing, movingView, slides, draft, draftShape, threads, selected, onDetached };
   const gestures = useReviewGestures(stage, gesture => {
     const a = aspect(), moved = panDistrictView(view.current, (gesture.to.x - gesture.from.x) * a, gesture.to.y - gesture.from.y);
     view.current = clampDistrictView({ ...moved, distance: moved.distance / gesture.scale }, bounds);
@@ -53,7 +54,7 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
     const down = (e: PointerEvent) => {
       if (!e.isPrimary || (e.button !== 0 && e.button !== 1 && e.button !== 2)) return;
       e.preventDefault(); canvas.focus({ preventScroll: true });
-      drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false, pan: e.button !== 0 || e.shiftKey }; canvas.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, moved: false, pan: e.button !== 0 || e.shiftKey || latest.current.slides }; canvas.setPointerCapture(e.pointerId);
     };
     const move = (e: PointerEvent) => {
       if (!drag) return;
@@ -146,8 +147,8 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
       <button aria-label="Zoom in" onClick={() => step(v => ({ ...v, distance: v.distance / 1.4 }))}>＋</button><button aria-label="Zoom out" onClick={() => step(v => ({ ...v, distance: v.distance * 1.4 }))}>−</button>
       <button aria-label="Turn left" onClick={() => step(v => ({ ...v, yaw: v.yaw - Math.PI / 8 }))}>⟲</button><button aria-label="Turn right" onClick={() => step(v => ({ ...v, yaw: v.yaw + Math.PI / 8 }))}>⟳</button>
       <button aria-label="Slide left" onClick={() => step(v => panDistrictView(v, .2, 0))}>←</button><button aria-label="Slide forward" onClick={() => step(v => panDistrictView(v, 0, .2))}>↑</button><button aria-label="Slide back" onClick={() => step(v => panDistrictView(v, 0, -.2))}>↓</button><button aria-label="Slide right" onClick={() => step(v => panDistrictView(v, -.2, 0))}>→</button>
-      <button onClick={() => changeView(districtOverview(bounds, aspect()))}>Overview</button><button onClick={() => step(v => ({ ...v, yaw: 0, pitch: 1.5 }))}>Top</button><button disabled={!selected} onClick={() => selected && focus(selected)}>{selected?.anchor.space ? 'Restore pin view' : 'Go to pin'}</button>
+      <button aria-pressed={slides} aria-label="Drag slides the view instead of orbiting" onClick={() => setSlides(on => !on)}>{slides ? 'Drag: slide' : 'Drag: orbit'}</button><button onClick={() => changeView(districtOverview(bounds, aspect()))}>Overview</button><button onClick={() => step(v => ({ ...v, yaw: 0, pitch: 1.5 }))}>Top</button><button disabled={!selected} onClick={() => selected && focus(selected)}>{selected?.anchor.space ? 'Restore pin view' : 'Go to pin'}</button>
     </div>
-    <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit; Shift-drag, right-drag or two fingers slide; scroll or pinch zooms. Choose Position pin when ready.' : 'Drag or tap to position the pointer on a surface, release, then choose Pin here. Scroll or pinch still zooms; Move view orbits.' : 'Drag to orbit · Shift-drag, right-drag or two fingers slide · scroll or pinch zooms · double-click centres on a surface. Faded pins are behind geometry; dashed pins came from the schematic and sit at ground level. Drawn routes, areas and dashed sightlines show through buildings: blue is the level as built, red a problem, green a proposal.'}</p>
+    <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit; Shift-drag, right-drag or two fingers slide; scroll or pinch zooms. Choose Position pin when ready.' : 'Drag or tap to position the pointer on a surface, release, then choose Pin here. Scroll or pinch still zooms; Move view orbits.' : 'Drag to orbit, or switch Drag: orbit to Drag: slide to move across the map with one finger · Shift-drag, right-drag or two fingers also slide · scroll or pinch zooms · double-click centres on a surface. Faded pins are behind geometry; dashed pins came from the schematic and sit at ground level. Drawn routes, areas and dashed sightlines show through buildings: blue is the level as built, red a problem, green a proposal.'}</p>
   </div>;
 }

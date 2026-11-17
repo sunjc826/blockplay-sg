@@ -101,14 +101,17 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
   const gestures = useReviewGestures(mapSurface, gesture => mapGesture.current(gesture), undefined, scene);
   const applyMapGesture = (gesture: Parameters<typeof gestureMapView>[4]) => { const next = gestureMapView(bounds, WIDTH, HEIGHT, liveMapView.current, gesture); liveMapView.current = next; setZoom(next.zoom); setCenter(next.center); };
   const mapGesture = useRef(applyMapGesture); mapGesture.current = applyMapGesture;
-  // Mouse parity with the touch gestures: the wheel zooms about the cursor and a background drag slides the map.
+  // The wheel zooms about the cursor; a background drag with the mouse or one finger slides the map. A second finger hands over to the pinch gesture.
   useEffect(() => {
     const node = mapSurface.current; if (!node) return;
     const at = (e: MouseEvent) => { const rect = node.getBoundingClientRect(); return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height }; };
     const wheel = (e: WheelEvent) => { e.preventDefault(); const point = at(e); mapGesture.current({ from: point, to: point, scale: Math.exp(-e.deltaY * .0015) }); };
-    let last: { x: number; y: number } | null = null;
-    const down = (e: PointerEvent) => { panned.current = false; if (e.pointerType === 'mouse' && e.button === 0 && !(e.target as Element).closest('.lr-pin,.lr-placement')) { last = at(e); node.setPointerCapture(e.pointerId); } };
-    const move = (e: PointerEvent) => { if (!last) return; const point = at(e); panned.current ||= Math.hypot(point.x - last.x, point.y - last.y) > .004; mapGesture.current({ from: last, to: point, scale: 1 }); last = point; };
+    let last: { x: number; y: number } | null = null, held = -1;
+    const down = (e: PointerEvent) => { panned.current = false; last = null; if (e.isPrimary && e.button === 0 && !(e.target as Element).closest('.lr-placement')) { last = at(e); held = e.pointerId; } };
+    const move = (e: PointerEvent) => { if (!last || e.pointerId !== held) return; const point = at(e);
+      // Capture only once the drag is real, so a plain tap or click still reaches the pin or drawing under it.
+      if (!panned.current) { if (Math.hypot(point.x - last.x, point.y - last.y) <= .012) return; panned.current = true; try { node.setPointerCapture(e.pointerId); } catch { /* The pointer may already be gone. */ } }
+      mapGesture.current({ from: last, to: point, scale: 1 }); last = point; };
     const up = () => { last = null; };
     node.addEventListener('wheel', wheel, { passive: false }); node.addEventListener('pointerdown', down); node.addEventListener('pointermove', move); node.addEventListener('pointerup', up); node.addEventListener('pointercancel', up); node.addEventListener('lostpointercapture', up);
     return () => { node.removeEventListener('wheel', wheel); node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', up); node.removeEventListener('lostpointercapture', up); };
@@ -240,7 +243,7 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
               {region.stamps.map((stamp, i) => <g key={i} className="lr-landmark" pointerEvents="none"><circle cx={map.x(stamp.x)} cy={map.y(stamp.z)} r="3" />{labels.has(String(i)) && <text x={labels.get(String(i))!.x} y={labels.get(String(i))!.y} textAnchor="middle">{stamp.name}</text>}</g>)}
               {visible.map(thread => thread.anchor.shape && drawing(thread.anchor.shape, thread.id, selected === thread.id, thread))}
               {draftShape && drawing(draftShape, 'draft', true)}
-              {visible.map((thread) => <g key={thread.id} className={`lr-pin ${threadStatus(thread)} ${thread.kind}`} data-review-pin={thread.id} transform={`translate(${map.x(thread.anchor.x)},${map.y(thread.anchor.z)})`} role="button" tabIndex={placing ? -1 : 0} pointerEvents={placing ? "none" : undefined} aria-label={`${thread.title}, ${threadStatus(thread)}`} aria-pressed={selected === thread.id} onClick={e => { e.stopPropagation(); select(thread); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select(thread); } }}>
+              {visible.map((thread) => <g key={thread.id} className={`lr-pin ${threadStatus(thread)} ${thread.kind}`} data-review-pin={thread.id} transform={`translate(${map.x(thread.anchor.x)},${map.y(thread.anchor.z)})`} role="button" tabIndex={placing ? -1 : 0} pointerEvents={placing ? "none" : undefined} aria-label={`${thread.title}, ${threadStatus(thread)}`} aria-pressed={selected === thread.id} onClick={e => { e.stopPropagation(); if (!panned.current) select(thread); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select(thread); } }}>
                 <title>{thread.title} · {thread.anchor.level}</title><circle className="lr-pin-ring" r="20" /><circle r="14" /><text textAnchor="middle" dy="5">{threadStatus(thread) === 'resolved' ? '✓' : threads.indexOf(thread) + 1}</text>
               </g>)}
               {anchor && <g transform={`translate(${map.x(anchor.x)},${map.y(anchor.z)})`} className="lr-draft-pin"><circle r="17" /><text textAnchor="middle" dy="5">＋</text></g>}
@@ -252,7 +255,7 @@ export default function LevelReview({ district, assetId, onAssetChange, onWorksp
             <button aria-label="Pan left" onClick={() => pan(-1, 0)}>←</button><button aria-label="Pan north" onClick={() => pan(0, -1)}>↑</button><button aria-label="Pan south" onClick={() => pan(0, 1)}>↓</button><button aria-label="Pan right" onClick={() => pan(1, 0)}>→</button>
           </div>
         </div>
-        <p className="lr-map-hint">{placing ? 'Drag the pointer, release, then choose Pin here. Arrow keys move the pointer; Enter offers Pin here. Two fingers pan and pinch to zoom.' : 'Two fingers pan and pinch to zoom. Select a pin or a drawing to read its thread. Gold: discussion · Teal: design note · ✓: resolved. Drawings: blue as built · red problem · green proposal · dashed sightline.'}</p>
+        <p className="lr-map-hint">{placing ? 'Drag the pointer, release, then choose Pin here. Arrow keys move the pointer; Enter offers Pin here. Two fingers pan and pinch to zoom.' : 'Drag to slide the map once zoomed in; pinch or scroll to zoom. Select a pin or a drawing to read its thread. Gold: discussion · Teal: design note · ✓: resolved. Drawings: blue as built · red problem · green proposal · dashed sightline.'}</p>
         </>}
         <details className="lr-method"><summary>How we collaborate</summary><ol><li><strong>You point and explain.</strong> Pin a place on the schematic or on the 3D layout, name it, describe the problem or desired experience.</li><li><strong>Sync the discussion.</strong> Connect your private cloud workspace. The AI can fetch its threads and reply to the same IDs with intent, alternatives, tradeoffs and a test plan.</li><li><strong>Read replies here.</strong> Connected boards refresh automatically. Export/import is still available for backups and offline handoffs.</li><li><strong>Review in game, then resolve.</strong> Record what changed and how it played. Reopen with a comment if the result misses the intent.</li></ol><p>Connected threads are stored on Cloudflare. This board does not call an AI automatically. Author labels describe contributors, not verified identities. Schematic pins use world X/Z plus a floor label you type. 3D layout pins sit on a surface of the built district and save world X/Y/Z with the view they were placed from. Model pins store a mesh-local surface point and viewing angle in the frozen study pose; changed geometry asks for re-verification.</p></details>
       </div>

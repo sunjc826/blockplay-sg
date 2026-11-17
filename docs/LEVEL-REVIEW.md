@@ -44,7 +44,8 @@ atmosphere, weather, shadows, fog or animation run; it is a layout study, not a
 preview of the lit game.
 
 - **Move**: drag orbits; Shift-drag, right-drag or two fingers slide the view
-  along the ground; wheel or pinch zooms; double-click centres on the surface
+  along the ground, and **Drag: orbit / Drag: slide** switches what a plain
+  drag or one finger does; wheel or pinch zooms; double-click centres on the surface
   under the cursor (this is how to orbit around a roof rather than the ground
   below it). Arrow keys slide, Shift+arrows orbit, `+`/`-` zoom, PageUp/PageDown
   raise or lower the point looked at. **Overview** frames the playable bounds;
@@ -223,7 +224,9 @@ to open the editor. A tap also positions the pointer. The camera stays still in
 In both map and model views, pinch with two fingers to zoom and move both fingers
 together to pan, including while placing a pin. Adding a second finger clears the
 pending point; lift both fingers before positioning a new pin. Zoom follows the
-point between your fingers. **Fit** (map) or **Reset view** (model) restores framing.
+point between your fingers. On the schematic map one finger (or a mouse drag)
+slides the map when no pin is being placed, also when the drag starts on a pin;
+a tap still opens the pin or drawing. **Fit** (map) or **Reset view** (model) restores framing.
 Background releases and interrupted touches clear the pending point. Camera
 presets, zoom and resizing require a fresh placement. Maps use the same
 drag/release/confirm gesture. Keyboard: focus the pointer, use arrows for fine
