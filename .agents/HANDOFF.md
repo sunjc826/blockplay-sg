@@ -16816,3 +16816,8 @@ rule cannot tell a wall that already has modelled doors.
 
 Left for later in this line: facade furniture for HDB slabs, weathering
 streaks, ground decals, prop density, the district-look defects.
+
+Same line, later on 2026-11-17: rain streaks under the roof edge of building-sized
+walls (`STREAKS` in `world-night-lights.ts`, key `-windows-v5`), and drain grates
+and manhole covers in `streetGrid` (flat dark boxes, kit districts only). Checked:
+`pnpm test` (444 files, 4,431 tests), typecheck, build, and by eye in Bishan.

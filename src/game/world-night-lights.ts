@@ -178,6 +178,10 @@ export const GROUND_STOREY = 2.6;
  * stilts), gets none.
  */
 export const STOREFRONT = { minFacade: 6, maxLift: .9, blank: .17, door: .25, frontWidth: .8, doorWidth: .4, riser: .5, head: 2.2, plinth: .3 } as const;
+/** Rain streaks under the roof edge of building-sized walls: column width and lengths in metres, the share of columns streaked, and how much they darken. */
+export const STREAKS = { width: .55, share: .5, shortest: 1.2, longest: 9, darken: .11 } as const;
+/** How far down from the roof edge a streak with this seed runs, metres. Mirrors the GLSL. */
+export const streakLength = (seed: number) => STREAKS.shortest + seed * seed * (STREAKS.longest - STREAKS.shortest);
 /** What a bay holds for a seed in 0-1. Mirrors the GLSL. */
 export function storefrontBay(seed: number): 'blank' | 'door' | 'shopfront' {
   return seed < STOREFRONT.blank ? 'blank' : seed <= STOREFRONT.blank + STOREFRONT.door ? 'door' : 'shopfront';
@@ -393,6 +397,14 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             float frontBase = vNightSpan.x - ${GROUND_STOREY.toFixed(1)}, frontY = vNightWorld.y - max(frontBase, frontGround);
             float frontBay = vNightEdge.x / max(.01, vNightEdge.y) * max(1.0, floor(vNightEdge.y / 3.1));
             vec2 frontAa = max(vec2(fwidth(frontBay), fwidth(frontY)), vec2(1e-4));
+            // Rain streaks: columns about half a metre wide run down from the roof edge, each its own length,
+            // so a tall wall is not one clean sheet. Gone once a column is under a couple of pixels.
+            float streakColumn = vNightEdge.x * ${(1 / STREAKS.width).toFixed(2)}, streakAa = max(fwidth(streakColumn), 1e-4);
+            float streakSeed = fract(sin(dot(vec2(floor(streakColumn), floor(vNightSeed * 97.0) + 3.7), vec2(12.9898, 78.233))) * 43758.5453);
+            float streakBelow = vNightSpan.y + 1.1 - vNightWorld.y, streakIn = fract(streakColumn);
+            float streak = step(${(1 - STREAKS.share).toFixed(2)}, streakSeed) * (1.0 - smoothstep(0.0, ${STREAKS.shortest.toFixed(1)} + streakSeed * streakSeed * ${(STREAKS.longest - STREAKS.shortest).toFixed(1)}, streakBelow))
+              * smoothstep(0.0, .3, streakIn) * (1.0 - smoothstep(.7, 1.0, streakIn)) * (1.0 - smoothstep(.25, .7, streakAa)) * frontWall * step(0.0, streakBelow);
+            diffuseColor.rgb *= 1.0 - ${STREAKS.darken.toFixed(2)} * streak;
             if (frontWall > 0.0 && vNightEdge.y >= ${STOREFRONT.minFacade.toFixed(1)} && frontBase - frontGround < ${STOREFRONT.maxLift.toFixed(1)} && frontY < ${GROUND_STOREY.toFixed(1)}) {
               float frontNear = (1.0 - smoothstep(.3, .8, frontAa.x)) * frontWall;
               nightFrontSeed = fract(sin(dot(vec2(floor(frontBay), floor(vNightSeed * 97.0)), vec2(12.9898, 78.233))) * 43758.5453);
@@ -449,7 +461,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             totalEmissiveRadiance += vec3(1.0, .78, .5) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * .22 * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v4' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v5' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

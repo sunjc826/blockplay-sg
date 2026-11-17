@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { createDistrictWater, type WaterMaterial } from './water';
 import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
-import { districtLook, type DistrictLook, type LookPresetId } from './district-look';
+import { districtLook, surfaceHash, type DistrictLook, type LookPresetId } from './district-look';
 import { KERB, ROAD_LINE, minRadius, snapFootprint, snapModuleBox } from './block-module';
 
 export interface SceneKitOptions {
@@ -177,12 +177,20 @@ export function createSceneKit(options: SceneKitOptions) {
     const vertical = runs(edgeZ, [...ew, ...(loop?[-edgeZ,edgeZ]:[])]);
     const gutter = mat(`#${(asphalt as THREE.MeshStandardMaterial).color.clone().multiplyScalar(.7).getHexString()}`, .95);
     const gutterWidth = 0.5, edgeInset = 1, stripe = 0.5, crossing = 3, setback = 1;
+    const iron = mat('#24282a', .7, .35);
     /** Paint along one stretch of road between junctions. `along` maps (distance along, offset across) to x and z. */
     const dress = (from: number, to: number, centre: number, stops: readonly number[], place: (along: number, across: number, length: number, breadth: number, material: THREE.Material, lift?: number) => void) => {
       if (to - from < 2) return;
       for (const side of [-1, 1]) {
         place((from + to) / 2, centre + side * (width / 2 - gutterWidth / 2), to - from, gutterWidth, gutter, .075);
         place((from + to) / 2, centre + side * (width / 2 - edgeInset), to - from, lineWidth, line);
+      }
+      // Ironwork: a drain grate in each gutter every 24 m, staggered side to side, and a manhole cover in one
+      // lane about every 40 m, placed from the stretch's own position so a district builds the same every time.
+      for (let at = from + 7, n = 0; at < to - 4; at += 24, n++) for (const side of [-1, 1]) place(at + (side > 0 ? 12 : 0) < to - 4 ? at + (side > 0 ? 12 : 0) : at, centre + side * (width / 2 - gutterWidth / 2), 0.8, 0.4, iron, .1);
+      for (let at = from + 15; at < to - 8; at += 41) {
+        const lane = surfaceHash(Math.round(at), Math.round(centre)) > .5 ? 1 : -1;
+        place(at, centre + lane * width / 4, 0.9, 0.9, iron, .1);
       }
       for (const [end, toward] of [[from, 1], [to, -1]] as const) {
         // Only where this stretch meets another grid road, and only when it is long enough to hold both ends' paint.

@@ -68,3 +68,13 @@ describe('ground storey bays', () => {
     expect(STOREFRONT.riser).toBeLessThan(STOREFRONT.head);
   });
 });
+
+describe('wall streaks', () => {
+  it('runs each streak a different length inside the stated range', async () => {
+    const { streakLength, STREAKS } = await import('./world-night-lights');
+    expect(streakLength(0)).toBe(STREAKS.shortest);
+    expect(streakLength(1)).toBe(STREAKS.longest);
+    expect(streakLength(.5)).toBeLessThan((STREAKS.shortest + STREAKS.longest) / 2);
+    expect(STREAKS.darken).toBeLessThan(.2);
+  });
+});
