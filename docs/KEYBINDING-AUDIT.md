@@ -23,8 +23,13 @@ of permanent HUD instruction needed.
   mounted it exits. **T** remains explicit checkpoint travel. Moving NPC use to
   E frees N for vision. A blocked loot pickup does not fall through to a vendor.
 
-The remaining grenade, healing, scroll and scoreboard changes below are
-proposals. The table retains the pre-change bindings as an audit baseline.
+Since implemented (checked against `fps-engine.ts`, 17 November 2026): tap **G**
+readies the selected throwable and hold **G** opens its wheel; tap **F** uses the
+selected recovery item and hold **F** opens the combined recovery wheel; hold
+**Tab** shows arena scores; the mouse wheel cycles carried weapons when it is not
+zooming a scope, paging the callout wheel or zooming the deployment map.
+Rebinding and the MMB callout shortcut remain proposals. The table retains the
+pre-change bindings as an audit baseline.
 
 ## Current bindings and proposed defaults
 
@@ -79,9 +84,8 @@ Current behavior comes from `fps-engine.ts`, `utility-belt.ts` and
 ## Delivery order
 
 The accepted controls have physical-key normalization, context routing and
-hold/toggle tests. Next, add G grenade, wheel cycling and Tab scores, followed
-by a combined healing selector and rebinding UI. Those require their own
-picker-priority and inventory tests. Touch and pilot controls retain their
+hold/toggle tests. G grenades, F recovery, wheel cycling and Tab scores have
+followed. A rebinding UI is what remains; it needs duplicate-binding checks. Touch and pilot controls retain their
 semantic engine APIs; keyboard changes do not change host authority or network
 messages.
 

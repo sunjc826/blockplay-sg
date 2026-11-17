@@ -73,7 +73,7 @@ import { buildTutorialWorld } from './tutorial-world';
 import { TUTORIAL_DISTRICT, tutorialCheckpoint, COURSE_STEPS } from './tutorial-course';
 import { takeConfirmedImpacts } from './confirmed-impacts';
 import { createKeyboardCrouch, fpsControlKey, fpsInteractionTarget, fpsKeyAction } from './fps-keybindings';
-import { OICW_GRENADE, isLauncherMode, launcherOf, physicalWeaponFamilies, primaryWeaponFamily } from './weapon-modes';
+import { OICW_GRENADE, cycleWeaponFamily, isLauncherMode, launcherOf, physicalWeaponFamilies, primaryWeaponFamily } from './weapon-modes';
 import { createWeaponDevices, fittedWeaponDevices, toggleWeaponDevice, toggleWeaponRail } from './weapon-device-state';
 import { createGrenadeSystem, grenadePayloads, grenadeSmokeBetween, type GrenadeBurst, type LiveGrenade, type GrenadeEvent } from './grenade-system';
 import { createGrenadeViewmodel } from './grenade-models';
@@ -636,7 +636,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3();
   /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
   const weaponDevices = createWeaponDevices();
-  const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel();
+  const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel(), weaponWheel = createScopeZoomWheel();
   let cantWanted = false, cant = 0;
   // Combat events are drawn from the descriptors the authority publishes.
   const eventRay = new THREE.Raycaster();
@@ -2188,15 +2188,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (key === 'y') closeCalloutWheel(true);
     if (key === 'f') releaseRecoveryKey();
   };
-  /** Map and callout scrolling keep priority over the scope's zoom ring. */
+  /** Map and callout scrolling keep priority over the scope's zoom ring, and that over cycling the carried guns. */
   const scrollWheel = (event: WheelEvent) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (overviewActive()) { event.preventDefault(); zoomDeployment(Math.exp(-event.deltaY * .0015)); return; }
     if (wheel) { event.preventDefault(); if (Math.abs(event.deltaY) > 4) setCalloutPage(wheel.page + Math.sign(event.deltaY)); return; }
-    if (!actualAim || !canAdjustScopeZoom() || document.pointerLockElement !== canvas) return;
+    if (document.pointerLockElement !== canvas) return;
+    if (actualAim) {
+      if (!canAdjustScopeZoom()) return;
+      event.preventDefault();
+      const direction = scopeWheel(event.deltaY, event.deltaMode, performance.now());
+      if (direction) adjustScopeZoom(direction);
+      return;
+    }
+    // Off the sights the wheel walks the carried guns in their 1-3 order: down for the next, up for the last.
+    if (hud.phase !== 'playing' || pilotEnabled || hud.mapExpanded || hud.proxyMenu || recoveryPicker || grenadePicker || grenadeHeld || supplyUse || merlionOperating()) return;
     event.preventDefault();
-    const direction = scopeWheel(event.deltaY, event.deltaMode, performance.now());
-    if (direction) adjustScopeZoom(direction);
+    const step = weaponWheel(event.deltaY, event.deltaMode, performance.now());
+    const next = step ? cycleWeaponFamily(equipment.carriedFamilies, hud.weapon, -step) : undefined;
+    if (next !== undefined) switchWeapon(next);
   };
   const pointerSource = (event: PointerEvent) => {
     lastPointerType = event.pointerType;

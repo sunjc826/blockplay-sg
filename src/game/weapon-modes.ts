@@ -11,6 +11,12 @@ export const launcherOf = (family: number) => LAUNCHERS.get(family);
 export const hasLauncherMode = (family: number) => LAUNCHERS.has(family) || RIFLES.has(family);
 export const primaryWeaponFamily = (family: number) => RIFLES.get(family) ?? family;
 export const physicalWeaponFamilies = (families: readonly number[]) => families.filter(f => !RIFLES.has(f));
+/** The gun a scroll step draws: carried guns in their 1-3 order, wrapping, a launcher counting as its rifle. */
+export function cycleWeaponFamily(families: readonly number[], current: number, step: number) {
+  const physical = physicalWeaponFamilies(families), at = physical.indexOf(primaryWeaponFamily(current));
+  if (physical.length < 2 || !step) return undefined;
+  return at < 0 ? physical[0] : physical[(at + Math.sign(step) + physical.length) % physical.length];
+}
 export const withWeaponModes = (families: readonly number[]) => {
   const physical = physicalWeaponFamilies(families);
   return [...physical, ...physical.flatMap(family => LAUNCHERS.get(family) ?? [])];
