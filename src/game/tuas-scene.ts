@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
 
 // On the verge between the tank farm and the plant road, looking west.
@@ -38,10 +37,8 @@ export function buildTuasScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#4f5558'), white = mat('#e6e4d6'), paving = mat('#b0aca0'), kerb = mat('#c4bfb2');
-  const sea = mat('#3d7b90', 0.42), shallow = mat('#549aad', 0.38), gravel = mat('#9a958a');
+  const sea = kit.water('#3d7b90'), gravel = mat('#9a958a');
   gravel.userData.soil = true;
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(sea, shallow);
   const concrete = mat('#a8a79e'), pale = mat('#dcd6c8'), stone = mat('#b0afa6'), dark = mat('#333e44');
   const steel = mat('#9ba4a8', 0.32, 0.6), galv = mat('#b9c0c2', 0.3, 0.7), tank = mat('#d8d6cc', 0.5, 0.25);
   const rust = mat('#a05a38'), safety = mat('#d8a02a'), hazard = mat('#c4472e'), pipe = mat('#8e9698', 0.36, 0.55);
@@ -57,11 +54,6 @@ export function buildTuasScene() {
   solid((SEA.minX + SEA.maxX) / 2, 0, SEA.maxX - SEA.minX, 460);
   box(SEA.maxX + 3, 0.7, 0, 6, 1.4, 460, concrete);
   for (let z = -210; z <= 210; z += 14) { cylinder(SEA.maxX + 5.4, 1.3, z, 0.55, 1.6, dark); solid(SEA.maxX + 5.4, z, 1.3, 1.3); }
-  const ripples: THREE.Mesh[] = [];
-  for (let i = 0; i < 26; i++) {
-    const ripple = box(SEA.minX + 6 + (i * 19) % 24, 0.16, -206 + (i * 37) % 412, 8 + i % 4, 0.02, 0.22, shallow);
-    ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-  }
 
   /** Storage tank: a shell in plate courses, a domed top and a spiral stair. */
   function storageTank(x: number, z: number, radius: number, height: number) {
@@ -333,7 +325,6 @@ export function buildTuasScene() {
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.6; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = 90 + ((time * 1.1 + index * 17) % 110); person.rotation.y = -Math.PI / 2; }
         else { person.position.x = -100 + ((time * 1.3 + index * 23) % 120); person.rotation.y = -Math.PI / 2; }

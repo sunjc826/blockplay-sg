@@ -1,9 +1,7 @@
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
-import * as THREE from 'three';
 import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 
@@ -48,9 +46,7 @@ export function buildPunggolScene() {
   const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d61'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
-  const water = mat('#4e8ba1', 0.4), shallow = mat('#63a2b2', 0.38), lawn = mat('#8ba76c'), grass = mat('#7d9761');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4e8ba1'), lawn = mat('#8ba76c'), grass = mat('#7d9761');
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#37444b');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#48733f'), reed = mat('#7d9a4e'), fern = mat('#5b8a4c'), orange = mat('#f0a044');
@@ -63,7 +59,6 @@ export function buildPunggolScene() {
 
   // Waterway: one pool per span, with planted banks and reed beds that stop at
   // the same gaps so nothing sneaks a collider across a crossing.
-  const ripples: THREE.Mesh[] = [];
   const midZ = (CHANNEL.nearZ + CHANNEL.farZ) / 2, depthZ = CHANNEL.farZ - CHANNEL.nearZ;
   for (const [fromX, toX] of CHANNEL_SPANS) {
     const width = toX - fromX, cx = (fromX + toX) / 2;
@@ -75,10 +70,6 @@ export function buildPunggolScene() {
       for (let x = fromX + 4; x < toX; x += 7) {
         for (let r = 0; r < 3; r++) blob(x + r * 1.6, 1.5 + r * 0.3, midZ + side * (depthZ / 2 - 1.5), 0.9, 1.7, 0.7, reed);
       }
-    }
-    for (let i = 0; i * 19 < width; i++) {
-      const ripple = box(fromX + 6 + i * 19, 0.14, midZ + ((i * 7) % 20) - 10, 7 + i % 4, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
   }
   // Water continues below the footbridge. The old grass/collider gap let
@@ -243,10 +234,6 @@ export function buildPunggolScene() {
   for (const [fromX, toX] of BAY_SPANS) {
     box((fromX + toX) / 2, -0.06, (BAY.minZ + BAY.maxZ) / 2, toX - fromX, 0.36, BAY.maxZ - BAY.minZ, water);
     solid((fromX + toX) / 2, (BAY.minZ + BAY.maxZ) / 2, toX - fromX, BAY.maxZ - BAY.minZ);
-    for (let i = 0; i * 13 < toX - fromX; i++) {
-      const ripple = box(fromX + 4 + i * 13, 0.14, BAY.minZ + 6 + ((i * 11) % 22), 6 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
   }
   box(220, 0.18, BAY.minZ - 8, 40, 0.35, 14, mat('#d8cda6'));
   jetty(JETTY_X);
@@ -292,7 +279,6 @@ export function buildPunggolScene() {
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.38 + index) * 1.7; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.z = 150 + ((time * 0.9 + index * 11) % 40); person.rotation.y = Math.PI; }
         else { person.position.x = -80 + ((time * 1.3 + index * 25) % 190); person.rotation.y = -Math.PI / 2; }

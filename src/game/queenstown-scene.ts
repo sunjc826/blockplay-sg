@@ -1,4 +1,5 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
+import { captureFoliageDrift } from './ambient-drift';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -557,6 +558,7 @@ export function buildQueenstownScene() {
     obstacle.minY+=base;obstacle.maxY+=base;
   }
   // Batch static details while leaving car, train and collectible animation independent.
+  captureFoliageDrift(scene);
   const batches = new Map<string, THREE.Mesh[]>(), instances = batchTrees(scene, geo, m => materials.push(m));
   for (const child of [...scene.children]) {
     if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh || child.userData.grounded || child===terrain.mesh || Array.isArray(child.material) || stamps.includes(child)) continue;

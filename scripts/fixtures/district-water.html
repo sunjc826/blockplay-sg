@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="icon" href="data:,"><title>District water review</title><style>html,body{margin:0;overflow:hidden}canvas{display:block}</style></head><body><script type="module">
+// Every district's water on the shared surface shader (src/game/water.ts), under the live atmosphere.
+// show(id, [eye], [target], {time, hour, weather}) frames one view; waterReport() lists what each water mesh wears.
+import * as THREE from 'three';
+import {getRegion} from '/src/game/regions.ts';
+import {createWorldAtmosphere} from '/src/game/world-atmosphere.ts';
+import {setEnvironmentSettings} from '/src/game/environment-settings.ts';
+import {DEFAULT_ENVIRONMENT} from '/src/game/world-events.ts';
+import {isWaterObject,primaryWaterSurface,waterSurfaceLevel} from '/src/game/water.ts';
+import {createWorldOcclusion} from '/src/game/world-occlusion.ts';
+import {setGraphicsSettings} from '/src/game/graphics-settings.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,1800);let world,atmosphere,current,occlusion;renderer.autoClear=false;
+window.show=(id,eye=[0,30,0],target=[0,0,-60],{time=8,timeOfDay='afternoon',weather='sunny',detail='high',reflections=detail==='ultra',frames=1,ripple}={})=>{
+ if(current!==id){occlusion?.dispose();occlusion=null;atmosphere?.dispose();world?.dispose();const region=getRegion(id);world=region.build();
+  // As the first-person sun shadow pass does: solid scenery throws shadows, water only takes them.
+  world.scene.traverse(o=>{if(o instanceof THREE.Mesh&&!isWaterObject(o)&&!o.userData.fpsEffect&&!(o.material instanceof THREE.ShaderMaterial)&&!o.material.transparent)o.castShadow=true;});atmosphere=createWorldAtmosphere(world.scene,[],world.obstacles,false,renderer);current=id;}
+ setEnvironmentSettings({...DEFAULT_ENVIRONMENT,timeOfDay,weather,celebration:'none'});
+ camera.position.set(...eye);camera.lookAt(...target);camera.updateMatrixWorld();world.animate(time);
+ for(let i=0;i<90;i++)atmosphere.update(.25,camera);
+ // The game's own post chain, so Ultra's water passes run as they do in play.
+ setGraphicsSettings({waterDetail:detail,waterReflections:reflections,rainDetail:'low',grassDetail:'low',smaa:false,godRays:'off',bloom:false,rainReflections:false});
+ occlusion??=createWorldOcclusion(renderer,world.scene,camera);
+ const primary=primaryWaterSurface(world.scene);let calls=0;
+ for(let i=0;i<frames;i++){
+  world.animate(time+i/60);
+  if(ripple&&i===1)primary.material.userData.ripple(ripple[0],ripple[1],ripple[2]??1.5);
+  renderer.info.reset();renderer.setRenderTarget(null);renderer.clear();occlusion.render(false);calls=renderer.info.render.calls;
+ }
+ return {calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,glError:renderer.getContext().getError(),
+  primary:primary&&{name:primary.name,level:+waterSurfaceLevel(primary).height.toFixed(3),area:Math.round(waterSurfaceLevel(primary).area),bounds:waterSurfaceLevel(primary).bounds.toArray().map(Math.round)},
+  reflections:occlusion.waterReflectionsEnabled,refraction:occlusion.waterRefractionEnabled,waves:occlusion.waterWaves.stats};
+};
+window.waterReport=()=>{const rows=[];world.scene.traverse(o=>{if(!(o instanceof THREE.Mesh)||!isWaterObject(o))return;const m=Array.isArray(o.material)?o.material[0]:o.material;
+ const b=new THREE.Box3().setFromObject(o);
+ rows.push({name:o.name||o.type,count:o.count??1,shader:m.type,surface:typeof m.userData.setLighting==='function',time:m.uniforms?.uTime?.value,box:[...b.min.toArray(),...b.max.toArray()].map(Math.round)});});return rows;};
+window.debugWater=()=>{const rows=[];world.scene.traverse(o=>{if(o instanceof THREE.Mesh&&isWaterObject(o))rows.push({name:o.name,receive:o.receiveShadow,cast:o.castShadow});});const sun=world.scene.children.find(o=>o.isDirectionalLight);return {rows,sun:sun&&{cast:sun.castShadow,pos:sun.position.toArray().map(Math.round),map:!!sun.shadow.map,cam:[sun.shadow.camera.left,sun.shadow.camera.right,sun.shadow.camera.far]}};};
+window.world=()=>world;renderer.info.autoReset=false;
+window.ready=true;
+</script></body></html>

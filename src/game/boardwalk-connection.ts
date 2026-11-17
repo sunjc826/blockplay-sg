@@ -1,5 +1,4 @@
 import type { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 
 /** Shared game-authored continuation, not a reconstruction of the real bridge.
  * Render past the playable boundary so the route visibly continues on either side.
@@ -13,7 +12,7 @@ export function buildBoardwalkConnection(kit: ReturnType<typeof createSceneKit>,
   const wood = mat('#876b4b'), steel = mat('#b2babd'), roof = mat('#d6d6c6');
   // Overlapping scenery at the seam means the first and last frames share a place.
   const from = side === 'harbourfront' ? 193 : -207, to = seam + direction * 38;
-  const water = mat('#3f88a4', .4); markWater(water);
+  const water = kit.water('#3f88a4');
   box(x, -.08, (from + to) / 2, 100, .08, Math.abs(to - from), water);
   for (const dx of [-28.5, 28.5]) solid(x + dx, (from + to) / 2, 43, Math.abs(to - from));
   box(x, -.05, (from + to) / 2, 14, .18, Math.abs(to - from), wood);

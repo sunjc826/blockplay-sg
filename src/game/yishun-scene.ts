@@ -4,7 +4,6 @@ import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { YISHUN_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
 
 export const YISHUN_SPAWN = { x: 0, z: 70, yaw: 0 };
@@ -28,7 +27,7 @@ export function buildYishunScene() {
   const concrete = mat('#b9b9ad'), pale = mat('#e5dfcf'), white = mat('#f0ecdd');
   const dark = mat('#34454a'), glass = mat('#72949a', .24, .3), steel = mat('#a6b2b1', .4, .45);
   const red = mat('#b44a3d'), ochre = mat('#d1ad69'), wood = mat('#806444'), leaf = mat('#4e7747');
-  const pond = mat('#4c8d89', .38), reed = mat('#8caa65'); markWater(pond);
+  const pond = kit.water('#4c8d89'), reed = mat('#8caa65');
   const panels = ['#d5b37d', '#afc8b4', '#d5a99a', '#acbdc9'].map(c => mat(c));
   // A single ground plane; roads and paths are thin overlays on it.
   box(0, -.55, 0, 620, 1, 540, grass);

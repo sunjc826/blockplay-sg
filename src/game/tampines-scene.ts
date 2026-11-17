@@ -3,7 +3,6 @@ import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { STOREY } from './block-module';
 import { withVerticalPlaces } from './vertical-places';
-import { markWater } from './water';
 import { addTampinesGround, tampinesGroundHeight } from './tampines-ground';
 import { addTampinesSocialDetails } from './tampines-social-details';
 
@@ -38,9 +37,7 @@ export function buildTampinesScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
-  const water = mat('#4a8a9c', 0.42), shallow = mat('#5fa2b2', 0.38), lawn = mat('#8ca86e'), grass = mat('#7e9762');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4a8a9c'), lawn = mat('#8ca86e'), grass = mat('#7e9762');
   const concrete = mat('#aaa99f'), pale = mat('#e6e0d2'), stone = mat('#b4b3aa'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const terra = mat('#b0644a'), teal = mat('#2f7b84'), rust = mat('#a8563a'), safety = mat('#d8a02a');
@@ -48,7 +45,6 @@ export function buildTampinesScene() {
   const clay = mat('#9c6a4a');
   const panels = ['#dcc98f', '#8fb6ae', '#c9a2a8', '#9db2c6', '#cfd3b6'].map(color => mat(color));
 
-  const ripples: THREE.Mesh[] = [];
   box(0, -0.6, 0, 620, 1, 520, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
   // Cut the street-grid kerb at the Hub's broad arrival. Its shared graded
@@ -206,10 +202,6 @@ export function buildTampinesScene() {
     // Keep the lawn base below the water surface instead of hiding the pond.
     box(x, -0.35, z, width + 24, 0.35, depth + 24, lawn);
     box(x, -0.06, z, width, 0.4, depth, water); solid(x, z, width, depth);
-    for (let i = 0; i < 16; i++) {
-      const ripple = box(x - width / 2 + 8 + (i * 19) % (width - 14), 0.16, z - depth / 2 + 6 + (i * 13) % (depth - 12), 7 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
     // Former sand quarry: the repeated exposed-rock stair blocks are replaced
     // by connected vegetated banks and dirt approaches in tampines-ground.
     for (let dx = -width / 2 + 6; dx < width / 2; dx += 9) for (let r = 0; r < 4; r++) blob(x + dx + r * 1.2, 1.4, z + depth / 2 + 3, 0.8, 2.2, 0.6, reed);
@@ -267,7 +259,6 @@ export function buildTampinesScene() {
   const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.4; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.z = -80 + ((time * 1.2 + index * 19) % 150); person.rotation.y = Math.PI; }
         else { person.position.x = -110 + ((time * 1.3 + index * 25) % 130); person.rotation.y = -Math.PI / 2; }

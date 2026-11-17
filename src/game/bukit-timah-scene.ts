@@ -1,7 +1,7 @@
 import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { BUKIT_TIMAH_STATION_ACCESS, trailBench } from './bukit-thomson-rest-places';
 
@@ -76,16 +76,13 @@ export function buildBukitTimahScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#565c5a'), white = mat('#e9e7d8'), paving = mat('#bab5a6'), kerb = mat('#cdc7b7');
-  const water = mat('#4d8490', 0.42), shallow = mat('#63a0aa', 0.38), lawn = mat('#87a568'), grass = mat('#79935c');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4d8490'), lawn = mat('#87a568'), grass = mat('#79935c');
   const concrete = mat('#a9a89d'), pale = mat('#efeade'), stone = mat('#b3b2a8'), dark = mat('#333f42');
   const glass = mat('#6d92a0', 0.24, 0.3), steel = mat('#9aa4a6', 0.3, 0.6), wood = mat('#6f5740'), timber = mat('#3a2f26');
   const leaf = mat('#3d6b38'), fern = mat('#548245'), deep = mat('#2c5230'), moss = mat('#6b8f4c');
   const terra = mat('#a9604a'), rust = mat('#8f4a32'), orange = mat('#f0a044'), skin = mat('#b18c71'), teal = mat('#2f7b7b');
   const ballast = mat('#8b8880'), bands = ['#e8e2d4', '#cfd6cc', '#ded4bd'].map(color => mat(color));
 
-  const ripples: THREE.Mesh[] = [];
   box(0, -0.6, 0, 610, 1, 510, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
@@ -102,10 +99,6 @@ export function buildBukitTimahScene() {
       box(cx, 1.3, midZ + side * (depthZ / 2 + 0.6), width, 0.5, 1.2, stone);
       for (let x = fromX + 4; x < toX; x += 8) cylinder(x, 1.9, midZ + side * (depthZ / 2 + 0.6), 0.1, 1.2, steel);
     }
-    for (let i = 0; i * 21 < width; i++) {
-      const ripple = box(fromX + 7 + i * 21, 0.16, midZ + ((i * 5) % 8) - 4, 7 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
   }
   for (const x of NS_ROADS) {
     if (!CANAL_SPANS.some(([from, to]) => x > from - 26 && x < to + 26)) continue;
@@ -118,7 +111,7 @@ export function buildBukitTimahScene() {
     // Staggered canopy and rock outcrops frame alternating views up the climb.
     for (const [x,z,y] of [[-200,23,2.8],[-149,26,1.6],[-199,-6,12],[-151,-2,12],[-191,-32,20],[-149,-39,20],[-183,-63,28]]) {
       cylinder(x,y+5,z,.5,10,wood);
-      blob(x,y+11,z,5,3,5,leaf);
+      registerFoliageDrift(blob(x,y+11,z,5,3,5,leaf), y);
     }
     // Two meandering paths cross broad traversable slopes; their edges are not fences.
     const trails=[[-193,-191,-187,-191,-184,-182,-180,-175],[-157,-160,-159,-164,-162,-155,-163,-169]];
@@ -279,7 +272,7 @@ export function buildBukitTimahScene() {
     cylinder(x, height / 2, z, 0.45, height, wood); solid(x, z, 0.9, 0.9);
     for (const side of [-1, 1]) {
       beam(new THREE.Vector3(x, height * 0.5, z), new THREE.Vector3(x + side * 4, height, z + side * 2), 0.24, wood);
-      blob(x + side * 4, height + 1.7, z + side * 2, 6.4, 3.8, 6.4, side < 0 ? fern : deep);
+      registerFoliageDrift(blob(x + side * 4, height + 1.7, z + side * 2, 6.4, 3.8, 6.4, side < 0 ? fern : deep), 0);
     }
   }
   sign('NATURE RESERVE', -187, 7.4, -96, 26, 2.3, '#2f5140');
@@ -303,7 +296,6 @@ export function buildBukitTimahScene() {
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.3 + index) * 1.2; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -110 + ((time * 1.2 + index * 19) % 120); person.rotation.y = -Math.PI / 2; }
         else { person.position.z = -60 + ((time * 1.1 + index * 23) % 150); person.rotation.y = Math.PI; }

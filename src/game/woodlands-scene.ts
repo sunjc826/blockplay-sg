@@ -1,9 +1,8 @@
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
-import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 
@@ -44,9 +43,7 @@ export function buildWoodlandsScene() {
   const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d60'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
-  const water = mat('#46849c', 0.42), shallow = mat('#5c9fb2', 0.38), lawn = mat('#8aa66c'), grass = mat('#7c9560');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#46849c'), lawn = mat('#8aa66c'), grass = mat('#7c9560');
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
@@ -78,18 +75,13 @@ export function buildWoodlandsScene() {
     for (let z = CAUSEWAY.fromZ - 14; z >= CAUSEWAY.toZ; z -= 26) { cylinder(CAUSEWAY.x + 18, 5, z, 0.18, 10, dark); box(CAUSEWAY.x + 15.4, 9.6, z, 5.4, 0.3, 0.8, pale); solid(CAUSEWAY.x + 18, z, 0.5, 0.5); }
   }
 
-  // Strait: one pool per span, with a rip of shallows along the near shore.
-  const ripples: THREE.Mesh[] = [];
+  // Strait: one pool per span.
   const midZ = (STRAIT.nearZ + STRAIT.farZ) / 2, depthZ = STRAIT.farZ - STRAIT.nearZ;
   for (const [fromX, toX] of STRAIT_SPANS) {
     const width = toX - fromX, cx = (fromX + toX) / 2;
     box(cx, -0.06, midZ, width, 0.4, depthZ, water);
     solid(cx, midZ, width, depthZ);
     box(cx, 0.5, STRAIT.farZ + 2.6, width, 1.2, 5, stone);
-    for (let i = 0; i * 23 < width; i++) {
-      const ripple = box(fromX + 8 + i * 23, 0.16, midZ + ((i * 9) % 40) - 20, 9 + i % 4, 0.02, 0.22, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
   }
   // Continue the far shore beneath the remote terminus, beyond infantry bounds.
   box(0, -.6, -310, 620, 1, 180, grass);
@@ -253,7 +245,7 @@ export function buildWoodlandsScene() {
   for (let x = -214; x <= -150; x += 11) for (let z = -120; z <= -10; z += 11) {
     if ((Math.round(x) + Math.round(z)) % 3 === 0 || Math.abs(z + 60) < 18 || (z > -35 && x < -150)) continue;
     cylinder(x, 5, z, 0.42, 10, wood); solid(x, z, 0.9, 0.9);
-    for (let layer = 0; layer < 2; layer++) blob(x + (layer ? 1.4 : -1.4), 9.4 + layer * 1.8, z, 4, 1.8, 4, layer ? fern : leaf);
+    for (let layer = 0; layer < 2; layer++) registerFoliageDrift(blob(x + (layer ? 1.4 : -1.4), 9.4 + layer * 1.8, z, 4, 1.8, 4, layer ? fern : leaf), 0);
   }
   sign('ADMIRALTY PARK', -182, 6.4, 28, 28, 2.3, '#2f5140');
 
@@ -274,7 +266,6 @@ export function buildWoodlandsScene() {
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.33 + index) * 1.9; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.z = -190 + ((time * 1.1 + index * 13) % 46); person.rotation.y = Math.PI; }
         else { person.position.x = -120 + ((time * 1.3 + index * 27) % 160); person.rotation.y = -Math.PI / 2; }

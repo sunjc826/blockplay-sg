@@ -1,7 +1,7 @@
 import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
 
 export const JURONG_LAKE_SPAWN = { x: -20, z: 20, yaw: Math.PI / 2 };
@@ -35,9 +35,7 @@ export function buildJurongLakeScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#575e62'), white = mat('#e9e7d8'), paving = mat('#bdb9ac'), kerb = mat('#cec9ba');
-  const water = mat('#5d93a4', 0.42), shallow = mat('#6fa5b2', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#5d93a4'), grass = mat('#87a06c'), lawn = mat('#93ac74');
   const stone = mat('#b6b5ac'), pale = mat('#ded8c8'), dark = mat('#39464a'), wood = mat('#7c6046');
   const lacquer = mat('#a8402f'), gold = mat('#c59a34', 0.42, 0.55);
   const leaf = mat('#4e7444'), willow = mat('#6f9153'), orange = mat('#f0a044'), skin = mat('#b18c71');
@@ -57,11 +55,6 @@ export function buildJurongLakeScene() {
     [ISLAND.maxX, LAKE.maxX, CAUSEWAY.maxZ, LAKE.maxZ],
   ];
   for (const [minX, maxX, minZ, maxZ] of pools) solid((minX + maxX) / 2, (minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
-  const ripples: THREE.Mesh[] = [];
-  for (let i = 0; i < 26; i++) {
-    const ripple = box(LAKE.minX + 14 + (i * 37) % 176, 0.14, LAKE.minZ + 12 + (i * 53) % 188, 9 + i % 4, 0.02, 0.2, shallow);
-    ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-  }
 
   // Island platform, causeway deck and the shoreline edging around both.
   box((ISLAND.minX + ISLAND.maxX) / 2, 0.14, (ISLAND.minZ + ISLAND.maxZ) / 2, ISLAND.maxX - ISLAND.minX, 0.44, ISLAND.maxZ - ISLAND.minZ, lawn);
@@ -135,7 +128,7 @@ export function buildJurongLakeScene() {
   gardenGate(-32, 20);
   for (const x of [-168, -118]) for (const z of [-14, 48]) {
     cylinder(x, 4, z, 0.5, 8, wood); solid(x, z, 1, 1);
-    for (let i = 0; i < 5; i++) blob(x + (i - 2) * 1.5, 8.6 - Math.abs(i - 2) * 0.6, z, 2.2, 2.6, 2.2, willow);
+    for (let i = 0; i < 5; i++) registerFoliageDrift(blob(x + (i - 2) * 1.5, 8.6 - Math.abs(i - 2) * 0.6, z, 2.2, 2.6, 2.2, willow), 0);
   }
   for (const z of [-18, 56]) { box(-142, 0.85, z, 7, 0.22, 2.4, wood); solid(-142, z, 7, 2.4); }
 
@@ -289,7 +282,6 @@ export function buildJurongLakeScene() {
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -104 + ((time * 1.2 + index * 21) % 76); person.rotation.y = -Math.PI / 2; }
         else { person.position.z = -40 + ((time * 1.4 + index * 27) % 150); person.rotation.y = Math.PI; }

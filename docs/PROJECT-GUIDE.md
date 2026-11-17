@@ -341,7 +341,9 @@ other browser smokes need.
 
 **Water.** A shot into water is resolved differently from one into concrete.
 Anything tagged water — the Marina bay and museum pond, and every district's
-water and shallows material via `markWater` in `water.ts` — ends a shot's list of
+water, which all wear the one surface shader in `water.ts` (districts get it from
+scene-kit's `water(color)`; pass `{ falls: true }` for a waterfall or water stair) —
+ends a shot's list of
 struck surfaces, so nothing behind or beneath it is reached. `fps-splashes`
 decides what happens there. Below a critical grazing angle of 6° the round skips:
 it is mirrored about the surface with most of its climb bled off, keeps half its

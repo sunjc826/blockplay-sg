@@ -1,7 +1,6 @@
-import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { buildUpperThomsonForestGround, upperThomsonGroundHeight } from './upper-thomson-ground';
@@ -43,9 +42,7 @@ export function buildUpperThomsonScene() {
   const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#575d5f'), white = mat('#e9e7d8'), paving = mat('#bab5a8'), kerb = mat('#cdc7b9');
-  const water = mat('#4f8496', 0.42), shallow = mat('#659cab', 0.4), grass = mat('#87a06c'), lawn = mat('#93ac74');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4f8496'), grass = mat('#87a06c'), lawn = mat('#93ac74');
   const plaster = mat('#e6dfcd'), stone = mat('#b4b3aa'), concrete = mat('#a8a79d'), dark = mat('#36434a');
   const wood = mat('#7a6046'), plank = mat('#9a7a55'), zinc = mat('#9fa6a4', 0.34, 0.5), steel = mat('#adb5b8', 0.3, 0.55);
   const glass = mat('#6d90a0', 0.24, 0.3), leaf = mat('#3f6b3a'), fern = mat('#57854a'), deep = mat('#2f5a38');
@@ -56,7 +53,7 @@ export function buildUpperThomsonScene() {
   const forestGround = buildUpperThomsonForestGround(); scene.add(forestGround.mesh);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
-  // Reservoir: surface, the two collision pools and a drift of ripples.
+  // Reservoir: surface, and the two collision pools.
   const pools: [number, number][] = [[WATER.nearZ, -WATER.gap], [WATER.gap, WATER.farZ]];
   for (const [minZ, maxZ] of pools) {
     box((WATER.minX + WATER.maxX) / 2, -0.06, (minZ + maxZ) / 2, WATER.maxX - WATER.minX, 0.36, maxZ - minZ, water);
@@ -65,13 +62,6 @@ export function buildUpperThomsonScene() {
     // across the only crossing.
     box(SHORE, 0.7, (minZ + maxZ) / 2, 1.8, 1.4, maxZ - minZ, stone);
     solid(SHORE, (minZ + maxZ) / 2, 1.8, maxZ - minZ);
-  }
-  const ripples: THREE.Mesh[] = [];
-  for (let i = 0; i < 28; i++) {
-    const z = WATER.nearZ + 8 + (i * 47) % 224;
-    if (Math.abs(z) < WATER.gap + 3) continue;
-    const ripple = box(WATER.minX + 9 + (i * 31) % 40, 0.14, z, 8 + i % 4, 0.02, 0.2, shallow);
-    ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
   }
 
   // Causeway: a low deck across the water with parapets clear of both lanes.
@@ -111,7 +101,7 @@ export function buildUpperThomsonScene() {
     const trunk=kit.obstacles.at(-1)!; trunk.minY=base; trunk.maxY=base+height;
     for (let layer = 0; layer < 3; layer++) {
       const y = base + height - layer * 2.6, spread = 4.4 - layer * 0.9;
-      blob(x + (layer % 2 ? 1.2 : -1.2), y, z + (layer % 2 ? -1 : 1), spread, 1.5, spread, [leaf, fern, deep][layer % 3]);
+      registerFoliageDrift(blob(x + (layer % 2 ? 1.2 : -1.2), y, z + (layer % 2 ? -1 : 1), spread, 1.5, spread, [leaf, fern, deep][layer % 3]), base);
     }
   }
   for (let x = FOREST.minX; x <= FOREST.maxX; x += FOREST.step) for (let z = -132; z <= 132; z += 9) {
@@ -292,7 +282,6 @@ export function buildUpperThomsonScene() {
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.35 + index) * 1.5; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.z = -60 + ((time * 1.1 + index * 23) % 120); person.rotation.y = Math.PI; }
         else { person.position.x = -100 + ((time * 1.3 + index * 19) % 150); person.rotation.y = -Math.PI / 2; }

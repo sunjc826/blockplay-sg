@@ -173,7 +173,10 @@ export function withDistrictBoundaries<T extends RegionWorld>(id: RegionId, worl
     if (waterVertices.length) {
       let source: THREE.Material | undefined;
       world.scene.traverse(object => { if (object instanceof THREE.Mesh && !Array.isArray(object.material) && object.material.userData.fpsWater) source ??= object.material; });
-      const sea = source?.clone() ?? material('#5892a0'); if (source) materials.push(sea);
+      // The district's own surface carries on past the boundary: sharing it keeps the
+      // waves, weather and night lighting in step, where a clone would freeze them.
+      const shared = typeof source?.userData.setLighting === 'function';
+      const sea = shared ? source! : source?.clone() ?? material('#5892a0'); if (source && !shared) materials.push(sea);
       sea.userData.fpsWater = true;
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(waterVertices, 3)); g.computeVertexNormals(); extra.push(g);
       const mesh = new THREE.Mesh(g, sea); mesh.name = `boundary-water-${side}`; mesh.raycast = () => {}; mesh.userData.fpsEffect = true; root.add(mesh);

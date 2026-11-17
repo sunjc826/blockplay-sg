@@ -1,14 +1,19 @@
 import * as THREE from 'three';
-import { primaryWaterSurface } from './water';
+import { primaryWaterSurface, waterSurfaceLevel, waterSurfaceMaterials } from './water';
 import { createWaterCaustics } from './water-caustics';
 
 /** Ultra's opaque snapshot. Each material is drawn once; only colour/depth are
- * copied, never sampled while attached to the framebuffer being written. */
+ * copied, never sampled while attached to the framebuffer being written.
+ * Refraction and caustics need something under the surface, so the snapshot is
+ * taken only for water over a modelled bed. A district's solid slabs get the
+ * Ultra wave detail and report when they are in view, and nothing more here. */
 export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const bay = primaryWaterSurface(scene);
   const material = bay?.material;
   const caustics=createWaterCaustics(renderer,camera,material);
-  const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4(), eye = new THREE.Vector3(), bayPosition = new THREE.Vector3();
+  const surfaces = [...waterSurfaceMaterials(scene)].filter(m => m.uniforms.uUltra);
+  let visible = false;
+  const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4(), eye = new THREE.Vector3();
   const opaque = new Set<THREE.Material>(), transparent = new Set<THREE.Material>();
   let snapshot: THREE.WebGLRenderTarget | undefined;
   let active = false;
@@ -23,16 +28,20 @@ export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THR
   }
   return {
     get enabled() { return rendered; },
+    /** Whether the primary surface is on screen at Ultra, with or without a snapshot. */
+    get visible() { return visible; },
     get caustics() { return caustics; },
     prepare(enabled: boolean) {
-      active = false; rendered = false;
+      active = false; rendered = false; visible = false;
+      for (const m of surfaces) m.uniforms.uUltra.value = enabled ? 1 : 0;
       if (!bay || !material?.uniforms.uUltra) return false;
       material.uniforms.uRefractionReady.value = 0;
       material.uniforms.uUltra.value = enabled ? 1 : 0;
       if (!enabled) { release(); return false; }
       camera.getWorldPosition(eye); bay.updateWorldMatrix(true, false);
       frustum.setFromProjectionMatrix(matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-      active = bay.visible && eye.y > bay.getWorldPosition(bayPosition).y + .05 && frustum.intersectsObject(bay);
+      visible = bay.visible && eye.y > waterSurfaceLevel(bay).height + .05 && frustum.intersectsObject(bay);
+      active = visible && material.transparent;
       return active;
     },
     render(target: THREE.WebGLRenderTarget) {
@@ -74,7 +83,7 @@ export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THR
         u.uViewport.value.set(target.width, target.height);
         u.uCameraRange.value.set(camera.near, camera.far);
         u.uInverseViewProjection.value.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
-        u.uRefractionHeight.value = bay.getWorldPosition(eye).y;
+        u.uRefractionHeight.value = waterSurfaceLevel(bay).height;
         u.uRefractionReady.value = 1;
         opaque.forEach(m => { m.visible = false; });
         transparent.forEach(m => { m.visible = true; });
@@ -91,6 +100,6 @@ export function createWaterSurfacePass(renderer: THREE.WebGLRenderer, scene: THR
         renderer.shadowMap.autoUpdate = shadowUpdate; material.depthWrite = depthWrite;
       }
     },
-    dispose() { active = false; rendered = false; release(); if (material?.uniforms.uUltra) material.uniforms.uUltra.value = 0; },
+    dispose() { active = false; rendered = false; visible = false; release(); for (const m of surfaces) m.uniforms.uUltra.value = 0; if (material?.uniforms.uUltra) material.uniforms.uUltra.value = 0; },
   };
 }

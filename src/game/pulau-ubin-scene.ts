@@ -4,7 +4,6 @@ import { PULAU_UBIN_SECTORS } from '../data/region-sectors';
 import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
 import { insideFootprint, overlapsObstacle } from './region-collision';
-import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
 import { bumboat } from './bumboat';
 
@@ -25,7 +24,7 @@ const distanceToRoad = (x: number, z: number) => Math.min(...PULAU_UBIN_MAP_ROAD
 export function buildPulauUbinScene() {
   const k = createSceneKit({ look: 'nature', background: '#cedfdc', fogNear: 330, fogFar: 1100, shadow: { extent: 285, far: 720 }, module: true });
   const { scene, box, cylinder, blob, solid, mat, sign, tree } = k;
-  const sea = mat('#568f98', .4), quarry = mat('#4f807b', .45), mud = mat('#7c8e70'); markWater(sea, quarry, mud);
+  const sea = k.water('#568f98'), quarry = k.water('#4f807b'), mud = k.water('#7c8e70', { choppiness: .25 });
   const grass = mat('#91a476'), trail = mat('#b6a17b'), pale = mat('#e4d9bf'), wood = mat('#80604b'), dark = mat('#3d4945');
   const leaf = mat('#456d42'), fern = mat('#627e4b'), granite = mat('#9c9f91'), roof = mat('#8c6a53'), glass = mat('#769b9f', .3, .2);
   const villagePane = mat('#5b7773'); villagePane.userData.nightWindow = true;

@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
-import { markWater } from './water';
 
 // On the main road at a lorong mouth, looking down the terraces.
 export const GEYLANG_SPAWN = { x: -14, z: -10, yaw: Math.PI / 2 };
@@ -44,9 +43,7 @@ export function buildGeylangScene() {
   const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#b9b3a6'), kerb = mat('#cdc7b9');
-  const water = mat('#4b7f86', 0.44), shallow = mat('#5f9aa2', 0.4), grass = mat('#849c66'), lawn = mat('#90a870');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4b7f86'), grass = mat('#849c66'), lawn = mat('#90a870');
   const plaster = mat('#e9e2d0'), stone = mat('#b6b4ab'), concrete = mat('#a9a89e'), dark = mat('#36434a');
   const wood = mat('#7b6148'), zinc = mat('#a0a7a5', 0.34, 0.5), steel = mat('#b0b8bb', 0.28, 0.55);
   const glass = mat('#6d90a0', 0.24, 0.3), terra = mat('#b0644a'), tileDark = mat('#8a4b38');
@@ -59,7 +56,6 @@ export function buildGeylangScene() {
   kit.streetGrid({ ew: EW_ROADS, ns: LORONGS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb, width: 14 });
 
   // Canal: one pool per span, sloped walls, and a bridge at every lorong.
-  const ripples: THREE.Mesh[] = [];
   const midZ = (CANAL.nearZ + CANAL.farZ) / 2, depthZ = CANAL.farZ - CANAL.nearZ;
   for (const [fromX, toX] of CANAL_SPANS) {
     const width = toX - fromX, cx = (fromX + toX) / 2;
@@ -70,10 +66,6 @@ export function buildGeylangScene() {
       wall.rotation.x = side * 0.32;
       box(cx, 2.5, midZ + side * (depthZ / 2 + 1.4), width, 0.6, 1.2, stone);
       for (let x = fromX + 3; x < toX; x += 6) cylinder(x, 3.2, midZ + side * (depthZ / 2 + 1.4), 0.12, 1.4, steel);
-    }
-    for (let i = 0; i * 17 < width; i++) {
-      const ripple = box(fromX + 5 + i * 17, 0.16, midZ + ((i * 5) % 14) - 7, 6 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
     }
   }
   for (const x of LORONGS) {
@@ -314,7 +306,6 @@ export function buildGeylangScene() {
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.4; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -80 + ((time * 1.2 + index * 23) % 170); person.rotation.y = -Math.PI / 2; }
         else { person.position.x = -70 + ((time * 1.4 + index * 31) % 150); person.rotation.y = -Math.PI / 2; }

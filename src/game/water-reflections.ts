@@ -1,25 +1,29 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { isWaterObject, primaryWaterSurface } from './water';
+import { isWaterObject, primaryWaterSurface, waterSurfaceLevel, waterSurfaceMaterials } from './water';
 
-/** One bounded planar capture for the district's primary water surface.
+/** One bounded planar capture for the district's primary water surface, shown by
+ * every water material whose surface lies at that height.
  * A mirrored camera can include scenery outside the main view, unlike pavement SSR. */
 export function createWaterReflections(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const bay = primaryWaterSurface(scene);
   const material = bay?.material;
-  let reflector: Reflector | undefined;
+  const materials = [...waterSurfaceMaterials(scene)].filter(m => m.uniforms.uReflectionReady);
+  let reflector: Reflector | undefined, level = 0;
   const size = new THREE.Vector2(), hidden: THREE.Object3D[] = [], eye = new THREE.Vector3();
   const frustum = new THREE.Frustum(), matrix = new THREE.Matrix4();
   return {
     render(enabled: boolean, ultra = false) {
       if (!bay || !material?.uniforms.uReflectionReady) return false;
+      for (const m of materials) m.uniforms.uReflectionReady.value = 0;
       material.uniforms.uReflectionReady.value = 0;
       camera.getWorldPosition(eye); bay.updateWorldMatrix(true,false);
+      if (enabled) level = waterSurfaceLevel(bay).height;
       frustum.setFromProjectionMatrix(matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
-      if (!enabled || eye.y <= bay.position.y + .05 || !frustum.intersectsObject(bay)) return false;
+      if (!enabled || eye.y <= level + .05 || !frustum.intersectsObject(bay)) return false;
       if (!reflector) {
         reflector = new Reflector(new THREE.PlaneGeometry(1,1), { textureWidth: 512, textureHeight: 512, multisample: 0, clipBias: .003 });
-        reflector.rotation.x = -Math.PI/2; reflector.position.y = bay.position.y; reflector.updateMatrixWorld(true);
+        reflector.rotation.x = -Math.PI/2; reflector.position.y = level; reflector.updateMatrixWorld(true);
       }
       renderer.getDrawingBufferSize(size);
       const scale=Math.min(.5,(ultra ? 1024 : 768)/Math.max(size.x,size.y)), target=reflector.getRenderTarget();
@@ -40,11 +44,15 @@ export function createWaterReflections(renderer: THREE.WebGLRenderer, scene: THR
         material.uniforms.uReflectionMatrix.value.copy((reflector.material as THREE.ShaderMaterial).uniforms.textureMatrix.value);
         // Reflector's matrix expects local plane coordinates. Water uses world coordinates.
         material.uniforms.uReflectionMatrix.value.multiply(matrix.copy(reflector.matrixWorld).invert());
-        material.uniforms.uReflectionHeight.value=bay.position.y;
+        material.uniforms.uReflectionHeight.value=level;
         material.uniforms.uReflectionReady.value=1;
+        for (const m of materials) if (m !== material) {
+          m.uniforms.uReflectionMap.value=target.texture; m.uniforms.uReflectionMatrix.value.copy(material.uniforms.uReflectionMatrix.value);
+          m.uniforms.uReflectionHeight.value=level; m.uniforms.uReflectionReady.value=1;
+        }
       } finally { hidden.forEach(o=>{o.visible=true;}); }
       return true;
     },
-    dispose() { if(material?.uniforms.uReflectionReady)material.uniforms.uReflectionReady.value=0;reflector?.geometry.dispose();reflector?.dispose(); },
+    dispose() { for(const m of materials)m.uniforms.uReflectionReady.value=0;if(material?.uniforms.uReflectionReady)material.uniforms.uReflectionReady.value=0;reflector?.geometry.dispose();reflector?.dispose(); },
   };
 }

@@ -19,7 +19,7 @@ import { buildMarinaCamp } from './marina-camp';
 import { marinaWaterObstacles, MARINA_CAMP_COVER, MARINA_ISLET } from './marina-water';
 import { MARINA_HELIX, MARINA_ESPLANADE, MARINA_LAWN } from './marina-routes';
 import { MARINA_LOOK } from './district-look';
-import { createAmbientDrift, foliageDriftSources, type DriftSource } from './ambient-drift';
+import { captureFoliageDrift, registerFoliageDrift } from './ambient-drift';
 import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
@@ -102,7 +102,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.3; scene.add(sun);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
   const instances: THREE.InstancedMesh[] = [];
-  const leafSources: DriftSource[] = [];
   const qualityDetails = { esplanadeSunshades: 0, wheelCapsules: 0, conservatoryGlazingSegments: 0, sandsMullions: 0 };
   const obstacles: Obstacle[] = [{ minX: -80, maxX: 80, minZ: -90, maxZ: 50, maxY: 2 }];
   const geo = <T extends THREE.BufferGeometry>(g: T) => { geometries.push(g); return g; };
@@ -134,9 +133,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // Unique curved members (Shoppes roof arches, conservatory ribs) share one
   // merged draw per material instead of one draw per tube.
   const curved = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const curvedMembers = (material: THREE.Material) => { const list = curved.get(material) ?? []; curved.set(material, list); return list; };
   // Curved steel authored after compaction, already in world metres.
   const curvedMembersWorld: THREE.BufferGeometry[] = [], forecourt = mat('#9c9d97');
-  const curvedMembers = (material: THREE.Material) => { const list = curved.get(material) ?? []; curved.set(material, list); return list; };
   // Ground and the sand apron are laid round the basin rather than across it,
   // so looking down into the bay shows its bed and walls, not a lawn.
   const bay = AUTHORED_BAY, bayW = bay.maxX - bay.minX, bayD = bay.maxZ - bay.minZ, bayX = (bay.minX + bay.maxX) / 2, bayZ = (bay.minZ + bay.maxZ) / 2;
@@ -153,7 +152,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // shot ripples are per pixel and need none.
   const bayWater = new THREE.Mesh(geo(new THREE.PlaneGeometry(bayW, bayD, 48, 42)), water);
   bayWater.rotation.x = -Math.PI / 2; bayWater.position.set(bayX, bay.surface, bayZ); bayWater.name = 'marina-bay-water';
-  bayWater.userData.fpsWater = true; bayWater.userData.rainContact = 'water'; bayWater.renderOrder = 1; scene.add(bayWater);
+  bayWater.userData.fpsWater = true; bayWater.userData.rainContact = 'water'; bayWater.renderOrder = 1; bayWater.receiveShadow = true; scene.add(bayWater);
   // The road completes a continuous loop around the bay.
   for (const z of [-112, 94]) {
     box(0, 0, z, 220, 0.08, 15, road);
@@ -321,7 +320,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const museumBase = new THREE.Mesh(baseGeo, pale); museumBase.position.set(135, 9, -110); scene.add(museumBase); collider(135, -110, 44, 44, 34);
   const pondBed = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), silt); pondBed.rotation.x = -Math.PI / 2; pondBed.position.set(135, 0.03, -110); scene.add(pondBed);
   const pond = new THREE.Mesh(geo(new THREE.CircleGeometry(22, 40)), water); pond.rotation.x = -Math.PI / 2; pond.position.set(135, 0.19, -110);
-  pond.name = 'marina-pond-water'; pond.userData.fpsWater = true; pond.userData.rainContact = 'water'; pond.renderOrder = 1; scene.add(pond);
+  pond.name = 'marina-pond-water'; pond.userData.fpsWater = true; pond.userData.rainContact = 'water'; pond.renderOrder = 1; pond.receiveShadow = true; scene.add(pond);
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2;
     const support = box(135 + Math.cos(a) * 5, 4, -110 + Math.sin(a) * 5, 0.8, 8, 0.8, pale); support.rotation.z = Math.cos(a) * 0.2;
@@ -448,9 +447,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     0, 0, 1, 0, 0.38, 0, -1, 0, -0.75,
   ], 3));
   sunshadeGeo.computeVertexNormals();
+  const sunshade = mat('#b8b9a6', { roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
   // Both shells stand on the theatre concourse (marina-routes), not on the lawn.
   const lift = MARINA_ESPLANADE.concourse.y / S;
-  const sunshade = mat('#b8b9a6', { roughness: 0.65, metalness: 0.15, side: THREE.DoubleSide });
   for (const x of [-60, 10]) {
     const dome = new THREE.Mesh(pavilionGeo, mat('#899996', { roughness: 0.5, metalness: 0.18 }));
     dome.position.set(x, 1 + lift, -183); dome.scale.set(21, 12, 13); scene.add(dome); collider(x, -183, 42, 26, 14 + lift);
@@ -619,7 +618,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     for (const dx of [-2.4, -1.2, 0, 1.2, 2.4]) {
       const shrub = new THREE.Mesh(roofPlantGeo, dx % 2 ? leaf : hedge);
       shrub.position.set(px + dx, 12.38 + (dx === 0 ? .15 : 0), 200);
-      shrub.userData.driftGround = 12.02 * S;
+      registerFoliageDrift(shrub, 12.02 * S);
       shrub.scale.set(.83, .55, .65); shrub.castShadow = true; scene.add(shrub);
       for (const dz of [-.35, .35]) box(px + dx, 12.03, 200 + dz, .08, .48, .08, trunk);
     }
@@ -741,7 +740,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
       box(x+(alongZ?-.63:offset),height/2,z+(alongZ?offset:-.73),alongZ?.08:.14,height-.25,alongZ?.14:.08,wood);
     for(let offset=-length/2+1;offset<length/2;offset+=2){
       const plant=new THREE.Mesh(shrubGeo,offset%3?leaf:hedge);
-      plant.userData.driftGround = .62;
+      registerFoliageDrift(plant, .62);
       plant.position.set(px+(alongZ?0:offset),1.05,pz+(alongZ?offset:0));plant.scale.set(1.1,.65,1.1);plant.castShadow=true;scene.add(plant);
     }
   }
@@ -771,6 +770,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   }
   scene.userData.marinaCombat = { name:'Compact landmark circuit', authored:true, layoutScale:S,
     walls:MARINA_GARDEN_WALLS.length,pavilions:MARINA_GARDEN_PAVILIONS.length,kiosks:MARINA_GARDEN_KIOSKS.length };
+
   // Helix Bridge, in world metres. The deck, stairs and piers are walkable
   // structure (marina-routes); this is the steel that names it: two pairs of
   // counter-wound tubes round the deck, clear of anyone standing on it.
@@ -816,7 +816,6 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   collider((lw.block[0] + lw.block[1]) / 2, (lw.foot + lw.minZ) / 2, lw.block[1] - lw.block[0] - .6, 1.6, lw.y + .6);
   // Flyer forecourt reaches the road, so the grand stair has an approach.
   box(154.8, .05, -142.7, 14, .1, 14.2, forecourt);
-
 
   // Promenade on the block module, in world metres: 1 m granite slabs that
   // abut with no joints (their tone varies instead), a boardwalk of 0.5 m
@@ -895,12 +894,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // Leave unique landmark geometry, the water surfaces and car/boat children alone.
   // Capture actual foliage surfaces after compaction, before batching removes
   // the individual crowns/fronds. Trunks never emit leaves.
-  scene.traverse(object => {
-    if (!(object instanceof THREE.Mesh)) return;
-    const part = object.userData.treePart;
-    const ground = object.userData.driftGround ?? (part?.flutter > 0 ? part.root.y : undefined);
-    if (ground !== undefined) leafSources.push(...foliageDriftSources(object, ground));
-  });
+  captureFoliageDrift(scene, ['#5d8a3c', '#7e9c40', '#b19a45', '#8b6b3c', '#4f7d3d']);
   instances.push(...batchTrees(scene, geo, m => materials.push(m)));
   const batches = new Map<string, THREE.Mesh[]>();
   for (const child of [...scene.children]) {
@@ -915,14 +909,11 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
-  // Sparse leaves stay near planting; faint sunlit dust is driven by the weather.
-  const drift = createAmbientDrift(scene, { leafSources, leafColors: ['#5d8a3c', '#7e9c40', '#b19a45', '#8b6b3c', '#4f7d3d'] });
-  scene.userData.ambientDrift = drift;
   return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { animateTrees(scene, time); water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });
       walkers.forEach(({ group, x, z, axis, phase }) => { const offset = Math.sin(time * 0.09 + phase) * 10; group.position.set((x + (axis === 'x' ? offset : 0))*S, Math.abs(Math.sin(time * 4 + phase))*0.04*S, (z + (axis === 'z' ? offset : 0))*S); group.rotation.y = (axis === 'x' ? Math.PI / 2 : 0) + (Math.cos(time * 0.09 + phase) > 0 ? Math.PI : 0); });
     },
-    dispose() { drift.dispose(); merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
+    dispose() { merlion.dispose(); camp.dispose(); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); sun.shadow.map?.dispose(); },
   }, [...MARINA_VERTICAL_PLACES,...MARINA_LANDMARK_PLACES]),MARINA_LIFTS));
 }

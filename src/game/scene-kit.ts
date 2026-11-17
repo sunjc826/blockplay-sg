@@ -1,5 +1,7 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
+import { captureFoliageDrift } from './ambient-drift';
 import * as THREE from 'three';
+import { createDistrictWater, type WaterMaterial } from './water';
 import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
 import { districtLook, type DistrictLook, type LookPresetId } from './district-look';
@@ -57,6 +59,12 @@ export function createSceneKit(options: SceneKitOptions) {
   const mat = (color: string, roughness = 0.76, metalness = 0) => {
     const material = new THREE.MeshStandardMaterial({ color, roughness, metalness });
     materials.push(material); return material;
+  };
+  const waters: WaterMaterial[] = [];
+  /** Water in the district's colour, on the surface shader every district shares (water.ts). */
+  const water = (color: string, surface: { choppiness?: number; falls?: boolean } = {}) => {
+    const material = createDistrictWater(color, { sun: sun.position, background: options.background, ...surface });
+    materials.push(material); waters.push(material); return material;
   };
   const unit = geo(new THREE.BoxGeometry(1, 1, 1));
   const cylinderGeo = geo(new THREE.CylinderGeometry(1, 1, 1, 10));
@@ -196,6 +204,7 @@ export function createSceneKit(options: SceneKitOptions) {
    * region world. Anything parented to a Group stays individually animatable.
    */
   function finish({ car: carGroup, stamps, animate }: { car: THREE.Object3D; stamps: THREE.Mesh[]; animate: (time: number) => void }): RegionWorld {
+    captureFoliageDrift(scene);
     scene.userData.authoredMeshCount = scene.children.filter(child => child instanceof THREE.Mesh).length;
     const batches = new Map<string, THREE.Mesh[]>(), instances = batchTrees(scene, geo, m => materials.push(m));
     for (const child of [...scene.children]) {
@@ -214,6 +223,7 @@ export function createSceneKit(options: SceneKitOptions) {
       scene, obstacles, car: carGroup, stamps,
       animate(time: number) {
         animateTrees(scene, time);
+        waters.forEach(material => material.userData.setTime(time));
         stamps.forEach((stamp, index) => {
           stamp.rotation.y = time * 0.7;
           stamp.position.y = 2.2 + Math.sin(time * 2 + index) * 0.2;
@@ -230,6 +240,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, THREE };
+  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;

@@ -1,10 +1,11 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
+import { captureFoliageDrift } from './ambient-drift';
 import * as THREE from 'three';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
-import { markWater } from './water';
+import { createDistrictWater } from './water';
 import { districtLook } from './district-look';
 
 export const RAFFLES_SPAWN = { x: 0, z: 52, yaw: 0 };
@@ -61,9 +62,8 @@ export function buildRafflesScene() {
   const unit = geo(new THREE.BoxGeometry(1, 1, 1)), crownGeo = geo(new THREE.IcosahedronGeometry(1, 1));
   const stone = mat('#b8b9b5'), pale = mat('#dadbd4'), glass = mat('#54717c'), blue = mat('#72909c'), dark = mat('#38474b');
   const paving = mat('#b8b1a3'), asphalt = mat('#575d60'), white = mat('#e9e7d8'), red = mat('#a94f49'), terra = mat('#bf8062');
-  const grass = mat('#8e9d70'), leaf = mat('#4d7243'), wood = mat('#80654d'), orange = mat('#f0a044'), water = mat('#598e9b');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water);
+  const grass = mat('#8e9d70'), leaf = mat('#4d7243'), wood = mat('#80654d'), orange = mat('#f0a044'), water = createDistrictWater('#598e9b', { sun: sun.position, background: scene.background as THREE.Color });
+  materials.push(water);
   glass.roughness=0.28;glass.metalness=0.25;blue.roughness=0.34;blue.metalness=0.18;
   const glazingLight=mat('#90a7ad'),iron=mat('#36594a'),tileDark=mat('#965d48'),silver=mat('#b8c0c0');silver.roughness=0.32;silver.metalness=0.55;
   const cylinderGeo=geo(new THREE.CylinderGeometry(1,1,1,10));
@@ -306,8 +306,9 @@ export function buildRafflesScene() {
   scene.userData.referenceFeatures=['square-0','battery-90','boat-quay-270','cecil-180'];scene.userData.authoredMeshCount=scene.children.filter(c=>c instanceof THREE.Mesh).length;
   scene.userData.qualityFeatures=['folded-fan-palms','granite-paver-courses','arched-shutter-trim','market-tile-courses','scalloped-market-fascia','market-fan-ironwork','cylindrical-bridge-supports','glazed-bridge-mullions','differentiated-tower-crowns','layered-facade-planting'];
   scene.userData.materialContrast={glassRoughness:glass.roughness,stoneRoughness:stone.roughness,silverMetalness:silver.metalness};
+  captureFoliageDrift(scene);
   const batches=new Map<string,THREE.Mesh[]>(),instances=batchTrees(scene,geo,m=>materials.push(m));
   for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||c instanceof THREE.InstancedMesh||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
   for(const batch of batches.values()){if(batch.length<2)continue;const m=new THREE.InstancedMesh(batch[0].geometry,batch[0].material,batch.length);m.castShadow=batch[0].castShadow;m.receiveShadow=batch[0].receiveShadow;batch.forEach((b,i)=>{b.updateMatrix();m.setMatrixAt(i,b.matrix);scene.remove(b);});m.computeBoundingSphere();scene.add(m);instances.push(m);}
-  return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){animateTrees(scene,time);stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
+  return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){animateTrees(scene,time);water.userData.setTime(time);stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
 }

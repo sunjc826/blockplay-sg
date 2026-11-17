@@ -11,7 +11,7 @@ import { createNightExposure, skyVisibility } from './night-exposure';
 import { createRainEffects, createRainSurface } from './rain-effects';
 import { createWetSurfaces } from './wet-surfaces';
 import { getGraphicsSettings } from './graphics-settings';
-import type { AmbientDrift } from './ambient-drift';
+import { createAmbientDrift, type AmbientDriftWeather, type FoliageDriftDeclaration } from './ambient-drift';
 import { createWaterRipples } from './water-ripples';
 import { createRainReceivers } from './rain-receivers';
 import { createVehicleRain } from './vehicle-rain';
@@ -66,6 +66,9 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   /** Eased air conditions around the camera, shared with lens and audio effects. */
   const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
+  const foliage = scene.userData.foliageDrift as FoliageDriftDeclaration | undefined;
+  const drift = foliage?.leafSources.length ? createAmbientDrift(scene, foliage) : null;
+  const driftWeather: AmbientDriftWeather = { wind: 0, rain: 0, sun: 1, night: 0, reduced: false, detail: 'high', mobile: false };
   look?.attach(scene, root);
   const receivers = createRainReceivers(scene), rainGround = scene.userData.rainGroundHeight ?? groundHeight ?? (() => 0);
   const columns = createRainSurface(obstacles, (x,z) => receivers.water(x,z) ?? rainGround(x,z));
@@ -168,7 +171,9 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       sunRays.sunlight = sunlight; sunRays.reduced = reduced;
       const time = (now % 3600_000) / 1000;
       scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail);
-      (scene.userData.ambientDrift as AmbientDrift | undefined)?.update(time, { wind, rain: wetness, sun: sunlight, night, reduced, detail: getGraphicsSettings().grassDetail, mobile: coarsePointer?.matches ?? false }, exposurePoint);
+      driftWeather.wind = wind; driftWeather.rain = wetness; driftWeather.sun = sunlight; driftWeather.night = night;
+      driftWeather.reduced = reduced; driftWeather.detail = getGraphicsSettings().grassDetail; driftWeather.mobile = coarsePointer?.matches ?? false;
+      drift?.update(time, driftWeather, exposurePoint);
       // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
       const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
       keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);
@@ -233,6 +238,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     },
     dispose() {
       if (disposed) return; disposed = true;
+      drift?.dispose();
       if (originalSunRays === undefined) delete scene.userData.sunRays; else scene.userData.sunRays = originalSunRays;
       bulbs.forEach(mesh => mesh.dispose());
       rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;

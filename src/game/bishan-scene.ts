@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { STOREY } from './block-module';
-import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 
@@ -46,9 +45,7 @@ export function buildBishanScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#565c5c'), white = mat('#e9e7d8'), kerb = mat('#cec8b9');
-  const water = mat('#4b8b92', 0.42), shallow = mat('#62a5ab', 0.38), lawn = mat('#8aa96a'), grass = mat('#7b9a5e');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4b8b92'), lawn = mat('#8aa96a'), grass = mat('#7b9a5e');
   const concrete = mat('#a9a89e'), pale = mat('#e6e1d3'), stone = mat('#b4b3a9'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const silt = mat('#a8926a'), cobble = mat('#9a978c'), reed = mat('#93a857'), sedge = mat('#7f9a48');
@@ -56,7 +53,6 @@ export function buildBishanScene() {
   const orange = mat('#f0a044'), skin = mat('#b18c71');
   const panels = ['#dcc98f', '#8fb6ae', '#c9a2a8', '#9db2c6', '#cfd3b6'].map(color => mat(color));
 
-  const ripples: THREE.Mesh[] = [];
   box(0, -0.6, 0, 610, 1, 510, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
@@ -75,10 +71,6 @@ export function buildBishanScene() {
       box(x, 0.18, cz + side * (RIVER.halfWidth + 4.4), RIVER.step + 2, 0.32, 5, grass);
       box(x, 0.27, cz + side * (RIVER.halfWidth + 8), RIVER.step + 2, 0.24, 4.4, lawn);
       if (Math.round(x) % 18 === 0) for (let r = 0; r < 3; r++) blob(x + r * 0.8, 1.9, cz + side * (RIVER.halfWidth + 2.6), 0.6, 1.9, 0.5, r % 2 ? reed : sedge);
-    }
-    if (Math.round(x) % 24 === 0) {
-      const ripple = box(x, 0.16, cz, 5, 0.02, 0.2, shallow);
-      ripple.userData.baseX = x; ripples.push(ripple);
     }
     // Boulders left in the channel, the way a restored bed is roughened.
     if (Math.round(x) % 30 === 0) blob(x, 0.5, cz + (Math.round(x) % 60 ? 3 : -3), 1.8, 1.1, 1.6, cobble);
@@ -206,7 +198,6 @@ export function buildBishanScene() {
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.4 + index) * 1.6; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.z = 50 + ((time * 1.1 + index * 15) % 90); person.rotation.y = Math.PI; }
         else { person.position.x = -120 + ((time * 1.3 + index * 23) % 200); person.rotation.y = -Math.PI / 2; }

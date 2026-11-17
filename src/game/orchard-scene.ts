@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { ORCHARD_STAMPS } from '../data/region-stamps.ts';
@@ -109,9 +110,9 @@ export function buildOrchardScene() {
     cylinder(x, 4 * scale, z, 0.7 * scale, 8 * scale, wood); solid(x, z, 1.6, 1.6);
     for (let i = 0; i < 6; i++) {
       const angle = i * Math.PI / 3;
-      blob(x + Math.cos(angle) * 5 * scale, (8.4 + (i % 2) * 0.9) * scale, z + Math.sin(angle) * 5 * scale, 5.4 * scale, 1.9 * scale, 5.4 * scale, i % 2 ? canopy : leaf);
+      registerFoliageDrift(blob(x + Math.cos(angle) * 5 * scale, (8.4 + (i % 2) * 0.9) * scale, z + Math.sin(angle) * 5 * scale, 5.4 * scale, 1.9 * scale, 5.4 * scale, i % 2 ? canopy : leaf), 0);
     }
-    blob(x, 9.6 * scale, z, 6.4 * scale, 2.1 * scale, 6.4 * scale, canopy);
+    registerFoliageDrift(blob(x, 9.6 * scale, z, 6.4 * scale, 2.1 * scale, 6.4 * scale, canopy), 0);
   }
   for (let x = -222; x <= 222; x += 18) for (const z of [-13.5, 13.5]) if (clearOfJunction(x, 14) && x !== 156) rainTree(x, z); // Gateway access needs a clear crown envelope.
 

@@ -127,7 +127,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       camera.updateMatrixWorld();
       const ultraWater = supported && wantWaterSurface && getGraphicsSettings().waterDetail === 'ultra' && !getEnvironmentSettings().reducedEffects;
       const waterSurfaceEnabled = waterSurface.prepare(ultraWater);
-      waterWaves.update(ultraWater, waterSurfaceEnabled);
+      waterWaves.update(ultraWater, waterSurface.visible);
       const sun = scene.userData.sunRays as SunRayLight | undefined;
       const rayStrength = supported && wantGodRays !== 'off' ? projectSunRays(camera, sun, sunUv) : 0;
       godRaysEnabled = rayStrength > .002;

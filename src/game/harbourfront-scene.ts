@@ -1,7 +1,7 @@
 import * as THREE from 'three';
+import { registerFoliageDrift } from './ambient-drift';
 import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { withVerticalPlaces } from './vertical-places';
 import { buildBoardwalkConnection } from './boardwalk-connection';
 import { buildCoastalGround, harbourfrontGroundHeight, HARBOURFRONT_RIDGE_STAIR, HARBOURFRONT_RIDGE_REST, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
@@ -46,9 +46,7 @@ export function buildHarbourfrontScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat } = kit;
 
   const asphalt = mat('#565d61'), white = mat('#eae8da'), paving = mat('#bdb8ab'), kerb = mat('#cfc9bb');
-  const water = mat('#3f7e95', 0.42), shallow = mat('#589cae', 0.38), lawn = mat('#8aa56c'), grass = mat('#7b9560');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#3f7e95'), shallow = kit.water('#589cae'), lawn = mat('#8aa56c'), grass = mat('#7b9560');
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
@@ -71,11 +69,6 @@ export function buildHarbourfrontScene() {
   solid((BASIN.minX + BASIN.maxX) / 2, (BASIN.minZ + BASIN.maxZ) / 2, BASIN.maxX - BASIN.minX, BASIN.maxZ - BASIN.minZ);
   box((BASIN.minX + BASIN.maxX) / 2, 0.6, BASIN.minZ - 2.4, BASIN.maxX - BASIN.minX + 8, 1.4, 4, stone);
   for (let x = BASIN.minX; x <= BASIN.maxX; x += 12) { cylinder(x, 1.2, BASIN.minZ - 4.6, 0.6, 1.6, dark); solid(x, BASIN.minZ - 4.6, 1.4, 1.4); }
-  const ripples: THREE.Mesh[] = [];
-  for (let i = 0; i < 30; i++) {
-    const ripple = box(BASIN.minX + 10 + (i * 41) % 210, 0.16, BASIN.minZ + 6 + (i * 17) % 28, 9 + i % 5, 0.02, 0.22, shallow);
-    ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-  }
   // Quay promenade between the road and the water, and the boardwalk south.
   box(0, 0.2, 132, 460, 0.4, 12, paving);
   for (let x = -210; x <= 90; x += 26) { cylinder(x, 3.6, 129, 0.16, 7.2, dark); box(x, 6.9, 129, 0.9, 0.35, 0.9, pale); solid(x, 129, 0.5, 0.5); }
@@ -205,7 +198,7 @@ export function buildHarbourfrontScene() {
     for (const [px, pz, h] of [[-216,-64,9],[-216,-104,11],[-202,-120,10],[-164,-84,10],[-164,-114,11],[-202,-54,9],[-214,-82,10],[-216,-122,9],[-208,-132,10],[-174,-128,11],[-157,-106,9],[-158,-58,10],[-198,-44,8],[-198,-102,8],[-172,-62,9]]) {
       const base = harbourfrontGroundHeight(px,pz);
       cylinder(px, base+h/2, pz, .35, h, wood);
-      for (const dx of [-2,2]) blob(px+dx,base+h,pz,4,3,4,leaf);
+      for (const dx of [-2,2]) registerFoliageDrift(blob(px+dx,base+h,pz,4,3,4,leaf), base);
       kit.obstacles.push({minX:px-.4,maxX:px+.4,minZ:pz-.4,maxZ:pz+.4,minY:base,maxY:base+h});
     }
     sign('MOUNT FABER · RIDGE WALK', x, 24.4, z - 11, 20, 1.4, '#2f5140');
@@ -445,7 +438,6 @@ export function buildHarbourfrontScene() {
   const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.32 + index) * 1.8; });
       const total = CABLE[CABLE.length - 1] - CABLE[0];
       cabins.forEach((cabin, index) => {
         const travel = ((time * 7 + index * total / 5) % (total * 2));

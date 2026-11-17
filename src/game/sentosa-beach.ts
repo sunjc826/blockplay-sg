@@ -50,7 +50,7 @@ export function buildSentosaBeach(kit: SceneKit) {
   const water = createWaterMaterial({ deep: '#1c6677', shallow: '#68bdb6', sky: '#cfe1e7', horizon: '#8db6c1', sun: new THREE.Vector3(110, 215, 150), clarity: .28, choppiness: .38 });
   const sea = new THREE.Mesh(kit.geo(new THREE.PlaneGeometry(430, 160, 86, 40)), water);
   sea.name = 'sentosa-beach-water'; sea.rotation.x = -Math.PI / 2; sea.position.set(0, SENTOSA_BEACH.surface, 270); sea.renderOrder = 1;
-  sea.userData.fpsWater = true; sea.userData.rainContact = 'water'; kit.scene.add(sea);
+  sea.userData.fpsWater = true; sea.userData.rainContact = 'water'; sea.receiveShadow = true; kit.scene.add(sea);
   sea.userData.waterFloor = sentosaBeachHeight;
   const depthBounds=new THREE.Vector4(SENTOSA_BEACH.minX,SENTOSA_BEACH.minZ,SENTOSA_BEACH.maxX,SENTOSA_BEACH.maxZ);
   const depthMap=createWaterDepthMap(depthBounds,SENTOSA_BEACH.surface,sentosaBeachHeight);

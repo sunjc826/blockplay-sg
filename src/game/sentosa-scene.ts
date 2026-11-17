@@ -5,7 +5,6 @@ import { addRailTerminals } from './rail-stations';
 import * as THREE from 'three';
 import { SENTOSA_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
-import { markWater } from './water';
 import { buildSentosaBeach } from './sentosa-beach';
 import { captureRainReceivers } from './rain-receivers';
 import { withVerticalRoutes } from './vertical-routes';
@@ -49,9 +48,7 @@ export function buildSentosaScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#575d5e'), white = mat('#eae8da'), paving = mat('#c0bbae'), kerb = mat('#d1cbbd');
-  const sea = mat('#3f88a4', 0.4), shallow = mat('#63aec0', 0.36), sand = mat('#ded0a6'), lawn = mat('#89a76a');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(sea, shallow);
+  const sea = kit.water('#3f88a4'), shallow = kit.water('#63aec0', { falls: true }), sand = mat('#ded0a6'), lawn = mat('#89a76a');
   const pale = mat('#e8e1d1'), stone = mat('#b7b5ab'), concrete = mat('#adaca2'), dark = mat('#36434a');
   const glass = mat('#72a0b2', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7c6248'), plank = mat('#a07f58');
   const terra = mat('#b3684c'), gold = mat('#c59a34', 0.42, 0.55), rust = mat('#a8563a');
@@ -62,18 +59,13 @@ export function buildSentosaScene() {
   box(0, -0.6, -37.5, 600, 1, 445, lawn);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
-  const ripples: THREE.Mesh[] = [];
-  function openWater(minX: number, maxX: number, minZ: number, maxZ: number, count: number) {
+  function openWater(minX: number, maxX: number, minZ: number, maxZ: number) {
     box((minX + maxX) / 2, -0.06, (minZ + maxZ) / 2, maxX - minX, 0.4, maxZ - minZ, sea);
     solid((minX + maxX) / 2, (minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
-    for (let i = 0; i < count; i++) {
-      const ripple = box(minX + 8 + (i * 43) % Math.max(12, maxX - minX - 16), 0.16, minZ + 3 + (i * 13) % Math.max(6, maxZ - minZ - 6), 8 + i % 5, 0.02, 0.22, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
   }
   const beach = buildSentosaBeach(kit);
   scene.userData.navalWater = { minX: -215, maxX: 215, minZ: 196, maxZ: 350 };
-  for (const [fromX, toX] of STRAIT_SPANS) openWater(fromX, toX, STRAIT.minZ, STRAIT.maxZ, 10);
+  for (const [fromX, toX] of STRAIT_SPANS) openWater(fromX, toX, STRAIT.minZ, STRAIT.maxZ);
   box(0, 0.16, -186, 440, 0.34, 10, sand);
 
   /** Boardwalk across the strait: the island's only landing. */
@@ -280,10 +272,6 @@ export function buildSentosaScene() {
       }
     }
 
-    for (let i = 0; i < 12; i++) {
-      const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.43, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
     for (const dz of [-depth / 2 - 11, depth / 2 + 11]) for (let dx = -width / 2; dx <= width / 2; dx += 11) palm(x + dx, z + dz, 10 + (Math.abs(Math.round(dx)) % 3), 0.1);
     // Keep both shore approaches open for the new access ramps.
   }
@@ -359,7 +347,6 @@ export function buildSentosaScene() {
     car, stamps,
     animate(time: number) {
       beach.water.userData.setTime(time);
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.36 + index) * 1.8; });
       train.position.x = railState(RAIL_ROUTES.sentosa, time).position;
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -60 + ((time * 1.2 + index * 21) % 140); person.rotation.y = -Math.PI / 2; }

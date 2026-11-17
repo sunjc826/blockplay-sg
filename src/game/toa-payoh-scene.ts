@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { STOREY } from './block-module';
-import { markWater } from './water';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { TOA_PAYOH_GROUND_PLACES, addToaPayohSocialDetails, toaPayohGroundHeight } from './toa-payoh-ground';
@@ -38,9 +37,7 @@ export function buildToaPayohScene() {
   const { scene, box, cylinder, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
-  const water = mat('#4a879c', 0.42), shallow = mat('#5f9eb0', 0.38), lawn = mat('#8ba76d'), grass = mat('#7d9661');
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water, shallow);
+  const water = kit.water('#4a879c'), lawn = mat('#8ba76d'), grass = mat('#7d9661');
   const concrete = mat('#aaa99f'), pale = mat('#e7e1d3'), stone = mat('#b4b3aa'), dark = mat('#36434a');
   const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
   const scale1 = mat('#b8453a'), scale2 = mat('#d8a02a'), scale3 = mat('#e6e0d2');
@@ -48,7 +45,6 @@ export function buildToaPayohScene() {
   const orange = mat('#f0a044'), skin = mat('#b18c71'), terra = mat('#b0644a');
   const bands = ['#e3d9c0', '#b7c6bc', '#d9c3a6', '#a9bccb', '#cfc3a4'].map(color => mat(color));
 
-  const ripples: THREE.Mesh[] = [];
   box(0, -0.6, 0, 610, 1, 510, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
 
@@ -184,10 +180,6 @@ export function buildToaPayohScene() {
     const { x, z, width, depth } = POND;
     box(x, -0.22, z, width + 28, 0.2, depth + 28, lawn);
     box(x, -0.06, z, width, 0.4, depth, water); solid(x, z, width, depth);
-    for (let i = 0; i < 14; i++) {
-      const ripple = box(x - width / 2 + 6 + (i * 17) % (width - 12), 0.16, z - depth / 2 + 5 + (i * 11) % (depth - 10), 6 + i % 3, 0.02, 0.2, shallow);
-      ripple.userData.baseX = ripple.position.x; ripples.push(ripple);
-    }
     for (const side of [-1, 1]) box(x, .22, z + side * (depth / 2 + .25), width + 6, .44, .5, stone);
     // The bank-side bridge is built with walking support at finish.
     for (const dx of [-32, 32]) for (const dz of [-24, 24]) tree(x + dx, z + dz, 9, wood, fern);
@@ -272,7 +264,6 @@ export function buildToaPayohScene() {
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {
-      ripples.forEach((ripple, index) => { ripple.position.x = ripple.userData.baseX + Math.sin(time * 0.34 + index) * 1.3; });
       pedestrians.forEach((person, index) => {
         if (index % 2) { person.position.x = -200 + ((time * 1.2 + index * 21) % 90); person.rotation.y = -Math.PI / 2; }
         else { person.position.x = -10 + ((time * 1.3 + index * 17) % 120); person.rotation.y = -Math.PI / 2; }

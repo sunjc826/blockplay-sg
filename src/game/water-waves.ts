@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
-import { primaryWaterSurface } from './water';
-import { waterShoreShader } from './water-shore';
+import { primaryWaterSurface, waterSurfaceLevel } from './water';
+import { createWaterCoverageMap, waterShoreShader } from './water-shore';
 import { boatWakeCoverage, boatWaveFade, createBoatWake, type WaterBoat } from './boat-wake';
 import { WATER_WAVES, createSwimmerWake, waterImpactPulse, waterWaveOrigin, waterWaveSteps, type WaterImpulse, type WaterSwimmer } from './water-wave-state';
 
@@ -73,7 +73,8 @@ const fragmentShader = /* glsl */ `
 export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const bay = primaryWaterSurface(scene);
   const water = bay?.material;
-  const eye = new THREE.Vector3(), box = new THREE.Box3(), clearColor = new THREE.Color();
+  const eye = new THREE.Vector3(), clearColor = new THREE.Color();
+  let level = 0, mask: THREE.DataTexture | undefined;
   const origin = new THREE.Vector2(), bounds = new THREE.Vector4();
   const wake = createSwimmerWake(), pending: (WaterImpulse & { at: number })[] = [];
   const boatWakes = new Map<string, ReturnType<typeof createBoatWake>>();
@@ -118,6 +119,10 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     unbind(); targets?.forEach(t => t.dispose()); targets = undefined;
     solver?.dispose(); solver = undefined; quad?.dispose(); quad = undefined;
     patch?.removeFromParent(); patch?.geometry.dispose(); patch = undefined;
+    if (mask && water) {
+      mask.dispose(); mask = undefined;
+      water.uniforms.uWaterDepthMap.value = null; water.uniforms.uWaterDepthReady.value = 0; water.uniforms.uWaterMask.value = 0;
+    }
     if (water?.uniforms.uWaveMap) water.uniforms.uWaveMap.value = null;
     pending.length = 0; lastTime = undefined; remainder = 0; wake.reset(); boatWakes.clear();
   }
@@ -139,8 +144,24 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
     patch.renderOrder = bay!.renderOrder;
     patch.userData.fpsEffect = true; patch.userData.noShadowCast = true; patch.raycast = () => {};
     scene.add(patch);
-    bay!.updateWorldMatrix(true,false); box.setFromObject(bay!);
-    bounds.set(box.min.x,box.min.z,box.max.x,box.max.z);
+    const surface = waterSurfaceLevel(bay!);
+    level = surface.height; bounds.copy(surface.bounds);
+    // Slab water is cut around islands, banks and bridge gaps, and one material
+    // may lie at more than one height: the patch draws only over its real outline.
+    if (!water!.transparent && !water!.uniforms.uWaterDepthReady.value) {
+      const faces: number[] = [];
+      scene.traverse(object => {
+        if (!(object instanceof THREE.Mesh) || object.material !== water || object.userData.fpsEffect) return;
+        const part = waterSurfaceLevel(object).faces;
+        for (let i = 0; i < part.length; i += 2) {
+          faces.push(part[i], part[i+1]);
+          bounds.set(Math.min(bounds.x,part[i]),Math.min(bounds.y,part[i+1]),Math.max(bounds.z,part[i]),Math.max(bounds.w,part[i+1]));
+        }
+      });
+      mask = createWaterCoverageMap(bounds, faces);
+      const u = water!.uniforms;
+      u.uWaterDepthMap.value = mask; u.uWaterDepthBounds.value.copy(bounds); u.uWaterDepthReady.value = 1; u.uWaterMask.value = 1;
+    }
   }
   return {
     get enabled() { return active; },
@@ -208,8 +229,8 @@ export function createWaterWaves(renderer: THREE.WebGLRenderer, scene: THREE.Sce
         remainder = reset ? 0 : schedule.remainder; lastTime=time;
         const u = water.uniforms;
         u.uWaveMap.value = targets![0].texture; u.uWaveOrigin.value.copy(origin); u.uWaveBounds.value.copy(bounds);
-        u.uWaveHeight.value = box.min.y; u.uWaveReady.value = 1;
-        patch!.position.set(origin.x+WATER_WAVES.span/2,box.min.y,origin.y+WATER_WAVES.span/2); patch!.visible = true;
+        u.uWaveHeight.value = level; u.uWaveReady.value = 1;
+        patch!.position.set(origin.x+WATER_WAVES.span/2,level,origin.y+WATER_WAVES.span/2); patch!.visible = true;
       } finally {
         renderer.setRenderTarget(previousTarget); renderer.setClearColor(clearColor,clearAlpha);
         renderer.autoClear = previousAutoClear; renderer.setScissorTest(scissorTest); renderer.xr.enabled=xr;

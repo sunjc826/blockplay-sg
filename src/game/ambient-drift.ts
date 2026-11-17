@@ -39,14 +39,16 @@ const WIND_DIRECTION = new THREE.Vector2(.984, .177);
 const PARK = -5000;
 
 /** How much of the drift shows: leaves and motes (0..1), and how fast leaves are carried (m/s). */
-export function driftAmounts(weather: Pick<AmbientDriftWeather, 'wind' | 'rain' | 'sun' | 'night' | 'reduced' | 'detail'>) {
-  if (weather.reduced || weather.detail === 'low') return { leaves: 0, motes: 0, speed: 0 };
+export function driftAmounts(weather: Pick<AmbientDriftWeather, 'wind' | 'rain' | 'sun' | 'night' | 'reduced' | 'detail'>, amounts = { leaves: 0, motes: 0, speed: 0 }) {
+  if (weather.reduced || weather.detail === 'low') {
+    amounts.leaves = 0; amounts.motes = 0; amounts.speed = 0;
+    return amounts;
+  }
   const day = 1 - Math.max(0, Math.min(1, weather.night)), wind = Math.max(0, Math.min(7, weather.wind)), rain = Math.max(0, Math.min(1, weather.rain));
-  return {
-    leaves: Math.min(1, .5 + wind * .12) * (1 - rain * .5) * (.35 + .65 * day),
-    motes: .45 * Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3)),
-    speed: .5 + wind * .85,
-  };
+  amounts.leaves = Math.min(1, .5 + wind * .12) * (1 - rain * .5) * (.35 + .65 * day);
+  amounts.motes = .45 * Math.max(0, Math.min(1, weather.sun)) * day * (1 - rain) * (1 - Math.min(1, wind / 3));
+  amounts.speed = .5 + wind * .85;
+  return amounts;
 }
 
 const declarations = /* glsl */`
@@ -100,6 +102,46 @@ mat3 driftSpin = driftRotation(normalize(driftSeed.xyz - .5 + vec3(0.0, .01, 0.0
 /** World-space foliage point: x/z on the blade/crown, y at the landing base, height up to release. */
 export interface DriftSource { x: number; y: number; z: number; height: number }
 
+/** Build-time declaration on scene.userData.foliageDrift. The atmosphere owns its effect resources. */
+export interface FoliageDriftDeclaration {
+  leafSources: readonly DriftSource[];
+  leafColors?: readonly string[];
+}
+
+/** Bounds the periodic nearby-source scan even in a dense forest. */
+export const MAX_DRIFT_SOURCES = 16384;
+
+/** Register an untagged crown with its world-space landing base before build-time capture. */
+export function registerFoliageDrift<T extends THREE.Mesh>(mesh: T, ground: number): T {
+  mesh.userData.driftGround = ground;
+  return mesh;
+}
+
+/** Capture once, after terrain/compaction transforms and before batching removes the crowns.
+ * Flutter tags identify crowns/fronds, leaving trunks and rigid scenery out. */
+export function captureFoliageDrift(scene: THREE.Scene, leafColors?: readonly string[]) {
+  const leafSources: DriftSource[] = [];
+  let seen = 0;
+  scene.traverse(object => {
+    if (!(object instanceof THREE.Mesh) || object instanceof THREE.InstancedMesh) return;
+    const part = object.userData.treePart;
+    const ground = object.userData.driftGround ?? (part?.flutter > 0 ? part.root.y : undefined);
+    if (ground === undefined) return;
+    for (const source of foliageDriftSources(object, ground)) {
+      seen++;
+      if (leafSources.length < MAX_DRIFT_SOURCES) leafSources.push(source);
+      else {
+        // Deterministic reservoir sampling includes late-built trees without keeping an unbounded list.
+        const hash = Math.sin(seen * 127.1) * 43758.5453;
+        const slot = Math.floor((hash - Math.floor(hash)) * seen);
+        if (slot < MAX_DRIFT_SOURCES) leafSources[slot] = source;
+      }
+    }
+  });
+  if (leafSources.length) scene.userData.foliageDrift = { leafSources, leafColors } satisfies FoliageDriftDeclaration;
+  else delete scene.userData.foliageDrift;
+}
+
 /** Sample real foliage vertices after world transforms, before meshes are batched.
  * Keeping the base separate also makes rooftop leaves land on their own planter. */
 export function foliageDriftSources(mesh: THREE.Mesh, ground: number): DriftSource[] {
@@ -135,7 +177,7 @@ function leafGeometry() {
   return geometry;
 }
 
-export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: readonly string[]; moteColor?: string; leafSources?: readonly DriftSource[] } = {}) {
+export function createAmbientDrift(scene: THREE.Scene, options: Partial<FoliageDriftDeclaration> & { moteColor?: string } = {}) {
   const leafColors = (options.leafColors ?? ['#5f8a3a', '#7a9a3c', '#a8923e', '#8a6a3a', '#4e7a3a']).map(c => new THREE.Color(c));
   const moteColor = new THREE.Color(options.moteColor ?? '#fff1cf');
   const count = DRIFT_COUNT.ultra;
@@ -148,7 +190,8 @@ export function createAmbientDrift(scene: THREE.Scene, options: { leafColors?: r
   const corners = block.getAttribute('position').count, indices = corners;
   const positions = new Float32Array(count * corners * 3), normals = new Float32Array(count * corners * 3), colors = new Float32Array(count * corners * 3);
   const sources = new Float32Array(count * corners * 4);
-  const planting = options.leafSources ?? [], home = new Int32Array(count).fill(-1), nearby: number[] = [];
+  const planting = options.leafSources ?? [], home = new Int32Array(count).fill(-1), nearby = new Int32Array(planting.length);
+  const amounts = { leaves: 0, motes: 0, speed: 0 };
   let homedAt = -Infinity, picks = 0;
   const seeds = new Float32Array(count * corners * 4), kinds = new Float32Array(count * corners), index = new Uint32Array(count * indices);
   // Hash-style seeds: deterministic, so every visit looks the same.
@@ -210,28 +253,28 @@ transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * 
   mesh.visible = false;
   scene.add(mesh);
   const sourceAttribute = geometry.getAttribute('driftSource') as THREE.BufferAttribute;
+  const away = (source: DriftSource, eye: THREE.Vector3) => Math.hypot(source.x - eye.x, source.y - eye.y, source.z - eye.z);
   // Leaves are dealt across every plant in the district, so few would ever fall
   // in view. A few times a second, any leaf whose plant is too far to be seen
   // and which is between falls is moved to a plant near the camera.
   const rehome = (time: number, eye: THREE.Vector3) => {
     if (!planting.length || Math.abs(time - homedAt) < .25) return;
-    homedAt = time; nearby.length = 0;
-    const away = (s: DriftSource) => Math.hypot(s.x - eye.x, s.y - eye.y, s.z - eye.z);
-    planting.forEach((s, at) => { if (away(s) < LEAF_REACH) nearby.push(at); });
-    if (!nearby.length) return;
+    homedAt = time;
+    let nearbyCount = 0;
+    for (let at = 0; at < planting.length; at++) if (away(planting[at], eye) < LEAF_REACH) nearby[nearbyCount++] = at;
+    if (!nearbyCount) return;
     let moved = false;
     for (let i = 0; i < count; i++) {
-      if (home[i] < 0 || away(planting[home[i]]) < LEAF_HIDDEN) continue;
+      if (home[i] < 0 || away(planting[home[i]], eye) < LEAF_HIDDEN) continue;
       const duration = Math.max(4.5 + random(i, 3) * 2.5, planting[home[i]].height / (.65 + random(i, 4) * .25));
       const turn = time / (duration * 2) + random(i, 1);
       if (turn - Math.floor(turn) < .52) continue; // mid-fall (same cycle as the shader)
-      const next = nearby[Math.floor(random(i, 7 + picks++) * nearby.length)], s = planting[next];
+      const next = nearby[Math.floor(random(i, 7 + picks++) * nearbyCount)], s = planting[next];
       const nextDuration = Math.max(4.5 + random(i, 3) * 2.5, s.height / (.65 + random(i, 4) * .25));
       const nextTurn = time / (nextDuration * 2) + random(i, 1);
       if (nextTurn - Math.floor(nextTurn) < .52) continue; // new canopy must also be between falls
       home[i] = next;
-      const height = s.height;
-      for (let v = 0; v < corners; v++) sources.set([s.x, s.y, s.z, height], (i * corners + v) * 4);
+      for (let v = 0; v < corners; v++) sourceAttribute.setXYZW(i * corners + v, s.x, s.y, s.z, s.height);
       moved = true;
     }
     if (moved) sourceAttribute.needsUpdate = true;
@@ -240,7 +283,7 @@ transformed = driftSpin * ((transformed - vec3(0.0, ${PARK.toFixed(1)}, 0.0)) * 
     mesh,
     /** `eye` is the camera's world position; without it leaves stay where they were dealt. */
     update(time: number, weather: AmbientDriftWeather, eye?: THREE.Vector3) {
-      const amounts = driftAmounts(weather);
+      driftAmounts(weather, amounts);
       if (eye && amounts.leaves > .001) rehome(time, eye);
       // Phones draw half as many; the seeds are uniform, so the first n are an even spread.
       const shown = Math.min(count, Math.round(DRIFT_COUNT[weather.detail] * (weather.mobile ? .5 : 1)));

@@ -4,7 +4,6 @@ import { bumboat } from './bumboat';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
-import { markWater } from './water';
 
 // Between two planted terraces, looking down a clear radial at the falls.
 export const CHANGI_SPAWN = { x: 16, z: -11, yaw: 1.31 };
@@ -37,12 +36,10 @@ export function buildChangiScene() {
 
   const asphalt = mat('#5a6064'), white = mat('#eceadc'), paving = mat('#c2beb2'), kerb = mat('#d2ccbe');
   const concrete = mat('#b3b1a7'), pale = mat('#e3ded0'), dark = mat('#38444a'), steel = mat('#aeb6ba', 0.28, 0.55);
-  const glass = mat('#7fa3b0', 0.2, 0.35), deepGlass = mat('#6b8f9e', 0.18, 0.4), water = mat('#86b6c6', 0.3);
+  const glass = mat('#7fa3b0', 0.2, 0.35), deepGlass = mat('#6b8f9e', 0.18, 0.4), water = kit.water('#86b6c6'), falling = kit.water('#86b6c6', { falls: true });
   // Translucent roof panes keep the indoor forest readable in the browser.
   glass.transparent = true; glass.opacity = 0.52;
   deepGlass.transparent = true; deepGlass.opacity = 0.66;
-  // Shots into these splash rather than spark; see water.ts.
-  markWater(water);
   const leaf = mat('#41703f'), fern = mat('#5d8a4c'), lawn = mat('#8ba36d');
   const wood = mat('#7b6148'), orange = mat('#f0a044'), skin = mat('#b18c71'), tarmac = mat('#6b6f70');
   const livery = mat('#d8d6cf'), accent = mat('#b7423c'), tail = mat('#2a5f7a');
@@ -98,7 +95,7 @@ export function buildChangiScene() {
     }
     const fall: THREE.Mesh[] = [];
     for (let ring = 0; ring < 5; ring++) {
-      const drop = cylinder(DOME.x, 13 + ring * 0.2, DOME.z, 6.4 + ring * 0.9, 23 - ring * 1.4, water);
+      const drop = cylinder(DOME.x, 13 + ring * 0.2, DOME.z, 6.4 + ring * 0.9, 23 - ring * 1.4, falling);
       drop.userData.phase = ring; fall.push(drop);
     }
     // Terraced basin: stepped stone rings under a low mist of planting.
