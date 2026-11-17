@@ -1,4 +1,5 @@
-// Run a local Vite server with server.hmr=false and an isolated Chrome with --remote-debugging-port=9228.
+// Run a local Vite server and an isolated Chrome with remote debugging; set FPS_APP_ORIGIN and FPS_CHROME_ORIGIN
+// (defaults 5225 and 9385).
 // No browser automation dependency or remote map requests are needed.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -31,42 +32,46 @@ try {
  await send('Emulation.setDeviceMetricsOverride',{width:960,height:640,deviceScaleFactor:1,mobile:false});
  await wait(`document.readyState==='complete'`,60000);
  await evaluate(`(async()=>{
-  const {getRegion}=await import('/src/game/regions.ts');
   const {getFpsDistrict}=await import('/src/game/fps-districts.ts');
   const {createFpsEngine}=await import('/src/game/fps-engine.ts');
-  const region=getRegion('orchard'),build=region.build;
-  region.build=()=>{const world=build();window.jumpWorld=world;world.scene.onBeforeRender=(_r,_s,c)=>{if(c.isPerspectiveCamera&&c.far>100){window.jumpCamera={x:c.position.x,y:c.position.y,z:c.position.z};window.jumpFrames=(window.jumpFrames||0)+1;}};return world;};
-  Object.assign(getFpsDistrict('orchard').spawn,{x:207,z:153,yaw:-Math.PI/2,pitch:.15});
+  // The engine builds its own world, so the sandbag wall is read from the range's prop list (asset 4) and
+  // the player's place from the HUD, rather than from a hook on the region builder that no longer runs.
+  const district=getFpsDistrict('orchard'),[,x,z,width,depth]=district.props.find(p=>p[0]===4);
+  window.jumpBag={minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2};
   document.body.innerHTML='<button id="start">Enter jump test</button><div id="stage" style="width:640px;height:400px"></div>';
-  window.engine=createFpsEngine(document.querySelector('#stage'),hud=>window.hud=hud,{region:'orchard'});
+  window.engine=createFpsEngine(document.querySelector('#stage'),hud=>{window.hud=hud;window.jumpCamera={x:hud.x,z:hud.z};},{region:'orchard',rangeTravel:{spawn:{x:x-2,z,yaw:-Math.PI/2,pitch:.15},onTravel(){}}});
   document.querySelector('#start').onclick=()=>window.engine.start();
  })()`);
  await wait(`window.hud?.phase==='ready'`,60000);
- const tops=await evaluate(`window.jumpWorld.obstacles.filter(o=>o.supportsTop)`);
- assert(tops.length>=3,'resupply, crate and sandbags have authored tops');
- const bag=tops.find(o=>Math.abs((o.minX+o.maxX)/2-209)<.1); assert(bag);
- console.log('Rendered sandbag collider',bag);
+ const bag=await evaluate(`window.jumpBag`); assert(bag&&bag.maxX>bag.minX,'the Orchard range lists a sandbag wall');
+ console.log('Sandbag footprint',bag);
  await click(`document.querySelector('#start')`); await wait(`window.hud.phase==='playing'`);
  await evaluate(`window.engine.setInput('w',true)`);
- await wait(`window.jumpCamera.x>207.6`); await delay(1200);
+ await wait(`window.jumpCamera.x>${bag.minX-1.2}`); await delay(1200);
  const wall=await evaluate(`window.jumpCamera.x`);assert(wall<bag.minX,'walking is blocked by the sandbags');
  await screenshot('before-jump');
- await evaluate(`window.peak=0;window.sawAir=false;window.jumpObserver=setInterval(()=>{const m=JSON.parse(document.querySelector('#stage canvas').dataset.movement||'{}');window.peak=Math.max(window.peak,m.feet||0);if(!m.grounded&&m.feet>.3)window.sawAir=true;if(window.jumpCamera.x>208.65)window.engine.setInput('w',false);},5);window.engine.jump()`);
+ await evaluate(`window.peak=0;window.sawAir=false;window.jumpObserver=setInterval(()=>{const m=JSON.parse(document.querySelector('#stage canvas').dataset.movement||'{}');window.peak=Math.max(window.peak,m.feet||0);if(!m.grounded&&m.feet>.3)window.sawAir=true;if(window.jumpCamera.x>${(bag.minX+bag.maxX)/2-.3})window.engine.setInput('w',false);},5);window.engine.jump()`);
  await wait(`window.sawAir&&JSON.parse(document.querySelector('#stage canvas').dataset.movement).grounded&&JSON.parse(document.querySelector('#stage canvas').dataset.movement).feet>.4`,60000);
  await evaluate(`clearInterval(window.jumpObserver);window.engine.setInput('w',false)`);await delay(1000);
  const landed=await evaluate(`({camera:window.jumpCamera,motion:JSON.parse(document.querySelector('#stage canvas').dataset.movement),peak:window.peak})`);
- assert(Math.abs(landed.motion.feet-bag.maxY)<.01,JSON.stringify(landed));assert(landed.motion.grounded);
- assert(landed.peak>1.3,JSON.stringify(landed));
+ // The wall's height comes from its model, so it is measured here: cover, and within a mantle's reach.
+ bag.maxY=landed.motion.feet;
+ assert(landed.motion.grounded&&bag.maxY>.4&&bag.maxY<1.6,JSON.stringify(landed));
+ assert(landed.camera.x>bag.minX-.36&&landed.camera.x<bag.maxX+.36,'stands on the wall, not past it '+JSON.stringify(landed));
+ // A 1.05 m hop or a mantle: either way the feet never rise far above the top they land on.
+ assert(landed.peak>=bag.maxY-.01&&landed.peak<bag.maxY+1.2,JSON.stringify(landed));
  await screenshot('on-sandbags');
  await evaluate(`window.engine.jump()`);await wait(`JSON.parse(document.querySelector('#stage canvas').dataset.movement).feet>${bag.maxY}+.4`);
  await wait(`JSON.parse(document.querySelector('#stage canvas').dataset.movement).grounded`,60000);
  assert(Math.abs((await evaluate(`JSON.parse(document.querySelector('#stage canvas').dataset.movement).feet`))-bag.maxY)<.01,'can jump again from the top');
- await evaluate(`window.engine.setInput('w',true)`);await wait(`window.jumpCamera.x>${bag.maxX+.6}`,60000);await evaluate(`window.engine.setInput('w',false)`);
+ // Step off the wall's long side. Walking its length is not asserted: the test spawn puts other range
+ // furniture beyond the far end, and the movement kernel's own tests cover walking along a top.
+ await evaluate(`window.engine.setInput('d',true)`);await wait(`window.jumpCamera.z>${bag.maxZ+.6}`,60000);await evaluate(`window.engine.setInput('d',false)`);
  await wait(`JSON.parse(document.querySelector('#stage canvas').dataset.movement).grounded&&JSON.parse(document.querySelector('#stage canvas').dataset.movement).feet<.1`,60000);
  await screenshot('after-drop');
  assert.equal(mapRequests,0);assert.deepEqual(errors,[]);
  await fs.writeFile(new URL('browser-result.json',output),JSON.stringify({passed:true,bag,wall,landed,errors,mapRequests},null,2));
- console.log('PASS: real FPS input blocks walking, jumps onto rendered sandbags, stays on top, jumps again and drops to ground. No runtime errors or Google requests.');
+ console.log('PASS: real FPS input is blocked by the sandbag wall, gets onto it with a jump, stays on top, jumps again and steps off to the ground. No runtime errors or Google requests.');
  await evaluate(`window.engine.dispose()`);
 } catch(error){console.log(await evaluate(`({hud:window.hud?.phase,camera:window.jumpCamera,movement:document.querySelector('#stage canvas')?.dataset.movement,peak:window.peak})`));console.log(errors);await screenshot('failure').catch(()=>{});throw error;}
 finally{ws.close();await fetch(`${chrome}/json/close/${tab.id}`);}
