@@ -61,6 +61,29 @@ features added in this change.
 | 2 | HUD text, inset and opacity are largely fixed, so readability depends on screen size and scene brightness. | Add HUD scale, horizontal inset and opacity settings, with a preview over bright and dark scenes. Halo Infinite explicitly exposes HUD opacity and full-screen-effect intensity. |
 | 3 | Empty utility slots and static state labels can occupy space that carried items and timed effects need, especially in training/open world. | Extend the public-arena phone behavior that hides empty supplies to other small-screen modes, while keeping slot order stable. Differentiate active, unavailable and ready states; Halo uses dimmed equipment and a visible cooldown fill. |
 
+### Follow-up, 17 November 2026
+
+- **Heal and reload prompt (row 2 above).** `FpsActionPrompt` draws one suggestion
+  under the reticle in the range, arenas and expeditions: `R RELOAD` when the gun
+  cannot fire and rounds are carried, `F USE <item>` at low or critical health
+  when the selected recovery item heals and one is carried, and a quiet
+  `LOW AMMO · RELOAD` at a quarter magazine when off the sights. Nothing shows
+  during a reload, supply use, a held grenade, a picker, inspection, the map,
+  swimming, the AI pilot, or beside an NPC or checkpoint prompt. Rules and tests:
+  `src/game/action-prompt.ts`. Touch draws it without the key.
+- **Compass (row 4).** `FpsHeading` replaces the fixed setting line in the range
+  and arenas with a heading strip: ticks every 15°, the eight points lettered,
+  the bearing under a centre mark (`src/game/compass.ts`, north is map-up). It no
+  longer hides with HUD hints off; it is still not drawn on touch, and
+  expeditions never had the line. Bearing markers for threats and objectives are
+  not added.
+- **Empty utility slots (row 6)** no longer applies: the belt became two quick
+  slots, and the `[data-empty]` rules left in `fps-hints.css` and
+  `arena-player.css` match nothing.
+
+`pnpm test:hud:layout` now renders both pieces and checks them in all 39
+viewport and mode combinations.
+
 ## References
 
 - [Halo Infinite settings and HUD opacity](https://support.halowaypoint.com/hc/en-us/articles/4407649252116-Guide-to-Halo-Infinite-Game-Settings)

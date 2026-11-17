@@ -2,7 +2,7 @@
    pickers and touch actions remain available, and combat state stays visible. */
 .fps-game .fps-player-tools .fps-hints-toggle[aria-pressed=false] { color:var(--hud-dim); border-color:var(--hud-line); }
 .fps-game[data-hud-hints=off]:not([data-touch=on])[data-phase=playing] .fps-viewport :is(
-  .fps-hud-hint,.fps-immersive-hint,.fps-input-status,.fps-compass,
+  .fps-hud-hint,.fps-immersive-hint,.fps-input-status,
   .fps-objective>small,.fps-shield-label>small,.arena-respawn>small,
   .fps-weapon-slider kbd,.fps-belt kbd,.fps-vision-chip kbd,.fps-loot-card kbd
 ) { display:none!important; }

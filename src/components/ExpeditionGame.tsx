@@ -53,6 +53,7 @@ import type { MinimapMarker } from '../game/minimap';
 import { captureObjectives } from '../game/expedition-objectives';
 import './expedition.css';
 import './fps-hit-direction.css';
+import FpsActionPrompt from './FpsActionPrompt';
 import { getArenaFaction, PLAYER_FACTION, SQUAD_FACTIONS } from '../game/arena-factions';
 
 interface ExpeditionScene { zone: WorldZoneId; spawn?: ZoneSpawn; checkpoint?: FpsCheckpoint; revision: number }
@@ -220,6 +221,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponHud hud={hud} weapon={weapon} canFight={canFight} onUtility={kind => engine.current?.useSelectedUtility(kind)} onPickRecovery={() => engine.current?.toggleRecoveryPicker()} onPickGrenade={() => engine.current?.toggleGrenadePicker()} onInspect={() => engine.current?.inspectWeapon()} onScopeZoom={direction => engine.current?.adjustScopeZoom(direction)} touch={touch} />}
         <FpsVehicleHud hud={hud} />
         <FpsFacilityHud hud={hud} engine={engine.current} touch={touch} />
+        <FpsActionPrompt hud={hud} canFight={canFight} touch={touch} />
         {hud.interact && <div className="fps-interact-prompt">{showHints ? hud.interact : hud.interact.replace(/^E · /, '')}</div>}
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}

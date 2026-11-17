@@ -59,6 +59,8 @@ import ReloadStyleToggle from './ReloadStyleToggle';
 import { useDebugMode } from '../lib/debug-mode';
 import { useTouchControls } from '../game/use-touch-controls';
 import { useHudHints } from '../game/hud-hints-setting';
+import FpsHeading from './FpsHeading';
+import FpsActionPrompt from './FpsActionPrompt';
 import './arena-hud.css';
 import './arena-player.css';
 import './fps-hit-direction.css';
@@ -222,7 +224,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.combatBanner && <div className={`fps-combat-banner ${hud.combatBanner.tone}`} role="status">{hud.combatBanner.text}</div>}
         {hud.hit && <div className="fps-hit-label" aria-hidden="true">{!isArena && hud.headshot ? 'HEADSHOT' : 'HIT'} −{hud.lastDamage}</div>}
         {hud.callout && <div key={`${hud.hits}-${hud.callout}`} className="fps-kill-callout" role="status"><span>ELIMINATION CHAIN ×{hud.chain}</span><strong>{hud.callout}</strong>{!isArena && <small>+25 XP</small>}</div>}
-        <div className="fps-compass">SG <span>· · ·</span> {district.setting.toUpperCase()} <span>· · ·</span> 01</div>
+        <FpsHeading yaw={hud.yaw} />
+        <FpsActionPrompt hud={hud} canFight={canFight} touch={touch} />
         {hud.swimming && <div className="fps-swim-status" role="status">SWIMMING · {hud.swimCanFire ? 'SIDEARM READY · AIM TO STEADY' : 'STOP TO USE SIDEARM'} · CLIMB OUT AT GOLD LADDERS</div>}
         {mounted && hud.vehicleCanFire && hud.vehicleAimVisible && <div className="fps-vehicle-reticle" aria-label="Vehicle gun impact point" style={{ left: `${hud.vehicleAimX}%`, top: `${hud.vehicleAimY}%` }}>⊕</div>}
         {!merlionOperating && (!mounted || hud.vehiclePersonalWeapon) && <FpsWeaponSlider hud={hud} names={equipment.weapons.map(w => w.name.split(' · ')[0])} canSwitch={canFight} onSwitch={family => engine.current?.switchWeapon(family)} />}

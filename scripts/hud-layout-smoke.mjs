@@ -17,12 +17,15 @@ const {default:Weapon}=await import('/src/components/FpsWeaponHud.tsx');
 const {default:Slider}=await import('/src/components/FpsWeaponSlider.tsx');
 const {default:Touch}=await import('/src/components/TouchControls.tsx');
 const {default:LootCard}=await import('/src/components/FpsLootCard.tsx');
+const {default:Heading}=await import('/src/components/FpsHeading.tsx');
+const {default:ActionPrompt}=await import('/src/components/FpsActionPrompt.tsx');
 const {initialFpsHud}=await import('/src/game/fps-engine.ts');
 const {createProfile,resolveLoadout}=await import('/src/game/armory-state.ts');
 const h=React.createElement,equipment=resolveLoadout(createProfile());
 function Preview(){
  const [config,set]=React.useState({mode:'expedition',touch:false,expanded:false,hints:true,radio:true});window.setHudLayoutTest=set;
- const hud={...initialFpsHud,phase:'playing',magazine:30,reserve:120,health:config.health??100,maxHealth:100,armor:35,maxArmor:100,
+ const hud={...initialFpsHud,phase:'playing',magazine:30,reserve:120,health:config.health??100,maxHealth:100,armor:35,maxArmor:100,yaw:-.8,roundReady:true,reloadCapacity:30,
+  recoveryItem:{id:'food-kaya-toast',name:'Kaya toast set',tier:'Issued',count:2,effects:['+20 HP'],seconds:3},
   belt:['food','bandage','first-aid','plates','ammo','grenade'].map((kind,id)=>({kind,label:kind,key:String(id+4),count:0})),
   lootCard:config.card==='armor'?{id:'a',name:'Elite ceramic inserts',tier:'Elite',kind:'armor',type:'Armor inserts',description:'Full rig plates.',stats:[{label:'ARMOR',value:'100',trend:'up'},{label:'WEIGHT',value:'3.2',trend:'down'}],note:'Comparing with Soft inserts',action:'Collect',detail:'',blocked:'Armor full',swap:{stats:[{label:'ARMOR',value:'35',trend:'down'},{label:'WEIGHT',value:'1.1',trend:'up'}],note:'Drops the inserts you wear',detail:'Keeps your armor at 35'}}:config.card?{id:'w',name:'Strong Objection No. 496',tier:'Mythic',kind:'weapon',type:'Bullpup rifle',description:'A rifle.',stats:[{label:'DMG',value:'38',trend:'up'},{label:'RPM',value:'650',trend:'down'},{label:'MAG',value:'30'}],note:'Unsupported 5.8 mm cargo',action:'Swap',detail:'Puts down SAR 21'}:null,
   // With a card up, the longest recorded line; without, one longer than any.
@@ -34,7 +37,8 @@ function Preview(){
    h('div',{className:'fps-top'},h('span',{className:'fps-badge'},'MARINA BAY / '+config.mode.toUpperCase()),config.mode==='expedition'?h(React.Fragment,null,h('span',{className:'expedition-wallet'},'12,450 CR · 128 TK'),h('span',{className:'expedition-risk'},'MODERATE THREAT')):h('span',{className:'fps-score'},'0 K / 0 D')),
    h(Layout,{hud,history:true},config.mode==='expedition'&&h('div',{className:'expedition-sector'},h('span',null,'LOCATION'),h('strong',null,'Waterfront command post'),h('div',{className:'expedition-heat'},h('div',null,h('small',null,'ENEMY'),h('i',{style:{width:'80%',background:'#e89b80'}})),h('div',null,h('small',null,'ALLIES'),h('i',{style:{width:'40%',background:'#8fd1e8'}})))),
     h(Map,{zone:'marina-bay',player:hud,mode:config.mode,expanded:config.expanded,onToggle:config.touch?()=>set({...config,expanded:!config.expanded}):undefined})),
-   h('div',{className:'fps-compass'},'SG · PROMENADE · 01'),
+   config.mode!=='expedition'&&h(Heading,{yaw:hud.yaw}),
+   h(ActionPrompt,{hud,canFight:true,touch:config.touch}),
    h(LootCard,{hud,touch:config.touch,actions:config.touch?{take:()=>{},swap:()=>{}}:undefined}),
    h('div',{className:'fps-kill-callout'},h('span',null,'ELIMINATION CHAIN ×2'),h('strong',null,'DOUBLE KILL'),h('small',null,'+200 CR')),
    config.mode==='expedition'&&h('div',{className:'expedition-route-hud'},h('strong',null,'ROUTE TO RAFFLES PLACE'),h('span',null,'Bayfront gate 120m')),
@@ -57,7 +61,7 @@ ws.onmessage = event => {
 function send(method, params = {}) { return new Promise((resolve, reject) => { const id = ++sequence, timer = setTimeout(() => reject(Error(method + ' timed out')), 30000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params })); }); }
 async function evaluate(expression) { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text); return result.result.value; }
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-compass','.fps-health-line','.fps-health-line small','.fps-badge','.fps-score','.expedition-wallet','.expedition-risk','.fps-weapon-slider','.expedition-route-hud','.touch-chip','.touch-callout','.fps-minimap','.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-loot-card','.touch-combat','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.fps-ammo','.fps-vitals','.fps-belt','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
+const boxes = `(()=>{const box=s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length||getComputedStyle(e).visibility==='hidden')return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};return Object.fromEntries(['.fps-compass','.fps-action-prompt','.fps-health-line','.fps-health-line small','.fps-badge','.fps-score','.expedition-wallet','.expedition-risk','.fps-weapon-slider','.expedition-route-hud','.touch-chip','.touch-callout','.fps-minimap','.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-loot-card','.touch-combat','.fps-comms','.fps-comms>header','.expedition-sector','.fps-combat-hud','.fps-ammo','.fps-vitals','.fps-belt','.touch-move','.touch-fire'].map(s=>[s,box(s)]));})()`;
 const overlaps = (a,b) => a && b && a.x < b.right-1 && a.right > b.x+1 && a.y < b.bottom-1 && a.bottom > b.y+1;
 const results = [];
 async function screenshot(name) { const result = await send('Page.captureScreenshot', { format: 'png' }); await fs.writeFile(new URL(name + '.png', output), Buffer.from(result.data, 'base64')); }
@@ -100,7 +104,7 @@ try {
     for(const [kind,w,h] of sizes){if(kind.includes('fps-belt-slots'))assert(h<=46,name+': the item row should stay one low row '+JSON.stringify(sizes));else assert(w>=24&&h>=44,name+': item control too small for a thumb '+JSON.stringify(sizes));}
     for(const other of ['.touch-move','.touch-fire','.fps-ammo','.fps-vitals'])assert(!overlaps(layout['.fps-belt'],layout[other]),name+': the item row covers '+other+' '+JSON.stringify(layout));}
    for(const card of touch?['weapon','armor']:[]){
-    await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true,card})+')');await delay(320);
+    await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true,card})+')');await delay(700);
     const seen=await evaluate(boxes),c=seen['.fps-loot-card'];
     assert(c&&c.x>=0&&c.y>=0&&c.right<=width+1&&c.bottom<=height+1,name+' '+card+': the item card leaves the screen '+JSON.stringify(c));
     assert(!overlaps(c,{x:width/2-16,right:width/2+16,y:height/2-16,bottom:height/2+16}),name+' '+card+': the item card covers the crosshair '+JSON.stringify(c));
@@ -113,6 +117,21 @@ try {
    }
    if(touch){await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true})+')');await delay(120);}
    const crosshair={x:width/2-16,right:width/2+16,y:height/2-16,bottom:height/2+16};
+   assert.equal(layout['.fps-action-prompt'],null,name+' '+mode+': a fit soldier with a full gun is being prompted');
+   if(!touch&&mode!=='expedition'){
+    const heading=layout['.fps-compass'];
+    assert(heading&&heading.x>=0&&heading.right<=width+1&&Math.abs((heading.x+heading.right)/2-width/2)<1,name+' '+mode+': the heading strip is missing or off centre '+JSON.stringify(heading));
+    assert.equal(await evaluate(`document.querySelector('.fps-heading').dataset.bearing+'|'+document.querySelector('.fps-heading b').textContent+'|'+[...document.querySelectorAll('.fps-heading-strip [data-point]')].map(e=>e.dataset.point).join(',')`),'46|046°|N,NE,E',name+': the heading should read 046 with N, NE and E in view');
+    for(const other of ['.fps-badge','.fps-score','.fps-minimap','.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-weapon-slider','.fps-comms'])assert(!overlaps(heading,layout[other]),name+' '+mode+': the heading strip covers '+other+' '+JSON.stringify({heading,other:layout[other]}));
+   }
+   await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true,health:18})+')');await delay(150);
+   // The history panel is left out: only the debug fullscreen view draws it, and this fixture always does.
+   {const hurt=await evaluate(boxes),prompt=hurt['.fps-action-prompt'];
+    assert(prompt&&prompt.y>=height/2+16&&prompt.right<=width+1&&prompt.x>=0&&Math.abs((prompt.x+prompt.right)/2-width/2)<1,name+' '+mode+': the heal prompt should sit centred under the reticle '+JSON.stringify(prompt));
+    assert.equal(await evaluate(`document.querySelector('.fps-action-prompt').textContent`),(touch?'':'F')+'USE KAYA TOAST SET',name+': the heal prompt should name the carried item');
+    for(const other of ['.fps-radio-message','.fps-chatter','.fps-kill-callout','.fps-loot-card','.fps-ammo','.fps-belt','.fps-health-line','.fps-vitals','.fps-minimap','.touch-move','.touch-fire','.touch-combat','.expedition-route-hud'])assert(!overlaps(prompt,hurt[other]),name+' '+mode+': the heal prompt covers '+other+' '+JSON.stringify({prompt,other:hurt[other]}));
+    if(mode==='practice'&&(name==='desktop'||name==='landscape'))await screenshot(name+'-prompt');}
+   await evaluate('window.setHudLayoutTest('+JSON.stringify({mode,touch,expanded:false,hints:true})+')');await delay(150);
    for(const s of ['.fps-radio-message','.fps-chatter','.fps-kill-callout'])assert(!overlaps(layout[s],crosshair),name+' '+mode+': '+s+' covers the crosshair '+JSON.stringify(layout));
    if(touch)assert(!overlaps(layout['.fps-kill-callout'],layout['.fps-radio-message']),name+': kill callout covers the radio '+JSON.stringify(layout));
    const panel=await evaluate(`(()=>{const c=getComputedStyle(document.querySelector('.fps-radio-message'));return c.backgroundColor+'|'+c.borderLeftWidth+'|'+c.paddingTop})()`);
@@ -126,13 +145,15 @@ try {
    results.push({name,mode,layout});
    if(mode==='expedition')await screenshot(name);
   }
-  await evaluate('window.setHudLayoutTest('+JSON.stringify({mode:'expedition',touch,expanded:true,hints:true})+')');await delay(150);
+  await evaluate('window.setHudLayoutTest('+JSON.stringify({mode:'expedition',touch,expanded:true,hints:true})+')');await delay(600);
   const expanded=await evaluate(boxes),map=expanded['.fps-minimap'];
   // Touch maps step clear of the move stick instead of centering.
   if(touch)assert(!overlaps(map,expanded['.touch-move'])&&map.x>=0&&map.y>=0&&map.right<=width+1&&map.bottom<=height+1,name+': expanded map covers the stick or leaves the screen '+JSON.stringify(map));
-  else assert(Math.abs((map.x+map.right)/2-width/2)<1&&Math.abs((map.y+map.bottom)/2-height/2)<1,name+': expanded map is not centered');
+  else assert(Math.abs((map.x+map.right)/2-width/2)<1&&Math.abs((map.y+map.bottom)/2-height/2)<1,name+': expanded map is not centered '+JSON.stringify({map,width,height}));
   assert(!expanded['.fps-chatter']&&!expanded['.fps-radio-message']&&!expanded['.fps-comms'],name+': text covers expanded map');
   if(name==='portrait')await screenshot('portrait-expanded');
+  // The map panel animates shut; the next viewport must not measure it mid-way.
+  await evaluate('window.setHudLayoutTest('+JSON.stringify({mode:'expedition',touch,expanded:false,hints:true})+')');await delay(600);
  }
  assert.deepEqual(errors,[]);
  await fs.writeFile(new URL('results.json',output),JSON.stringify(results,null,2));
