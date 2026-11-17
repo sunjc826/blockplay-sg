@@ -1,8 +1,8 @@
 <!doctype html>
 <!-- Any district at night, still, for judging lit windows and lamp pools by eye.
-     ?region=bishan  &cam=x,y,z  &look=x,y,z  &fov=65. window.night.at(cam, look) re-renders without reloading. -->
+     ?region=bishan  &cam=x,y,z  &look=x,y,z  &fov=65  &time=afternoon (night by default). window.night.at(cam, look) re-renders without reloading. -->
 <html><body style="margin:0;background:#000"><script type="module">
-localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:'night',reducedEffects:false,shadows:false,occlusion:true}));
+localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:new URLSearchParams(location.search).get('time')??'night',reducedEffects:false,shadows:false,occlusion:true}));
 const {getRegion}=await import('/src/game/regions.ts');
 // The same copy of three the game's modules were given, so their instanceof checks hold.
 const THREE=await import(performance.getEntriesByType('resource').map(e=>e.name).find(n=>/deps\/three\.js/.test(n)));

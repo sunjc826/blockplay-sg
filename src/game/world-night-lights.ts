@@ -169,6 +169,19 @@ export function bakeLampMap(lamps: readonly StreetLamp[], bounds: RegionBounds, 
   return { data, width, height, light, ground };
 }
 
+/** Windows start this far above a building's foot; the storey below it is the shopfront's. */
+export const GROUND_STOREY = 2.6;
+/**
+ * The ground storey drawn on building-sized walls. Bays are the window columns above (about 3.1 m).
+ * Widths are shares of a bay, heights metres above the foot. A facade narrower than `minFacade`, or a
+ * building whose foot is more than `maxLift` above the ground under it (a tower on a podium, a block on
+ * stilts), gets none.
+ */
+export const STOREFRONT = { minFacade: 6, maxLift: .9, blank: .17, door: .25, frontWidth: .8, doorWidth: .4, riser: .5, head: 2.2, plinth: .3 } as const;
+/** What a bay holds for a seed in 0-1. Mirrors the GLSL. */
+export function storefrontBay(seed: number): 'blank' | 'door' | 'shopfront' {
+  return seed < STOREFRONT.blank ? 'blank' : seed <= STOREFRONT.blank + STOREFRONT.door ? 'door' : 'shopfront';
+}
 /** A box, prism or tower at least two storeys tall and a room deep: worth windows. */
 export function buildingSized(box: THREE.Box3) {
   const w = box.max.x - box.min.x, d = box.max.z - box.min.z, h = box.max.y - box.min.y;
@@ -368,6 +381,36 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           // Flares, motors and bursts nearby (moving-lights); they still shine when a blackout puts the city out.
           if (movingCount > 0) { vec3 movingN = normalize(vNightNormal); ${movingLightsChunk('vNightWorld', 'movingN', 'diffuseColor.rgb')} }
+          ${windows && !panes ? `
+          // The ground storey of a building that stands on the ground, by day and night: a darker plinth, a
+          // fascia under the first floor, and in most bays a glazed shopfront or a door. Drawn in the same
+          // bays as the windows above, so a lit window at night sits over an opening by day.
+          float nightFront = 0.0, nightFrontSeed = 0.0;
+          {
+            float frontWall = 1.0 - smoothstep(.12, .3, abs(normalize(vNightNormal).y));
+            vec2 frontUv = clamp((vNightWorld.xz - nightBounds.xy) * nightBounds.zw, 0.0, 1.0);
+            float frontGround = texture2D(nightMap, frontUv).g * ${HEIGHT_RANGE.toFixed(1)} + ${HEIGHT_LOW.toFixed(1)};
+            float frontBase = vNightSpan.x - ${GROUND_STOREY.toFixed(1)}, frontY = vNightWorld.y - max(frontBase, frontGround);
+            float frontBay = vNightEdge.x / max(.01, vNightEdge.y) * max(1.0, floor(vNightEdge.y / 3.1));
+            vec2 frontAa = max(vec2(fwidth(frontBay), fwidth(frontY)), vec2(1e-4));
+            if (frontWall > 0.0 && vNightEdge.y >= ${STOREFRONT.minFacade.toFixed(1)} && frontBase - frontGround < ${STOREFRONT.maxLift.toFixed(1)} && frontY < ${GROUND_STOREY.toFixed(1)}) {
+              float frontNear = (1.0 - smoothstep(.3, .8, frontAa.x)) * frontWall;
+              nightFrontSeed = fract(sin(dot(vec2(floor(frontBay), floor(vNightSeed * 97.0)), vec2(12.9898, 78.233))) * 43758.5453);
+              // One bay in six is blank wall, about one in four a door, the rest shopfronts over a low riser.
+              float frontDoor = step(nightFrontSeed, ${(STOREFRONT.blank + STOREFRONT.door).toFixed(2)});
+              float frontHalf = mix(${(STOREFRONT.frontWidth / 2).toFixed(2)}, ${(STOREFRONT.doorWidth / 2).toFixed(2)}, frontDoor), frontSill = mix(${STOREFRONT.riser.toFixed(2)}, 0.0, frontDoor);
+              nightFront = step(${STOREFRONT.blank.toFixed(2)}, nightFrontSeed) * frontNear
+                * clamp((frontHalf - abs(fract(frontBay) - .5)) / frontAa.x + .5, 0.0, 1.0)
+                * clamp((frontY - frontSill) / frontAa.y + .5, 0.0, 1.0) * clamp((${STOREFRONT.head.toFixed(2)} - frontY) / frontAa.y + .5, 0.0, 1.0);
+              float frontPlinth = (1.0 - smoothstep(${STOREFRONT.plinth.toFixed(2)}, ${(STOREFRONT.plinth + .04).toFixed(2)}, frontY)) * frontNear;
+              float frontFascia = smoothstep(${(STOREFRONT.head + .08).toFixed(2)}, ${(STOREFRONT.head + .12).toFixed(2)}, frontY) * frontNear;
+              diffuseColor.rgb *= 1.0 - .2 * frontPlinth * (1.0 - nightFront) - .12 * frontFascia;
+              diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(.045, .06, .075), diffuseColor.rgb, .18), nightFront);
+              #ifdef STANDARD
+                roughnessFactor = mix(roughnessFactor, .16, nightFront);
+              #endif
+            }
+          }` : ''}
           if (nightLevel > .001) {
             vec3 nightN = normalize(vNightNormal);
             vec2 nightUv = (vNightWorld.xz - nightBounds.xy) * nightBounds.zw;
@@ -401,10 +444,12 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               `}
               vec3 tint = nightWindowTint(h, mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13))));
               totalEmissiveRadiance += tint * (1.1 + fract(h * 3.7)) * pane * lit * wall * nightLevel;
-            }` : ''}
+            }${panes ? '' : `
+            // A share of the shopfronts keep their lights on after dark.
+            totalEmissiveRadiance += vec3(1.0, .78, .5) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * .22 * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v3' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v4' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();
@@ -441,7 +486,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
         const axis = [0, 1, 2].find(axis => Math.abs(new THREE.Vector3().setFromMatrixColumn(instance, axis).normalize().y) > .995) ?? 1;
         up.setComponent(axis, Math.sign(new THREE.Vector3().setFromMatrixColumn(instance, axis).y));
       }
-      span.set(ok ? panes ? [box.min.y - .01, box.max.y + .01] : [box.min.y + 2.6, box.max.y - 1.1] : [1e6, -1e6], i * 2);
+      span.set(ok ? panes ? [box.min.y - .01, box.max.y + .01] : [box.min.y + GROUND_STOREY, box.max.y - 1.1] : [1e6, -1e6], i * 2);
       any ||= ok;
     }
     if (!any) return false;
