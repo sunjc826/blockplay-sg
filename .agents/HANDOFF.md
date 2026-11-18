@@ -16875,3 +16875,28 @@ falloff and corner shade. Key `-windows-v7`. Night strengths were cut so detail
 survives tone mapping. Seen on the real GPU on a Chinatown shopfront from the front
 and both sides by day, head on at night, and on Bishan windows at night. Frame cost
 not measured; the room is only traced near enough for a bay to span a few dozen pixels.
+
+Homes behind lit windows (2026-11-18, owner's follow-up): `nightRoom` takes a `home`
+flag. Shopfronts keep the shop; lit windows now show one of four homes from
+`HOME_LAYOUTS` (living room, bedroom, kitchen, study), three furniture boxes each,
+generated into the GLSL from that table and unit-tested (inside the room, not
+overlapping, something at least 1.8 m tall). Variation per room: mirrored or not,
+wall colour, timber (oak, walnut, white), accent colour, a curtain part drawn or right
+across (`CURTAINS`), a ceiling fan that turns, a hanging shade (a fourth box) or a
+flush lamp, a television that changes colour, a desk screen, pictures, a two-leaf
+window bar. A window cell squatter than 2.7 m gets a full-height room behind it.
+Key `-windows-v11`. Two things found on the way:
+- The dashed line noted above was not an authored band. The window code sat in a
+  branch on height, and on that branch's boundary pixels the GPU lit a one-pixel row
+  across the bay. Storey limits are now a mask (`storeys`), and the cell derivatives
+  are taken outside any position branch. Do not move them back in.
+- The room is now traced only where a lit pane shows, not across the whole near wall.
+  Timed against the previous commit on a wall of rooms filling the screen: no
+  difference (1.2-2.1 ms a frame either way on the VM's Metal GPU).
+`night-district.html` takes `&block=x,z` to stand a plain 30 x 20 x 12 m building in the
+scene: use it to judge windows, since most district walls sit behind authored bands
+or louvres (`region=bishan&block=0,-700`, camera at `0,1.7,-682`). The first page load
+after editing the shader can show the old one; shoot twice.
+Left: Bishan's slab blocks hide all but a strip of each window behind corridor bands,
+so little of a room shows there. Every lit window is a home, offices included. Not
+tried on a phone.

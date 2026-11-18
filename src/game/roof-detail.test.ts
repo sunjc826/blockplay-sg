@@ -101,4 +101,25 @@ describe('interior mapping', () => {
       expect(hit.point[2]).toBeLessThanOrEqual(INTERIOR.depth + 1e-6);
     }
   });
+  it('furnishes every home layout inside its room, with no two pieces sharing space and something tall enough to see from the street', async () => {
+    const { HOME_LAYOUTS, CURTAINS, INTERIOR, roomBox } = await import('./world-night-lights');
+    expect(Object.keys(HOME_LAYOUTS).length).toBeGreaterThanOrEqual(4);
+    for (const [name, boxes] of Object.entries(HOME_LAYOUTS)) for (const width of [3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
+      const placed = boxes.map(box => ({ name: box.name, ...roomBox(box, width, depth) }));
+      for (const b of placed) {
+        const label = `${name} ${b.name} at ${width} x ${depth}`;
+        for (let k = 0; k < 3; k++) expect(b.high[k] - b.low[k], label).toBeGreaterThan(.05);
+        expect(b.low[0], label).toBeGreaterThanOrEqual(0); expect(b.high[0], label).toBeLessThanOrEqual(width);
+        expect(b.low[1], label).toBeGreaterThanOrEqual(0); expect(b.high[1], label).toBeLessThanOrEqual(2.3);
+        expect(b.low[2], label).toBeGreaterThanOrEqual(.5); expect(b.high[2], label).toBeLessThanOrEqual(depth);
+      }
+      for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+        const apart = [0, 1, 2].some(k => placed[i].high[k] <= placed[j].low[k] + 1e-9 || placed[j].high[k] <= placed[i].low[k] + 1e-9);
+        expect(apart, `${name}: ${placed[i].name} and ${placed[j].name} at ${width} x ${depth}`).toBe(true);
+      }
+      expect(Math.max(...placed.map(b => b.high[1])), name).toBeGreaterThanOrEqual(1.8);
+    }
+    expect(CURTAINS.kitchen).toBe(0);
+    for (const share of Object.values(CURTAINS)) { expect(share).toBeGreaterThanOrEqual(0); expect(share).toBeLessThan(1); }
+  });
 });
