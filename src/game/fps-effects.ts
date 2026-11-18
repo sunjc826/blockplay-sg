@@ -8,6 +8,7 @@ import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
 import { advanceSplashes, clearSplashField, createSplashField, dropletScale, MAX_DROPLETS, MAX_SPLASHES, recordSplash, splashColumn, splashFoam, splashRings } from './fps-splashes';
 import type { ImpactProfile } from './fps-impact-profile';
 import { ISSUED_STYLE, type EffectStyle } from './fps-effect-styles';
+import { disturbFoliage } from './foliage-disturbance';
 import { advanceShotSmoke, MAX_SHOT_SMOKE, recordShotSmoke, shotSmokeOpacity, type ShotSmoke } from './fps-shot-smoke';
 
 /**
@@ -370,6 +371,8 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     impact(point: THREE.Vector3, normal: THREE.Vector3, kind: ImpactKind = 'surface', energy = 1, style?: string, surface?: SurfaceKind) {
       const source = styleOf(style);
       recordImpact(field, point, normal, kind, energy, Math.random, source.id, source.impact, surface);
+      // A round into or beside a plant shakes it: more for a strike on leaves or wood than for a wall nearby.
+      if (kind === 'surface') disturbFoliage(world, point, surface === 'foliage' || surface === 'wood' ? 2.6 : 1.5, Math.min(2.2, .55 + energy * .5));
     },
     /** A mark with no impact of its own, such as blood thrown onto a wall behind a body. */
     decal(point: THREE.Vector3, normal: THREE.Vector3, kind: DecalKind, radius: number) {

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
+import { foliageDeclarations, foliageTreeShake, foliageUniforms } from './foliage-disturbance';
 
 interface TreePart { root: THREE.Vector3; height: number; flutter: number }
-interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number } }
+interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number }; foliage: ReturnType<typeof foliageUniforms> }
 const materialWind = new WeakMap<THREE.Material, WindState>();
 const states = new WeakMap<THREE.Scene, WindState>();
 function state(scene: THREE.Scene) {
   let value = states.get(scene);
-  if (!value) { value = { time: { value: 0 }, strength: { value: .018 }, flutter: { value: 1 } }; states.set(scene, value); }
+  if (!value) { value = { time: { value: 0 }, strength: { value: .018 }, flutter: { value: 1 }, foliage: foliageUniforms(scene) }; states.set(scene, value); }
   return value;
 }
 
@@ -26,7 +27,7 @@ const declarations = /* glsl */`
 uniform float treeTime, treeStrength, treeRustle;
 attribute vec4 treeRootHeight;
 attribute float treeFlutter;
-`;
+` + foliageDeclarations;
 const deformation = /* glsl */`
 // Bend in the parent frame, then invert the orthogonal instance transform.
 // This keeps each root fixed even on slopes and under non-uniform scales.
@@ -47,6 +48,10 @@ float treeRipple = sin(treeTime * 8.3 + dot(treePoint, vec3(2.7, 1.3, 3.1)))
                  + .45 * sin(treeTime * 13.7 + dot(treePoint, vec3(-3.1, 2.4, 1.7)));
 float treeTip = clamp(length(treePoint.xz - treeRootHeight.xz) / 4.0, .1, 1.0);
 treeOffset += vec3(.35, .7, .5) * treeRipple * treeFlutter * treeTip * treeStrength * treeRustle * (.5 + treeWave);
+// No two trees stand quite plumb: a fixed lean of up to 3.5% of the height, the same for every part of a tree.
+float treeLean = treePhase * 7.0;
+treeOffset.xz += vec2(cos(treeLean), sin(treeLean)) * treeHeight * treeLevel * treeLevel * .035 * fract(sin(treePhase * 12.9898) * 43758.5453);
+` + foliageTreeShake + /* glsl */`
 transformed += vec3(dot(treeOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz),
                     dot(treeOffset, instanceMatrix[1].xyz) / dot(instanceMatrix[1].xyz, instanceMatrix[1].xyz),
                     dot(treeOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));
@@ -61,11 +66,11 @@ function patch(material: THREE.Material, uniforms: WindState) {
   const before = material.onBeforeCompile, key = material.customProgramCacheKey;
   material.onBeforeCompile = function(shader, renderer) {
     before.call(this, shader, renderer);
-    Object.assign(shader.uniforms, { treeTime: uniforms.time, treeStrength: uniforms.strength, treeRustle: uniforms.flutter });
+    Object.assign(shader.uniforms, { treeTime: uniforms.time, treeStrength: uniforms.strength, treeRustle: uniforms.flutter }, uniforms.foliage);
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + declarations)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + deformation);
   };
-  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v2'; };
+  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v3'; };
 }
 
 /** Keep trees instanced, with one root/height per part. The scene builder owns all returned resources. */

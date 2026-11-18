@@ -5,6 +5,7 @@ import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-rout
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
 import { grassDetail, type WorldDetail } from './environment-quality';
+import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
 interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh }
@@ -186,6 +187,9 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   return world;
 }
 
+/** How far the weather's wind (0 still to 7 squall) lays grass over: mean tip travel as a share of blade height. */
+export const grassWindLean = (wind: number) => .1 + Math.min(7, Math.max(0, wind)) * .1;
+
 /** Two bounded instanced LODs; solid tapered blades avoid alpha-card overdraw.
  * Rebuild only after crossing a 4 m cell, with deterministic world placement. */
 export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null) {
@@ -206,17 +210,37 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1 });
   const time = { value: 0 }, eye = { value: new THREE.Vector3() }, reach = { value: 23 };
   const farReach = { value: 23 }, nearReach = { value: 23 };
+  const wind = { value: 0 }, foliage = foliageUniforms(scene);
   material.onBeforeCompile = shader => {
-    shader.uniforms.grassTime = time; shader.uniforms.grassEye = eye; shader.uniforms.grassReach = reach;
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime;\nuniform vec3 grassEye;\nuniform float grassReach;')
+    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassWind: wind }, foliage);
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform float grassTime, grassWind;\nuniform vec3 grassEye;\nuniform float grassReach;' + foliageDeclarations)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vec3 grassRoot = (modelMatrix * instanceMatrix * vec4(0,0,0,1)).xyz;
         float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));
         transformed.y *= grassFade;
-        transformed.x += sin(grassTime*1.4+grassRoot.x*.5+grassRoot.z*.3)*.13*position.y*position.y*grassFade;`);
+        // Wind crosses a lawn as fronts, in the direction and at the speed the trees' gusts
+        // travel (tree-wind.ts): long swells that lay the grass over, and metre-scale waves
+        // running through them. Lean is tip travel as a share of the blade's height.
+        vec2 grassDown = vec2(.984, .177);
+        float grassFront = dot(grassRoot.xz, grassDown) - grassTime * 7.0;
+        float grassAcross = dot(grassRoot.xz, vec2(-.177, .984));
+        float grassSwell = .5 + .5 * sin(grassFront * .045 + 1.5 * sin(grassFront * .017 + grassTime * .11));
+        float grassWave = sin(grassFront * .8 + sin(grassAcross * .23 + grassTime * .4) * 1.7) + .5 * sin(grassFront * 1.9 + grassAcross * .6);
+        vec2 grassLean = grassDown * grassWind * (.45 + .55 * grassSwell * grassSwell + .22 * grassWave * (.4 + grassSwell));
+        // Each tuft also trembles on its own, so still air is not a frozen lawn.
+        grassLean += vec2(sin(grassTime * 2.3 + grassRoot.x * 1.7 + grassRoot.z * .9), cos(grassTime * 1.9 + grassRoot.z * 1.3)) * (.04 + .05 * grassWind);
+        float grassFlat = 0.0;
+        ${foliageGrassPress}
+        float grassLength = length(grassLean);
+        if (grassLength > 1.05) grassLean *= 1.05 / grassLength;
+        // A leaning blade keeps its length: what it gains sideways it loses in height.
+        transformed.y *= (1.0 - grassFlat) * (1.0 - .3 * min(1.0, grassLength * grassLength));
+        vec3 grassOffset = vec3(grassLean.x, 0.0, grassLean.y) * length(instanceMatrix[1].xyz) * position.y * position.y * grassFade;
+        transformed += vec3(dot(grassOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz), 0.0,
+                            dot(grassOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal *= faceDirection;');
   };
-  material.customProgramCacheKey = () => 'ground-grass-v1';
+  material.customProgramCacheKey = () => 'ground-grass-v2';
   const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
@@ -242,7 +266,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       grassFade *= smoothstep(grassNear - 6.0, grassNear, distance(grassRoot.xz,grassEye.xz));
       transformed.y *= grassFade;`);
   };
-  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v1';
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v2';
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
@@ -254,8 +278,10 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
     mesh, farMesh,
     get radius() { return farReach.value; },
     get count() { return mesh.count + farMesh.count; },
-    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low') {
+    /** `windSpeed` is the weather's wind, 0 (still) to 7 (squall); reduced effects hold the grass still. */
+    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low', windSpeed = 0) {
       if (disposed) return;
+      wind.value = reduced ? 0 : grassWindLean(windSpeed);
       camera.getWorldPosition(cameraPosition); eye.value.copy(cameraPosition); time.value = reduced ? 0 : seconds;
       const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile);
       reach.value = nearReach.value = profile.near; farReach.value = profile.radius;

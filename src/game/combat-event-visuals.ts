@@ -8,6 +8,7 @@ import type { ArenaRaider } from './arena-rules';
 import { buildVehicleModel } from './vehicle-models';
 import { withInstanceOpacity } from './fps-impact-material';
 import { createExplosionTexture } from './explosion-textures';
+import { disturbFoliage } from './foliage-disturbance';
 
 /**
  * Draws combat events from their descriptors: shells and bombs in their last
@@ -310,6 +311,8 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   /** A shell landing: fireball, smoke, thrown dirt, a crater and a flash. `size` 1 is an artillery round. */
   function blast(at: THREE.Vector3, size = 1) {
     const scale = options.reduced() ? .45 : 1;
+    // Plants within reach are thrown back and grass is laid flat (foliage-disturbance.ts).
+    disturbFoliage(scene, at, 7 + 9 * Math.min(1.5, size), 2 + 3.5 * Math.min(1.5, size));
     const surface = cast(at.clone().add(new THREE.Vector3(0, .1, 0)), down, 60);
     const floor = surface?.y ?? at.y - 60, groundedBlast = !!surface && at.y - floor < .8;
     for (let i = 0; i < Math.round(12 * scale); i++) add(fire, FIRE, particle(at, 5 * size, 4 * size, .42, 1.1 * size, 3.5 * size, fireHot));

@@ -123,6 +123,7 @@ import { MAX_WEAPON_RANGE, weaponRange } from './weapon-range';
 import { SKIP_ENERGY, waterImpactStrength, waterRicochet } from './fps-splashes';
 import { isWaterObject, rippleWater } from './water';
 import { setWaterSwimmer } from './water-waves';
+import { setFoliageBodies, type FoliageBody } from './foliage-disturbance';
 import { createFpsEffects, type ImpactKind } from './fps-effects';
 import { assistCone, assistLook, assistTrack, ASSIST_RANGE } from './aim-assist';
 import { getAimAssist } from './aim-assist-setting';
@@ -932,6 +933,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     prone = stance.prone;
     if (stance.crouch && !keyboardCrouch.active) keyboardCrouch.toggle();
   };
+  const grassBodies: FoliageBody[] = [], grassBodyPool: FoliageBody[] = [];
+  const grassBody = (slot: number, x: number, y: number, z: number, radius: number) => Object.assign(grassBodyPool[slot] ??= { x: 0, y: 0, z: 0, radius: 0 }, { x, y, z, radius });
   const swimming = () => !vehicles.active && vertical<=.35 && playerMovement.isWater(position.x,position.z);
   let liftGeometryAt=-Infinity,liftGeometry:ReturnType<typeof liftBodies>=[];
   const liftCollision = () => {if(liftGeometryAt!==hud.elapsed){liftGeometryAt=hud.elapsed;liftGeometry=liftBodies(getBuildingLifts(world.scene),hud.elapsed);}return liftGeometry;};
@@ -4926,6 +4929,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.encikCallout = encik.current(now / 1000);
     objectiveBeacons?.update(hud.arena?.facilities?.sites ?? [], hud.objectiveHints && hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !hud.mapExpanded);
     setWaterSwimmer(world.scene, position.x, position.z, hud.phase === 'playing' && hud.health > 0 && swimming());
+    // Grass parts round whoever is in it: the player on foot, and the car and helicopter wherever they stand.
+    grassBodies.length = 0;
+    if (!vehicles.active && hud.health > 0) grassBodies.push(grassBody(0, position.x, vertical, position.z, prone ? 1.5 : 1));
+    for (const kind of ['car', 'helicopter'] as const) {
+      const v = vehicles.states[kind];
+      if (v && !v.despawned && Math.hypot(v.x - position.x, v.z - position.z) < 60) grassBodies.push(grassBody(grassBodies.length, v.x, v.y, v.z, kind === 'car' ? 2.8 : 4.5));
+    }
+    setFoliageBodies(world.scene, grassBodies);
     world.animate(hud.elapsed);
     markers?.update(realDt, camera.position);
     rangeFigures?.update(realDt, camera.position);

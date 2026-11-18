@@ -17036,3 +17036,29 @@ Left: generated shopfronts ignore authored signs (a Geylang shophouse signed PRO
 can show a fruit stall). No walls marked in Geylang, Upper Thomson, Sentosa or
 HarbourFront (VivoCity, Thomson Plaza, the food centres). Not timed; first-compile time
 with 32 shops not measured; not tried on a phone.
+
+## Vegetation pass (2026-11-19, a separate session from the building work above)
+
+Owner asked for non-controversial vegetation improvements: looks and reactions only, no
+change to cover, colliders or sightlines. What already existed and was left alone: tree
+wind with travelling gusts (`tree-wind.ts`), falling leaves (`ambient-drift.ts`), wood and
+foliage impact debris, marks and sounds (`fps-surfaces.ts`, `impact-audio.ts`), and the
+researched species props (`vegetation-props.ts`).
+
+Plants react (first piece):
+- `foliage-disturbance.ts`: per-scene uniforms for up to six "hits" and four "bodies".
+  `disturbFoliage(scene, point, radius, strength)` is called by `fps-effects.ts` `impact`
+  (every surface strike; 2.6 m on leaf or wood, 1.5 m otherwise) and by
+  `combat-event-visuals.ts` `blast` (16-20 m). `world-atmosphere.ts` advances its clock
+  and empties it under reduced effects or reduced motion.
+- `tree-wind.ts` (key `tree-wind-v3`): tree parts are thrown from a hit and ring back in
+  about two seconds, leaves shiver; depth, distance and thermal materials follow. Each
+  tree also leans up to 3.5% of its height, fixed per tree, in the shader only.
+- `ground-cover.ts` (keys `ground-grass-v2`, `ground-grass-far-v2`): grass used to sway
+  in unison at a fixed strength, each tuft along its own axis. It now leans downwind by
+  `grassWindLean(wind)` in fronts that travel like the trees' gusts, with metre-scale
+  waves; a blast lays it flat away from the centre; the player on foot, the car and the
+  helicopter part it (`setFoliageBodies` from `fps-engine.ts`).
+- Nothing reads the deformation back: hit tests and movement use authored geometry.
+- `scripts/fixtures/vegetation.html`: any district, weather and hour, with `veg.hit` and
+  `veg.bodies`.
