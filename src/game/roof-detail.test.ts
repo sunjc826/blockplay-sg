@@ -162,6 +162,18 @@ describe('interior mapping', () => {
     for (const share of [SHOP_WINDOWS.strip, SHOP_WINDOWS.lit]) { expect(share).toBeGreaterThan(0); expect(share).toBeLessThan(1); }
     expect(SHOP_WINDOWS.head).toBeGreaterThanOrEqual(2.6);
   });
+  it('gives every shop two made-up brands it can spell in the sign font, each with a mark', async () => {
+    const { SHOP_BRANDS, SHOP_FONT, SHOP_LAYOUTS } = await import('./world-night-lights');
+    expect(Object.keys(SHOP_BRANDS)).toEqual(Object.keys(SHOP_LAYOUTS));
+    const names = Object.values(SHOP_BRANDS).flat();
+    expect(new Set(names.map(name => name.slice(2))).size).toBe(names.length);
+    for (const name of names) {
+      expect(name).toMatch(/^[0-8] [A-Z]{5,8}$/);
+      for (const letter of name) expect(SHOP_FONT[letter], `${name}: ${letter}`).toBeDefined();
+    }
+    for (const [glyph, rows] of Object.entries(SHOP_FONT)) expect(rows, glyph).toMatch(/^[01]{3}( [01]{3}){4}$/);
+    expect(new Set(Object.values(SHOP_FONT)).size).toBe(Object.keys(SHOP_FONT).length);
+  });
   it('keeps designed shop windows to the shopping belt, whose malls name real shops on their glass', async () => {
     const { DISTRICT_INTERIORS } = await import('./district-interiors');
     const { SHOP_LAYOUTS } = await import('./world-night-lights');

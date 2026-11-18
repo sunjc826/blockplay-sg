@@ -318,9 +318,10 @@ export const SHOP_LAYOUTS = {
  * doorway), the share that carry a promotion strip across the glass, the share lit after dark, how brightly
  * against `INTERIOR.nightShopfront`, how much of their own light they show by day, and the `stride` by which
  * bays step through the shops. A glazed wall of shop units (a material whose `userData.nightShopWindow` is true
- * or a list of SHOP_LAYOUTS names) has bays about `bay` wide, glazed from a `rail` off the floor to `head`.
+ * or a list of SHOP_LAYOUTS names) has bays about `bay` wide, glazed from a `rail` off the floor to `head`. The shop's name is `sign[1]` tall at
+ * `sign[0]` up the back wall, and `decal[1]` tall in vinyl `decal[0]` above the foot of the glass.
  */
-export const SHOP_WINDOWS = { display: 1, strip: .3, lit: .88, night: .62, day: .16, stride: 3, bay: 3, rail: .2, head: 2.8 } as const;
+export const SHOP_WINDOWS = { display: 1, strip: .3, lit: .88, night: .62, day: .16, stride: 3, bay: 3, rail: .2, head: 2.8, sign: [2.36, .2], decal: [.2, .12] } as const;
 /**
  * Which shop the designed shop window in bay `bay` of a building shows, for the building's own whole-number
  * offset: bays step through the shops by `stride`, so no two neighbours match. Mirrors the GLSL.
@@ -354,6 +355,50 @@ const ROOM_PLANS: readonly { boxes: readonly [RoomBox, RoomBox, RoomBox]; hung: 
 ];
 const HOME_BOXES_GLSL = ROOM_PLANS.map((plan, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (plan < ${i}.5) ` : ''}{ ${plan.boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} curtainShare = ${plan.hung.toFixed(2)}; }`).join('\n              ');
+/**
+ * Made-up brands, two a shop: none is a real company's name or mark. A digit is the brand's mark, drawn from
+ * `SHOP_FONT` like a letter. Each shop shows its name on the back wall and in vinyl on the glass, and some stock
+ * carries the mark: the bag on its stand, the toy boxes, the sports mannequins' shirts.
+ */
+export const SHOP_BRANDS = {
+  fashion: ['0 NYELLE', '0 ATELIA'], jeweller: ['1 AURELINE', '1 KARATI'], electronics: ['2 VOLTARA', '2 PIXELO'],
+  bookshop: ['3 PAGEWELL', '3 INKLEAF'], cafe: ['4 BREWLAH', '4 KOPIKAT'], sports: ['5 SPRYNT', '5 ZEPHRA'],
+  beauty: ['6 PETALLE', '6 GLOSSA'], toys: ['7 WOBBLO', '7 TOYOYO'], florist: ['8 BLOOMERY', '8 FLEURA'], bags: ['1 ORLAINE', '0 MAISONVU'],
+} as const satisfies Record<keyof typeof SHOP_LAYOUTS, readonly [string, string]>;
+/** Capitals and brand marks three blocks wide and five tall, rows from the top: the signs are as blocky as the city. */
+export const SHOP_FONT: Record<string, string> = {
+  A: '010 101 111 101 101', B: '110 101 110 101 110', C: '011 100 100 100 011', D: '110 101 101 101 110', E: '111 100 110 100 111',
+  F: '111 100 110 100 100', G: '011 100 101 101 011', H: '101 101 111 101 101', I: '111 010 010 010 111', J: '001 001 001 101 010',
+  K: '101 101 110 101 101', L: '100 100 100 100 111', M: '101 111 111 101 101', N: '110 101 101 101 101', O: '010 101 101 101 010',
+  P: '110 101 110 100 100', Q: '010 101 101 111 011', R: '110 101 110 101 101', S: '011 100 010 001 110', T: '111 010 010 010 010',
+  U: '101 101 101 101 111', V: '101 101 101 101 010', W: '101 101 111 111 101', X: '101 101 010 101 101', Y: '101 101 010 010 010',
+  Z: '111 001 010 100 111', ' ': '000 000 000 000 000',
+  // Marks: a slash, a diamond, a bolt, a frame, a cup, a chevron, a heart, a block, a flower.
+  0: '001 001 010 100 100', 1: '010 111 111 111 010', 2: '001 010 111 010 100', 3: '111 101 101 101 111', 4: '000 111 111 010 111',
+  5: '100 010 001 010 100', 6: '101 111 111 111 010', 7: '111 111 111 111 111', 8: '101 010 111 010 101',
+};
+const SHOP_GLYPHS = Object.keys(SHOP_FONT), BRAND_LENGTH = 10;
+const SHOP_BRAND_LIST = Object.values(SHOP_BRANDS).flat();
+const SHOP_SIGN_GLSL = `
+          // Shop signs: capitals and marks three blocks by five, a bit a block, and the brands spelt in them.
+          const int nightFont[${SHOP_GLYPHS.length}] = int[${SHOP_GLYPHS.length}](${SHOP_GLYPHS.map(c => parseInt(SHOP_FONT[c].replace(/ /g, ''), 2)).join(', ')});
+          const int nightBrand[${SHOP_BRAND_LIST.length * BRAND_LENGTH}] = int[${SHOP_BRAND_LIST.length * BRAND_LENGTH}](${SHOP_BRAND_LIST.flatMap(name => [...name.padEnd(BRAND_LENGTH)].map(c => SHOP_GLYPHS.indexOf(c))).join(', ')});
+          const int nightBrandLength[${SHOP_BRAND_LIST.length}] = int[${SHOP_BRAND_LIST.length}](${SHOP_BRAND_LIST.map(name => name.length).join(', ')});
+          float nightGlyph(int glyph, vec2 uv) {
+            ivec2 at = ivec2(floor(vec2(uv.x * 4.0, (1.0 - uv.y) * 5.0)));
+            if (uv.x < 0.0 || uv.y <= 0.0 || uv.x >= 1.0 || uv.y > 1.0 || at.x > 2) return 0.0;
+            return float((nightFont[glyph] >> (14 - at.y * 3 - at.x)) & 1);
+          }
+          // A brand's name h tall, centred on a point of a wall or the glass. The facade coordinate grows to the
+          // viewer's left, so the letters are laid out against it, except in a room that is itself mirrored.
+          float nightSign(int brand, vec2 q, vec2 centre, float h, float mirrored) {
+            int count = nightBrandLength[brand];
+            vec2 uv = (q - centre) / vec2(float(count) * h * .8, h) + .5;
+            if (mirrored < .5) uv.x = 1.0 - uv.x;
+            if (uv.x < 0.0 || uv.x >= 1.0) return 0.0;
+            float along = uv.x * float(count);
+            return nightGlyph(nightBrand[brand * ${BRAND_LENGTH} + int(along)], vec2(fract(along), uv.y));
+          }`;
 const SHOP_COUNT = Object.keys(SHOP_LAYOUTS).length;
 const SHOP_BOXES_GLSL = Object.values(SHOP_LAYOUTS).map((boxes, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (shopKind == ${i + 1}) ` : ''}{ ${boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} }`).join('\n              ');
@@ -615,6 +660,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           vec3 nightPicture(vec3 under, vec2 q, vec2 low, vec2 high, vec3 art) {
             return mix(under, mix(vec3(.16, .13, .11), art * (.7 + .3 * step(.5, fract((q.x + q.y) * 2.3))), nightRect(q, low + .06, high - .06)), nightRect(q, low, high));
           }
+${SHOP_SIGN_GLSL}
           // Bright stock: toys, trainers, book covers, flowers.
           vec3 nightPalette(float h) { h = fract(h) * 6.0; return h < 1.0 ? vec3(.86, .22, .2) : h < 2.0 ? vec3(.95, .72, .16) : h < 3.0 ? vec3(.2, .5, .8) : h < 4.0 ? vec3(.22, .62, .4) : h < 5.0 ? vec3(.9, .45, .62) : vec3(.93, .92, .88); }
           // What clothes and bags come in: black, white, camel, denim, red, olive.
@@ -625,13 +671,14 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             // use: 0 a plain shop, 1 a home, 2 an office in the business district, 3 an office anywhere else;
             // -1 and below a designed shop window, numbered in SHOP_LAYOUTS order.
             float home = step(.5, use), office = step(1.5, use), cbd = office * step(use, 2.5), shop = max(-use, 0.0);
-            int shopKind = int(shop + .5);
+            int shopKind = int(shop + .5), brand = max(shopKind - 1, 0) * 2 + int(step(.5, nightRoomHash(seed * 83.1)));
+            float mirrored = 0.0;
             float doorway = step(open.y, .1);
             d = vec3(abs(d.x) < 1e-3 ? 1e-3 : d.x, abs(d.y) < 1e-3 ? 1e-3 : d.y, max(d.z, .03));
             float reveal = ${INTERIOR.reveal.toFixed(2)}, depth = ${INTERIOR.depth.toFixed(1)} + ${INTERIOR.depthRange.toFixed(1)} * nightRoomHash(seed * 7.7);
             float flip = step(.5, nightRoomHash(seed * 11.3));
             // A home is authored one way round; half of them are seen mirrored.
-            if (max(home, step(.5, shop)) * flip > .5) { p.x = size.x - p.x; d.x = -d.x; open = vec4(size.x - open.z, open.y, size.x - open.x, open.w); flip = 0.0; }
+            if (max(home, step(.5, shop)) * flip > .5) { p.x = size.x - p.x; d.x = -d.x; open = vec4(size.x - open.z, open.y, size.x - open.x, open.w); flip = 0.0; mirrored = 1.0; }
             vec3 wall = mix(vec3(.84, .78, .68), vec3(.66, .76, .82), step(.5, nightRoomHash(seed * 3.1)));
             wall = mix(wall, vec3(.88, .82, .58), step(.8, nightRoomHash(seed * 5.3)));
             if (home > .5) {
@@ -650,6 +697,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               float side = from.y > open.w ? .5 : from.y < open.y ? 1.0 : .72;
               return vec4(vec3(.5, .52, .54) * side, 0.0);
             }
+            // The shop's name in white vinyl low on the glass.
+            if (shop > .5 && nightSign(brand, p, vec2(.5 * (open.x + open.z), open.y + ${SHOP_WINDOWS.decal[0].toFixed(2)}), ${SHOP_WINDOWS.decal[1].toFixed(2)}, mirrored) > .5) return vec4(vec3(.97), 1.0);
             if (shop > .5 && doorway < .5 && nightRoomHash(seed * 71.3) < ${SHOP_WINDOWS.strip.toFixed(2)}) {
               // A promotion strip of vinyl across the top of the glass, with blocks for its lettering.
               float down = open.w - p.y, across = p.x - .5 * (open.x + open.z);
@@ -736,6 +785,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                       if (v < .07) cutColor = shopKind == 1 ? vec3(.1) : nightPalette(h * 11.0);
                       if (torso > .5 || skirt > .5 || (arms > .5 && v > mix(1.22, .8, step(.5, fract(h * 17.0))))) cutColor = upper;
                       cutColor *= 1.0 - 1.1 * abs(x);
+                      // The sports brand's mark on the chest.
+                      if (shopKind == 6 && nightGlyph(nightBrand[brand * ${BRAND_LENGTH}], (vec2(x, v) - vec2(-.05, 1.2)) / vec2(.125, .125)) > .5) cutColor = vec3(.96);
                       t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
                     }
                   }
@@ -763,7 +814,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                   float body = step(abs(x), .2 - .04 * smoothstep(0.0, .28, v)) * step(0.0, v) * step(v, .28), handle = step(abs(length(vec2(x, v - .28)) - .11), .018) * step(.28, v);
                   if (max(body, handle) > .5) {
                     vec3 leather = nightGarment(nightRoomHash(seed * 67.0) * .99);
-                    cutColor = body > .5 ? mix(leather * (1.0 - 1.5 * abs(x)), vec3(.84, .68, .32), step(abs(v - .2), .02) * step(abs(x), .04)) : leather * .7;
+                    cutColor = body > .5 ? mix(leather * (1.0 - 1.5 * abs(x)), vec3(.84, .68, .32), nightGlyph(nightBrand[brand * ${BRAND_LENGTH}], (vec2(x, v) - vec2(-.055, .06)) / vec2(.14, .14))) : leather * .7;
                     t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
                   }
                 }
@@ -792,7 +843,6 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                 else if (front > .5) {
                   albedo = mix(albedo, vec3(.68, .77, .82), nightRect(hit.xy, vec2(.5, .15), vec2(1.2, 2.0)));
                   albedo = mix(albedo, accent * (.75 + .25 * abs(sin(hit.x * 24.0))), nightRect(hit.xy, vec2(1.5, 0.0), vec2(2.3, 2.05)));
-                  glow = nightRect(hit.xy, vec2(.5 * size.x - .5, 2.2), vec2(.5 * size.x + .5, 2.36));
                 }
               } else if (shopKind == 2) {
                 // Jeweller: dark walls, showcases with a lit bed of stones under glass, lit niches behind the counter.
@@ -826,7 +876,6 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                   float wave = .5 + .5 * sin(nightClock * .8 * nightMotion + hit.x * 1.3 + hit.y * 2.0 + seed * 20.0);
                   albedo = mix(albedo, vec3(.05), nightRect(vec2(u, hit.y), vec2(.08, .96), vec2(cellW - .08, 1.89)));
                   glow = nightRect(vec2(u, hit.y), vec2(.12, 1.0), vec2(cellW - .12, 1.85)); glowColor = mix(vec3(.35, .6, 1.2), vec3(1.2, .6, .45), wave);
-                  albedo = mix(albedo, accent, step(2.15, hit.y) * step(hit.y, 2.3));
                 }
               } else if (shopKind == 4) {
                 // Bookshop: shelves of spines down one side and across the back, a table of covers, posters.
@@ -875,7 +924,6 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                 else if (kind == 3.0) albedo = vec3(.92) * mix(.8, 1.0, top);
                 else if (front > .5) {
                   albedo = mix(albedo, team, step(fract((hit.x + hit.y * .6) * .55 + pick), .3));
-                  glow = nightRect(hit.xy, vec2(.5 * size.x - .6, 1.9), vec2(.5 * size.x + .6, 2.2)); glowColor = vec3(1.3);
                 }
               } else if (shopKind == 7) {
                 // Beauty: white and blush, an island of jars lit from under, walls of bottles on lit shelves.
@@ -902,6 +950,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                   float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed + normal.x * 3.0 + kind);
                   float pane = step(.2, c.x) * step(c.x, .8) * step(.25, c.y) * step(c.y, .75) * step(.5, fract(h * 13.0));
                   albedo = mix(mix(nightPalette(h), vec3(.96), .55 * pane), vec3(.2), step(.94, max(c.x, c.y)));
+                  // Some boxes carry the brand's block and initial.
+                  albedo = mix(albedo, vec3(.16), pane * (1.0 - top) * nightGlyph(nightBrand[brand * ${BRAND_LENGTH} + (flank > .5 || fract(h * 29.0) < .5 ? 0 : 2)], vec2(mirrored < .5 ? 1.0 - c.x : c.x, c.y) * vec2(2.5, 2.0) - vec2(.75, .5)));
                 } else if (kind == 3.0) albedo = top > .5 ? vec3(.95) : mix(nightPalette(pick * 3.0 + .2), vec3(.96), step(.5, fract(hit.y * 3.0)));
                 else if (front > .5) {
                   float band = floor((length(hit.xy - vec2(.5 * size.x, .75)) - .45) / .15);
@@ -936,6 +986,12 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                   glow = front * niche * (1.0 - bag) * .7; glowColor = vec3(1.25, 1.1, .85);
                 } else if (kind == 2.0) albedo = vec3(.93) * mix(.8, 1.0, top);
                 else if (kind == 3.0) albedo = accent * mix(.75, 1.0, top) * (1.0 - .2 * step(.9, fract(hit.z * 2.0)));
+              }
+              // The shop's name high on the back wall: lit letters on a dark wall, dark ones on a pale wall.
+              if (shell * front > .5) {
+                float name = nightSign(brand, hit.xy, vec2(.5 * size.x, ${SHOP_WINDOWS.sign[0].toFixed(2)}), ${SHOP_WINDOWS.sign[1].toFixed(2)}, mirrored);
+                if (name > .5 && dot(wall, vec3(.333)) > .6) { albedo = shopKind == 7 ? vec3(.75, .4, .48) : vec3(.12); glow = 0.0; }
+                else if (name > .5) { glow = 1.0; glowColor = shopKind == 2 ? vec3(1.3, 1.1, .7) : vec3(1.3, 1.28, 1.2); }
               }
               if (kind > 4.5) { albedo = cutColor; glow = cutGlow; glowColor = vec3(1.3, 1.0, .62); }
               else if (shell > .5 && top > .5) {
@@ -1303,7 +1359,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             totalEmissiveRadiance += mix(vec3(1.0, .86, .68), vec3(1.0, .96, .9), nightFrontShop) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * frontLit * mix(${INTERIOR.nightShopfront.toFixed(2)}, ${SHOP_WINDOWS.night.toFixed(2)}, nightFrontShop) * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v1-${shops.join('.')}` : panes ? '-panes-v6' : '-windows-v15' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v2-${shops.join('.')}` : panes ? '-panes-v6' : '-windows-v16' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

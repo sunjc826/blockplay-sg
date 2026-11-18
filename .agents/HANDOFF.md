@@ -16951,3 +16951,12 @@ Left: a shop wall shows a room on both faces, so the room seen from the gallery 
 where the lane outside is; the two are never in view together. The authored counters
 and stock still stand in the gallery in front of the glass. Other districts keep the
 plain shop. Not tried on a phone or on the software renderer.
+
+Made-up brands (2026-11-18, owner's follow-up): `SHOP_BRANDS` gives each shop two
+invented names with a mark (a digit in the string), spelt by `nightSign` in `SHOP_FONT`,
+a 3 x 5 block font held as bit patterns in the shader. The name is on the back wall
+(lit letters on dark walls, dark on pale) and in vinyl low on the glass; the mark is on
+the bag on its stand, the toy boxes and the sports mannequins' shirts. The facade
+coordinate grows to the viewer's left, so lettering is laid out against it unless the
+room is mirrored. Names were invented here and not searched against trademark
+registers. Keys `-windows-v16`, `-shops-v2-<list>`.
