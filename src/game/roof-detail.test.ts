@@ -78,3 +78,27 @@ describe('wall streaks', () => {
     expect(STREAKS.darken).toBeLessThan(.2);
   });
 });
+
+describe('interior mapping', () => {
+  it('carries a view ray to the back wall head on, and to a side wall, the floor or the ceiling at an angle', async () => {
+    const { interiorHit } = await import('./world-night-lights');
+    const size: [number, number] = [3, 2.6], middle: [number, number] = [1.5, 1.3];
+    expect(interiorHit(middle, size, [0, 0, 1], 4)).toMatchObject({ surface: 'back', t: 4 });
+    const right = interiorHit(middle, size, [.8, 0, .6], 4);
+    expect(right.surface).toBe('side'); expect(right.point[0]).toBeCloseTo(3, 6); expect(right.point[2]).toBeLessThan(4);
+    expect(interiorHit(middle, size, [-.8, 0, .6], 4).point[0]).toBeCloseTo(0, 6);
+    expect(interiorHit(middle, size, [0, -.8, .6], 4).surface).toBe('floor');
+    expect(interiorHit(middle, size, [0, .8, .6], 4).surface).toBe('ceiling');
+  });
+  it('keeps every hit inside the room, even for a ray almost along the glass', async () => {
+    const { interiorHit, INTERIOR } = await import('./world-night-lights');
+    for (let i = 0; i < 200; i++) {
+      const a = i * 2.399, d: [number, number, number] = [Math.cos(a) * .99, Math.sin(a * 1.7) * .5, Math.abs(Math.sin(a * .31)) * .2];
+      const hit = interiorHit([(i % 10) * .3 + .05, (i % 7) * .35 + .05], [3.1, 2.6], d, INTERIOR.depth);
+      expect(hit.t).toBeGreaterThanOrEqual(0);
+      expect(hit.point[0]).toBeGreaterThanOrEqual(-1e-6); expect(hit.point[0]).toBeLessThanOrEqual(3.1 + 1e-6);
+      expect(hit.point[1]).toBeGreaterThanOrEqual(-1e-6); expect(hit.point[1]).toBeLessThanOrEqual(2.6 + 1e-6);
+      expect(hit.point[2]).toBeLessThanOrEqual(INTERIOR.depth + 1e-6);
+    }
+  });
+});

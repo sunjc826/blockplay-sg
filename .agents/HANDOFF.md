@@ -16856,3 +16856,12 @@ one shared cloud field.
   - `smoke-regions.mjs` and `pwa-smoke.mjs` were not run.
 - The heading strip was too faint in play; it now has a backdrop and larger,
   brighter text. `hud-layout-smoke` passes (39 combinations).
+
+Interior mapping (2026-11-18, owner's suggestion): `nightRoom` in the window patch of
+`world-night-lights.ts` (key `-windows-v6`, constants `INTERIOR`, mirror `interiorHit`).
+Shopfront glass shows a procedural room by day and, when lit, at night; lit window
+panes show one up close and fade to the old plain glow with distance. No textures or
+geometry. Seen on the real GPU in Chinatown by day and night and on Bishan blocks at
+night. Noticed and left: a dashed line along the head of one lit Chinatown shopfront at
+night, where an authored band meets the wall. Daytime upper-floor windows are still
+not drawn; only the ground storey and night panes use this.
