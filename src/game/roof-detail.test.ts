@@ -133,6 +133,48 @@ describe('interior mapping', () => {
       expect(cbd, id).toBe(['marina-bay', 'raffles-place', 'orchard'].includes(id));
     }
   });
+  it('designs ten shop windows that fit their bays, with no two pieces sharing space and no two neighbours alike', async () => {
+    const { SHOP_LAYOUTS, SHOP_WINDOWS, shopWindow, INTERIOR, roomBox } = await import('./world-night-lights');
+    const names = Object.keys(SHOP_LAYOUTS);
+    expect(names).toEqual(['fashion', 'jeweller', 'electronics', 'bookshop', 'cafe', 'sports', 'beauty', 'toys', 'florist', 'bags']);
+    for (const [name, boxes] of Object.entries(SHOP_LAYOUTS)) for (const width of [SHOP_WINDOWS.bay, 3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
+      const placed = boxes.map(box => ({ name: box.name, ...roomBox(box, width, depth) }));
+      for (const b of placed) {
+        const label = `${name} ${b.name} at ${width} x ${depth}`;
+        for (let k = 0; k < 3; k++) expect(b.high[k] - b.low[k], label).toBeGreaterThan(.05);
+        expect(b.low[0], label).toBeGreaterThanOrEqual(0); expect(b.high[0], label).toBeLessThanOrEqual(width);
+        expect(b.low[1], label).toBeGreaterThanOrEqual(0); expect(b.high[1], label).toBeLessThanOrEqual(2.3);
+        expect(b.low[2], label).toBeGreaterThanOrEqual(.2); expect(b.high[2], label).toBeLessThanOrEqual(depth);
+      }
+      for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+        const apart = [0, 1, 2].some(k => placed[i].high[k] <= placed[j].low[k] + 1e-9 || placed[j].high[k] <= placed[i].low[k] + 1e-9);
+        expect(apart, `${name}: ${placed[i].name} and ${placed[j].name} at ${width} x ${depth}`).toBe(true);
+      }
+      // Every shop puts something in its window, for a doorway to leave out.
+      expect(Math.min(...placed.map(b => b.low[2])), name).toBeLessThan(SHOP_WINDOWS.display);
+    }
+    // A run of bays shows every shop once before any repeats, on any building.
+    for (const building of [0, 7, 96]) {
+      const run = names.map((_, bay) => shopWindow(bay, building));
+      expect(new Set(run).size).toBe(names.length);
+      for (let bay = 0; bay < 30; bay++) expect(shopWindow(bay, building)).not.toBe(shopWindow(bay + 1, building));
+    }
+    for (const share of [SHOP_WINDOWS.strip, SHOP_WINDOWS.lit]) { expect(share).toBeGreaterThan(0); expect(share).toBeLessThan(1); }
+    expect(SHOP_WINDOWS.head).toBeGreaterThanOrEqual(2.6);
+  });
+  it('keeps designed shop windows to the shopping belt, whose malls name real shops on their glass', async () => {
+    const { DISTRICT_INTERIORS } = await import('./district-interiors');
+    const { SHOP_LAYOUTS } = await import('./world-night-lights');
+    const { buildOrchardScene } = await import('./orchard-scene');
+    for (const [id, interiors] of Object.entries(DISTRICT_INTERIORS)) expect(interiors.boutiques ?? 0, id).toBe(id === 'orchard' ? 1 : 0);
+    const world = buildOrchardScene(), listed = new Set<string>();
+    world.scene.traverse(object => {
+      const marked = (object as { material?: { userData?: { nightShopWindow?: string[] } } }).material?.userData?.nightShopWindow;
+      for (const name of marked ?? []) { expect(Object.keys(SHOP_LAYOUTS)).toContain(name); listed.add(name); }
+    });
+    expect([...listed].sort()).toEqual(Object.keys(SHOP_LAYOUTS).sort());
+    world.dispose();
+  });
   it('reflects a little head on and nearly everything at a glance', async () => {
     const { glassReflection, REFLECTION } = await import('./world-night-lights');
     expect(glassReflection(1)).toBeCloseTo(REFLECTION.headOn, 6);

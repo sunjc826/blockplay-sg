@@ -254,13 +254,87 @@ export const OFFICE_LAYOUTS = {
     { name: 'desk', x: [[-1.5, 1], [-.3, 1]], y: [0, .75], z: [[.9, 0], [1.6, 0]] },
   ],
 } as const satisfies Record<string, readonly [RoomBox, RoomBox, RoomBox]>;
+/**
+ * The shop windows of a shopping street, three boxes a shop, numbered from 1 in this order in the shader. Each
+ * is authored one way round and half are mirrored. A box that starts within a metre of the glass is the window
+ * display; a bay that is a doorway leaves those out. Flat cut-outs stand on some of them: mannequins on the
+ * fashion and sports plinths, lamps over the cafe's window table, bouquets in the florist's back row of
+ * buckets, a bag on the bag shop's stand.
+ */
+export const SHOP_LAYOUTS = {
+  fashion: [
+    { name: 'window plinth', x: [[.4, 0], [-.4, 1]], y: [0, .25], z: [[.25, 0], [1, 0]] },
+    { name: 'clothes rail', x: [[0, 0], [.5, 0]], y: [.85, 1.8], z: [[1.4, 0], [-.3, 1]] },
+    { name: 'till', x: [[-1.7, 1], [-.4, 1]], y: [0, 1], z: [[-1.4, 1], [-.8, 1]] },
+  ],
+  jeweller: [
+    { name: 'showcase', x: [[.35, 0], [1.1, 0]], y: [0, 1.05], z: [[.4, 0], [1.1, 0]] },
+    { name: 'second showcase', x: [[-1.1, 1], [-.35, 1]], y: [0, 1.05], z: [[.4, 0], [1.1, 0]] },
+    { name: 'counter case', x: [[.4, 0], [-.4, 1]], y: [0, .95], z: [[-1.5, 1], [-.9, 1]] },
+  ],
+  electronics: [
+    { name: 'demo table', x: [[.45, 0], [-.9, 1]], y: [0, .9], z: [[.7, 0], [1.5, 0]] },
+    { name: 'second demo table', x: [[.45, 0], [-.9, 1]], y: [0, .9], z: [[2.1, 0], [2.9, 0]] },
+    { name: 'accessory wall', x: [[-.3, 1], [0, 1]], y: [0, 2.2], z: [[.6, 0], [-.2, 1]] },
+  ],
+  bookshop: [
+    { name: 'side shelves', x: [[0, 0], [.35, 0]], y: [0, 2.2], z: [[.6, 0], [-.5, 1]] },
+    { name: 'back shelves', x: [[0, 0], [-.3, 1]], y: [0, 2.2], z: [[-.35, 1], [0, 1]] },
+    { name: 'table of new titles', x: [[0, .4], [0, .8]], y: [0, .8], z: [[.45, 0], [1.5, 0]] },
+  ],
+  cafe: [
+    { name: 'counter and cake case', x: [[.3, 0], [0, .62]], y: [0, 1.15], z: [[-1.75, 1], [-1.15, 1]] },
+    { name: 'window table', x: [[0, .5], [-.35, 1]], y: [.68, .76], z: [[.35, 0], [1, 0]] },
+    { name: 'coffee machine', x: [[0, .68], [-.2, 1]], y: [0, 1.45], z: [[-.6, 1], [0, 1]] },
+  ],
+  sports: [
+    { name: 'shoe wall', x: [[0, 0], [.3, 0]], y: [.35, 2.2], z: [[.6, 0], [-.2, 1]] },
+    { name: 'bench', x: [[0, .42], [0, .72]], y: [0, .45], z: [[1.5, 0], [2.7, 0]] },
+    { name: 'window plinth', x: [[0, .45], [-.4, 1]], y: [0, .3], z: [[.25, 0], [1, 0]] },
+  ],
+  beauty: [
+    { name: 'island', x: [[0, .32], [0, .68]], y: [0, .95], z: [[.9, 0], [2.1, 0]] },
+    { name: 'lit shelves', x: [[0, 0], [.3, 0]], y: [0, 2.2], z: [[.6, 0], [-.4, 1]] },
+    { name: 'lit back shelves', x: [[.5, 0], [-.3, 1]], y: [0, 2.2], z: [[-.3, 1], [0, 1]] },
+  ],
+  toys: [
+    { name: 'stack of boxes', x: [[.35, 0], [0, .48]], y: [0, 1.32], z: [[.3, 0], [.96, 0]] },
+    { name: 'shelves', x: [[-.4, 1], [0, 1]], y: [0, 2.2], z: [[.7, 0], [-.2, 1]] },
+    { name: 'till', x: [[.3, 0], [1.5, 0]], y: [0, 1], z: [[-1.3, 1], [-.7, 1]] },
+  ],
+  florist: [
+    { name: 'front buckets', x: [[.3, 0], [-.3, 1]], y: [0, .45], z: [[.3, 0], [.9, 0]] },
+    { name: 'back buckets', x: [[.3, 0], [-.3, 1]], y: [0, .9], z: [[.9, 0], [1.5, 0]] },
+    { name: 'wrapping counter', x: [[-1.6, 1], [-.4, 1]], y: [0, .95], z: [[-1.3, 1], [-.7, 1]] },
+  ],
+  bags: [
+    { name: 'wall of niches', x: [[.4, 0], [-.4, 1]], y: [0, 2.2], z: [[-.35, 1], [0, 1]] },
+    { name: 'stand', x: [[-.3, .5], [.3, .5]], y: [0, .9], z: [[.45, 0], [1.05, 0]] },
+    { name: 'sofa', x: [[.3, 0], [1, 0]], y: [0, .7], z: [[1.5, 0], [-.8, 1]] },
+  ],
+} as const satisfies Record<string, readonly [RoomBox, RoomBox, RoomBox]>;
+/**
+ * Designed shop windows: how deep into a shop a box may start and still be the window display (left out of a
+ * doorway), the share that carry a promotion strip across the glass, the share lit after dark, how brightly
+ * against `INTERIOR.nightShopfront`, how much of their own light they show by day, and the `stride` by which
+ * bays step through the shops. A glazed wall of shop units (a material whose `userData.nightShopWindow` is true
+ * or a list of SHOP_LAYOUTS names) has bays about `bay` wide, glazed from a `rail` off the floor to `head`.
+ */
+export const SHOP_WINDOWS = { display: 1, strip: .3, lit: .88, night: .62, day: .16, stride: 3, bay: 3, rail: .2, head: 2.8 } as const;
+/**
+ * Which shop the designed shop window in bay `bay` of a building shows, for the building's own whole-number
+ * offset: bays step through the shops by `stride`, so no two neighbours match. Mirrors the GLSL.
+ */
+export const shopWindow = (bay: number, building: number) => (Object.keys(SHOP_LAYOUTS) as (keyof typeof SHOP_LAYOUTS)[])[(bay * SHOP_WINDOWS.stride + building) % Object.keys(SHOP_LAYOUTS).length];
 /** How often an office's third box gives way to a blind lowered part of the way down the glass. */
 export const BLINDS = { openPlan: .45, meeting: .5, clerical: .7, stockroom: .4 } as const;
 /**
  * What a building's upper floors hold: homes, or offices in `offices` of the district's buildings (0-1), and
  * whether those offices are the business district's (`cbd`) or the plainer kind found everywhere else.
+ * `boutiques` is the share of its shopfronts that are designed shop windows (SHOP_LAYOUTS) rather than the
+ * plain corner shop; none when left out.
  */
-export type NightInteriors = { offices: number; cbd: boolean };
+export type NightInteriors = { offices: number; cbd: boolean; boutiques?: number };
 /** The sky glass reflects, in scene values: the district look's uniforms have this shape. */
 export type NightSky = Record<'lookHorizon' | 'lookZenith' | 'lookGround', { value: THREE.Vector3 }>;
 /** How often a home's third box gives way to a curtain, by layout: a kitchen keeps its fridge. Of those, `drawn` are pulled right across. */
@@ -280,6 +354,9 @@ const ROOM_PLANS: readonly { boxes: readonly [RoomBox, RoomBox, RoomBox]; hung: 
 ];
 const HOME_BOXES_GLSL = ROOM_PLANS.map((plan, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (plan < ${i}.5) ` : ''}{ ${plan.boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} curtainShare = ${plan.hung.toFixed(2)}; }`).join('\n              ');
+const SHOP_COUNT = Object.keys(SHOP_LAYOUTS).length;
+const SHOP_BOXES_GLSL = Object.values(SHOP_LAYOUTS).map((boxes, i, all) =>
+  `${i ? 'else ' : ''}${i < all.length - 1 ? `if (shopKind == ${i + 1}) ` : ''}{ ${boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} }`).join('\n              ');
 /**
  * Reflection in glass. `headOn` is the share reflected looking straight at a pane, rising to all of it at a
  * glance by `power`; `strength` scales what generated windows and shopfronts add, `authored` what modelled
@@ -367,6 +444,8 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     nightMotion: { value: 1 },
     /** Share of buildings whose upper floors are offices, and 1 where those are the business district's. */
     nightOffice: { value: new THREE.Vector2(options.interiors?.offices ?? 0, options.interiors?.cbd ? 1 : 0) },
+    /** Share of shopfronts that are designed shop windows. */
+    nightShops: { value: options.interiors?.boutiques ?? 0 },
     /** What glass reflects: the sky at the horizon and overhead and the ground under it, the direction of the sun or moon, and its colour at its present strength. */
     nightSky: { value: new THREE.Vector3(.72, .86, .92) },
     nightZenith: { value: new THREE.Vector3(.5, .7, .9) },
@@ -454,7 +533,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   const patched = new WeakMap<THREE.Material, { compile: Lit['onBeforeCompile']; key: Lit['customProgramCacheKey'] }>();
   const windowed = new Map<THREE.Material, Lit>();
   const swaps: { mesh: THREE.Mesh; geometry: THREE.BufferGeometry; material: THREE.Material | THREE.Material[]; attributes: THREE.BufferAttribute[] }[] = [];
-  function patch(material: Lit, windows: boolean, panes = false) {
+  function patch(material: Lit, windows: boolean, panes = false, shops: readonly number[] | null = null) {
     if (patched.has(material)) return;
     const compile = material.onBeforeCompile, key = material.customProgramCacheKey;
     patched.set(material, { compile, key });
@@ -487,7 +566,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           varying vec3 vNightWorld, vNightNormal;${windows ? `
           varying vec2 vNightSpan, vNightEdge;
           varying float vNightSeed;
-          uniform float nightClock, nightMotion;
+          uniform float nightClock, nightMotion, nightShops;
           uniform vec2 nightOffice; uniform vec3 nightSky, nightZenith, nightGround, nightSun, nightSunColor;
           // What glass reflects, for a direction: a cube map worked out rather than stored. The sky as it is
           // drawn now, paler at the horizon; a skyline of blocks round the horizon; the ground below; and a glint where the direction meets the sun.
@@ -536,14 +615,23 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           vec3 nightPicture(vec3 under, vec2 q, vec2 low, vec2 high, vec3 art) {
             return mix(under, mix(vec3(.16, .13, .11), art * (.7 + .3 * step(.5, fract((q.x + q.y) * 2.3))), nightRect(q, low + .06, high - .06)), nightRect(q, low, high));
           }
+          // Bright stock: toys, trainers, book covers, flowers.
+          vec3 nightPalette(float h) { h = fract(h) * 6.0; return h < 1.0 ? vec3(.86, .22, .2) : h < 2.0 ? vec3(.95, .72, .16) : h < 3.0 ? vec3(.2, .5, .8) : h < 4.0 ? vec3(.22, .62, .4) : h < 5.0 ? vec3(.9, .45, .62) : vec3(.93, .92, .88); }
+          // What clothes and bags come in: black, white, camel, denim, red, olive.
+          vec3 nightGarment(float h) { h = fract(h); return h < .25 ? vec3(.12) : h < .45 ? vec3(.9, .89, .86) : h < .6 ? vec3(.76, .64, .46) : h < .75 ? vec3(.25, .35, .52) : h < .88 ? vec3(.7, .2, .22) : vec3(.4, .45, .28); }
+          // Bottles and jars: black, blush, gold, teal, red.
+          vec3 nightBottle(float h) { h = fract(h); return h < .22 ? vec3(.1) : h < .5 ? vec3(.93, .62, .68) : h < .7 ? vec3(.86, .7, .4) : h < .85 ? vec3(.45, .75, .72) : vec3(.75, .15, .25); }
           vec4 nightRoom(vec2 p, vec2 size, vec4 open, vec3 d, float seed, float use) {
-            // use: 0 a shop, 1 a home, 2 an office in the business district, 3 an office anywhere else.
-            float home = step(.5, use), office = step(1.5, use), cbd = office * step(use, 2.5);
+            // use: 0 a plain shop, 1 a home, 2 an office in the business district, 3 an office anywhere else;
+            // -1 and below a designed shop window, numbered in SHOP_LAYOUTS order.
+            float home = step(.5, use), office = step(1.5, use), cbd = office * step(use, 2.5), shop = max(-use, 0.0);
+            int shopKind = int(shop + .5);
+            float doorway = step(open.y, .1);
             d = vec3(abs(d.x) < 1e-3 ? 1e-3 : d.x, abs(d.y) < 1e-3 ? 1e-3 : d.y, max(d.z, .03));
             float reveal = ${INTERIOR.reveal.toFixed(2)}, depth = ${INTERIOR.depth.toFixed(1)} + ${INTERIOR.depthRange.toFixed(1)} * nightRoomHash(seed * 7.7);
             float flip = step(.5, nightRoomHash(seed * 11.3));
             // A home is authored one way round; half of them are seen mirrored.
-            if (home * flip > .5) { p.x = size.x - p.x; d.x = -d.x; open = vec4(size.x - open.z, open.y, size.x - open.x, open.w); flip = 0.0; }
+            if (max(home, step(.5, shop)) * flip > .5) { p.x = size.x - p.x; d.x = -d.x; open = vec4(size.x - open.z, open.y, size.x - open.x, open.w); flip = 0.0; }
             vec3 wall = mix(vec3(.84, .78, .68), vec3(.66, .76, .82), step(.5, nightRoomHash(seed * 3.1)));
             wall = mix(wall, vec3(.88, .82, .58), step(.8, nightRoomHash(seed * 5.3)));
             if (home > .5) {
@@ -562,6 +650,14 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               float side = from.y > open.w ? .5 : from.y < open.y ? 1.0 : .72;
               return vec4(vec3(.5, .52, .54) * side, 0.0);
             }
+            if (shop > .5 && doorway < .5 && nightRoomHash(seed * 71.3) < ${SHOP_WINDOWS.strip.toFixed(2)}) {
+              // A promotion strip of vinyl across the top of the glass, with blocks for its lettering.
+              float down = open.w - p.y, across = p.x - .5 * (open.x + open.z);
+              if (down > .12 && down < .4) {
+                float letter = step(abs(across), .7) * step(.17, down) * step(down, .35) * step(.3, fract(across * 5.5)) * step(.25, nightRoomHash(floor(across * 5.5) + seed));
+                return vec4(mix(nightRoomHash(seed * 73.9) < .6 ? vec3(.82, .12, .14) : vec3(.1), vec3(.97), letter), 1.0);
+              }
+            }
             vec3 low = vec3(0.0, 0.0, reveal), high = vec3(size, reveal + depth);
             vec3 reach = vec3(d.x > 0.0 ? (high.x - from.x) / d.x : (low.x - from.x) / d.x, d.y > 0.0 ? (high.y - from.y) / d.y : (low.y - from.y) / d.y, (high.z - from.z) / d.z);
             float t = min(reach.x, min(reach.y, reach.z));
@@ -574,7 +670,16 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             // shows mostly ceiling. Under it: a fan in some living rooms and bedrooms, a hanging shade, or a flush lamp.
             vec2 lampAt = vec2(size.x * .5, reveal + depth * mix(.45, .33, home));
             float lampKind = nightRoomHash(seed * 53.9), fan = home * (1.0 - office) * step(plan, 1.5) * step(lampKind, .6), shade = home * (1.0 - office) * (1.0 - fan) * step(.3, lampKind);
-            if (home < .5) {
+            if (shop > .5) {
+              // A designed shop window (SHOP_LAYOUTS); a doorway keeps the window display out of the way.
+              ${SHOP_BOXES_GLSL}
+              float display = reveal + ${SHOP_WINDOWS.display.toFixed(1)};
+              if (doorway > .5) {
+                if (aLow.z < display) aLow.y = aHigh.y = -5.0;
+                if (bLow.z < display) bLow.y = bHigh.y = -5.0;
+                if (cLow.z < display) cLow.y = cHigh.y = -5.0;
+              }
+            } else if (home < .5) {
               // A shop: a counter across the back, shelving down one side, and a display table near the glass.
               float shelfX = mix(0.0, size.x - .42, flip), tableX = mix(size.x * .52, size.x * .14, flip);
               aLow = vec3(.35, 0.0, far - 1.75); aHigh = vec3(size.x - .35, .95, far - 1.2);
@@ -605,13 +710,250 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               float boxD = nightBoxHit(from, d, vec3(lampAt.x - .24, size.y - ${INTERIOR.shadeDrop.toFixed(2)}, lampAt.y - .24), vec3(lampAt.x + .24, size.y - ${(INTERIOR.shadeDrop - .3).toFixed(2)}, lampAt.y + .24), hitNormal);
               if (boxD < t) { t = boxD; normal = hitNormal; kind = 4.0; }
             }
+            // Flat figures standing in a plane a little way in: they slide against the room like the furniture does.
+            vec3 cutColor = vec3(0.0); float cutGlow = 0.0;
+            if (shop > .5 && doorway < .5) {
+              float cutZ = reveal + (shopKind == 10 ? .75 : shopKind == 9 ? 1.2 : shopKind == 5 ? .68 : .62), tc = (cutZ - from.z) / d.z;
+              vec2 q = from.xy + d.xy * tc;
+              if (tc < t) {
+                if (shopKind == 1 || shopKind == 6) {
+                  // Mannequins on the window plinth: dressed in the fashion shop, in kit in the sports shop.
+                  float x0 = shopKind == 1 ? aLow.x : cLow.x, x1 = shopKind == 1 ? aHigh.x : cHigh.x, base = shopKind == 1 ? aHigh.y : cHigh.y;
+                  float n = max(1.0, floor((x1 - x0) / .95)), w = (x1 - x0) / n, id = floor((q.x - x0) / w);
+                  float x = (fract((q.x - x0) / w) - .5) * w, v = q.y - base, h = nightRoomHash(id * 7.3 + seed * 61.0);
+                  if (id >= 0.0 && id < n && v > 0.0 && h > .1) {
+                    float dress = shopKind == 1 ? step(.55, h) : 0.0;
+                    float head = step(length(vec2(x, (v - 1.62) * .85)), .09), neck = step(abs(x), .035) * step(1.45, v) * step(v, 1.56);
+                    float torsoW = mix(.14, .21, smoothstep(.95, 1.38, v)) * (1.0 - .45 * smoothstep(1.4, 1.5, v));
+                    float torso = step(abs(x), torsoW) * step(.9, v) * step(v, 1.48), legs = step(abs(abs(x) - .08), .06) * step(v, .9);
+                    float skirt = dress * step(abs(x), mix(.26, .15, clamp((v - .4) / .5, 0.0, 1.0))) * step(.4, v) * step(v, .9);
+                    float arms = step(abs(abs(x) - torsoW - .04), .035) * step(.75, v) * step(v, 1.4);
+                    if (max(max(head, neck), max(max(torso, legs), max(skirt, arms))) > .5) {
+                      vec3 form = nightRoomHash(seed * 67.0) < .5 ? vec3(.9, .89, .86) : vec3(.13);
+                      vec3 upper = shopKind == 1 ? nightGarment(h * 9.7) : nightPalette(h * 5.3), lower = shopKind == 1 ? nightGarment(h * 3.3 + .4) : vec3(.14);
+                      cutColor = form;
+                      if (legs > .5) cutColor = dress > .5 ? form : lower;
+                      if (v < .07) cutColor = shopKind == 1 ? vec3(.1) : nightPalette(h * 11.0);
+                      if (torso > .5 || skirt > .5 || (arms > .5 && v > mix(1.22, .8, step(.5, fract(h * 17.0))))) cutColor = upper;
+                      cutColor *= 1.0 - 1.1 * abs(x);
+                      t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                    }
+                  }
+                } else if (shopKind == 5) {
+                  // Pendant lamps over the window table.
+                  float n = max(1.0, floor((bHigh.x - bLow.x) / .8)), w = (bHigh.x - bLow.x) / n, id = floor((q.x - bLow.x) / w), x = (fract((q.x - bLow.x) / w) - .5) * w;
+                  float shadeTop = size.y - .62, shadeFoot = shadeTop - .26;
+                  float cord = step(abs(x), .012) * step(shadeTop, q.y), lampshade = step(abs(x), mix(.17, .05, clamp((q.y - shadeFoot) / .26, 0.0, 1.0))) * step(shadeFoot, q.y) * step(q.y, shadeTop);
+                  if (id >= 0.0 && id < n && max(cord, lampshade) > .5) { cutColor = vec3(.1); cutGlow = lampshade * mix(.45, 1.0, step(q.y, shadeFoot + .08)); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
+                } else if (shopKind == 9) {
+                  // Bouquets standing out of the back row of buckets.
+                  float id = floor((q.x - bLow.x) / .32), x = (fract((q.x - bLow.x) / .32) - .5) * .32, h = nightRoomHash(id * 7.3 + seed * 61.0), v = q.y - bHigh.y;
+                  float bloomAt = .34 + .14 * h, r = length(vec2(x, v - bloomAt));
+                  if (q.x > bLow.x && q.x < bHigh.x && v > 0.0 && (r < .15 || (v < bloomAt && abs(x) < .04 + .09 * v / bloomAt))) {
+                    // Five blooms in a ruff of leaves, over a sheaf of stems.
+                    vec2 b = vec2(x, v - bloomAt);
+                    float bloom = min(min(length(b), length(b - vec2(.08, .05))), min(length(b + vec2(.08, -.05)), min(length(b - vec2(.04, -.08)), length(b + vec2(.05, .08)))));
+                    vec3 petal = mix(nightPalette(h * 4.7), vec3(.95, .5, .2), step(.8, fract(h * 5.0)));
+                    cutColor = bloom < .055 ? mix(vec3(.95, .8, .3), petal, step(.018, bloom)) : vec3(.2, .44, .22) * (r < .15 ? .85 : .8 + .4 * step(.5, fract(x * 30.0)));
+                    t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                  }
+                } else if (shopKind == 10) {
+                  // One bag on its stand.
+                  float x = q.x - .5 * (bLow.x + bHigh.x), v = q.y - bHigh.y;
+                  float body = step(abs(x), .2 - .04 * smoothstep(0.0, .28, v)) * step(0.0, v) * step(v, .28), handle = step(abs(length(vec2(x, v - .28)) - .11), .018) * step(.28, v);
+                  if (max(body, handle) > .5) {
+                    vec3 leather = nightGarment(nightRoomHash(seed * 67.0) * .99);
+                    cutColor = body > .5 ? mix(leather * (1.0 - 1.5 * abs(x)), vec3(.84, .68, .32), step(abs(v - .2), .02) * step(abs(x), .04)) : leather * .7;
+                    t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                  }
+                }
+              }
+            }
             vec3 hit = from + d * t;
             // What the surface is made of.
             vec3 accent = mix(vec3(.72, .3, .24), vec3(.24, .46, .62), nightRoomHash(seed * 13.7));
             accent = mix(accent, vec3(.86, .66, .22), step(.66, nightRoomHash(seed * 17.9)));
             vec3 albedo = wall, glowColor = vec3(1.25, 1.2, 1.05);
             float glow = 0.0, sheer = 0.0;
-            if (home < .5) {
+            if (shop > .5) {
+              float top = step(.5, normal.y), front = step(normal.z, -.5), flank = step(.5, abs(normal.x)), shell = 1.0 - step(.5, kind);
+              // Along whichever face was hit: a side-on face runs into the room, a front one across it.
+              vec2 q = flank > .5 ? vec2(hit.z - reveal, hit.y) : hit.xy;
+              vec3 timber = mix(vec3(.66, .52, .36), vec3(.34, .25, .18), step(.5, nightRoomHash(seed * 41.3)));
+              float pick = nightRoomHash(seed * 3.1), tileSize = .6, spots = 1.0;
+              vec3 floorColor = vec3(.74, .72, .68), ceilingColor = vec3(.92);
+              if (shopKind == 1) {
+                // Fashion: a rail of clothes, a till, and a mirror, a fitting-room curtain and a lit sign at the back.
+                wall = pick < .3 ? vec3(.17, .17, .19) : vec3(.93, .92, .9); albedo = wall;
+                floorColor = pick < .3 ? vec3(.5, .47, .44) : timber * 1.1; tileSize = pick < .3 ? 1.2 : .18;
+                if (kind == 1.0) albedo = vec3(.9) * mix(.8, 1.0, top);
+                else if (kind == 2.0) albedo = top > .5 ? vec3(.15) : nightGarment(nightRoomHash(floor(q.x * 8.0) + seed * 31.0)) * (1.0 - .4 * step(.8, fract(q.x * 8.0)));
+                else if (kind == 3.0) albedo = top > .5 ? vec3(.93) : timber;
+                else if (front > .5) {
+                  albedo = mix(albedo, vec3(.68, .77, .82), nightRect(hit.xy, vec2(.5, .15), vec2(1.2, 2.0)));
+                  albedo = mix(albedo, accent * (.75 + .25 * abs(sin(hit.x * 24.0))), nightRect(hit.xy, vec2(1.5, 0.0), vec2(2.3, 2.05)));
+                  glow = nightRect(hit.xy, vec2(.5 * size.x - .5, 2.2), vec2(.5 * size.x + .5, 2.36));
+                }
+              } else if (shopKind == 2) {
+                // Jeweller: dark walls, showcases with a lit bed of stones under glass, lit niches behind the counter.
+                wall = mix(vec3(.11, .13, .2), vec3(.2, .11, .13), step(.5, pick)); albedo = wall;
+                floorColor = wall * 1.5 + .04; tileSize = 6.0; ceilingColor = vec3(.2);
+                vec3 gold = vec3(.86, .68, .3);
+                if (kind > .5) {
+                  vec2 bed = top > .5 ? hit.xz : q;
+                  float gem = step(length(fract(bed * 7.0) - .5), .17) * step(.4, nightRoomHash(dot(floor(bed * 7.0), vec2(1.0, 7.0)) + seed));
+                  albedo = mix(vec3(.1, .09, .09), gold, step(.72, hit.y) * step(hit.y, .78));
+                  if (max(top, step(.78, hit.y)) > .5) { albedo = gold; glow = .6 + .4 * gem; glowColor = mix(vec3(1.0, .93, .8), vec3(1.5, 1.4, 1.1), gem); }
+                } else if (front > .5) {
+                  vec2 n = vec2(hit.x / .75, (hit.y - .85) / .5), at = abs(fract(n) - .5);
+                  float niche = step(at.x, .38) * step(at.y, .36) * step(0.0, n.y) * step(n.y, 2.0) * step(.3, hit.x) * step(hit.x, size.x - .3);
+                  float piece = step(length((fract(n) - vec2(.5, .36)) * vec2(.75, .5)), .07);
+                  albedo = mix(albedo, gold, piece * niche); glow = niche * (1.0 - .75 * piece) * .85; glowColor = vec3(1.2, 1.05, .8);
+                }
+              } else if (shopKind == 3) {
+                // Electronics: oak tables of devices left on, a wall of accessories, a wall of screens.
+                wall = vec3(.94, .94, .95); albedo = wall; floorColor = vec3(.8, .78, .74); tileSize = .9; spots = 0.0;
+                vec3 oak = mix(timber, vec3(.8, .68, .5), .6);
+                if (kind == 1.0 || kind == 2.0) {
+                  vec2 g = hit.xz * vec2(2.2, 2.6), at = abs(fract(g) - .5);
+                  albedo = oak * mix(.7, 1.1, top);
+                  glow = top * step(at.x, .34) * step(at.y, .3) * .9; glowColor = mix(vec3(.5, .75, 1.25), nightPalette(nightRoomHash(dot(floor(g), vec2(1.0, 5.0)) + seed)) + .2, .5);
+                } else if (kind == 3.0) {
+                  vec2 g = q * vec2(4.5, 4.0), at = abs(fract(g) - .5);
+                  albedo = top > .5 ? vec3(.85) : mix(vec3(.9), nightPalette(nightRoomHash(dot(floor(g), vec2(1.0, 9.0)) + seed * 3.0)), step(at.x, .36) * step(at.y, .38) * step(.3, hit.y));
+                } else if (front > .5) {
+                  float cellW = size.x / max(2.0, floor(size.x / 1.45)), u = fract(hit.x / cellW) * cellW;
+                  float wave = .5 + .5 * sin(nightClock * .8 * nightMotion + hit.x * 1.3 + hit.y * 2.0 + seed * 20.0);
+                  albedo = mix(albedo, vec3(.05), nightRect(vec2(u, hit.y), vec2(.08, .96), vec2(cellW - .08, 1.89)));
+                  glow = nightRect(vec2(u, hit.y), vec2(.12, 1.0), vec2(cellW - .12, 1.85)); glowColor = mix(vec3(.35, .6, 1.2), vec3(1.2, .6, .45), wave);
+                  albedo = mix(albedo, accent, step(2.15, hit.y) * step(hit.y, 2.3));
+                }
+              } else if (shopKind == 4) {
+                // Bookshop: shelves of spines down one side and across the back, a table of covers, posters.
+                wall = vec3(.86, .8, .68); albedo = wall; floorColor = timber; tileSize = .18;
+                if (kind == 1.0 || kind == 2.0) {
+                  float board = step(.88, fract(hit.y * 2.9)), spine = nightRoomHash(floor(q.x * 11.0) + floor(hit.y * 2.9) * 13.0 + seed * 31.0 + kind * 5.0);
+                  vec3 book = mix(mix(vec3(.7, .28, .22), vec3(.24, .42, .56), step(.3, spine)), mix(vec3(.84, .74, .4), vec3(.3, .5, .34), step(.8, spine)), step(.55, spine));
+                  albedo = (kind == 1.0 ? step(.5, normal.x) : front) > .5 ? mix(book * (.7 + .3 * fract(spine * 9.0)), timber * .8, board) : timber * .7;
+                } else if (kind == 3.0) {
+                  vec2 g = hit.xz * 4.5;
+                  albedo = top > .5 ? nightPalette(nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed)) * (.55 + .45 * step(.12, fract(g.x)) * step(.12, fract(g.y))) : timber * .8;
+                } else if (flank > .5 && normal.x < 0.0) {
+                  albedo = nightPicture(albedo, q, vec2(.9, 1.1), vec2(1.6, 2.0), accent);
+                  albedo = nightPicture(albedo, q, vec2(1.9, 1.1), vec2(2.6, 2.0), nightPalette(pick * 3.0));
+                }
+              } else if (shopKind == 5) {
+                // Cafe: slatted timber under dark paint, a counter with a lit cake case, a coffee machine, menu boards.
+                vec3 paint = mix(vec3(.16, .26, .22), vec3(.2, .2, .22), step(.5, pick));
+                wall = paint; albedo = hit.y < 1.0 ? timber * (1.0 - .2 * step(.9, fract(q.x * 7.0))) : paint;
+                ceilingColor = vec3(.25); tileSize = .4;
+                if (kind == 1.0) {
+                  albedo = top > .5 ? vec3(.86, .85, .82) : timber * (1.0 - .25 * step(.88, fract(q.x * 7.0)));
+                  if (front > .5 && hit.y > .72) {
+                    vec2 g = vec2(hit.x * 5.0, (hit.y - .72) / .2);
+                    albedo = mix(vec3(.95, .92, .85), nightPalette(nightRoomHash(floor(g.x) + floor(g.y) * 3.0 + seed)) * .8 + .15, step(length(fract(g) - vec2(.5, .35)), .3));
+                    glow = .6; glowColor = albedo * 1.25;
+                  }
+                } else if (kind == 2.0) albedo = timber * mix(.5, 1.15, top);
+                else if (kind == 3.0) albedo = front > .5 && hit.y > .9 ? mix(vec3(.7, .72, .74), vec3(.15), step(.5, fract(hit.x * 2.2)) * step(hit.y, 1.2)) : vec3(.18, .17, .17) * mix(1.0, 1.6, top);
+                else if (front > .5) {
+                  float cellW = (size.x - .6) / 3.0, u = fract((hit.x - .3) / cellW) * cellW;
+                  float sheet = step(.3, hit.x) * step(hit.x, size.x - .3) * step(.06, u) * step(u, cellW - .06) * step(1.65, hit.y) * step(hit.y, 2.25);
+                  float line = step(.5, fract(hit.y * 16.0)) * step(.14, u) * step(u, cellW * (.35 + .5 * nightRoomHash(floor(hit.y * 16.0) + floor((hit.x - .3) / cellW) * 9.0 + seed)));
+                  glow = sheet * (1.0 - .75 * line) * .85; glowColor = vec3(1.2, 1.0, .75);
+                }
+              } else if (shopKind == 6) {
+                // Sports: a lit wall of trainers, a bench to try them on, the shop's colour slanted across the back.
+                wall = vec3(.9, .9, .91); albedo = wall; floorColor = vec3(.3, .3, .32); tileSize = 1.5;
+                vec3 team = nightPalette((floor(pick * 4.99) + .5) / 6.0);
+                if (kind == 1.0) {
+                  vec2 g = vec2(q.x * 3.0, (hit.y - .35) / .37), c = fract(g);
+                  float shoe = step(.14, c.x) * step(c.x, .86) * step(.12, c.y) * step(c.y, mix(.3, .52, step(.5, c.x)));
+                  albedo = normal.x > .5 ? mix(vec3(.82, .83, .85), nightPalette(nightRoomHash(floor(g.x) + floor(g.y) * 7.0 + seed)), shoe) : vec3(.8);
+                  glow = step(.5, normal.x) * step(.9, c.y) * .9; glowColor = vec3(1.25, 1.25, 1.2);
+                } else if (kind == 2.0) albedo = top > .5 ? team : vec3(.15);
+                else if (kind == 3.0) albedo = vec3(.92) * mix(.8, 1.0, top);
+                else if (front > .5) {
+                  albedo = mix(albedo, team, step(fract((hit.x + hit.y * .6) * .55 + pick), .3));
+                  glow = nightRect(hit.xy, vec2(.5 * size.x - .6, 1.9), vec2(.5 * size.x + .6, 2.2)); glowColor = vec3(1.3);
+                }
+              } else if (shopKind == 7) {
+                // Beauty: white and blush, an island of jars lit from under, walls of bottles on lit shelves.
+                wall = mix(vec3(.96, .94, .93), vec3(.95, .82, .84), step(.5, pick)); albedo = wall;
+                floorColor = vec3(.9, .89, .88); tileSize = .8; spots = 0.0;
+                if (kind == 1.0) {
+                  vec2 g = hit.xz * 9.0;
+                  albedo = top > .5 ? mix(vec3(.97), nightBottle(nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed)), step(length(fract(g) - .5), .28)) : vec3(.95);
+                  glow = (1.0 - top) * step(hit.y, .07) * .8; glowColor = vec3(1.2, .8, .88);
+                } else if (kind > 1.5) {
+                  vec2 g = vec2(q.x * 9.0, hit.y / .4), c = fract(g);
+                  float h = nightRoomHash(floor(g.x) + floor(g.y) * 7.0 + seed * 3.0 + kind);
+                  float bottle = step(.2, c.x) * step(c.x, .8) * step(c.y, .25 + .5 * h) * step(.2, h);
+                  if ((kind == 2.0 ? step(.5, normal.x) : front) > .5) {
+                    albedo = mix(mix(vec3(.98, .95, .93), nightBottle(h * 7.3), bottle), vec3(1.0), step(.92, c.y));
+                    glow = .55 * (1.0 - bottle); glowColor = vec3(1.25, 1.15, 1.1);
+                  } else albedo = vec3(.93);
+                }
+              } else if (shopKind == 8) {
+                // Toys: a stack of boxes in the window, shelves of more, a striped till, a rainbow on the back wall.
+                wall = mix(vec3(.96, .82, .3), vec3(.45, .75, .9), step(.5, pick)); albedo = wall; tileSize = .5;
+                if (kind == 1.0 || kind == 2.0) {
+                  vec2 g = (top > .5 ? hit.xz : q) / .33, c = fract(g);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed + normal.x * 3.0 + kind);
+                  float pane = step(.2, c.x) * step(c.x, .8) * step(.25, c.y) * step(c.y, .75) * step(.5, fract(h * 13.0));
+                  albedo = mix(mix(nightPalette(h), vec3(.96), .55 * pane), vec3(.2), step(.94, max(c.x, c.y)));
+                } else if (kind == 3.0) albedo = top > .5 ? vec3(.95) : mix(nightPalette(pick * 3.0 + .2), vec3(.96), step(.5, fract(hit.y * 3.0)));
+                else if (front > .5) {
+                  float band = floor((length(hit.xy - vec2(.5 * size.x, .75)) - .45) / .15);
+                  if (band >= 0.0 && band < 5.0 && hit.y > .75) albedo = nightPalette((band + .5) / 6.0);
+                }
+              } else if (shopKind == 9) {
+                // Florist: zinc buckets in two steps, blooms seen from above, pot plants on shelves at the back.
+                wall = vec3(.9, .92, .86); albedo = wall; floorColor = vec3(.5, .5, .48); tileSize = .3;
+                if (kind == 1.0 || kind == 2.0) {
+                  vec2 g = hit.xz * 7.0;
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  albedo = top > .5 ? mix(vec3(.2, .42, .22), mix(nightPalette(h * 4.7), vec3(.95, .5, .2), step(.8, fract(h * 5.0))), step(length(fract(g) - .5), .36) * step(.25, h))
+                    : mix(vec3(.6, .63, .65), vec3(.3), step(.9, fract(q.x * 3.125))) * (1.0 - .2 * step(.85, fract(hit.y * 4.0)));
+                } else if (kind == 3.0) albedo = top > .5 ? timber * 1.1 : vec3(.3, .42, .32);
+                else if (front > .5) {
+                  vec2 g = vec2(hit.x * 2.5, (hit.y - .9) / .45), c = fract(g);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed), shelf = step(.9, hit.y) * step(hit.y, 2.25);
+                  albedo = mix(albedo, timber, shelf * step(c.y, .06));
+                  albedo = mix(albedo, vec3(.2, .45 + .2 * h, .25), shelf * step(.3, c.y) * step(length((c - vec2(.5, .55)) * vec2(1.0, 1.2)), .26 + .1 * h));
+                  albedo = mix(albedo, vec3(.72, .42, .3), shelf * step(abs(c.x - .5), .18) * step(.06, c.y) * step(c.y, .3));
+                }
+              } else {
+                // Bags: a wall of lit niches with a bag in each, one on a stand in the window, a sofa.
+                wall = vec3(.9, .86, .78); albedo = wall; floorColor = vec3(.82, .78, .7); tileSize = 1.0;
+                if (kind == 1.0) {
+                  float cells = max(1.0, floor((aHigh.x - aLow.x) / .8));
+                  vec2 g = vec2((hit.x - aLow.x) / (aHigh.x - aLow.x) * cells, hit.y / .55), c = fract(g);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed), niche = step(.06, c.x) * step(c.x, .94) * step(.08, c.y) * step(c.y, .94);
+                  vec2 b = (c - vec2(.5, .1)) * vec2((aHigh.x - aLow.x) / cells, .55);
+                  float bag = max(step(abs(b.x), .15 - .03 * smoothstep(0.0, .2, b.y)) * step(0.0, b.y) * step(b.y, .2), step(abs(length(vec2(b.x, b.y - .2)) - .08), .015) * step(.2, b.y)) * step(.15, h);
+                  albedo = front > .5 ? mix(timber * .9, mix(vec3(.95, .9, .8), nightGarment(h * 3.7), bag), niche) : timber * .8;
+                  glow = front * niche * (1.0 - bag) * .7; glowColor = vec3(1.25, 1.1, .85);
+                } else if (kind == 2.0) albedo = vec3(.93) * mix(.8, 1.0, top);
+                else if (kind == 3.0) albedo = accent * mix(.75, 1.0, top) * (1.0 - .2 * step(.9, fract(hit.z * 2.0)));
+              }
+              if (kind > 4.5) { albedo = cutColor; glow = cutGlow; glowColor = vec3(1.3, 1.0, .62); }
+              else if (shell > .5 && top > .5) {
+                // Floor: stone, boards or carpet by the shop; a chequerboard in the cafe, coloured tiles in the toy shop, a rug among the books.
+                vec2 tile = abs(fract(hit.xz / tileSize) - .5), which = floor(hit.xz / tileSize);
+                albedo = floorColor * (1.0 - .16 * step(.47, max(tile.x, tile.y))); glow = 0.0;
+                if (shopKind == 5) albedo = mix(vec3(.14), vec3(.88), mod(which.x + which.y, 2.0));
+                if (shopKind == 8) albedo = mix(nightPalette(nightRoomHash(which.x + which.y * 7.0 + seed)), vec3(.82), .5);
+                if (shopKind == 4) albedo = mix(albedo, accent * .7, nightRect(hit.xz, vec2(.9, reveal + 1.7), vec2(size.x - .9, far - .8)));
+              } else if (shell > .5 && normal.y < -.5) {
+                // Ceiling: rows of spotlights, or strips of light in the brightest shops.
+                vec2 g = vec2(hit.x / .9, (hit.z - reveal) / 1.1);
+                albedo = ceilingColor;
+                glow = mix(step(abs(fract((hit.z - reveal) / 1.3) - .5), .04) * step(.4, hit.x) * step(hit.x, size.x - .4), step(length((fract(g) - .5) * vec2(.9, 1.1)), .08), spots);
+                glowColor = vec3(1.3, 1.25, 1.1);
+              } else if (shell > .5) albedo *= 1.0 - .3 * step(hit.y, .1);
+            }
+ else if (home < .5) {
               if (kind == 1.0) albedo = normal.y > .5 ? vec3(.86, .84, .8) : accent * (.8 + .2 * step(.5, fract(hit.x * 1.3)));
               else if (kind == 2.0) {
                 // Goods on the shelves: a board every 40 cm, blocks of colour between them.
@@ -790,8 +1132,9 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             float range = length(toLamp), lit = max(dot(normal, toLamp / range), 0.0) / (1.0 + .16 * range * range);
             vec3 edge = min(hit - low, high - hit) + abs(normal) * 10.0;
             float corner = kind > 0.0 ? smoothstep(0.0, .35, hit.y) : smoothstep(0.0, .5, min(edge.x, min(edge.y, edge.z)));
-            float lighting = sheer > 0.0 ? sheer : mix((.3 + 1.5 * lit) * mix(.55, 1.0, corner), .85, .45 * office);
-            // An office is lit evenly from its whole ceiling.
+            // An office is lit evenly from its whole ceiling, and so is a shop window, bar the jeweller's and the cafe.
+            float even = shop > .5 ? shopKind == 2 ? .2 : shopKind == 5 ? .35 : .6 : .45 * office;
+            float lighting = sheer > 0.0 ? sheer : mix((.3 + 1.5 * lit) * mix(.55, 1.0, corner), mix(.85, .95, step(.5, shop)), even);
             return vec4(mix(albedo * lighting, glowColor, glow), 1.0);
           }
           // The view direction in a wall's own axes: along it (the way the facade coordinate grows), up, and inwards.
@@ -807,7 +1150,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           // The ground storey of a building that stands on the ground, by day and night: a darker plinth, a
           // fascia under the first floor, and in most bays a glazed shopfront or a door. Drawn in the same
           // bays as the windows above, so a lit window at night sits over an opening by day.
-          float nightFront = 0.0, nightFrontSeed = 0.0, nightFrontGlass = 1.0; vec4 nightFrontRoom = vec4(0.0);
+          float nightFront = 0.0, nightFrontSeed = 0.0, nightFrontGlass = 1.0, nightFrontShop = 0.0; vec4 nightFrontRoom = vec4(0.0);
           {
             float frontWall = 1.0 - smoothstep(.12, .3, abs(normalize(vNightNormal).y));
             vec2 frontUv = clamp((vNightWorld.xz - nightBounds.xy) * nightBounds.zw, 0.0, 1.0);
@@ -838,17 +1181,51 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               // Behind the glass, a room; at a glancing angle the glass goes dark and reflective instead.
               vec3 frontInto = nightInto(normalize(vNightNormal));
               float frontBayWidth = vNightEdge.y / max(1.0, floor(vNightEdge.y / 3.1));
+              // On a shopping street a share of the shopfronts are designed shop windows. Along a wall they
+              // step through the shops by a stride that shares no factor with their number, so neighbours always differ.
+              nightFrontShop = step(fract(nightFrontSeed * 7.93) + 1e-4, nightShops);
               nightFrontRoom = nightRoom(vec2(fract(frontBay) * frontBayWidth, frontY), vec2(frontBayWidth, ${GROUND_STOREY.toFixed(1)}),
-                vec4((.5 - frontHalf) * frontBayWidth, frontSill, (.5 + frontHalf) * frontBayWidth, ${STOREFRONT.head.toFixed(2)}), frontInto, nightFrontSeed, 0.0);
+                vec4((.5 - frontHalf) * frontBayWidth, frontSill, (.5 + frontHalf) * frontBayWidth, ${STOREFRONT.head.toFixed(2)}), frontInto, nightFrontSeed,
+                -nightFrontShop * (1.0 + mod(floor(frontBay) * ${SHOP_WINDOWS.stride.toFixed(1)} + floor(vNightSeed * 97.0), ${SHOP_COUNT.toFixed(1)})));
               // Glass only dims the room at a glancing angle; the frame is not glass at all.
               nightFrontGlass = mix(.1, .85, pow(1.0 - clamp(frontInto.z, 0.0, 1.0), 3.0)) * nightFrontRoom.a;
               diffuseColor.rgb = mix(diffuseColor.rgb, mix(nightFrontRoom.rgb * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), nightFrontGlass), nightFront);
+              // A shop window is lit inside by day too.
+              totalEmissiveRadiance += nightFrontRoom.rgb * (nightFrontRoom.a * nightFrontShop * nightFront * (1.0 - nightFrontGlass) * (1.0 - nightLevel) * ${SHOP_WINDOWS.day.toFixed(2)});
               #ifdef STANDARD
                 roughnessFactor = mix(roughnessFactor, .16, nightFront);
               #endif
             }
           }` : ''}
-          ${windows ? `
+          ${shops ? `
+          // A glazed wall of shop units (a material marked nightShopWindow): bays about ${SHOP_WINDOWS.bay} m wide along
+          // the wall, each a designed shop window from the material's own list, between a low rail and a head rail.
+          float shopOn = 0.0, shopSeed = 0.0, shopDim = 1.0; vec4 shopRoom = vec4(0.0);
+          {
+            const float shopSet[${shops.length}] = float[${shops.length}](${shops.map(n => n.toFixed(1)).join(', ')});
+            vec3 shopN = normalize(vNightNormal), shopView = normalize(vNightWorld - cameraPosition);
+            float bays = max(1.0, floor(vNightEdge.y / ${SHOP_WINDOWS.bay.toFixed(1)} + .5)), bay = vNightEdge.x / max(.01, vNightEdge.y) * bays;
+            float rise = vNightWorld.y - vNightSpan.x, head = min(vNightSpan.y - vNightSpan.x, ${SHOP_WINDOWS.head.toFixed(1)});
+            vec2 aa = max(vec2(fwidth(bay), fwidth(rise)), vec2(1e-4));
+            float wall = 1.0 - smoothstep(.12, .3, abs(shopN.y));
+            if (wall > 0.0 && vNightEdge.y >= 2.0 && head >= 2.4 && rise < head) {
+              float width = vNightEdge.y / bays;
+              shopSeed = fract(sin(dot(vec2(floor(bay), floor(vNightSeed * 97.0)), vec2(12.9898, 78.233))) * 43758.5453);
+              vec3 into = nightInto(shopN);
+              shopRoom = nightRoom(vec2(fract(bay) * width, rise), vec2(width, head), vec4(.07, ${SHOP_WINDOWS.rail.toFixed(2)}, width - .07, head - .04), into, shopSeed,
+                -shopSet[int(mod(floor(bay) + floor(vNightSeed * 97.0), ${shops.length.toFixed(1)}))]);
+              // Far off the bays settle back to the wall's own glass.
+              shopOn = wall * (1.0 - smoothstep(.3, .8, aa.x));
+              shopDim = mix(.1, .85, pow(1.0 - clamp(into.z, 0.0, 1.0), 3.0)) * shopRoom.a;
+              diffuseColor.rgb = mix(diffuseColor.rgb, mix(shopRoom.rgb * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), shopDim), shopOn);
+              totalEmissiveRadiance += shopRoom.rgb * (shopRoom.a * shopOn * (1.0 - shopDim) * (1.0 - nightLevel) * ${SHOP_WINDOWS.day.toFixed(2)});
+              totalEmissiveRadiance += nightSkyBox(reflect(shopView, shopN)) * (nightFresnel(dot(-shopView, shopN)) * shopRoom.a * shopOn * ${REFLECTION.strength.toFixed(2)});
+              #ifdef STANDARD
+                roughnessFactor = mix(roughnessFactor, .16, shopOn);
+              #endif
+            }
+          }` : ''}
+          ${windows && !shops ? `
           // Windows, by day and night. Where the glass is, how far off, what room is behind it, and what it reflects.
           vec3 paneN = normalize(vNightNormal), paneRoom = vec3(1.0), paneView = normalize(vNightWorld - cameraPosition);
           float paneGlass = 0.0, paneOn = 0.0, paneH = vNightSeed, paneFar = 1.0, paneOffice = 0.0;
@@ -912,16 +1289,21 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               float facing = nightN.y >= 0.0 ? mix(.5, 1.0, nightN.y) : .3 * (1.0 + nightN.y);
               totalEmissiveRadiance += diffuseColor.rgb * nightLampColor * nightTexel.r * nightTexel.r * reach * facing * nightPool;
             }
-            ${windows ? `
+            ${shops ? `
+            // The shop units stay lit after dark, bar a few.
+            totalEmissiveRadiance += vec3(1.0, .96, .9) * shopRoom.rgb * mix(.12, 1.0, shopRoom.a) * (1.0 - .6 * shopDim) * shopOn * step(fract(shopSeed * 3.31), ${SHOP_WINDOWS.lit.toFixed(2)}) * ${SHOP_WINDOWS.night.toFixed(2)} * nightLevel;` : ''}
+            ${windows && !shops ? `
             // Lit windows: lamplight in homes, a cooler white in offices. A far pane's glow varies from window
             // to window; a room seen close is exposed evenly, so its shading reads.
             vec3 tint = nightWindowTint(paneH, mix(mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(paneH * 7.13))), vec3(.86, .93, 1.0), .8 * paneOffice));
             totalEmissiveRadiance += tint * paneRoom * mix(1.0, 1.1 + fract(paneH * 3.7), paneFar) * paneGlass * paneOn * nightLevel;${panes ? '' : `
             // A share of the shopfronts keep their lights on after dark.
-            totalEmissiveRadiance += vec3(1.0, .86, .68) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * ${INTERIOR.nightShopfront.toFixed(2)} * nightLevel;`}` : ''}
+            // Most shop windows on a shopping street stay lit, whiter and brighter than a corner shop.
+            float frontLit = max(nightWindowLit(fract(nightFrontSeed * 3.31)), nightFrontShop * step(fract(nightFrontSeed * 3.31), ${SHOP_WINDOWS.lit.toFixed(2)}));
+            totalEmissiveRadiance += mix(vec3(1.0, .86, .68), vec3(1.0, .96, .9), nightFrontShop) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * frontLit * mix(${INTERIOR.nightShopfront.toFixed(2)}, ${SHOP_WINDOWS.night.toFixed(2)}, nightFrontShop) * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v6' : '-windows-v14' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v1-${shops.join('.')}` : panes ? '-panes-v6' : '-windows-v15' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();
@@ -936,7 +1318,10 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
   function windowsFor(mesh: THREE.Mesh) {
     if (Array.isArray(mesh.material) || !lit(mesh.material)) return false;
     // Material metadata survives static batching and instanced-material separation.
-    const panes = mesh.material.userData.nightWindow === true;
+    // A wall of shop units: its material lists the shops it holds (SHOP_LAYOUTS names), or is simply marked for all of them.
+    const marked = mesh.material.userData.nightShopWindow as true | readonly (keyof typeof SHOP_LAYOUTS)[] | undefined;
+    const names = Object.keys(SHOP_LAYOUTS), shops = marked ? (marked === true ? names : marked).map(name => names.indexOf(name) + 1).filter(n => n > 0) : null;
+    const panes = mesh.material.userData.nightWindow === true || !!shops?.length;
     if (!panes && (!windowable(mesh.material) || !WINDOW_SHAPES.has(mesh.geometry.type))) return false;
     if (mesh instanceof THREE.SkinnedMesh) return false;
     for (let p: THREE.Object3D | null = mesh.parent; p; p = p.parent) if (!panes && NO_WINDOWS.has(p.name)) return false;
@@ -969,7 +1354,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
     const facade = nightFacadeAttributes(geometry, up);
     for (const [name, buffer] of Object.entries(facade)) view.setAttribute(name, buffer);
     let material = windowed.get(mesh.material);
-    if (!material) { material = (mesh.material as Lit).clone(); windowed.set(mesh.material, material); patch(material, true, panes); }
+    if (!material) { material = (mesh.material as Lit).clone(); windowed.set(mesh.material, material); patch(material, true, panes, shops?.length ? shops : null); }
     swaps.push({ mesh, geometry, material: mesh.material, attributes: [attribute, ...Object.values(facade)] });
     mesh.geometry = view; mesh.material = material;
     return true;

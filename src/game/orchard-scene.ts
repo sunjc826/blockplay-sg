@@ -85,6 +85,10 @@ export function buildOrchardScene() {
   const asphalt = mat('#565c60'), white = mat('#eae8da'), paving = mat('#bdb8ac'), kerb = mat('#d0cabc');
   const granite = mat('#9d655a'), pale = mat('#e4ded0'), cream = mat('#e8dfc9'), concrete = mat('#aeaca2');
   const glass = mat('#7ba0b2', 0.22, 0.34), deepGlass = mat('#5f8798', 0.18, 0.42), steel = mat('#b0b7ba', 0.3, 0.55);
+  // The malls' shop units: glazed walls that show a designed shop window in every bay, matching the sign over them.
+  const fashionGlass = mat('#5f8798', 0.18, 0.42), lifestyleGlass = mat('#5f8798', 0.18, 0.42);
+  fashionGlass.userData.nightShopWindow = ['fashion', 'jeweller', 'bags', 'beauty', 'sports'];
+  lifestyleGlass.userData.nightShopWindow = ['bookshop', 'cafe', 'toys', 'florist', 'electronics'];
   const brass = mat('#c0982f', 0.4, 0.6), dark = mat('#36434a'), wood = mat('#7d6248'), skin = mat('#b18c71');
   const leaf = mat('#49713f'), canopy = mat('#5c8a4a'), lawn = mat('#8ea86d');
   const tileGreen = mat('#39614a'), orange = mat('#f0a044'), banner = mat('#a8402f'), awning = mat('#d8b24a');
@@ -296,11 +300,12 @@ export function buildOrchardScene() {
     for (const side of [-1, 1]) for (const z of [-87, -65, -43]) box(x + side * 21, y + 4.67, z, .3, .05, 9, retailLight);
     sign(y === 0 ? 'SHOPS / ATRIUM' : `LEVEL ${y / 5 + 1}  RETAIL`, x, y + 2.8, -43, 16, .8, '#465f62');
     for (const side of [-1, 1]) for (const z of [-79, -51]) {
-      box(x + side * 32.6, y + 1.7, z, .4, 3.4, 12, deepGlass);
+      box(x + side * 32.6, y + 1.7, z, .4, 3.4, 12, z === -79 ? fashionGlass : lifestyleGlass);
       box(x + side * 28.5, y + 3.6, z, 8, .3, 12, pale);
       // Framed display walls, shop headers and stock on the already-solid
       // counters give the occupied floors a retail scale without narrowing aisles.
-      for (const dz of [-5.5, -2.7, 0, 2.7, 5.5]) box(x + side * 32.3, y + 1.7, z + dz, .12, 3.4, .1, steel);
+      // Mullions stand on the 3 m bays the shop windows are drawn in (world-night-lights SHOP_WINDOWS.bay).
+      for (const dz of [-5.95, -3, 0, 3, 5.95]) box(x + side * 32.3, y + 1.7, z + dz, .12, 3.4, .1, steel);
       for (const dy of [.2, 2.8]) box(x + side * 32.3, y + dy, z, .14, .12, 11.4, steel);
       const shop = sign(z === -79 ? 'DESIGN / FASHION' : 'BOOKS / LIFESTYLE', x + side * 32.15, y + 3.08, z, 9, .55, x === 117 ? '#654b42' : '#365964');
       if (shop) shop.rotation.y = -side * Math.PI / 2;

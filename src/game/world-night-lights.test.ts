@@ -136,6 +136,19 @@ describe('street lamps', () => {
     expect(geometry.getAttribute('nightEdge')).toBeUndefined();
     geometry.dispose(); material.dispose();
   });
+  it('draws shop units on a wall whose material lists its shops, and restores it on disposal', () => {
+    const scene = new THREE.Scene();
+    const material = new THREE.MeshStandardMaterial({ color: '#5f8798' }); material.userData.nightShopWindow = ['fashion', 'bags'];
+    const geometry = new THREE.BoxGeometry(.4, 3.4, 12), wall = new THREE.Mesh(geometry, material);
+    wall.position.set(5, 1.7, 0); scene.add(wall);
+    const night = createNightLights(scene, { roads: [], roadWidth: 14, bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 }, obstacles: [] });
+    expect(wall.material).not.toBe(material);
+    expect(wall.geometry.getAttribute('nightSpan').getX(0)).toBeCloseTo(-.01);
+    expect((wall.material as THREE.Material).customProgramCacheKey()).toContain('-shops-v1-1.10');
+    night.dispose();
+    expect(wall.geometry).toBe(geometry); expect(wall.material).toBe(material);
+    geometry.dispose(); material.dispose();
+  });
   it('lights all three Sands towers between their splayed facade frames after batching', () => {
     const region = REGIONS.find(r => r.id === 'marina-bay')!, world = region.build();
     separateInstancedMaterials(world.scene);

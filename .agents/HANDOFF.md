@@ -16926,3 +16926,28 @@ Left: reflections are not of the real scene, so a tower does not show its neighb
 Raffles Place's authored glass towers now carry generated panes over their own glazing
 grid; it reads as office floors but is two grids. Not tried on a phone or on the
 software renderer.
+
+Shop windows for Orchard (2026-11-18, owner's request):
+- `SHOP_LAYOUTS` in `world-night-lights.ts` designs ten shops for `nightRoom`: fashion,
+  jeweller, electronics, bookshop, cafe, sports, beauty, toys, florist, bags. Each is
+  three traced boxes, its own walls, floor, ceiling lights and back wall, and in five
+  of them flat cut-outs standing in a plane a little way in (mannequins, pendant lamps,
+  bouquets, one bag on a stand), which slide against the room like the furniture.
+  `nightRoom`'s `use` is -1 and below for these (0 is still the plain corner shop).
+  A third of them carry a promotion strip on the glass. They stay lit after dark and
+  add some of their own light by day (`SHOP_WINDOWS`).
+- Orchard gets them two ways. Its mall display walls (the 12 m glazed walls on all three
+  levels of the three malls) are now two materials marked `userData.nightShopWindow`
+  with a list of shops: fashion, jeweller, bags, beauty, sports under DESIGN / FASHION,
+  and bookshop, cafe, toys, florist, electronics under BOOKS / LIFESTYLE. Such a wall is
+  drawn in 3 m bays between a low rail and a 2.8 m head, on both faces; the mullions
+  moved from 2.7 m to 3 m centres to stand on the bays. And `boutiques: 1` in
+  `district-interiors.ts` turns Orchard's generated shopfronts into the same shops,
+  stepping through them by a stride of 3 so neighbours differ.
+- Keys `-windows-v15`, new `-shops-v1-<list>`. `night-district.html` takes `&shops=share`.
+- Timed against the previous commit at three views of an Orchard mall by day and night:
+  no difference (1.3-4.9 ms a frame either way on the VM's Metal GPU).
+Left: a shop wall shows a room on both faces, so the room seen from the gallery lies
+where the lane outside is; the two are never in view together. The authored counters
+and stock still stand in the gallery in front of the glass. Other districts keep the
+plain shop. Not tried on a phone or on the software renderer.
