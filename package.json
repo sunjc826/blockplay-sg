@@ -13,6 +13,7 @@
     "test:fps:slide": "node scripts/fps-slide-smoke.mjs",
     "test:fps:battlefield": "node scripts/fps-battlefield-smoke.mjs",
     "test:fps:districts": "node scripts/fps-district-smoke.mjs",
+    "test:districts:sweep": "node scripts/district-sweep-smoke.mjs",
     "test:fps:voice": "node scripts/encik-playback-smoke.mjs",
     "voice:batch": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-batch.mjs",
     "voice:missing": "node --experimental-strip-types --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/encik-missing.mjs",

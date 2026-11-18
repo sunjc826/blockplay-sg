@@ -29,21 +29,21 @@ try {
  await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
  await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
- await wait(`document.querySelectorAll('.location-card').length>=3`);
+ await wait(`document.readyState==='complete'`,60000);
  // Every registered district is exercised, so a new map needs no edit here.
  const regions=await evaluate(`import('/src/game/regions.ts').then(async m=>{const d=await import('/src/game/fps-districts.ts');return m.REGIONS.map(r=>[r.id,r.name,d.getFpsDistrict(r.id).label])})`);
  assert(regions.length>=3,'the developed districts are selectable');
  for(const [index,[id,name,label]] of regions.entries()) {
-   await click(`[...document.querySelectorAll('.location-card')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(name)})`);
-   if(index===0) await click(`[...document.querySelectorAll('.mode-card')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(label)})`);
-   await wait(`document.querySelector('.fps-game')?.dataset.mapZone===${JSON.stringify(id)} && ${phase('ready')}`);
+   // The debug workspace opens a tool and district from its URL; the old district and mode cards are gone.
+   await send('Page.navigate',{url:`${origin}/debug?tool=fps&district=${id}`});
+   await wait(`document.querySelector('.fps-game')?.dataset.mapZone===${JSON.stringify(id)} && ${phase('ready')}`,60000);
    assert.equal(await evaluate(`document.querySelectorAll('.experience canvas').length`),1);
    assert((await evaluate(`document.querySelector('.fps-toolbar h3').textContent`)).includes(label));
    await click(`document.querySelector('.fps-shop-link')`);
    await wait(`!!document.querySelector('.armory-deploy button')`);
    assert.equal(await evaluate(`document.querySelector('.armory-deploy button').textContent.trim()`),`Deploy to ${label}`);
    await click(`document.querySelector('.armory-deploy button')`);
-   await wait(`document.querySelector('.fps-game')?.dataset.mapZone===${JSON.stringify(id)} && ${phase('ready')}`);
+   await wait(`document.querySelector('.fps-game')?.dataset.mapZone===${JSON.stringify(id)} && ${phase('ready')}`,60000);
    const config=await evaluate(`import('/src/game/fps-districts.ts').then(m=>m.getFpsDistrict(${JSON.stringify(id)}))`);
    await click(button('Enter range')); await wait(phase('playing'));
    assert(await evaluate('!!document.pointerLockElement'));
@@ -52,14 +52,28 @@ try {
    let yaw=config.spawn.yaw,pitch=config.spawn.pitch;
    await key('q','KeyQ'); await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
    for(const [n,target] of config.targets.entries()) {
-     if(await evaluate(`Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)`)<8) {
-       await key('r','KeyR'); await wait(`Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)===30`);
-       await key('q','KeyQ'); await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
+     // A dummy takes several rounds and the trigger is held until it falls, so top up early. A reload from
+     // empty ends one round short of a full gun (the chamber takes it), so wait for most of a magazine.
+     if(await evaluate(`Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)`)<16) {
+       await key('r','KeyR'); await wait(`Number(document.querySelector('.fps-ammo strong')?.firstChild.textContent)>=29`,15000);
+       // The magazine count fills before the reload's last stage ends, and Q is ignored until it does: try until the sights come up.
+       for(let attempt=0;attempt<6&&await evaluate(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)<.98`);attempt++){
+         await delay(700); if(await evaluate(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)<.05`)) await key('q','KeyQ'); await delay(700);
+       }
+       await wait(`Number(document.querySelector('.fps-viewport canvas').dataset.aimProgress)>.98`);
      }
      const nextYaw=Math.atan2(-(target.x-config.spawn.x),-(target.z-config.spawn.z));
      const nextPitch=Math.atan2(-.32,Math.hypot(target.x-config.spawn.x,target.z-config.spawn.z));
-     await evaluate(`(()=>{const e=new MouseEvent('mousemove');Object.defineProperties(e,{movementX:{value:${-(nextYaw-yaw)/.0013}},movementY:{value:${-(nextPitch-pitch)/.0013}}});document.dispatchEvent(e)})()`);
-     yaw=nextYaw;pitch=nextPitch;await delay(300);
+     // Close the loop on the engine's own aim: recoil moves it and hands only part back, and a magnified
+     // sight scales the mouse, so one reckoned move lands short on a wide turn.
+     for(let step=0;step<6;step++){
+       ({yaw,pitch}=await evaluate(`(()=>{const d=document.querySelector('.fps-game').dataset;return {yaw:Number(d.playerYaw),pitch:Number(d.playerPitch)}})()`));
+       let turn=nextYaw-yaw; turn=Math.atan2(Math.sin(turn),Math.cos(turn));
+       if(Math.abs(turn)<.002&&Math.abs(nextPitch-pitch)<.002)break;
+       await evaluate(`(()=>{const e=new MouseEvent('mousemove');Object.defineProperties(e,{movementX:{value:${-turn/.0013}},movementY:{value:${-(nextPitch-pitch)/.0013}}});document.dispatchEvent(e)})()`);
+       await delay(120);
+     }
+     await delay(300);
      await send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});
      await wait(`document.querySelector('.fps-score').textContent.startsWith('${n+1} /')`,7000);
      await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});

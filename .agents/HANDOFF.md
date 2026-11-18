@@ -16828,3 +16828,31 @@ and respawn views see through the layer; street level changes by under 3%. Seen
 in Tuas from 160 m before and after. Still open from that list: Tuas's sea edge
 showing grey below the horizon, the slow indirect-light fade entering Changi, and
 one shared cloud field.
+
+## 2026-11-18 — Checking the detail passes in the real game
+
+- New `pnpm test:districts:sweep` (`scripts/district-sweep-smoke.mjs`): opens each
+  district's range through the debug workspace deep link, enters play, and
+  records runtime errors, console errors (three reports shader failures there),
+  frame times and a screenshot to `.cache/district-sweep/`. `SWEEP_TIME=night`,
+  `SWEEP_DISTRICTS=a,b`. It does not move or shoot, so gunplay changes do not
+  stale it. Result on the real GPU (Metal, headless): all 23 districts by day
+  and by night reach play with no errors at a steady 16.7 ms.
+- Cost of the ground and building passes: 20 repeated renders of one street view
+  through `night-district.html`, old build (`eec33c1`) against new, alternated
+  three times in Bishan, Chinatown, Woodlands, Orchard and Tuas at 1600x1000:
+  9.3-10.2 ms either way, differences within run-to-run noise. This is the VM's
+  paravirtual GPU; a phone was not measured. The gun surface and gun occlusion
+  passes were not measured on their own; play holds 60 fps with them on.
+- Ten smokes still look for `.location-card` / `.mode-card`, which the
+  11 November debug workspace removed. `/debug?tool=fps&district=<id>` (and
+  `tool=walk`) is the replacement.
+  - `fps-district-smoke.mjs`: now uses the deep link, reads the engine's real
+    aim (`data-player-yaw/pitch`) in a closed loop, and reloads by the chamber
+    rules. Still fails clearing Marina's fourth or fifth dummy; not traced.
+  - `touch-controls-smoke.mjs`: deep links, and the stop check allows for
+    braking. Now fails at "a half-pushed stick walks slower than a full one"
+    with the full push travelling 0: there are sandbags ahead of Marina's spawn.
+  - `smoke-regions.mjs` and `pwa-smoke.mjs` were not run.
+- The heading strip was too faint in play; it now has a backdrop and larger,
+  brighter text. `hud-layout-smoke` passes (39 combinations).

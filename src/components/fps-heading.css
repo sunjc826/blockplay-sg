@@ -1,12 +1,12 @@
 /* The heading strip: ticks every 15 degrees, letters on the eight points, a fixed centre mark and the bearing under it. */
-.fps-heading{width:240px;height:30px;font:var(--hud-label);letter-spacing:0;color:var(--hud-ink)}
+.fps-heading{width:240px;height:30px;font:var(--hud-label);letter-spacing:0;color:var(--hud-ink);background:linear-gradient(90deg,transparent,#16261e8c 22%,#16261e8c 78%,transparent);border-radius:var(--hud-radius)}
 .fps-heading::before{content:'';position:absolute;left:50%;top:0;width:2px;height:4px;background:var(--hud-gold);transform:translateX(-50%)}
 .fps-heading-strip{position:absolute;inset:0 0 auto;height:14px;overflow:hidden}
-.fps-heading-strip span{position:absolute;top:0;width:28px;margin-left:-14px;padding-top:5px;text-align:center;font-size:8px;color:var(--hud-dim)}
+.fps-heading-strip span{position:absolute;top:0;width:28px;margin-left:-14px;padding-top:5px;text-align:center;font-size:9px;color:var(--hud-ink)}
 .fps-heading-strip span::before{content:'';position:absolute;left:50%;top:0;width:1px;height:4px;background:currentColor;opacity:.7}
-.fps-heading-strip span[data-point]{color:var(--hud-ink);font-weight:700}
+.fps-heading-strip span[data-point]{color:#fff;font-weight:700}
 .fps-heading-strip span[data-point=N]{color:var(--hud-gold)}
-.fps-heading b{position:absolute;left:50%;top:17px;transform:translateX(-50%);font-size:9px;color:var(--hud-gold-soft);font-variant-numeric:tabular-nums}
+.fps-heading b{position:absolute;left:50%;top:17px;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--hud-gold);font-variant-numeric:tabular-nums}
 
 /* What to do next, under the reticle and the hit label: a reload the gun needs or the carried dressing. */
 .fps-action-prompt{position:absolute;left:50%;top:calc(50% + 46px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:var(--hud-radius);background:#16261e99;color:var(--hud-ink);font:var(--hud-label);letter-spacing:1px;white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px #000;animation:fps-action-in .18s ease-out}

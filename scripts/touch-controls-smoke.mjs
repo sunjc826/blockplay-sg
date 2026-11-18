@@ -50,8 +50,8 @@ try {
   await send('Page.reload'); await delay(600);
   assert.equal(await evaluate(`matchMedia('(pointer: coarse)').matches`), true, 'Emulated phone reports a coarse pointer');
 
-  await wait(`document.querySelectorAll('.mode-card').length>2`);
-  await tap(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Marina FPS'))`);
+  // The debug workspace opens a tool and district from its URL; its old mode cards are gone.
+  await send('Page.navigate', { url: `${origin}/debug?tool=fps&district=marina-bay` });
   await wait(phase('ready'));
   assert.equal(await evaluate(`document.querySelector('.fps-game').dataset.touch`), 'on', 'The range offers touch controls on a phone');
   // Entering by touch must not ask for pointer capture; there is no mouse to capture.
@@ -83,8 +83,11 @@ try {
   await push(stick('move'), 0, -60, 700);
   const walked = await evaluate(where);
   assert(travelled(spawn, walked) > 1, `The move stick walks (${JSON.stringify({ spawn, walked })})`);
+  // Movement brakes over a few tenths of a second rather than stopping dead, so judge it once it has had time to.
+  await delay(600); const settled = await evaluate(where);
+  assert(travelled(walked, settled) < 1.5, `Lifting the thumb brakes within a stride (${travelled(walked, settled)})`);
   await delay(300);
-  assert(travelled(walked, await evaluate(where)) < 0.05, 'Lifting the thumb stops the player');
+  assert(travelled(settled, await evaluate(where)) < 0.05, 'Lifting the thumb stops the player');
 
   // Analog: the same hold at half deflection covers meaningfully less ground.
   const beforeHalf = await evaluate(where);
@@ -137,7 +140,7 @@ try {
   await screenshot('range-paused');
 
   // The walk/drive districts carry the same sticks.
-  await tap(`[...document.querySelectorAll('.mode-card')].find(b=>b.textContent.includes('Marina 3D'))`);
+  await send('Page.navigate', { url: `${origin}/debug?tool=walk&district=marina-bay` });
   await wait(`!!document.querySelector('.marina-game[data-touch=on]')`);
   await wait(`!!document.querySelector('[data-touch-stick=move]')`);
   const explored = `Number(document.querySelector('.session-strip strong').firstChild.textContent)`;
