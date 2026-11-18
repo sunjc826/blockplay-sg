@@ -16900,3 +16900,29 @@ after editing the shader can show the old one; shoot twice.
 Left: Bishan's slab blocks hide all but a strip of each window behind corridor bands,
 so little of a room shows there. Every lit window is a home, offices included. Not
 tried on a phone.
+
+Offices and reflective glass (2026-11-18, owner's follow-up):
+- `src/game/district-interiors.ts` gives each district the share of its buildings that
+  are offices above the ground floor, and whether they are the business district's
+  (`cbd`: Marina Bay, Raffles Place, Orchard). `createNightLights` takes it as
+  `interiors`; a building is one or the other by its own seed. `OFFICE_LAYOUTS` adds
+  four plans: `openPlan` and `meeting` (cbd: partitioned desk rows or a long table,
+  panel-grid ceiling, one sheet of glass, roller blinds, carpet) and `clerical` and
+  `stockroom` (elsewhere: filing cabinets, copier, cartons on racking, tubes, slatted
+  blinds, window bar). `nightRoom`'s last argument is now `use` (0 shop, 1 home,
+  2 cbd office, 3 plain office). The shares are my reading of each place, not a survey.
+- Upper-floor windows are now drawn by day too: dark glass with the room dimly behind
+  it, in the same cells as the night panes. This changes every windowed wall by day.
+- Glass reflects a worked-out cube map (`nightSkyBox`): the district look's sky from
+  horizon to zenith, a blocky skyline round the horizon, the ground, and a glint
+  towards the sun; `nightFresnel` (`REFLECTION`, mirror `glassReflection`) gives a
+  fifth of it head on and nearly all at a glance. Generated panes, shopfronts and
+  authored panes all get it. `nightLights.update` takes the look's uniforms as a sixth
+  argument for the sky; without them it falls back to the flat background.
+- Keys `-windows-v14`, `-panes-v6`. `night-district.html` takes `&offices=share,cbd`.
+- Timed against the previous commit in Raffles Place by day and night and on the test
+  wall by day: no difference on the VM's Metal GPU (1.3-3.3 ms a frame either way).
+Left: reflections are not of the real scene, so a tower does not show its neighbour.
+Raffles Place's authored glass towers now carry generated panes over their own glazing
+grid; it reads as office floors but is two grids. Not tried on a phone or on the
+software renderer.

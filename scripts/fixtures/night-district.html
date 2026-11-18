@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Any district at night, still, for judging lit windows and lamp pools by eye.
-     ?region=bishan  &cam=x,y,z  &look=x,y,z  &fov=65  &time=afternoon (night by default)  &block=x,z (a plain test building). window.night.at(cam, look) re-renders without reloading. -->
+     ?region=bishan  &cam=x,y,z  &look=x,y,z  &fov=65  &time=afternoon (night by default)  &block=x,z (a plain test building)  &offices=share,cbd (0 or 1) overrides the district's upper-floor interiors. window.night.at(cam, look) re-renders without reloading. -->
 <html><body style="margin:0;background:#000"><script type="module">
 localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:'sunny',celebration:'none',timeOfDay:new URLSearchParams(location.search).get('time')??'night',reducedEffects:false,shadows:false,occlusion:true}));
 const params=new URLSearchParams(location.search),vec=(s,d)=>s?s.split(',').map(Number):d;
@@ -17,13 +17,14 @@ const region=getRegion(params.get('region')??'bishan'),world=region.build();sepa
 // &block=x,z stands a plain 30 x 20 x 12 m building there: a clear wall for judging windows and the rooms behind them.
 if(params.get('block')){const [bx,bz]=vec(params.get('block'));const block=new THREE.Mesh(new THREE.BoxGeometry(30,20,12),new THREE.MeshStandardMaterial({color:'#b9b2a4'}));block.position.set(bx,10,bz);world.scene.add(block);}
 const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
-const nightLights=createNightLights(world.scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles});
+const {DISTRICT_INTERIORS}=await import('/src/game/district-interiors.ts');
+const nightLights=createNightLights(world.scene,{roads:region.mapRoads,roadWidth:region.roadWidth,bounds:region.bounds,obstacles:world.obstacles,interiors:params.get('offices')?{offices:vec(params.get('offices'))[0],cbd:!!vec(params.get('offices'))[1]}:DISTRICT_INTERIORS[region.id]});
 // The game's own camera range, so depth precision matches play.
 const camera=new THREE.PerspectiveCamera(Number(params.get('fov')??65),W/H,.08,800);
 const occlusion=createWorldOcclusion(renderer,world.scene,camera);
 function at(cam=[0,2,0],look=[0,10,-100]){
   camera.position.set(...cam);camera.lookAt(...look);camera.updateMatrixWorld(true);
-  atmosphere.update(1/30,camera);nightLights.update(atmosphere.light.lighting,0,1/30,camera,renderer);
+  atmosphere.update(1/30,camera);nightLights.update(atmosphere.light.lighting,0,1/30,camera,renderer,atmosphere.look?.uniforms);
   renderer.toneMappingExposure=atmosphere.light.lighting.exposure;
   world.animate(0);occlusion.render(true);
 }

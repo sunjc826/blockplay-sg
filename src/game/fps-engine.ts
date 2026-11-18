@@ -93,6 +93,7 @@ import { bipodRecoilMultiplier } from './weapon-support';
 import { createWorldAtmosphere } from './world-atmosphere';
 import { createWetSurfaces } from './wet-surfaces';
 import { createNightLights, nightLevel } from './world-night-lights';
+import { DISTRICT_INTERIORS } from './district-interiors';
 import { getRegion } from './regions';
 import { INFANTRY_SPEED, movementFrameSteps, createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
@@ -447,7 +448,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   separateInstancedMaterials(world.scene);
   const atmosphere = createWorldAtmosphere(world.scene, getRegion(region).stamps, world.obstacles, !!options.arena && options.arena.session.role !== 'solo', renderer, options.tutorial, world.bounds.groundHeight);
   // Streetlamps, their pools and lit windows, for dusk and night.
-  const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles });
+  const nightLights = createNightLights(world.scene, { roads: getRegion(region).mapRoads, roadWidth: getRegion(region).roadWidth, bounds: world.bounds, obstacles: world.obstacles, interiors: DISTRICT_INTERIORS[region] });
   const sunShadows = createSunShadows(renderer, world.scene);
   let playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
   let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
@@ -2995,7 +2996,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // A blackout takes the city's glow with it, which only shows at night.
     renderer.toneMappingExposure = lighting.exposure * (1 - .5 * blackout * lighting.shift);
     sunShadows.update(shadows, camera, lighting.key, dt, SHADOW_MAP_SIZE[getGraphicsSettings().shadowDetail]);
-    nightLights.update(lighting, blackout, dt, camera, renderer);
+    nightLights.update(lighting, blackout, dt, camera, renderer, atmosphere.look?.uniforms);
     // The viewmodel lives in camera-local space. Rotate the shared sky with the
     // world camera so highlights stay fixed in the world when the player turns.
     viewScene.environment = world.scene.environment;

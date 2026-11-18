@@ -101,10 +101,11 @@ describe('interior mapping', () => {
       expect(hit.point[2]).toBeLessThanOrEqual(INTERIOR.depth + 1e-6);
     }
   });
-  it('furnishes every home layout inside its room, with no two pieces sharing space and something tall enough to see from the street', async () => {
-    const { HOME_LAYOUTS, CURTAINS, INTERIOR, roomBox } = await import('./world-night-lights');
+  it('furnishes every home and office layout inside its room, with no two pieces sharing space and something tall enough to see from the street', async () => {
+    const { HOME_LAYOUTS, OFFICE_LAYOUTS, CURTAINS, BLINDS, INTERIOR, roomBox } = await import('./world-night-lights');
     expect(Object.keys(HOME_LAYOUTS).length).toBeGreaterThanOrEqual(4);
-    for (const [name, boxes] of Object.entries(HOME_LAYOUTS)) for (const width of [3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
+    expect(Object.keys(OFFICE_LAYOUTS)).toEqual(['openPlan', 'meeting', 'clerical', 'stockroom']);
+    for (const [name, boxes] of Object.entries({ ...HOME_LAYOUTS, ...OFFICE_LAYOUTS })) for (const width of [3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
       const placed = boxes.map(box => ({ name: box.name, ...roomBox(box, width, depth) }));
       for (const b of placed) {
         const label = `${name} ${b.name} at ${width} x ${depth}`;
@@ -120,6 +121,23 @@ describe('interior mapping', () => {
       expect(Math.max(...placed.map(b => b.high[1])), name).toBeGreaterThanOrEqual(1.8);
     }
     expect(CURTAINS.kitchen).toBe(0);
-    for (const share of Object.values(CURTAINS)) { expect(share).toBeGreaterThanOrEqual(0); expect(share).toBeLessThan(1); }
+    for (const share of [...Object.values(CURTAINS), ...Object.values(BLINDS)]) { expect(share).toBeGreaterThanOrEqual(0); expect(share).toBeLessThan(1); }
+  });
+  it('gives every district its share of offices, and the business district its own kind', async () => {
+    const { DISTRICT_INTERIORS } = await import('./district-interiors');
+    const { REGION_IDS } = await import('./region-ids');
+    expect(Object.keys(DISTRICT_INTERIORS).sort()).toEqual([...REGION_IDS].sort());
+    for (const id of REGION_IDS) {
+      const { offices, cbd } = DISTRICT_INTERIORS[id];
+      expect(offices, id).toBeGreaterThanOrEqual(0); expect(offices, id).toBeLessThanOrEqual(1);
+      expect(cbd, id).toBe(['marina-bay', 'raffles-place', 'orchard'].includes(id));
+    }
+  });
+  it('reflects a little head on and nearly everything at a glance', async () => {
+    const { glassReflection, REFLECTION } = await import('./world-night-lights');
+    expect(glassReflection(1)).toBeCloseTo(REFLECTION.headOn, 6);
+    expect(glassReflection(0)).toBeCloseTo(1, 6);
+    expect(glassReflection(.5)).toBeGreaterThan(glassReflection(.9));
+    expect(REFLECTION.headOn).toBeLessThan(.4);
   });
 });

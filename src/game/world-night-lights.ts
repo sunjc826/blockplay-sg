@@ -226,6 +226,43 @@ export const HOME_LAYOUTS = {
     { name: 'armchair', x: [[-1, 1], [-.2, 1]], y: [0, .85], z: [[.9, 0], [1.7, 0]] },
   ],
 } as const satisfies Record<string, readonly [RoomBox, RoomBox, RoomBox]>;
+/**
+ * What stands in the offices behind lit windows. `openPlan` and `meeting` are the towers of the business
+ * district: rows of partitioned desks or a long table, under a grid of ceiling panels behind clear glass.
+ * `clerical` and `stockroom` are the offices everywhere else: filing cabinets, a copier, shelves of cartons,
+ * under fluorescent tubes behind slatted blinds.
+ */
+export const OFFICE_LAYOUTS = {
+  openPlan: [
+    { name: 'desk row by the glass', x: [[.3, 0], [-.3, 1]], y: [0, 1.15], z: [[.9, 0], [1.6, 0]] },
+    { name: 'desk row behind', x: [[.3, 0], [-.3, 1]], y: [0, 1.15], z: [[2.1, 0], [2.8, 0]] },
+    { name: 'storage wall', x: [[0, 0], [0, .4]], y: [0, 2], z: [[-.45, 1], [0, 1]] },
+  ],
+  meeting: [
+    { name: 'table', x: [[0, .25], [0, .75]], y: [0, .74], z: [[1, 0], [-1, 1]] },
+    { name: 'credenza', x: [[0, 0], [.45, 0]], y: [0, .8], z: [[1, 0], [-.6, 1]] },
+    { name: 'plant', x: [[-.6, 1], [-.15, 1]], y: [0, 1.8], z: [[-.6, 1], [-.15, 1]] },
+  ],
+  clerical: [
+    { name: 'filing cabinets', x: [[0, 0], [0, .5]], y: [0, 1.9], z: [[-.5, 1], [0, 1]] },
+    { name: 'desk', x: [[0, .55], [-.2, 1]], y: [0, .75], z: [[-1.6, 1], [-.9, 1]] },
+    { name: 'copier', x: [[-.7, 1], [-.1, 1]], y: [0, 1.1], z: [[.8, 0], [1.5, 0]] },
+  ],
+  stockroom: [
+    { name: 'side shelving', x: [[0, 0], [.5, 0]], y: [0, 2.1], z: [[.8, 0], [-.6, 1]] },
+    { name: 'back shelving', x: [[0, 0], [-.2, 1]], y: [0, 2.1], z: [[-.5, 1], [0, 1]] },
+    { name: 'desk', x: [[-1.5, 1], [-.3, 1]], y: [0, .75], z: [[.9, 0], [1.6, 0]] },
+  ],
+} as const satisfies Record<string, readonly [RoomBox, RoomBox, RoomBox]>;
+/** How often an office's third box gives way to a blind lowered part of the way down the glass. */
+export const BLINDS = { openPlan: .45, meeting: .5, clerical: .7, stockroom: .4 } as const;
+/**
+ * What a building's upper floors hold: homes, or offices in `offices` of the district's buildings (0-1), and
+ * whether those offices are the business district's (`cbd`) or the plainer kind found everywhere else.
+ */
+export type NightInteriors = { offices: number; cbd: boolean };
+/** The sky glass reflects, in scene values: the district look's uniforms have this shape. */
+export type NightSky = Record<'lookHorizon' | 'lookZenith' | 'lookGround', { value: THREE.Vector3 }>;
 /** How often a home's third box gives way to a curtain, by layout: a kitchen keeps its fridge. Of those, `drawn` are pulled right across. */
 export const CURTAINS = { living: .6, bedroom: .7, kitchen: 0, study: .5, drawn: .18 } as const;
 /** A furniture box in metres for a room this wide and deep: low and high corners (across, up, in from the inside of the wall). */
@@ -235,9 +272,24 @@ export function roomBox(box: RoomBox, width: number, depth: number) {
 }
 const glslSpan = (s: RoomSpan, size: string, offset = '') => `${offset}${s[0].toFixed(2)}${s[1] ? ` + ${s[1].toFixed(2)} * ${size}` : ''}`;
 const glslBox = (box: RoomBox, name: string) => `${name}Low = vec3(${glslSpan(box.x[0], 'size.x')}, ${box.y[0].toFixed(2)}, ${glslSpan(box.z[0], 'depth', 'reveal + ')}); ${name}High = vec3(${glslSpan(box.x[1], 'size.x')}, ${box.y[1].toFixed(2)}, ${glslSpan(box.z[1], 'depth', 'reveal + ')});`;
-/** The GLSL that sets the three furniture boxes for `plan` (0-3, in HOME_LAYOUTS order) and its curtain share. */
-const HOME_BOXES_GLSL = (Object.keys(HOME_LAYOUTS) as (keyof typeof HOME_LAYOUTS)[]).map((key, i, all) =>
-  `${i ? 'else ' : ''}${i < all.length - 1 ? `if (plan < ${i}.5) ` : ''}{ ${HOME_LAYOUTS[key].map((box, n) => glslBox(box, 'abc'[n])).join(' ')} curtainShare = ${CURTAINS[key].toFixed(2)}; }`).join('\n              ');
+/** The GLSL that sets the three furniture boxes for `plan` (0-7, in ROOM_PLANS order) and its curtain share. */
+/** Every plan a window can show, in the order the shader numbers them: four homes, two business-district offices, two plain ones. */
+const ROOM_PLANS: readonly { boxes: readonly [RoomBox, RoomBox, RoomBox]; hung: number }[] = [
+  ...(Object.keys(HOME_LAYOUTS) as (keyof typeof HOME_LAYOUTS)[]).map(key => ({ boxes: HOME_LAYOUTS[key], hung: CURTAINS[key] })),
+  ...(Object.keys(OFFICE_LAYOUTS) as (keyof typeof OFFICE_LAYOUTS)[]).map(key => ({ boxes: OFFICE_LAYOUTS[key], hung: BLINDS[key] })),
+];
+const HOME_BOXES_GLSL = ROOM_PLANS.map((plan, i, all) =>
+  `${i ? 'else ' : ''}${i < all.length - 1 ? `if (plan < ${i}.5) ` : ''}{ ${plan.boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} curtainShare = ${plan.hung.toFixed(2)}; }`).join('\n              ');
+/**
+ * Reflection in glass. `headOn` is the share reflected looking straight at a pane, rising to all of it at a
+ * glance by `power`; `strength` scales what generated windows and shopfronts add, `authored` what modelled
+ * panes add; the reflected skyline has `blocks` buildings round the horizon between `skylineLow` and
+ * `skylineHigh` (tangent of elevation), and the sun's glint is `glint` sharp. `dayRoom` is how much of an
+ * unlit room shows through the glass by day.
+ */
+export const REFLECTION = { headOn: .2, power: 3, strength: .9, authored: .55, blocks: 36, skylineLow: .05, skylineHigh: .7, glint: 260, dayRoom: .3 } as const;
+/** The share of a pane's view that is reflection, for the cosine of the angle between the view and the glass's normal. Mirrors `nightFresnel`. */
+export const glassReflection = (facing: number) => REFLECTION.headOn + (1 - REFLECTION.headOn) * (1 - Math.max(0, Math.min(1, facing))) ** REFLECTION.power;
 /** Rain streaks under the roof edge of building-sized walls: column width and lengths in metres, the share of columns streaked, and how much they darken. */
 export const STREAKS = { width: .55, share: .5, shortest: 1.2, longest: 9, darken: .11 } as const;
 /** How far down from the roof edge a streak with this seed runs, metres. Mirrors the GLSL. */
@@ -280,7 +332,7 @@ function windowable(m: Lit) {
   return !(g > r * 1.15 && g > b * 1.05);
 }
 
-export function createNightLights(scene: THREE.Scene, options: { roads: readonly RegionRoad[]; roadWidth: number; bounds: RegionBounds; obstacles: readonly Obstacle[] }) {
+export function createNightLights(scene: THREE.Scene, options: { roads: readonly RegionRoad[]; roadWidth: number; bounds: RegionBounds; obstacles: readonly Obstacle[]; interiors?: NightInteriors }) {
   const { bounds } = options;
   const surfaces = getWalkSurfaces(scene);
   scene.updateMatrixWorld(true);
@@ -313,7 +365,16 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
     nightClock: { value: 0 },
     /** 0 with reduced motion: no flicker, no switching. */
     nightMotion: { value: 1 },
+    /** Share of buildings whose upper floors are offices, and 1 where those are the business district's. */
+    nightOffice: { value: new THREE.Vector2(options.interiors?.offices ?? 0, options.interiors?.cbd ? 1 : 0) },
+    /** What glass reflects: the sky at the horizon and overhead and the ground under it, the direction of the sun or moon, and its colour at its present strength. */
+    nightSky: { value: new THREE.Vector3(.72, .86, .92) },
+    nightZenith: { value: new THREE.Vector3(.5, .7, .9) },
+    nightGround: { value: new THREE.Vector3(.4, .42, .42) },
+    nightSun: { value: new THREE.Vector3(0, 1, 0) },
+    nightSunColor: { value: new THREE.Color(0, 0, 0) },
   };
+  const sunColor = new THREE.Color();
   const reducedMotion = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const moving = createMovingLights();
 
@@ -427,6 +488,22 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           varying vec2 vNightSpan, vNightEdge;
           varying float vNightSeed;
           uniform float nightClock, nightMotion;
+          uniform vec2 nightOffice; uniform vec3 nightSky, nightZenith, nightGround, nightSun, nightSunColor;
+          // What glass reflects, for a direction: a cube map worked out rather than stored. The sky as it is
+          // drawn now, paler at the horizon; a skyline of blocks round the horizon; the ground below; and a glint where the direction meets the sun.
+          float nightSkyHash(vec2 v) { return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453); }
+          vec3 nightSkyBox(vec3 dir) {
+            float flat_ = max(length(dir.xz), 1e-3), rise = dir.y / flat_;
+            vec3 sky = mix(nightSky, nightZenith, pow(clamp(dir.y, 0.0, 1.0), .55));
+            float turn = atan(dir.z, dir.x) * ${(REFLECTION.blocks / (2 * Math.PI)).toFixed(3)};
+            float block = floor(turn), tall = ${REFLECTION.skylineLow.toFixed(2)} + ${(REFLECTION.skylineHigh - REFLECTION.skylineLow).toFixed(2)} * nightSkyHash(vec2(block, 3.0)) * nightSkyHash(vec2(floor(turn * .31), 7.0));
+            vec3 city = nightGround * (.45 + .4 * nightSkyHash(vec2(block, 11.0)));
+            vec3 ground = nightGround * .55;
+            vec3 seen = rise < 0.0 ? ground : rise < tall ? city : sky;
+            return seen + nightSunColor * (pow(max(dot(dir, nightSun), 0.0), ${REFLECTION.glint.toFixed(1)}) * 6.0 * step(tall, rise));
+          }
+          // How much of what it faces glass gives back, by the cosine of the angle of view: some head on, nearly all at a glance.
+          float nightFresnel(float facing) { return mix(${REFLECTION.headOn.toFixed(2)}, 1.0, pow(1.0 - clamp(facing, 0.0, 1.0), ${REFLECTION.power.toFixed(1)})); }
           // About one window in six belongs to someone who comes and goes: it is
           // decided afresh every two and a half minutes, each on its own schedule.
           float nightWindowLit(float h) {
@@ -459,7 +536,9 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           vec3 nightPicture(vec3 under, vec2 q, vec2 low, vec2 high, vec3 art) {
             return mix(under, mix(vec3(.16, .13, .11), art * (.7 + .3 * step(.5, fract((q.x + q.y) * 2.3))), nightRect(q, low + .06, high - .06)), nightRect(q, low, high));
           }
-          vec4 nightRoom(vec2 p, vec2 size, vec4 open, vec3 d, float seed, float home) {
+          vec4 nightRoom(vec2 p, vec2 size, vec4 open, vec3 d, float seed, float use) {
+            // use: 0 a shop, 1 a home, 2 an office in the business district, 3 an office anywhere else.
+            float home = step(.5, use), office = step(1.5, use), cbd = office * step(use, 2.5);
             d = vec3(abs(d.x) < 1e-3 ? 1e-3 : d.x, abs(d.y) < 1e-3 ? 1e-3 : d.y, max(d.z, .03));
             float reveal = ${INTERIOR.reveal.toFixed(2)}, depth = ${INTERIOR.depth.toFixed(1)} + ${INTERIOR.depthRange.toFixed(1)} * nightRoomHash(seed * 7.7);
             float flip = step(.5, nightRoomHash(seed * 11.3));
@@ -471,9 +550,11 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               // Where floors are modelled as shallow bands the cell is squatter than a room: stand a full-height
               // room behind it with the sill at waist height, or only a strip of mid-wall would ever show.
               if (size.y < ${INTERIOR.homeHeight.toFixed(1)}) { float lift = ${INTERIOR.sill.toFixed(2)} - open.y; p.y += lift; open.y += lift; open.w += lift; size.y = ${INTERIOR.homeHeight.toFixed(1)}; }
-              // Homes are painted paler, and their windows are two leaves with a bar between.
+              // Homes are painted paler, and their windows are two leaves with a bar between. A tower's office
+              // is white behind one sheet of glass; a plain office is cream or pale green.
               wall = mix(wall, vec3(.92, .9, .84), .5);
-              if (abs(p.x - .5 * (open.x + open.z)) < .03) return vec4(.4, .42, .44, 0.0);
+              if (office > .5) wall = cbd > .5 ? vec3(.9, .91, .93) : mix(vec3(.88, .86, .76), vec3(.78, .86, .78), step(.5, nightRoomHash(seed * 3.1)));
+              if (cbd < .5 && abs(p.x - .5 * (open.x + open.z)) < .03) return vec4(.4, .42, .44, 0.0);
             }
             // The wall is a hand deep: a ray that leaves the opening inside that thickness has met the frame.
             vec3 from = vec3(p, 0.0) + d * (reveal / d.z);
@@ -485,13 +566,14 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             vec3 reach = vec3(d.x > 0.0 ? (high.x - from.x) / d.x : (low.x - from.x) / d.x, d.y > 0.0 ? (high.y - from.y) / d.y : (low.y - from.y) / d.y, (high.z - from.z) / d.z);
             float t = min(reach.x, min(reach.y, reach.z));
             vec3 normal = t == reach.z ? vec3(0.0, 0.0, -1.0) : t == reach.y ? vec3(0.0, -sign(d.y), 0.0) : vec3(-sign(d.x), 0.0, 0.0);
-            float kind = 0.0, far = high.z, plan = floor(nightRoomHash(seed * 23.1) * 3.999), curtain = 0.0, curtainShare = 0.0;
+            float kind = 0.0, far = high.z, curtain = 0.0, curtainShare = 0.0;
+            float plan = office > .5 ? 4.0 + (use - 2.0) * 2.0 + floor(nightRoomHash(seed * 23.1) * 1.999) : floor(nightRoomHash(seed * 23.1) * 3.999);
             // Furniture, each a real box in the room so it slides against the walls as the viewer moves.
             vec3 aLow, aHigh, bLow, bHigh, cLow, cHigh;
             // The lamp sits nearer the glass in a home, where a window over the street is looked up into and
             // shows mostly ceiling. Under it: a fan in some living rooms and bedrooms, a hanging shade, or a flush lamp.
             vec2 lampAt = vec2(size.x * .5, reveal + depth * mix(.45, .33, home));
-            float lampKind = nightRoomHash(seed * 53.9), fan = home * step(plan, 1.5) * step(lampKind, .6), shade = home * (1.0 - fan) * step(.3, lampKind);
+            float lampKind = nightRoomHash(seed * 53.9), fan = home * (1.0 - office) * step(plan, 1.5) * step(lampKind, .6), shade = home * (1.0 - office) * (1.0 - fan) * step(.3, lampKind);
             if (home < .5) {
               // A shop: a counter across the back, shelving down one side, and a display table near the glass.
               float shelfX = mix(0.0, size.x - .42, flip), tableX = mix(size.x * .52, size.x * .14, flip);
@@ -499,7 +581,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               bLow = vec3(shelfX, 0.0, reveal + .7); bHigh = vec3(shelfX + .42, min(2.05, size.y - .3), far - .25);
               cLow = vec3(tableX, 0.0, reveal + .55); cHigh = vec3(tableX + size.x * .34, .72, reveal + 1.5);
             } else {
-              // A home: a living room, a bedroom, a kitchen or a study (HOME_LAYOUTS).
+              // A home: a living room, a bedroom, a kitchen or a study (HOME_LAYOUTS). An office: OFFICE_LAYOUTS.
               ${HOME_BOXES_GLSL}
               aHigh.y = min(aHigh.y, size.y - .2); bHigh.y = min(bHigh.y, size.y - .2); cHigh.y = min(cHigh.y, size.y - .2);
               // In a share of rooms a curtain hangs just inside the glass, part drawn or right across.
@@ -508,6 +590,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                 curtain = 1.0;
                 float across = hung < curtainShare * ${CURTAINS.drawn.toFixed(2)} ? 1.2 : mix(.22, .5, nightRoomHash(seed * 37.1));
                 cLow = vec3(open.x - .12, open.y - .1, reveal + .05); cHigh = vec3(open.x - .12 + across * (open.z - open.x), open.w + .12, reveal + .1);
+                // An office has a blind instead, let down part of the way.
+                if (office > .5) { cLow = vec3(open.x - .12, open.w - mix(.25, .8, nightRoomHash(seed * 37.1)) * (open.w - open.y), reveal + .05); cHigh = vec3(open.z + .12, open.w + .12, reveal + .1); }
               }
             }
             vec3 hitNormal;
@@ -549,6 +633,71 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
                 vec2 panel = abs(vec2(hit.x, hit.z) - lampAt);
                 glow = step(panel.x, .55) * step(panel.y, .22);
                 albedo = vec3(.9);
+              }
+            } else if (office > .5) {
+              float top = step(.5, normal.y), front = step(normal.z, -.5);
+              vec3 steel = vec3(.62, .65, .68), carton = vec3(.66, .5, .32);
+              if (kind == 3.0 && curtain > .5) {
+                // A roller blind in a tower, slats elsewhere.
+                albedo = cbd > .5 ? vec3(.8, .82, .84) : vec3(.86, .84, .76);
+                sheer = cbd > .5 ? .62 : .45 + .3 * step(.5, fract(hit.y * 14.0));
+              } else if (kind > 0.0) {
+                if (plan < 4.5) {
+                  // Desk rows behind fabric partitions, and a wall of lockers with a row of binders.
+                  vec3 fabric = mix(vec3(.46, .52, .6), accent, .3);
+                  if (kind < 2.5) albedo = top > .5 ? vec3(.86, .85, .82) : fabric * (1.0 - .3 * step(.94, fract(hit.x / 1.4))) * mix(.55, 1.0, step(.74, hit.y));
+                  else albedo = front > .5 ? mix(vec3(.88, .88, .86) * (1.0 - .3 * step(.94, fract(hit.x * 2.0))), mix(accent, vec3(.2, .22, .26), step(.5, nightRoomHash(floor(hit.x * 14.0) + seed))), step(1.45, hit.y) * step(hit.y, 1.8)) : vec3(.7);
+                } else if (plan < 5.5) {
+                  if (kind == 1.0) albedo = top > .5 ? mix(vec3(.5, .36, .24), vec3(.82, .8, .76), step(.5, nightRoomHash(seed * 41.3))) : vec3(.2, .2, .22);
+                  else if (kind == 2.0) albedo = vec3(.3, .3, .33) * mix(.8, 1.2, top);
+                  else albedo = hit.y < .45 ? vec3(.7, .68, .64) : vec3(.2, .42, .24) * (.7 + .5 * nightRoomHash(floor(hit.y * 9.0) + floor(hit.x * 9.0) * 3.0));
+                } else if (plan < 6.5) {
+                  // Filing cabinets by the drawer, a desk under paper, a copier.
+                  if (kind == 1.0) albedo = front > .5 ? steel * (1.0 - .4 * max(step(.93, fract(hit.y / .47)), step(.95, fract(hit.x * 2.0)))) : steel * .8;
+                  else if (kind == 2.0) albedo = top > .5 ? mix(vec3(.56, .42, .28), vec3(.94), step(.6, nightRoomHash(floor(hit.x * 3.0) + floor(hit.z * 3.0) * 5.0 + seed))) : vec3(.4, .32, .24);
+                  else albedo = hit.y > .95 ? vec3(.22, .23, .25) : vec3(.84, .84, .82);
+                } else {
+                  // Racking stacked with cartons.
+                  float board = step(.9, fract(hit.y / .52)), box = nightRoomHash(floor((kind == 1.0 ? hit.z : hit.x) * 2.4) + floor(hit.y / .52) * 7.0 + seed * 31.0);
+                  vec3 stock = mix(vec3(.16, .17, .18), carton * (.75 + .4 * box), step(.2, box));
+                  if (kind < 2.5) albedo = (kind == 1.0 ? step(.5, normal.x) : front) > .5 ? mix(stock, steel * .7, board) : steel * .6;
+                  else albedo = top > .5 ? vec3(.56, .42, .28) : vec3(.36, .3, .26);
+                }
+              } else if (normal.z < -.5) {
+                // Back wall: a screen in a tower, a noticeboard and a door elsewhere.
+                if (plan < 4.5) {
+                  glow = nightRect(hit.xy, vec2(.5 * size.x + .2, 1.1), vec2(.5 * size.x + 1.3, 1.75)); glowColor = vec3(.6, .8, 1.2);
+                  albedo = mix(albedo, accent, step(2.1, hit.y) * step(hit.y, 2.25));
+                } else if (plan < 5.5) {
+                  glow = nightRect(hit.xy, vec2(.3 * size.x, 1.0), vec2(.7 * size.x, 1.95)); glowColor = mix(vec3(.7, .85, 1.2), vec3(1.1, 1.05, .95), step(.5, nightRoomHash(seed * 59.3)));
+                  albedo = mix(albedo, vec3(.08), nightRect(hit.xy, vec2(.3 * size.x - .05, .95), vec2(.7 * size.x + .05, 2.0)));
+                } else if (plan < 6.5) {
+                  vec2 note = floor(hit.xy * 6.0);
+                  vec3 board = mix(vec3(.62, .46, .3), mix(vec3(.95, .9, .5), vec3(.9, .92, .95), step(.5, nightRoomHash(note.x + note.y * 5.0))), step(.6, nightRoomHash(note.x * 3.0 + note.y * 11.0 + seed)));
+                  albedo = mix(albedo, board, nightRect(hit.xy, vec2(.55 * size.x, 1.15), vec2(size.x - .3, 1.9)));
+                }
+                albedo *= 1.0 - .3 * step(hit.y, .1);
+              } else if (abs(normal.x) > .5) {
+                // Side walls: a whiteboard in the meeting room, a door in a plain office.
+                vec2 q = vec2(hit.z - reveal, hit.y);
+                if (plan > 4.5 && plan < 5.5 && normal.x < 0.0) albedo = mix(albedo, mix(vec3(.5), vec3(.97), nightRect(q, vec2(1.25, 1.0), vec2(2.55, 1.9))), nightRect(q, vec2(1.2, .95), vec2(2.6, 1.95)));
+                else if (cbd < .5 && normal.x < 0.0) albedo = mix(albedo, vec3(.5, .4, .3), nightRect(q, vec2(1.9, 0.0), vec2(2.75, 2.05)));
+                albedo *= 1.0 - .3 * step(hit.y, .1);
+              } else if (normal.y > .5) {
+                // Carpet tiles in a tower, vinyl or bare concrete elsewhere.
+                vec2 tile = abs(fract(vec2(hit.x, hit.z) / (cbd > .5 ? .5 : .3)) - .5);
+                vec3 floorColor = cbd > .5 ? mix(vec3(.3, .34, .4), accent, .15) : plan < 6.5 ? vec3(.66, .62, .52) : vec3(.5, .5, .49);
+                albedo = floorColor * (1.0 - .15 * step(.46, max(tile.x, tile.y)));
+              } else {
+                // Ceiling: a grid of panels with a light in every other one, or rows of tubes.
+                albedo = vec3(.88);
+                if (cbd > .5) {
+                  vec2 g = vec2(hit.x, hit.z) / .6, at = abs(fract(g) - .5), which = floor(g);
+                  albedo *= 1.0 - .18 * step(.46, max(at.x, at.y));
+                  glow = step(max(at.x, at.y), .4) * step(.5, mod(which.x + which.y, 2.0)) * step(.5, mod(which.x, 2.0)); glowColor = vec3(1.1, 1.18, 1.3);
+                } else {
+                  glow = step(abs(fract(hit.z / 1.5) - .5), .045) * step(.4, hit.x) * step(hit.x, size.x - .4); glowColor = vec3(1.2, 1.25, 1.08);
+                }
               }
             } else {
               // Timber is oak, walnut or white laminate, one per home.
@@ -641,7 +790,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             float range = length(toLamp), lit = max(dot(normal, toLamp / range), 0.0) / (1.0 + .16 * range * range);
             vec3 edge = min(hit - low, high - hit) + abs(normal) * 10.0;
             float corner = kind > 0.0 ? smoothstep(0.0, .35, hit.y) : smoothstep(0.0, .5, min(edge.x, min(edge.y, edge.z)));
-            float lighting = sheer > 0.0 ? sheer : (.3 + 1.5 * lit) * mix(.55, 1.0, corner);
+            float lighting = sheer > 0.0 ? sheer : mix((.3 + 1.5 * lit) * mix(.55, 1.0, corner), .85, .45 * office);
+            // An office is lit evenly from its whole ceiling.
             return vec4(mix(albedo * lighting, glowColor, glow), 1.0);
           }
           // The view direction in a wall's own axes: along it (the way the facade coordinate grows), up, and inwards.
@@ -698,6 +848,60 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               #endif
             }
           }` : ''}
+          ${windows ? `
+          // Windows, by day and night. Where the glass is, how far off, what room is behind it, and what it reflects.
+          vec3 paneN = normalize(vNightNormal), paneRoom = vec3(1.0), paneView = normalize(vNightWorld - cameraPosition);
+          float paneGlass = 0.0, paneOn = 0.0, paneH = vNightSeed, paneFar = 1.0, paneOffice = 0.0;
+          {
+            float wall = 1.0 - smoothstep(.12, .3, abs(paneN.y));
+            // Storeys end as a mask, not a branch: on the GPU's own boundary pixels a branch on height left a dashed line.
+            float storeys = step(vNightSpan.x, vNightWorld.y) * step(vNightWorld.y, vNightSpan.y);
+            float reflects = nightFresnel(dot(-paneView, paneN));
+            ${panes ? `
+            // An authored pane is already the window: keep its own colour, frames and grilles, and add the reflection.
+            paneGlass = wall * storeys; paneOn = nightWindowLit(paneH);
+            if (paneGlass > 0.0) totalEmissiveRadiance += nightSkyBox(reflect(paneView, paneN)) * (reflects * paneGlass * ${REFLECTION.authored.toFixed(2)});
+            ` : `
+            // Fit complete columns and storeys inside each actual facade, including rotated/extruded sides.
+            // Derivatives are taken here, outside any branch on position: inside one they are undefined on
+            // its boundary pixels, which drew a dashed line along the top and bottom of lit bays.
+            float height = max(.01, vNightSpan.y - vNightSpan.x);
+            vec2 count = max(vec2(1.0), floor(vec2(vNightEdge.y / 3.1, height / 3.3)));
+            vec2 cell = vec2(vNightEdge.x / max(.01, vNightEdge.y), (vNightWorld.y - vNightSpan.x) / height) * count;
+            vec2 aa = max(fwidth(cell), vec2(1e-4));
+            vec2 id = floor(cell), f = fract(cell);
+            vec2 pane2 = clamp((vec2(.28, .24) - abs(f - .5)) / aa, 0.0, 1.0);
+            paneH = fract(sin(dot(id + floor(vNightSeed * 97.0), vec2(12.9898, 78.233))) * 43758.5453);
+            paneOn = nightWindowLit(paneH);
+            // Far off, a grid finer than a pixel settles to its average instead of shimmering.
+            float far = smoothstep(.35, .9, max(aa.x, aa.y));
+            paneGlass = mix(pane2.x * pane2.y, .56 * .48, far) * wall * storeys;
+            // A share of a district's buildings are offices from the first floor up; the rest are homes.
+            paneOffice = step(fract(vNightSeed * 61.7), nightOffice.x);
+            // Up close a pane shows the room behind it; far off it settles to plain glass or a plain glow.
+            vec2 roomSize = vec2(vNightEdge.y / count.x, height / count.y);
+            paneFar = max(far, smoothstep(.02, .12, max(aa.x, aa.y)));
+            float glazed = 1.0;
+            vec3 inside = vec3(.1, .12, .14);
+            // Only where a pane shows, and not behind dark glass at night: the room is the costly part.
+            if (paneFar < 1.0 && paneGlass > 0.0 && (paneOn > .5 || nightLevel < .97)) {
+              vec4 room = nightRoom(f * roomSize, roomSize, vec4(.22 * roomSize.x, .26 * roomSize.y, .78 * roomSize.x, .74 * roomSize.y), nightInto(paneN), paneH, mix(1.0, 3.0 - nightOffice.y, paneOffice));
+              paneRoom = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), paneFar);
+              glazed = mix(room.a, 1.0, paneFar);
+              inside = mix(room.rgb * mix(.8, ${REFLECTION.dayRoom.toFixed(2)}, room.a), inside, paneFar);
+            }
+            // By day the glass is dark with a dim room behind it, and gives back the sky; the frame stays matt.
+            if (paneGlass > 0.0) {
+              diffuseColor.rgb = mix(diffuseColor.rgb, mix(inside, vec3(.03, .04, .05), reflects * glazed), paneGlass);
+              totalEmissiveRadiance += nightSkyBox(reflect(paneView, paneN)) * (reflects * glazed * paneGlass * ${REFLECTION.strength.toFixed(2)});
+              #ifdef STANDARD
+                roughnessFactor = mix(roughnessFactor, .1, paneGlass * glazed);
+              #endif
+            }
+            // Shopfront glass gives back the street the same way.
+            if (nightFront > 0.0) totalEmissiveRadiance += nightSkyBox(reflect(paneView, paneN)) * (reflects * nightFrontRoom.a * nightFront * ${REFLECTION.strength.toFixed(2)});
+            `}
+          }` : ''}
           if (nightLevel > .001) {
             vec3 nightN = normalize(vNightNormal);
             vec2 nightUv = (vNightWorld.xz - nightBounds.xy) * nightBounds.zw;
@@ -709,51 +913,15 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               totalEmissiveRadiance += diffuseColor.rgb * nightLampColor * nightTexel.r * nightTexel.r * reach * facing * nightPool;
             }
             ${windows ? `
-            float wall = 1.0 - smoothstep(.12, .3, abs(nightN.y));
-            ${panes ? '' : `
-            // Fit complete columns and storeys inside each actual facade, including rotated/extruded sides.
-            // Worked out here, not in the branch below: a derivative taken inside it is undefined on the
-            // branch's own boundary pixels, which drew a dashed line along the top and bottom of lit bays.
-            float height = max(.01, vNightSpan.y - vNightSpan.x);
-            vec2 count = max(vec2(1.0), floor(vec2(vNightEdge.y / 3.1, height / 3.3)));
-            vec2 cell = vec2(vNightEdge.x / max(.01, vNightEdge.y), (vNightWorld.y - vNightSpan.x) / height) * count;
-            vec2 aa = max(fwidth(cell), vec2(1e-4));`}
-            // Storeys end as a mask, not a branch: on the GPU's own boundary pixels a branch on height left a dashed line.
-            float storeys = step(vNightSpan.x, vNightWorld.y) * step(vNightWorld.y, vNightSpan.y);
-            if (wall > 0.0) {
-              vec3 roomLight = vec3(1.0); float roomFar = 1.0;
-              ${panes ? `
-              // An authored pane is already the window: light its surface, preserving frames and grilles.
-              float h = vNightSeed;
-              float lit = nightWindowLit(h);
-              float pane = 1.0;
-              ` : `
-              vec2 id = floor(cell), f = fract(cell);
-              vec2 pane2 = clamp((vec2(.28, .24) - abs(f - .5)) / aa, 0.0, 1.0);
-              float facade = floor(vNightSeed * 97.0);
-              float h = fract(sin(dot(id + facade, vec2(12.9898, 78.233))) * 43758.5453);
-              float lit = nightWindowLit(h);
-              // Far off, a grid finer than a pixel settles to its average instead of shimmering.
-              float far = smoothstep(.35, .9, max(aa.x, aa.y));
-              float pane = mix(pane2.x * pane2.y, .56 * .48, far);
-              // Up close a lit pane shows the room behind it; far off it settles to the plain glow.
-              vec2 roomSize = vec2(vNightEdge.y / count.x, height / count.y);
-              roomFar = max(far, smoothstep(.02, .12, max(aa.x, aa.y)));
-              // Only where a lit pane actually shows: the room is the costly part.
-              if (roomFar < 1.0 && pane * lit * storeys > 0.0) {
-                vec4 room = nightRoom(f * roomSize, roomSize, vec4(.22 * roomSize.x, .26 * roomSize.y, .78 * roomSize.x, .74 * roomSize.y), nightInto(nightN), h, 1.0);
-                roomLight = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), roomFar);
-              }
-              `}
-              vec3 tint = nightWindowTint(h, mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13))));
-              // A far pane's glow varies from window to window; a room seen close is exposed evenly, so its shading reads.
-              totalEmissiveRadiance += tint * roomLight * mix(1.0, 1.1 + fract(h * 3.7), roomFar) * pane * lit * wall * storeys * nightLevel;
-            }${panes ? '' : `
+            // Lit windows: lamplight in homes, a cooler white in offices. A far pane's glow varies from window
+            // to window; a room seen close is exposed evenly, so its shading reads.
+            vec3 tint = nightWindowTint(paneH, mix(mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(paneH * 7.13))), vec3(.86, .93, 1.0), .8 * paneOffice));
+            totalEmissiveRadiance += tint * paneRoom * mix(1.0, 1.1 + fract(paneH * 3.7), paneFar) * paneGlass * paneOn * nightLevel;${panes ? '' : `
             // A share of the shopfronts keep their lights on after dark.
             totalEmissiveRadiance += vec3(1.0, .86, .68) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * ${INTERIOR.nightShopfront.toFixed(2)} * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v11' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v6' : '-windows-v14' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();
@@ -847,11 +1015,20 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
      */
     shine(sources: readonly LightSource[], camera: { x: number; y: number; z: number }) { if (!disposed) moving.set(sources, camera, dark); },
     /** `lighting` is the hour's light; `blackout` 0–1 puts the city out (the sky stays). */
-    update(lighting: Pick<LightingState, 'elevation' | 'key'>, blackout: number, dt: number, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer) {
+    update(lighting: Pick<LightingState, 'elevation' | 'key'> & Partial<Pick<LightingState, 'keyColor'>>, blackout: number, dt: number, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer, sky?: NightSky | null) {
       if (disposed) return;
       uniforms.nightClock.value = (uniforms.nightClock.value + (Number.isFinite(dt) ? Math.max(0, Math.min(dt, .25)) : 0)) % 6000;
       uniforms.nightMotion.value = reducedMotion?.matches ? 0 : 1;
       const elevation = lighting.elevation; dark = nightLevel(elevation);
+      // Glass reflects the sky as it is drawn now, and glints where it faces the sun; the moon only faintly.
+      // The district look's own sky when there is one (`atmosphere.look.uniforms`), else the flat background.
+      if (sky) { uniforms.nightSky.value.copy(sky.lookHorizon.value); uniforms.nightZenith.value.copy(sky.lookZenith.value); uniforms.nightGround.value.copy(sky.lookGround.value); }
+      else if (scene.background instanceof THREE.Color) {
+        const { r, g, b } = scene.background;
+        uniforms.nightSky.value.set(r, g, b); uniforms.nightZenith.value.set(r, g, b).multiplyScalar(.8); uniforms.nightGround.value.set(r, g, b).multiplyScalar(.6);
+      }
+      uniforms.nightSun.value.set(lighting.key.x, lighting.key.y, lighting.key.z).normalize();
+      uniforms.nightSunColor.value.copy(sunColor.set(lighting.keyColor ?? '#fff4dc')).multiplyScalar(elevation > 0 ? Math.min(1, elevation / 8) * (1 - dark) : .04);
       const next = dark * (1 - Math.max(0, Math.min(1, blackout)));
       if (Math.abs(next - level) > 1e-3) {
         level = next; uniforms.nightLevel.value = level; uniforms.nightPool.value = level * level;
