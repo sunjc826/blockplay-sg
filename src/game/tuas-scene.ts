@@ -226,7 +226,9 @@ export function buildTuasScene() {
    * farther inside the compressed industrial district.
    */
   function industrialShed(x: number, z: number) {
-    box(x, 8, z, 110, 16, 20, pale, scene, true); solid(x, z, 110, 20);
+    // Every generated window on the shed is a factory floor.
+    const works = mat('#dcd6c8'); works.userData.nightRooms = 'factory';
+    box(x, 8, z, 110, 16, 20, works, scene, true); solid(x, z, 110, 20);
     for (const side of [-1, 1]) {
       const roof = box(x, 17.2, z + side * 5.5, 114, 0.6, 12, galv, scene, true);
       roof.rotation.x = side * 0.18;

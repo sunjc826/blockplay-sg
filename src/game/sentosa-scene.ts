@@ -145,8 +145,10 @@ export function buildSentosaScene() {
 
   /** Hotel pair: two balconied slabs joined by a sky bridge. */
   function hotelPair(x: number, z: number) {
+    // Every generated window on the slabs is a hotel room.
+    const rooms = mat('#e8e1d1'); rooms.userData.nightRooms = 'hotel';
     for (const dz of [-24, 24]) {
-      box(x, 26, z + dz, 66, 52, 26, pale, scene, true); solid(x, z + dz, 66, 26);
+      box(x, 26, z + dz, 66, 52, 26, rooms, scene, true); solid(x, z + dz, 66, 26);
       for (let y = 6; y < 52; y += 4.2) for (let dx = -28; dx < 30; dx += 6) for (const side of [-1, 1]) {
         box(x + dx, y, z + dz + side * 13.4, 4.6, 2.6, 0.6, glass);
         box(x + dx, y - 1.5, z + dz + side * 14.2, 5.2, 0.35, 1.6, stone);

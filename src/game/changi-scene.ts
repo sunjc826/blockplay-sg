@@ -210,7 +210,9 @@ export function buildChangiScene() {
   /** Slab hotel over a landscaped court. */
   function hotel(x: number, z: number) {
     box(x, 0.2, z, 96, 0.4, 96, paving);
-    box(x, 22, z, 70, 44, 40, pale, scene, true); solid(x, z, 70, 40);
+    // Every generated window on the slab is a hotel room.
+    const rooms = mat('#e3ded0'); rooms.userData.nightRooms = 'hotel';
+    box(x, 22, z, 70, 44, 40, rooms, scene, true); solid(x, z, 70, 40);
     for (let y = 5; y < 44; y += 4.2) for (let dx = -32; dx < 34; dx += 6) {
       box(x + dx, y, z - 20.4, 4.6, 2.6, 0.5, glass);
       box(x + dx, y, z + 20.4, 4.6, 2.6, 0.5, glass);

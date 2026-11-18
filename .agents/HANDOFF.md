@@ -17001,3 +17001,20 @@ Left: Punggol's mall shopfront glass is only 1.6 m tall, below the 2.4 m a shop 
 needs, so it is unchanged; the malls and hubs of Toa Payoh, Bishan, Tampines and
 Woodlands have no marked walls and show the six only where a plain wall meets the
 ground. Not timed against the previous commit; not tried on a phone.
+
+Upper-floor rooms by district (2026-11-19, owner asked for the upper-floor ideas next):
+- `SPECIAL_LAYOUTS` in `world-night-lights.ts`: hotel (twin, king), factory (machineHall,
+  assembly), classroom (classroom, laboratory). `nightRoom` uses 4, 5, 6 (`roomUse`),
+  plans 8-13. A hotel room is in the home family (warm light, curtains, no window bar);
+  factory and school are in the plain-office family (tubes, blinds). The conveyor's
+  cartons, the machine's beacon and the classroom fan move with `nightClock`.
+- `NightInteriors.rooms` is a share of buildings per kind, taken before the office share
+  (uniform `nightRooms`): Changi hotel .3, Sentosa hotel .7, Marina Bay hotel .25, Tuas
+  factory .7, Jurong Lake and Bukit Timah classroom .3.
+- A wall material marked `userData.nightRooms` is all one kind (its own shader variant):
+  Changi's AIRPORT HOTEL slab, Sentosa's ISLAND HOTELS slabs, the Tuas workshop shed.
+- Key `-windows-v19-<shops>-<room use>`. `night-district.html` takes `&rooms=kind:share`.
+Left: no school building is named in Jurong Lake or Bukit Timah, so classrooms there are
+only the share. The three marked buildings carry authored glass and shutters in front
+of the wall, so generated rooms show between and behind those. Not timed; not tried on a
+phone or the software renderer.

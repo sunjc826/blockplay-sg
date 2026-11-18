@@ -133,6 +133,51 @@ describe('interior mapping', () => {
       expect(cbd, id).toBe(['marina-bay', 'raffles-place', 'orchard'].includes(id));
     }
   });
+  it('furnishes hotel rooms, factory floors and schoolrooms inside their rooms, and gives them to the districts they belong in', async () => {
+    const { SPECIAL_LAYOUTS, SPECIAL_HUNG, INTERIOR, roomBox, roomUse } = await import('./world-night-lights');
+    type Box = import('./world-night-lights').RoomBox;
+    const { DISTRICT_INTERIORS } = await import('./district-interiors');
+    expect(Object.keys(SPECIAL_LAYOUTS)).toEqual(['hotel', 'factory', 'classroom']);
+    expect([roomUse('hotel'), roomUse('factory'), roomUse('classroom')]).toEqual([4, 5, 6]);
+    for (const [kind, layouts] of Object.entries(SPECIAL_LAYOUTS)) {
+      expect(Object.keys(layouts), kind).toHaveLength(2);
+      for (const [name, boxes] of Object.entries(layouts) as [string, readonly Box[]][]) {
+        const hung = SPECIAL_HUNG[name as keyof typeof SPECIAL_HUNG];
+        expect(hung, name).toBeGreaterThanOrEqual(0); expect(hung, name).toBeLessThan(1);
+        for (const width of [3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
+          const placed = boxes.map(box => ({ name: box.name, ...roomBox(box, width, depth) }));
+          for (const b of placed) {
+            const label = `${name} ${b.name} at ${width} x ${depth}`;
+            for (let k = 0; k < 3; k++) expect(b.high[k] - b.low[k], label).toBeGreaterThan(.05);
+            expect(b.low[0], label).toBeGreaterThanOrEqual(0); expect(b.high[0], label).toBeLessThanOrEqual(width);
+            expect(b.low[1], label).toBeGreaterThanOrEqual(0); expect(b.high[1], label).toBeLessThanOrEqual(2.3);
+            expect(b.low[2], label).toBeGreaterThanOrEqual(.5); expect(b.high[2], label).toBeLessThanOrEqual(depth);
+          }
+          for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+            const apart = [0, 1, 2].some(k => placed[i].high[k] <= placed[j].low[k] + 1e-9 || placed[j].high[k] <= placed[i].low[k] + 1e-9);
+            expect(apart, `${name}: ${placed[i].name} and ${placed[j].name} at ${width} x ${depth}`).toBe(true);
+          }
+          expect(Math.max(...placed.map(b => b.high[1])), name).toBeGreaterThanOrEqual(1.8);
+        }
+      }
+    }
+    const given = Object.fromEntries(Object.entries(DISTRICT_INTERIORS).filter(([, interiors]) => interiors.rooms).map(([id, interiors]) => [id, Object.keys(interiors.rooms!)]));
+    expect(given).toEqual({ 'marina-bay': ['hotel'], changi: ['hotel'], sentosa: ['hotel'], tuas: ['factory'], 'jurong-lake': ['classroom'], 'bukit-timah': ['classroom'] });
+    for (const [id, interiors] of Object.entries(DISTRICT_INTERIORS)) {
+      const total = Object.values(interiors.rooms ?? {}).reduce((sum, share) => sum + share, 0);
+      expect(total, id).toBeGreaterThanOrEqual(0); expect(total, id).toBeLessThanOrEqual(1);
+    }
+  });
+  it('marks the named hotels and the workshops so every window on them is the right kind of room', async () => {
+    const marks = async (build: () => { scene: import('three').Scene }) => {
+      const found = new Set<string>();
+      build().scene.traverse(object => { const mark = (object as { material?: { userData?: { nightRooms?: string } } }).material?.userData?.nightRooms; if (mark) found.add(mark); });
+      return [...found];
+    };
+    expect(await marks((await import('./changi-scene')).buildChangiScene)).toEqual(['hotel']);
+    expect(await marks((await import('./sentosa-scene')).buildSentosaScene)).toEqual(['hotel']);
+    expect(await marks((await import('./tuas-scene')).buildTuasScene)).toEqual(['factory']);
+  });
   it('designs shop windows that fit their bays, with no two pieces sharing space and no two neighbours alike', async () => {
     const { SHOP_LAYOUTS, SHOP_WINDOWS, MALL_SHOPS, HEARTLAND_SHOPS, shopWindow, INTERIOR, roomBox } = await import('./world-night-lights');
     const names = Object.keys(SHOP_LAYOUTS);
