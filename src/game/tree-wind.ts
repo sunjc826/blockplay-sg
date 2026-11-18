@@ -56,6 +56,21 @@ transformed += vec3(dot(treeOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[
                     dot(treeOffset, instanceMatrix[1].xyz) / dot(instanceMatrix[1].xyz, instanceMatrix[1].xyz),
                     dot(treeOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));
 `;
+const fract = (value: number) => value - Math.floor(value);
+/**
+ * No two trees are the same green. A tint per tree from where it stands (so a district builds the same
+ * every time): lighter or darker, and a little towards yellow or towards blue; each crown part then
+ * differs slightly from its neighbours, which gives a crown of identical blobs some depth. Trunks only
+ * vary in value. Multiplies the material's colour through the instance colour.
+ */
+export function treeTint(x: number, z: number, part: number, leaf: boolean, out = new THREE.Color()) {
+  const tone = fract(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453), warm = fract(Math.sin(x * 39.346 + z * 11.135) * 24634.6345);
+  const piece = fract(Math.sin(part * 91.17 + x * 3.7 + z * 5.3) * 15731.743);
+  if (!leaf) return out.setScalar(.88 + .22 * tone);
+  const value = .82 + .3 * tone + .1 * (piece - .5);
+  return out.setRGB(value * (1 + .16 * (warm - .5)), value * (1 + .04 * (warm - .5)), value * (1 - .3 * (warm - .5)));
+}
+
 /** Preserve the deformation when thermal vision substitutes its temperature shader. */
 export function inheritTreeWind(source: THREE.Material, target: THREE.Material) {
   const uniforms = materialWind.get(source);
@@ -94,12 +109,12 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     const mesh = new THREE.InstancedMesh(geometry, material, parts.length);
     mesh.name = 'Wind-animated trees'; mesh.castShadow = first.castShadow; mesh.receiveShadow = first.receiveShadow;
     mesh.userData.visualCover = first.userData.visualCover ?? source.userData.visualCover ?? false;
-    const parent = first.parent!; let padding = 0;
+    const parent = first.parent!, tint = new THREE.Color(); let padding = 0;
     parts.forEach((part, i) => {
       const tree = part.userData.treePart as TreePart;
       roots.set([tree.root.x, tree.root.y, tree.root.z, tree.height], i * 4); flutter[i] = tree.flutter;
       padding = Math.max(padding, tree.height * .4 + .6);
-      part.updateMatrix(); mesh.setMatrixAt(i, part.matrix); parent.remove(part);
+      part.updateMatrix(); mesh.setMatrixAt(i, part.matrix); mesh.setColorAt(i, treeTint(tree.root.x, tree.root.z, i, tree.flutter > 0, tint)); parent.remove(part);
     });
     geometry.setAttribute('treeRootHeight', new THREE.InstancedBufferAttribute(roots, 4));
     geometry.setAttribute('treeFlutter', new THREE.InstancedBufferAttribute(flutter, 1));

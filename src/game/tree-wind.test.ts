@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { afterEach, expect, it } from 'vitest';
 import { createSceneKit } from './scene-kit';
+import { treeTint } from './tree-wind';
 import { createWorldAtmosphere } from './world-atmosphere';
 import { setEnvironmentSettings } from './environment-settings';
 import { DEFAULT_ENVIRONMENT } from './world-events';
@@ -78,5 +79,22 @@ it.each(['marina-bay', 'queenstown', 'raffles-place', 'sentosa', 'changi', 'kamp
       expect(compiled(object.material as THREE.Material).uniforms.treeTime).toBeDefined();
     });
     expect(count).toBeGreaterThan(10);
+  } finally { world.dispose(); }
+});
+
+it('tints each tree its own green, the same on every build, and leaves trunks neutral', () => {
+  const { world, trees } = fixture();
+  try {
+    const a = treeTint(3, 4, 0, true), again = treeTint(3, 4, 0, true), b = treeTint(-15, 4, 0, true), trunk = treeTint(3, 4, 0, false);
+    expect(a.equals(again)).toBe(true); expect(a.equals(b)).toBe(false);
+    expect(trunk.r).toBe(trunk.g); expect(trunk.g).toBe(trunk.b);
+    for (let i = 0; i < 200; i++) {
+      const c = treeTint(i * 7.3 - 400, i * 3.1 - 200, i % 5, true);
+      for (const v of [c.r, c.g, c.b]) { expect(v).toBeGreaterThan(.6); expect(v).toBeLessThan(1.4); }
+    }
+    const crown = trees.find(t => t.count === 6)!, first = new THREE.Color(), other = new THREE.Color();
+    expect(crown.instanceColor!.count).toBe(6);
+    crown.getColorAt(0, first); crown.getColorAt(3, other);
+    expect(first.equals(other)).toBe(false);
   } finally { world.dispose(); }
 });

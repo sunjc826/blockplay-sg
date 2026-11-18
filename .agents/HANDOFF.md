@@ -17062,3 +17062,14 @@ Plants react (first piece):
 - Nothing reads the deformation back: hit tests and movement use authored geometry.
 - `scripts/fixtures/vegetation.html`: any district, weather and hour, with `veg.hit` and
   `veg.bodies`.
+
+Plants vary (second piece, same session):
+- `treeTint(x, z, part, leaf)` in `tree-wind.ts`, written to each batch's `instanceColor` by
+  `batchTrees`: per-tree value and warm/cool shift, per-part +-5% on crowns, value only on
+  trunks. No geometry or collider changes; kit crowns are not `visualCover`, so they stop
+  bullets and their shapes were deliberately left alone (see ideas below).
+- Grass (`ground-cover.ts`, keys `ground-grass-v3`, `ground-grass-far-v3`): blades in a tuft
+  are 1 / .7 / .85 long and splayed; colour drifts in broad patches and per tuft; near tufts
+  carry a two-triangle flower head (`grassBloom`, define `GRASS_BLOOM`) that the shader keeps
+  on about one tuft in six inside drifts and colours white, yellow or pink. Near tufts are
+  now 11 triangles, not 9; far tufts unchanged.

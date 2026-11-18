@@ -103,6 +103,11 @@ it('lays grass over further as the weather strengthens, and not at all under red
   const scene = new THREE.Scene(), grass = createGrass(scene, { minX: -50, maxX: 50, minZ: -50, maxZ: 50 }, () => 0);
   const camera = new THREE.PerspectiveCamera(), shader = compiled(grass.mesh.material as THREE.Material);
   try {
+    // Flowers ride on the near tufts only; the far ones stay three bare triangles.
+    expect(grass.mesh.geometry.hasAttribute('grassBloom')).toBe(true);
+    expect(grass.farMesh.geometry.hasAttribute('grassBloom')).toBe(false);
+    expect(shader.vertexShader).toContain('grassFlower');
+    expect((grass.farMesh.material as unknown as { defines?: Record<string, string> }).defines?.GRASS_BLOOM).toBeUndefined();
     expect(grassWindLean(0)).toBeGreaterThan(0);
     expect(grassWindLean(3)).toBeGreaterThan(grassWindLean(1.5));
     expect(grassWindLean(70)).toBe(grassWindLean(7));
