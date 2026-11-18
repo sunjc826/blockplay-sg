@@ -17018,3 +17018,21 @@ Left: no school building is named in Jurong Lake or Bukit Timah, so classrooms t
 only the share. The three marked buildings carry authored glass and shutters in front
 of the wall, so generated rooms show between and behind those. Not timed; not tried on a
 phone or the software renderer.
+
+Remaining shops (2026-11-19, owner asked for the remaining shops next):
+- `SHOP_LAYOUTS` 27-32: fruitStall, lighting, nursery, souvenirs, surfShop, bicycles, each
+  with two made-up brands. New cut-outs: hung durians, pegged T-shirts carrying the brand
+  mark, surfboards on end, side-on bicycles (`nightSeg`); the lighting shop reuses the
+  hung-lamp code and the nursery the bouquet code.
+- `district-interiors.ts` lists: Geylang (fruitStall, kopitiam, lighting, provisionShop),
+  Upper Thomson (cafe, nursery, bakery, kopitiam), Sentosa (souvenirs, surfShop, cafe,
+  toys), HarbourFront (souvenirs, bags, cafe, electronics, sports), Pulau Ubin (bicycles,
+  provisionShop, kopitiam).
+- Ubin's kampong houses are 5 m tall, below the 7 m a generated shopfront needs, so the
+  two houses by the jetty take a `shops` list and get a marked 3.2 x 2.4 m shop pane in
+  each front bay instead of the louvred pane. The two inland houses are unchanged.
+- Keys `-windows-v20-<shops>-<room use>`, `-shops-v5-<list>`.
+Left: generated shopfronts ignore authored signs (a Geylang shophouse signed PROVISIONS
+can show a fruit stall). No walls marked in Geylang, Upper Thomson, Sentosa or
+HarbourFront (VivoCity, Thomson Plaza, the food centres). Not timed; first-compile time
+with 32 shops not measured; not tried on a phone.

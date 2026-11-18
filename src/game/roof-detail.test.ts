@@ -184,7 +184,8 @@ describe('interior mapping', () => {
     expect(names.slice(0, 10)).toEqual(['fashion', 'jeweller', 'electronics', 'bookshop', 'cafe', 'sports', 'beauty', 'toys', 'florist', 'bags']);
     expect(MALL_SHOPS).toEqual(names.slice(0, 10));
     expect(names.slice(10, 21)).toEqual(['medicineHall', 'teaMerchant', 'driedGoods', 'textiles', 'garlands', 'spices', 'carpets', 'perfumery', 'kopitiam', 'kueh', 'tailor']);
-    expect(names.slice(21)).toEqual(['provisionShop', 'clinic', 'salon', 'tuition', 'bakery']);
+    expect(names.slice(21, 26)).toEqual(['provisionShop', 'clinic', 'salon', 'tuition', 'bakery']);
+    expect(names.slice(26)).toEqual(['fruitStall', 'lighting', 'nursery', 'souvenirs', 'surfShop', 'bicycles']);
     for (const name of HEARTLAND_SHOPS) expect(names).toContain(name);
     // The housing towns' shops also fit Queenstown's 2.3 m shopfront bays.
     for (const [name, boxes] of Object.entries(SHOP_LAYOUTS)) for (const width of [...((HEARTLAND_SHOPS as readonly string[]).includes(name) ? [2.3] : []), SHOP_WINDOWS.bay, 3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
@@ -230,7 +231,8 @@ describe('interior mapping', () => {
     const { SHOP_LAYOUTS, MALL_SHOPS, HEARTLAND_SHOPS } = await import('./world-night-lights');
     const { REGIONS } = await import('./regions');
     const { buildOrchardScene } = await import('./orchard-scene');
-    const heritage = ['chinatown', 'kampong-glam', 'little-india', 'katong-joo-chiat'];
+    // The heritage four, then the rest that name their own: Geylang, Upper Thomson, the resort island, the harbour and Ubin's village.
+    const heritage = ['chinatown', 'kampong-glam', 'little-india', 'katong-joo-chiat', 'geylang', 'upper-thomson', 'sentosa', 'harbourfront', 'pulau-ubin'];
     for (const [id, interiors] of Object.entries(DISTRICT_INTERIORS)) {
       const heartland = ['toa-payoh', 'bishan', 'tampines', 'yishun', 'woodlands', 'punggol', 'queenstown'].includes(id);
       expect(interiors.boutiques ?? 0, id).toBe(id === 'orchard' || heritage.includes(id) || heartland ? 1 : 0);
@@ -240,7 +242,7 @@ describe('interior mapping', () => {
       if (interiors.shops) expect(new Set(interiors.shops).size, id).toBeGreaterThanOrEqual(3);
     }
     // The shared terraces hide generated shopfronts behind their own, so those carry the shops instead; so do Queenstown's shop rows and Yishun's retail wings.
-    for (const id of ['little-india', 'katong-joo-chiat', 'queenstown', 'yishun']) {
+    for (const id of ['little-india', 'katong-joo-chiat', 'queenstown', 'yishun', 'pulau-ubin']) {
       const built = REGIONS.find(region => region.id === id)!.build(), marked = new Set<string>();
       built.scene.traverse(object => { for (const name of (object as { material?: { userData?: { nightShopWindow?: string[] } } }).material?.userData?.nightShopWindow ?? []) marked.add(name); });
       expect(marked.size, id).toBeGreaterThanOrEqual(3);

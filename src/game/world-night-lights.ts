@@ -443,6 +443,37 @@ export const SHOP_LAYOUTS = {
     { name: 'racks of loaves', x: [[.3, 0], [-.3, 1]], y: [0, 2], z: [[-.4, 1], [0, 1]] },
     { name: 'tray trolley', x: [[-.9, 1], [-.3, 1]], y: [0, 1.2], z: [[1.6, 0], [2.2, 0]] },
   ],
+  // The rest of the island's trades follow, from 27: Geylang's fruit and lamps, Thomson's plants, the resort's keepsakes and boards, Ubin's bicycles.
+  fruitStall: [
+    { name: 'tiers of fruit', x: [[.3, 0], [-.3, 1]], y: [0, .9], z: [[.3, 0], [1, 0]] },
+    { name: 'crates', x: [[.3, 0], [0, .55]], y: [0, 1.1], z: [[-.9, 1], [-.2, 1]] },
+    { name: 'weighing counter', x: [[0, .62], [-.3, 1]], y: [0, 1], z: [[-1.3, 1], [-.7, 1]] },
+  ],
+  lighting: [
+    { name: 'table of lamps', x: [[.4, 0], [-.4, 1]], y: [0, .7], z: [[.3, 0], [.95, 0]] },
+    { name: 'shelves of lamps', x: [[0, 0], [.4, 0]], y: [0, 2.1], z: [[1.3, 0], [-.3, 1]] },
+    { name: 'counter', x: [[-1.6, 1], [-.4, 1]], y: [0, 1], z: [[-1.2, 1], [-.6, 1]] },
+  ],
+  nursery: [
+    { name: 'tiered plant stand', x: [[.3, 0], [-1.3, 1]], y: [0, 1.3], z: [[-.8, 1], [-.1, 1]] },
+    { name: 'bench of pots', x: [[.3, 0], [-.3, 1]], y: [0, .6], z: [[.3, 0], [1, 0]] },
+    { name: 'sacks of soil', x: [[-1.1, 1], [-.3, 1]], y: [0, .8], z: [[-1.4, 1], [-.5, 1]] },
+  ],
+  souvenirs: [
+    { name: 'table of trinkets', x: [[.4, 0], [-.4, 1]], y: [0, .8], z: [[.3, 0], [.95, 0]] },
+    { name: 'wall of folded shirts', x: [[-.35, 1], [0, 1]], y: [0, 2.2], z: [[1.2, 0], [-.3, 1]] },
+    { name: 'counter', x: [[.3, 0], [1.5, 0]], y: [0, 1], z: [[-1.3, 1], [-.7, 1]] },
+  ],
+  surfShop: [
+    { name: 'window deck', x: [[.4, 0], [-.4, 1]], y: [0, .45], z: [[.3, 0], [.95, 0]] },
+    { name: 'rail of swimwear', x: [[-.5, 1], [0, 1]], y: [.85, 1.8], z: [[1.4, 0], [-.3, 1]] },
+    { name: 'till', x: [[.3, 0], [1.5, 0]], y: [0, 1], z: [[-1.2, 1], [-.6, 1]] },
+  ],
+  bicycles: [
+    { name: 'rubber mat', x: [[.3, 0], [-.3, 1]], y: [0, .08], z: [[.3, 0], [.95, 0]] },
+    { name: 'workbench', x: [[.3, 0], [0, .55]], y: [0, .9], z: [[-.8, 1], [-.2, 1]] },
+    { name: 'helmet shelves', x: [[-.4, 1], [0, 1]], y: [0, 2.1], z: [[1.2, 0], [-.3, 1]] },
+  ],
 } as const satisfies Record<string, readonly [RoomBox, RoomBox, RoomBox]>;
 export type ShopName = keyof typeof SHOP_LAYOUTS;
 /** The shopping belt's ten: what a district's designed shop windows are when it names no shops of its own. */
@@ -512,6 +543,8 @@ export const SHOP_BRANDS = {
   kueh: ['8 KUEHLALA', '7 KUEHBOX'], tailor: ['0 STITCHLY', '0 KEBAYANA'],
   provisionShop: ['7 MAMAMART', '3 KEDAIKU'], clinic: ['9 FAMCARE', '9 WELLDOC'], salon: ['0 SNIPPY', '5 HAIRLAH'],
   tuition: ['7 ACEKIDS', '2 MINDSPRO'], bakery: ['4 BUNLAH', '6 LOAFERY'],
+  fruitStall: ['7 DURILAH', '8 FRUTERA'], lighting: ['2 LUMIGLO', '1 LAMPARIA'], nursery: ['8 LEAFLAH', '8 POTTERRA'],
+  souvenirs: ['6 TRINKETO', '1 ISLEMEMO'], surfShop: ['5 WAVELAH', '5 SANDORA'], bicycles: ['2 PEDALAH', '5 KAYUHGO'],
 } as const satisfies Record<keyof typeof SHOP_LAYOUTS, readonly [string, string]>;
 /** Capitals and brand marks three blocks wide and five tall, rows from the top: the signs are as blocky as the city. */
 export const SHOP_FONT: Record<string, string> = {
@@ -808,6 +841,8 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             normal = -sign(dir) * step(near.yzx, near.xyz) * step(near.zxy, near.xyz);
             return enter > leave || enter < 0.0 ? 1e9 : enter;
           }
+          // How far a point is from the line between two others.
+          float nightSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)); }
           float nightRect(vec2 q, vec2 low, vec2 high) { return step(low.x, q.x) * step(q.x, high.x) * step(low.y, q.y) * step(q.y, high.y); }
           vec3 nightPicture(vec3 under, vec2 q, vec2 low, vec2 high, vec3 art) {
             return mix(under, mix(vec3(.16, .13, .11), art * (.7 + .3 * step(.5, fract((q.x + q.y) * 2.3))), nightRect(q, low + .06, high - .06)), nightRect(q, low, high));
@@ -935,7 +970,7 @@ ${SHOP_SIGN_GLSL}
             // Flat figures standing in a plane a little way in: they slide against the room like the furniture does.
             vec3 cutColor = vec3(0.0); float cutGlow = 0.0;
             if (shop > .5 && doorway < .5) {
-              float cutZ = reveal + (shopKind == 10 ? .75 : shopKind == 9 ? 1.2 : shopKind == 5 ? .68 : shopKind == 12 || shopKind == 17 ? .7 : shopKind == 13 ? .8 : shopKind == 15 ? .5 : shopKind == 16 ? 1.1 : shopKind == 19 ? .45 : shopKind == 22 ? .5 : shopKind == 23 ? 1.03 : shopKind == 24 ? 1.6 : .62), tc = (cutZ - from.z) / d.z;
+              float cutZ = reveal + (shopKind == 10 ? .75 : shopKind == 9 ? 1.2 : shopKind == 29 ? .65 : shopKind == 27 || shopKind == 30 ? .5 : shopKind == 5 ? .68 : shopKind == 12 || shopKind == 17 || shopKind == 28 ? .7 : shopKind == 13 ? .8 : shopKind == 15 ? .5 : shopKind == 16 ? 1.1 : shopKind == 19 ? .45 : shopKind == 22 ? .5 : shopKind == 23 ? 1.03 : shopKind == 24 ? 1.6 : .62), tc = (cutZ - from.z) / d.z;
               vec2 q = from.xy + d.xy * tc;
               if (tc < t) {
                 if (shopKind == 1 || shopKind == 6 || shopKind == 14 || shopKind == 21) {
@@ -973,8 +1008,8 @@ ${SHOP_SIGN_GLSL}
                   float shadeTop = size.y - .62, shadeFoot = shadeTop - .26;
                   float cord = step(abs(x), .012) * step(shadeTop, q.y), lampshade = step(abs(x), mix(.17, .05, clamp((q.y - shadeFoot) / .26, 0.0, 1.0))) * step(shadeFoot, q.y) * step(q.y, shadeTop);
                   if (id >= 0.0 && id < n && max(cord, lampshade) > .5) { cutColor = vec3(.1); cutGlow = lampshade * mix(.45, 1.0, step(q.y, shadeFoot + .08)); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
-                } else if (shopKind == 9) {
-                  // Bouquets standing out of the back row of buckets.
+                } else if (shopKind == 9 || shopKind == 29) {
+                  // Bouquets standing out of the back row of buckets; at the nursery, plants in the pots on the window bench.
                   float id = floor((q.x - bLow.x) / .32), x = (fract((q.x - bLow.x) / .32) - .5) * .32, h = nightRoomHash(id * 7.3 + seed * 61.0), v = q.y - bHigh.y;
                   float bloomAt = .34 + .14 * h, r = length(vec2(x, v - bloomAt));
                   if (q.x > bLow.x && q.x < bHigh.x && v > 0.0 && (r < .15 || (v < bloomAt && abs(x) < .04 + .09 * v / bloomAt))) {
@@ -982,6 +1017,7 @@ ${SHOP_SIGN_GLSL}
                     vec2 b = vec2(x, v - bloomAt);
                     float bloom = min(min(length(b), length(b - vec2(.08, .05))), min(length(b + vec2(.08, -.05)), min(length(b - vec2(.04, -.08)), length(b + vec2(.05, .08)))));
                     vec3 petal = mix(nightPalette(h * 4.7), vec3(.95, .5, .2), step(.8, fract(h * 5.0)));
+                    if (shopKind == 29 && fract(h * 3.0) < .65) petal = vec3(.34, .6, .28);
                     cutColor = bloom < .055 ? mix(vec3(.95, .8, .3), petal, step(.018, bloom)) : vec3(.2, .44, .22) * (r < .15 ? .85 : .8 + .4 * step(.5, fract(x * 30.0)));
                     t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
                   }
@@ -992,14 +1028,14 @@ ${SHOP_SIGN_GLSL}
                     cutColor = (v > .28 ? vec3(.7, .15, .12) : mix(vec3(.78, .56, .24), vec3(.45, .22, .14), h)) * (1.0 - 2.5 * abs(x));
                     t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
                   }
-                } else if (shopKind == 12 || shopKind == 17) {
-                  // Lamps hung in the window: red lanterns with gold bands and a tassel at the tea merchant's, coloured glass globes over the carpets.
-                  float w = shopKind == 12 ? .75 : .5, id = floor(q.x / w), x = (fract(q.x / w) - .5) * w, h = nightRoomHash(id * 7.3 + seed * 61.0);
-                  float at = size.y - (shopKind == 12 ? .72 : .45 + .5 * h), v = q.y - at, r = length(vec2(x / (shopKind == 12 ? .17 : .12), v / (shopKind == 12 ? .2 : .13)));
+                } else if (shopKind == 12 || shopKind == 17 || shopKind == 28) {
+                  // Lamps hung in the window: red lanterns with gold bands and a tassel at the tea merchant's, coloured glass globes over the carpets and all across the lighting shop.
+                  float w = shopKind == 12 ? .75 : shopKind == 28 ? .4 : .5, id = floor(q.x / w), x = (fract(q.x / w) - .5) * w, h = nightRoomHash(id * 7.3 + seed * 61.0);
+                  float at = size.y - (shopKind == 12 ? .72 : shopKind == 28 ? .85 + .9 * fract(h * 7.0) : .45 + .5 * h), v = q.y - at, r = length(vec2(x / (shopKind == 12 ? .17 : .12), v / (shopKind == 12 ? .2 : .13)));
                   if (q.x > open.x + .15 && q.x < open.z - .15 && h > .2) {
                     if (r < 1.0) {
                       cutColor = shopKind == 12 ? mix(vec3(.8, .1, .1), vec3(.86, .68, .3), step(.15, abs(v))) : nightPalette(h * 7.7) * (.7 + .5 * step(.5, nightRoomHash(dot(floor(vec2(x, v) * 40.0), vec2(1.0, 7.0)))));
-                      cutGlow = shopKind == 12 ? .35 : .6; t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                      cutGlow = shopKind == 12 ? .35 : .6; if (shopKind == 28) { cutColor = mix(vec3(1.0, .9, .66), cutColor, .3); cutGlow = .9; } t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
                     } else if (abs(x) < .012 && (v > 0.0 || (shopKind == 12 && v > -.45))) { cutColor = v > 0.0 ? vec3(.12) : vec3(.86, .68, .3); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
                   }
                 } else if (shopKind == 13 || shopKind == 15 || shopKind == 16 || shopKind == 22) {
@@ -1012,6 +1048,48 @@ ${SHOP_SIGN_GLSL}
                       : shopKind == 15 ? (mod(link + floor(h * 4.0), 3.0) < 1.0 ? vec3(.96, .76, .1) : mod(link + floor(h * 4.0), 3.0) < 2.0 ? vec3(.95, .5, .1) : mix(vec3(.95, .94, .9), vec3(.8, .14, .2), step(.5, h)))
                       : nightPalette(bead) * (1.0 - .35 * step(.85, fract(hung * 7.0)));
                     t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                  }
+                } else if (shopKind == 27) {
+                  // Durians hung in string from a rail across the window.
+                  float id = floor(q.x / .5), x = (fract(q.x / .5) - .5) * .5, h = nightRoomHash(id * 7.3 + seed * 61.0);
+                  float v = q.y - (size.y - .8 - .3 * h), r = length(vec2(x, v * .85));
+                  if (q.x > open.x + .1 && q.x < open.z - .1 && h > .2) {
+                    if (r < .15) { cutColor = mix(vec3(.42, .46, .18), vec3(.66, .64, .3), step(.5, fract((x + v) * 16.0)) * step(.5, fract((x - v) * 16.0))) * (1.0 - 2.0 * r * r * 9.0); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
+                    else if (abs(x) < .012 && v > 0.0) { cutColor = vec3(.72, .62, .42); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
+                  }
+                } else if (shopKind == 30) {
+                  // Printed T-shirts pegged to a line across the window, the shop's mark on each chest.
+                  float id = floor(q.x / .72), x = (fract(q.x / .72) - .5) * .72, h = nightRoomHash(id * 7.3 + seed * 61.0), shoulder = size.y - .5, v = shoulder - q.y;
+                  float shirt = max(step(abs(x), .2) * step(v, .62), step(abs(x), .32) * step(v, .2)) * step(0.0, v) * step(.075, length(vec2(x, v)));
+                  if (q.x > open.x + .1 && q.x < open.z - .1) {
+                    if (shirt > .5 && h > .15) {
+                      cutColor = nightPalette(h * 5.3) * (1.0 - .6 * abs(x));
+                      if (nightGlyph(nightBrand[brand * ${BRAND_LENGTH}], (vec2(x, q.y) - vec2(-.06, shoulder - .42)) / vec2(.16, .16)) > .5) cutColor = dot(cutColor, vec3(.333)) > .6 ? vec3(.8, .15, .15) : vec3(.96);
+                      t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                    } else if (abs(v + .01) < .008) { cutColor = vec3(.2); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0; }
+                  }
+                } else if (shopKind == 31) {
+                  // Surfboards stood on end along the window deck.
+                  float x0 = aLow.x + .1, id = floor((q.x - x0) / .62), x = (fract((q.x - x0) / .62) - .5) * .62, h = nightRoomHash(id * 7.3 + seed * 61.0), v = q.y - aHigh.y;
+                  float len = 1.6 + .3 * h, lean = 2.0 * v / len - 1.0;
+                  if (q.x > x0 && q.x < aHigh.x - .1 && h > .25 && v > 0.0 && v < len && abs(x) < .2 * sqrt(max(0.0, 1.0 - lean * lean * abs(lean)))) {
+                    vec3 deck = mix(nightPalette(h * 4.1), vec3(.95), .35);
+                    cutColor = abs(x) < .012 ? vec3(.3, .22, .16) : abs(lean - .25) < .12 ? nightPalette(h * 4.1 + .5) : deck;
+                    cutColor *= 1.0 - 1.2 * abs(x); t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                  }
+                } else if (shopKind == 32) {
+                  // Bicycles side on along the window: two wheels, a diamond frame, a saddle and bars.
+                  float x0 = aLow.x + .05, n = max(1.0, floor((aHigh.x - aLow.x - .1) / 1.8)), w = (aHigh.x - aLow.x - .1) / n, id = floor((q.x - x0) / w), h = nightRoomHash(id * 7.3 + seed * 61.0);
+                  vec2 b = vec2((fract((q.x - x0) / w) - .5) * w, q.y - aHigh.y);
+                  if (id >= 0.0 && id < n && b.y < 1.1) {
+                    float wheel = abs(length(vec2(abs(b.x) - .52, b.y - .34)) - .31);
+                    vec2 seat = vec2(-.18, .85), head = vec2(.4, .85), crank = vec2(0.0, .32), rear = vec2(-.52, .34);
+                    float frame = min(min(nightSeg(b, rear, crank), nightSeg(b, crank, seat)), min(min(nightSeg(b, seat, head), nightSeg(b, crank, head)), min(nightSeg(b, rear, seat), nightSeg(b, head, vec2(.52, .34)))));
+                    float fittings = min(nightSeg(b, seat + vec2(-.1, .09), seat + vec2(.1, .09)), min(nightSeg(b, seat, seat + vec2(0.0, .09)), min(nightSeg(b, head, vec2(.38, 1.02)), nightSeg(b, vec2(.3, 1.02), vec2(.46, 1.02)))));
+                    if (min(wheel, min(frame, fittings)) < .028) {
+                      cutColor = frame < .028 && frame < wheel ? nightPalette(h * 5.0 + .1) : fittings < .028 ? vec3(.1) : vec3(.14);
+                      t = tc; normal = vec3(0.0, 0.0, -1.0); kind = 5.0;
+                    }
                   }
                 } else if (shopKind == 23) {
                   // The backs of the waiting-room chairs.
@@ -1415,6 +1493,112 @@ ${SHOP_SIGN_GLSL}
                   albedo = nightPicture(albedo, q, vec2(.8, 1.1), vec2(1.5, 2.0), nightPalette(pick * 5.0));
                   albedo = nightPicture(albedo, q, vec2(1.8, 1.1), vec2(2.5, 2.0), nightPalette(pick * 5.0 + .4));
                 }
+              } else if (shopKind == 27) {
+                // Fruit stall: tiers of durians, mangosteens and rambutans in the window, crates at the back, a weighing counter, price cards.
+                wall = vec3(.95, .86, .45); albedo = wall; floorColor = vec3(.55, .54, .5); tileSize = .3; spots = 0.0;
+                if (kind == 1.0) {
+                  vec2 g = (top > .5 ? hit.xz : q) / .26, c = fract(g) - .5;
+                  float h = nightRoomHash(floor((hit.x - aLow.x) / .9) + seed * 3.0), each = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  vec3 fruit = h < .5 ? mix(vec3(.42, .46, .18), vec3(.66, .64, .3), step(.5, fract((c.x + c.y) * 5.0))) : h < .75 ? vec3(.36, .12, .3) : vec3(.82, .16, .14);
+                  albedo = top > .5 ? mix(vec3(.2, .3, .16), fruit * (.8 + .4 * each), step(length(c), .42)) : mix(vec3(.2, .5, .28), vec3(.94), step(.5, fract(q.x * 3.0)));
+                } else if (kind == 2.0) albedo = top > .5 ? vec3(.5, .52, .22) : mix(vec3(.74, .58, .38), vec3(.3, .22, .15), max(step(.82, fract(hit.y * 8.0)), step(.96, fract(q.x * 2.0))));
+                else if (kind == 3.0) {
+                  // The scale's dial stands on the counter.
+                  albedo = top > .5 ? mix(vec3(.82, .82, .8), vec3(.85, .2, .16), step(length(hit.xz - vec2(cLow.x + .35, .5 * (cLow.z + cHigh.z))), .18)) : vec3(.2, .45, .3) * (1.0 - .3 * step(.9, fract(hit.y * 3.0)));
+                } else if (front > .5) {
+                  vec2 g = vec2(hit.x / .7, (hit.y - 1.2) / .45), c = fract(g) - .5;
+                  float card = step(1.2, hit.y) * step(hit.y, 2.1) * step(.3, hit.x) * step(hit.x, size.x - .3) * step(abs(c.x), .4) * step(abs(c.y), .36);
+                  albedo = mix(albedo, mix(vec3(.85, .12, .1), vec3(.97), step(abs(c.y), .13) * step(abs(c.x), .28) * step(.3, fract(c.x * 6.0))), card);
+                }
+              } else if (shopKind == 28) {
+                // Lighting shop: dark walls so every lamp shows, a table of lit shades, shelves of lamps, rows of sconces.
+                wall = vec3(.2, .19, .2); albedo = wall; floorColor = vec3(.3, .28, .27); ceilingColor = vec3(.16);
+                vec3 warm = vec3(1.4, 1.12, .72);
+                if (kind == 1.0) {
+                  vec2 g = hit.xz / .42, c = fract(g) - .5;
+                  albedo = timber * mix(.7, 1.0, top);
+                  glow = top * step(length(c), .3) * .9; glowColor = mix(warm, nightPalette(nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed)) + .3, .3);
+                } else if (kind == 2.0) {
+                  vec2 c = fract(vec2(q.x / .45, hit.y / .5)) - .5;
+                  albedo = mix(vec3(.12), vec3(.4, .3, .2), step(.42, c.y));
+                  glow = step(.5, normal.x) * step(abs(c.x), .2) * step(abs(c.y + .05), .2) * .85; glowColor = warm;
+                } else if (kind == 3.0) albedo = top > .5 ? vec3(.85) : timber;
+                else if (front > .5) {
+                  vec2 c = (fract(vec2(hit.x / .6, (hit.y - 1.0) / .55)) - .5) * vec2(.6, .55);
+                  float rows = step(1.0, hit.y) * step(hit.y, 2.1) * step(.3, hit.x) * step(hit.x, size.x - .3);
+                  albedo += .3 * rows * (1.0 - smoothstep(.05, .28, length(c))) * warm;
+                  glow = rows * step(length(c), .08); glowColor = warm;
+                }
+              } else if (shopKind == 29) {
+                // Plant nursery: pots on a bench in the window, a tiered stand of foliage and flowers, sacks of soil, shelves of pots on a slatted wall.
+                wall = vec3(.86, .88, .8); albedo = hit.y < 1.0 ? timber * (1.0 - .2 * step(.9, fract(q.x * 6.0))) : wall;
+                floorColor = vec3(.5, .48, .44); tileSize = .45; spots = 0.0;
+                vec3 terracotta = vec3(.72, .4, .26);
+                if (kind == 1.0) {
+                  vec2 g = vec2(q.x / .3, hit.y / .43), c = fract(g) - .5;
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  vec3 plant = h > .75 ? nightPalette(h * 9.0) : mix(vec3(.2, .44, .22), vec3(.4, .62, .3), fract(h * 5.0));
+                  plant *= .75 + .4 * step(.5, nightRoomHash(dot(floor(vec2(q.x, hit.y) * 22.0), vec2(1.0, 7.0))));
+                  albedo = top > .5 ? vec3(.24, .46, .24) : mix(c.y < -.2 ? terracotta * (1.0 - .5 * step(.36, abs(c.x))) : plant, vec3(.3, .24, .18), step(.46, c.y));
+                } else if (kind == 2.0) albedo = top > .5 ? vec3(.3, .24, .18) : mix(timber * .7, terracotta * (.8 + .3 * nightRoomHash(floor((hit.x - bLow.x) / .32) + seed)), step(abs(fract((hit.x - bLow.x) / .32) - .5), .3) * step(.3, hit.y));
+                else if (kind == 3.0) albedo = mix(vec3(.86, .8, .6), vec3(.3, .5, .26), step(abs(fract(hit.y / .27) - .5), .2) * step(abs(fract(q.x / .5) - .5), .3)) * (1.0 - .35 * step(.93, fract(hit.y / .27)));
+                else if (front > .5) {
+                  vec2 g = vec2(hit.x / .34, (hit.y - 1.15) / .45), c = fract(g) - .5;
+                  float rows = step(1.15, hit.y) * step(hit.y, 2.05) * step(.3, hit.x) * step(hit.x, size.x - .3), h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  vec3 pot = c.y > 0.0 ? mix(vec3(.2, .44, .22), vec3(.4, .62, .3), h) : mix(terracotta, vec3(.9, .9, .86), step(.7, h));
+                  albedo = mix(albedo, mix(pot, timber * .7, step(.42, abs(c.y))), rows * max(step(abs(c.x), mix(.22, .34, step(0.0, c.y))) * step(.15, h), step(.42, abs(c.y))));
+                }
+              } else if (shopKind == 30) {
+                // Souvenir shop: a table of trinkets, a wall of folded shirts, a counter, magnets and keyrings in rows at the back.
+                wall = vec3(.95, .93, .88); albedo = wall; floorColor = timber * 1.1; tileSize = .18;
+                if (kind == 1.0) {
+                  vec2 g = hit.xz * 6.0;
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  albedo = top > .5 ? mix(vec3(.9, .88, .82), nightPalette(h * 4.3), step(.3, h) * step(length(fract(g) - .5), .3)) : vec3(.8, .15, .15) * (1.0 - .25 * step(.5, fract(q.x * 4.0)));
+                } else if (kind == 2.0) {
+                  vec2 g = vec2(q.x / .4, hit.y / .28), c = fract(g);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed * 3.0);
+                  albedo = normal.x < -.5 ? mix(mix(nightPalette(h * 3.1), nightPalette(h * 7.7), step(.5, c.y)) * (1.0 - .25 * step(.45, abs(c.y - .5))), vec3(.92), max(step(.9, c.y), step(.94, c.x))) : vec3(.86);
+                } else if (kind == 3.0) albedo = top > .5 ? vec3(.92) : accent * (1.0 - .2 * step(.9, fract(hit.y * 3.0)));
+                else if (front > .5) {
+                  vec2 g = vec2(hit.x / .16, (hit.y - 1.1) / .2), c = abs(fract(g) - .5);
+                  float rows = step(1.1, hit.y) * step(hit.y, 2.1) * step(.3, hit.x) * step(hit.x, size.x - .3), h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  albedo = mix(albedo, nightPalette(h * 5.9) * .9, rows * step(.2, h) * (h > .6 ? step(length(c), .3) : step(max(c.x, c.y), .3)));
+                }
+              } else if (shopKind == 31) {
+                // Surf shop: sandals on a deck in the window, a rail of swimwear, a till, a wave painted along the back wall.
+                wall = mix(vec3(.62, .84, .88), vec3(.96, .94, .86), step(.5, pick)); albedo = wall; floorColor = vec3(.84, .74, .56); tileSize = .18;
+                if (kind == 1.0) {
+                  vec2 g = hit.xz / vec2(.3, .32), c = abs(fract(g) - .5);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  albedo = top > .5 ? mix(vec3(.9, .84, .66), nightPalette(h * 4.7), step(.3, h) * step(abs(c.x - .2), .12) * step(c.y, .36)) : timber * (1.0 - .25 * step(.85, fract(hit.y * 6.0)));
+                } else if (kind == 2.0) albedo = top > .5 ? vec3(.15) : nightPalette(nightRoomHash(floor(q.x * 8.0) + seed * 31.0) * 4.9) * (1.0 - .4 * step(.8, fract(q.x * 8.0))) * (.75 + .25 * step(.5, fract(hit.y * 5.0)));
+                else if (kind == 3.0) albedo = top > .5 ? vec3(.94) : mix(vec3(.16, .46, .66), vec3(.94), step(.5, fract(hit.y * 3.0 + .12 * sin(q.x * 9.0))));
+                else if (front > .5) {
+                  float crest = 1.15 + .16 * sin(hit.x * 3.6 + pick * 6.0);
+                  albedo = mix(albedo, mix(vec3(.14, .44, .64), vec3(.95), step(crest - .07, hit.y)), step(.1, hit.y) * step(hit.y, crest));
+                  albedo = mix(albedo, vec3(.98, .8, .3), step(length(hit.xy - vec2(size.x - .9, 1.85)), .24));
+                }
+              } else if (shopKind == 32) {
+                // Bicycle hire: a plank shed, a workbench over a red tool chest, shelves of helmets, spare wheels hung on the back wall beside a board of prices.
+                wall = timber * 1.1; albedo = wall * (1.0 - .22 * step(.92, fract(q.x * 5.0)));
+                floorColor = vec3(.5, .5, .48); tileSize = 1.2; spots = 0.0;
+                if (kind == 1.0) albedo = vec3(.2) * (1.0 + .5 * step(.5, fract(hit.x * 8.0)) * top);
+                else if (kind == 2.0) {
+                  vec2 g = hit.xz * vec2(3.0, 5.0);
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed);
+                  albedo = top > .5 ? mix(timber * .8, h > .8 ? vec3(.7, .72, .74) : vec3(.16, .3, .6), step(.6, h) * step(max(abs(fract(g.x) - .5), abs(fract(g.y) - .5)), .3)) : mix(vec3(.75, .14, .12), vec3(.12), max(step(.9, fract(hit.y * 4.0)), step(.96, fract(q.x * 1.6))));
+                } else if (kind == 3.0) {
+                  vec2 g = vec2(q.x / .4, hit.y / .42), c = fract(g) - .5;
+                  float h = nightRoomHash(dot(floor(g), vec2(1.0, 7.0)) + seed * 3.0);
+                  albedo = normal.x < -.5 ? mix(mix(vec3(.22, .2, .18), nightPalette(h * 4.3), step(.2, h) * step(length(vec2(c.x, (c.y + .12) * 1.3)), .34) * step(-.14, c.y)), timber * .7, step(.44, c.y)) : timber * .7;
+                } else if (front > .5) {
+                  float wheelX = (fract((hit.x - .3) / .9) - .5) * .9, ring = abs(length(vec2(wheelX, hit.y - 1.55)) - .3);
+                  if (hit.x > .3 && hit.x < size.x - 1.5 && (ring < .03 || length(vec2(wheelX, hit.y - 1.55)) < .04)) albedo = vec3(.12);
+                  vec2 low = vec2(size.x - 1.3, 1.0), high = vec2(size.x - .5, 2.05);
+                  float line = step(.35, fract(hit.y * 7.0)) * step(fract(hit.y * 7.0), .6) * step(low.x + .1, hit.x) * step(hit.x, high.x - .1 - .3 * nightRoomHash(floor(hit.y * 7.0) + seed));
+                  albedo = mix(albedo, mix(vec3(.16, .2, .18), vec3(.92), line), nightRect(hit.xy, low, high));
+                }
               }
               // The shop's name high on the back wall: lit letters on a dark wall, dark ones on a pale wall.
               if (shell * front > .5) {
@@ -1767,7 +1951,7 @@ ${SHOP_SIGN_GLSL}
             vec3 edge = min(hit - low, high - hit) + abs(normal) * 10.0;
             float corner = kind > 0.0 ? smoothstep(0.0, .35, hit.y) : smoothstep(0.0, .5, min(edge.x, min(edge.y, edge.z)));
             // An office is lit evenly from its whole ceiling, and so is a shop window, bar the jeweller's and the cafe.
-            float even = shop > .5 ? shopKind == 2 || shopKind == 18 ? .2 : shopKind == 5 || (shopKind > 10 && shopKind < 22) ? .4 : .6 : .45 * office;
+            float even = shop > .5 ? shopKind == 2 || shopKind == 18 || shopKind == 28 ? .2 : shopKind == 5 || (shopKind > 10 && shopKind < 22) ? .4 : .6 : .45 * office;
             float lighting = sheer > 0.0 ? sheer : mix((.3 + 1.5 * lit) * mix(.55, 1.0, corner), mix(.85, .95, step(.5, shop)), even);
             return vec4(mix(albedo * lighting, glowColor, glow), 1.0);
           }
@@ -1940,7 +2124,7 @@ ${SHOP_SIGN_GLSL}
             totalEmissiveRadiance += mix(vec3(1.0, .86, .68), vec3(1.0, .96, .9), nightFrontShop) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * frontLit * mix(${INTERIOR.nightShopfront.toFixed(2)}, ${SHOP_WINDOWS.night.toFixed(2)}, nightFrontShop) * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v4-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v19-${frontShops.join('.')}-${rooms}` : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v5-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v20-${frontShops.join('.')}-${rooms}` : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

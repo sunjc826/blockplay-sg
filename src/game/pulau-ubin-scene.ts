@@ -6,6 +6,7 @@ import { createSceneKit } from './scene-kit';
 import { insideFootprint, overlapsObstacle } from './region-collision';
 import { withVerticalPlaces } from './vertical-places';
 import { bumboat } from './bumboat';
+import type { ShopName } from './world-night-lights';
 
 export const PULAU_UBIN_SPAWN = { x: 0, z: 145, yaw: 0 };
 export const PULAU_UBIN_BOUNDS = { minX: -270, maxX: 270, minZ: -220, maxZ: 225 };
@@ -58,18 +59,21 @@ export function buildPulauUbinScene() {
   const ferry=bumboat(k,18,197); sign('PULAU UBIN / CHANGI BUMBOAT',0,4.6,170,35,2,'#376961');
   sign('RETURN TO CHANGI · BOARD ON FOOT',0,3.6,205,34,1.7,'#376961');
 
-  function kampong(x:number,z:number,color:string,width=26) {
+  // The two houses by the jetty trade from their front rooms: a shop window in each bay under the veranda
+  // instead of a louvred pane (a shop wall, world-night-lights).
+  function kampong(x:number,z:number,color:string,width=26,shops?:readonly ShopName[]) {
     const wall=mat(color); box(x,3.1,z,width,5,16,wall,scene,true); solid(x,z,width,16);
-    for(const dx of [-width/2+2,0,width/2-2]) {
+    [-width/2+2,0,width/2-2].forEach((dx,i) => {
       box(x+dx,.4,z,1,.8,12,granite);
+      if(shops) { const front=mat('#5b7773'); front.userData.nightShopWindow=[shops[i%shops.length]]; box(x+dx,1.8,z+8.2,3.2,2.4,.3,front); return; }
       box(x+dx,3.2,z+8.2,3.2,2.2,.3,villagePane);
       for(const y of [2.5,3,3.5,4]) box(x+dx,y,z+8.45,3.2,.12,.1,pale);
-    }
+    });
     for(const side of [-1,1]) { const slope=box(x,6.5,z+side*4.5,width+4,.4,10,roof,scene,true);slope.rotation.x=side*.25; }
     box(x,2.8,z+12,width+3,.25,8,roof);
     for(const dx of [-width/2,width/2]) { cylinder(x+dx,1.4,z+14,.18,2.8,wood);solid(x+dx,z+14,.4,.4); }
   }
-  kampong(-52,112,'#b5a181',30);kampong(44,112,'#97a99b',30);kampong(-64,72,'#b5ae93');kampong(54,72,'#c2b093');
+  kampong(-52,112,'#b5a181',30,['bicycles','provisionShop','bicycles']);kampong(44,112,'#97a99b',30,['kopitiam','bicycles','provisionShop']);kampong(-64,72,'#b5ae93');kampong(54,72,'#c2b093');
   sign('UBIN VILLAGE',0,5,123,30,2,'#496c55');sign('KOPI & PROVISIONS',-52,2.9,128,27,1.5,'#6b654b');
   // Bicycle racks are scenery; the shipped drive mode still uses its car.
   const wheelGeo=k.geo(new THREE.TorusGeometry(.75,.09,5,12));
