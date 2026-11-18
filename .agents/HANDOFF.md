@@ -16985,3 +16985,19 @@ Heritage shops (2026-11-18, owner agreed to the heritage four first):
 Left: the heartland set (kopitiam is reusable), Geylang, Upper Thomson, Sentosa and the
 upper-floor ideas (hotel rooms, factory floors, classrooms). The shader now holds 21
 shops; first-compile time was not measured.
+
+Heartland shops (2026-11-18, owner asked for the heartland set next):
+- `SHOP_LAYOUTS` 22-26: provisionShop, clinic, salon, tuition, bakery (the bakery shares
+  the kueh shop's code and boxes). With the kopitiam they are `HEARTLAND_SHOPS`, the
+  `shops` list of Toa Payoh, Bishan, Tampines, Yishun, Woodlands, Punggol and Queenstown
+  in `district-interiors.ts`, so every generated shopfront there is one of the six.
+  Sign font gained a cross (mark 9) for the clinics.
+- Marked shop walls: Queenstown's KOPI / PROVISIONS / BAKERY / MARKET row (each glass
+  shows its own trade; MARKET is dried goods and a florist), Queenstown's NEIGHBOURHOOD
+  SHOPS row (its teal fronts, 2.3 m bays), and every level of Yishun's Northpoint wings
+  (a mall mix plus bakery, salon and clinic).
+- Keys `-windows-v18-<list>`, `-shops-v4-<list>`.
+Left: Punggol's mall shopfront glass is only 1.6 m tall, below the 2.4 m a shop wall
+needs, so it is unchanged; the malls and hubs of Toa Payoh, Bishan, Tampines and
+Woodlands have no marked walls and show the six only where a plain wall meets the
+ground. Not timed against the previous commit; not tried on a phone.

@@ -35,11 +35,14 @@ export function buildYishunScene() {
 
   // Northpoint-inspired twin retail wings: stepped roofs, red fins, glazed
   // shopfronts and a public terrace, rather than a duplicate estate slab.
+  // Every level of the wings' glazing is a run of shop units (world-night-lights SHOP_LAYOUTS).
+  const mallGlass = mat('#72949a', .24, .3);
+  mallGlass.userData.nightShopWindow = ['fashion', 'electronics', 'bookshop', 'cafe', 'sports', 'beauty', 'toys', 'bakery', 'salon', 'clinic'];
   for (const [x, width, height] of [[-95, 46, 23], [-44, 46, 29]]) {
     box(x, height / 2, -145, width, height, 64, pale, scene, true); solid(x, -145, width, 64);
     for (const y of [4, 9, 14, 19]) {
-      box(x, y, -112.7, width - 3, 3.4, .4, glass);
-      box(x, y, -177.3, width - 3, 3.4, .4, glass);
+      box(x, y, -112.7, width - 3, 3.4, .4, mallGlass);
+      box(x, y, -177.3, width - 3, 3.4, .4, mallGlass);
     }
     for (let dx = -width / 2 + 3; dx < width / 2; dx += 7) box(x + dx, 14, -112.2, 1.3, 28, 1, red);
     box(x, height + 1, -145, width + 3, 1.8, 67, steel);

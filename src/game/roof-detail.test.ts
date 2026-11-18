@@ -134,12 +134,15 @@ describe('interior mapping', () => {
     }
   });
   it('designs shop windows that fit their bays, with no two pieces sharing space and no two neighbours alike', async () => {
-    const { SHOP_LAYOUTS, SHOP_WINDOWS, MALL_SHOPS, shopWindow, INTERIOR, roomBox } = await import('./world-night-lights');
+    const { SHOP_LAYOUTS, SHOP_WINDOWS, MALL_SHOPS, HEARTLAND_SHOPS, shopWindow, INTERIOR, roomBox } = await import('./world-night-lights');
     const names = Object.keys(SHOP_LAYOUTS);
     expect(names.slice(0, 10)).toEqual(['fashion', 'jeweller', 'electronics', 'bookshop', 'cafe', 'sports', 'beauty', 'toys', 'florist', 'bags']);
     expect(MALL_SHOPS).toEqual(names.slice(0, 10));
-    expect(names.slice(10)).toEqual(['medicineHall', 'teaMerchant', 'driedGoods', 'textiles', 'garlands', 'spices', 'carpets', 'perfumery', 'kopitiam', 'kueh', 'tailor']);
-    for (const [name, boxes] of Object.entries(SHOP_LAYOUTS)) for (const width of [SHOP_WINDOWS.bay, 3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
+    expect(names.slice(10, 21)).toEqual(['medicineHall', 'teaMerchant', 'driedGoods', 'textiles', 'garlands', 'spices', 'carpets', 'perfumery', 'kopitiam', 'kueh', 'tailor']);
+    expect(names.slice(21)).toEqual(['provisionShop', 'clinic', 'salon', 'tuition', 'bakery']);
+    for (const name of HEARTLAND_SHOPS) expect(names).toContain(name);
+    // The housing towns' shops also fit Queenstown's 2.3 m shopfront bays.
+    for (const [name, boxes] of Object.entries(SHOP_LAYOUTS)) for (const width of [...((HEARTLAND_SHOPS as readonly string[]).includes(name) ? [2.3] : []), SHOP_WINDOWS.bay, 3.1, 4.4, 6.2]) for (const depth of [INTERIOR.depth, INTERIOR.depth + INTERIOR.depthRange]) {
       const placed = boxes.map(box => ({ name: box.name, ...roomBox(box, width, depth) }));
       for (const b of placed) {
         const label = `${name} ${b.name} at ${width} x ${depth}`;
@@ -157,7 +160,7 @@ describe('interior mapping', () => {
     }
     // A run of bays shows every shop once before any repeats, on any building.
     for (const building of [0, 7, 96]) {
-      for (const shops of [MALL_SHOPS, names.slice(10, 13), names.slice(13, 17), names.slice(10, 16)] as (typeof MALL_SHOPS)[]) {
+      for (const shops of [MALL_SHOPS, HEARTLAND_SHOPS, names.slice(10, 13), names.slice(13, 17)] as (typeof MALL_SHOPS)[]) {
         expect(new Set(shops.map((_, bay) => shopWindow(bay, building, shops))).size).toBe(shops.length);
         for (let bay = 0; bay < 30; bay++) expect(shopWindow(bay, building, shops)).not.toBe(shopWindow(bay + 1, building, shops));
       }
@@ -171,26 +174,28 @@ describe('interior mapping', () => {
     const names = Object.values(SHOP_BRANDS).flat();
     expect(new Set(names.map(name => name.slice(2))).size).toBe(names.length);
     for (const name of names) {
-      expect(name).toMatch(/^[0-8] [A-Z]{5,8}$/);
+      expect(name).toMatch(/^[0-9] [A-Z]{5,8}$/);
       for (const letter of name) expect(SHOP_FONT[letter], `${name}: ${letter}`).toBeDefined();
     }
     for (const [glyph, rows] of Object.entries(SHOP_FONT)) expect(rows, glyph).toMatch(/^[01]{3}( [01]{3}){4}$/);
     expect(new Set(Object.values(SHOP_FONT)).size).toBe(Object.keys(SHOP_FONT).length);
   });
-  it('gives the shopping belt and the heritage streets their own shops, on generated shopfronts and on marked walls', async () => {
+  it('gives the shopping belt, the heritage streets and the housing towns their own shops, on generated shopfronts and on marked walls', async () => {
     const { DISTRICT_INTERIORS } = await import('./district-interiors');
-    const { SHOP_LAYOUTS, MALL_SHOPS } = await import('./world-night-lights');
+    const { SHOP_LAYOUTS, MALL_SHOPS, HEARTLAND_SHOPS } = await import('./world-night-lights');
     const { REGIONS } = await import('./regions');
     const { buildOrchardScene } = await import('./orchard-scene');
     const heritage = ['chinatown', 'kampong-glam', 'little-india', 'katong-joo-chiat'];
     for (const [id, interiors] of Object.entries(DISTRICT_INTERIORS)) {
-      expect(interiors.boutiques ?? 0, id).toBe(id === 'orchard' || heritage.includes(id) ? 1 : 0);
-      expect(!!interiors.shops, id).toBe(heritage.includes(id));
+      const heartland = ['toa-payoh', 'bishan', 'tampines', 'yishun', 'woodlands', 'punggol', 'queenstown'].includes(id);
+      expect(interiors.boutiques ?? 0, id).toBe(id === 'orchard' || heritage.includes(id) || heartland ? 1 : 0);
+      expect(!!interiors.shops, id).toBe(heritage.includes(id) || heartland);
+      if (heartland) expect(interiors.shops, id).toEqual(HEARTLAND_SHOPS);
       for (const name of interiors.shops ?? []) expect(Object.keys(SHOP_LAYOUTS), id).toContain(name);
       if (interiors.shops) expect(new Set(interiors.shops).size, id).toBeGreaterThanOrEqual(3);
     }
-    // The shared terraces hide generated shopfronts behind their own, so those carry the shops instead.
-    for (const id of ['little-india', 'katong-joo-chiat']) {
+    // The shared terraces hide generated shopfronts behind their own, so those carry the shops instead; so do Queenstown's shop rows and Yishun's retail wings.
+    for (const id of ['little-india', 'katong-joo-chiat', 'queenstown', 'yishun']) {
       const built = REGIONS.find(region => region.id === id)!.build(), marked = new Set<string>();
       built.scene.traverse(object => { for (const name of (object as { material?: { userData?: { nightShopWindow?: string[] } } }).material?.userData?.nightShopWindow ?? []) marked.add(name); });
       expect(marked.size, id).toBeGreaterThanOrEqual(3);

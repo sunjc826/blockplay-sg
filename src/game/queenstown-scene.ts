@@ -304,10 +304,12 @@ export function buildQueenstownScene() {
   // Low-rise neighbourhood shops and market canopy, not tourist landmarks.
   box(73, 3, -13, 65, 6, 13, cream, scene, true); solid(73, -13, 65, 13);
   const shopNames = ['KOPI', 'PROVISIONS', 'BAKERY', 'MARKET'];
+  // Each shop's glass shows the trade on its sign (world-night-lights SHOP_LAYOUTS).
+  const shopGlass = ([['kopitiam'], ['provisionShop'], ['bakery'], ['driedGoods', 'florist']] as const).map(shops => { const m = glass.clone(); m.userData.nightShopWindow = [...shops]; materials.push(m); return m; });
   const tabletopGeo=geo(new THREE.CylinderGeometry(0.85,0.85,0.12,16));
   for (let i = 0; i < 4; i++) {
     const x = 49 + i * 16;
-    box(x, 1.7, -6.4, 12, 2.9, 0.15, glass); box(x, 3.6, -4.7, 15, 0.25, 4, i % 2 ? teal : coral, scene, true);
+    box(x, 1.7, -6.4, 12, 2.9, 0.15, shopGlass[i]); box(x, 3.6, -4.7, 15, 0.25, 4, i % 2 ? teal : coral, scene, true);
     sign(shopNames[i], x, 4.9, -6.25, 12, 1.2);
     for (const dx of [-3, 3]) {
       const top=new THREE.Mesh(tabletopGeo,cream);top.position.set(x+dx,0.8,-1);scene.add(top);
@@ -476,9 +478,11 @@ export function buildQueenstownScene() {
   box(-197,3.7,45,45,7.4,13,cream,scene,true);solid(-197,45,45,13);
   for (const side of [-1,1]) {const roof=box(-197,7.7,45+side*3.5,47,0.24,7.4,red);roof.rotation.x=side*0.15;}
   shelter(-197,54,44);
+  // The row's shopfronts show the housing towns' trades behind their glass.
+  const rowFront = teal.clone(); rowFront.userData.nightShopWindow = ['kopitiam', 'provisionShop', 'clinic', 'salon', 'tuition', 'bakery']; materials.push(rowFront);
   for(let x=-214;x<=-178;x+=9) {
     box(x,5.6,51.6,3.5,1.8,0.15,glass);box(x+2.5,4.5,51.9,1.2,0.8,0.7,concrete);
-    box(x,1.6,51.6,4.6,3.2,0.15,teal);
+    box(x,1.6,51.6,4.6,3.2,0.15,rowFront);
   }
   sign('NEIGHBOURHOOD SHOPS',-197,3.9,51.85,33,1.1);
   box(-197,0.09,69,44,0.15,21,paving);bench(-210,67);bench(-184,67);
