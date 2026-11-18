@@ -1,11 +1,11 @@
 <!doctype html>
 <!-- Any district's plants, for judging trees, grass, wind and how they react to shots and blasts.
-     ?region=pulau-ubin  &cam=x,y,z  &look=x,y,z  &fov=65  &time=noon (or night, afternoon...)  &weather=sunny (showers, thunderstorm, squall...)  &reduced=1
+     ?region=pulau-ubin  &cam=x,y,z  &look=x,y,z  &fov=65  &time=noon (or night, afternoon...)  &weather=sunny (showers, thunderstorm, squall...)  &reduced=1  &shadows=1 (sun shadows; leave off at night)
      window.veg.step(seconds, frames) advances the world and renders; window.veg.hit(x,y,z,radius,strength) shakes the plants there;
      window.veg.bodies([{x,y,z,radius}]) presses grass; window.veg.at(cam, look) moves the camera; window.veg.play() runs in real time. -->
 <html><body style="margin:0;background:#000"><script type="module">
 const params=new URLSearchParams(location.search),vec=(s,d)=>s?s.split(',').map(Number):d;
-localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:params.get('weather')??'sunny',celebration:'none',timeOfDay:params.get('time')??'noon',reducedEffects:params.get('reduced')==='1',shadows:true,occlusion:true}));
+localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:params.get('weather')??'sunny',celebration:'none',timeOfDay:params.get('time')??'noon',reducedEffects:params.get('reduced')==='1',shadows:params.get('shadows')==='1',occlusion:true}));
 const {getRegion}=await import('/src/game/regions.ts');
 // The same copy of three the game's modules were given, so their instanceof checks hold.
 const THREE=await import(performance.getEntriesByType('resource').map(e=>e.name).find(n=>/deps\/three\.js/.test(n)));
@@ -15,7 +15,7 @@ const {createNightLights}=await import('/src/game/world-night-lights.ts');
 const {createWorldOcclusion}=await import('/src/game/world-occlusion.ts');
 const {disturbFoliage,setFoliageBodies}=await import('/src/game/foliage-disturbance.ts');
 const W=innerWidth,H=innerHeight;
-const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;if(params.get('shadows')==='1')renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
 const region=getRegion(params.get('region')??'pulau-ubin'),world=region.build();separateInstancedMaterials(world.scene);
 const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
 const {DISTRICT_INTERIORS}=await import('/src/game/district-interiors.ts');
