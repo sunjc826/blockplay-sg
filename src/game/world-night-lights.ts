@@ -179,11 +179,12 @@ export const GROUND_STOREY = 2.6;
  */
 export const STOREFRONT = { minFacade: 6, maxLift: .9, blank: .17, door: .25, frontWidth: .8, doorWidth: .4, riser: .5, head: 2.2, plinth: .3 } as const;
 /**
- * Interior mapping behind glass: rooms `depth` to `depth + depthRange` metres deep, how much of a room's
+ * Interior mapping behind glass: rooms `depth` to `depth + depthRange` metres deep behind a wall `reveal`
+ * metres thick (which shows as a frame round the opening), furnished and lit by one ceiling lamp; how much of a room's
  * colour a shopfront shows by day (the rest of the light is the street's), and how brightly lit shopfronts
  * and lit windows show their rooms at night.
  */
-export const INTERIOR = { depth: 3.2, depthRange: 1.6, dayShare: .8, nightShopfront: .55, nightWindow: 1.5 } as const;
+export const INTERIOR = { depth: 3.4, depthRange: 1.8, reveal: .18, dayShare: .85, nightShopfront: .38, nightWindow: .95 } as const;
 /**
  * Where a view ray entering a room's glass at `p` (metres from its left wall and floor) first meets the room:
  * the surface and the distance. `d` is the direction along the facade, up and inwards. Mirrors `nightRoom`.
@@ -397,26 +398,82 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
             float flicker = .6 + .25 * sin(t * 5.1) * sin(t * 2.3 + 1.7) + .15 * sin(t * 13.7 + h * 9.0);
             return mix(tint, vec3(.5, .66, 1.0) * flicker, screen);
           }
-          // Interior mapping: the colour of a room seen through a point on its glass, with no geometry behind
-          // it. p is metres from the room's left wall and floor, size its width and height, d the view
-          // direction along the facade, up, and into the wall. The ray is carried to whichever of the back
-          // wall, a side wall, the floor or the ceiling it reaches first. Mirrors interiorHit.
-          vec3 nightRoom(vec2 p, vec2 size, vec3 d, float seed) {
-            d.z = max(d.z, .02);
-            float depth = ${INTERIOR.depth.toFixed(1)} + ${INTERIOR.depthRange.toFixed(1)} * fract(seed * 7.7);
-            vec3 reach = vec3(d.x > 0.0 ? (size.x - p.x) / d.x : -p.x / min(d.x, -1e-4), d.y > 0.0 ? (size.y - p.y) / d.y : -p.y / min(d.y, -1e-4), depth / d.z);
+          // Interior mapping: a room seen through a point on its glass, with no geometry behind it.
+          // p is metres from the room's left wall and floor, size its width and height, open the glazed
+          // opening in the same metres (left, bottom, right, top), d the view direction along the facade, up
+          // and into the wall. The ray first crosses the wall's own thickness, where it may meet the frame;
+          // then it is carried to the furniture or the room's shell, and the hit is lit from a ceiling lamp.
+          // Returns colour and, in alpha, 1 for the room and 0 for the frame. Mirrors interiorHit for the shell.
+          float nightRoomHash(float v) { return fract(sin(v * 91.345) * 47453.5453); }
+          float nightBoxHit(vec3 from, vec3 dir, vec3 low, vec3 high, out vec3 normal) {
+            vec3 a = (low - from) / dir, b = (high - from) / dir, near = min(a, b), far = max(a, b);
+            float enter = max(near.x, max(near.y, near.z)), leave = min(far.x, min(far.y, far.z));
+            normal = -sign(dir) * step(near.yzx, near.xyz) * step(near.zxy, near.xyz);
+            return enter > leave || enter < 0.0 ? 1e9 : enter;
+          }
+          vec4 nightRoom(vec2 p, vec2 size, vec4 open, vec3 d, float seed) {
+            d = vec3(abs(d.x) < 1e-3 ? 1e-3 : d.x, abs(d.y) < 1e-3 ? 1e-3 : d.y, max(d.z, .03));
+            float reveal = ${INTERIOR.reveal.toFixed(2)}, depth = ${INTERIOR.depth.toFixed(1)} + ${INTERIOR.depthRange.toFixed(1)} * nightRoomHash(seed * 7.7);
+            vec3 wall = mix(vec3(.84, .78, .68), vec3(.66, .76, .82), step(.5, nightRoomHash(seed * 3.1)));
+            wall = mix(wall, vec3(.88, .82, .58), step(.8, nightRoomHash(seed * 5.3)));
+            // The wall is a hand deep: a ray that leaves the opening inside that thickness has met the frame.
+            vec3 from = vec3(p, 0.0) + d * (reveal / d.z);
+            if (from.x < open.x || from.x > open.z || from.y < open.y || from.y > open.w) {
+              float side = from.y > open.w ? .5 : from.y < open.y ? 1.0 : .72;
+              return vec4(vec3(.5, .52, .54) * side, 0.0);
+            }
+            vec3 low = vec3(0.0, 0.0, reveal), high = vec3(size, reveal + depth);
+            vec3 reach = vec3(d.x > 0.0 ? (high.x - from.x) / d.x : (low.x - from.x) / d.x, d.y > 0.0 ? (high.y - from.y) / d.y : (low.y - from.y) / d.y, (high.z - from.z) / d.z);
             float t = min(reach.x, min(reach.y, reach.z));
-            vec3 hit = vec3(p, 0.0) + d * t;
-            vec3 wall = mix(vec3(.82, .76, .66), vec3(.62, .72, .78), step(.5, fract(seed * 3.1)));
-            wall = mix(wall, vec3(.86, .8, .56), step(.8, fract(seed * 5.3)));
-            vec3 room;
-            if (t == reach.z) {
-              // The back wall carries shelves over a counter.
-              float shelf = step(.82, fract(hit.y * 1.9 + .2)) * step(.95, hit.y), counter = 1.0 - step(.95, hit.y);
-              room = wall * (1.0 - .35 * shelf) * (1.0 - .3 * counter);
-            } else if (t == reach.y) room = d.y > 0.0 ? vec3(.9) : wall * .42;
-            else room = wall * .78;
-            return room * mix(1.0, .5, clamp(t / (depth * 1.4), 0.0, 1.0));
+            vec3 normal = t == reach.z ? vec3(0.0, 0.0, -1.0) : t == reach.y ? vec3(0.0, -sign(d.y), 0.0) : vec3(-sign(d.x), 0.0, 0.0);
+            float kind = 0.0;
+            // Furniture, each a real box in the room so it slides against the walls as the viewer moves:
+            // a counter across the back, shelving down one side, and a display table near the glass.
+            float flip = step(.5, nightRoomHash(seed * 11.3)), far = high.z;
+            vec3 hitNormal;
+            float counter = nightBoxHit(from, d, vec3(.35, 0.0, far - 1.75), vec3(size.x - .35, .95, far - 1.2), hitNormal);
+            if (counter < t) { t = counter; normal = hitNormal; kind = 1.0; }
+            float shelfX = mix(0.0, size.x - .42, flip);
+            float shelf = nightBoxHit(from, d, vec3(shelfX, 0.0, reveal + .7), vec3(shelfX + .42, min(2.05, size.y - .3), far - .25), hitNormal);
+            if (shelf < t) { t = shelf; normal = hitNormal; kind = 2.0; }
+            float tableX = mix(size.x * .52, size.x * .14, flip);
+            float table = nightBoxHit(from, d, vec3(tableX, 0.0, reveal + .55), vec3(tableX + size.x * .34, .72, reveal + 1.5), hitNormal);
+            if (table < t) { t = table; normal = hitNormal; kind = 3.0; }
+            vec3 hit = from + d * t;
+            // What the surface is made of.
+            vec3 accent = mix(vec3(.72, .3, .24), vec3(.24, .46, .62), nightRoomHash(seed * 13.7));
+            accent = mix(accent, vec3(.86, .66, .22), step(.66, nightRoomHash(seed * 17.9)));
+            vec3 albedo = wall;
+            float glow = 0.0;
+            if (kind == 1.0) albedo = normal.y > .5 ? vec3(.86, .84, .8) : accent * (.8 + .2 * step(.5, fract(hit.x * 1.3)));
+            else if (kind == 2.0) {
+              // Goods on the shelves: a board every 40 cm, blocks of colour between them.
+              float board = step(.86, fract(hit.y * 2.5)), block = nightRoomHash(floor(hit.z * 3.2) + floor(hit.y * 2.5) * 7.0 + seed * 31.0);
+              vec3 goods = mix(mix(vec3(.82, .34, .28), vec3(.3, .56, .72), step(.33, block)), vec3(.9, .78, .32), step(.66, block));
+              albedo = abs(normal.x) > .5 ? mix(goods, vec3(.2, .17, .15), board) : vec3(.28, .24, .21);
+            } else if (kind == 3.0) albedo = normal.y > .5 ? mix(vec3(.8, .74, .62), accent, step(.6, nightRoomHash(floor(hit.x * 2.6) + floor(hit.z * 2.6) * 5.0 + seed))) : vec3(.36, .3, .26);
+            else if (normal.z < -.5) {
+              // Back wall: a door to one side, a skirting board, and a sign band over the counter.
+              float doorX = mix(size.x - 1.25, .35, flip), door = step(doorX, hit.x) * step(hit.x, doorX + .9) * step(hit.y, 2.05);
+              float band = step(1.55, hit.y) * step(hit.y, 1.95) * (1.0 - door) * step(.5, hit.x) * step(hit.x, size.x - .5);
+              albedo = mix(mix(wall, accent, band * .85), wall * .5, door) * (1.0 - .3 * step(hit.y, .1));
+            } else if (normal.y > .5) {
+              // Floor tiles lead the eye inward.
+              vec2 tile = abs(fract(vec2(hit.x, hit.z) / .6) - .5);
+              albedo = mix(vec3(.5, .46, .4), wall * .6, .5) * (1.0 - .22 * step(.46, max(tile.x, tile.y)));
+            } else if (normal.y < -.5) {
+              // Ceiling, with the lamp's own panel.
+              vec2 panel = abs(vec2(hit.x - size.x * .5, hit.z - (reveal + depth * .45)));
+              glow = step(panel.x, .55) * step(panel.y, .22);
+              albedo = vec3(.9);
+            }
+            // One lamp under the ceiling: light falls off with distance and angle, and corners gather shade.
+            vec3 lamp = vec3(size.x * .5, size.y - .12, reveal + depth * .45), toLamp = lamp - hit;
+            float range = length(toLamp), lit = max(dot(normal, toLamp / range), 0.0) / (1.0 + .16 * range * range);
+            vec3 edge = min(hit - low, high - hit) + abs(normal) * 10.0;
+            float corner = kind > 0.0 ? smoothstep(0.0, .35, hit.y) : smoothstep(0.0, .5, min(edge.x, min(edge.y, edge.z)));
+            float shade = (.3 + 1.5 * lit) * mix(.55, 1.0, corner);
+            return vec4(mix(albedo * shade, vec3(1.25, 1.2, 1.05), glow), 1.0);
           }
           // The view direction in a wall's own axes: along it (the way the facade coordinate grows), up, and inwards.
           vec3 nightInto(vec3 normal) {
@@ -431,7 +488,7 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
           // The ground storey of a building that stands on the ground, by day and night: a darker plinth, a
           // fascia under the first floor, and in most bays a glazed shopfront or a door. Drawn in the same
           // bays as the windows above, so a lit window at night sits over an opening by day.
-          float nightFront = 0.0, nightFrontSeed = 0.0, nightFrontGlass = 1.0; vec3 nightFrontRoom = vec3(0.0);
+          float nightFront = 0.0, nightFrontSeed = 0.0, nightFrontGlass = 1.0; vec4 nightFrontRoom = vec4(0.0);
           {
             float frontWall = 1.0 - smoothstep(.12, .3, abs(normalize(vNightNormal).y));
             vec2 frontUv = clamp((vNightWorld.xz - nightBounds.xy) * nightBounds.zw, 0.0, 1.0);
@@ -462,9 +519,11 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               // Behind the glass, a room; at a glancing angle the glass goes dark and reflective instead.
               vec3 frontInto = nightInto(normalize(vNightNormal));
               float frontBayWidth = vNightEdge.y / max(1.0, floor(vNightEdge.y / 3.1));
-              nightFrontRoom = nightRoom(vec2(fract(frontBay) * frontBayWidth, frontY), vec2(frontBayWidth, ${GROUND_STOREY.toFixed(1)}), frontInto, nightFrontSeed);
-              nightFrontGlass = mix(.12, .9, pow(1.0 - clamp(frontInto.z, 0.0, 1.0), 3.0));
-              diffuseColor.rgb = mix(diffuseColor.rgb, mix(nightFrontRoom * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), nightFrontGlass), nightFront);
+              nightFrontRoom = nightRoom(vec2(fract(frontBay) * frontBayWidth, frontY), vec2(frontBayWidth, ${GROUND_STOREY.toFixed(1)}),
+                vec4((.5 - frontHalf) * frontBayWidth, frontSill, (.5 + frontHalf) * frontBayWidth, ${STOREFRONT.head.toFixed(2)}), frontInto, nightFrontSeed);
+              // Glass only dims the room at a glancing angle; the frame is not glass at all.
+              nightFrontGlass = mix(.1, .85, pow(1.0 - clamp(frontInto.z, 0.0, 1.0), 3.0)) * nightFrontRoom.a;
+              diffuseColor.rgb = mix(diffuseColor.rgb, mix(nightFrontRoom.rgb * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), nightFrontGlass), nightFront);
               #ifdef STANDARD
                 roughnessFactor = mix(roughnessFactor, .16, nightFront);
               #endif
@@ -504,16 +563,20 @@ vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.
               float pane = mix(pane2.x * pane2.y, .56 * .48, far);
               // Up close a lit pane shows the room behind it; far off it settles to the plain glow.
               vec2 roomSize = vec2(vNightEdge.y / count.x, height / count.y);
-              roomLight = mix(nightRoom(f * roomSize, roomSize, nightInto(nightN), h) * ${INTERIOR.nightWindow.toFixed(2)}, vec3(1.0), max(far, smoothstep(.02, .12, max(aa.x, aa.y))));
+              float roomFar = max(far, smoothstep(.02, .12, max(aa.x, aa.y)));
+              if (roomFar < 1.0) {
+                vec4 room = nightRoom(f * roomSize, roomSize, vec4(.22 * roomSize.x, .26 * roomSize.y, .78 * roomSize.x, .74 * roomSize.y), nightInto(nightN), h);
+                roomLight = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), roomFar);
+              }
               `}
               vec3 tint = nightWindowTint(h, mix(vec3(1.0, .74, .45), vec3(.82, .9, 1.0), step(.72, fract(h * 7.13))));
               totalEmissiveRadiance += tint * roomLight * (1.1 + fract(h * 3.7)) * pane * lit * wall * nightLevel;
             }${panes ? '' : `
             // A share of the shopfronts keep their lights on after dark.
-            totalEmissiveRadiance += vec3(1.0, .82, .6) * nightFrontRoom * (1.0 - .6 * nightFrontGlass) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * ${INTERIOR.nightShopfront.toFixed(2)} * nightLevel;`}` : ''}
+            totalEmissiveRadiance += vec3(1.0, .86, .68) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * nightWindowLit(fract(nightFrontSeed * 3.31)) * ${INTERIOR.nightShopfront.toFixed(2)} * nightLevel;`}` : ''}
           }`);
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v6' : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? panes ? '-panes-v3' : '-windows-v7' : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

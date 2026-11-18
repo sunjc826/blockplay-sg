@@ -16865,3 +16865,13 @@ geometry. Seen on the real GPU in Chinatown by day and night and on Bishan block
 night. Noticed and left: a dashed line along the head of one lit Chinatown shopfront at
 night, where an authored band meets the wall. Daytime upper-floor windows are still
 not drawn; only the ground storey and night panes use this.
+
+Interior mapping, second pass (2026-11-18): the owner asked whether the rooms felt
+flat; they did (empty shell, flat colour, no frame). `nightRoom` now returns a vec4 and
+takes the glazed opening: a 0.18 m reveal shows as a frame, three boxes are ray-traced
+per room (`nightBoxHit`: counter, shelving with goods, table), the shell has a door,
+sign band, floor tiles and a lamp panel, and one ceiling lamp lights the hit with
+falloff and corner shade. Key `-windows-v7`. Night strengths were cut so detail
+survives tone mapping. Seen on the real GPU on a Chinatown shopfront from the front
+and both sides by day, head on at night, and on Bishan windows at night. Frame cost
+not measured; the room is only traced near enough for a bay to span a few dozen pixels.
