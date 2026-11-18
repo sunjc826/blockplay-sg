@@ -16960,3 +16960,28 @@ the bag on its stand, the toy boxes and the sports mannequins' shirts. The facad
 coordinate grows to the viewer's left, so lettering is laid out against it unless the
 room is mirrored. Names were invented here and not searched against trademark
 registers. Keys `-windows-v16`, `-shops-v2-<list>`.
+
+Heritage shops (2026-11-18, owner agreed to the heritage four first):
+- `SHOP_LAYOUTS` 11-21: medicineHall, teaMerchant, driedGoods, textiles, garlands,
+  spices, carpets, perfumery, kopitiam, kueh, tailor, each with two made-up brands.
+  New cut-outs: jars, red lanterns, coloured lamps, hung strings (sausages, garlands,
+  packets), saris on forms, headless dress forms, kopitiam chairs. Perfumery shares
+  the beauty shop's code and boxes; dried goods and spices share theirs.
+- `NightInteriors.shops` lists a district's shops for generated shopfronts (default
+  `MALL_SHOPS`, Orchard's ten); the list is a constant in the shader and in the cache
+  key (`-windows-v17-<list>`, `-shops-v3-<list>`). `shopStride` drops to 1 when the
+  count is a multiple of 3. Chinatown: medicineHall, teaMerchant, driedGoods, jeweller.
+  Kampong Glam: carpets, perfumery, textiles, cafe. Little India: textiles, garlands,
+  spices, jeweller. Katong: kopitiam, kueh, tailor, florist.
+- Chinatown's and Kampong Glam's own terraces show generated shopfronts either side of
+  their wooden doors. `heritageTerraces` (Little India, Katong) covers them with a dark
+  opening, so it takes `shops` and marks that opening `nightShopWindow`: all seven
+  Little India rows, and Katong's EAST COAST EATS row (kopitiam, kueh, cafe). Katong's
+  Koon Seng rows and raised porches are homes and stay dark.
+- No promotion strips on the heritage shops. `night-district.html` takes `&shopset=`.
+- New code times 1.5-4.1 ms a frame at a Little India terrace and under a Chinatown
+  five-foot way; the old-code comparison server would not start this time, so there is
+  no before figure for these two views.
+Left: the heartland set (kopitiam is reusable), Geylang, Upper Thomson, Sentosa and the
+upper-floor ideas (hotel rooms, factory floors, classrooms). The shader now holds 21
+shops; first-compile time was not measured.

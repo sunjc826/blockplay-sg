@@ -144,7 +144,7 @@ describe('street lamps', () => {
     const night = createNightLights(scene, { roads: [], roadWidth: 14, bounds: { minX: -20, maxX: 20, minZ: -20, maxZ: 20 }, obstacles: [] });
     expect(wall.material).not.toBe(material);
     expect(wall.geometry.getAttribute('nightSpan').getX(0)).toBeCloseTo(-.01);
-    expect((wall.material as THREE.Material).customProgramCacheKey()).toContain('-shops-v2-1.10');
+    expect((wall.material as THREE.Material).customProgramCacheKey()).toContain('-shops-v3-1.10');
     night.dispose();
     expect(wall.geometry).toBe(geometry); expect(wall.material).toBe(material);
     geometry.dispose(); material.dispose();

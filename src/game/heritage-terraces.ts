@@ -1,17 +1,22 @@
 import * as THREE from 'three';
 import type { SceneKit } from './scene-kit';
+import type { ShopName } from './world-night-lights';
 
 /** Authored terrace vocabulary for the two later heritage districts. The
  * rear rooms collide, while the continuous covered five-foot way stays open.
- * It does not certify a specific building's dimensions or ornament. */
+ * It does not certify a specific building's dimensions or ornament. `shops`
+ * names what trades behind the row's shopfronts: each is then drawn as three
+ * shop windows (world-night-lights SHOP_LAYOUTS) instead of a dark opening. */
 export function heritageTerraces(kit: SceneKit, options: {
   x: number; z: number; count: number; colors: readonly string[];
-  ornate?: boolean; facing?: 1 | -1; raised?: number; label?: string;
+  ornate?: boolean; facing?: 1 | -1; raised?: number; label?: string; shops?: readonly ShopName[];
 }) {
   const { box, mat, solid, scene, geo } = kit;
   const facing = options.facing ?? 1, base = options.raised ?? 0;
   const cream = mat('#f0e5ce'), shutters = mat('#416c69'), roof = mat('#a8674c'), dark = mat('#39464a');
   const palette = options.colors.map(c => mat(c));
+  const shopfront = options.shops ? mat('#39464a') : dark;
+  if (options.shops) shopfront.userData.nightShopWindow = [...options.shops];
   if (!base) box(options.x, .04, options.z + facing * 15, options.count * 12, .12, 6, mat('#d7cdb9'));
   const arch = geo(new THREE.TorusGeometry(1.45, .14, 4, 12, Math.PI));
   for (let i = 0; i < options.count; i++) {
@@ -24,7 +29,7 @@ export function heritageTerraces(kit: SceneKit, options: {
       solid(x + side * 5.5, front + facing * 5.7, .55, .55);
     }
     // Shopfronts and a shallow soffit above an unobstructed 5 m arcade.
-    box(x, base + 1.55, front + facing * .2, 8.8, 3.1, .3, dark);
+    box(x, base + 1.55, front + facing * .2, 8.8, 3.1, .3, shopfront);
     box(x, base + 3.6, front + facing * 3, 12, .3, 6.5, cream);
     box(x, base + 4.1, front + facing * .4, 11.4, .45, .5, cream);
     for (const dx of [-2.8, 2.8]) {

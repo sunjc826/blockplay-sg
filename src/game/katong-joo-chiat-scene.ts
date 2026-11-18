@@ -39,7 +39,7 @@ export function buildKatongJooChiatScene() {
   box(-190, 9.8, 26, 50, .8, 29, roof);
   box(-190, 3.4, 43, 52, .4, 8, cream);
   sign('RED HOUSE CORNER', -190, 3, 47.3, 38, 1.7, '#984c42');
-  heritageTerraces(k, { x: 85, z: 119, count: 5, colors: pastel, ornate: true, label: 'EAST COAST EATS' });
+  heritageTerraces(k, { x: 85, z: 119, count: 5, colors: pastel, ornate: true, label: 'EAST COAST EATS', shops: ['kopitiam', 'kueh', 'cafe'] });
 
   // Raised residential porches are distinct from the street-level arcades.
   heritageTerraces(k, { x: -190, z: 119, count: 6, colors: pastel, ornate: true, raised: .9 });

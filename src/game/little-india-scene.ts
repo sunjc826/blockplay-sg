@@ -80,13 +80,14 @@ export function buildLittleIndiaScene() {
   sign('TEMPLE FORECOURT', -70, 4, -100, 30, 1.5, '#83705a');
 
   // Dense retail terraces stay low, unlike the heartland slab maps.
-  heritageTerraces(k, { x: -170, z: -140, count: 5, colors: colours, label: 'SERANGOON SHOPS' });
-  heritageTerraces(k, { x: -170, z: -35, count: 5, colors: colours });
-  heritageTerraces(k, { x: 78, z: -140, count: 7, colors: colours });
-  heritageTerraces(k, { x: 78, z: -30, count: 7, colors: colours, label: 'TEXTILES & FLOWERS' });
-  heritageTerraces(k, { x: 78, z: 100, count: 6, colors: colours, label: 'LITTLE INDIA ARCADE' });
-  heritageTerraces(k, { x: 185, z: -140, count: 3, colors: colours });
-  heritageTerraces(k, { x: 185, z: -30, count: 3, colors: colours });
+  const LITTLE_INDIA_SHOPS = ['textiles', 'garlands', 'spices', 'jeweller'] as const;
+  heritageTerraces(k, { x: -170, z: -140, count: 5, colors: colours, label: 'SERANGOON SHOPS', shops: LITTLE_INDIA_SHOPS });
+  heritageTerraces(k, { x: -170, z: -35, count: 5, colors: colours, shops: LITTLE_INDIA_SHOPS });
+  heritageTerraces(k, { x: 78, z: -140, count: 7, colors: colours, shops: LITTLE_INDIA_SHOPS });
+  heritageTerraces(k, { x: 78, z: -30, count: 7, colors: colours, label: 'TEXTILES & FLOWERS', shops: ['textiles', 'garlands'] });
+  heritageTerraces(k, { x: 78, z: 100, count: 6, colors: colours, label: 'LITTLE INDIA ARCADE', shops: LITTLE_INDIA_SHOPS });
+  heritageTerraces(k, { x: 185, z: -140, count: 3, colors: colours, shops: LITTLE_INDIA_SHOPS });
+  heritageTerraces(k, { x: 185, z: -30, count: 3, colors: colours, shops: LITTLE_INDIA_SHOPS });
   // Flower strings and textile stalls line the arcade without closing its path.
   for (const x of [50, 66, 82, 98]) {
     for (let y = 1.3; y < 3; y += .35) for (const dx of [-2, 2]) blob(x + dx, y, 115, .3, .3, .2, saffron);
