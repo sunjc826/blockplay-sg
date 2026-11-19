@@ -17124,3 +17124,23 @@ Shader audit of a range load (2026-11-19, owner asked for it after the load free
 - Only 6 programs (2 at Bishan) contain the window room code.
 Left: per-program compile times were not usable (each measured about 0.7-0.8 s whatever its
 size); nothing measured on a real GPU; the 54 code sets were not traced to their patches.
+
+Menu shader warm-up (2026-11-19, owner asked for it at the start screen with a loading bar at the top):
+- `shader-warm.ts` replays `/shader-warm.json` in a hidden 1x1 WebGL2 context, one program at a
+  time, from the first idle moment of any menu or debug screen. `ShaderWarmBar.tsx` is the bar
+  ("COMPILING SHADERS 37%", then "SHADERS READY"). `createFpsSurface` holds it while a game
+  renderer exists. One pass per list id (`localStorage` `blockplay-shader-warm`).
+- The list comes from `scripts/capture-shader-manifest.mjs` (`pnpm shaders:capture`, needs a
+  build): own static server on `dist`, own headless SwiftShader Chrome, hooks `linkProgram`,
+  loads `/debug?tool=fps&district=` for marina-bay, bishan, chinatown. 251 distinct programs,
+  1.28 MB raw, 89 KB gzipped. The deploy workflow runs it after the build with
+  `continue-on-error`; the file is never committed. The service worker bypasses it.
+- Measured on SwiftShader, built site, fresh profile each: Bishan range ready in 36.6 s cold,
+  23.8 s after the menu pass (which itself took 12 s). The same gain as a second load in one
+  browser (40 s then 24 s), so the replay reaches the cache the game reads.
+Not verified: a real GPU (no Metal context was free); whether a SwiftShader capture's text
+matches what three generates on a player's GPU and graphics preset, which decides the hit rate
+there; the CI step itself, which first runs on this push. Not covered: arena, expedition, night
+and weather programs. SwiftShader has no KHR_parallel_shader_compile, so there each link blocks
+the page for 100-200 ms; browsers with the extension poll instead. Browser smokes that count
+programs should set `window.__noShaderWarm = true` before the page's scripts.

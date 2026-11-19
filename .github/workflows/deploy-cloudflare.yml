@@ -28,7 +28,7 @@ jobs:
     # A fork's own main has no credentials and no business deploying this Worker.
     if: github.repository == 'sunjc826/blockplay-sg'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       # Before the four minutes of install, build and tests, so a missing
       # credential fails with the instruction instead of a Wrangler auth dump.
@@ -66,6 +66,16 @@ jobs:
         env:
           GOOGLE_MAPS_DEMO_API_KEY: ${{ secrets.GOOGLE_MAPS_DEMO_API_KEY }}
         run: pnpm build:cloudflare
+
+      # The menu compiles the range's shaders before the player picks a district
+      # (src/game/shader-warm.ts), from a list of what a real load links. Recorded
+      # here, from this build, so the list cannot fall behind the shaders it
+      # names. It only makes loading faster: without it the site works as it did,
+      # so a failure here is reported and the deploy goes ahead.
+      - name: Record the range's shaders for the menu warm-up
+        continue-on-error: true
+        timeout-minutes: 10
+        run: pnpm shaders:capture
 
       # `pnpm deploy:cloudflare` without its rebuild: the bundle above is exactly
       # what ships. Runtime secrets (OPENAI_API_KEY) are set once with

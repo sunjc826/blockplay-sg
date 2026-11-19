@@ -61,6 +61,14 @@ Wrangler version pinned in the lockfile, and then runs `pnpm test:cloudflare`
 against the live origin, so a deploy that breaks routing, the service worker or
 the API fails the run rather than sitting there green.
 
+Between the build and the upload it runs `pnpm shaders:capture`, which loads
+the range from `dist` in headless Chrome on the software renderer and writes
+`dist/shader-warm.json`: the shader programs the menu compiles ahead of a range
+load (`src/game/shader-warm.ts`). The step may fail without failing the deploy;
+the site then ships without the list and loads as it did before. A manual
+`pnpm deploy:cloudflare` rebuilds `dist` and so ships no list unless the capture
+is run between its build and `wrangler deploy`.
+
 That last check retries for about a minute. A new Worker version takes a few
 seconds to propagate, and in between an edge can serve the new `index.html`
 beside the previous version's asset manifest: the hashed bundle it names is not

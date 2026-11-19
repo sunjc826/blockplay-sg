@@ -745,6 +745,19 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
   (`components/GameMenu.tsx`) with `/training`, `/world` and `/store`; `/debug`
   is `src/DebugApp.tsx`, the original all-modes shell (region/mode selection,
   Street View, LAN lobby). Old `/?room=` invites redirect to `/debug?room=`.
+- `src/game/shader-warm.ts` and `components/ShaderWarmBar.tsx`: the menu
+  compiles the range's shaders before a district is picked, one program at a
+  time in a throwaway WebGL context, and shows a progress bar along the top
+  edge. A range load makes a new renderer, but the browser's own shader cache
+  is keyed by source text and shared across contexts, so the game's later link
+  of the same text is a hit. The list of texts is `/shader-warm.json`
+  (`shader-manifest.ts` packs it), recorded by `pnpm shaders:capture` from a
+  real load of the built site; the deploy workflow writes it into `dist`, it is
+  not committed, and a dev server has none. `createFpsSurface` holds the
+  warm-up for as long as a game renderer lives. One pass per list
+  (`localStorage` `blockplay-shader-warm`). Recorded at default graphics
+  settings in Marina Bay, Bishan and Chinatown ranges: other presets, modes and
+  districts hit only what they share with those.
 - `src/components/StartingPointPicker.tsx`: Training and Open World open on a
   schematic Singapore map divided into 23 selectable game regions. Preview a
   district, then confirm to build the game. Each mode remembers its last

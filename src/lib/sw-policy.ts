@@ -4,6 +4,9 @@
  * the caching; everything that decides *what* happens to a request lives here.
  */
 
+/** `SHADER_MANIFEST_PATH` in `src/game/shader-warm.ts`, repeated so the worker bundle stays free of the game. */
+export const SHADER_MANIFEST_PATH = '/shader-warm.json';
+
 /** Same-origin directories that hold real files, never client-side routes. */
 export const STATIC_PREFIXES = ['/assets/', '/audio/', '/models/', '/reconstruction/', '/icons/'] as const;
 
@@ -47,6 +50,9 @@ export function routeFor(input: RouteInput, precached: ReadonlySet<string>): Rou
   // The companion and health endpoints must always see the live network: a
   // cached answer would claim the backend is reachable when it is not.
   if (path.startsWith('/api/')) return 'bypass';
+  // The shader list is rewritten by every deployment under one name. Cached
+  // here it would outlive its build and warm programs the game no longer links.
+  if (path === SHADER_MANIFEST_PATH) return 'bypass';
   if (input.range) return 'bypass';
   const isFile = hasFileExtension.test(path) || STATIC_PREFIXES.some(prefix => path.startsWith(prefix));
   // Navigations are decided before the precache lookup: `/?room=…` is the same

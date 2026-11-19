@@ -1,0 +1,11 @@
+/* The warm-up's progress, pinned to the top edge above every menu screen. */
+.shader-warm-bar { position:fixed; inset:0 0 auto; z-index:2147482000; height:3px; background:#0b1510b8; pointer-events:none; user-select:none; }
+.shader-warm-bar > i { position:absolute; inset:0; transform-origin:left center; background:linear-gradient(90deg,#b98f45,#f0d3a4); box-shadow:0 0 10px #e0bb7299; transition:transform .25s linear; }
+.shader-warm-bar > span { position:absolute; top:calc(env(safe-area-inset-top, 0px) + 9px); left:50%; transform:translateX(-50%); display:flex; align-items:baseline; gap:7px; padding:5px 11px; border:1px solid #ffffff24; border-radius:3px; background:#16261ee6; color:#eef3e3; font:600 9px/1 ui-monospace,'SFMono-Regular',monospace; letter-spacing:1.6px; white-space:nowrap; }
+.shader-warm-bar b { min-width:3ch; color:#e0bb72; font-variant-numeric:tabular-nums; text-align:right; }
+.shader-warm-bar small { padding-left:9px; border-left:1px solid #ffffff24; color:#a9bba4; font-size:9px; font-weight:400; letter-spacing:.4px; }
+.shader-warm-bar[data-phase=ready] { animation:shader-warm-out .6s ease 2s forwards; }
+.shader-warm-bar[data-phase=ready] > span { color:#f0d3a4; }
+@keyframes shader-warm-out { to { opacity:0; } }
+@media(max-width:560px) { .shader-warm-bar small { display:none; } }
+@media(prefers-reduced-motion:reduce) { .shader-warm-bar > i { transition:none; } .shader-warm-bar[data-phase=ready] { animation:none; } }

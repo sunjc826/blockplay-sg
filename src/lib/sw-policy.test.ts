@@ -45,6 +45,10 @@ describe('service worker routing', () => {
     expect(request(`${ORIGIN}/api/adventure/voice`, { navigate: true })).toBe('bypass');
   });
 
+  it('never caches the shader list, which every deployment rewrites under one name', () => {
+    expect(request(`${ORIGIN}/shader-warm.json`)).toBe('bypass');
+  });
+
   it('leaves other origins, writes and ranged media alone', () => {
     expect(request('https://maps.googleapis.com/maps/api/js')).toBe('bypass');
     expect(request(`${ORIGIN}/api/adventure/pilot-plan`, { method: 'POST' })).toBe('bypass');

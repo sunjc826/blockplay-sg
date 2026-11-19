@@ -4,6 +4,7 @@ import GameMenu from './components/GameMenu';
 import PwaUpdateModal from './components/PwaUpdateModal';
 import PerfOverlay from './components/PerfOverlay';
 import RouteShift from './components/RouteShift';
+import ShaderWarmBar from './components/ShaderWarmBar';
 import { useRoute } from './lib/routes';
 import { lazy, Suspense } from 'react';
 
@@ -14,5 +15,5 @@ export default function App() {
   const route = useRoute();
   if (route === 'prop-designs') return <><Suspense fallback={<p>Loading street props…</p>}><PropDesigns /></Suspense><PwaUpdateModal /></>;
   if (route === 'faction-designs') return <><Suspense fallback={<p>Loading faction studies…</p>}><FactionDesigns /></Suspense><PwaUpdateModal /></>;
-  return <>{route === 'debug' ? <DebugApp /> : <GameMenu screen={route} />}<NavigationConfirm /><PwaUpdateModal /><RouteShift route={route} /><PerfOverlay /></>;
+  return <>{route === 'debug' ? <DebugApp /> : <GameMenu screen={route} />}<NavigationConfirm /><PwaUpdateModal /><RouteShift route={route} /><ShaderWarmBar /><PerfOverlay /></>;
 }
