@@ -587,10 +587,24 @@ const SHOP_SIGN_GLSL = `
  * `shopKind` alone is emptied unless one of its numbers is in `used`; chains of else-ifs stay well formed.
  */
 export function pruneShopBranches(source: string, used: readonly number[]) {
-  const test = /if \(((?:shopKind == \d+)(?: \|\| shopKind == \d+)*)\) \{/g;
+  return pruneBlocks(source, /if \(((?:shopKind == \d+)(?: \|\| shopKind == \d+)*)\) \{/g, match => [...match[1].matchAll(/\d+/g)].some(n => used.includes(+n[0])));
+}
+/**
+ * Cuts the rooms a program will never draw (the same saving as `pruneShopBranches`): every block whose test names
+ * a hotel, a factory or a school, unless `kinds` has it, and every block for designed shops when there are none.
+ */
+export function pruneRoomBranches(source: string, kinds: readonly RoomKind[], shops: boolean) {
+  if (!kinds.includes('hotel')) source = pruneBlocks(source, /if \([^(){};]*hotel > \.5[^(){};]*\) \{/g, () => false);
+  if (!kinds.includes('classroom')) source = pruneBlocks(source, /if \([^(){};]*plan > 1[12]\.5[^(){};]*\) \{/g, () => false);
+  if (!kinds.includes('factory')) source = pruneBlocks(source, /if \([^(){};]*plan > 9\.5[^(){};]*\) \{/g, () => false);
+  if (!shops) source = pruneBlocks(source, /if \(shop > \.5[^(){};]*\) \{/g, () => false);
+  return source;
+}
+/** Empties every block `test` opens unless `keep` says otherwise; an else-if chain stays well formed. */
+function pruneBlocks(source: string, test: RegExp, keep: (match: RegExpExecArray) => boolean) {
   let out = '', from = 0;
   for (let match = test.exec(source); match; match = test.exec(source)) {
-    if ([...match[1].matchAll(/\d+/g)].some(n => used.includes(+n[0]))) continue;
+    if (keep(match)) continue;
     let depth = 1, at = match.index + match[0].length;
     for (; depth && at < source.length; at++) depth += source[at] === '{' ? 1 : source[at] === '}' ? -1 : 0;
     if (depth) break;
@@ -783,6 +797,8 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   /** The district's designed shop windows on generated shopfronts, as shader numbers. */
   const frontShops = (options.interiors?.shops ?? MALL_SHOPS).map(name => shopNames.indexOf(name) + 1);
   /** The designed shops this district's generated shopfronts can show: none where it has no share of them. */
+  /** The special rooms the district gives a share of its buildings. */
+  const roomKindsUsed = (Object.keys(SPECIAL_LAYOUTS) as RoomKind[]).filter(kind => (options.interiors?.rooms?.[kind] ?? 0) > 0);
   const frontUsed = (options.interiors?.boutiques ?? 0) > 0 ? frontShops : [];
   function patch(material: Lit, windows: boolean, panes = false, shops: readonly number[] | null = null, rooms = 0) {
     if (patched.has(material)) return;
@@ -1990,6 +2006,7 @@ ${SHOP_SIGN_GLSL}
           // fascia under the first floor, and in most bays a glazed shopfront or a door. Drawn in the same
           // bays as the windows above, so a lit window at night sits over an opening by day.
           float nightFront = 0.0, nightFrontSeed = 0.0, nightFrontGlass = 1.0, nightFrontShop = 0.0; vec4 nightFrontRoom = vec4(0.0);
+          float nightFrontWant = 0.0, nightFrontUse = 0.0; vec2 nightFrontP = vec2(0.0), nightFrontSize = vec2(1.0); vec4 nightFrontOpen = vec4(0.0); vec3 nightFrontInto = vec3(0.0, 0.0, 1.0);
           {
             float frontWall = 1.0 - smoothstep(.12, .3, abs(normalize(vNightNormal).y));
             vec2 frontUv = clamp((vNightWorld.xz - nightBounds.xy) * nightBounds.zw, 0.0, 1.0);
@@ -2023,17 +2040,12 @@ ${SHOP_SIGN_GLSL}
               // On a shopping street a share of the shopfronts are designed shop windows. Along a wall they
               // step through the shops by a stride that shares no factor with their number, so neighbours always differ.
               nightFrontShop = step(fract(nightFrontSeed * 7.93) + 1e-4, nightShops);
-              nightFrontRoom = nightRoom(vec2(fract(frontBay) * frontBayWidth, frontY), vec2(frontBayWidth, ${GROUND_STOREY.toFixed(1)}),
-                vec4((.5 - frontHalf) * frontBayWidth, frontSill, (.5 + frontHalf) * frontBayWidth, ${STOREFRONT.head.toFixed(2)}), frontInto, nightFrontSeed,
-                -nightFrontShop * float[${frontShops.length}](${frontShops.map(n => n.toFixed(1)).join(', ')})[int(mod(floor(frontBay) * ${shopStride(frontShops.length).toFixed(1)} + floor(vNightSeed * 97.0), ${frontShops.length.toFixed(1)}))]);
-              // Glass only dims the room at a glancing angle; the frame is not glass at all.
-              nightFrontGlass = mix(.1, .85, pow(1.0 - clamp(frontInto.z, 0.0, 1.0), 3.0)) * nightFrontRoom.a;
-              diffuseColor.rgb = mix(diffuseColor.rgb, mix(nightFrontRoom.rgb * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), nightFrontGlass), nightFront);
-              // A shop window is lit inside by day too.
-              totalEmissiveRadiance += nightFrontRoom.rgb * (nightFrontRoom.a * nightFrontShop * nightFront * (1.0 - nightFrontGlass) * (1.0 - nightLevel) * ${SHOP_WINDOWS.day.toFixed(2)});
-              #ifdef STANDARD
-                roughnessFactor = mix(roughnessFactor, .16, nightFront);
-              #endif
+              // The room itself is drawn further down, in the one call the windows share: two calls made the
+              // program twice the size, and it is the size that makes a district slow to load.
+              nightFrontWant = step(1e-4, nightFront); nightFrontInto = frontInto;
+              nightFrontP = vec2(fract(frontBay) * frontBayWidth, frontY); nightFrontSize = vec2(frontBayWidth, ${GROUND_STOREY.toFixed(1)});
+              nightFrontOpen = vec4((.5 - frontHalf) * frontBayWidth, frontSill, (.5 + frontHalf) * frontBayWidth, ${STOREFRONT.head.toFixed(2)});
+              nightFrontUse = (-nightFrontShop * float[${frontShops.length}](${frontShops.map(n => n.toFixed(1)).join(', ')})[int(mod(floor(frontBay) * ${shopStride(frontShops.length).toFixed(1)} + floor(vNightSeed * 97.0), ${frontShops.length.toFixed(1)}))]);
             }
           }` : ''}
           ${shops ? `
@@ -2103,11 +2115,28 @@ ${SHOP_SIGN_GLSL}
             float glazed = 1.0;
             vec3 inside = vec3(.1, .12, .14);
             // Only where a pane shows, and not behind dark glass at night: the room is the costly part.
-            if (paneFar < 1.0 && paneGlass > 0.0 && (paneOn > .5 || nightLevel < .97)) {
-              vec4 room = nightRoom(f * roomSize, roomSize, vec4(.22 * roomSize.x, .26 * roomSize.y, .78 * roomSize.x, .74 * roomSize.y), nightInto(paneN), paneH, paneUse);
-              paneRoom = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), paneFar);
-              glazed = mix(room.a, 1.0, paneFar);
-              inside = mix(room.rgb * mix(.8, ${REFLECTION.dayRoom.toFixed(2)}, room.a), inside, paneFar);
+            // One call serves a pixel, whether it is on an upper window or on the shopfront under it.
+            bool paneWants = paneFar < 1.0 && paneGlass > 0.0 && (paneOn > .5 || nightLevel < .97);
+            if (paneWants) nightFront = 0.0;
+            if (paneWants || nightFrontWant > .5) {
+              vec4 room = nightRoom(paneWants ? f * roomSize : nightFrontP, paneWants ? roomSize : nightFrontSize,
+                paneWants ? vec4(.22 * roomSize.x, .26 * roomSize.y, .78 * roomSize.x, .74 * roomSize.y) : nightFrontOpen,
+                paneWants ? nightInto(paneN) : nightFrontInto, paneWants ? paneH : nightFrontSeed, paneWants ? paneUse : nightFrontUse);
+              if (paneWants) {
+                paneRoom = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), paneFar);
+                glazed = mix(room.a, 1.0, paneFar);
+                inside = mix(room.rgb * mix(.8, ${REFLECTION.dayRoom.toFixed(2)}, room.a), inside, paneFar);
+              } else {
+                nightFrontRoom = room;
+                // Glass only dims the room at a glancing angle; the frame is not glass at all.
+                nightFrontGlass = mix(.1, .85, pow(1.0 - clamp(nightFrontInto.z, 0.0, 1.0), 3.0)) * nightFrontRoom.a;
+                diffuseColor.rgb = mix(diffuseColor.rgb, mix(nightFrontRoom.rgb * ${INTERIOR.dayShare.toFixed(2)}, vec3(.045, .06, .075), nightFrontGlass), nightFront);
+                // A shop window is lit inside by day too.
+                totalEmissiveRadiance += nightFrontRoom.rgb * (nightFrontRoom.a * nightFrontShop * nightFront * (1.0 - nightFrontGlass) * (1.0 - nightLevel) * ${SHOP_WINDOWS.day.toFixed(2)});
+                #ifdef STANDARD
+                  roughnessFactor = mix(roughnessFactor, .16, nightFront);
+                #endif
+              }
             }
             // By day the glass is dark with a dim room behind it, and gives back the sky; the frame stays matt.
             if (paneGlass > 0.0) {
@@ -2145,9 +2174,14 @@ ${SHOP_SIGN_GLSL}
             totalEmissiveRadiance += mix(vec3(1.0, .86, .68), vec3(1.0, .96, .9), nightFrontShop) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * frontLit * mix(${INTERIOR.nightShopfront.toFixed(2)}, ${SHOP_WINDOWS.night.toFixed(2)}, nightFrontShop) * nightLevel;`}` : ''}
           }`);
       // Keep only the shops this program can draw: a shop wall's own list, or the district's shopfronts.
-      if (windows) shader.fragmentShader = pruneShopBranches(shader.fragmentShader, shops ?? (panes ? [] : frontUsed));
+      if (windows) {
+        const drawn = shops ?? (panes ? [] : frontUsed);
+        // A marked wall is all one kind of room; a wall of shop units has no upper rooms at all.
+        const kinds = shops ? [] : rooms ? [roomKinds[rooms - 4] as RoomKind] : roomKindsUsed;
+        shader.fragmentShader = pruneRoomBranches(pruneShopBranches(shader.fragmentShader, drawn), kinds, drawn.length > 0);
+      }
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v5-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v21-${frontUsed.join('.')}-${rooms}` : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v6-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v22-${frontUsed.join('.')}-${rooms || roomKindsUsed.join('.')}` : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

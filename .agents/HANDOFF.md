@@ -17097,3 +17097,13 @@ Range load freeze fixed (2026-11-19, owner reported the live-fire range stuck on
   Key `-windows-v21-<used shops>-<room use>`.
 Left: still about 5 s over the pre-shop figure at Marina Bay (signs, special rooms, one-line
 shop tests are not pruned). Measured on SwiftShader only; no Metal context was free.
+
+Window shader made smaller again (2026-11-19, same freeze):
+- The room behind a pixel is now drawn by one `nightRoom` call shared by the shopfront and
+  the upper window (was two, so the room code was in every program twice). Where a sunk
+  building's shopfront overlaps an upper pane, the pane wins.
+- `pruneRoomBranches` cuts hotel, factory and school blocks a program has no share of, and
+  every designed-shop block where a district has none. A marked wall keeps only its kind.
+- SwiftShader, longest stall loading the range: Marina Bay 12.0 s (12.8 s before the shop
+  work, 35.4 s at its worst), Bishan 1.9 s. Keys `-windows-v22-<shops>-<rooms>`, `-shops-v6-`.
+Left: Marina Bay's remaining 12 s predates the shops and was not traced.

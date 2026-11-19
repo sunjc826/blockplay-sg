@@ -264,6 +264,16 @@ describe('interior mapping', () => {
     expect(pruneShopBranches(source, [1, 2, 3])).toBe(source);
     expect(pruneShopBranches(source, [])).not.toContain('b = 2.0');
   });
+  it('cuts the rooms a district never shows out of its shader too', async () => {
+    const { pruneRoomBranches } = await import('./world-night-lights');
+    const source = 'if (shop > .5 && doorway < .5) { a(); } if (shop > .5) { b(); } else if (kind > 0.0 && plan > 11.5) { c(); } else if (kind > 0.0 && plan > 9.5) { d(); } else if (kind > 0.0 && hotel > .5) { e(); } else { f(); } if (shop > .5 && sign(q) > .5) return x;';
+    expect(pruneRoomBranches(source, ['hotel', 'factory', 'classroom'], true)).toBe(source);
+    const bare = pruneRoomBranches(source, [], false);
+    for (const call of ['a()', 'b()', 'c()', 'd()', 'e()']) expect(bare).not.toContain(call);
+    expect(bare).toContain('else { f(); }'); expect(bare).toContain('if (shop > .5 && sign(q) > .5) return x;');
+    const works = pruneRoomBranches(source, ['factory'], true);
+    expect(works).toContain('d()'); expect(works).toContain('b()'); expect(works).not.toContain('c()'); expect(works).not.toContain('e()');
+  });
   it('reflects a little head on and nearly everything at a glance', async () => {
     const { glassReflection, REFLECTION } = await import('./world-night-lights');
     expect(glassReflection(1)).toBeCloseTo(REFLECTION.headOn, 6);
