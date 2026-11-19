@@ -17073,3 +17073,16 @@ Plants vary (second piece, same session):
   carry a two-triangle flower head (`grassBloom`, define `GRASS_BLOOM`) that the shader keeps
   on about one tuft in six inside drifts and colours white, yellow or pink. Near tufts are
   now 11 triangles, not 9; far tufts unchanged.
+
+**Character heads and faction silhouettes (2026-11-19).** The owner's "sphere" was the face: the head was an
+ellipsoid with dot eyes. `character-rig.ts` now builds a faceted skull (`HEAD_RINGS`) with brow, eyes with whites, nose,
+cheekbones, lips, chin, ears and separate hair pieces, and faceted hats, from `character-shapes.ts` (`loft`, `taper`,
+`faceted`). Joints, dimensions, IK and every animation are untouched; hit spheres are untouched. Faction cues that do
+not depend on colour: armed forces get a brimmed helmet, a longer pale bedroll and pale gaiters; Black Kite a taller
+ridged helmet and a pale box kite on a mast behind the left shoulder. Everything new sits inside the hit spheres
+(tested). Cost per arena figure, skinned: 2-3 draws before and after; triangles down (armed-forces rifleman R2 5,366 to
+4,556, Black Kite 5,616 to 4,348). No frame timing was taken. Fixtures: `character-lineup.html`,
+`character-district.html`. Limits seen in Tampines captures are written up in docs/FACTIONS.md: at night past about
+18 m the two main sides are both dark shapes. Not built: per-person face variation (nose, jaw, brow widths from the
+id hash), facial hair, faceted limbs and torso to match the head, a blink, an emissive or reflective faction marker
+for night. Owner's calls: whether the health bar keeps the role colour, and whether night needs a lit marker.

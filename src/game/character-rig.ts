@@ -3,6 +3,7 @@ import { bailoutRoll } from './bailout-roll';
 import { footCycle, footSample, GAIT, gaitShape, hipsFromFeet, idleWeight, spring, stepSpring, trailOvertake, type GaitShape } from './gait-motion';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CamoPattern, PatchLook } from './arena-factions';
+import { faceted, loft, taper, type LoftRing } from './character-shapes';
 
 /**
  * One articulated humanoid shared by arena soldiers, remote players and
@@ -110,7 +111,9 @@ export const CHARACTER_DIMENSIONS = {
   spine: .1, chest: .2, neck: .27, head: .08,
 } as const;
 const D = CHARACTER_DIMENSIONS;
-/** Standing eye height, which matches the gameplay camera's 1.75 m. */
+/** The armed forces' pale canvas: webbing, bedroll and gaiters. */
+const FIELD_CANVAS = '#a8ac82';
+/** The rig's own standing eye height. The gameplay eye, and so the hit spheres, are measured from 1.75 m above the feet. */
 export const CHARACTER_EYE = D.standingHips + D.spine + D.chest + D.neck + D.head + .12;
 
 const WEAPONS: Record<CharacterWeapon, { length: number; fore: number; muzzle: number }> = {
@@ -151,6 +154,51 @@ export function solveLimb(upper: THREE.Object3D, lower: THREE.Object3D, target: 
 }
 
 interface Part { geometry: THREE.BufferGeometry; color: string; fabric: boolean }
+/** The skull in the head joint's frame, chin to crown; the face is the flat front. */
+const HEAD_RINGS: readonly LoftRing[] = [
+  { y: -.022, halfWidth: .04, front: .05, back: .045 },
+  { y: -.004, halfWidth: .054, front: .09, back: .06 },
+  { y: .034, halfWidth: .08, front: .104, back: .088 },
+  { y: .072, halfWidth: .093, front: .104, back: .104 },
+  { y: .108, halfWidth: .098, front: .101, back: .113 },
+  { y: .142, halfWidth: .098, front: .1, back: .116 },
+  { y: .182, halfWidth: .092, front: .092, back: .11 },
+  { y: .212, halfWidth: .072, front: .066, back: .088 },
+  { y: .228, halfWidth: .04, front: .03, back: .05 },
+];
+/** A rounded helmet shell from the brow up; the armed forces add a brim, everyone else wears it plain. */
+const HELMET_RINGS: readonly LoftRing[] = [
+  { y: .15, halfWidth: .13, front: .136, back: .149 },
+  { y: .2, halfWidth: .122, front: .124, back: .138 },
+  { y: .243, halfWidth: .092, front: .088, back: .1 },
+  { y: .266, halfWidth: .045, front: .04, back: .05 },
+];
+/** Black Kite's helmet: slab-sided and taller, under a ridge that runs front to back. */
+const KITE_HELMET_RINGS: readonly LoftRing[] = [
+  { y: .15, halfWidth: .121, front: .128, back: .143 },
+  { y: .215, halfWidth: .113, front: .114, back: .132 },
+  { y: .254, halfWidth: .07, front: .078, back: .098 },
+];
+/** A soft cap with a flat crown. */
+const CAP_RINGS: readonly LoftRing[] = [
+  { y: .15, halfWidth: .108, front: .11, back: .125 },
+  { y: .212, halfWidth: .102, front: .098, back: .118 },
+  { y: .23, halfWidth: .08, front: .07, back: .09 },
+];
+/** Hair over the crown, from a hairline above the brow. */
+const HAIR_TOP_RINGS: readonly LoftRing[] = [
+  { y: .168, halfWidth: .101, front: .09, back: .12 },
+  { y: .19, halfWidth: .098, front: .099, back: .118 },
+  { y: .218, halfWidth: .08, front: .076, back: .097 },
+  { y: .24, halfWidth: .046, front: .036, back: .056 },
+];
+/** Hair down the back of the head to the nape, behind the ears. */
+const HAIR_BACK_RINGS: readonly LoftRing[] = [
+  { y: .04, halfWidth: .082, front: -.045, back: .098 },
+  { y: .1, halfWidth: .101, front: -.04, back: .12 },
+  { y: .175, halfWidth: .1, front: -.03, back: .121 },
+];
+
 
 /**
  * Paints `pattern` over every vertex the rig marked as fabric. The pattern is
@@ -400,15 +448,22 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
   if (field) {
     const front = look.plates ? -.199 : -.151;
     for (const side of [-1, 1]) {
-      add(chest, place(box(.038, .33, .025), side * .13 * build, .115, front), '#a8ac82');
+      add(chest, place(box(.038, .33, .025), side * .13 * build, .115, front), FIELD_CANVAS);
       add(chest, place(box(.052, .025, .032), side * .13 * build, .19, front - .009), '#333b2d');
     }
-    add(chest, place(cylinder(.07, .07, .43 * build, 12), 0, .235, look.backpack ? .28 : .20, 1, 1, 1, 0, 0, Math.PI / 2), look.backpack ?? kit);
-    for (const side of [-1, 1]) add(chest, place(box(.027, .14, .14), side * .13 * build, .235, look.backpack ? .28 : .20), '#a8ac82');
+    // A long pale bedroll across the top of the back squares the shoulders into a T from any side.
+    const rollZ = look.backpack ? .28 : .2;
+    add(chest, place(faceted(cylinder(.072, .072, .47, 8)), 0, .235, rollZ, 1, 1, 1, 0, 0, Math.PI / 2), FIELD_CANVAS);
+    for (const side of [-1, 1]) add(chest, place(box(.03, .155, .155), side * .14, .235, rollZ), '#333b2d');
   }
   if (contractor) {
     for (const side of [-1, 1]) add(chest, place(box(.065, .13, .25), side * .09, .29, .012, 1, 1, 1, 0, 0, side * .18), kit);
     add(chest, place(box(.19, .09, .055), 0, .29, .12), kit);
+    // The kite itself: two crossed pale diamonds on a short mast behind the left shoulder,
+    // level with the head, so the side reads from the front, the flank and the rear.
+    add(chest, place(box(.014, .34, .014), -.17, .31, .1), '#14171c');
+    for (const turn of [0, 1]) add(chest, place(faceted(cylinder(.5, .5, .008, 4)), -.17, .48, .1, turn ? .22 : .15, 1, turn ? .15 : .22, turn ? 0 : Math.PI / 2, 0, turn ? Math.PI / 2 : 0), idMark);
+    add(chest, place(box(.012, .09, .012), -.17, .325, .1), look.patches?.left?.mark ?? idMark);
     add(head, place(box(.19, .075, .12), 0, .025, -.075), shade(kit, 1.2));
     // Two diagonal seams keep the mask legible as fabric rather than a new face.
     for (const side of [-1, 1]) add(head, place(box(.075, .009, .008), side * .038, .032, -.14, 1, 1, 1, 0, 0, side * .22), '#70777c');
@@ -499,42 +554,66 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
       for (const y of [.005, .43]) add(chest, place(cylinder(.053, .053, .035, 10), side * .14 * build, y, .30), '#9a9e8a');
     }
   }
-  // Neck and head. The face points down -z.
-  add(neck, place(cylinder(.055, .062, .12), 0, .02, 0), look.skin);
+  // Neck and head. The face points down -z. The head is a faceted skull, not a
+  // ball: a narrow chin widening to the cheekbones, a flat face plane with
+  // brow, nose, lips and ears standing off it, and hair as its own pieces.
+  add(neck, place(faceted(cylinder(.05, .06, .13, 8)), 0, .02, 0), shade(look.skin, .94));
   if (look.headwear === 'headscarf') add(neck, place(cylinder(.1, .19 * build, .16, 14), 0, -.04, .005), look.headwearColor ?? look.hair);
-  add(head, place(sphere(.5, 18, 14), 0, .1, 0, .2, .245, .23), look.skin);
-  add(head, place(sphere(.5), 0, .03, -.025, .16, .13, .17), look.skin);
-  add(head, place(box(.032, .05, .045), 0, .085, -.12, 1, 1, 1, -.25), shade(look.skin, .92));
+  add(head, loft(HEAD_RINGS), look.skin);
+  // Brow ridge and eyebrows over set-back eyes; the whites make the gaze readable up close.
+  add(head, place(taper({ x: .15, z: .016 }, { x: .16, z: .008 }, .022, 'back'), 0, .142, -.1), look.skin);
   for (const side of [-1, 1]) {
-    add(head, place(sphere(.017, 8, 6), side * .043, .118, -.103), '#1c1a18');
-    add(head, place(box(.05, .012, .018), side * .045, .148, -.108), shade(look.hair, .9));
-    add(head, place(sphere(.5, 8, 6), side * .102, .1, .005, .035, .06, .035), shade(look.skin, .95));
+    add(head, place(box(.05, .011, .012), side * .044, .147, -.115, 1, 1, 1, 0, 0, side * -.1), shade(look.hair, .85));
+    add(head, place(box(.032, .015, .006), side * .043, .118, -.104), '#e6e0d4');
+    add(head, place(box(.014, .015, .006), side * .041, .118, -.1065), '#1c1a18');
+    // Ears: a flat outer plane angled back, with a lobe.
+    add(head, place(taper({ x: .014, z: .034 }, { x: .012, z: .022 }, .056), side * .101, .1, .012, 1, 1, 1, 0, side * -.3, side * -.12), shade(look.skin, .9));
+    // Cheekbones give the face plane a second level under the eyes.
+    add(head, place(taper({ x: .04, z: .012 }, { x: .026, z: .004 }, .034, 'back'), side * .058, .086, -.097, 1, 1, 1, 0, side * -.5), shade(look.skin, .97));
   }
-  add(head, place(box(.05, .01, .01), 0, .035, -.115), shade(look.skin, .7));
+  // Nose: narrow at the bridge, wide and proud at the tip, with a darker underside block.
+  add(head, place(taper({ x: .018, z: .012 }, { x: .036, z: .034 }, .062, 'back'), 0, .098, -.103), shade(look.skin, .95));
+  add(head, place(box(.03, .008, .022), 0, .064, -.116), shade(look.skin, .72));
+  // Lips and a square chin.
+  add(head, place(box(.05, .009, .008), 0, .041, -.108), shade(look.skin, .68));
+  add(head, place(taper({ x: .05, z: .012 }, { x: .042, z: .018 }, .012, 'back'), 0, .031, -.104), shade(look.skin, .9));
+  add(head, place(taper({ x: .056, z: .014 }, { x: .044, z: .02 }, .03, 'back'), 0, .008, -.092), look.skin);
   if (look.eyewear) {
     add(head, place(box(.13, .03, .018), 0, .12, -.118), look.eyewear, true);
     for (const side of [-1, 1]) add(head, place(box(.008, .012, .1), side * .1, .125, -.07), look.eyewear, true);
   }
   const headwear = look.headwear ?? 'none', hat = look.headwearColor ?? look.hair;
   const dome = (r: number, cover: number) => new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, 0, Math.PI * cover);
-  if (headwear === 'none' || headwear === 'cap') {
-    if (look.hairStyle !== 'bald') add(head, place(dome(.5, .5), 0, .115, .008, .212, .25, .245), look.hair);
-    if (look.hairStyle === 'long') add(head, place(box(.19, .22, .07), 0, .02, .085), look.hair);
+  if (headwear !== 'headscarf' && look.hairStyle !== 'bald') {
+    // Hair stands a little off the skull: sides and back always, the top only when no hat covers it.
+    add(head, loft(HAIR_BACK_RINGS, 8), look.hair);
+    for (const side of [-1, 1]) add(head, place(box(.008, .052, .022), side * .097, .151, -.01), look.hair);
+    if (headwear === 'none') add(head, loft(HAIR_TOP_RINGS), look.hair);
+    if (look.hairStyle === 'long') add(head, place(taper({ x: .2, z: .07 }, { x: .17, z: .05 }, .2), 0, .0, .09), look.hair);
   }
   if (headwear === 'helmet') {
-    add(head, place(dome(.5, .55), 0, .12, .005, .27, .27, .3), hat, false, hatFabric);
-    add(head, place(cylinder(.5, .5, 1, 18), 0, .135, .005, .272, .02, .302), look.accent ?? shade(hat, .8));
-    add(head, place(box(.15, .035, .03), 0, .2, -.13, 1, 1, 1, -.5), '#1e2426');
+    // The shell stops at the brow in front and comes down over the ears and nape behind,
+    // so the face stays open. Contractors wear the slab-sided, ridged one.
+    const angular = contractor;
+    add(head, loft(angular ? KITE_HELMET_RINGS : HELMET_RINGS, 10, angular ? .5 : .8), hat, false, hatFabric);
+    add(head, loft(angular
+      ? [{ y: .02, halfWidth: .116, front: .035, back: .138 }, { y: .152, halfWidth: .121, front: .035, back: .143 }]
+      : [{ y: .07, halfWidth: .124, front: -.005, back: .142 }, { y: .152, halfWidth: .13, front: -.005, back: .149 }], 8, angular ? .5 : .8), hat, false, hatFabric);
+    const band = angular ? { halfWidth: .124, front: .131, back: .146 } : { halfWidth: .133, front: .139, back: .152 };
+    add(head, loft([{ y: .152, ...band }, { y: .174, ...band }], 10, angular ? .5 : .8), look.accent ?? shade(hat, .8));
+    if (angular) add(head, place(taper({ x: .012, z: .15 }, { x: .034, z: .23 }, .05), 0, .278, .012), shade(hat, 1.5));
+    else add(head, loft([{ y: .146, halfWidth: .15, front: .168, back: .162 }, { y: .156, halfWidth: .146, front: .162, back: .158 }], 10, .8), shade(hat, .82), false, hatFabric);
+    add(head, place(box(.07, .035, .03), 0, .205, angular ? -.118 : -.125, 1, 1, 1, -.35), '#1e2426');
     for (const side of [-1, 1]) add(head, place(box(.012, .14, .012), side * .1, .06, -.03, 1, 1, 1, 0, 0, side * .12), '#2a2c28');
   }
   if (headwear === 'boonie') {
-    add(head, place(cylinder(.205, .205, .012, 20), 0, .2, 0), hat, false, hatFabric);
-    add(head, place(cylinder(.11, .125, .09, 16), 0, .245, 0), hat, false, hatFabric);
-    add(head, place(cylinder(.127, .127, .02, 16), 0, .215, 0), look.accent ?? shade(hat, .8));
+    add(head, place(faceted(cylinder(.205, .215, .012, 12)), 0, .2, 0), hat, false, hatFabric);
+    add(head, place(faceted(cylinder(.108, .122, .09, 12)), 0, .245, 0), hat, false, hatFabric);
+    add(head, place(faceted(cylinder(.125, .125, .02, 12)), 0, .215, 0), look.accent ?? shade(hat, .8));
   }
   if (headwear === 'cap') {
-    add(head, place(dome(.5, .5), 0, .14, 0, .225, .2, .255), hat);
-    add(head, place(box(.16, .012, .11), 0, .155, -.15, 1, 1, 1, .12), hat);
+    add(head, loft(CAP_RINGS, 10, .6), hat);
+    add(head, place(taper({ x: .15, z: .1 }, { x: .16, z: .105 }, .012, 'back'), 0, .158, -.1, 1, 1, 1, .1), shade(hat, .85));
   }
   if (headwear === 'headscarf') {
     const r = .5, gap = .95;
@@ -580,6 +659,8 @@ export function createCharacterRig(look: CharacterLook, name = 'character', opti
     add(shin, place(sphere(.068), 0, 0, 0), look.shorts ? look.skin : look.bottom, false, !look.shorts && bottomFabric);
     limb(shin, D.shin, .068, .05, look.shorts ? look.skin : look.bottom, 0, D.shin, !look.shorts && bottomFabric);
     if (combat) limb(shin, D.shin, .064, .06, look.shoes, .27, D.shin);
+    // Pale canvas gaiters: a light band at the shin that still shows when the uniform is a dark shape.
+    if (field) limb(shin, D.shin, .071, .067, FIELD_CANVAS, .15, .28);
     add(foot, place(box(.1, .08, .24), 0, -.035, -.055), look.shoes);
     add(foot, place(box(.106, .02, .25), 0, -.075, -.055), shade(look.shoes, .55));
   }

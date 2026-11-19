@@ -10,9 +10,9 @@ The two local factions use fixed sides. Independent proxy cells use explicit enc
 | Who | Every player, the friendly squads, and the crews of friendly fire support | Enemy squads, and the crews of events aimed at players |
 | Side | forces | opposition |
 | Uniform | Jungle-green pixel camouflage (`digital`) on shirt, trousers and helmet cover | Deep navy, soft `blotch` camouflage on the shirt over plain trousers, near-black plate carriers |
-| Faction silhouette | Open webbing and a horizontal bedroll behind the shoulders | Faceted shoulder guards, a raised collar and lower-face wrap at every rank |
+| Faction silhouette | Open webbing, a long pale bedroll across the top of the back and pale canvas gaiters at the shin | Faceted shoulder guards, a raised collar and lower-face wrap at every rank, and a pale box kite on a short mast behind the left shoulder, level with the head |
 | Identification | Paired pale horizontal bars on chest, back and both shoulders | A single large pale kite on chest, back and both shoulders |
-| Headwear | Camouflaged helmet; boonie for marksmen | Cap and wraparound shades on patrol; helmets for heavies; boonies for marksmen |
+| Headwear | Rounded, brimmed, camouflaged helmet; boonie for marksmen | Flat-crowned cap and wraparound shades on patrol; a taller slab-sided helmet with a ridge front to back for heavies and veterans; boonies for marksmen |
 | Badges | Red-over-white flag (left), gold bar (right), name tape (chest) | Orange kite on black (left, chest), orange chevron (right) |
 | Band accent | Leaf green; lime mortar crew, yellow overwatch | Amber, red (tank), lavender (sniper), orange (mortar crew), yellow (overwatch) |
 
@@ -164,6 +164,23 @@ hinge, which points across the body, so the outside of either arm is local
 The badge and camouflage colours are validated `#rrggbb` at registration, like
 the rest of the palette. Review: `scripts/fixtures/faction-uniforms.html` (`?zoom=.3&focus=1.3&yaw=1.15&cols=3`
 frames the shoulders).
+
+The kite, the bedroll and every hat are kept inside the spheres a shot is tested
+against (`actorRayDistance` in arena-rules.ts), so nothing that can be seen above
+cover is something a round passes through; `character-shapes.test.ts` checks it.
+
+What survives distance and darkness, from captures in Tampines with no name
+tags or health bars: at 7 m every cue reads by day, at night and in a monsoon.
+At 18 m by day the uniforms' tone separates the sides and the kite and gaiters
+still show. At night beyond about 18 m the armed forces and Black Kite are both
+dark figures and only the pale pieces (gaiters low, kite high) tell them apart;
+at 45 m at night they do not reliably. The health bar and name tag are unchanged.
+
+Line-ups: `scripts/fixtures/character-lineup.html` (`?set=factions|squad|faces`,
+`&filter=gray|deutan|protan|tritan`, `&light=night|rain`, `&yaw=3.14`,
+`&distance=16`) and `scripts/fixtures/character-district.html`, which stands the
+four factions at 7, 18 and 45 m in a real district under the game's own sky
+(`?region=tampines&time=night&weather=monsoon&filter=deutan`).
 
 Colour-independent review: `scripts/fixtures/faction-readability.html` shows
 the same four jobs in both factions. Use `?gray=1&labels=0` to hide names and

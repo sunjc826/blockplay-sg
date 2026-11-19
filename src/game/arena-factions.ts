@@ -91,7 +91,7 @@ export function hostile(a: FactionActor, b: FactionActor) {
 registerArenaFaction({
   id: 'armed-forces', name: 'Armed forces', short: 'FORCES', side: 'forces',
   uniform: 'field',
-  description: 'Covered helmets, open webbing, a horizontal bedroll and paired identification bars over jungle-green pixel camouflage: the players and their friendly squads.',
+  description: 'Brimmed covered helmets, open webbing, a pale bedroll and gaiters and paired identification bars over jungle-green pixel camouflage: the players and their friendly squads.',
   palette: { top: '#4a5d38', bottom: '#3c4b2e', shoes: '#1c1d18', vest: '#3a452d', backpack: '#435134', gloves: '#262b1f', helmet: '#3d4a31', boonie: '#56663f' },
   camo: { pattern: { style: 'digital', colors: ['#2f3d24', '#1e2119', '#6b5a3c'], scale: 42 }, on: 'all' },
   patches: {
@@ -104,7 +104,7 @@ registerArenaFaction({
 registerArenaFaction({
   id: 'mercenaries', name: 'Black Kite mercenaries', short: 'BLACK KITE', side: 'opposition',
   uniform: 'contractor',
-  description: 'Angular shoulder guards, a raised collar and face wrap, large pale kite emblems on dark navy contractor kit. The squads that come for you.',
+  description: 'Angular shoulder guards, a raised collar and face wrap, and a pale kite carried behind the shoulder over dark navy contractor kit. The squads that come for you.',
   palette: { top: '#1f3557', bottom: '#172840', shoes: '#121318', vest: '#151c29', backpack: '#1b2537', gloves: '#10141c', helmet: '#192334', boonie: '#2a4166' },
   camo: { pattern: { style: 'blotch', colors: ['#2c4670', '#14223a', '#3a5a86'], scale: 9 }, on: 'top' },
   patches: {

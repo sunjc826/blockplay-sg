@@ -1,0 +1,51 @@
+<!doctype html>
+<!-- The four factions standing in a real district under the game's own sky, without name tags or health bars,
+     for judging whether a side can be told at range. Rows stand at ?ranges=7,18,45 metres ahead of the camera
+     (riflemen; the nearest row adds a heavy from each of the two main factions).
+     ?region=tampines  &time=noon|afternoon|night  &weather=sunny|cloudy|showers|monsoon
+     &bearings=.35,-.35,-.62 (radians right of centre, one per row)  &cam=x,z (default: the district spawn)  &yaw=radians (default: the spawn's)  &fov=65
+     &filter=gray|deutan|protan|tritan (colour-vision simulation)  &reduced=1 (reduced-effects path) -->
+<html><body style="margin:0;background:#000">
+<svg width="0" height="0" style="position:absolute"><defs>
+<filter id="deutan"><feColorMatrix type="matrix" values=".367 .861 -.228 0 0  .28 .673 .047 0 0  -.012 .043 .969 0 0  0 0 0 1 0"/></filter>
+<filter id="protan"><feColorMatrix type="matrix" values=".152 1.053 -.205 0 0  .115 .786 .099 0 0  -.004 -.048 1.052 0 0  0 0 0 1 0"/></filter>
+<filter id="tritan"><feColorMatrix type="matrix" values="1.256 -.077 -.179 0 0  -.078 .931 .148 0 0  .005 .691 .304 0 0  0 0 0 1 0"/></filter>
+</defs></svg>
+<script type="module">
+const params=new URLSearchParams(location.search),list=(s,d)=>s?s.split(',').map(Number):d;
+localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:params.get('weather')??'sunny',celebration:'none',timeOfDay:params.get('time')??'afternoon',reducedEffects:params.get('reduced')==='1',shadows:false,occlusion:true}));
+const {getRegion}=await import('/src/game/regions.ts');
+// The same copy of three the game's modules were given, so their instanceof checks hold.
+const THREE=await import(performance.getEntriesByType('resource').map(e=>e.name).find(n=>/deps\/three\.js/.test(n)));
+const {separateInstancedMaterials}=await import('/src/game/instanced-materials.ts');
+const {createWorldAtmosphere}=await import('/src/game/world-atmosphere.ts');
+const {createWorldOcclusion}=await import('/src/game/world-occlusion.ts');
+const {createCharacterRig}=await import('/src/game/character-rig.ts');
+const {arenaCharacterLook}=await import('/src/game/character-looks.ts');
+const W=innerWidth,H=innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;document.body.append(renderer.domElement);
+const filter=params.get('filter');if(filter)renderer.domElement.style.filter=filter==='gray'?'grayscale(1)':`url(#${filter})`;
+const region=getRegion(params.get('region')??'tampines'),world=region.build();separateInstancedMaterials(world.scene);
+const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
+const [cx,cz]=list(params.get('cam'),[region.spawn.x,region.spawn.z]),yaw=Number(params.get('yaw')??region.spawn.yaw);
+const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+const FACTIONS=['armed-forces','mercenaries','freedom-force','collective-cops'];
+const rows=list(params.get('ranges'),[7,18,45]).map((range,row)=>({range,actors:[...FACTIONS.map(faction=>({faction,role:'assault'})),...(row===0?[{faction:'armed-forces',role:'tank'},{faction:'mercenaries',role:'tank'}]:[])]}));
+const figures=[];
+const bearings=list(params.get('bearings'),[.35,-.35,-.62]);
+rows.forEach(({range,actors},row)=>actors.forEach((actor,i)=>{
+  const rig=createCharacterRig(arenaCharacterLook({bot:true,rank:2,id:`${actor.faction}-${actor.role}-${range}`,...actor}),`${actor.faction}-${range}-${i}`,{skinned:true});
+  // Each row stands on an arc at its range, in its own part of the view so no row hides another.
+  const gap=Math.max(1.05,range*.05),bearing=bearings[row%bearings.length]+(i-(actors.length-1)/2)*gap/range;
+  rig.root.position.set(cx,0,cz).addScaledVector(forward,range*Math.cos(bearing)).addScaledVector(right,range*Math.sin(bearing));
+  // A quarter turn off square to the camera, alternating, so kit on the back and sides shows too.
+  rig.root.rotation.y=yaw-bearing+Math.PI+(i%2?.5:-.5);
+  for(let t=0;t<1.3;t+=1/60)rig.update(1/60,{aim:.4});
+  world.scene.add(rig.root);figures.push({...actor,range});
+}));
+const camera=new THREE.PerspectiveCamera(Number(params.get('fov')??65),W/H,.08,800);
+camera.position.set(cx,1.75,cz);camera.lookAt(cx+forward.x*30,1.2,cz+forward.z*30);camera.updateMatrixWorld(true);
+const occlusion=createWorldOcclusion(renderer,world.scene,camera);
+for(let i=0;i<4;i++){atmosphere.update(1/30,camera);renderer.toneMappingExposure=atmosphere.light.lighting.exposure;world.animate(i/30);occlusion.render(true);}
+window.results=figures;window.ready=true;
+</script></body></html>
