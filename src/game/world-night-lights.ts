@@ -580,6 +580,25 @@ const SHOP_SIGN_GLSL = `
             float along = uv.x * float(count);
             return nightGlyph(nightBrand[brand * ${BRAND_LENGTH} + int(along)], vec2(fract(along), uv.y));
           }`;
+/**
+ * Cuts from a shader the shop designs it will never draw. The shader source holds every shop (SHOP_LAYOUTS),
+ * but a district shows a handful, and a program that carried all of them took several times as long to compile:
+ * long enough on some GPUs to hold up the whole browser while a district loaded. Every block opened by a test on
+ * `shopKind` alone is emptied unless one of its numbers is in `used`; chains of else-ifs stay well formed.
+ */
+export function pruneShopBranches(source: string, used: readonly number[]) {
+  const test = /if \(((?:shopKind == \d+)(?: \|\| shopKind == \d+)*)\) \{/g;
+  let out = '', from = 0;
+  for (let match = test.exec(source); match; match = test.exec(source)) {
+    if ([...match[1].matchAll(/\d+/g)].some(n => used.includes(+n[0]))) continue;
+    let depth = 1, at = match.index + match[0].length;
+    for (; depth && at < source.length; at++) depth += source[at] === '{' ? 1 : source[at] === '}' ? -1 : 0;
+    if (depth) break;
+    out += `${source.slice(from, match.index)}if (false) {}`;
+    from = test.lastIndex = at;
+  }
+  return out + source.slice(from);
+}
 const SHOP_BOXES_GLSL = Object.values(SHOP_LAYOUTS).map((boxes, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (shopKind == ${i + 1}) ` : ''}{ ${boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} }`).join('\n              ');
 /**
@@ -763,6 +782,8 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   const shopNames = Object.keys(SHOP_LAYOUTS);
   /** The district's designed shop windows on generated shopfronts, as shader numbers. */
   const frontShops = (options.interiors?.shops ?? MALL_SHOPS).map(name => shopNames.indexOf(name) + 1);
+  /** The designed shops this district's generated shopfronts can show: none where it has no share of them. */
+  const frontUsed = (options.interiors?.boutiques ?? 0) > 0 ? frontShops : [];
   function patch(material: Lit, windows: boolean, panes = false, shops: readonly number[] | null = null, rooms = 0) {
     if (patched.has(material)) return;
     const compile = material.onBeforeCompile, key = material.customProgramCacheKey;
@@ -2123,8 +2144,10 @@ ${SHOP_SIGN_GLSL}
             float frontLit = max(nightWindowLit(fract(nightFrontSeed * 3.31)), nightFrontShop * step(fract(nightFrontSeed * 3.31), ${SHOP_WINDOWS.lit.toFixed(2)}));
             totalEmissiveRadiance += mix(vec3(1.0, .86, .68), vec3(1.0, .96, .9), nightFrontShop) * nightFrontRoom.rgb * mix(.12, 1.0, nightFrontRoom.a) * (1.0 - .6 * nightFrontGlass) * nightFront * frontLit * mix(${INTERIOR.nightShopfront.toFixed(2)}, ${SHOP_WINDOWS.night.toFixed(2)}, nightFrontShop) * nightLevel;`}` : ''}
           }`);
+      // Keep only the shops this program can draw: a shop wall's own list, or the district's shopfronts.
+      if (windows) shader.fragmentShader = pruneShopBranches(shader.fragmentShader, shops ?? (panes ? [] : frontUsed));
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v5-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v20-${frontShops.join('.')}-${rooms}` : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v5-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v21-${frontUsed.join('.')}-${rooms}` : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

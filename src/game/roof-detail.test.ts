@@ -257,6 +257,13 @@ describe('interior mapping', () => {
     expect([...listed].sort()).toEqual([...MALL_SHOPS].sort());
     world.dispose();
   });
+  it('cuts the shops a district never shows out of its shader, leaving the chains of tests well formed', async () => {
+    const { pruneShopBranches } = await import('./world-night-lights');
+    const source = 'if (shopKind == 1) { a = 1.0; } else if (shopKind == 2 || shopKind == 7) { if (x) { b = 2.0; } } else if (shopKind == 3) { c = 3.0; } else { d = 4.0; } if (shopKind == 5) e = 5.0; if (shopKind == 14 && y) { f = 6.0; }';
+    expect(pruneShopBranches(source, [7])).toBe('if (false) {} else if (shopKind == 2 || shopKind == 7) { if (x) { b = 2.0; } } else if (false) {} else { d = 4.0; } if (shopKind == 5) e = 5.0; if (shopKind == 14 && y) { f = 6.0; }');
+    expect(pruneShopBranches(source, [1, 2, 3])).toBe(source);
+    expect(pruneShopBranches(source, [])).not.toContain('b = 2.0');
+  });
   it('reflects a little head on and nearly everything at a glance', async () => {
     const { glassReflection, REFLECTION } = await import('./world-night-lights');
     expect(glassReflection(1)).toBeCloseTo(REFLECTION.headOn, 6);

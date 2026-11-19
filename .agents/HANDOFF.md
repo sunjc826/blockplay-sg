@@ -17086,3 +17086,14 @@ ridged helmet and a pale box kite on a mast behind the left shoulder. Everything
 18 m the two main sides are both dark shapes. Not built: per-person face variation (nose, jaw, brow widths from the
 id hash), facial hair, faceted limbs and torso to match the head, a blink, an emissive or reflective faction marker
 for night. Owner's calls: whether the health bar keeps the role colour, and whether night needs a lit marker.
+
+Range load freeze fixed (2026-11-19, owner reported the live-fire range stuck on "Preparing the range" with the whole browser frozen):
+- Cause: every windowed material compiled all 32 shop designs. On SwiftShader the longest
+  load stall at Marina Bay grew from 12.8 s (before the shop work, `18efd0e`) to 35.4 s
+  (`ac0f94c`). On a real GPU that is the GPU process, hence the whole browser.
+- Fix: `pruneShopBranches` empties every `if (shopKind == N ...) {` block a program cannot
+  draw: a shop wall keeps its own list, generated windows keep the district's `shops`
+  only when `boutiques` > 0. Marina Bay's stall is 17.5 s after it, Orchard's 2.7 s.
+  Key `-windows-v21-<used shops>-<room use>`.
+Left: still about 5 s over the pre-shop figure at Marina Bay (signs, special rooms, one-line
+shop tests are not pruned). Measured on SwiftShader only; no Metal context was free.
