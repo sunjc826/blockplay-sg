@@ -17107,3 +17107,20 @@ Window shader made smaller again (2026-11-19, same freeze):
 - SwiftShader, longest stall loading the range: Marina Bay 12.0 s (12.8 s before the shop
   work, 35.4 s at its worst), Bishan 1.9 s. Keys `-windows-v22-<shops>-<rooms>`, `-shops-v6-`.
 Left: Marina Bay's remaining 12 s predates the shops and was not traced.
+
+Shader audit of a range load (2026-11-19, owner asked for it after the load freeze; no code changed):
+- Captured every program linked while `/debug?tool=fps&district=…` loads, on SwiftShader, from
+  the shared dev checkout (so other sessions' uncommitted work was in it).
+- Marina Bay 237 distinct programs, Bishan 197; 187 of Bishan's are byte-identical to Marina
+  Bay's. Marina Bay by type: 111 standard, 20 physical, 64 basic, 27 ShaderMaterial, 10 line,
+  3 sprite, 2 points. three's `onFirstUse` (waiting on links) was 18.6 s of a 33.6 s load.
+- Source size misleads: a lit fragment is about 76 KB but only about 8 KB is game-added; the
+  rest is three's stock chunks, mostly behind `#ifdef`.
+- The 131 lit programs carry 54 different sets of game-added code. three's own switches split
+  those further: sidedness (24 lit + 14 basic would merge), instancing (20 + 8), screen versus
+  off-screen output (18 + 10), texture map (13 + 14). The figures overlap.
+- 46 programs at Marina Bay (59 at Bishan) were never bound in the load plus three seconds;
+  18 of them are unnamed ShaderMaterials. Not checked which are warmed on purpose.
+- Only 6 programs (2 at Bishan) contain the window room code.
+Left: per-program compile times were not usable (each measured about 0.7-0.8 s whatever its
+size); nothing measured on a real GPU; the 54 code sets were not traced to their patches.
