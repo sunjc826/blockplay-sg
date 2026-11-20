@@ -17227,3 +17227,16 @@ unchanged: their rooms are still the generated windows between the modelled pane
   photographs viewed in the browser, not captured into `reconstruction/`: a lit room is
   about four fifths of its bay and two thirds of its storey. Key `-panes-v8-<room use>`.
   Not matched: real rooms glow amber from lamps; ours are lit evenly from the ceiling.
+
+Killstreaks moved into the loadout (2026-11-21, owner: the selection was "completely outside the
+loadout", inconsistent and hidden in a corner of the match menu):
+- The separate match-menu section and its `<dialog>` are gone. `StreakLoadoutSection`
+  (MatchStreaks.tsx) is a controlled row of the Deployment Locker (`RespawnLoadoutSelector`,
+  optional `streaks` prop), styled with the locker's own `.loadout-variants` cards. The locker
+  holds the draft and its one save button applies weapons, then streaks; it stays disabled
+  until three are chosen. Mid-match the row is read-only. Expedition's locker passes no streaks.
+- `useSavedStreaks` (called from FpsGame) restores the remembered choice; the match menu's
+  "Your loadout" section names the carried three, and the locker buttons read
+  "Loadout & killstreaks".
+- Checked: component tests, and `scripts/fixtures/streak-menu.html` in headless Chrome at 1280
+  and 390 wide plus its `&selftest` click-through. Not checked inside a running match.

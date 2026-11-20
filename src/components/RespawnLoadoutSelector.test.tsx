@@ -25,3 +25,12 @@ it('explains first-spawn equipment when opened from match setup',()=>{
  expect(html).toContain('Choose your starting loadout');expect(html).toContain('Use for this match');expect(html).not.toContain('Your current life keeps its gear');
  expect(html).not.toContain('Your room stays connected');
 });
+it('puts the streak rewards in the locker with the weapons, and only when the match has them',()=>{
+ const p=createProfile(),base={inventory:p,selected:p,onSave:async()=>true,onClose:()=>{}};
+ expect(renderToStaticMarkup(<RespawnLoadoutSelector {...base}/>)).not.toContain('data-streak-card');
+ const open=renderToStaticMarkup(<RespawnLoadoutSelector deployment {...base} streaks={{mode:'team-deathmatch',loadout:['strike','recon','hunter'],locked:false,onSave:()=>{}}}/>);
+ expect(open.match(/data-streak-card=/g)).toHaveLength(6);expect(open).toContain('weapons and killstreaks');expect(open).toContain('Killstreaks are remembered for this mode');
+ expect(open.indexOf('data-streak-card="recon"')).toBeGreaterThan(open.indexOf('Sidearm'));expect(open).toMatch(/data-testid="queue-loadout">/);
+ const locked=renderToStaticMarkup(<RespawnLoadoutSelector {...base} streaks={{mode:'hardpoint',loadout:['recon','interceptor','strike'],locked:true,onSave:()=>{}}}/>);
+ expect(locked).toContain('Objective streaks');expect(locked).toContain('Locked once the match starts');
+});

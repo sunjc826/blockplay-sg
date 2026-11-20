@@ -1,21 +1,31 @@
-<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Streak selection menu fixture</title>
-<style>body{margin:0;background:#17231e;color:#e8eddf;font:14px 'DM Sans',sans-serif}#menu{max-width:420px;margin:24px auto;padding:0 16px}</style>
-<!-- Design fixture: ?mode=free-for-all|team-deathmatch|hardpoint, &locked for the in-match view, &closed to leave the menu shut. -->
-<div id="menu"></div><script type="module">
+<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Deployment locker with streak rewards fixture</title>
+<style>html,body{margin:0;height:100%;background:#17231e;color:#e8eddf;font:14px 'DM Sans',sans-serif}#menu{position:relative;min-height:100%}</style>
+<!-- Design fixture: the deployment locker with its streak row. ?mode=free-for-all|team-deathmatch|hardpoint, &locked for the in-match view,
+     &width=390 to hold the page to a phone's width, &selftest to click through it and write the result to <pre id=result>. -->
+<div id="menu"></div><pre id="result" hidden></pre><script type="module">
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import RefreshRuntime from '/@react-refresh';
 RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
-const {MatchStreakLoadout}=await import('/src/components/MatchStreaks.tsx');
+const {default:Locker}=await import('/src/components/RespawnLoadoutSelector.tsx');
 const {randomStreaks,defaultStreaks}=await import('/src/game/match-streaks.ts');
+const {createProfile}=await import('/src/game/armory-state.ts');
 await import('/src/styles.css');await import('/src/components/arena-player.css');
 const params=new URLSearchParams(location.search),mode=params.get('mode')??'team-deathmatch';
+if(params.get('width'))document.body.style.width=params.get('width')+'px';
 let seed=36497;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
 const names=['Orchid','Merlion','Viper','Kestrel','Banyan','Tembusu','Saga'];
 const field=names.map((name,i)=>({id:'bot-'+i,name,loadout:randomStreaks(mode,random),side:mode!=='free-for-all'&&i<3?'ally':'enemy'}));
-window.chosen=defaultStreaks(mode);
-const root=ReactDOM.createRoot(document.querySelector('#menu'));
-const render=()=>root.render(React.createElement(MatchStreakLoadout,{mode,field,disabled:params.has('locked'),progress:{loadout:window.chosen,charge:0,heldCharge:0,ready:[],earned:[]},onChange:ids=>{window.chosen=ids;render()}}));
-render();
-if(!params.has('closed'))setTimeout(()=>document.querySelector('.streak-loadout-open').click(),50);
+const profile=createProfile();window.chosen=defaultStreaks(mode);window.saved=0;
+ReactDOM.createRoot(document.querySelector('#menu')).render(React.createElement(Locker,{deployment:!params.has('locked'),inventory:profile,selected:profile,onSave:async()=>{window.saved++;return true},onClose:()=>{window.lockerClosed=true},
+ streaks:{mode,loadout:window.chosen,locked:params.has('locked'),field,onSave:ids=>{window.chosen=ids}}}));
+if(params.has('selftest'))setTimeout(async()=>{
+ const wait=()=>new Promise(r=>setTimeout(r,60)),card=id=>document.querySelector(`[data-streak-card=${id}]`),save=()=>document.querySelector('[data-testid=queue-loadout]'),out={};
+ card('jammer').click();await wait();out.fourthRefused=card('jammer').getAttribute('aria-pressed')==='false';
+ card('hunter').click();await wait();out.saveBlockedAtTwo=save().disabled;out.footer=document.querySelector('.respawn-loadout-panel footer p').textContent;
+ card('jammer').click();await wait();out.saveOpenAtThree=!save().disabled;
+ save().click();await wait();await wait();out.chosen=window.chosen;out.saved=window.saved;out.closed=window.lockerClosed===true;
+ const panel=document.querySelector('.respawn-loadout-panel').getBoundingClientRect();out.insideWidth=panel.left>=0&&panel.right<=document.body.getBoundingClientRect().right+1;
+ const r=document.querySelector('#result');r.textContent=JSON.stringify(out);r.hidden=false;
+},300);
 </script>

@@ -1,5 +1,5 @@
 import FpsDamageFeedback from './FpsDamageFeedback';
-import { MatchStreakHud, MatchStreakLoadout } from './MatchStreaks';
+import { MatchStreakHud, saveStreaks, streakSummary, streakTitle, useSavedStreaks } from './MatchStreaks';
 import { streakFriendly, streakReconPulse } from '../game/match-streak-visuals';
 import MatchBotSettings, { type MatchSquad } from './MatchBotSettings';
 import { DeploymentOverlay } from './DeploymentBriefing';
@@ -169,6 +169,10 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   useEffect(() => { if (disconnected) engine.current?.pause(); }, [disconnected]);
   const tdm = arenaOptions?.match?.mode === 'team-deathmatch';
   const hp=arenaOptions?.match?.mode==='hardpoint',teamMode=tdm||hp;
+  const streakMode = hp ? 'hardpoint' as const : tdm ? 'team-deathmatch' as const : 'free-for-all' as const;
+  const streakProgress = hud.arenaSelf ? hud.arena?.streaks?.players[hud.arenaSelf.id] : undefined, streaksLocked = !hud.arenaSelf || (hud.arena?.elapsed ?? 0) > 0;
+  const streakField = hud.arena?.actors.flatMap(a => { const drawn = a.bot && hud.arena?.streaks?.players[a.id]?.loadout; return drawn ? [{ id: a.id, name: a.name, loadout: drawn, side: teamMode && a.team === hud.arenaSelf?.team ? 'ally' as const : 'enemy' as const }] : []; });
+  useSavedStreaks(streakMode, streakProgress, streaksLocked, configureStreaks);
   const control=hud.arena?.hardpoint,teamScore=control??hud.arena?.teamDeathmatch;
   const hpArena=control ? hardpointArena(control.area) : undefined;
   const activeSite=hpArena?.sites.find(s=>s.id===control?.active),nextSite=hpArena?.sites.find(s=>s.id===control?.next);
@@ -182,7 +186,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const hudHints = useHudHints(), showHints = touch || hudHints;
   const aerial = hud.phase === 'ready' && !debug ? {
     zoom: hud.overviewZoom, onZoom: (factor: number) => engine.current?.zoomDeployment(factor), onResetView: () => engine.current?.resetDeploymentView(),
-    loadout: <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose starting loadout</button>,
+    loadout: <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>{isArena ? `Loadout & ${streakTitle(streakMode).toLowerCase()}` : 'Choose starting loadout'}</button>,
   } : undefined;
   const hold = (key: string) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); engine.current?.setInput(key, true); },
@@ -197,7 +201,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
       {(deploying || playing && hud.deploymentBriefing) && <DeploymentOverlay location={arenaOptions?.match ? matchSummary(arenaOptions.match).map : zone.name} operation={isArena ? 'MATCH' : 'TRAINING'} intro={hud.deploymentIntro} briefing={hud.deploymentBriefing} clock={() => engine.current?.deploymentBriefingTime() ?? null}>
         {deploying && <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>}
       </DeploymentOverlay>}
-      {loadoutOpen && <RespawnLoadoutSelector deployment={hud.phase === 'ready'} inventory={profile} selected={nextProfile} onSave={queueLoadout} onClose={() => setLoadoutOpen(false)} />}
+      {loadoutOpen && <RespawnLoadoutSelector deployment={hud.phase === 'ready'} inventory={profile} selected={nextProfile} onSave={queueLoadout} streaks={streakProgress ? { mode: streakMode, loadout: streakProgress.loadout, locked: streaksLocked, field: streakField, onSave: ids => { configureStreaks(ids); saveStreaks(streakMode, ids); } } : undefined} onClose={() => setLoadoutOpen(false)} />}
       {(debug || !isArena && (fullscreen.notice || hud.message)) && <p className="fps-message" role="status">{fullscreen.notice || hud.message || (isArena ? `Eliminations pay ${ELIMINATION_CREDITS} CR · Match scores are session-only · Infantry armor/ammo replenish on respawn · Vehicle ammo resets with the match` : 'Game balance stats · Scenery blocks shots · Armor replenishes each exercise')}</p>}
       {fullscreen.immersive && fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
       {fullscreen.immersive && <div className="fps-immersive-hint">ESC · PAUSE & RELEASE MOUSE</div>}
@@ -268,10 +272,9 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           {hud.phase === 'ready' && touch && <p className="arena-touch-brief">Left thumb to move · Drag to look · Hold FIRE to shoot</p>}
           {hud.arena && <details className="arena-menu-section" open={debug && hud.phase === 'paused' ? true : undefined}><summary>Players &amp; scores <span>{!touch && 'Hold Tab in match · '}{hud.arena.actors.length}</span></summary><Scoreboard snapshot={hud.arena} selfId={arenaOptions.session.id} /></details>}
           <EnvironmentControls multiplayer={!soloArena} />
-          {hud.phase !== 'ready' && <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>}
+          <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>{hud.phase === 'ready' ? `Choose loadout & ${streakTitle(streakMode).toLowerCase()}` : 'Choose next respawn loadout'}</button>
           {hud.phase === 'ready' && !guest && !teamMode && !hud.arenaStarted && <MatchBotSettings bots={bots} squad={squad} onBots={count => { if (engine.current?.configureMatchBots(count, squad)) setBots(count); }} onSquad={composition => { if (engine.current?.configureMatchBots(bots, composition)) setSquad(composition); }} />}
-          <MatchStreakLoadout mode={hp ? 'hardpoint' : tdm ? 'team-deathmatch' : 'free-for-all'} progress={hud.arenaSelf ? hud.arena?.streaks?.players[hud.arenaSelf.id] : undefined} disabled={!hud.arenaSelf || (hud.arena?.elapsed ?? 0) > 0} onChange={configureStreaks} field={hud.arena?.actors.flatMap(a => { const drawn = a.bot && hud.arena?.streaks?.players[a.id]?.loadout; return drawn ? [{ id: a.id, name: a.name, loadout: drawn, side: teamMode && a.team === hud.arenaSelf?.team ? 'ally' as const : 'enemy' as const }] : []; })} />
-          <details className="arena-menu-section"><summary>Your loadout</summary><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{teamMode ? 'Teams fill to four with assault bots. Your equipped Armory gear is ready.' : guest ? 'Your equipped Armory gear is ready.' : `${bots} bots · ${squad} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match and open Store →</button></details>
+          <details className="arena-menu-section"><summary>Your loadout</summary><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p>{streakProgress && <p data-streak-summary>{streakTitle(streakMode)}: {streakSummary(streakProgress.loadout)}</p>}<p>{teamMode ? 'Teams fill to four with assault bots. Your equipped Armory gear is ready.' : guest ? 'Your equipped Armory gear is ready.' : `${bots} bots · ${squad} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match and open Store →</button></details>
           {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={() => confirmAction({ title: 'Restart this match?', detail: soloArena ? 'Scores and current match progress will reset. Credits and XP already saved are kept.' : 'Scores and current match progress will reset for everyone. Credits and XP already saved are kept.', confirmLabel: 'Restart match', action: resetExercise })}><RotateCcw size={14} /> Restart match</button>}
         </>}
         {debug && <><FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div><FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} /></>}

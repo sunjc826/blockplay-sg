@@ -618,11 +618,13 @@ left stations unheld on the tight courts.
 
 ### Match streak rewards
 
-Before starting TDM, FFA or Hardpoint, open **Briefing & settings** and press
-**Change** beside **Killstreaks / Objective streaks**. The selection menu shows
-every reward the mode allows as a card, a ladder of when the chosen three
-unlock, and the three each bot carries; confirm three to carry them. The choice
-is remembered per mode on the device and restored at the next match. Each bot
+Streak rewards are part of the loadout. Before starting TDM, FFA or Hardpoint,
+press **Loadout & killstreaks** on the deployment view (or **Choose loadout &
+killstreaks** in the match menu) to open the Deployment Locker: beneath the
+weapon columns, every reward the mode allows is a card in the same style as the
+weapon variants. Pick three and save them with the weapons. The choice is
+remembered per mode on the device and restored at the next match; once the match
+clock runs the row is read-only. The locker can also list what each bot carries. Each bot
 draws its own three at random when it joins (`randomStreaks`, on a seed stream
 of its own in `arena-rules.ts`). Press **4–6** or tap a HUD reward
 to activate it. Ground equipment and Precision Strike first show a placement
@@ -655,8 +657,8 @@ callouts and do not appear in Training or Open World.
 Rules and wire validation live in `src/game/match-streaks.ts`; host integration
 uses `arena-rules.ts` / `arena-runtime.ts`, presentation uses
 `match-streak-visuals.ts` and `components/MatchStreaks.tsx`.
-`scripts/fixtures/streak-menu.html` shows the selection menu on its own
-(`?mode=`, `&locked`, `&closed`).
+`scripts/fixtures/streak-menu.html` shows the locker with its streak row on its own
+(`?mode=`, `&locked`, `&width=390`, `&selftest`).
 `node scripts/match-streaks-smoke.mjs` checks the real renderer, guest path,
 keyboard, touch layout and placement (Vite 5231 / Chrome CDP 9391 by default).
 

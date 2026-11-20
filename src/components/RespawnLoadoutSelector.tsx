@@ -6,14 +6,21 @@ import { DEFAULT_VARIANTS, FPS_WEAPONS } from '../game/fps-rules';
 import { applyRespawnLoadout, selectedRespawnLoadout, type RespawnLoadoutSelection } from '../game/respawn-loadout';
 import { hasItemAccess, rentalTimeLeft } from '../game/weapon-rentals';
 import { armoryThumbnailFile } from '../game/armory-thumbnails';
+import { orderStreaks, type StreakId, type StreakMode } from '../game/match-streaks';
+import { StreakLoadoutSection, streakTitle, type StreakFieldEntry } from './MatchStreaks';
 import './respawn-loadout.css';
 
-export default function RespawnLoadoutSelector({ inventory, selected, onSave, onClose, deployment = false }: {
-  deployment?: boolean; inventory: ArmoryProfile; selected: ArmoryProfile;
+/** The match's streak rewards, chosen in the locker beside the weapons. */
+export interface LockerStreaks { mode: StreakMode; loadout: StreakId[]; locked: boolean; field?: StreakFieldEntry[]; onSave: (ids: StreakId[]) => void }
+
+export default function RespawnLoadoutSelector({ inventory, selected, onSave, onClose, deployment = false, streaks }: {
+  deployment?: boolean; streaks?: LockerStreaks; inventory: ArmoryProfile; selected: ArmoryProfile;
   onSave: (selection: RespawnLoadoutSelection) => Promise<boolean>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(() => selectedRespawnLoadout(selected));
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [rewards, setRewards] = useState(() => orderStreaks(streaks?.loadout ?? []));
+  const choosing = !!streaks && !streaks.locked, short = choosing ? 3 - rewards.length : 0;
   const root = useRef<HTMLDivElement>(null), heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   const ready = expireRentals(inventory), valid = !!applyRespawnLoadout(ready, draft);
@@ -47,23 +54,24 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
   return <div ref={root} className="respawn-loadout-screen" role="dialog" aria-modal="true" aria-labelledby="loadout-screen-title" onKeyDown={event => {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
     if (event.key !== 'Tab') return;
-    const controls = [...root.current!.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled)')];
+    const controls = [...root.current!.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary')];
     const first = controls[0], last = controls[controls.length - 1];
     if (event.shiftKey && (document.activeElement === first || document.activeElement === heading.current)) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }}>
     <div className="respawn-loadout-panel"><header><span>DEPLOYMENT LOCKER</span><h2 ref={heading} tabIndex={-1} id="loadout-screen-title">{deployment?'Choose your starting loadout':'Choose your next loadout'}</h2>
-      <p>{deployment?'These weapons are equipped when you enter the match.':'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
+      <p>{deployment?(streaks?`These weapons and ${streakTitle(streaks.mode).toLowerCase()} are what you enter the match with.`:'These weapons are equipped when you enter the match.'):'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
       <button type="button" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
       <div className="respawn-loadout-columns">
         {slot('Main weapon', draft.carry.main, 'main')}
         {hasItemAccess(ready, EXTRA_SLOT_ID) ? slot('Extra main', draft.carry.extra, 'extra') : <section className="loadout-choice loadout-slot-locked"><h3>Extra main</h3><p>Rent the extra main slot in the Store to carry a second main weapon.</p></section>}
         {slot('Sidearm', SIDEARM_FAMILY)}
+        {streaks && <StreakLoadoutSection mode={streaks.mode} draft={rewards} locked={streaks.locked} busy={busy} field={streaks.field} onDraft={ids => { setRewards(ids); setError(''); }} />}
       </div>
-      <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.</small></div>
-        <button type="button" onClick={onClose}>Cancel</button><button type="button" data-testid="queue-loadout" disabled={busy || !valid} onClick={async () => {
+      <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : short > 0 ? `${streakTitle(streaks!.mode)}: choose ${short} more.` : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.{streaks && ` ${streakTitle(streaks.mode)} are remembered for this mode.`}</small></div>
+        <button type="button" onClick={onClose}>Cancel</button><button type="button" data-testid="queue-loadout" disabled={busy || !valid || short > 0} onClick={async () => {
           setBusy(true); setError('');
-          try { if (await onSave(draft)) onClose(); else setError(deployment ? 'Loadout could not be saved. Check your rental time and try again.' : 'Loadout could not be queued. Check your connection and rental time, then try again.'); }
+          try { if (await onSave(draft)) { if (choosing) streaks.onSave(rewards); onClose(); } else setError(deployment ? 'Loadout could not be saved. Check your rental time and try again.' : 'Loadout could not be queued. Check your connection and rental time, then try again.'); }
           catch { setError('Loadout could not be queued. Try again.'); }
           finally { setBusy(false); }
         }}>{busy ? 'Saving…' : deployment ? 'Use for this match' : 'Use on next respawn'}</button></footer>

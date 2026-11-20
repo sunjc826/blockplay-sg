@@ -3,41 +3,23 @@
 .match-streak-hud button:disabled{opacity:.68}.match-streak-hud button[data-ready]{border-color:#6ae6ca;color:#c9fff1;box-shadow:inset 0 0 18px #42ad9220}.match-streak-hud button[data-ready]:disabled{opacity:.8}
 .match-streak-hud button>span{display:flex;align-items:center;justify-content:space-between}.match-streak-hud kbd{font:10px monospace}.match-streak-hud b{font:600 10px 'DM Sans',sans-serif}.match-streak-hud small{font:9px monospace}.match-streak-hud progress{width:100%;height:3px;accent-color:#6ae6ca}
 .streak-placement{position:absolute;z-index:5;left:50%;top:58%;transform:translate(-50%,-50%);display:grid;gap:8px;min-width:240px;max-width:80%;padding:12px;background:#102027ef;border:1px solid #6ae6ca88;border-radius:6px;text-align:center;color:#e3fff6;pointer-events:auto}.streak-placement span{font-size:10px}.streak-placement>div{display:flex;justify-content:center;gap:8px}.streak-placement button{min-height:36px;background:#243d42;border:1px solid #87b5aa;color:#e3fff6;border-radius:4px;padding:5px 10px}
-/* Match menu section: the three carried rewards and the way into the selection menu. */
-.streak-loadout{padding:12px 0}.streak-loadout>header{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:34px}.streak-loadout h3{margin:0;font-size:13px;font-weight:500;color:#d2dfc5}
-.streak-loadout-open{min-height:34px;padding:6px 14px;border:1px solid #6ae6ca88;border-radius:4px;background:#17302d;color:#c9fff1;font:inherit;font-size:12px;cursor:pointer}
-.streak-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 0;padding:0;list-style:none}
-.streak-slots li{display:grid;gap:3px;min-width:0;padding:8px;border:1px solid #637d8066;border-radius:5px;background:#102027;color:#8fe9d3}.streak-slots b{font-size:11px;font-weight:600;color:#e6f2de;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.streak-slots small{font:10px ui-monospace,monospace;color:#abbeb1}
-.streak-loadout>p{display:flex;align-items:center;gap:5px;margin:8px 0 0}
-/* Selection menu. The dialog itself keeps the browser's display so it stays hidden until opened. */
-.streak-menu{margin:auto;width:min(980px,calc(100vw - 16px));max-width:none;max-height:calc(100dvh - 16px);padding:0;border:1px solid #5f7f78;border-radius:10px;background:#101d1b;color:#e8eddf;box-shadow:0 18px 70px #000a;overflow:auto;pointer-events:auto;text-align:left;font-family:'DM Sans',sans-serif}
-.streak-menu::backdrop{background:#050c0bd6}
-.streak-menu button{font:inherit;cursor:pointer}.streak-menu button:focus-visible,.streak-loadout-open:focus-visible{outline:2px solid #ecd08d;outline-offset:2px}
-.streak-menu-panel>header{position:relative;padding:22px 70px 16px 24px;border-bottom:1px solid #6ae6ca2e}.streak-menu-panel>header>span{font:10px ui-monospace,monospace;letter-spacing:.15em;color:#6ae6ca}.streak-menu h2{margin:8px 0 6px;font-size:26px;font-weight:600}.streak-menu-panel>header p{margin:0;max-width:70ch;font-size:13px;line-height:1.6;color:#bac9b8}
-.streak-menu-panel>header>button{position:absolute;right:18px;top:20px;display:grid;place-items:center;width:40px;height:40px;border:1px solid #a2b49a66;border-radius:4px;background:#1b2f2b;color:#e8eddf}
-/* Seven rungs: one per kill (or hundred charge). A chosen reward sits on the rung that unlocks it. */
-.streak-ladder{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:0;padding:16px 24px 4px;list-style:none}
-.streak-ladder li{display:flex;flex-direction:column;justify-content:flex-end;gap:5px;min-width:0}.streak-ladder li>span{display:flex;flex-direction:column;gap:3px;min-height:22px;justify-content:flex-end}
-.streak-ladder i{display:flex;align-items:center;gap:5px;min-width:0;padding:3px 6px;border-radius:3px;background:#6ae6ca;color:#06231d;font-style:normal}.streak-ladder em{font:600 10px 'DM Sans',sans-serif;font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.streak-ladder svg{flex:none}
-.streak-ladder li>b{padding-top:5px;border-top:3px solid #2c4743;font:10px ui-monospace,monospace;font-weight:400;color:#8ea39a;text-align:center}.streak-ladder li[data-on]>b{border-color:#6ae6ca;color:#c9fff1}
-.streak-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 24px 20px}
-.streak-cards button{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px;border:1px solid #4e6a66;border-radius:7px;background:#14272a;color:#dfe9dc;text-align:left;transition:border-color .12s,background .12s,transform .12s}
-.streak-cards button:hover{border-color:#8fb8ad}.streak-cards button[aria-pressed=true]{border-color:#6ae6ca;background:#143730;box-shadow:inset 0 0 0 1px #6ae6ca,inset 0 0 26px #42ad9226}.streak-cards button[aria-disabled]:not([aria-pressed=true]){opacity:.5;cursor:default}
-.streak-card-top{display:flex;align-items:flex-start;justify-content:space-between}.streak-card-top i{display:grid;place-items:center;width:42px;height:42px;border-radius:6px;background:#0c1a1c;border:1px solid #6ae6ca55;color:#6ae6ca}
-.streak-card-top strong{display:flex;flex-direction:column;align-items:flex-end;font:600 26px/1 ui-monospace,monospace;color:#f1e3b8}.streak-card-top small{margin-top:3px;font:10px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#abbeb1}
-.streak-cards b{margin-top:6px;font-size:16px;font-weight:600}.streak-cards em{font:10px ui-monospace,monospace;font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:#6ae6ca}
-.streak-card-text{flex:1;font-size:12px;line-height:1.55;color:#b7c6bd}.streak-card-stats{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}.streak-card-stats span{padding:3px 7px;border-radius:3px;background:#0c1a1c;font:10px ui-monospace,monospace;color:#c4d3c8}
-.streak-card-state{display:flex;align-items:center;gap:5px;margin-top:6px;padding-top:8px;border-top:1px solid #ffffff14;font:11px ui-monospace,monospace;color:#9db1a6}.streak-cards button[aria-pressed=true] .streak-card-state{color:#c9fff1}
-.streak-field{padding:16px 24px 18px;border-top:1px solid #6ae6ca2e;background:#0d1917}.streak-field h3{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#dcc796}.streak-field p{margin:6px 0 10px;font-size:12px;color:#abbeb1}
+/* The locker's streak row: the same cards as the weapon variants, full width beneath the three weapon columns. */
+.loadout-streaks{grid-column:1/-1;padding-top:18px;border-top:1px solid #78846a50}
+.loadout-streaks h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}.loadout-streaks h3 span{display:inline-flex;align-items:center;gap:5px;font:10px ui-monospace,monospace;letter-spacing:.04em;text-transform:none;color:#bac9b8}
+.loadout-streaks>p{margin:0 0 12px;font-size:11px}
+.loadout-variants.streak-cards{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none;overflow:visible}.loadout-streaks[data-streak-count="4"] .streak-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.loadout-variants.streak-cards button{grid-template-columns:48px 1fr;align-items:start;gap:3px 12px;padding:12px}
+.streak-cards button>i{grid-row:1/5;display:grid;place-items:center;width:48px;height:48px;border-radius:5px;background:#14231e;border:1px solid #667c5f80;color:#bac9b8;font-style:normal}
+.streak-cards button[aria-pressed=true]>i{border-color:#ecd08d;color:#ecd08d}
+.loadout-variants.streak-cards strong{font-size:13px}.loadout-variants.streak-cards small{line-height:1.5}
+.streak-cards em{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font:10px ui-monospace,monospace;font-style:normal;color:#9fb09a}.streak-cards button[aria-pressed=true] em{color:#ecd08d}
+.streak-cards button[aria-disabled=true]{cursor:default}.streak-cards button[aria-disabled=true]:not([aria-pressed=true]){opacity:.55}
+.streak-field{margin-top:14px;font-size:11px;color:#bac9b8}.streak-field summary{display:flex;align-items:center;gap:6px;cursor:pointer;width:max-content;padding:4px 0;color:#dcc796}.streak-field summary span{font:10px ui-monospace,monospace;color:#bac9b8}.streak-field>p{margin:6px 0 10px}
 .streak-field ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin:0;padding:0;list-style:none}
-.streak-field li{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border:1px solid #4e6a6680;border-left:3px solid #d98a6c;border-radius:4px;background:#14272a}.streak-field li[data-side=ally]{border-left-color:#6aa9e6}
-.streak-field li b{flex:1;min-width:0;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.streak-field li small{font:9px ui-monospace,monospace;text-transform:uppercase;color:#abbeb1}.streak-field li>span{display:flex;gap:4px}
-.streak-field li i{display:grid;place-items:center;width:24px;height:24px;border-radius:4px;background:#0c1a1c;color:#8fe9d3}
-.streak-menu footer{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid #6ae6ca2e;background:#132522}.streak-menu footer p{flex:1;margin:0;font-size:12px;color:#c4d3c8}
-.streak-menu footer button{min-height:40px;padding:9px 18px;border:1px solid #a2b49a80;border-radius:4px;background:#1b2f2b;color:#e8eddf;font-size:13px}.streak-menu footer button[data-streak-confirm]{border-color:#6ae6ca;background:#6ae6ca;color:#06231d;font-weight:600}.streak-menu footer button:disabled{opacity:.45;cursor:default}
-@media(max-width:760px){.streak-cards{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px 14px 16px;gap:8px}.streak-cards button{padding:11px}.streak-menu-panel>header{padding:16px 64px 14px 14px}.streak-menu h2{font-size:21px}.streak-ladder{padding:12px 14px 2px;gap:3px}.streak-ladder em{display:none}.streak-ladder i{justify-content:center;padding:3px}.streak-field{padding:14px}.streak-menu footer{padding:10px 14px;flex-wrap:wrap}.streak-menu footer p{flex-basis:100%}.streak-menu footer button{flex:1}}
-@media(max-width:430px){.streak-cards{grid-template-columns:1fr}}
-@media(prefers-reduced-motion:reduce){.streak-cards button{transition:none}}
+.streak-field li{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border:1px solid #667c5f50;border-left:3px solid #d98c7a;border-radius:4px;background:#1d3026}.streak-field li[data-side=ally]{border-left-color:#8fc7e8}
+.streak-field li b{flex:1;min-width:0;font-size:12px;font-weight:500;color:#e8eddf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.streak-field li small{font:9px ui-monospace,monospace}.streak-field li>span{display:flex;gap:4px}
+.streak-field li i{display:grid;place-items:center;width:24px;height:24px;border-radius:4px;background:#14231e;color:#dcc796}
+@media(max-width:700px){.loadout-variants.streak-cards,.loadout-streaks[data-streak-count="4"] .streak-cards{grid-template-columns:1fr}}
 /* Keep the rewards beside the minimap and below ammunition on phones. */
 .fps-game[data-touch=on] .match-streak-hud{bottom:auto;top:176px;left:auto;right:12px;transform:none;gap:4px}
 .fps-game[data-touch=on] .match-streak-hud button{width:clamp(48px,calc((100vw - 156px)/3),78px);min-height:52px;padding:6px;gap:3px}
