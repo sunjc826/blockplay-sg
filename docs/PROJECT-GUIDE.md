@@ -633,14 +633,14 @@ Escape. Equipment places within 8 m; the strike designator reaches 250 m and can
 Protected spawn locations and obstructed placements are refused without
 spending the charge. The host confirms guest activations.
 
-| Reward | Kills / Hardpoint charge | Duration and effect |
+| Reward | Points | Duration and effect |
 | --- | --- | --- |
-| Kestrel Recon | 3 / 300 | Shootable drone, last-known positions every 3 s; 15 s, or 10 s in FFA. |
-| Signal Jammer | 4 / 400 | Shootable 20 m recon jammer for 15 s; objective and ordinary visible contacts remain. |
-| Guardian Interceptor | 4 / 400 | Three enemy thrown grenades within 6 m and clear sight; expires after 20 s. Team modes only. |
-| Hunter Drone | 5 / 500 | Launches along aim, then reuses autonomous search, lock, reacquisition and dive; up to 30 s. Two-second target lock warning. |
-| Precision Strike | 6 / 600 | 250 m designator; 8 m blast radius, full 250 damage within 4 m, falling to 60 at the edge, after a visible 3 s warning. Solid overhead cover protects. |
-| Sentry Turret | 7 / 700 | Shootable 25 m turret with a fixed 90° arc; 0.75 s acquisition, three-round bursts, 18 s lifetime. Smoke breaks targeting. Team modes only. |
+| Kestrel Recon | 300 | Shootable drone, last-known positions every 3 s; 15 s, or 10 s in FFA. |
+| Signal Jammer | 400 | Shootable 20 m recon jammer for 15 s; objective and ordinary visible contacts remain. |
+| Guardian Interceptor | 400 | Three enemy thrown grenades within 6 m and clear sight; expires after 20 s. Team modes only. |
+| Hunter Drone | 500 | Launches along aim, then reuses autonomous search, lock, reacquisition and dive; up to 30 s. Two-second target lock warning. |
+| Precision Strike | 600 | 250 m designator; 8 m blast radius, full 250 damage within 4 m, falling to 60 at the edge, after a visible 3 s warning. Solid overhead cover protects. |
+| Sentry Turret | 700 | Shootable 25 m turret with a fixed 90° arc; 0.75 s acquisition, three-round bursts, 18 s lifetime. Smoke breaks targeting. Team modes only. |
 
 Hardpoint grants 100 charge per ordinary kill, a single +25 bonus when either
 combatant is in the active hill, and 10 charge per uncontested second personally

@@ -17247,3 +17247,9 @@ Levelution design (2026-11-21, owner asked for BF4-style map-changing events tha
   coordinates). Scenes would publish parts with `kit.stage(id, ...)`.
 - Not measured: the cost of a second lazy navigator per after-state. Candidate events are not
   checked against arena bounds. Four open questions for the owner are at the end of the doc.
+
+Streak costs shown in points (2026-11-21, owner asked why the requirement still counted kills):
+- The charge was already points (a kill is 100; in TDM and FFA the other awards add to it), but the
+  locker cards and the HUD divided it by 100 and called it kills. Both now show points
+  ("500 pts", "175 / 300") in every mode; Hardpoint's "charge" wording became points too.
+  No rule changed.

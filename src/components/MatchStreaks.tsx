@@ -18,7 +18,8 @@ export function savedStreaks(mode: StreakMode): StreakId[] | null {
 export function saveStreaks(mode: StreakMode, ids: StreakId[]) {
   try { localStorage.setItem(STORE, JSON.stringify({ ...JSON.parse(localStorage.getItem(STORE) ?? '{}'), [mode]: ids })); } catch { /* Private browsing: the choice lasts this match only. */ }
 }
-const price = (id: StreakId, mode: StreakMode) => mode === 'hardpoint' ? `${STREAKS[id].cost} charge` : `${STREAKS[id].cost / 100} kills`;
+/** Rewards cost points, not kills: a kill is 100, and in TDM and FFA headshots, assists and medals add to it. */
+const price = (id: StreakId) => `${STREAKS[id].cost} pts`;
 
 /** Carry the last confirmed choice into a new match, once, while it can still be changed. */
 export function useSavedStreaks(mode: StreakMode, progress: StreakProgress | undefined, locked: boolean, onChange: (ids: StreakId[]) => void) {
@@ -44,13 +45,13 @@ export function StreakLoadoutSection({ mode, draft, locked, busy = false, field 
   const toggle = (id: StreakId) => onDraft(draft.includes(id) ? draft.filter(old => old !== id) : draft.length < 3 ? orderStreaks([...draft, id]) : draft);
   return <section className="loadout-choice loadout-streaks" data-streak-count={options.length}>
     <h3>{streakTitle(mode)} <span>{locked ? <><Lock size={11} aria-hidden /> Locked once the match starts</> : `${draft.length} of 3 chosen`}</span></h3>
-    <p>{hardpoint ? '100 charge per kill · +25 on the hill · +10 per uncontested second, up to 200 per life.' : 'Earn rewards with kills in one life.'} Earned rewards survive death. Streak kills do not earn more streaks.</p>
+    <p>{hardpoint ? '100 points per kill · +25 on the hill · +10 per uncontested second, up to 200 per life.' : 'Rewards cost points scored in one life: 100 per kill, plus headshots, assists, multikills and the other awards.'} Earned rewards survive death. Streak kills do not earn more streaks.</p>
     <div className="loadout-variants streak-cards" role="group" aria-label={`${streakTitle(mode)}: choose three`}>{options.map(id => {
       const Icon = icons[id], spec = STREAKS[id], slot = draft.indexOf(id), full = slot < 0 && draft.length === 3, seconds = id === 'recon' && mode === 'free-for-all' ? 10 : spec.seconds;
       return <button type="button" key={id} data-streak-card={id} aria-pressed={slot >= 0} aria-disabled={locked || busy || full || undefined} onClick={() => { if (!locked && !busy) toggle(id); }}>
         <i><Icon size={24} aria-hidden /></i>
         <strong>{spec.name}</strong>
-        <span>{price(id, mode)} · {ROLES[id]} · {id === 'strike' ? `${seconds}s warning` : `${seconds}s`}{spec.health ? ` · ${spec.health} HP` : ''}</span>
+        <span>{price(id)} · {ROLES[id]} · {id === 'strike' ? `${seconds}s warning` : `${seconds}s`}{spec.health ? ` · ${spec.health} HP` : ''}</span>
         <small>{spec.description}</small>
         <em>{slot >= 0 ? <><Check size={11} aria-hidden /> Slot {slot + 1} · key {slot + 4}</> : locked ? 'Not carried' : full ? 'Remove one to swap' : 'Tap to carry'}</em>
       </button>;
@@ -58,7 +59,7 @@ export function StreakLoadoutSection({ mode, draft, locked, busy = false, field 
     {field.length > 0 && <details className="streak-field">
       <summary><Bot size={13} aria-hidden /> What the bots carry <span>{field.length}</span></summary><p>Each bot draws three rewards at random when it joins, and earns them the way you do.</p>
       <ul>{field.map(entry => <li key={entry.id} data-side={entry.side}><b>{entry.name}</b>{mode !== 'free-for-all' && <small>{entry.side === 'ally' ? 'Your team' : 'Enemy'}</small>}
-        <span>{entry.loadout.map(id => { const Icon = icons[id]; return <i key={id} title={`${STREAKS[id].name} · ${price(id, mode)}`} aria-label={STREAKS[id].name} role="img"><Icon size={14} aria-hidden /></i>; })}</span></li>)}</ul>
+        <span>{entry.loadout.map(id => { const Icon = icons[id]; return <i key={id} title={`${STREAKS[id].name} · ${price(id)}`} aria-label={STREAKS[id].name} role="img"><Icon size={14} aria-hidden /></i>; })}</span></li>)}</ul>
     </details>}
   </section>;
 }
@@ -71,7 +72,7 @@ export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch
     <div className="match-streak-hud" aria-label={hardpoint ? 'Objective streak rewards' : 'Killstreak rewards'}>
       {progress.loadout.map((id, i) => {
         const Icon = icons[id], ready = progress.ready.includes(id), active = effects.find(e => e.kind === id), cost = STREAKS[id].cost;
-        const status = active ? `${Math.max(0, Math.ceil(active.until - now))}s active` : ready ? 'READY' : progress.earned.includes(id) ? 'USED' : hardpoint ? `${Math.floor(progress.charge)} / ${cost}` : `${Math.floor(progress.charge / 100)} / ${cost / 100}`;
+        const status = active ? `${Math.max(0, Math.ceil(active.until - now))}s active` : ready ? 'READY' : progress.earned.includes(id) ? 'USED' : `${Math.floor(progress.charge)} / ${cost}`;
         return <button key={id} type="button" data-ready={ready || undefined} data-streak={id} aria-label={`${STREAKS[id].name}: ${status}`} title={`${STREAKS[id].name} · ${STREAKS[id].description}`} disabled={!alive || !ready || !!active} {...tapProps(() => onUse(i))}>
           <span><Icon size={18} />{!touch && <kbd>{i + 4}</kbd>}</span><b>{STREAKS[id].name}</b><small>{status}</small><progress max={cost} value={ready || active || progress.earned.includes(id) ? cost : progress.charge} aria-label={`${STREAKS[id].name} progress`} />
         </button>;
