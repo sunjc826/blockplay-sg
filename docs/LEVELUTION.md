@@ -171,7 +171,8 @@ debug panel entry fires any binding on the current map.
 What to destroy is a tone question as much as a design one
 ([combat events](COMBAT-EVENTS.md#open-questions) left it open). Proposed line:
 **infrastructure, weather and industry only.** No places of worship, no homes, no
-named heritage buildings, and landmarks are never brought down.
+named heritage buildings, and no building is brought down. A landmark may be
+changed only under the rules in [Landmark events](#landmark-events).
 
 These are candidates from what the scenes are known to contain. None has been
 checked against its arena's bounds yet; that is the review-board step.
@@ -192,6 +193,45 @@ checked against its arena's bounds yet; that is the review-board step.
 `flash-flood`, `substation` and `tree-fall` can read the shared weather, so a
 thunderstorm makes them likelier. That is free given the automatic conditions
 are already the same on every peer.
+
+### Landmark events
+
+Two events on Marina Bay's landmarks, agreed with the owner on 2026-11-21 as worth
+keeping on the list. A Sands tower collapse was considered and ruled out: it is a
+hotel, with a room drawn behind every pane.
+
+Rules for any landmark event:
+
+1. **The cause is an accident, weather or mechanical failure**, never an enemy
+   strike on the landmark. No bomb, missile or killstreak triggers one.
+2. **Nobody is imagined inside.** The landmark is visibly closed and empty first.
+3. **The structure stays standing.** A part fails; the building does not fall.
+4. **It changes the fight.** A landmark event that only plays on the skyline is
+   not built.
+
+| Archetype | Ops | What happens | What changes |
+| --- | --- | --- | --- |
+| `pool-burst` | hazard, water | The SkyPark pool's edge fails. A waterfall comes down the tower face for the rest of the match and the ground below floods. | The promenade under Sands becomes wading depth; the waterfall is a moving sight screen; the SkyPark deck loses its water and gains a dry basin to fight in. |
+| `wheel-drop` | hazard, move, place | The Flyer goes dark and stops, its capsules empty. The rim comes off the hub and settles on its side into the bay. | The fallen rim is a walkable arc from the shore out over the water, with the capsules as cover along it; the hub and service core stay as an overwatch point. |
+
+Both use `clock` or weather as the trigger (a squall for the wheel, monsoon rain
+for the pool), not `damage`, so no player brings a landmark down. `wheel-drop`
+has a mild variant with no `move`: the wheel stops dark and one empty capsule
+falls.
+
+**Where they can run.** Neither is inside the one Marina arena. Garden pavilions
+spans x -57 to 58 and z 58 to 117; the Sands lifts and SkyPark deck are near
+x 90 to 151, z -18, and the Flyer's service core is near x 180, z -165. So by
+rule 4 both wait for one of:
+
+- a new Marina arena drawn round the Sands promenade or the Flyer terminal, or
+- Expedition support, where the whole district is in play.
+
+**Not yet in the scene.** The SkyPark is modelled as a planted combat deck
+(`sands-skypark`) with no pool, so `pool-burst` needs the pool built first. The
+Flyer's rim and capsules are a non-colliding set piece (`district-set-pieces.ts`)
+turning on the world clock, while its service core, terminal and gantries are
+solid; `wheel-drop` needs the rim as a stage part with an authored fallen state.
 
 ## Build order
 
