@@ -17253,3 +17253,4 @@ Streak costs shown in points (2026-11-21, owner asked why the requirement still 
   locker cards and the HUD divided it by 100 and called it kills. Both now show points
   ("500 pts", "175 / 300") in every mode; Hardpoint's "charge" wording became points too.
   No rule changed.
+- Renamed "Killstreaks" to "Scorestreaks" in TDM and FFA at the owner's request (title, buttons, HUD label). Hardpoint keeps "Objective streaks".

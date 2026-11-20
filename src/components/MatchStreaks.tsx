@@ -31,7 +31,7 @@ export function useSavedStreaks(mode: StreakMode, progress: StreakProgress | und
     if (saved && saved.join() !== orderStreaks(progress.loadout).join()) onChange(saved);
   }, [locked, progress, mode, onChange]);
 }
-export const streakTitle = (mode: StreakMode) => mode === 'hardpoint' ? 'Objective streaks' : 'Killstreaks';
+export const streakTitle = (mode: StreakMode) => mode === 'hardpoint' ? 'Objective streaks' : 'Scorestreaks';
 /** "Kestrel Recon · Hunter Drone · Precision Strike", for a one-line summary of what is carried. */
 export const streakSummary = (ids: readonly StreakId[]) => ids.map(id => STREAKS[id].name).join(' · ');
 
@@ -69,7 +69,7 @@ export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch
 }) {
   if (!progress) return null;
   return <>
-    <div className="match-streak-hud" aria-label={hardpoint ? 'Objective streak rewards' : 'Killstreak rewards'}>
+    <div className="match-streak-hud" aria-label={hardpoint ? 'Objective streak rewards' : 'Scorestreak rewards'}>
       {progress.loadout.map((id, i) => {
         const Icon = icons[id], ready = progress.ready.includes(id), active = effects.find(e => e.kind === id), cost = STREAKS[id].cost;
         const status = active ? `${Math.max(0, Math.ceil(active.until - now))}s active` : ready ? 'READY' : progress.earned.includes(id) ? 'USED' : `${Math.floor(progress.charge)} / ${cost}`;

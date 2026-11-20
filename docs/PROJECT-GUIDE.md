@@ -619,8 +619,8 @@ left stations unheld on the tight courts.
 ### Match streak rewards
 
 Streak rewards are part of the loadout. Before starting TDM, FFA or Hardpoint,
-press **Loadout & killstreaks** on the deployment view (or **Choose loadout &
-killstreaks** in the match menu) to open the Deployment Locker: beneath the
+press **Loadout & scorestreaks** on the deployment view (or **Choose loadout &
+scorestreaks** in the match menu) to open the Deployment Locker: beneath the
 weapon columns, every reward the mode allows is a card in the same style as the
 weapon variants. Pick three and save them with the weapons. The choice is
 remembered per mode on the device and restored at the next match; once the match
