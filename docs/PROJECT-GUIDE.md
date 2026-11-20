@@ -582,6 +582,40 @@ Pickups last for the current life; respawning restores your chosen loadout.
 The host resolves competing claims. Drops expire after 45 seconds, with at most
 24 on the map. Open-world weapon and ammunition drops remain separate pickups.
 
+### Match score
+
+TDM, FFA and Hardpoint score more than eliminations (`src/game/match-score.ts`,
+host-owned, sent as `snapshot.score`). Team totals, the FFA kill limit and the
+winner are unchanged; score ranks players on the scoreboard (within a team, and
+as the FFA tie-break) and, outside Hardpoint, charges streak rewards.
+
+| Award | Points | When |
+| --- | --- | --- |
+| Elimination | 100 | Any enemy kill with a weapon or grenade |
+| Streak elimination | 50 | A streak reward made the kill; nothing else stacks on it |
+| Headshot, Longshot, Point blank | 25 each | Gun kills: through the head, from 40 m or more, within 3 m |
+| First blood | 50 | First enemy kill of the match |
+| Double, Triple, Fury kill | 25 / 50 / 75 | Kills within 4 s of the last |
+| Bloodthirsty, Merciless | 50 / 100 | Fifth and tenth kill in one life |
+| Revenge | 25 | Killing whoever last killed you |
+| Avenger, Savior | 25 each | Team modes: the victim killed a teammate in the last 4 s, or was hurting a living one in the last 2 s |
+| Buzzkill, Shutdown | 25 / 50 | The victim was within 100 of a reward, or had five kills that life |
+| Comeback, Survivor | 25 each | After three deaths without a kill; with 25 health or less |
+| Zone defence, Zone assault | 25 | Hardpoint: the killer, else the victim, stood in the active zone |
+| Zone held | 50 | Hardpoint: each 5 s of uncontested hold |
+| Assist | 20–75 | Damage dealt in the 10 s before someone else's kill, at 0.75 per point |
+| Recon assist | 20 | Team modes: a teammate kills an enemy your recon has marked |
+| Equipment destroyed, Interception | 50 / 15 | Breaking an enemy reward; your interceptor stopping a grenade |
+
+A kill arrives as one award listing its parts, shown beside the crosshair for
+four seconds (`MatchScoreFeed`). The scoreboard gains SCORE and A columns.
+Everything except the base elimination, the zone bonus and hold time (which the
+streaks already counted) also charges streak rewards through `streaks.bonus`
+in TDM and FFA, so a reward can arrive in fewer kills than its cost divided by
+100. Hardpoint rewards stay on kills and hold time: with the extra charge, bots
+left stations unheld on the tight courts.
+`scripts/fixtures/score-feed.html` shows the awards and the scoreboard alone.
+
 ### Match streak rewards
 
 Before starting TDM, FFA or Hardpoint, open **Briefing & settings** and press

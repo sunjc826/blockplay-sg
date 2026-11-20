@@ -17184,3 +17184,25 @@ Killstreak selection menu and random bot streaks (2026-11-20, owner asked for a 
 Not checked: the menu inside a running match (no WebGL context was used), a touch device, and
 `scripts/match-streaks-smoke.mjs`. Bots' enemy loadouts are visible to the player in the menu;
 say if that should be hidden.
+
+Match score beyond kills (2026-11-20, owner asked for a fuller scoring system with assists and
+headshots, taking pointers from Call of Duty):
+- `src/game/match-score.ts` is a host-owned ledger made beside the streaks (same three modes,
+  never the endless range). `hurtActor` reports damage for assists and each kill with its
+  context; a module-level `shotInFlight` carries headshot and range from the gun-round resolver
+  into `hurtActor`. The table of awards is in docs/PROJECT-GUIDE.md under "Match score".
+- Wins are unchanged: TDM totals and the FFA limit still count eliminations. Score ranks the
+  scoreboard (new SCORE and A columns) and is shown as awards beside the crosshair
+  (`MatchScoreFeed`, reading `snapshot.score.events`, which the host keeps for four seconds).
+- Score charges streak rewards in TDM and FFA only: `streaks.bonus` takes everything except the
+  base kill. Hardpoint is left on kills and hold time, because with the extra charge
+  `expanded-arenas.test.ts` failed on three courts (stations never held; it passes with the
+  charge off and fails on two courts at half). In TDM and FFA rewards arrive sooner
+  than before; `match-streaks-arena.test.ts` now earns with four back-to-back kills (600 with
+  first blood and the multikill chain) instead of five or six.
+- Streak hooks `destroyed` and `intercepted` report broken equipment and stopped grenades.
+- `validArenaSnapshot` rejects a `score` block without streaks or outside `validScoreSnapshot`.
+- Checked: unit, arena and component tests; `scripts/fixtures/score-feed.html` in headless
+  Chrome at desktop and 390 wide.
+Not checked: the awards inside a running match or on a touch device, and how much sooner
+rewards arrive in real play.

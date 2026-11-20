@@ -1,4 +1,5 @@
 import { MAX_MATCH_ARMOR_DROPS, validMatchArmorDrop, validMatchArmorPickup } from './match-recovery';
+import { validScoreSnapshot } from './match-score';
 import { isStreakId, validStreakSnapshot, type StreakId } from './match-streaks';
 import { MAX_MATCH_DROPS, validMatchDrop, validMatchPickup } from './match-weapon-drops';
 import { HARDPOINT_RULES, validHardpointSnapshot } from './hardpoint';
@@ -151,6 +152,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
     ids.add(actor.id);
   }
   if (value.streaks !== undefined && (environment?.endless || !validStreakSnapshot(value.streaks, value.actors as ArenaActor[], environment?.hardpoint ? 'hardpoint' : teamArea ? 'team-deathmatch' : 'free-for-all', value.elapsed as number))) return false;
+  if (value.score !== undefined && (value.streaks === undefined || !validScoreSnapshot(value.score, value.actors as ArenaActor[], value.elapsed as number))) return false;
   if (teamArea && ((Array.isArray(value.events) && value.events.some(e => !object(e) || e.kind !== 'drone' || !(value.streaks as import('./match-streaks').StreakSnapshot)?.effects?.some(s => s.kind === 'hunter' && s.event === e.id))) || (Array.isArray(value.raiders) && value.raiders.some(r => !object(r) || r.kind !== 'drone')))) return false;
   if (value.streaks !== undefined && (value.streaks as import('./match-streaks').StreakSnapshot).effects.some(e => e.event && (!Array.isArray(value.events) || !value.events.some(d => d.id === e.event && d.kind === 'drone')))) return false;
   if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites,environment.hardpoint.area.id as HardpointAreaId) : value.hardpoint!==undefined)return false;

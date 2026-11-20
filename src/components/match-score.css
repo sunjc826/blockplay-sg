@@ -1,0 +1,14 @@
+.match-score-feed{position:absolute;z-index:4;left:calc(50% + 74px);top:calc(50% - 16px);display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:min(230px,calc(50vw - 84px))}
+.match-score-feed p{display:flex;align-items:flex-start;gap:8px;margin:0;color:#f2f6ee;text-shadow:0 1px 3px #000c;animation:match-score-in .22s ease-out;transition:opacity .5s}
+.match-score-feed p.is-leaving{opacity:0}
+.match-score-feed p+p{opacity:.72}.match-score-feed p+p+p{opacity:.45}.match-score-feed p.is-leaving{opacity:0}
+.match-score-feed strong{font:700 17px 'DM Sans',sans-serif;color:#ffd77a;font-variant-numeric:tabular-nums;min-width:44px;flex:none;white-space:nowrap}
+.match-score-feed p>span{display:flex;flex-direction:column;gap:1px;font:600 11px 'DM Sans',sans-serif;letter-spacing:.02em;padding-top:3px}
+.match-score-feed small{margin-left:6px;font:10px monospace;color:#c9d3c2}
+.match-score-feed [data-score-kind=headshot],.match-score-feed [data-score-kind=first-blood],.match-score-feed [data-score-kind=fury],.match-score-feed [data-score-kind=merciless]{color:#ffd77a}
+@keyframes match-score-in{from{opacity:0;transform:translateY(8px) scale(1.08)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.match-score-feed p{animation:none}}
+.fps-game[data-touch=on] .match-score-feed{left:50%;top:calc(50% + 46px);transform:translateX(-50%);align-items:center;max-width:70vw}
+.fps-game[data-touch=on] .match-score-feed strong{font-size:14px;min-width:0}.fps-game[data-touch=on] .match-score-feed p>span{flex-direction:row;flex-wrap:wrap;gap:0 8px;font-size:10px}
+.arena-scoreboard.has-score td:nth-last-child(-n+4),.arena-scoreboard.has-score thead th:nth-last-child(-n+4){text-align:right;min-width:24px;font-variant-numeric:tabular-nums}
+.arena-scoreboard.has-score td[data-score]{color:#ffe2a0;font-weight:600}

@@ -14,6 +14,7 @@ function setup(loadout: StreakId[] = ['recon', 'hunter', 'strike']) {
   for (const id of ['one', 'two']) a.addPlayer(id, id, 0, 0, [{damage:200,interval:.06,capacity:100,reload:.4}]);
   expect(a.configureStreaks('one', loadout)).toBe(true);
   tick(a, 3.1);
+  // Back-to-back kills also bank first blood and the multikill chain: four of them charge exactly 600.
   function earn(count: number) {
     for (let i = 0; i < count; i++) {
       a.setPlayerVitals('two', { health: 100 }); const shooter = actor(a, 'one'), target = actor(a, 'two');
@@ -33,7 +34,7 @@ it('earns from actual kills, validates snapshots, rejects unearned rewards and l
   a.setPlayerVitals('one', {health:0}); expect(a.snapshot().streaks?.players.one.charge).toBe(0);
 });
 it('launches along aim and reuses autonomous drone acquisition with credited, non-chaining damage', () => {
-  const { a, environment, earn } = setup(); earn(5);
+  const { a, environment, earn } = setup(); earn(4);
   a.setPlayerVitals('two',{health:1}); const self = actor(a,'one'); a.setInput('one',{...self,yaw:Math.PI/2,pitch:0,playing:true});
   const before = actor(a,'one').kills;
   expect(a.activateStreak('one','hunter')).toBe(true);
@@ -42,12 +43,12 @@ it('launches along aim and reuses autonomous drone acquisition with credited, no
   let locked = false;
   for(let i=0;i<500 && actor(a,'one').kills===before;i++){a.step(.05); const s=a.snapshot(); if(s.raiders?.some(r=>r.state==='lock'||r.state==='dive'))locked=true; expect(validArenaSnapshot(s,environment)).toBe(true);}
   expect(locked).toBe(true); expect(actor(a,'one').kills).toBe(before+1);
-  expect(a.snapshot().streaks?.players.one.charge).toBe(500);
+  expect(a.snapshot().streaks?.players.one.charge).toBe(600);
   expect(a.snapshot().feed.some(e=>e.killerId==='one'&&e.cause==='Hunter Drone')).toBe(true);
 });
 it('precision strike warns, credits kills, respects overhead cover and cannot chain', () => {
   for(const sheltered of [false,true]){
-    const {a,earn,roof}=setup();earn(6);a.setPlayerVitals('two',{health:100});const target=actor(a,'two');
+    const {a,earn,roof}=setup();earn(4);a.setPlayerVitals('two',{health:100});const target=actor(a,'two');
     expect(a.activateStreak('one','strike',{x:target.x,y:0,z:target.z})).toBe(true);
     if(sheltered)roof();tick(a,2.8);expect(actor(a,'two').alive).toBe(true);tick(a,.3);
     expect(actor(a,'two').alive).toBe(sheltered);expect(a.snapshot().streaks?.players.one.charge).toBe(600);
@@ -77,7 +78,7 @@ it('authority accepts a 200m designation but retains the reward beyond 250m', ()
 });
 it('strike kills across its core and damages the outer ring without extending beyond it', () => {
   for (const [offset, health] of [[4, 0], [7, 0], [8, 40], [8.1, 100]]) {
-    const { a, earn } = setup(); earn(6);
+    const { a, earn } = setup(); earn(4);
     a.setPlayerVitals('two', { health: 100 }); const target = actor(a, 'two');
     expect(a.activateStreak('one', 'strike', { x: target.x + offset, y: 0, z: target.z })).toBe(true);
     tick(a, 3.01);

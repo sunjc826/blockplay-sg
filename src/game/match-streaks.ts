@@ -45,6 +45,9 @@ interface Hooks {
   notice: (text: string) => void;
   /** Draws each bot's loadout. Without it bots carry the mode's default. */
   random?: () => number;
+  /** An enemy broke a deployed reward, or an interceptor stopped a grenade: both are scored. */
+  destroyed?: (attacker: ArenaActor, effect: StreakEffect) => void;
+  intercepted?: (owner: string) => void;
 }
 export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   const players = new Map<string, StreakProgress>(), effects: StreakEffect[] = [];
@@ -101,6 +104,8 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
     kill(killer: ArenaActor, victim: ArenaActor, objective: boolean, fromStreak: boolean) {
       if (!fromStreak && enemy(killer, victim)) award(killer.id, 100 + (mode === 'hardpoint' && objective ? 25 : 0));
     },
+    /** Score beyond the kill itself (assists, headshots, medals) charges rewards too. */
+    bonus(id: string, amount: number) { if (amount > 0) award(id, amount); },
     hold(id: string, seconds: number) {
       if (mode !== 'hardpoint') return;
       const p = state(id), amount = Math.min(Math.max(0, seconds) * 10, 200 - p.heldCharge);
@@ -121,14 +126,14 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
       const owner = hooks.actors().find(a => a.id === effect.owner);
       if (!owner || !enemy(attacker, owner) || effect.kind === 'hunter' || effect.health <= 0) return 0;
       const taken = Math.min(effect.health, Math.max(0, damage)); effect.health -= taken;
-      if (!effect.health) { hooks.notice(`${attacker.name} destroyed ${STREAKS[effect.kind].name}`); remove(effect); }
+      if (!effect.health) { hooks.notice(`${attacker.name} destroyed ${STREAKS[effect.kind].name}`); remove(effect); hooks.destroyed?.(attacker, effect); }
       return taken;
     },
     intercept(caller: string, point: ArenaPoint) {
       const attacker = hooks.actors().find(a => a.id === caller); if (!attacker) return false;
       const device = effects.find(e => e.kind === 'interceptor' && e.remaining > 0 && Math.hypot(e.x - point.x, e.y - point.y, e.z - point.z) <= 6 && hooks.clear(e, point) && hooks.actors().some(a => a.id === e.owner && enemy(a, attacker)));
       if (!device) return false;
-      device.remaining--; device.shots++; device.aim = { ...point };
+      device.remaining--; device.shots++; device.aim = { ...point }; hooks.intercepted?.(device.owner);
       if (!device.remaining) remove(device);
       return true;
     },

@@ -5,6 +5,7 @@ import MatchBotSettings, { type MatchSquad } from './MatchBotSettings';
 import { DeploymentOverlay } from './DeploymentBriefing';
 import { matchSummary } from '../game/match-menu';
 import Scoreboard, { holdTime } from './ArenaScoreboard';
+import MatchScoreFeed from './MatchScoreFeed';
 import { hardpointArena, HARDPOINT_RULES } from '../game/hardpoint';
 import { TDM_RULES, TEAM_NAMES, tdmArea, type ArenaMatch } from '../game/arena-match';
 import { RANGE_DAMAGE_IDLE_SECONDS } from '../game/range-damage';
@@ -242,6 +243,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
         {hud.vehicleNotice && <div className="fps-vehicle-notice" role="status">{hud.vehicleNotice}</div>}
         <FpsVehicleHud hud={hud} />
       </>}
+      {isArena && playing && !hud.mapExpanded && !hud.scoreboardHeld && <MatchScoreFeed score={hud.arena?.score} selfId={hud.arenaSelf?.id} now={hud.arena?.elapsed ?? 0} />}
       {isArena && playing && !hud.mapExpanded && !hud.scoreboardHeld && <MatchStreakHud progress={hud.arenaSelf ? hud.arena?.streaks?.players[hud.arenaSelf.id] : undefined} effects={(hud.arena?.streaks?.effects ?? []).filter(e => streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), hud.arenaSelf))} now={hud.arena?.elapsed ?? 0} hardpoint={hp} alive={hud.arenaSelf?.alive === true} touch={touch} placement={hud.streakPlacement} notice={hud.streakNotice} onUse={slot => engine.current?.useStreak(slot)} onConfirm={() => engine.current?.confirmStreak()} onCancel={() => engine.current?.cancelStreak()} />}
       {touch && !hud.pilotEnabled && hud.arenaSelf?.alive !== false && (playing || physicalCrossing && hud.phase === 'loading') && <TouchControls hud={hud} engine={engine.current} mode={isArena ? 'arena' : 'range'} crossing={physicalCrossing && hud.phase === 'loading'} onMenu={() => engine.current?.pause()} />}
       {physicalCrossing && <FpsDistrictCrossing key={region} name={zone.name} phase={hud.phase} />}

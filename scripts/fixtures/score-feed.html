@@ -1,0 +1,20 @@
+<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Match score fixture</title>
+<style>body{margin:0;background:#17231e;color:#e8eddf;font:14px 'DM Sans',sans-serif}.fps-game{position:relative;height:340px;background:linear-gradient(#5d7686,#39463c)}.fps-game::after{content:'+';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff}#board{max-width:560px;margin:16px auto;padding:0 16px}</style>
+<!-- Design fixture for the score awards beside the crosshair and the standings columns. &touch for the touch layout, &width=390 to hold the page to a phone's width. -->
+<div class="fps-game" id="hud"></div><div id="board"></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+const {default:MatchScoreFeed}=await import('/src/components/MatchScoreFeed.tsx');
+const {default:ArenaScoreboard}=await import('/src/components/ArenaScoreboard.tsx');
+await import('/src/styles.css');await import('/src/components/arena-hud.css');await import('/src/components/arena-player.css');
+const params=new URLSearchParams(location.search);if(params.has('touch'))document.querySelector('#hud').dataset.touch='on';
+if(params.get('width'))document.body.style.width=params.get('width')+'px';
+const names=['You','Orchid','Merlion','Viper','Kestrel','Banyan','Tembusu','Saga'],scores=[1475,1210,640,385,1320,905,560,120];
+const actors=names.map((name,i)=>({id:'p'+i,name,bot:i>0,team:i<4?'alpha':'bravo',kills:Math.floor(scores[i]/130),deaths:3+i%4,role:'player',faction:i<4?'alpha':'bravo'}));
+const score={players:Object.fromEntries(actors.map((a,i)=>[a.id,{score:scores[i],assists:i%3+1}])),events:[
+ {id:1,actor:'p0',at:7.2,parts:[['assist',45]]},{id:2,actor:'p0',at:8.6,parts:[['recon-assist',20]]},
+ {id:3,actor:'p0',at:9.6,parts:[['kill',100],['headshot',25],['longshot',25],['double',25],['avenger',25]]}]};
+const snapshot={actors,score,teamDeathmatch:{area:'x',scores:{alpha:28,bravo:22}},feed:[]};
+ReactDOM.createRoot(document.querySelector('#hud')).render(React.createElement(MatchScoreFeed,{score,selfId:'p0',now:10}));
+ReactDOM.createRoot(document.querySelector('#board')).render(React.createElement(ArenaScoreboard,{snapshot,selfId:'p0'}));
+</script>
