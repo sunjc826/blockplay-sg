@@ -14,6 +14,15 @@ export type StreakId = keyof typeof STREAKS;
 export const streakAvailable = (id: StreakId, mode: StreakMode) => mode !== 'free-for-all' || id !== 'interceptor' && id !== 'sentry';
 export const defaultStreaks = (mode: StreakMode): StreakId[] => mode === 'hardpoint' ? ['recon', 'interceptor', 'strike'] : ['recon', 'hunter', 'strike'];
 export const isStreakId = (id: unknown): id is StreakId => typeof id === 'string' && Object.hasOwn(STREAKS, id);
+const STREAK_IDS = Object.keys(STREAKS) as StreakId[];
+/** Cheapest first, so the slot keys read in the order the rewards arrive. */
+export const orderStreaks = (ids: readonly StreakId[]): StreakId[] => [...ids].sort((a, b) => STREAKS[a].cost - STREAKS[b].cost || STREAK_IDS.indexOf(a) - STREAK_IDS.indexOf(b));
+/** Three different rewards the mode allows, drawn evenly: what a bot carries into a match. */
+export function randomStreaks(mode: StreakMode, random: () => number): StreakId[] {
+  const pool = STREAK_IDS.filter(id => streakAvailable(id, mode)), drawn: StreakId[] = [];
+  while (drawn.length < 3) drawn.push(...pool.splice(Math.min(pool.length - 1, Math.floor(random() * pool.length)), 1));
+  return orderStreaks(drawn);
+}
 export function validStreakLoadout(value: unknown, mode: StreakMode): value is StreakId[] {
   return Array.isArray(value) && value.length === 3 && new Set(value).size === 3 && value.every(id => isStreakId(id) && streakAvailable(id, mode));
 }
@@ -34,6 +43,8 @@ interface Hooks {
   droneAlive: (event: string) => boolean;
   removeDrone: (event: string) => void;
   notice: (text: string) => void;
+  /** Draws each bot's loadout. Without it bots carry the mode's default. */
+  random?: () => number;
 }
 export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   const players = new Map<string, StreakProgress>(), effects: StreakEffect[] = [];
@@ -43,7 +54,10 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   let serial = 0;
   const state = (id: string) => {
     let p = players.get(id);
-    if (!p) { p = { loadout: defaultStreaks(mode), charge: 0, heldCharge: 0, ready: [], earned: [] }; players.set(id, p); }
+    if (!p) {
+      const bot = hooks.random && hooks.actors().some(a => a.id === id && a.bot);
+      p = { loadout: bot ? randomStreaks(mode, hooks.random!) : defaultStreaks(mode), charge: 0, heldCharge: 0, ready: [], earned: [] }; players.set(id, p);
+    }
     return p;
   };
   function award(id: string, amount: number) {

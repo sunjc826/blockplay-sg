@@ -28,7 +28,8 @@ import { hasLaser, hasLight } from '../game/weapon-accessories';
 import EnvironmentControls from './EnvironmentControls';
 import FpsVisionChip from './FpsVisionChip';
 import { cloudOpacity, visionKeyLabel } from '../game/vision-devices';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { StreakId } from '../game/match-streaks';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, LogOut, Maximize, Minimize, Pause, Play, RotateCcw, Users, Volume2, VolumeX } from 'lucide-react';
 import { createFpsEngine, initialFpsHud, type FpsEngine, type FpsCheckpoint } from '../game/fps-engine';
 import { createFpsSurface, type FpsSurface } from '../game/fps-surface';
@@ -96,6 +97,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const rewardCallback = useRef(onReward); rewardCallback.current = onReward;
   const armoryProfileRef = useRef(profile); armoryProfileRef.current = profile;
   const host = useRef<HTMLDivElement>(null), stage = useRef<HTMLDivElement>(null), engine = useRef<FpsEngine | null>(null);
+  const configureStreaks = useCallback((ids: StreakId[]) => { engine.current?.configureStreaks(ids); }, []);
   const surface = useRef<FpsSurface | null>(null);
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
@@ -266,7 +268,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           <EnvironmentControls multiplayer={!soloArena} />
           {hud.phase !== 'ready' && <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>}
           {hud.phase === 'ready' && !guest && !teamMode && !hud.arenaStarted && <MatchBotSettings bots={bots} squad={squad} onBots={count => { if (engine.current?.configureMatchBots(count, squad)) setBots(count); }} onSquad={composition => { if (engine.current?.configureMatchBots(bots, composition)) setSquad(composition); }} />}
-          <MatchStreakLoadout mode={hp ? 'hardpoint' : tdm ? 'team-deathmatch' : 'free-for-all'} progress={hud.arenaSelf ? hud.arena?.streaks?.players[hud.arenaSelf.id] : undefined} disabled={!hud.arenaSelf || (hud.arena?.elapsed ?? 0) > 0} onChange={ids => engine.current?.configureStreaks(ids)} />
+          <MatchStreakLoadout mode={hp ? 'hardpoint' : tdm ? 'team-deathmatch' : 'free-for-all'} progress={hud.arenaSelf ? hud.arena?.streaks?.players[hud.arenaSelf.id] : undefined} disabled={!hud.arenaSelf || (hud.arena?.elapsed ?? 0) > 0} onChange={configureStreaks} field={hud.arena?.actors.flatMap(a => { const drawn = a.bot && hud.arena?.streaks?.players[a.id]?.loadout; return drawn ? [{ id: a.id, name: a.name, loadout: drawn, side: teamMode && a.team === hud.arenaSelf?.team ? 'ally' as const : 'enemy' as const }] : []; })} />
           <details className="arena-menu-section"><summary>Your loadout</summary><p>{equipment.rigName} · {equipment.plateName} · {equipment.armor} AP</p><p>{teamMode ? 'Teams fill to four with assault bots. Your equipped Armory gear is ready.' : guest ? 'Your equipped Armory gear is ready.' : `${bots} bots · ${squad} squad`}</p><button className="fps-shop-link arena-armory-link" onClick={onOpenShop}>Leave match and open Store →</button></details>
           {!guest && hud.phase === 'paused' && <button className="arena-reset-button" aria-label="Reset arena match" onClick={() => confirmAction({ title: 'Restart this match?', detail: soloArena ? 'Scores and current match progress will reset. Credits and XP already saved are kept.' : 'Scores and current match progress will reset for everyone. Credits and XP already saved are kept.', confirmLabel: 'Restart match', action: resetExercise })}><RotateCcw size={14} /> Restart match</button>}
         </>}

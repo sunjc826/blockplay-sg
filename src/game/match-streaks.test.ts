@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMatchStreaks, defaultStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
+import { createMatchStreaks, defaultStreaks, orderStreaks, randomStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
 import type { ArenaActor, ArenaRaider } from './arena-rules';
 import { streakReconMarkers, streakReconPulse, streakHunterMarkers } from './match-streak-visuals';
 
@@ -196,4 +196,27 @@ it('removes Hunter telemetry when the aircraft is destroyed, gone, expired or th
   expect(streakHunterMarkers(s.snapshot(),[drone],[b],a,1)).toEqual([]);
   expect(streakHunterMarkers(s.snapshot(),[drone],actors,null,1)).toEqual([]);
   a.alive=false;expect(streakHunterMarkers(s.snapshot(),[drone],actors,a,1)).toEqual([]);
+});
+
+describe('bot streak loadouts', () => {
+  const stream = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  it('draws three legal rewards, cheapest first, and reaches every combination', () => {
+    for (const mode of ['team-deathmatch', 'free-for-all', 'hardpoint'] as StreakMode[]) {
+      const random = stream(7), seen = new Set<string>();
+      for (let i = 0; i < 400; i++) { const drawn = randomStreaks(mode, random); expect(validStreakLoadout(drawn, mode)).toBe(true); expect(orderStreaks(drawn)).toEqual(drawn); seen.add(drawn.join()); }
+      expect(seen.size).toBe(mode === 'free-for-all' ? 4 : 20);
+    }
+    expect(randomStreaks('free-for-all', () => .999999)).toHaveLength(3);
+  });
+  it('gives each bot its own draw and leaves players on the default', () => {
+    const actor = (id: string, bot: boolean) => ({ id, name: id, bot, x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player', faction: 'mercenaries' }) as ArenaActor;
+    const actors = [actor('me', false), ...Array.from({ length: 8 }, (_, i) => actor(`bot-${i + 1}`, true))];
+    const streaks = createMatchStreaks('team-deathmatch', { actors: () => actors, protected: () => false, clear: () => true, damage: () => {}, strike: () => {}, drone: () => null, droneAlive: () => false, removeDrone: () => {}, notice: () => {}, random: stream(36497) });
+    const snapshot = streaks.snapshot();
+    expect(snapshot.players.me.loadout).toEqual(defaultStreaks('team-deathmatch'));
+    const drawn = actors.slice(1).map(a => snapshot.players[a.id].loadout);
+    for (const loadout of drawn) expect(validStreakLoadout(loadout, 'team-deathmatch')).toBe(true);
+    expect(new Set(drawn.map(l => l.join())).size).toBeGreaterThan(3);
+    expect(streaks.snapshot().players['bot-1'].loadout).toEqual(drawn[0]);
+  });
 });

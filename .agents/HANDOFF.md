@@ -17173,6 +17173,11 @@ Killstreak selection menu and random bot streaks (2026-11-20, owner asked for a 
 - `free-for-all-network.test.ts` compared the guest's kills with the host's current tick; the
   guest holds the last published tick, and the new draw put a kill on that boundary at Dragon
   Courtyard. It now compares against the host's snapshot of the guest's own tick.
+- Random bot rewards make stations harder to hold. In six-minute bots-only Hardpoint runs the
+  tightest courts left a station unheld (Bishan 15 points in total against 38 with the default
+  three; also Woodlands, Punggol, Kampong Glam), on every one of seven draw seeds tried. No one
+  reward explains it. `expanded-arenas.test.ts` checks the maps, so it now gives every bot the
+  default three; nothing was rebalanced.
 - Checked: `scripts/fixtures/streak-menu.html` driven in headless Chrome at 390 and 1280 wide
   (toggle, refuse a fourth, confirm, Escape discards, restore after reload, dialog centred and
   inside the viewport).

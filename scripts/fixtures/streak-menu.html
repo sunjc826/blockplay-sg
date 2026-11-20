@@ -1,0 +1,21 @@
+<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>Streak selection menu fixture</title>
+<style>body{margin:0;background:#17231e;color:#e8eddf;font:14px 'DM Sans',sans-serif}#menu{max-width:420px;margin:24px auto;padding:0 16px}</style>
+<!-- Design fixture: ?mode=free-for-all|team-deathmatch|hardpoint, &locked for the in-match view, &closed to leave the menu shut. -->
+<div id="menu"></div><script type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import RefreshRuntime from '/@react-refresh';
+RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;
+const {MatchStreakLoadout}=await import('/src/components/MatchStreaks.tsx');
+const {randomStreaks,defaultStreaks}=await import('/src/game/match-streaks.ts');
+await import('/src/styles.css');await import('/src/components/arena-player.css');
+const params=new URLSearchParams(location.search),mode=params.get('mode')??'team-deathmatch';
+let seed=36497;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+const names=['Orchid','Merlion','Viper','Kestrel','Banyan','Tembusu','Saga'];
+const field=names.map((name,i)=>({id:'bot-'+i,name,loadout:randomStreaks(mode,random),side:mode!=='free-for-all'&&i<3?'ally':'enemy'}));
+window.chosen=defaultStreaks(mode);
+const root=ReactDOM.createRoot(document.querySelector('#menu'));
+const render=()=>root.render(React.createElement(MatchStreakLoadout,{mode,field,disabled:params.has('locked'),progress:{loadout:window.chosen,charge:0,heldCharge:0,ready:[],earned:[]},onChange:ids=>{window.chosen=ids;render()}}));
+render();
+if(!params.has('closed'))setTimeout(()=>document.querySelector('.streak-loadout-open').click(),50);
+</script>

@@ -586,6 +586,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   // What a bot is issued has its own stream, so the draw cannot move anything else the seed decides.
   let armamentSeed = 51787;
   const armamentRandom = () => { armamentSeed = (Math.imul(armamentSeed, 1664525) + 1013904223) >>> 0; return armamentSeed / 4294967296; };
+  // So is which three streak rewards a bot carries.
+  let streakSeed = 36497;
+  const streakRandom = () => { streakSeed = (Math.imul(streakSeed, 1664525) + 1013904223) >>> 0; return streakSeed / 4294967296; };
   // Barks draw on a stream of their own, so whether anyone spoke never changes how a fight goes.
   let barkSeed = 70411, barkId = 0, idleIn = BARK_TUNING.idleEvery[0];
   const barkRandom = () => { barkSeed = (Math.imul(barkSeed, 1664525) + 1013904223) >>> 0; return barkSeed / 4294967296; };
@@ -1535,6 +1538,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       return d.id;
     },
     droneAlive: id => raiders.has(id),
+    random: streakRandom,
     removeDrone: id => { raiders.delete(id); const i = events.findIndex(e => e.descriptor.id === id); if (i >= 0) events.splice(i, 1); },
   }) : null;
   function configureStreaks(id: string, loadout: unknown) {

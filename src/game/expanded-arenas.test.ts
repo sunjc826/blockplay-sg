@@ -1,3 +1,4 @@
+import { defaultStreaks } from './match-streaks';
 import { REGION_IDS } from './regions';
 import ARENA_CATALOG from './arena-catalog.json';
 import { expect, it, vi } from 'vitest';
@@ -65,6 +66,9 @@ it.each(HARDPOINT_ARENAS.slice(1))('$area.name bots contest every rotation and r
     const arena=createArena(w.obstacles,0,'mixed',w.environment,undefined,terrain,cover.distance,undefined,cover.sightDistance);
     const scored=new Set<string>(),teams=new Set<string>();
     let snapshot=arena.snapshot();
+    // This checks the map, so every bot carries the same rewards. With each bot's own random three,
+    // the tightest courts (Bishan, Woodlands, Punggol, Kampong Glam) leave a station unheld in one match.
+    for(const actor of snapshot.actors)expect(arena.configureStreaks(actor.id,defaultStreaks('hardpoint'))).toBe(true);
     for(let i=0;i<7200&&!snapshot.finished;i++) {
       arena.step(.05);snapshot=arena.snapshot();
       const hp=snapshot.hardpoint!;

@@ -30,8 +30,10 @@ it.each(FFA_AREAS)('synchronizes $id individual combat, map identity, reset and 
   expect(host.update(.05,input).snapshot?.actors.some(a=>a.id==='guest')).toBe(false);
   const guest=createArenaRuntime({scene:new THREE.Scene(),obstacles:[],botCount:0,environment,session:n.sessions[1]});
   let h=host.update(.05,input),g=guest.update(.05,input);
+  // The guest holds the host's last published tick, which can be one behind the tick the host is on.
+  const hostKills=new Map<number,[string,number][]>();
   const step=(seconds:number)=>{for(let i=0;i<seconds*20;i++){
-    h=host.update(.05,h.self?{...h.self,playing:true}:input);g=guest.update(.05,g.self?{...g.self,playing:true}:input);vi.advanceTimersByTime(50);
+    h=host.update(.05,h.self?{...h.self,playing:true}:input);if(h.snapshot)hostKills.set(h.snapshot.tick,h.snapshot.actors.map(a=>[a.id,a.kills]));g=guest.update(.05,g.self?{...g.self,playing:true}:input);vi.advanceTimersByTime(50);
   }};
   try {
     step(1);expect(g.snapshot?.freeForAll?.area).toBe(area.id);expect(g.snapshot?.actors).toHaveLength(5);
@@ -39,7 +41,8 @@ it.each(FFA_AREAS)('synchronizes $id individual combat, map identity, reset and 
     n.deliver(0,'guest',{type:'arena-input',input:{...input,team:'alpha',freeForAll:false}});step(.2);
     expect(g.self?.freeForAll).toBe(true);expect(g.self?.team).toBeUndefined();
     step(40);expect(h.snapshot?.actors.some(a=>a.kills>0)).toBe(true);
-    expect(g.snapshot?.actors.map(a=>[a.id,a.kills])).toEqual(h.snapshot?.actors.map(a=>[a.id,a.kills]));
+    expect(h.snapshot!.tick-g.snapshot!.tick).toBeLessThanOrEqual(1);
+    expect(g.snapshot?.actors.map(a=>[a.id,a.kills])).toEqual(hostKills.get(g.snapshot!.tick));
     const before=guest.update(0,input).snapshot?.tick;
     n.deliver(1,'host',{type:'arena-state',started:true,matchId:'forged-map',snapshot:{...h.snapshot,tick:99999,freeForAll:{area:'invalid'}}});
     expect(guest.update(0,input).snapshot?.tick).toBe(before);
