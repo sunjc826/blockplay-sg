@@ -617,10 +617,13 @@ const SHOP_BOXES_GLSL = Object.values(SHOP_LAYOUTS).map((boxes, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (shopKind == ${i + 1}) ` : ''}{ ${boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} }`).join('\n              ');
 /**
  * The room behind an authored pane whose material is marked `userData.nightRooms` (the Sands towers' hotel
- * rooms). The pane is taken for a window `width` m across with a `pier` of wall each side and a `sill` under it;
- * faces narrower than `least` are the pane's edges. By day `day` of the room shows through, tinted `tint` by the glass.
+ * rooms). The pane is taken for glass `width` m across. Behind it the room opens between a `pier` each side (the
+ * end of the wall it shares with the next room, and its column), over a `sill` and under a `head`: in night
+ * photographs of the towers a lit room is about four fifths of its bay and two thirds of its storey, with dark
+ * between neighbours. Faces narrower than `least` are the pane's edges. By day `day` of the room shows through,
+ * tinted `tint` by the glass.
  */
-export const PANE_ROOM = { width: 3.2, pier: .15, sill: .12, least: .5, day: .7, tint: .5 } as const;
+export const PANE_ROOM = { width: 3.2, pier: .22, sill: .22, head: .2, least: .5, day: .7, tint: .5 } as const;
 /**
  * Reflection in glass. `headOn` is the share reflected looking straight at a pane, rising to all of it at a
  * glance by `power`; `strength` scales what generated windows and shopfronts add, `authored` what modelled
@@ -2107,8 +2110,8 @@ ${SHOP_SIGN_GLSL}
             if (paneSize.x > ${PANE_ROOM.least.toFixed(1)}) paneFar = max(smoothstep(.35, .9, max(paneAa.x, paneAa.y)), smoothstep(.02, .12, max(paneAa.x, paneAa.y)));
             if (paneFar < 1.0 && paneGlass > 0.0 && (paneOn > .5 || nightLevel < .97)) {
               float grow = max(1.0, ${PANE_ROOM.width.toFixed(1)} / paneSize.x);
-              vec2 margin = vec2(${PANE_ROOM.pier.toFixed(2)}, ${PANE_ROOM.sill.toFixed(2)});
-              vec4 room = nightRoom(paneP * grow + margin, paneSize * grow + vec2(2.0 * margin.x, margin.y), vec4(margin, margin + paneSize * grow), nightInto(paneN), paneH, ${rooms.toFixed(1)});
+              vec2 glass = paneSize * grow;
+              vec4 room = nightRoom(paneP * grow, glass, vec4(${PANE_ROOM.pier.toFixed(2)}, ${PANE_ROOM.sill.toFixed(2)}, glass.x - ${PANE_ROOM.pier.toFixed(2)}, glass.y - ${PANE_ROOM.head.toFixed(2)}), nightInto(paneN), paneH, ${rooms.toFixed(1)});
               paneRoom = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), paneFar);
               // By day the glass keeps its tint and shows the room dimly through it, less at a glance.
               diffuseColor.rgb = mix(diffuseColor.rgb, room.rgb * mix(.8, ${REFLECTION.dayRoom.toFixed(2)}, room.a) * mix(vec3(1.0), diffuseColor.rgb, ${PANE_ROOM.tint.toFixed(2)}), ${PANE_ROOM.day.toFixed(2)} * (1.0 - paneFar) * (1.0 - reflects) * paneGlass);
@@ -2206,7 +2209,7 @@ ${SHOP_SIGN_GLSL}
         shader.fragmentShader = pruneRoomBranches(pruneShopBranches(shader.fragmentShader, drawn), kinds, drawn.length > 0);
       }
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v6-${shops.join('.')}` : panes ? `-panes-v7${rooms ? `-${rooms}` : ''}` : `-windows-v22-${frontUsed.join('.')}-${rooms || roomKindsUsed.join('.')}` : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v6-${shops.join('.')}` : panes ? `-panes-v8${rooms ? `-${rooms}` : ''}` : `-windows-v22-${frontUsed.join('.')}-${rooms || roomKindsUsed.join('.')}` : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

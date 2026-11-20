@@ -17221,3 +17221,9 @@ Checked: `night-district.html` on the software renderer from 16 m, night and aft
 unit tests and typecheck. Not checked: a real GPU, frame time, or the view from the ground
 in play (the lowest panes are 25 m up). Other hotels' authored glass (Changi, Sentosa) is
 unchanged: their rooms are still the generated windows between the modelled panes.
+- Wall ends between Sands rooms (2026-11-21, owner found them thin): `PANE_ROOM` now opens the
+  room between a 0.22 m `pier` each side, over a `sill` and under a `head`, inside the pane
+  (the room used to fill the pane edge to edge). Read off two Wikimedia Commons night
+  photographs viewed in the browser, not captured into `reconstruction/`: a lit room is
+  about four fifths of its bay and two thirds of its storey. Key `-panes-v8-<room use>`.
+  Not matched: real rooms glow amber from lamps; ours are lit evenly from the ceiling.
