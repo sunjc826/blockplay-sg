@@ -36,9 +36,12 @@ const TIPS: Record<PlayLoadMode | 'any', readonly string[]> = {
   ],
 };
 
-// Long enough for the slowest district on a software renderer; past it the
-// game's own start card, with its own loading state, takes over.
-const GIVE_UP_MS = 25_000;
+// The screen stays for as long as the load is getting somewhere, shader
+// compiling included: the game's own start card is no place to wait. Only a
+// load that has said nothing for this long is taken for stuck, and then that
+// card, with its own loading and error states, takes over. Long enough for the
+// slowest district's compile on a software renderer, which reports no progress.
+const SILENCE_MS = 120_000;
 const FADE_MS = 360;
 
 /**
@@ -53,6 +56,7 @@ export default function PlayLoading({ mode, district, heading = HEADINGS[mode], 
   children: (onLoaded: (ready: boolean) => void, loadScreen: PlayLoadScreen) => ReactNode;
 }) {
   const [stage, setStage] = useState<Stage>('waiting');
+  const [tracker] = useState(() => createPlayLoadTracker(mode, district));
   const [tip] = useState(() => { const tips = mode === 'tutorial' ? TIPS.tutorial : [...TIPS.any, ...TIPS[mode]]; return tips[Math.floor(Math.random() * tips.length)]; });
   useEffect(() => {
     let timer = 0;
@@ -64,10 +68,12 @@ export default function PlayLoading({ mode, district, heading = HEADINGS[mode], 
   useEffect(() => {
     if (stage === 'leaving') { const timer = window.setTimeout(() => setStage('done'), FADE_MS); return () => clearTimeout(timer); }
     if (stage === 'done') return;
-    const timer = window.setTimeout(() => setStage('leaving'), GIVE_UP_MS);
-    return () => clearTimeout(timer);
-  }, [stage]);
-  const [tracker] = useState(() => createPlayLoadTracker(mode, district));
+    const giveUp = () => setStage('leaving');
+    let timer = window.setTimeout(giveUp, SILENCE_MS);
+    // Not state: a report must not re-render the game mounted below.
+    const unsubscribe = tracker.subscribe(() => { clearTimeout(timer); timer = window.setTimeout(giveUp, SILENCE_MS); });
+    return () => { unsubscribe(); clearTimeout(timer); };
+  }, [stage, tracker]);
   const onLoaded = useCallback((ready: boolean) => { tracker.finish(ready); setStage(current => current === 'leaving' || current === 'done' ? current : 'leaving'); }, [tracker]);
 
   return <>
@@ -122,7 +128,7 @@ function LoadMeter({ tracker, mode, district }: { tracker: PlayLoadTracker; mode
       {plan.slice(1).map(({ stage, start }) => <b key={stage} style={{ left: `${start * 100}%` }} />)}
     </div>
     <p className="play-loading-stage" data-stage={segment.stage}>
-      <span>{label}…</span>
+      <span>{label}…{segment.stage === 'shaders' && done > 0 && !finished ? ` ${Math.floor(done * 100)}%` : ''}</span>
       <small aria-hidden="true">{index + 1} of {plan.length} · {finished ? 'Ready' : timeLeftLabel(left)}</small>
     </p>
   </>;

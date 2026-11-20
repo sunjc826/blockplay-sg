@@ -17144,3 +17144,38 @@ there; the CI step itself, which first runs on this push. Not covered: arena, ex
 and weather programs. SwiftShader has no KHR_parallel_shader_compile, so there each link blocks
 the page for 100-200 ms; browsers with the extension poll instead. Browser smokes that count
 programs should set `window.__noShaderWarm = true` before the page's scripts.
+
+Shader compiling kept on the loading screen (2026-11-20, owner: no non-trivial pause on "Preparing the range"):
+- `PlayLoading` gave up 25 s after the world was built and showed the game's own start card,
+  which then sat frozen on "Preparing the range." for the rest of the compile. It now leaves
+  only when the engine is ready, or after 120 s in which the tracker heard nothing.
+- `warmShaders` reports progress: while `compileAsync` runs it counts `program.isReady()` over
+  `renderer.info.programs` every 100 ms (only with KHR_parallel_shader_compile, where the
+  question does not block), as 0-.8 of the stage, then .9 after the first draws. The stage
+  reads "Compiling shaders… 43%".
+- Checked through `/training` on SwiftShader: Bishan's cover left at 41.3 s, the same moment
+  the card stopped saying "Preparing the range."; before, it would have left at about 26 s.
+Not seen: the percentage moving, since SwiftShader lacks the extension. `/debug?tool=fps` has no
+loading screen and still shows the card while it loads.
+
+Killstreak selection menu and random bot streaks (2026-11-20, owner asked for a designed menu and a randomised list per bot):
+- `MatchStreakLoadout` was three dropdowns in the match menu. It is now a section showing the
+  carried three with a Change button, which opens a modal `<dialog>`: one card per reward the
+  mode allows (cost, role, duration, health), a seven-rung ladder of when the chosen three
+  unlock, the three each bot carries, Cancel / Confirm. Tap toggles; a fourth is ignored until
+  one is removed. Confirmed loadouts are ordered cheapest first (`orderStreaks`), so keys 4-6
+  follow the order rewards arrive. Read-only once the match clock runs, as before.
+- The confirmed three are kept per mode in `localStorage` `blockplay-streak-loadouts` and sent
+  again the first time the menu is shown in a new match.
+- Bots: `randomStreaks(mode, random)` draws three legal rewards evenly; `createMatchStreaks`
+  uses it for any actor flagged `bot` when its state is first made. The draw has its own seed
+  stream (`streakSeed`) in `arena-rules.ts`. The existing bot logic already deploys any reward.
+- `free-for-all-network.test.ts` compared the guest's kills with the host's current tick; the
+  guest holds the last published tick, and the new draw put a kill on that boundary at Dragon
+  Courtyard. It now compares against the host's snapshot of the guest's own tick.
+- Checked: `scripts/fixtures/streak-menu.html` driven in headless Chrome at 390 and 1280 wide
+  (toggle, refuse a fourth, confirm, Escape discards, restore after reload, dialog centred and
+  inside the viewport).
+Not checked: the menu inside a running match (no WebGL context was used), a touch device, and
+`scripts/match-streaks-smoke.mjs`. Bots' enemy loadouts are visible to the player in the menu;
+say if that should be hidden.

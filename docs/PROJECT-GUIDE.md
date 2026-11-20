@@ -584,8 +584,13 @@ The host resolves competing claims. Drops expire after 45 seconds, with at most
 
 ### Match streak rewards
 
-Before starting TDM, FFA or Hardpoint, open **Briefing & settings**, expand
-**Killstreaks / Objective streaks**, and select three rewards. Press **4–6** or tap a HUD reward
+Before starting TDM, FFA or Hardpoint, open **Briefing & settings** and press
+**Change** beside **Killstreaks / Objective streaks**. The selection menu shows
+every reward the mode allows as a card, a ladder of when the chosen three
+unlock, and the three each bot carries; confirm three to carry them. The choice
+is remembered per mode on the device and restored at the next match. Each bot
+draws its own three at random when it joins (`randomStreaks`, on a seed stream
+of its own in `arena-rules.ts`). Press **4–6** or tap a HUD reward
 to activate it. Ground equipment and Precision Strike first show a placement
 preview: aim at clear ground and fire / tap **Deploy here**, or cancel with
 Escape. Equipment places within 8 m; the strike designator reaches 250 m and can mark the ground beneath an enemy you aim at.
@@ -616,6 +621,8 @@ callouts and do not appear in Training or Open World.
 Rules and wire validation live in `src/game/match-streaks.ts`; host integration
 uses `arena-rules.ts` / `arena-runtime.ts`, presentation uses
 `match-streak-visuals.ts` and `components/MatchStreaks.tsx`.
+`scripts/fixtures/streak-menu.html` shows the selection menu on its own
+(`?mode=`, `&locked`, `&closed`).
 `node scripts/match-streaks-smoke.mjs` checks the real renderer, guest path,
 keyboard, touch layout and placement (Vite 5231 / Chrome CDP 9391 by default).
 
@@ -745,6 +752,11 @@ To serve companions and LAN from one origin, route `/api/adventure/*` to the com
   (`components/GameMenu.tsx`) with `/training`, `/world` and `/store`; `/debug`
   is `src/DebugApp.tsx`, the original all-modes shell (region/mode selection,
   Street View, LAN lobby). Old `/?room=` invites redirect to `/debug?room=`.
+- `src/components/PlayLoading.tsx` and `game/play-load-stages.ts`: the loading
+  screen over a district load. It stays until the engine reports ready, shader
+  compiling included (`warmShaders` in `fps-engine.ts` reports the share of
+  programs linked), and gives way to the game's own start card only after 120 s
+  of silence.
 - `src/game/shader-warm.ts` and `components/ShaderWarmBar.tsx`: the menu
   compiles the range's shaders before a district is picked, one program at a
   time in a throwaway WebGL context, and shows a progress bar along the top

@@ -23,7 +23,7 @@ export function stageLabel(stage: PlayLoadStage, mode: PlayLoadMode, district: s
   switch (stage) {
     case 'district': return `Building ${district}`;
     case 'models': return MODEL_LABELS[mode];
-    case 'shaders': return 'Preparing graphics';
+    case 'shaders': return 'Compiling shaders';
   }
 }
 

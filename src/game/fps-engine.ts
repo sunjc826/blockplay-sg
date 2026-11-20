@@ -5056,6 +5056,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * The canvas and the offscreen passes (occlusion, scope, reflections) each
    * need their own variant, as tone mapping and colour space differ.
    */
+  /** Compiling is most of the shader stage; first draws and offscreen passes are the rest. */
+  const COMPILE_SHARE = .8;
   async function warmShaders() {
     weapons.forEach(weapon => { const sight = getWeaponSight(weapon); if (sight) scopeRenderer.prepare(sight); });
     if (options.arena) combatVisuals.prewarm();
@@ -5074,8 +5076,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     }
     renderer.setRenderTarget(previous);
     compiling.push(vision.warm(), deploymentBlur.warm());
+    // Every program exists by now and links in the background, so the loading screen can count
+    // them. Asking is only free where the driver compiles in parallel; elsewhere it would block.
+    const programs = (renderer.info.programs ?? []) as unknown as { isReady(): boolean }[];
+    const counting = options.loadScreen && programs.length && renderer.extensions.get('KHR_parallel_shader_compile') !== null
+      ? window.setInterval(() => options.loadScreen!.report('shaders', COMPILE_SHARE * programs.filter(program => program.isReady()).length / programs.length), 100) : undefined;
     try {
-      await Promise.all(compiling);
+      await Promise.all(compiling).finally(() => clearInterval(counting));
+      options.loadScreen?.report('shaders', COMPILE_SHARE);
       if (!disposed) {
         // Hidden viewmodels and empty effect pools compile but never draw in the
         // aerial overview. Pay their first-use checks/uploads here, not on reveal.
@@ -5096,6 +5104,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       removeFigures?.();
     }
     if (disposed) return;
+    options.loadScreen?.report('shaders', (1 + COMPILE_SHARE) / 2);
     // A compiled shader still needs a pipeline per target format, built on first draw there.
     scopeRenderer.warm(world.scene, camera); opticReflections.warm(world.scene, camera);
     // Occlusion builds its passes and links them on first use, which would otherwise be the first frame of the descent.
