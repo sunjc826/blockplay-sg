@@ -616,6 +616,12 @@ function pruneBlocks(source: string, test: RegExp, keep: (match: RegExpExecArray
 const SHOP_BOXES_GLSL = Object.values(SHOP_LAYOUTS).map((boxes, i, all) =>
   `${i ? 'else ' : ''}${i < all.length - 1 ? `if (shopKind == ${i + 1}) ` : ''}{ ${boxes.map((box, n) => glslBox(box, 'abc'[n])).join(' ')} }`).join('\n              ');
 /**
+ * The room behind an authored pane whose material is marked `userData.nightRooms` (the Sands towers' hotel
+ * rooms). The pane is taken for a window `width` m across with a `pier` of wall each side and a `sill` under it;
+ * faces narrower than `least` are the pane's edges. By day `day` of the room shows through, tinted `tint` by the glass.
+ */
+export const PANE_ROOM = { width: 3.2, pier: .15, sill: .12, least: .5, day: .7, tint: .5 } as const;
+/**
  * Reflection in glass. `headOn` is the share reflected looking straight at a pane, rising to all of it at a
  * glance by `power`; `strength` scales what generated windows and shopfronts add, `authored` what modelled
  * panes add; the reflected skyline has `blocks` buildings round the horizon between `skylineLow` and
@@ -808,7 +814,7 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
       compile.call(this, shader, renderer);
       Object.assign(shader.uniforms, uniforms, moving.uniforms);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan, nightEdge;\nattribute vec3 nightTangent;\nvarying vec2 vNightSpan, vNightEdge;\nvarying float vNightSeed;' : ''}`)
+        .replace('#include <common>', `#include <common>\nvarying vec3 vNightWorld, vNightNormal;${windows ? '\nattribute vec2 nightSpan, nightEdge;\nattribute vec3 nightTangent;\nvarying vec2 vNightSpan, vNightEdge;\nvarying float vNightSeed;' : ''}${panes && rooms ? '\nflat varying float vNightPane;' : ''}`)
         .replace('#include <project_vertex>', `#include <project_vertex>
           vec4 nightWorld = vec4(transformed, 1.0); vec3 nightNormal = objectNormal;
           #ifdef USE_INSTANCING
@@ -826,13 +832,13 @@ vNightEdge = nightEdge * length(mat3(modelMatrix) * nightT);
 vec3 nightCenter = (modelMatrix * nightSeed).xyz;
 // Hash once per vertex; hashing interpolated world coordinates in the fragment
 // shader amplifies rounding into stripes across an otherwise constant pane.
-vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.5453);` : ''}`);
+vNightSeed = fract(sin(dot(nightCenter, vec3(12.9898, 78.233, 37.719))) * 43758.5453);` : ''}${panes && rooms ? '\nvNightPane = vNightSeed;' : ''}`);
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float nightLevel, nightPool, nightWindowShare; uniform sampler2D nightMap; uniform vec4 nightBounds; uniform vec3 nightLampColor;
           varying vec3 vNightWorld, vNightNormal;${windows ? `
           varying vec2 vNightSpan, vNightEdge;
-          varying float vNightSeed;
+          varying float vNightSeed;${panes && rooms ? '\n          flat varying float vNightPane;' : ''}
           uniform float nightClock, nightMotion, nightShops;
           uniform vec2 nightOffice; uniform vec3 nightRooms; uniform vec3 nightSky, nightZenith, nightGround, nightSun, nightSunColor;
           // What glass reflects, for a direction: a cube map worked out rather than stored. The sky as it is
@@ -2087,7 +2093,26 @@ ${SHOP_SIGN_GLSL}
             float reflects = nightFresnel(dot(-paneView, paneN));
             ${panes ? `
             // An authored pane is already the window: keep its own colour, frames and grilles, and add the reflection.
-            paneGlass = wall * storeys; paneOn = nightWindowLit(paneH);
+            paneGlass = wall * storeys;${rooms ? `
+            // Interpolated, the seed is a hair off from pixel to pixel; a room hashes it many times over, which
+            // speckled one layout through another. Flat, it is one number across the pane.
+            paneH = vNightPane;` : ''}
+            paneOn = nightWindowLit(paneH);
+            ${rooms ? `
+            // A marked pane is one room's window. A landmark modelled smaller than life has panes narrower than a
+            // room, so the room is scaled until the pane is a window of ${PANE_ROOM.width.toFixed(1)} m: it stays in proportion with its tower.
+            vec2 paneSize = vec2(vNightEdge.y, vNightSpan.y - vNightSpan.x), paneP = vec2(vNightEdge.x, vNightWorld.y - vNightSpan.x);
+            vec2 paneAa = max(fwidth(paneP / max(paneSize, vec2(.01))), vec2(1e-4));
+            // Not the pane's thin edges, and only close enough to make a room out.
+            if (paneSize.x > ${PANE_ROOM.least.toFixed(1)}) paneFar = max(smoothstep(.35, .9, max(paneAa.x, paneAa.y)), smoothstep(.02, .12, max(paneAa.x, paneAa.y)));
+            if (paneFar < 1.0 && paneGlass > 0.0 && (paneOn > .5 || nightLevel < .97)) {
+              float grow = max(1.0, ${PANE_ROOM.width.toFixed(1)} / paneSize.x);
+              vec2 margin = vec2(${PANE_ROOM.pier.toFixed(2)}, ${PANE_ROOM.sill.toFixed(2)});
+              vec4 room = nightRoom(paneP * grow + margin, paneSize * grow + vec2(2.0 * margin.x, margin.y), vec4(margin, margin + paneSize * grow), nightInto(paneN), paneH, ${rooms.toFixed(1)});
+              paneRoom = mix(room.rgb * mix(.15, ${INTERIOR.nightWindow.toFixed(2)}, room.a), vec3(1.0), paneFar);
+              // By day the glass keeps its tint and shows the room dimly through it, less at a glance.
+              diffuseColor.rgb = mix(diffuseColor.rgb, room.rgb * mix(.8, ${REFLECTION.dayRoom.toFixed(2)}, room.a) * mix(vec3(1.0), diffuseColor.rgb, ${PANE_ROOM.tint.toFixed(2)}), ${PANE_ROOM.day.toFixed(2)} * (1.0 - paneFar) * (1.0 - reflects) * paneGlass);
+            }` : ''}
             if (paneGlass > 0.0) totalEmissiveRadiance += nightSkyBox(reflect(paneView, paneN)) * (reflects * paneGlass * ${REFLECTION.authored.toFixed(2)});
             ` : `
             // Fit complete columns and storeys inside each actual facade, including rotated/extruded sides.
@@ -2181,7 +2206,7 @@ ${SHOP_SIGN_GLSL}
         shader.fragmentShader = pruneRoomBranches(pruneShopBranches(shader.fragmentShader, drawn), kinds, drawn.length > 0);
       }
     };
-    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v6-${shops.join('.')}` : panes ? '-panes-v6' : `-windows-v22-${frontUsed.join('.')}-${rooms || roomKindsUsed.join('.')}` : ''}`; };
+    material.customProgramCacheKey = function () { return `${key.call(this)}|night${windows ? shops ? `-shops-v6-${shops.join('.')}` : panes ? `-panes-v7${rooms ? `-${rooms}` : ''}` : `-windows-v22-${frontUsed.join('.')}-${rooms || roomKindsUsed.join('.')}` : ''}`; };
     material.needsUpdate = true;
   }
   const box = new THREE.Box3(), geometryBox = new THREE.Box3(), instance = new THREE.Matrix4();

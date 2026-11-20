@@ -17206,3 +17206,18 @@ headshots, taking pointers from Call of Duty):
   Chrome at desktop and 390 wide.
 Not checked: the awards inside a running match or on a touch device, and how much sooner
 rewards arrive in real play.
+
+Hotel rooms behind the Sands towers' panes (2026-11-21, owner asked for hotel rooms, Marina Bay Sands first):
+- An authored pane material (`userData.nightWindow`) that is also marked `userData.nightRooms`
+  now draws that room behind each pane with `nightRoom` (was a flat glow). `sandsGlass` in
+  `marina-scene.ts` is marked `'hotel'`, so all 1,836 panes are twin or king rooms.
+- `PANE_ROOM` in `world-night-lights.ts`: the pane is taken for a 3.2 m window (the towers are
+  modelled at about a third of life, so a pane is 1.7 m wide), with a pier each side and a sill.
+  By day the blue glass stays and the room shows dimly through it; far off it is the old pane.
+- The pane's seed reaches the fragment shader `flat` (`vNightPane`, this variant only):
+  interpolated it differed by a hair per pixel and speckled one layout through another.
+- Key `-panes-v7-<room use>`; unmarked panes keep `-panes-v7` and their old shader.
+Checked: `night-district.html` on the software renderer from 16 m, night and afternoon;
+unit tests and typecheck. Not checked: a real GPU, frame time, or the view from the ground
+in play (the lowest panes are 25 m up). Other hotels' authored glass (Changi, Sentosa) is
+unchanged: their rooms are still the generated windows between the modelled panes.

@@ -276,7 +276,8 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const h = AUTHORED_LANDMARKS.towerHeight;
   // Each floor band is too short for automatic building windows. Author the
   // room panes between its mullions so occupancy lighting follows the splay.
-  const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; materials.push(sandsGlass);
+  // Every pane is a hotel room's window: the room shows behind it up close.
+  const sandsGlass = glass.clone(); sandsGlass.userData.nightWindow = true; sandsGlass.userData.nightRooms = 'hotel'; materials.push(sandsGlass);
   for (const z of [-65, -15, 35]) {
     // A 24m-high compressed atrium replaces the old 4.8m lobby boxes.
     // Upper hotel volumes retain clear express shafts.

@@ -157,7 +157,8 @@ describe('street lamps', () => {
       const counts = [0, 0, 0, 0, 0, 0], matrix = new THREE.Matrix4(), center = new THREE.Vector3(), size = new THREE.Vector3();
       world.scene.traverse(object => {
         if (!(object instanceof THREE.InstancedMesh) || Array.isArray(object.material) || !object.material.userData.nightWindow) return;
-        expect(object.material.customProgramCacheKey()).toContain('night-panes');
+        // Every pane is a hotel room's window (room use 4).
+        expect(object.material.customProgramCacheKey()).toMatch(/night-panes-v\d+-4$/);
         const span = object.geometry.getAttribute('nightSpan');
         for (let i = 0; i < object.count; i++) {
           object.getMatrixAt(i, matrix); matrix.premultiply(object.matrixWorld);
