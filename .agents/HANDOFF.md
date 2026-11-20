@@ -17240,3 +17240,10 @@ loadout", inconsistent and hidden in a corner of the match menu):
   "Loadout & killstreaks".
 - Checked: component tests, and `scripts/fixtures/streak-menu.html` in headless Chrome at 1280
   and 390 wide plus its `&selftest` click-through. Not checked inside a running match.
+
+Levelution design (2026-11-21, owner asked for BF4-style map-changing events that survive map redraws):
+- `docs/LEVELUTION.md` is a proposal only; nothing is built. Three layers: stage ops (engine),
+  archetypes (pure timelines, like combat events), bindings (per arena, name stage parts, no
+  coordinates). Scenes would publish parts with `kit.stage(id, ...)`.
+- Not measured: the cost of a second lazy navigator per after-state. Candidate events are not
+  checked against arena bounds. Four open questions for the owner are at the end of the doc.
