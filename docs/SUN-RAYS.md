@@ -5,8 +5,19 @@ Low rays; Ultra uses High rays; Balanced, Low and Battery saver leave them off.
 Explicit saved choices survive preset migration.
 
 The shafts follow the sun and use the world depth buffer, so tree foliage,
-palm fronds and buildings interrupt the light. Sun elevation and eased weather
-sunlight control intensity. The effect fades near screen edges and skips night,
+palm fronds and buildings interrupt the light. The light source is a small hot
+disc with a wide dim halo (`SOURCE` in `src/game/sun-rays.ts`). Each pixel's
+brightness is the share of that source it can see along its line to the sun,
+squared for contrast, times a fixed falloff with distance from the sun
+(`exp(-1.9 × screen heights)`). Open sky therefore glows smoothly, and anything
+crossing the disc or halo cuts beams and gaps that run the length of the screen.
+Shafts appear only when something partly hides the sun; a sun in clear sky
+gives a plain glow, and one fully behind a building gives almost nothing.
+
+Sun elevation and eased weather sunlight control intensity. A sun up to about
+0.4 screens outside the image still throws shafts, dimming as its source leaves
+the view. Surfaces within 10 m receive reduced scattering (none under 0.5 m) so
+close scenery does not wash out. The effect skips night,
 reduced effects/motion, thermal vision, active NVG and the overview map. Weapons,
 scope images and HUD elements are drawn separately and remain crisp.
 Lens-flare visibility accounts for the composited ray glow when checking sky
@@ -58,6 +69,18 @@ alternating blocks, discards disjoint timer results, and separately collects
 60 ray-pass samples per quality. Resizing also covers 720p and a 780 × 1688
 portrait drawing buffer. Browser CPU submission timing is recorded separately
 and must not be presented as GPU duration.
+
+### Shaping pass, 21 November 2026
+
+The mask, march and near-surface fade were reworked for visibility (previously
+a 0.32-screen soft blob averaged along the march, which gave a round haze adding
+about 4% brightness half a screen from the sun). Pass count, buffers and sample
+counts are unchanged. Same machine and method: isolated ray passes measured
+0.149 ms median / 0.361 ms p95 on Low and 0.127 ms / 0.744 ms on High; the
+whole-frame Marina A/B was within its run-to-run noise (+0.59 ms Low, +0.29 ms
+High, with other workloads on the machine). `sun-rays.html` accepts `?time=`
+for the district view and exposes `window.towardsSun(dx, dz)` to walk scenery
+in front of the sun.
 
 Evidence: `.cache/sun-rays/results.json`, `gameplay-results.json`, and Off/Low/High,
 Marina and real FPS settings screenshots in that directory. Run Vite and an

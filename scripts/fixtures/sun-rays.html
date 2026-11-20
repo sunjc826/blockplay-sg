@@ -13,7 +13,7 @@ let world,air,cover;
 setGraphicsSettings({godRays:'low',rainReflections:false,waterReflections:false,grassDetail:'high'});
 if(district){
  const region=getRegion(district);world=region.build();
- setEnvironmentSettings({weather:'sunny',timeOfDay:'morning',celebration:'none',reducedEffects:false});
+ setEnvironmentSettings({weather:'sunny',timeOfDay:new URLSearchParams(location.search).get('time')||'morning',celebration:'none',reducedEffects:false});
  air=createWorldAtmosphere(world.scene,[],world.obstacles,false,renderer);
  camera.position.set(region.spawn.x,1.7,region.spawn.z);camera.rotation.y=region.spawn.yaw;
  air.update(0,camera,Date.UTC(2026,10,9,4));
@@ -101,5 +101,7 @@ window.passBenchmark=async(count=60)=>{
  return result;
 };
 window.move=(x,y,z,tx,ty,tz)=>{camera.position.set(x,y,z);camera.lookAt(tx,ty,tz);return window.draw()};
+// Walk the camera by an offset while it keeps facing the sun, to put scenery in front of it.
+window.towardsSun=(dx=0,dz=0,drop=.3)=>{const s=world.scene.userData.sunRays.direction;camera.position.x+=dx;camera.position.z+=dz;camera.lookAt(camera.position.x+s.x*100,camera.position.y+(s.y-drop)*100,camera.position.z+s.z*100);return window.draw()};
 window.draw();window.ready=true;
 </script></body></html>

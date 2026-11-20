@@ -7,6 +7,11 @@ export interface SunRayLight { direction: Direction; color: string; elevation: n
 /** Display-space light added over unobstructed sky, for lens visibility tests. */
 export interface SunRayOverlay { texture: THREE.Texture; color: THREE.Color }
 export const SUN_RAY_BUDGET = { low: { scale: .25, samples: 32 }, high: { scale: .5, samples: 48 } } as const;
+/** Screen heights: the sun's disc and halo radii, the halo's share of the disc's brightness, and how fast shafts fade with distance from the sun. */
+const SOURCE = { core: .07, halo: .5, haloLevel: .5, falloff: 1.9 } as const;
+const glsl = (value: number) => value.toFixed(4);
+/** Peak display-space strength of a fully lit shaft at the sun, before the hour and weather scale it. */
+const RAY_GAIN = .45;
 const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
 
 /** A direction, not a world position: walking must not move the sun on screen. */
@@ -19,17 +24,24 @@ export function projectSunRays(camera: THREE.PerspectiveCamera, light: SunRayLig
   if (z >= -.01) return 0;
   const p = camera.projectionMatrix.elements;
   uv.set((p[0] * x / -z - p[8]) * .5 + .5, (p[5] * y / -z - p[9]) * .5 + .5);
-  // Fade before leaving the image; never clamp a hidden sun to a screen edge.
+  // A sun just outside the image still throws shafts across it (the scatter pass only counts the
+  // part of its glow that is on screen); never clamp a hidden sun to a screen edge.
   const edge = Math.max(Math.abs(uv.x - .5), Math.abs(uv.y - .5));
-  return (1 - smooth(.42, .62, edge)) * smooth(0, 6, light.elevation) * light.sunlight * light.sunlight * .8;
+  return (1 - smooth(.46, .9, edge)) * smooth(0, 3, light.elevation) * light.sunlight * light.sunlight * .8;
 }
 const vertexShader = /* glsl */`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
 const inside = /* glsl */`float inside(vec2 p){return step(0.0,p.x)*step(p.x,1.0)*step(0.0,p.y)*step(p.y,1.0);}`;
+/** What throws the shafts, by distance from the sun in screen heights: a small hot disc that cuts
+ * crisp streaks when something crosses it, and a wide dim halo so foliage beside the sun streaks too. */
+const source = /* glsl */`float source(float r){float halo=max(0.0,1.0-r/${glsl(SOURCE.halo)});return max(1.0-smoothstep(${glsl(SOURCE.core * .5)},${glsl(SOURCE.core)},r),${glsl(SOURCE.haloLevel)}*halo*halo);}`;
 
 /** Depth-mask radial scattering. Two reduced-resolution buffers, three fullscreen
  * draws, and no extra scene render. Composites after tone mapping, before the
  * weapon/HUD, so the separately cleared sky cannot be overexposed.
  * Technique: GPU Gems 3, chapter 13; the source mask comes from existing depth.
+ * Unlike the original, each pixel's march is normalised by the same march over open sky, so a
+ * shaft's brightness is (share of the source it can see, sharpened) × (an authored falloff with distance),
+ * instead of thinning with the share of the march that happens to cross the source.
  */
 export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera) {
   const mask = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
@@ -42,28 +54,33 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
   };
   const material = (fragmentShader: string) => new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, depthTest: false, depthWrite: false, toneMapped: false });
   const maskMaterial = material(/* glsl */`
-    varying vec2 vUv; uniform sampler2D tDepth; uniform vec2 sunUv,texel; uniform float aspect;
+    varying vec2 vUv; uniform sampler2D tDepth; uniform vec2 texel;
     void main(){
-      // Conservative depth taps retain thin silhouettes when downsampling.
+      // Open sky only. Conservative depth taps retain thin silhouettes when downsampling.
       float d=min(min(texture2D(tDepth,vUv+texel*vec2(-.5,-.5)).r,texture2D(tDepth,vUv+texel*vec2(.5,-.5)).r),
                   min(texture2D(tDepth,vUv+texel*vec2(-.5,.5)).r,texture2D(tDepth,vUv+texel*vec2(.5,.5)).r));
-      float glow=pow(max(0.0,1.0-length((vUv-sunUv)*vec2(aspect,1.0))/.32),2.0);
-      gl_FragColor=vec4(vec3(step(.999999,d)*glow),1.0);
+      gl_FragColor=vec4(vec3(step(.999999,d)),1.0);
     }`);
   const scatterMaterial = material(/* glsl */`
-    varying vec2 vUv; uniform sampler2D tMask; uniform vec2 sunUv; uniform float samples;
+    varying vec2 vUv; uniform sampler2D tMask; uniform vec2 sunUv; uniform float samples,aspect;
     ${inside}
+    ${source}
     void main(){
-      vec2 delta=(sunUv-vUv)*.96/samples;
+      vec2 fromSun=vUv-sunUv; float reach=length(fromSun*vec2(aspect,1.0));
       // Stable subpixel staggering breaks radial bands without temporal noise.
       float jitter=fract(dot(gl_FragCoord.xy,vec2(.75487766,.56984029)));
-      vec2 p=vUv+delta*jitter; float sum=0.0,weight=1.0,total=0.0;
+      float seen=0.0,whole=0.0;
       for(int i=0;i<48;i++){
         if(float(i)>=samples)break;
-        sum+=texture2D(tMask,p).r*weight*inside(p);total+=weight;
-        p+=delta;weight*=.985;
+        // Squared spacing puts most taps on the source, next to the sun; the weight u restores an even measure along the line.
+        float u=(float(i)+jitter)/samples,t=u*u; vec2 p=sunUv+fromSun*t;
+        float w=u*source(reach*t);
+        // Source beyond the image edge counts as hidden: a sun leaving the view dims instead of shining through whatever is there.
+        seen+=texture2D(tMask,p).r*inside(p)*w;whole+=w;
       }
-      gl_FragColor=vec4(vec3(sum/total),1.0);
+      // Squared, so a partly hidden source reads as distinct beams and gaps; open sky stays at one.
+      float lit=seen/max(whole,1e-4);
+      gl_FragColor=vec4(vec3(lit*lit*exp(-reach*${glsl(SOURCE.falloff)})),1.0);
     }`);
   const blendMaterial = material(/* glsl */`
     #include <packing>
@@ -71,8 +88,9 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
     void main(){
       float d=texture2D(tDepth,vUv).r;
       float distanceToSurface=-perspectiveDepthToViewZ(d,near,far);
-      // Short air paths in front of nearby walls receive very little scattering.
-      float air=smoothstep(1.0,35.0,distanceToSurface);
+      // Only the first few metres of air are too short to scatter: shafts still fall across ground and trunks nearby,
+      // at a reduced strength that keeps close scenery from washing out; a long view carries them in full.
+      float air=smoothstep(.5,10.0,distanceToSurface)*(.45+.55*smoothstep(10.0,80.0,distanceToSurface));
       float ray=texture2D(tRays,vUv).r*air;
       gl_FragColor=vec4(rayColor*ray,0.0);
     }`);
@@ -90,7 +108,7 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
       if (mask.width !== w || mask.height !== h) { mask.setSize(w, h); rays.setSize(w, h); }
       uniforms.tDepth.value = depth; uniforms.texel.value.set(1 / picture.width, 1 / picture.height);
       uniforms.sunUv.value.copy(uv); uniforms.aspect.value = camera.aspect; uniforms.samples.value = budget.samples;
-      uniforms.rayColor.value.set(light.color).convertLinearToSRGB().multiplyScalar(strength * .35);
+      uniforms.rayColor.value.set(light.color).convertLinearToSRGB().multiplyScalar(strength * RAY_GAIN);
       uniforms.near.value = camera.near; uniforms.far.value = camera.far;
       const auto = renderer.autoClear; renderer.autoClear = false;
       try {
