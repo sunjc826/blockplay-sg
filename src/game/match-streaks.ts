@@ -2,16 +2,34 @@ import type { ArenaActor, ArenaPoint } from './arena-rules';
 import { hostile } from './arena-factions';
 
 export type StreakMode = 'team-deathmatch' | 'free-for-all' | 'hardpoint';
+/** Cheapest first: the locker lists them in this order. */
 export const STREAKS = {
   recon: { name: 'Kestrel Recon', cost: 300, seconds: 15, health: 40, description: 'Shootable drone. Last-known enemy positions pulse every 3s. 10s in FFA.' },
   jammer: { name: 'Signal Jammer', cost: 400, seconds: 15, health: 70, description: 'Blocks enemy recon within 20m. Objective markers remain visible.' },
   interceptor: { name: 'Guardian Interceptor', cost: 400, seconds: 20, health: 60, description: 'Intercepts three enemy thrown grenades within 6m and line of sight.' },
+  supply: { name: 'Supply Drop', cost: 450, seconds: 30, health: 0, description: 'Mark ground within 8m. A crate lands after 3s. The first operator to reach it, friend or enemy, gets one of their other rewards ready.' },
   hunter: { name: 'Hunter Drone', cost: 500, seconds: 30, health: 30, description: 'Launch along your aim. Autonomously searches, locks and dives at enemies.' },
   strike: { name: 'Precision Strike', cost: 600, seconds: 3, health: 0, description: 'Designate up to 250m away. 8m blast radius with a powerful 4m core after a 3s warning. Solid roofs protect.' },
   sentry: { name: 'Sentry Turret', cost: 700, seconds: 18, health: 100, description: 'Fixed 90° arc, 25m reach. Smoke and cover break targeting.' },
+  blackout: { name: 'Blackout', cost: 750, seconds: 12, health: 0, description: 'Knocks out every enemy reward in the field. For 12s the enemy has no recon picture and cannot deploy rewards.' },
+  barrage: { name: 'Rolling Barrage', cost: 800, seconds: 6, health: 0, description: 'Designate up to 250m away. After a 3s warning five shells walk 28m along your line of aim. Solid roofs protect.' },
+  gunship: { name: 'Warden Gunship', cost: 900, seconds: 25, health: 150, description: 'Armed drone hovers above you where it is called and fires on enemies in the open within 40m. Can be shot down. Needs open sky.' },
 } as const;
+/** No reward costs more, so no charge is worth keeping past it. */
+export const STREAK_MAX_CHARGE = 900;
+export const SUPPLY_DROP = { landing: 3, reach: 2 } as const;
+export const BARRAGE = { warning: 3, shells: 5, interval: .6, spacing: 7, radius: 6, coreRadius: 3, damage: 200, edgeDamage: 50 } as const;
+export const GUNSHIP = { range: 40, damage: 14, hover: 16, minimumSky: 8 } as const;
+/** Where each shell of a barrage lands: from the marked point, away from the caller along their aim. */
+export const barragePoints = (effect: { x: number; y: number; z: number; yaw: number }): ArenaPoint[] =>
+  Array.from({ length: BARRAGE.shells }, (_, i) => ({ x: effect.x - Math.sin(effect.yaw) * BARRAGE.spacing * i, y: effect.y, z: effect.z - Math.cos(effect.yaw) * BARRAGE.spacing * i }));
+export function barrageDamage(distance: number) {
+  const { radius, coreRadius, damage, edgeDamage } = BARRAGE;
+  if (!Number.isFinite(distance) || distance < 0 || distance > radius) return 0;
+  return damage - (damage - edgeDamage) * Math.max(0, distance - coreRadius) / (radius - coreRadius);
+}
 export type StreakId = keyof typeof STREAKS;
-export const streakAvailable = (id: StreakId, mode: StreakMode) => mode !== 'free-for-all' || id !== 'interceptor' && id !== 'sentry';
+export const streakAvailable = (id: StreakId, mode: StreakMode) => mode !== 'free-for-all' || id !== 'interceptor' && id !== 'sentry' && id !== 'gunship';
 export const defaultStreaks = (mode: StreakMode): StreakId[] => mode === 'hardpoint' ? ['recon', 'interceptor', 'strike'] : ['recon', 'hunter', 'strike'];
 export const isStreakId = (id: unknown): id is StreakId => typeof id === 'string' && Object.hasOwn(STREAKS, id);
 const STREAK_IDS = Object.keys(STREAKS) as StreakId[];
@@ -39,6 +57,8 @@ interface Hooks {
   clear: (from: ArenaPoint, to: ArenaPoint) => boolean;
   damage: (effect: StreakEffect, victim: ArenaActor, damage: number) => void;
   strike: (effect: StreakEffect) => void;
+  /** One shell of a barrage lands. */
+  shell?: (effect: StreakEffect, at: ArenaPoint) => void;
   drone: (owner: ArenaActor, effect: StreakEffect) => string | null;
   droneAlive: (event: string) => boolean;
   removeDrone: (event: string) => void;
@@ -64,7 +84,7 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
     return p;
   };
   function award(id: string, amount: number) {
-    const p = state(id); p.charge = Math.min(700, p.charge + amount);
+    const p = state(id); p.charge = Math.min(STREAK_MAX_CHARGE, p.charge + amount);
     for (const reward of p.loadout) if (p.charge + 1e-6 >= STREAKS[reward].cost && !p.earned.includes(reward)) {
       p.earned.push(reward);
       if (!p.ready.includes(reward)) { p.ready.push(reward); hooks.notice(`${hooks.actors().find(a => a.id === id)?.name ?? 'Operator'} earned ${STREAKS[reward].name}`); }
@@ -78,10 +98,22 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
   function sameSide(a: ArenaActor, b: ArenaActor) { return a.id === b.id || mode !== 'free-for-all' && !hostile(a, b); }
   function enemy(a: ArenaActor, b: ArenaActor) { return a.id !== b.id && (mode === 'free-for-all' || hostile(a, b)); }
   function jammed(actor: ArenaActor) {
-    return effects.some(e => e.kind === 'jammer' && e.health > 0 && Math.hypot(e.x - actor.x, e.z - actor.z) <= 20 && hooks.actors().some(a => a.id === e.owner && enemy(a, actor)));
+    return blackedOut(actor) || effects.some(e => e.kind === 'jammer' && e.health > 0 && Math.hypot(e.x - actor.x, e.z - actor.z) <= 20 && hooks.actors().some(a => a.id === e.owner && enemy(a, actor)));
+  }
+  /** An enemy Blackout is running: no recon picture and no deploying, wherever they stand. */
+  function blackedOut(actor: ArenaActor) {
+    return effects.some(e => e.kind === 'blackout' && hooks.actors().some(a => a.id === e.owner && enemy(a, actor)));
+  }
+  /** A crate gives whoever reaches it one of their other rewards they do not already hold ready. */
+  function collect(effect: StreakEffect, actor: ArenaActor) {
+    const p = state(actor.id), open = p.loadout.filter(id => id !== 'supply' && !p.ready.includes(id));
+    if (!open.length) return false;
+    const reward = open[Math.min(open.length - 1, Math.floor((hooks.random?.() ?? .999) * open.length))];
+    p.ready.push(reward); hooks.notice(`${actor.name} opened a Supply Drop: ${STREAKS[reward].name}`); remove(effect);
+    return true;
   }
   return {
-    mode, state, effects, enemy, jammed,
+    mode, state, effects, enemy, jammed, blackedOut,
     /** Shared scan positions, never live coordinates. FFA intel belongs only to its caller. */
     reconContacts(viewer: ArenaActor, now: number): (StreakContact & { at: number })[] {
       if (!viewer.alive || jammed(viewer)) return [];
@@ -114,13 +146,19 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
     death(id: string) { const p = state(id); p.charge = p.heldCharge = 0; p.earned = []; },
     activate(owner: ArenaActor, kind: StreakId, at: ArenaPoint, now: number) {
       const p = state(owner.id);
-      if (!owner.alive || !p.loadout.includes(kind) || !p.ready.includes(kind) || effects.length >= 48 || effects.some(e => e.kind === kind && hooks.actors().some(a => a.id === e.owner && sameSide(a, owner)))) return false;
+      if (!owner.alive || !p.loadout.includes(kind) || !p.ready.includes(kind) || effects.length >= 48 || blackedOut(owner) || effects.some(e => e.kind === kind && hooks.actors().some(a => a.id === e.owner && sameSide(a, owner)))) return false;
       const spec = STREAKS[kind];
       const effect: StreakEffect = { ...at, id: `streak-${++serial}`, kind, owner: owner.id, yaw: owner.yaw, start: now,
-        until: now + (kind === 'recon' && mode === 'free-for-all' ? 10 : spec.seconds), health: spec.health, contacts: [], pulse: now, remaining: kind === 'interceptor' ? 3 : 0, shots: 0 };
+        until: now + (kind === 'recon' && mode === 'free-for-all' ? 10 : kind === 'barrage' ? BARRAGE.warning + (BARRAGE.shells - 1) * BARRAGE.interval + .5 : spec.seconds), health: spec.health, contacts: [], pulse: now, remaining: kind === 'interceptor' ? 3 : 0, shots: 0 };
       if (kind === 'hunter') { const event = hooks.drone(owner, effect); if (!event) return false; effect.event = event; }
       effects.push(effect); p.ready = p.ready.filter(id => id !== kind);
-      hooks.notice(`${owner.name} deployed ${spec.name}`); return true;
+      hooks.notice(`${owner.name} deployed ${spec.name}`);
+      // Ordnance already falling and crates on the ground are not electronics; everything else of theirs goes dark.
+      if (kind === 'blackout') for (const other of [...effects]) {
+        const theirs = hooks.actors().find(a => a.id === other.owner);
+        if (theirs && enemy(owner, theirs) && !['strike', 'barrage', 'supply', 'blackout'].includes(other.kind)) { remove(other); hooks.destroyed?.(owner, other); }
+      }
+      return true;
     },
     hurt(effect: StreakEffect, damage: number, attacker: ArenaActor) {
       const owner = hooks.actors().find(a => a.id === effect.owner);
@@ -142,21 +180,33 @@ export function createMatchStreaks(mode: StreakMode, hooks: Hooks) {
       for (const effect of [...effects]) {
         const owner = actors.find(a => a.id === effect.owner);
         if (!owner) { remove(effect); continue; }
+        if (effect.kind === 'barrage') {
+          const points = barragePoints(effect);
+          while (effect.shots < BARRAGE.shells && now >= effect.start + BARRAGE.warning + effect.shots * BARRAGE.interval) hooks.shell?.(effect, points[effect.shots++]);
+        }
         if (now >= effect.until) { if (effect.kind === 'strike') hooks.strike(effect); remove(effect); continue; }
+        if (effect.kind === 'supply' && now >= effect.start + SUPPLY_DROP.landing) {
+          const taker = actors.filter(a => a.alive && !hooks.protected(a) && Math.hypot(a.x - effect.x, a.z - effect.z) <= SUPPLY_DROP.reach && Math.abs(a.y - effect.y) <= 3)
+            .sort((a, b) => Math.hypot(a.x - effect.x, a.z - effect.z) - Math.hypot(b.x - effect.x, b.z - effect.z)).find(a => collect(effect, a));
+          if (taker) continue;
+        }
         if (effect.event && !hooks.droneAlive(effect.event)) { remove(effect); continue; }
         if (effect.kind === 'recon' && now >= effect.pulse) {
           effect.pulse = now + 3;
           effect.contacts = actors.filter(a => a.alive && enemy(owner, a) && !hooks.protected(a) && !effects.some(j => j.kind === 'jammer' && actors.some(other => other.id === j.owner && enemy(owner, other)) && Math.hypot(j.x - a.x, j.z - a.z) <= 20)).map(a => ({ id: a.id, x: a.x, z: a.z }));
           reconLives.set(effect.id, new Map(effect.contacts.map(c => [c.id, actors.find(a => a.id === c.id)!.deaths])));
         }
-        if (effect.kind !== 'sentry') continue;
-        const candidates = actors.filter(a => a.alive && enemy(owner, a) && !hooks.protected(a) && Math.hypot(a.x - effect.x, a.z - effect.z) <= 25 && hooks.clear(effect, a)
-          && (-Math.sin(effect.yaw) * (a.x - effect.x) - Math.cos(effect.yaw) * (a.z - effect.z)) / Math.max(.001, Math.hypot(a.x - effect.x, a.z - effect.z)) >= Math.SQRT1_2);
+        if (effect.kind !== 'sentry' && effect.kind !== 'gunship') continue;
+        // The turret watches a fixed arc from the ground; the gunship sees all round from above, so only a roof or a wall hides from it.
+        const turret = effect.kind === 'sentry', reach = turret ? 25 : GUNSHIP.range;
+        const candidates = actors.filter(a => a.alive && enemy(owner, a) && !hooks.protected(a) && Math.hypot(a.x - effect.x, a.z - effect.z) <= reach && hooks.clear(effect, a)
+          && (!turret || (-Math.sin(effect.yaw) * (a.x - effect.x) - Math.cos(effect.yaw) * (a.z - effect.z)) / Math.max(.001, Math.hypot(a.x - effect.x, a.z - effect.z)) >= Math.SQRT1_2));
         let lock = targeting.get(effect.id), target = candidates.find(a => a.id === lock?.victim);
         if (!target) { target = candidates.sort((a, b) => Math.hypot(a.x - effect.x, a.z - effect.z) - Math.hypot(b.x - effect.x, b.z - effect.z))[0]; lock = target ? { victim: target.id, since: now, next: now + .75 } : undefined; }
         if (!target || !lock) { targeting.delete(effect.id); delete effect.aim; continue; }
         targeting.set(effect.id, lock); effect.aim = { x: target.x, y: target.y - .4, z: target.z };
-        if (now >= lock.next) { effect.shots++; hooks.damage(effect, target, 18); lock.next = now + (effect.shots % 3 ? .16 : .65); }
+        if (!turret) effect.yaw = Math.atan2(effect.x - target.x, effect.z - target.z);
+        if (now >= lock.next) { effect.shots++; hooks.damage(effect, target, turret ? 18 : GUNSHIP.damage); lock.next = now + (effect.shots % 3 ? .16 : .65); }
       }
     },
     removePlayer(id: string) { players.delete(id); for (const e of effects) e.contacts = e.contacts.filter(c => c.id !== id); for (const e of [...effects]) if (e.owner === id) remove(e); },
@@ -176,7 +226,7 @@ export function validStreakSnapshot(value: unknown, actors: readonly ArenaActor[
   const point = (p: ArenaPoint) => p && [p.x, p.y, p.z].every(finite) && Math.abs(p.x) <= 5000 && Math.abs(p.z) <= 5000 && p.y >= -50 && p.y <= 400;
   const ids = new Set(actors.map(a => a.id));
   if (!s.players || typeof s.players !== 'object' || Object.keys(s.players).length !== ids.size || Object.keys(s.players).some(id => !ids.has(id)) || !Array.isArray(s.effects) || s.effects.length > 48) return false;
-  for (const p of Object.values(s.players)) if (!p || !validStreakLoadout(p.loadout, mode) || !finite(p.charge) || p.charge < 0 || p.charge > 700 || !finite(p.heldCharge) || p.heldCharge < 0 || p.heldCharge > 200 || (mode !== 'hardpoint' && p.heldCharge !== 0)
+  for (const p of Object.values(s.players)) if (!p || !validStreakLoadout(p.loadout, mode) || !finite(p.charge) || p.charge < 0 || p.charge > STREAK_MAX_CHARGE || !finite(p.heldCharge) || p.heldCharge < 0 || p.heldCharge > 200 || (mode !== 'hardpoint' && p.heldCharge !== 0)
     || ![p.ready, p.earned].every(list => Array.isArray(list) && list.length <= 3 && new Set(list).size === list.length && list.every(id => p.loadout.includes(id)))) return false;
   return new Set(s.effects.map(e => e?.id)).size === s.effects.length && s.effects.every(e => e && typeof e.id === 'string' && /^streak-\d+$/.test(e.id) && ids.has(e.owner) && isStreakId(e.kind) && streakAvailable(e.kind, mode) && point(e) && finite(e.yaw)
     && finite(e.start) && e.start >= 0 && e.start <= now && finite(e.until) && e.until >= now && e.until - e.start <= STREAKS[e.kind].seconds + .001

@@ -6,7 +6,7 @@ import { createMaidFollower } from './maid-companion';
 import { createMaidModel } from './carrier-models';
 import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
-import { STREAKS, type StreakId } from './match-streaks';
+import { BARRAGE, GUNSHIP, STREAKS, barragePoints, type StreakId } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
 import { createStreakVisuals, streakReconMarkers, streakFriendly, streakHunterMarkers } from './match-streak-visuals';
 import { matchDropLoot, type MatchWeaponPickup } from './match-weapon-drops';
@@ -4281,10 +4281,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const point = hit?.point ?? pingRay.ray.at(60, pingAt);
     return { x: point.x, y: point.y, z: point.z };
   }
+  /** Rewards marked from a distance, on an enemy or on ground in view, rather than set down at the feet. */
+  const designated = (kind: StreakId | null): kind is 'strike' | 'barrage' => kind === 'strike' || kind === 'barrage';
   function cancelStreak() { hud.streakPlacement = null; hud.streakNotice = ''; streakVisuals.preview(null, null, false); }
   function placementPoint() {
-    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; pingRay.far = hud.streakPlacement === 'strike' ? PRECISION_STRIKE.range : 8;
-    const designating = hud.streakPlacement === 'strike';
+    camera.getWorldDirection(pingForward); pingRay.set(camera.position, pingForward); pingRay.near = .3; const designating = designated(hud.streakPlacement); pingRay.far = designating ? PRECISION_STRIKE.range : 8;
     const hit = firstVisibleHit(pingRay, gameplayCandidates().filter(o => !designating || !o.userData.arenaActorId));
     if (designating) {
       // Use the same body volumes as combat: skinned meshes and hidden LOD
@@ -4308,14 +4309,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const p = hud.arena?.streaks?.players[hud.arenaSelf.id], kind = p?.loadout[slot];
     if (!kind || !p?.ready.includes(kind)) return;
     trigger = false; pullBuffer = 0; stopInspect();
-    if (kind === 'recon' || kind === 'hunter') {
-      cancelStreak(); arenaRuntime.activateStreak(kind, undefined, ok => { hud.message = ok ? `${STREAKS[kind].name} deployed` : 'Streak unavailable here or already active. Charge retained.'; publish(); });
+    if (kind === 'recon' || kind === 'hunter' || kind === 'blackout' || kind === 'gunship') {
+      cancelStreak(); arenaRuntime.activateStreak(kind, undefined, ok => { hud.message = ok ? `${STREAKS[kind].name} deployed` : enemyBlackout() ? 'Enemy Blackout: rewards cannot be deployed until it ends. Charge retained.' : kind === 'gunship' ? 'The gunship needs open sky above you, and only one can fly for your team. Charge retained.' : 'Streak unavailable here or already active. Charge retained.'; publish(); });
     } else {
       const next = hud.streakPlacement === kind ? null : kind;
       cancelStreak(); hud.streakPlacement = next;
     }
     publish();
   }
+  const enemyBlackout = () => !!hud.arena?.streaks?.effects.some(e => e.kind === 'blackout' && !streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), hud.arenaSelf));
   function guardianPreview(target: THREE.Vector3 | null) {
     const self = hud.arenaSelf!;
     const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
@@ -4328,7 +4330,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       return { at: null, reason: 'Your team already has an active Guardian.' };
     return result;
   }
-  function strikePreview(target: THREE.Vector3 | null) {
+  function strikePreview(target: THREE.Vector3 | null, kind: 'strike' | 'barrage' = 'strike') {
     const self = hud.arenaSelf!;
     const area = tdmArea(hardpoint ? hardpoint.area.id : tdm?.area ?? '');
     const result = precisionStrikePlacement(camera.position, target, {
@@ -4336,21 +4338,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       spawns: ffa?.spawns ?? (area ? Object.values(area.spawns).flat() : []),
       protectedEnemies: hud.arena?.actors.filter(a => a.alive && a.shield && !streakFriendly(a, self)) ?? [],
     });
-    if (hud.arena?.streaks?.effects.some(e => e.kind === 'strike' && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
-      return { at: null, reason: 'Your team already has an active Precision Strike.' };
+    if (hud.arena?.streaks?.effects.some(e => e.kind === kind && streakFriendly(hud.arena?.actors.find(a => a.id === e.owner), self)))
+      return { at: null, reason: `Your team already has an active ${STREAKS[kind].name}.` };
     return result;
   }
   function confirmStreak() {
     const kind = hud.streakPlacement;
     if (!kind || hud.phase !== 'playing' || !hud.arenaSelf?.alive) return;
     const at = placementPoint();
-    if (kind === 'interceptor' || kind === 'strike') {
-      const placement = kind === 'strike' ? strikePreview(at) : guardianPreview(at);
+    if (kind === 'interceptor' || designated(kind)) {
+      const placement = designated(kind) ? strikePreview(at, kind) : guardianPreview(at);
       if (!placement.at) { hud.streakNotice = hud.message = `${placement.reason} Charge retained.`; publish(); return; }
     }
-    if (!at || at.distanceTo(camera.position) > (kind === 'strike' ? PRECISION_STRIKE.range : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${kind === 'strike' ? PRECISION_STRIKE.range : 8}m, then deploy. Charge retained.`; publish(); return; }
+    if (!at || at.distanceTo(camera.position) > (designated(kind) ? PRECISION_STRIKE.range : 8)) { hud.streakNotice = hud.message = `Look down at clear ground within ${designated(kind) ? PRECISION_STRIKE.range : 8}m, then deploy. Charge retained.`; publish(); return; }
     arenaRuntime?.activateStreak(kind, { x: at.x, y: at.y, z: at.z }, ok => {
-      hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : kind === 'interceptor' ? 'Placement changed or a teammate deployed a Guardian. Try another clear spot. Charge retained.' : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
+      hud.streakNotice = hud.message = ok ? `${STREAKS[kind].name} deployed` : enemyBlackout() ? 'Enemy Blackout: rewards cannot be deployed until it ends. Charge retained.' : kind === 'interceptor' ? 'Placement changed or a teammate deployed a Guardian. Try another clear spot. Charge retained.' : 'Placement blocked. Move away from spawn areas and obstacles, then retry. Charge retained.';
       if (ok) cancelStreak(); publish();
     });
   }
@@ -4416,9 +4418,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.streakPlacement && (!hud.arenaSelf?.alive || snapshot.finished)) cancelStreak();
     if (hud.streakPlacement) {
       const at = placementPoint();
-      if (hud.streakPlacement === 'interceptor' || hud.streakPlacement === 'strike') {
-        const placement = hud.streakPlacement === 'strike' ? strikePreview(at) : guardianPreview(at);
-        streakVisuals.preview(placement.at ? { ...placement.at, y: placement.at.y - (hud.streakPlacement === 'strike' ? .4 : .7) } : at, hud.streakPlacement, !!placement.at);
+      if (hud.streakPlacement === 'interceptor' || designated(hud.streakPlacement)) {
+        const placement = designated(hud.streakPlacement) ? strikePreview(at, hud.streakPlacement) : guardianPreview(at);
+        streakVisuals.preview(placement.at ? { ...placement.at, y: placement.at.y - (designated(hud.streakPlacement) ? .4 : .7) } : at, hud.streakPlacement, !!placement.at, camera.rotation.y);
         hud.streakNotice = placement.reason;
       } else streakVisuals.preview(at, hud.streakPlacement, !!at && at.distanceTo(camera.position) <= 8);
     } else streakVisuals.preview(null, null, false);
@@ -4536,6 +4538,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         dangers.push({ id: e.id, x: e.x, z: e.z, radius: PRECISION_STRIKE.radius, kind: 'ring' });
         if (!friendly && flat(e) < PRECISION_STRIKE.radius + 7) offer(`PRECISION STRIKE · ${Math.max(1, Math.ceil(e.until - snapshot.elapsed))}s · LEAVE THE MARKED ZONE`, 'hazard', 10);
       }
+      if (e.kind === 'barrage') for (const zone of barragePoints(e).slice(e.shots)) {
+        dangers.push({ id: `${e.id}-${zone.x.toFixed(1)}-${zone.z.toFixed(1)}`, x: zone.x, z: zone.z, radius: BARRAGE.radius, kind: 'ring' });
+        if (!friendly && Math.hypot(zone.x - listener.x, zone.z - listener.z) < BARRAGE.radius + 7) offer('ROLLING BARRAGE · MOVE OFF THE LINE OR GET UNDER A ROOF', 'hazard', 10);
+      }
+      if (e.kind === 'gunship' && !friendly && flat(e) < GUNSHIP.range) offer('ENEMY GUNSHIP OVERHEAD · GET UNDER A ROOF OR SHOOT IT DOWN', 'hazard', 8);
+      if (e.kind === 'gunship') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 1.5);
       if (e.kind === 'jammer' || e.kind === 'recon') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 4);
     }
     hud.combatBanner = banner;

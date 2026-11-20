@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { PRECISION_STRIKE } from '../game/precision-strike';
-import { Radio, Radar, Shield, Crosshair, Plane, ScanLine, Bot, Check, Lock } from 'lucide-react';
-import { STREAKS, orderStreaks, streakAvailable, validStreakLoadout, type StreakId, type StreakMode, type StreakProgress, type StreakEffect } from '../game/match-streaks';
+import { Radio, Radar, Shield, Crosshair, Plane, ScanLine, Bot, Check, Lock, Package, ZapOff, Bomb, Rocket } from 'lucide-react';
+import { BARRAGE, STREAKS, orderStreaks, streakAvailable, validStreakLoadout, type StreakId, type StreakMode, type StreakProgress, type StreakEffect } from '../game/match-streaks';
 import { tapProps } from './touch-tap';
 import './match-streaks.css';
 
-const icons = { recon: Radar, jammer: Radio, interceptor: Shield, hunter: Plane, strike: Crosshair, sentry: ScanLine };
-const ROLES: Record<StreakId, string> = { recon: 'Intel', jammer: 'Counter-intel', interceptor: 'Defence', hunter: 'Lethal', strike: 'Lethal', sentry: 'Area denial' };
+const icons = { recon: Radar, jammer: Radio, interceptor: Shield, supply: Package, hunter: Plane, strike: Crosshair, sentry: ScanLine, blackout: ZapOff, barrage: Bomb, gunship: Rocket };
+const ROLES: Record<StreakId, string> = { recon: 'Intel', jammer: 'Counter-intel', interceptor: 'Defence', supply: 'Support', hunter: 'Lethal', strike: 'Lethal', sentry: 'Area denial', blackout: 'Counter-intel', barrage: 'Lethal', gunship: 'Air support' };
 const STORE = 'blockplay-streak-loadouts';
 /** A bot in the match and the three rewards it drew. */
 export interface StreakFieldEntry { id: string; name: string; loadout: StreakId[]; side: 'ally' | 'enemy' }
@@ -51,7 +51,7 @@ export function StreakLoadoutSection({ mode, draft, locked, busy = false, field 
       return <button type="button" key={id} data-streak-card={id} aria-pressed={slot >= 0} aria-disabled={locked || busy || full || undefined} onClick={() => { if (!locked && !busy) toggle(id); }}>
         <i><Icon size={24} aria-hidden /></i>
         <strong>{spec.name}</strong>
-        <span>{price(id)} · {ROLES[id]} · {id === 'strike' ? `${seconds}s warning` : `${seconds}s`}{spec.health ? ` · ${spec.health} HP` : ''}</span>
+        <span>{price(id)} · {ROLES[id]} · {id === 'strike' || id === 'barrage' ? `${BARRAGE.warning}s warning` : `${seconds}s`}{spec.health ? ` · ${spec.health} HP` : ''}</span>
         <small>{spec.description}</small>
         <em>{slot >= 0 ? <><Check size={11} aria-hidden /> Slot {slot + 1} · key {slot + 4}</> : locked ? 'Not carried' : full ? 'Remove one to swap' : 'Tap to carry'}</em>
       </button>;
@@ -78,6 +78,6 @@ export function MatchStreakHud({ progress, effects, now, hardpoint, alive, touch
         </button>;
       })}
     </div>
-    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>{placement === 'strike' ? `Aim at an enemy or visible ground · ${PRECISION_STRIKE.range}m range · ${PRECISION_STRIKE.radius}m blast radius` : 'Look down at clear ground · 8m placement range'}</span>{notice && <span className="streak-placement-notice">{notice}</span>}<div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
+    {placement && <div className="streak-placement" role="status"><strong>{STREAKS[placement].name}</strong><span>{placement === 'strike' ? `Aim at an enemy or visible ground · ${PRECISION_STRIKE.range}m range · ${PRECISION_STRIKE.radius}m blast radius` : placement === 'barrage' ? `Aim at an enemy or visible ground · ${PRECISION_STRIKE.range}m range · ${BARRAGE.shells} shells walk away from you` : 'Look down at clear ground · 8m placement range'}</span>{notice && <span className="streak-placement-notice">{notice}</span>}<div><button type="button" {...tapProps(onConfirm)}>{touch ? 'Deploy here' : 'Fire to deploy'}</button><button type="button" {...tapProps(onCancel)}>Cancel{!touch && ' · Esc'}</button></div></div>}
   </>;
 }

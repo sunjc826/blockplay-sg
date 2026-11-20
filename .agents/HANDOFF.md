@@ -17254,3 +17254,53 @@ Streak costs shown in points (2026-11-21, owner asked why the requirement still 
   ("500 pts", "175 / 300") in every mode; Hardpoint's "charge" wording became points too.
   No rule changed.
 - Renamed "Killstreaks" to "Scorestreaks" in TDM and FFA at the owner's request (title, buttons, HUD label). Hardpoint keeps "Objective streaks".
+
+Four more scorestreaks (2026-11-21, owner asked for more, borrowing the well-known kinds from other shooters):
+- Supply Drop 450, Blackout 750, Rolling Barrage 800, Warden Gunship 900, all in `match-streaks.ts`
+  (rules, constants `SUPPLY_DROP`, `BARRAGE`, `GUNSHIP`, `barragePoints`). The charge cap rose from
+  700 to `STREAK_MAX_CHARGE` (900). The gunship is team-only, like the sentry.
+- Supply: a ground placement like the jammer; after 3 s the nearest unshielded operator within
+  2 m of either side gets one of their other, not-ready rewards (seeded draw). Blackout: on
+  deploy removes enemy devices (not strike, barrage, supply or another blackout), then
+  `blackedOut` makes `jammed` true for enemies everywhere and `activate` refuse them. Barrage:
+  the streak module times the shells and calls the new `shell` hook; `streakBlast` in
+  arena-rules.ts is the strike's blast made generic. Gunship: the sentry's targeting without the
+  arc, from a hover point above the caller (`worldWallDistance` up must give 8 m).
+- Bots draw and use all of them: barrage needs a seen enemy like the strike, the rest fire as
+  soon as ready. `dangerExit` treats the barrage's remaining zones as danger.
+- Client: `designated()` in fps-engine.ts groups strike and barrage; blackout and gunship
+  deploy without placement; new hazard warnings; models and previews in match-streak-visuals.ts;
+  recon markers go blank under an enemy Blackout.
+- Encik says nothing about the four new rewards. `encik-recordings.test.ts` requires a recorded
+  clip for every line in match-callout-lines.ts, and recording spends the owner's ElevenLabs
+  credit, so no lines were added; the announcer now skips any reward without lines. Drafted
+  wording, to add to MATCH_LINES and record with `pnpm voice:match --generate` if the owner agrees:
+  'streak-ready-supply': ['Supply Drop ready! Mark a safe spot.', 'Supply crate available! Call it somewhere you can reach.'],
+  'streak-ready-blackout': ['Blackout ready! Switch off their toys.', 'Blackout available! Use it when their kit is up.'],
+  'streak-ready-barrage': ['Rolling Barrage ready! Pick a line and walk it through them.', 'Barrage available! Mark the start, shells do the rest.'],
+  'streak-ready-gunship': ['Warden Gunship ready! Find open sky and call it.', 'Gunship available! Don’t waste it indoors.'],
+  'streak-up-supply': ['Crate inbound! Guard it till you get there.', 'Supply Drop coming down! Grab it before they do.'],
+  'streak-up-blackout': ['Blackout on! Their kit is dead.', 'Blackout running! They see nothing, call nothing.'],
+  'streak-up-barrage': ['Barrage called! Shells walking, stay behind the line!', 'Rolling Barrage inbound! Don’t run ahead of it!'],
+  'streak-up-gunship': ['Warden overhead! It’s covering you.', 'Gunship on station! Push while it shoots.'],
+  'streak-enemy-supply': ['Enemy supply crate coming down! Go and steal it.', 'They called a Supply Drop! First one there keeps it.'],
+  'streak-enemy-blackout': ['Enemy Blackout! Our kit is down, no rewards for now.', 'Blackout on us! Fight with your rifle.'],
+  'streak-enemy-barrage': ['Enemy barrage incoming! Get under a roof!', 'Shells walking this way! Move sideways, not back!'],
+  'streak-enemy-gunship': ['Enemy gunship overhead! Get inside or shoot it down!', 'Enemy Warden up! Stay under cover, bring it down!'],
+- Checked: rule, arena and component tests, and the locker fixture with ten cards.
+Not checked: the new models, previews and warnings in a running match; balance of the new
+rewards in real play; `scripts/match-streaks-smoke.mjs`.
+
+### God rays made visible — 21 November 2026
+
+Owner asked why god rays were hard to see. Cause: `sun-rays.ts` masked a 0.32-screen
+soft blob and averaged it along the march (about +10/255 half a screen from the sun),
+and faded rays on anything nearer than 35 m. Now: sky-only mask, a hot disc + dim halo
+source evaluated in the scatter pass, each pixel normalised by the same march over open
+sky (visible share squared × `exp(-1.9·distance)`), near fade 0.5–10 m at 45%, sun up to
+~0.4 screens off-screen still throws shafts, elevation ramp 0–3° (was 0–6°). Still additive
+after tone mapping, so the lens-flare sky test is unchanged. Three passes, same buffers.
+Typecheck, 22 focused tests, `sun-rays-smoke` and `sun-rays-lens-smoke` pass on ANGLE Metal
+(Vite 5175, own Chrome 9461, stopped). Gameplay smoke not rerun. Docs: `docs/SUN-RAYS.md`.
+Suggested next, not started: a real sun disc, a moon disc/phase/stars, and Ultra-only
+volumetric (shadow-map marched) shafts for off-screen and overhead sun.

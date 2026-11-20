@@ -1,7 +1,7 @@
 import { PRECISION_STRIKE, precisionStrikeDamage, precisionStrikePlacement } from './precision-strike';
 import { matchRegeneratedHealth, matchBotArmor, matchArmorGain, MAX_MATCH_ARMOR_DROPS, type MatchArmorDrop, type MatchArmorPickup } from './match-recovery';
 import { createMatchScore, type ScoreSnapshot } from './match-score';
-import { createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffect, type StreakSnapshot } from './match-streaks';
+import { BARRAGE, GUNSHIP, barrageDamage, barragePoints, createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffect, type StreakSnapshot } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
 import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
 import { createHardpoint, controlAt, controlGoal, inControlSite, HARDPOINT_RULES, type ControlSite, type HardpointSnapshot } from './hardpoint';
@@ -1304,7 +1304,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     let streakDevice: StreakEffect | undefined;
     for (const candidate of streaks?.effects ?? []) {
       if (candidate.health <= 0 || candidate.kind === 'hunter') continue;
-      const hit = sphereDistance(origin, ray, candidate, candidate.kind === 'recon' ? .65 : .5);
+      const hit = sphereDistance(origin, ray, candidate, candidate.kind === 'gunship' ? 1.2 : candidate.kind === 'recon' ? .65 : .5);
       if (hit < nearest) { streakDevice = candidate; nearest = hit; equipment = undefined; transport = undefined; raider = undefined; victim = undefined; hull = undefined; }
     }
     if (ignore && mountedGun) {
@@ -1536,15 +1536,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     clear: lineClear,
     notice: text => announce(text),
     damage: (e, a, damage) => { const victim = members.get(a.id), owner = members.get(e.owner); if (victim && owner) hurtActor(victim, damage, owner, STREAKS[e.kind].name, e, false, false, undefined, 0, true); },
-    strike: e => {
-      const owner = members.get(e.owner); if (!owner) return;
-      for (const victim of members.values()) {
-        const a = victim.actor, d = Math.hypot(a.x - e.x, a.z - e.z);
-        if (!a.alive || d > PRECISION_STRIKE.radius || roofed(a) || !clearBlast(e, chestOf(a), distance(e, chestOf(a)))) continue;
-        hurtActor(victim, precisionStrikeDamage(d), owner, STREAKS.strike.name, e, true, false, undefined, 0, true);
-      }
-      for (const device of [...(streaks?.effects ?? [])]) if (device !== e && distance(e, device) <= PRECISION_STRIKE.radius && clearBlast(e, device, distance(e, device))) streaks?.hurt(device, precisionStrikeDamage(distance(e, device)), owner.actor);
-    },
+    strike: e => streakBlast(e, e, PRECISION_STRIKE.radius, precisionStrikeDamage),
+    // Each shell bursts on whatever ground is under its point of the line.
+    shell: (e, at) => streakBlast(e, { ...at, y: floorAt({ ...at, y: e.y + 2 }) + .4 }, BARRAGE.radius, barrageDamage),
     drone: (owner, effect) => {
       const d = startEvent({ kind: 'drone', seed: (++eventSerial * 2654435761) >>> 0, target: effect, heading: owner.yaw, intensity: 1, faction: owner.faction as SquadFaction });
       if (!d) return null;
@@ -1561,6 +1555,16 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     intercepted: owner => score?.intercept(owner, elapsed),
     removeDrone: id => { raiders.delete(id); const i = events.findIndex(e => e.descriptor.id === id); if (i >= 0) events.splice(i, 1); },
   }) : null;
+  /** Ordnance from above: a roof or a wall between the burst and a body saves it. */
+  function streakBlast(e: StreakEffect, at: ArenaPoint, radius: number, damageAt: (distance: number) => number) {
+    const owner = members.get(e.owner); if (!owner) return;
+    for (const victim of members.values()) {
+      const a = victim.actor, d = Math.hypot(a.x - at.x, a.z - at.z);
+      if (!a.alive || d > radius || roofed(a) || !clearBlast(at, chestOf(a), distance(at, chestOf(a)))) continue;
+      hurtActor(victim, damageAt(d), owner, STREAKS[e.kind].name, at, true, false, undefined, 0, true);
+    }
+    for (const device of [...(streaks?.effects ?? [])]) if (device !== e && distance(at, device) <= radius && clearBlast(at, device, distance(at, device))) streaks?.hurt(device, damageAt(distance(at, device)), owner.actor);
+  }
   const score = streaks ? createMatchScore(streaks.mode, { actors: () => [...members.values()].filter(m => !m.reserve).map(m => m.actor), enemy: streaks.enemy, 
     // Hardpoint rewards stay on kills and hold time: charged any faster, bots left stations unheld on the tight courts.
     charge: (id, amount) => { if (streaks.mode !== 'hardpoint') streaks.bonus(id, amount); } }) : null;
@@ -1579,7 +1583,13 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       const rise = Math.min(6, worldWallDistance(a, UP, 7) - 1);
       if (rise < 1) return false;
       at = { x: a.x, y: a.y + rise, z: a.z };
-    } else if (kind === 'strike') {
+    } else if (kind === 'gunship') {
+      const rise = Math.min(GUNSHIP.hover, worldWallDistance(a, UP, GUNSHIP.hover + 1) - 1);
+      if (rise < GUNSHIP.minimumSky) return false;
+      at = { x: a.x, y: a.y + rise, z: a.z };
+    } else if (kind === 'blackout') {
+      at = { x: a.x, y: a.y, z: a.z };
+    } else if (kind === 'strike' || kind === 'barrage') {
       const placement = precisionStrikePlacement(a, target ?? null, {
         movement: deviceMovement, wallDistance: worldWallDistance,
         spawns: environment?.freeForAll?.spawns ?? (teamArea ? Object.values(teamArea.spawns).flat() : []),
@@ -2984,9 +2994,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   }
   /** Which way out of the nearest live danger area, or null when standing clear of all of them. A supply drop's ring is no danger. */
   function dangerExit(actor: ArenaPoint) {
-    for (const e of streaks?.effects ?? []) if (e.kind === 'strike') {
-      const dx = actor.x - e.x, dz = actor.z - e.z, d = Math.hypot(dx, dz);
-      if (d < PRECISION_STRIKE.radius + 2 && !roofed(actor)) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+    for (const e of streaks?.effects ?? []) if (e.kind === 'strike' || e.kind === 'barrage') {
+      // A barrage is a row of zones; the shells already down are no longer a reason to move.
+      for (const zone of e.kind === 'strike' ? [e] : barragePoints(e).slice(e.shots)) {
+        const dx = actor.x - zone.x, dz = actor.z - zone.z, d = Math.hypot(dx, dz);
+        if (d < (e.kind === 'strike' ? PRECISION_STRIKE.radius : BARRAGE.radius) + 2 && !roofed(actor)) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+      }
     }
     for (const r of raiders.values()) if (r.kind === 'drone' && (r.state === 'lock' || r.state === 'dive') && r.victim === (actor as ArenaActor).id) {
       const dx = actor.x - r.x, dz = actor.z - r.z, d = Math.hypot(dx, dz);
@@ -3644,8 +3657,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if (streaks && Math.floor(elapsed * 2) !== Math.floor((elapsed - dt) * 2)) {
       const ready = streaks.state(actor.id).ready;
       for (const kind of ready) {
-        const aim = kind === 'strike' ? enemy?.actor : { x: actor.x - Math.sin(actor.yaw) * 2, y: floorAt(actor), z: actor.z - Math.cos(actor.yaw) * 2 };
-        if (kind === 'strike' && !enemy) continue;
+        const aim = kind === 'strike' || kind === 'barrage' ? enemy?.actor : { x: actor.x - Math.sin(actor.yaw) * 2, y: floorAt(actor), z: actor.z - Math.cos(actor.yaw) * 2 };
+        if ((kind === 'strike' || kind === 'barrage') && !enemy) continue;
         if (activateStreak(actor.id, kind, aim ? { x: aim.x, y: floorAt({ ...aim, y: aim.y + .8 }), z: aim.z } : undefined)) break;
       }
     }

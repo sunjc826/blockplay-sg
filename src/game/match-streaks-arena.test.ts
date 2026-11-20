@@ -86,3 +86,53 @@ it('strike kills across its core and damages the outer ring without extending be
     expect(a.snapshot().streaks?.players.one.charge).toBe(600);
   }
 });
+
+it('rolling barrage kills along its line through the arena and credits the caller', () => {
+  const { a, environment, earn } = setup(['recon', 'strike', 'barrage']); earn(6);
+  a.setPlayerVitals('two', { health: 100 }); const self = actor(a, 'one'), target = actor(a, 'two'), kills = self.kills;
+  // Face the target, so the line of shells runs on through and past them.
+  a.setInput('one', { ...self, yaw: Math.atan2(self.x - target.x, self.z - target.z), pitch: 0, playing: true }); tick(a, .05);
+  expect(a.activateStreak('one', 'barrage', { x: target.x, y: 0, z: target.z })).toBe(true);
+  tick(a, 2.8); expect(actor(a, 'two').alive).toBe(true); expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+  tick(a, .4); expect(actor(a, 'two').alive).toBe(false); expect(actor(a, 'one').kills).toBe(kills + 1);
+  expect(a.snapshot().feed.some(e => e.killerId === 'one' && e.cause === 'Rolling Barrage')).toBe(true);
+  expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+  tick(a, 3); expect(a.snapshot().streaks?.effects).toEqual([]);
+});
+it('the gunship needs open sky, then hovers above its caller and wears an enemy down', () => {
+  // A team match: the gunship is not carried in free-for-all.
+  const bounds = { minX: -300, maxX: 300, minZ: -300, maxZ: 300 };
+  const area = { id: 'smith-street' as const, name: 'Test', region: 'chinatown' as const, bounds, spawns: { alpha: [{ x: 0, z: 0 }], bravo: [{ x: 30, z: 0 }] }, patrols: [] };
+  const environment: ArenaEnvironment = { bounds, move: createRegionMovement(bounds).move, spawns: [...area.spawns.alpha, ...area.spawns.bravo], teamDeathmatch: area };
+  let roof = true;
+  const a = createArena([], 0, 'mixed', environment, undefined, undefined, (_p, ray) => roof && ray.y > .9 ? 1 : Infinity);
+  for (const id of ['one', 'two']) a.addPlayer(id, id, 0, 0, [{ damage: 200, interval: .06, capacity: 100, reload: .4 }]);
+  expect(a.configureStreaks('one', ['recon', 'hunter', 'gunship'])).toBe(true);
+  tick(a, 3.3);
+  for (let i = 0; i < 9 && !a.snapshot().streaks!.players.one.ready.includes('gunship'); i++) {
+    a.setPlayerVitals('two', { health: 100 }); const shooter = actor(a, 'one'), target = actor(a, 'two');
+    const dx = target.x - shooter.x, dy = target.y - .6 - shooter.y, dz = target.z - shooter.z, d = Math.hypot(dx, dy, dz);
+    shootAndLand(a, 'one', shooter, { x: dx / d, y: dy / d, z: dz / d }, 0); tick(a, .1);
+  }
+  expect(a.snapshot().streaks!.players.one.ready).toContain('gunship');
+  expect(a.activateStreak('one', 'gunship')).toBe(false);
+  expect(a.snapshot().streaks!.players.one.ready).toContain('gunship');
+  roof = false; const self = actor(a, 'one');
+  expect(a.activateStreak('one', 'gunship')).toBe(true);
+  const hover = a.snapshot().streaks!.effects.find(e => e.kind === 'gunship')!; expect(hover.y - self.y).toBeCloseTo(16);
+  expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+  let credited = false;
+  for (let i = 0; i < 500 && !credited; i++) { a.step(.05); const s = a.snapshot(); if (i % 20 === 0) expect(validArenaSnapshot(s, environment)).toBe(true); credited = s.feed.some(e => e.killerId === 'one' && e.cause === 'Warden Gunship'); }
+  expect(credited).toBe(true);
+});
+it('a supply drop placed at the feet is collected once it lands, and blackout deploys from anywhere', () => {
+  const { a, environment, earn } = setup(['supply', 'strike', 'blackout']); earn(6);
+  const self = actor(a, 'one');
+  expect(a.activateStreak('one', 'supply', { x: self.x + 1, y: 0, z: self.z })).toBe(true);
+  expect(a.activateStreak('one', 'strike', { x: self.x + 60, y: 0, z: self.z + 60 })).toBe(true);
+  expect(a.snapshot().streaks?.players.one.ready).toEqual(['blackout']);
+  tick(a, 2.5); expect(a.snapshot().streaks?.effects.some(e => e.kind === 'supply')).toBe(true); expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+  tick(a, .7); expect(a.snapshot().streaks?.effects.some(e => e.kind === 'supply')).toBe(false);
+  expect(a.snapshot().streaks?.players.one.ready.sort()).toEqual(['blackout', 'strike']);
+  expect(a.activateStreak('one', 'blackout')).toBe(true); expect(validArenaSnapshot(a.snapshot(), environment)).toBe(true);
+});

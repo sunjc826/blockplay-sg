@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createMatchStreaks, defaultStreaks, orderStreaks, randomStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
+import { BARRAGE, GUNSHIP, STREAKS, barrageDamage, barragePoints, createMatchStreaks, defaultStreaks, orderStreaks, randomStreaks, validStreakLoadout, validStreakSnapshot, type StreakId, type StreakMode } from './match-streaks';
 import type { ArenaActor, ArenaRaider } from './arena-rules';
 import { streakReconMarkers, streakReconPulse, streakHunterMarkers } from './match-streak-visuals';
 
@@ -7,10 +7,10 @@ function setup(mode: StreakMode = 'team-deathmatch') {
   const actor = (id: string, team: 'alpha' | 'bravo', x: number, z: number): ArenaActor => ({ id, name: id, bot: false, x, y: 1.75, z, yaw: 0, pitch: 0, health: 100, armor: 0, kills: 0, deaths: 0, alive: true, respawnIn: 0, weapon: 0, shots: 0, role: 'player', faction: team === 'alpha' ? 'armed-forces' : 'mercenaries', ...(mode === 'free-for-all' ? {} : { team }) });
   const a = actor('a', 'alpha', 0, 0), b = actor('b', 'bravo', 0, -10), ally = actor('ally', 'alpha', 3, 0), actors = [a, b, ally];
   let clear = true, shield = false, droneAlive = true;
-  const damage = vi.fn(), strike = vi.fn(), removeDrone = vi.fn(), drone = vi.fn(() => 'event-1');
-  const system = createMatchStreaks(mode, { actors: () => actors, protected: () => shield, clear: () => clear, damage, strike, drone, droneAlive: () => droneAlive, removeDrone, notice: vi.fn() });
-  const earn = (id: StreakId, who = a) => { system.configure(who.id, [...new Set([id, 'recon', 'hunter', 'strike'])].slice(0, 3)); for (let i = 0; i < 7; i++) system.kill(who, who === b ? a : b, false, false); };
-  return { a, b, ally, actors, system, earn, damage, strike, drone, removeDrone, setClear: (v: boolean) => clear = v, setShield: (v: boolean) => shield = v, endDrone: () => droneAlive = false };
+  const damage = vi.fn(), shell = vi.fn(), destroyed = vi.fn(), strike = vi.fn(), removeDrone = vi.fn(), drone = vi.fn(() => 'event-1');
+  const system = createMatchStreaks(mode, { actors: () => actors, protected: () => shield, clear: () => clear, damage, strike, shell, destroyed, drone, droneAlive: () => droneAlive, removeDrone, notice: vi.fn() });
+  const earn = (id: StreakId, who = a) => { system.configure(who.id, [...new Set([id, 'recon', 'hunter', 'strike'])].slice(0, 3)); for (let i = 0; i < 9; i++) system.kill(who, who === b ? a : b, false, false); };
+  return { a, b, ally, actors, system, earn, damage, shell, destroyed, strike, drone, removeDrone, setClear: (v: boolean) => clear = v, setShield: (v: boolean) => shield = v, endDrone: () => droneAlive = false };
 }
 it('requires three unique mode-legal rewards and chooses objective defaults', () => {
   expect(defaultStreaks('hardpoint')).toEqual(['recon', 'interceptor', 'strike']);
@@ -203,8 +203,8 @@ describe('bot streak loadouts', () => {
   it('draws three legal rewards, cheapest first, and reaches every combination', () => {
     for (const mode of ['team-deathmatch', 'free-for-all', 'hardpoint'] as StreakMode[]) {
       const random = stream(7), seen = new Set<string>();
-      for (let i = 0; i < 400; i++) { const drawn = randomStreaks(mode, random); expect(validStreakLoadout(drawn, mode)).toBe(true); expect(orderStreaks(drawn)).toEqual(drawn); seen.add(drawn.join()); }
-      expect(seen.size).toBe(mode === 'free-for-all' ? 4 : 20);
+      for (let i = 0; i < 4000; i++) { const drawn = randomStreaks(mode, random); expect(validStreakLoadout(drawn, mode)).toBe(true); expect(orderStreaks(drawn)).toEqual(drawn); seen.add(drawn.join()); }
+      expect(seen.size).toBe(mode === 'free-for-all' ? 35 : 120);
     }
     expect(randomStreaks('free-for-all', () => .999999)).toHaveLength(3);
   });
@@ -218,5 +218,71 @@ describe('bot streak loadouts', () => {
     for (const loadout of drawn) expect(validStreakLoadout(loadout, 'team-deathmatch')).toBe(true);
     expect(new Set(drawn.map(l => l.join())).size).toBeGreaterThan(3);
     expect(streaks.snapshot().players['bot-1'].loadout).toEqual(drawn[0]);
+  });
+});
+
+describe('added scorestreaks', () => {
+  it('keeps the gunship out of free-for-all and prices nothing above the charge cap', () => {
+    expect(validStreakLoadout(['recon', 'supply', 'gunship'], 'free-for-all')).toBe(false);
+    expect(validStreakLoadout(['supply', 'blackout', 'barrage'], 'free-for-all')).toBe(true);
+    expect(validStreakLoadout(['supply', 'barrage', 'gunship'], 'hardpoint')).toBe(true);
+    const { system: s, a, b } = setup();
+    for (let i = 0; i < 20; i++) s.kill(a, b, false, false);
+    expect(s.state(a.id).charge).toBe(Math.max(...Object.values(STREAKS).map(r => r.cost)));
+  });
+  it('lands a supply crate after three seconds and gives the first to reach it one of their other rewards', () => {
+    const { system: s, a, b, earn, actors } = setup();
+    earn('supply'); expect(s.state(a.id).ready).toEqual(['recon', 'supply', 'hunter']);
+    expect(s.activate(a, 'recon', a, 0)).toBe(true); expect(s.activate(a, 'supply', { x: 0, y: 1.75, z: -10 }, 0)).toBe(true);
+    // The enemy is standing on it, but it has not landed.
+    s.step(2.9); expect(s.effects.some(e => e.kind === 'supply')).toBe(true);
+    s.step(3); expect(s.effects.some(e => e.kind === 'supply')).toBe(false);
+    expect(s.state(b.id).ready).toHaveLength(1); expect(s.state(b.id).ready[0]).not.toBe('supply');
+    expect(validStreakSnapshot(s.snapshot(), actors, 'team-deathmatch', 3)).toBe(true);
+    // The caller collects their own: recon is spent, so it is the only reward open to them.
+    s.state(a.id).ready.push('supply'); expect(s.activate(a, 'supply', { x: 0, y: 1.75, z: 0 }, 10)).toBe(true); s.step(13);
+    expect(s.state(a.id).ready.sort()).toEqual(['hunter', 'recon']);
+    // Nothing left to give: the crate waits out its time and goes.
+    s.state(a.id).ready.push('supply'); expect(s.activate(a, 'supply', { x: 0, y: 1.75, z: 0 }, 20)).toBe(true); s.step(24);
+    expect(s.effects.some(e => e.kind === 'supply')).toBe(true); s.step(50.1); expect(s.effects).toHaveLength(0);
+  });
+  it('blackout removes enemy equipment, blinds their recon and stops them deploying until it ends', () => {
+    const { system: s, a, b, ally, earn, removeDrone, destroyed } = setup();
+    earn('blackout'); earn('strike', b);
+    expect(s.activate(b, 'recon', { ...b, y: 6 }, 0)).toBe(true); expect(s.activate(b, 'hunter', b, 0)).toBe(true); expect(s.activate(b, 'strike', { x: 40, y: 1, z: 40 }, 0)).toBe(true);
+    s.step(0); expect(s.reconContacts(b, 0).length).toBeGreaterThan(0);
+    expect(s.activate(a, 'blackout', a, 1)).toBe(true);
+    expect(s.effects.map(e => e.kind).sort()).toEqual(['blackout', 'strike']);
+    expect(removeDrone).toHaveBeenCalledWith('event-1'); expect(destroyed).toHaveBeenCalledTimes(2);
+    expect(s.jammed(b)).toBe(true); expect(s.jammed(a)).toBe(false); expect(s.jammed(ally)).toBe(false);
+    s.state(b.id).ready.push('recon');
+    expect(s.activate(b, 'recon', { ...b, y: 6 }, 2)).toBe(false); expect(s.state(b.id).ready).toContain('recon');
+    s.step(13.1); expect(s.jammed(b)).toBe(false); expect(s.activate(b, 'recon', { ...b, y: 6 }, 14)).toBe(true);
+  });
+  it('walks five shells along the caller\'s aim after the warning, each once', () => {
+    const { system: s, a, earn, shell, actors } = setup();
+    earn('barrage'); a.yaw = Math.PI / 2;
+    expect(s.activate(a, 'barrage', { x: -20, y: .4, z: 0 }, 0)).toBe(true);
+    s.step(2.9); expect(shell).not.toHaveBeenCalled();
+    s.step(3); expect(shell).toHaveBeenCalledTimes(1); s.step(3.1); expect(shell).toHaveBeenCalledTimes(1);
+    expect(validStreakSnapshot(s.snapshot(), actors, 'team-deathmatch', 3.1)).toBe(true);
+    s.step(5.5); expect(shell).toHaveBeenCalledTimes(BARRAGE.shells);
+    expect(shell.mock.calls.map(c => Math.round(c[1].x))).toEqual([-20, -27, -34, -41, -48]);
+    expect(barragePoints({ x: 0, y: 0, z: 0, yaw: 0 })[4].z).toBeCloseTo(-28);
+    s.step(6); expect(s.effects).toHaveLength(0); expect(shell).toHaveBeenCalledTimes(BARRAGE.shells);
+    expect(barrageDamage(0)).toBe(200); expect(barrageDamage(BARRAGE.radius)).toBe(50); expect(barrageDamage(BARRAGE.radius + .1)).toBe(0);
+  });
+  it('the gunship fires all round on enemies in view, turns to face them, and can be shot down', () => {
+    const { system: s, a, b, earn, damage, setClear, destroyed, actors } = setup();
+    earn('gunship'); b.x = 0; b.z = 30;
+    expect(s.activate(a, 'gunship', { x: 0, y: 17, z: 0 }, 0)).toBe(true);
+    // Behind where a turret would look, and still a target.
+    s.step(0); s.step(.8); expect(damage).toHaveBeenCalledWith(expect.objectContaining({ kind: 'gunship' }), b, GUNSHIP.damage);
+    expect(Math.cos(s.effects[0].yaw)).toBeCloseTo(-1);
+    expect(validStreakSnapshot(s.snapshot(), actors, 'team-deathmatch', .8)).toBe(true);
+    damage.mockClear(); setClear(false); s.step(3); expect(damage).not.toHaveBeenCalled();
+    setClear(true); b.z = 41; s.step(5); expect(damage).not.toHaveBeenCalled();
+    expect(s.hurt(s.effects[0], 150, a)).toBe(0); expect(s.hurt(s.effects[0], 150, b)).toBe(150);
+    expect(s.effects).toHaveLength(0); expect(destroyed).toHaveBeenCalledTimes(1);
   });
 });

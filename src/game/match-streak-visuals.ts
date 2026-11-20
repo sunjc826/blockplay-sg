@@ -1,7 +1,7 @@
 import { PRECISION_STRIKE } from './precision-strike';
 import * as THREE from 'three';
 import type { ArenaActor, ArenaPoint, ArenaRaider } from './arena-rules';
-import { STREAKS, type StreakId, type StreakSnapshot } from './match-streaks';
+import { BARRAGE, STREAKS, SUPPLY_DROP, barragePoints, type StreakId, type StreakSnapshot } from './match-streaks';
 import type { MinimapMarker } from './minimap';
 
 export function streakFriendly(owner: ArenaActor | undefined, self: ArenaActor | null) {
@@ -20,10 +20,13 @@ export function streakHunterMarkers(snapshot: StreakSnapshot | undefined, raider
       label: owner.id === self.id ? 'Your Hunter Drone' : `Friendly Hunter Drone · ${owner.name}` }];
   });
 }
+/** An enemy Blackout leaves no recon picture anywhere. */
+const blackedOut = (snapshot: StreakSnapshot, friendly: (id: string) => boolean) => snapshot.effects.some(e => e.kind === 'blackout' && !friendly(e.owner));
 /** The authority's next scan time identifies each completed three-second pulse. */
 export function streakReconPulse(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null, now: number) {
   if (!snapshot || !self?.alive) return undefined;
   const friendly = (id: string) => streakFriendly(actors.find(a => a.id === id), self);
+  if (blackedOut(snapshot, friendly)) return undefined;
   const live = snapshot.effects.filter(e => e.health > 0 && e.until > now);
   if (live.some(e => e.kind === 'jammer' && !friendly(e.owner) && Math.hypot(e.x - self.x, e.z - self.z) <= 20)) return undefined;
   const recon = live.filter(e => e.kind === 'recon' && friendly(e.owner) && e.pulse > now).sort((a, b) => b.pulse - a.pulse || a.id.localeCompare(b.id))[0];
@@ -32,7 +35,7 @@ export function streakReconPulse(snapshot: StreakSnapshot | undefined, actors: r
 export function streakReconMarkers(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null): MinimapMarker[] {
   if (!snapshot || !self?.alive) return [];
   const friendly = (id: string) => streakFriendly(actors.find(a => a.id === id), self);
-  if (snapshot.effects.some(e => e.kind === 'jammer' && !friendly(e.owner) && Math.hypot(e.x - self.x, e.z - self.z) <= 20)) return [];
+  if (blackedOut(snapshot, friendly) || snapshot.effects.some(e => e.kind === 'jammer' && !friendly(e.owner) && Math.hypot(e.x - self.x, e.z - self.z) <= 20)) return [];
   const contacts = new Map<string, MinimapMarker>();
   for (const e of snapshot.effects) if (e.kind === 'recon' && friendly(e.owner)) for (const c of e.contacts) {
     const actor = actors.find(a => a.id === c.id);
@@ -61,6 +64,8 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
     const m = new THREE.Mesh(geometry, material); m.scale.set(scale[0], scale[1], scale[2]); m.position.set(at[0], at[1], at[2]); parent.add(m); return m;
   }
   const preview = mesh(root, ring, friendly, [5, 5, 1]); preview.rotation.x = -Math.PI / 2; preview.visible = false;
+  // A barrage previews every zone of its line, not only the first.
+  const previewLine = Array.from({ length: BARRAGE.shells - 1 }, () => { const zone = mesh(root, ring, friendly, [BARRAGE.radius, BARRAGE.radius, 1]); zone.rotation.x = -Math.PI / 2; zone.visible = false; return zone; });
   function create(kind: StreakId, tint: THREE.Material) {
     const group = new THREE.Group(); group.name = STREAKS[kind].name;
     if (kind === 'strike') {
@@ -68,6 +73,30 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
       const cross = mesh(group, box, tint, [1.6, .04, .08]); cross.position.y = .02;
       mesh(group, box, tint, [.08, .04, 1.6], [0, .02, 0]);
       mesh(group, cylinder, tint, [.035, 5, .035], [0, 2.5, 0]);
+    } else if (kind === 'barrage') {
+      // Built facing the caller's aim: the group's yaw turns the row of zones onto the line the shells walk.
+      for (let i = 0; i < BARRAGE.shells; i++) {
+        const zone = mesh(group, ring, tint, [BARRAGE.radius, BARRAGE.radius, 1], [0, 0, -BARRAGE.spacing * i]); zone.rotation.x = -Math.PI / 2; zone.name = `zone-${i}`;
+      }
+      mesh(group, box, tint, [.08, .04, BARRAGE.spacing * (BARRAGE.shells - 1)], [0, .02, -BARRAGE.spacing * (BARRAGE.shells - 1) / 2]);
+      mesh(group, cylinder, tint, [.035, 5, .035], [0, 2.5, 0]);
+    } else if (kind === 'supply') {
+      const reach = mesh(group, ring, tint, [SUPPLY_DROP.reach, SUPPLY_DROP.reach, 1], [0, -.64, 0]); reach.rotation.x = -Math.PI / 2;
+      const crate = new THREE.Group(); crate.name = 'crate'; group.add(crate);
+      mesh(crate, box, metal, [1.1, .7, .8], [0, -.3, 0]);
+      mesh(crate, box, tint, [1.14, .08, .84], [0, -.3, 0]); mesh(crate, box, tint, [.08, .74, .84], [0, -.3, 0]);
+      const canopy = mesh(crate, sphere, tint, [1.3, .7, 1.3], [0, 2.4, 0]); canopy.name = 'canopy';
+    } else if (kind === 'blackout') {
+      const pulse = mesh(group, ring, tint, [1, 1, 1], [0, -1.6, 0]); pulse.rotation.x = -Math.PI / 2; pulse.name = 'pulse';
+    } else if (kind === 'gunship') {
+      mesh(group, box, metal, [1.5, .5, 2.4]);
+      mesh(group, box, metal, [.4, .3, 1.6], [0, .1, 1.9]);
+      mesh(group, box, tint, [.14, .14, 1.1], [0, -.3, -1.5]);
+      mesh(group, sphere, tint, [.2, .2, .2], [0, -.35, -.8]);
+      for (const x of [-1.5, 1.5]) for (const z of [-1.2, 1.2]) {
+        mesh(group, box, metal, [.14, .12, 1.6], [x * .6, .15, z * .5]);
+        const rotor = mesh(group, cylinder, tint, [.85, .04, .85], [x, .3, z]); rotor.name = 'rotor';
+      }
     } else if (kind === 'recon') {
       mesh(group, box, metal, [.6, .22, .5]);
       mesh(group, sphere, tint, [.12, .12, .12], [0, -.18, -.2]);
@@ -89,11 +118,13 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
     }
     root.add(group); return group;
   }
-  const reset = () => { for (const entry of entries.values()) root.remove(entry.group); entries.clear(); preview.visible = false; };
+  const reset = () => { for (const entry of entries.values()) root.remove(entry.group); entries.clear(); preview.visible = false; previewLine.forEach(zone => zone.visible = false); };
   return {
-    preview(at: ArenaPoint | null, kind: StreakId | null, valid: boolean) {
+    preview(at: ArenaPoint | null, kind: StreakId | null, valid: boolean, yaw = 0) {
       preview.visible = !!at && !!kind;
-      if (at && kind) { preview.position.set(at.x, at.y + .06, at.z); const radius = kind === 'strike' ? PRECISION_STRIKE.radius : kind === 'jammer' ? 20 : kind === 'interceptor' ? 6 : 1; preview.scale.set(radius, radius, 1); preview.material = valid ? friendly : invalid; }
+      if (at && kind) { preview.position.set(at.x, at.y + .06, at.z); const radius = kind === 'strike' ? PRECISION_STRIKE.radius : kind === 'barrage' ? BARRAGE.radius : kind === 'jammer' ? 20 : kind === 'interceptor' ? 6 : kind === 'supply' ? SUPPLY_DROP.reach : 1; preview.scale.set(radius, radius, 1); preview.material = valid ? friendly : invalid; }
+      const line = at && kind === 'barrage' ? barragePoints({ ...at, yaw }).slice(1) : [];
+      previewLine.forEach((zone, i) => { zone.visible = !!line[i]; if (line[i]) { zone.position.set(line[i].x, at!.y + .06, line[i].z); zone.material = valid ? friendly : invalid; } });
     },
     update(snapshot: StreakSnapshot | undefined, actors: readonly ArenaActor[], self: ArenaActor | null, now: number) {
       const alive = new Set<string>();
@@ -101,7 +132,18 @@ export function createStreakVisuals(scene: THREE.Scene, boom: (at: THREE.Vector3
         if (e.kind === 'hunter') continue;
         alive.add(e.id); let entry = entries.get(e.id);
         if (!entry) { entry = { group: create(e.kind, streakFriendly(actors.find(a => a.id === e.owner), self) ? friendly : enemy), kind: e.kind, until: e.until, shots: e.shots }; entries.set(e.id, entry); }
-        entry.group.position.set(e.x, e.y - (e.kind === 'strike' ? .32 : 0), e.z); entry.group.rotation.y = e.yaw;
+        entry.group.position.set(e.x, e.y - (e.kind === 'strike' || e.kind === 'barrage' ? .32 : 0), e.z); entry.group.rotation.y = e.yaw;
+        if (e.kind === 'gunship') entry.group.position.y += Math.sin(now * 1.3) * .25;
+        if (e.kind === 'supply') {
+          // The crate rides its canopy down for the landing seconds, then sits waiting.
+          const fall = Math.max(0, e.start + SUPPLY_DROP.landing - now), crate = entry.group.getObjectByName('crate')!;
+          crate.position.y = fall * 9; crate.getObjectByName('canopy')!.visible = fall > 0;
+        }
+        if (e.kind === 'blackout') { const pulse = entry.group.getObjectByName('pulse')!, r = 2 + (now - e.start) % 2 * 20; pulse.scale.set(r, r, 1); }
+        if (e.kind === 'barrage' && e.shots > entry.shots) {
+          const points = barragePoints(e);
+          for (let i = entry.shots; i < e.shots; i++) { boom(new THREE.Vector3(points[i].x, e.y, points[i].z)); const zone = entry.group.getObjectByName(`zone-${i}`); if (zone) zone.visible = false; }
+        }
         if (e.kind === 'recon') entry.group.position.y += Math.sin(now * 2) * .08;
         entry.group.children.forEach(child => { if (child.name === 'rotor') child.rotation.y = now * 40; });
         if (e.shots > entry.shots && e.aim) {

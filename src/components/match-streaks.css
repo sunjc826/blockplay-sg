@@ -7,7 +7,7 @@
 .loadout-streaks{grid-column:1/-1;padding-top:18px;border-top:1px solid #78846a50}
 .loadout-streaks h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}.loadout-streaks h3 span{display:inline-flex;align-items:center;gap:5px;font:10px ui-monospace,monospace;letter-spacing:.04em;text-transform:none;color:#bac9b8}
 .loadout-streaks>p{margin:0 0 12px;font-size:11px}
-.loadout-variants.streak-cards{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none;overflow:visible}.loadout-streaks[data-streak-count="4"] .streak-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.loadout-variants.streak-cards{grid-template-columns:repeat(3,minmax(0,1fr));max-height:none;overflow:visible}
 .loadout-variants.streak-cards button{grid-template-columns:48px 1fr;align-items:start;gap:3px 12px;padding:12px}
 .streak-cards button>i{grid-row:1/5;display:grid;place-items:center;width:48px;height:48px;border-radius:5px;background:#14231e;border:1px solid #667c5f80;color:#bac9b8;font-style:normal}
 .streak-cards button[aria-pressed=true]>i{border-color:#ecd08d;color:#ecd08d}
@@ -19,7 +19,7 @@
 .streak-field li{display:flex;align-items:center;gap:8px;min-width:0;padding:7px 9px;border:1px solid #667c5f50;border-left:3px solid #d98c7a;border-radius:4px;background:#1d3026}.streak-field li[data-side=ally]{border-left-color:#8fc7e8}
 .streak-field li b{flex:1;min-width:0;font-size:12px;font-weight:500;color:#e8eddf;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.streak-field li small{font:9px ui-monospace,monospace}.streak-field li>span{display:flex;gap:4px}
 .streak-field li i{display:grid;place-items:center;width:24px;height:24px;border-radius:4px;background:#14231e;color:#dcc796}
-@media(max-width:700px){.loadout-variants.streak-cards,.loadout-streaks[data-streak-count="4"] .streak-cards{grid-template-columns:1fr}}
+@media(max-width:700px){.loadout-variants.streak-cards{grid-template-columns:1fr}}
 /* Keep the rewards beside the minimap and below ammunition on phones. */
 .fps-game[data-touch=on] .match-streak-hud{bottom:auto;top:176px;left:auto;right:12px;transform:none;gap:4px}
 .fps-game[data-touch=on] .match-streak-hud button{width:clamp(48px,calc((100vw - 156px)/3),78px);min-height:52px;padding:6px;gap:3px}

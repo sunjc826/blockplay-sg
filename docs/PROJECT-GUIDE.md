@@ -641,6 +641,10 @@ spending the charge. The host confirms guest activations.
 | Hunter Drone | 500 | Launches along aim, then reuses autonomous search, lock, reacquisition and dive; up to 30 s. Two-second target lock warning. |
 | Precision Strike | 600 | 250 m designator; 8 m blast radius, full 250 damage within 4 m, falling to 60 at the edge, after a visible 3 s warning. Solid overhead cover protects. |
 | Sentry Turret | 700 | Shootable 25 m turret with a fixed 90° arc; 0.75 s acquisition, three-round bursts, 18 s lifetime. Smoke breaks targeting. Team modes only. |
+| Supply Drop | 450 | Mark ground within 8 m; a crate lands after 3 s and waits 30 s in all. The first operator within 2 m, friend or enemy, gets one of their other rewards ready (drawn at random from those they do not hold). Cannot be shot. |
+| Blackout | 750 | Removes every enemy recon drone, jammer, interceptor, sentry, hunter and gunship. For 12 s the enemy has no recon picture anywhere and cannot deploy rewards. Ordnance already falling and crates are untouched. |
+| Rolling Barrage | 800 | 250 m designator, 3 s warning, then five shells 7 m apart walk away from the caller along their aim, one every 0.6 s. Each: 6 m radius, 200 damage within 3 m falling to 50 at the edge. Solid overhead cover protects. |
+| Warden Gunship | 900 | Armed drone hovering 16 m above where it was called (needs 8 m of open sky). Fires three-round bursts of 14 at any enemy within 40 m it has a clear line to; 150 HP, 25 s. Team modes only. |
 
 Hardpoint grants 100 charge per ordinary kill, a single +25 bonus when either
 combatant is in the active hill, and 10 charge per uncontested second personally

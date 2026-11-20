@@ -25,7 +25,12 @@ function hardpoint(tick: number, hp: Partial<HardpointSnapshot>, scores = { alph
 
 describe('match announcer lines', () => {
   it('covers every streak, every control site and the rules the lines quote', () => {
-    for (const id of Object.keys(STREAKS)) for (const kind of ['ready', 'up', 'enemy']) expect(MATCH_LINES[`streak-${kind}-${id}` as MatchCallEvent]?.length).toBeGreaterThanOrEqual(2);
+    // Added after the last recording session: Encik stays quiet about these until their lines are recorded (drafts in .agents/HANDOFF.md).
+    const unrecorded = ['supply', 'blackout', 'barrage', 'gunship'];
+    for (const id of Object.keys(STREAKS)) for (const kind of ['ready', 'up', 'enemy']) {
+      if (unrecorded.includes(id)) expect(Object.hasOwn(MATCH_LINES, `streak-${kind}-${id}`), id).toBe(false);
+      else expect(MATCH_LINES[`streak-${kind}-${id}` as MatchCallEvent]?.length).toBeGreaterThanOrEqual(2);
+    }
     for (const site of SMITH_CONTROL_SITES) expect(MATCH_LINES[`hp-next-${site.id}` as MatchCallEvent]?.length).toBeGreaterThanOrEqual(2);
     // Recorded wording quotes these numbers: changing a rule means re-recording the line.
     expect([TDM_RULES.scoreLimit, TDM_RULES.duration, ARENA_KILL_LIMIT, STREAKS.strike.seconds]).toEqual([30, 300, 15, 3]);

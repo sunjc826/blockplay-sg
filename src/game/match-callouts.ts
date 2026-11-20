@@ -42,7 +42,7 @@ const MATCH_DURATION: Record<MatchMode, number> = { tdm: TDM_RULES.duration, ffa
 const MATCH_LIMIT: Record<MatchMode, number> = { tdm: TDM_RULES.scoreLimit, ffa: ARENA_KILL_LIMIT, hardpoint: HARDPOINT_RULES.scoreLimit };
 /** How close to the limit counts as "nearly there": a few kills, or 25 seconds of control. */
 const NEAR: Record<MatchMode, number> = { tdm: 5, ffa: 3, hardpoint: 25 };
-const DESTRUCTIBLE = new Set<StreakId>(['recon', 'jammer', 'interceptor', 'sentry']);
+const DESTRUCTIBLE = new Set<StreakId>(['recon', 'jammer', 'interceptor', 'sentry', 'gunship']);
 const SITE_IDS = new Set(SMITH_CONTROL_SITES.map(site => site.id));
 const other = (team: ArenaTeam): ArenaTeam => team === 'alpha' ? 'bravo' : 'alpha';
 /** Same order the host ranks a free-for-all by. */
@@ -88,7 +88,8 @@ export function createMatchAnnouncer() {
       const self = snapshot.actors.find(a => a.id === selfId);
       if (!self || (mode !== 'ffa' && !self.team)) return [];
       const out: MatchCallEvent[] = [];
-      const say = (event: MatchCallEvent) => { if (primed) out.push(event); };
+      // A reward Encik has no lines for yet passes without comment.
+      const say = (event: MatchCallEvent) => { if (primed && Object.hasOwn(MATCH_LINES, event)) out.push(event); };
       if (snapshot.finished) { finished = true; return []; }
 
       // Score race: who leads, and whether anyone is about to hit the limit.
