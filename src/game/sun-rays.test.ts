@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { expect, it } from 'vitest';
-import { projectSunRays, type SunRayLight } from './sun-rays';
+import { moonRayAmount, projectSunRays, type SunRayLight } from './sun-rays';
 import { GRAPHICS_PRESETS, sanitizeGraphics } from './graphics-settings';
 const daylight: SunRayLight = { direction: { x: 0, y: .15, z: -1 }, color: '#ffffff', elevation: 12, sunlight: 1, reduced: false };
 function camera() { const c = new THREE.PerspectiveCamera(60, 16 / 9, .1, 500); c.updateMatrixWorld(); return c; }
@@ -20,6 +20,15 @@ it('fades at the image edge and rejects night, reduced effects and unavailable s
   expect(projectSunRays(c, edge, uv)).toBeGreaterThan(0);
   expect(projectSunRays(c, edge, uv)).toBeLessThan(projectSunRays(c, daylight, uv));
   expect(projectSunRays(c, { ...daylight, sunlight: .18 }, uv)).toBeLessThan(.04);
+});
+it('throws fainter shafts from a risen moon, and none in the twilight before it takes over', () => {
+  const c = camera(), uv = new THREE.Vector2(), night = { ...daylight, elevation: -40 };
+  expect(projectSunRays(c, { ...night, moon: 0 }, uv)).toBe(0);
+  const full = projectSunRays(c, { ...night, moon: 1 }, uv);
+  expect(full).toBeGreaterThan(.2); expect(full).toBeLessThan(projectSunRays(c, daylight, uv));
+  expect(projectSunRays(c, { ...night, moon: .5 }, uv)).toBeCloseTo(full / 2);
+  expect(projectSunRays(c, { ...night, moon: 1, reduced: true }, uv)).toBe(0);
+  expect([-3, -4, -7, -10, -40].map(moonRayAmount)).toEqual([0, 0, .5, 1, 1]);
 });
 it('keeps rays optional and preserves old performance presets and explicit quality overrides', () => {
   expect(GRAPHICS_PRESETS.map(p => [p.id, p.values.godRays])).toEqual([['ultra','high'],['high','low'],['balanced','off'],['low','off'],['battery','off']]);

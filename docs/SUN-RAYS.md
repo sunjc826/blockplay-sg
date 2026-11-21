@@ -17,7 +17,14 @@ gives a plain glow, and one fully behind a building gives almost nothing.
 Sun elevation and eased weather sunlight control intensity. A sun up to about
 0.4 screens outside the image still throws shafts, dimming as its source leaves
 the view. Surfaces within 10 m receive reduced scattering (none under 0.5 m) so
-close scenery does not wash out. The effect skips night,
+close scenery does not wash out.
+
+After dark the moon throws the same shafts at half the sun's strength, in the
+night key colour. They fade in as the moon takes over the key light (sun 4° to
+10° below the horizon); the twilight in between has none. There is no moon disc
+in the sky yet, so in open sky this reads as a soft glow where the moon is.
+
+The effect skips
 reduced effects/motion, thermal vision, active NVG and the overview map. Weapons,
 scope images and HUD elements are drawn separately and remain crisp.
 Lens-flare visibility accounts for the composited ray glow when checking sky

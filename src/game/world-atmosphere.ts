@@ -1,4 +1,4 @@
-import type { SunRayLight } from './sun-rays';
+import { moonRayAmount, type SunRayLight } from './sun-rays';
 import { setTreeWeather } from './tree-wind';
 import { updateFoliageDisturbance } from './foliage-disturbance';
 import * as THREE from 'three';
@@ -169,7 +169,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       setTreeWeather(scene, wind, reduced); updateFoliageDisturbance(scene, step, reduced);
       haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
       sunRays.direction = lighting.key; sunRays.color = lighting.keyColor; sunRays.elevation = lighting.elevation;
-      sunRays.sunlight = sunlight; sunRays.reduced = reduced;
+      sunRays.sunlight = sunlight; sunRays.reduced = reduced; sunRays.moon = moonRayAmount(lighting.elevation);
       const time = (now % 3600_000) / 1000;
       scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail, wind);
       driftWeather.wind = wind; driftWeather.rain = wetness; driftWeather.sun = sunlight; driftWeather.night = night;

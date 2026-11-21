@@ -17342,3 +17342,11 @@ expired.
 The fix lives in the page and the outgoing worker, so the first upgrade *to*
 this build still runs the old code and can stall the same way; Retry works once
 the stalled request ends, or close and reopen the app.
+
+### Moon rays — 21 November 2026
+
+Owner asked for moon rays. `SunRayLight.moon` (0–1, `moonRayAmount`: sun −4° → −10°) lets
+`projectSunRays` run after dark at half the sun's strength along the moon key direction;
+twilight between has none. Same passes; NVG/thermal/reduced gates unchanged. No moon disc
+exists, so open sky shows a soft glow at the moon. Typecheck, full suite (4,511), ray and
+lens smokes pass on ANGLE Metal. Gameplay smoke not rerun.

@@ -3,7 +3,11 @@ import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import type { Direction } from './world-lighting';
 
 export type SunRayQuality = 'off' | 'low' | 'high';
-export interface SunRayLight { direction: Direction; color: string; elevation: number; sunlight: number; reduced: boolean }
+export interface SunRayLight {
+  direction: Direction; color: string; elevation: number; sunlight: number; reduced: boolean;
+  /** Once the sun is down: how far the moon has taken over as the key light, 0–1. `direction` and `color` are then the moon's. */
+  moon?: number;
+}
 /** Display-space light added over unobstructed sky, for lens visibility tests. */
 export interface SunRayOverlay { texture: THREE.Texture; color: THREE.Color }
 export const SUN_RAY_BUDGET = { low: { scale: .25, samples: 32 }, high: { scale: .5, samples: 48 } } as const;
@@ -12,11 +16,18 @@ const SOURCE = { core: .07, halo: .5, haloLevel: .5, falloff: 1.9 } as const;
 const glsl = (value: number) => value.toFixed(4);
 /** Peak display-space strength of a fully lit shaft at the sun, before the hour and weather scale it. */
 const RAY_GAIN = .45;
+/** A full moon's shafts as a share of the sun's: enough to read against a night sky without lighting it. */
+const MOON_SHARE = .5;
 const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);
 
+/** Moon shafts fade in as the moon takes over the key light (sun below −4°) and are full by −10°. */
+export const moonRayAmount = (sunElevation: number) => Math.max(0, Math.min(1, (-4 - sunElevation) / 6));
 /** A direction, not a world position: walking must not move the sun on screen. */
 export function projectSunRays(camera: THREE.PerspectiveCamera, light: SunRayLight | undefined, uv: THREE.Vector2) {
-  if (!light || light.reduced || light.elevation <= 0 || light.sunlight <= .05) return 0;
+  if (!light || light.reduced || light.sunlight <= .05) return 0;
+  // By day the sun's height sets the strength; after dark only a risen moon throws shafts.
+  const height = light.elevation > 0 ? smooth(0, 3, light.elevation) : Math.max(0, Math.min(1, light.moon ?? 0)) * MOON_SHARE;
+  if (height <= 0) return 0;
   const d = light.direction, m = camera.matrixWorldInverse.elements;
   const x = m[0] * d.x + m[4] * d.y + m[8] * d.z;
   const y = m[1] * d.x + m[5] * d.y + m[9] * d.z;
@@ -27,7 +38,7 @@ export function projectSunRays(camera: THREE.PerspectiveCamera, light: SunRayLig
   // A sun just outside the image still throws shafts across it (the scatter pass only counts the
   // part of its glow that is on screen); never clamp a hidden sun to a screen edge.
   const edge = Math.max(Math.abs(uv.x - .5), Math.abs(uv.y - .5));
-  return (1 - smooth(.46, .9, edge)) * smooth(0, 3, light.elevation) * light.sunlight * light.sunlight * .8;
+  return (1 - smooth(.46, .9, edge)) * height * light.sunlight * light.sunlight * .8;
 }
 const vertexShader = /* glsl */`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
 const inside = /* glsl */`float inside(vec2 p){return step(0.0,p.x)*step(p.x,1.0)*step(0.0,p.y)*step(p.y,1.0);}`;
