@@ -158,7 +158,7 @@ anchor.stage?: { arena: string; events: string[]; t: number }   // which events 
 ### 4. Propose it: an event before it exists
 
 The agreed list has two dozen events not yet built. Each goes on the board as a
-proposal first, using what the board already draws plus one grouping field:
+proposal first, pushed by the AI (the designer does not author proposals), using what the board already draws plus one grouping field:
 
 ```ts
 thread.proposal?: { kind: 'levelution'; id: string; archetype: string; arena: string }
@@ -197,23 +197,61 @@ where debug tools are mounted, and offers:
 
 ### Build order
 
-1. Timeline strip, arena dressing and the collider, ring and crush overlays.
-   Enough to judge the Tuas event from a phone.
-2. `anchor.stage`, so comments can be left on a moment.
-3. Checks panel, with the checks moved into a shared module.
-4. Walkable change and climbs. Sight change last: it is the most work.
-5. Proposals, then the first unbuilt event (the Geylang blackout) put up that way.
-6. Play this event.
+1. Timeline strip with sound, arena dressing and the collider, ring and crush
+   overlays. Enough to judge the Tuas event from a phone.
+2. Lit view: `createDistrictRenderer` extracted and used by the board.
+3. `anchor.stage`, so comments can be left on a moment.
+4. Checks panel, with the checks moved into a shared module.
+5. Walkable change and climbs. Sight change last: it is the most work.
+6. Proposals, then the first unbuilt event (the Geylang blackout) put up that way.
+7. Play this event.
 
-### Open questions
+### Decided (owner, 2026-11-21)
 
-- **Sound.** Should the timeline play the alert and the thumps? A review on a
-  phone in public says no by default.
-- **Lighting.** The board draws no atmosphere, so a blackout or a flood's water
-  cannot be judged there as it stands. Is a second, lit preview worth building,
-  or is Play this event the answer for those?
-- **Who may propose.** Proposals from the designer need the board to draw an
-  event's footprint by hand. Is that wanted, or do proposals only come from the AI?
+- **Sound is on.** The timeline plays the alert, the thumps and the dust as the
+  match would, through the board's existing mute.
+- **The board shows the lit game, not a second renderer.** See below.
+- **Proposals come from the AI only.** The board needs no tool for drawing an
+  event's footprint by hand; the designer reads the group and gives a verdict.
+
+### Lit view
+
+The game has no single renderer to hand the board. Its look is assembled from
+modules that each take a scene and a camera, and the walk and drive view
+(`RegionGame.tsx`) already assembles most of them over an orbiting camera:
+
+| Module | Gives | In the walk view today |
+| --- | --- | --- |
+| `world-atmosphere.ts` | sun and sky by hour, weather, haze, clouds, district look | yes |
+| `world-occlusion.ts` | ambient occlusion and the water surface pass (refraction, caustics on Ultra) | yes |
+| `world-night-lights.ts` | street lamps, lit windows, rooms behind glass, blackout | no, first-person modes only |
+| `fps-sun-shadows.ts` | the camera-following sun shadow map | no, first-person modes only |
+| post chain and grade | tone mapping and the per-hour grade | assembled inline in `fps-engine.ts` |
+
+So the board gets a **Lit** switch beside Schematic and 3D layout that assembles
+the same modules, with the existing World conditions control for hour and
+weather. The assembly moves out of `fps-engine.ts` into one function,
+`createDistrictRenderer(renderer, scene, camera, region)`, that the engine, the
+walk view and the board all call, so the three cannot drift apart. That
+extraction is the real work here and is worth doing for its own sake.
+
+What stays out, because it belongs to a player's eye and not to the place: the
+lens (flare, dust, rain on glass), the weapon and its lights, scopes, vision
+devices, hit effects.
+
+Limits to expect:
+
+- The sun shadow map covers about 130 m round the camera. An orbit camera high
+  over a district sees past that, so far shadows fade out as they do in play.
+- A whole district lit from above costs more than a street seen from the
+  ground. The board uses the saved graphics preset and falls back to 3D layout
+  on a software renderer.
+- A blackout can be judged here once the `light` step exists; a flood once
+  `water` does. Neither step is built yet.
+
+Build order changes: the lit view goes in after step 1 (timeline and
+overlays), since the overlays do not need it and the extraction is the larger
+job.
 
 ## The portability problem
 
