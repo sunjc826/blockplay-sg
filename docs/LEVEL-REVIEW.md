@@ -8,6 +8,9 @@ pins comments to its surfaces with a real height; see [3D layout pins](#3d-layou
 The schematic is the default and builds nothing. The board does not start
 gameplay or automatically call a model.
 
+Reviewing Levelution events on this board (a stage timeline, overlays, comments on a
+moment, proposals) is designed in [LEVELUTION.md](LEVELUTION.md#reviewing-events-in-the-debug-view); it is not built.
+
 ## Working together
 
 1. Open the private collaboration link once. It connects this browser and merges

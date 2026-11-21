@@ -86,6 +86,135 @@ Two events, `container-yard-west` and `container-yard-east`, both `gantry-collap
   shows any moment of an arena's events (`view=high|south|north|west|east|lane`, no dust); `scripts/levelution-smoke.mjs`
   plays a real Tuas match until the clock starts it.
 
+## Reviewing events in the debug view
+
+Status: **proposal, nothing built** (2026-11-21). Today an event can only be judged
+by playing a match to 60% or by reading a fixture page on the development Mac.
+This puts events on the [level review board](LEVEL-REVIEW.md), which already has
+what a review needs: the built district held still under an orbit camera, pins on
+real surfaces, drawn routes, areas and sightlines, verdicts, and cloud sync so
+nothing depends on this host.
+
+The board's 3D layout builds `region.build()`, and stage parts live in that
+scene, so every state of every part is already there to show.
+
+### 1. See it: a stage timeline on the 3D layout
+
+A **Levelution** strip under the 3D layout, shown when the district has stage
+parts:
+
+- **Arena and events.** The district's arenas that have bindings, and their
+  events as chips (`West gantry`, `East gantry`); select one, several or all.
+- **Timeline.** A scrubber from the start of the warning to settled, with a
+  tick at every step (`set`, `crush`, `dust`) and the phases labelled. **As
+  built** and **Settled** jump to the ends; **Play** runs it at 1x, 0.25x or step
+  by step. It drives the same `createStageView` the game uses, so the board
+  cannot show something the match would not.
+- **Arena dressing.** A toggle draws what a match adds to the district and the
+  board does not otherwise build: the arena's bounds, both teams' spawns, patrol
+  points, Hardpoint rings, match cover and barricades.
+- **Parts.** A list of the district's stage parts and their states, including
+  ones no event uses yet. Selecting one frames it and outlines its colliders.
+
+### 2. Judge it: overlays computed from the same data the host uses
+
+Each is a toggle, drawn without a depth test like the board's routes:
+
+| Overlay | Shows | From |
+| --- | --- | --- |
+| Warning ring | where bots flee and the map ring is drawn | `marker` steps |
+| Crush footprint | where standing at that moment kills, per step | colliders each `crush` step adds |
+| Colliders | each state's boxes and turned footprints, with top heights | the part's obstacles |
+| Walkable change | ground that opened (green) or closed (red) between two moments | `createVerticalMovement` sampled on a 1 m grid inside the arena |
+| Climbs | tops a player can reach from the ground by mantles, and the rise of each step | `supportsTop` colliders |
+| Dust | the cloud bank and how long it lasts | the `collapse-dust` timeline |
+| Sight change | for a chosen standing point, what it could see before and after | the layout metrics' sight disc |
+
+A **Checks** panel runs what `levelution.test.ts` runs, for the selected
+combination of settled events, and lists each as pass or fail with the place:
+spawns and patrol points clear, every spawn connected, Hardpoint rings clear and
+reached by both teams, nothing that falls overlapping scenery or leaving the
+arena, the two halves matching where the binding says they should. It also
+prints the navigation rebuild time on this device. A failing check drops a pin
+where it failed.
+
+### 3. Discuss it: threads that know which moment they are about
+
+A pin on a fallen container means nothing on the map as built. So a level
+thread's anchor gains an optional stage:
+
+```ts
+anchor.stage?: { arena: string; events: string[]; t: number }   // which events were running, and the second
+```
+
+- A pin or drawing placed while the timeline is off **As built** records it.
+  Selecting the thread restores the events and the moment, then the saved view.
+- Stage threads are hidden when the timeline is somewhere else, with a count
+  (`3 comments at Settled`), so the as-built board stays readable.
+- The changed-geometry check runs in the thread's own stage.
+- Like the rest of the anchor it is part of the immutable header, carried by
+  **Copy AI brief** and the cloud CLI.
+
+### 4. Propose it: an event before it exists
+
+The agreed list has two dozen events not yet built. Each goes on the board as a
+proposal first, using what the board already draws plus one grouping field:
+
+```ts
+thread.proposal?: { kind: 'levelution'; id: string; archetype: string; arena: string }
+```
+
+The AI pushes one group per event: an area for what comes down and where it
+lands, a route for what opens, a sightline for what is cut, each *proposal*
+tone, with the trigger and the reading in the thread text. The board lists
+proposed events beside built ones in the strip and shows a group's drawings
+together. The designer gives **Agree**, **Disagree** or **Needs rework** on the
+group. Nothing is built before Agree. When it is built, the binding's id takes
+the proposal's id, the group is marked built, and the same threads carry the
+playtest verdict.
+
+### 5. Play it: a match on demand
+
+The debug panel's Levelution button already exists but nothing mounts it in a
+match. Add **Play this event** to the strip: it opens a solo match of that
+arena inside the debug workspace (`/debug?tool=arena&area=container-yard&mode=team-deathmatch&levelution=container-yard-west`),
+where debug tools are mounted, and offers:
+
+- start the event now, or in 10 s so there is time to get into position;
+- spawn at a chosen point, taken from a pin on the board;
+- restart the match, which puts the map back.
+
+### What it touches
+
+| Piece | Change |
+| --- | --- |
+| `DistrictReviewViewer.tsx` | the strip, the stage view, overlays; the scene stays still apart from the stage |
+| `level-review.ts` | `anchor.stage` and `thread.proposal`, parsed and validated like `space` and `shape` |
+| `district-review.ts` | overlay builders; pin attachment in a stage |
+| `levelution-review.ts` (new, pure) | the checks, lifted out of `levelution.test.ts` so the test and the board run the same code |
+| Worker and `scripts/level-review-cloud.mjs` | carry the two new fields. Deploy the schema before pushing data that uses it |
+| `DebugApp.tsx`, debug workspace URL | an arena match by area and mode, with a named event |
+
+### Build order
+
+1. Timeline strip, arena dressing and the collider, ring and crush overlays.
+   Enough to judge the Tuas event from a phone.
+2. `anchor.stage`, so comments can be left on a moment.
+3. Checks panel, with the checks moved into a shared module.
+4. Walkable change and climbs. Sight change last: it is the most work.
+5. Proposals, then the first unbuilt event (the Geylang blackout) put up that way.
+6. Play this event.
+
+### Open questions
+
+- **Sound.** Should the timeline play the alert and the thumps? A review on a
+  phone in public says no by default.
+- **Lighting.** The board draws no atmosphere, so a blackout or a flood's water
+  cannot be judged there as it stands. Is a second, lit preview worth building,
+  or is Play this event the answer for those?
+- **Who may propose.** Proposals from the designer need the board to draw an
+  event's footprint by hand. Is that wanted, or do proposals only come from the AI?
+
 ## The portability problem
 
 Maps here are still being redrawn. An event written as "at (112, -40) remove this
