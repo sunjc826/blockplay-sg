@@ -408,3 +408,21 @@ const AIMED_BY_SIDE: ReadonlySet<string> = new Set(['sniper', 'helicopter-raid']
 /** Whether an event is a danger to the players: worth an alarm, a tone and a mark on the map. */
 export const threatens = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>, plugin: { hazard: boolean }) =>
   plugin.hazard && !(event.faction === PLAYER_FACTION && AIMED_BY_SIDE.has(event.kind));
+
+/**
+ * Dust from something large coming down (a Levelution collapse, docs/LEVELUTION.md). Never scheduled:
+ * the collapse raises it. It hurts nobody; nobody sees through it until it thins. One event covers a
+ * whole collapse, so two of them cannot crowd out a match's other events: three clouds in a row across
+ * `reach` where it broke, then two more out along the heading where it landed.
+ */
+export const COLLAPSE_DUST = { radius: 9, landing: 1.5, until: 16 } as const;
+registerCombatEvent({
+  id: 'collapse-dust', name: 'Dust cloud', description: 'Dust hangs where something heavy came down. Nobody sees through it until it thins.',
+  warning: 1, duration: COLLAPSE_DUST.until + 4, hazard: false,
+  banner: { warning: 'DUST CLOUD', active: 'DUST CLOUD · NO LINE OF SIGHT THROUGH IT' },
+  timeline(event) {
+    const random = combatRandom(event.seed), offset = frame(event), reach = event.reach ?? 12;
+    const cloud = (id: number, forward: number, side: number, from: number): CombatPayload => ({ type: 'cloud', id, center: offset(forward, side), radius: COLLAPSE_DUST.radius, from, until: COLLAPSE_DUST.until + random() * 4, dps: 0, colour: '#b3ab9b' });
+    return [cloud(0, 0, -reach, 0), cloud(1, 0, 0, .3), cloud(2, 0, reach, .5), cloud(3, reach * .75, 0, COLLAPSE_DUST.landing), cloud(4, reach * 1.45, 0, COLLAPSE_DUST.landing + .2)];
+  },
+});

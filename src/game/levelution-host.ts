@@ -19,6 +19,8 @@ export interface LevelutionHostOptions {
    */
   restage(change: { added: readonly Obstacle[]; removed: readonly Obstacle[]; crush?: { damage: number; cause: string } }): void;
   announce?(text: string): void;
+  /** Raise a sight-blocking dust cloud. */
+  dust?(center: { x: number; z: number }, heading: number, reach: number): void;
 }
 
 export function createLevelutionHost(options: LevelutionHostOptions) {
@@ -40,6 +42,8 @@ export function createLevelutionHost(options: LevelutionHostOptions) {
 
   /** Bring the obstacle list to what the running events say it is at `elapsed`. */
   function sync(elapsed: number, previous: number) {
+    for (const descriptor of running) for (const step of events.find(e => e.binding.id === descriptor.binding)?.steps ?? [])
+      if (step.type === 'dust' && elapsed - descriptor.start >= step.at && previous - descriptor.start < step.at) options.dust?.(step.center, step.heading, step.reach);
     const { added, removed } = applyStageObstacles(obstacles, parts, stageStates(events, running, elapsed));
     if (!added.length && !removed.length) return;
     // The crush belongs to whichever event's step just came due.

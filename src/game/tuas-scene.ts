@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
-import { stageFall } from './stage-parts';
+import { stageFall, stageImpact, stageTip } from './stage-parts';
 
 // On the verge between the tank farm and the plant road, looking west.
 export const TUAS_SPAWN = { x: -70, z: 18, yaw: Math.PI / 2 };
@@ -171,6 +171,27 @@ export function buildTuasScene() {
     sign('DRY DOCK NO. 1', x, 8.4, z + depth / 2 + 14, 30, 2.4, '#2c4450');
   }
 
+  const CRANE = { span: 17, legs: 8, height: 22, yaw: -8 * Math.PI / 180, fall: 3 };
+  /**
+   * The gantry in its own space, for tipping over: the origin is on the ground at one of the pair of feet
+   * it falls over (`toward` +1 south, -1 north), so turning `parent` about X lays it down that way and
+   * turning it about Y slews it round that foot. The foot is the one whose leg would otherwise swing back
+   * into the stacks; the other leg swings out over the apron.
+   */
+  function craneFrame(parent: THREE.Object3D, toward: 1 | -1, hoist: boolean) {
+    const mid = -toward * CRANE.legs, centre = toward * CRANE.span;
+    parent = parent.add(new THREE.Group()).children.at(-1)!; parent.position.x = centre;
+    for (const dx of [-CRANE.span, CRANE.span]) {
+      for (const dz of [-CRANE.legs, CRANE.legs]) cylinder(dx, 11, mid + dz, 0.75, CRANE.height, safety, parent);
+      box(dx, 22.4, mid, 2.4, 1.6, 18, safety, parent);
+    }
+    box(0, 23.6, mid, 38, 2, 4.4, safety, parent);
+    for (const dz of [-1.6, 1.6]) box(0, 24.8, mid + dz, 38, 0.5, 0.5, steel, parent);
+    box(6, 21.6, mid, 5.4, 3.4, 5.4, dark, parent);
+    if (!hoist) return;
+    for (const dz of [-1.4, 1.4]) cylinder(6, 17, mid + dz, 0.07, 9, steel, parent);
+    box(6, 12.6, mid, 7, 1.2, 3, galv, parent);
+  }
   /** Stacking crane: a rail gantry straddling the container rows beneath it. */
   function stackingCrane(x: number, z: number) {
     for (const dx of [-17, 17]) {
@@ -183,6 +204,34 @@ export function buildTuasScene() {
     for (const dz of [-1.4, 1.4]) cylinder(x + 6, 17, z + dz, 0.07, 9, steel);
     box(x + 6, 12.6, z, 7, 1.2, 3, galv);
     for (const dx of [-17, 17]) for (let dz = -9; dz <= 9; dz += 18) box(x + dx, 0.3, z + dz, 3.4, 0.1, 1, steel);
+  }
+  /**
+   * The same crane going over towards `toward`, pivoting on that pair of feet and slewing as it goes:
+   * the Levelution `falling` state (docs/LEVELUTION.md). Nothing collides while it is in the air.
+   */
+  function fallingCrane(x: number, z: number, toward: 1 | -1) {
+    const pivot = new THREE.Group(); pivot.position.set(x - toward * CRANE.span, 0, z + toward * CRANE.legs); pivot.rotation.order = 'YXZ'; scene.add(pivot);
+    craneFrame(pivot, toward, true);
+    stageTip(pivot, { tip: toward * Math.PI / 2, yaw: CRANE.yaw, seconds: CRANE.fall });
+  }
+  /**
+   * And where it comes to rest, the `fallen` state: the near legs lie across the apron as two long
+   * chest-high barriers a player can climb onto, the end frames stand as pillars at their far end, and
+   * the far legs, the main beam and the trolley hang overhead. Placed from the crane's own position.
+   */
+  function fallenCrane(x: number, z: number, toward: 1 | -1) {
+    const pivot = new THREE.Group(); pivot.position.set(x - toward * CRANE.span, 0, z + toward * CRANE.legs); pivot.rotation.order = 'YXZ'; pivot.rotation.set(toward * Math.PI / 2, CRANE.yaw, 0); scene.add(pivot);
+    craneFrame(pivot, toward, false);
+    stageImpact(pivot, 1.8);
+    // `u` across the crane, `a` along the fall from the pivot; turned by the slew and moved to the pivot.
+    const cos = Math.cos(CRANE.yaw), sin = Math.sin(CRANE.yaw);
+    const place = (u: number, a: number) => ({ x: pivot.position.x + u * cos + toward * a * sin, z: pivot.position.z - u * sin + toward * a * cos });
+    const slab = (u: number, halfWidth: number, from: number, to: number, top: number) => {
+      const footprint = [place(u - halfWidth, from), place(u + halfWidth, from), place(u + halfWidth, to), place(u - halfWidth, to)];
+      kit.obstacles.push({ minX: Math.min(...footprint.map(p => p.x)), maxX: Math.max(...footprint.map(p => p.x)), minZ: Math.min(...footprint.map(p => p.z)), maxZ: Math.max(...footprint.map(p => p.z)),
+        minY: 0, maxY: top, footprint, supportsTop: top < 2 });
+    };
+    for (const u of [0, toward * 2 * CRANE.span]) { slab(u, .75, 0, 21.5, 1.5); slab(u, 1.2, 21.6, 23.2, 17); }
   }
 
   const CONTAINER = { pitch: 3.2, width: 3, height: 2.6, storey: 2.7, length: 12.2 };
@@ -201,32 +250,36 @@ export function buildTuasScene() {
     }
   }
   /**
-   * The same stack after it has given way towards `toward` (+1 south, -1 north): the Levelution
-   * `toppled` state (docs/LEVELUTION.md). Everything is placed from the stack's own position, so
-   * moving the stack moves this. Two middle rows are gone, which opens a lane through the block;
-   * the rows beside it step down 1, 2 and 4 high, with spilled crates as the steps between, so a
-   * player can climb to the second tier; and what fell lies across the apron beyond as cover.
+   * The same stack after a falling gantry leg has gone through it towards `toward` (+1 south, -1 north):
+   * the Levelution `toppled` state (docs/LEVELUTION.md). Everything is placed from the stack's own
+   * position, so moving the stack moves this; `flip` mirrors it east to west, which with `toward` gives
+   * the yard's two halves the same layout turned half a turn. The leg takes out the two middle rows,
+   * which opens a lane through the block; the rows on one side step down 1, 2 and 4 high, with spilled
+   * crates as the steps between, so a player can climb to the second tier; and what was knocked out
+   * lies across the apron beyond as cover, clear of where the leg itself comes to rest.
    * Rows left standing have real tops; a fallen box starts from where it was stacked.
    */
-  function toppledStack(x: number, z: number, toward: 1 | -1) {
-    const rowX = (r: number) => x + (r - 3) * CONTAINER.pitch, face = z + toward * 6.2;
+  function toppledStack(x: number, z: number, toward: 1 | -1, flip: 1 | -1) {
+    const rowX = (r: number) => x + flip * (r - 3) * CONTAINER.pitch, face = z + toward * 6.2;
     [4, 2, 1, 0, 0, 4, 4].forEach((high, r) => {
       for (let level = 0; level < high; level++) container(rowX(r), level, z, boxes[(r + level * 3) % boxes.length], level === high - 1);
       if (high) kit.obstacles.push({ minX: rowX(r) - 1.6, maxX: rowX(r) + 1.6, minZ: z - 6.2, maxZ: z + 6.2, minY: 0, maxY: high * CONTAINER.storey, supportsTop: true });
     });
-    /** A spilled crate: a 1.35 m step, which is a mantle. */
-    const crate = (cx: number, cz: number, base: number, from: [number, number, number], delay: number) => {
+    /** A spilled crate: a 1.35 m step, which is a mantle. `dx` across from the stack's middle, `dz` out from its face. */
+    const crate = (dx: number, dz: number, base: number, from: [number, number, number], delay: number) => {
+      const cx = x + flip * dx, cz = face + toward * dz;
       stageFall(box(cx, base + .675, cz, 1.5, 1.35, 1.5, wood, scene, true), { position: from, delay });
       kit.obstacles.push({ minX: cx - .75, maxX: cx + .75, minZ: cz - .75, maxZ: cz + .75, minY: base, maxY: base + 1.35, supportsTop: true });
     };
-    crate(rowX(2), face + toward * .9, 0, [rowX(3), 6.8, z], .1);
-    crate(rowX(2) - .7, z - toward * 1, CONTAINER.storey, [rowX(2), 9.5, z], 0);
-    crate(rowX(5) - .4, face + toward * 2.2, 0, [rowX(4), 6.8, z], .25);
-    crate(x - 1, face + toward * 12, 0, [rowX(3), 9.5, z], .3);
-    crate(x + 5.5, face + toward * 13.6, 0, [rowX(4), 9.5, z], .45);
+    crate(-3.2, .9, 0, [rowX(3), 6.8, z], .1);
+    crate(-3.9, -7.2, CONTAINER.storey, [rowX(2), 9.5, z], 0);
+    crate(6, 2.2, 0, [rowX(4), 6.8, z], .25);
+    crate(-5, 4, 0, [rowX(3), 9.5, z], .3);
+    crate(-7.5, 8.5, 0, [rowX(4), 9.5, z], .45);
     /** A fallen container lying on the ground, turned `yaw` from square; its collider is its turned footprint. */
-    const fallen = (cx: number, cz: number, alongX: boolean, yaw: number, body: THREE.Material, from: [number, number, number], delay: number) => {
-      const group = new THREE.Group(); group.position.set(cx, 0, cz); group.rotation.y = yaw + (alongX ? Math.PI / 2 : 0); scene.add(group);
+    const fallen = (dx: number, dz: number, alongX: boolean, yaw: number, body: THREE.Material, from: [number, number, number], delay: number) => {
+      const cx = x + flip * dx, cz = face + toward * dz;
+      const group = new THREE.Group(); group.position.set(cx, 0, cz); group.rotation.y = flip * toward * yaw + (alongX ? Math.PI / 2 : 0); scene.add(group);
       box(0, 1.4, 0, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, group, true);
       for (let n = -5; n <= 5; n += 2.4) box(1.55, 1.4, n, 0.16, 2.3, 0.5, body, group);
       box(0, 1.4, 6.2, 2.8, 2.2, 0.2, dark, group);
@@ -236,10 +289,10 @@ export function buildTuasScene() {
       kit.obstacles.push({ minX: Math.min(...footprint.map(p => p.x)), maxX: Math.max(...footprint.map(p => p.x)), minZ: Math.min(...footprint.map(p => p.z)), maxZ: Math.max(...footprint.map(p => p.z)),
         minY: 0, maxY: CONTAINER.storey, footprint, supportsTop: true });
     };
-    // Across the mouth of the new lane, leaving a way out to either side; one each side of it further out.
-    fallen(x + 1.6, face + toward * 6, true, .12, boxes[1], [rowX(3), 1.4 + 2 * CONTAINER.storey, z], 0);
-    fallen(x + 10.5, face + toward * 9, false, -.2, boxes[4], [rowX(4), 1.4 + 3 * CONTAINER.storey, z], .2);
-    fallen(x - 10, face + toward * 8, false, .45, boxes[0], [rowX(2), 1.4 + 3 * CONTAINER.storey, z], .35);
+    // One across the mouth of the new lane, leaving a way out to either side; one further out on each side.
+    fallen(7.6, 6, true, .08, boxes[1], [rowX(3), 1.4 + 2 * CONTAINER.storey, z], 0);
+    fallen(16.5, 12, false, -.2, boxes[4], [rowX(4), 1.4 + 3 * CONTAINER.storey, z], .2);
+    fallen(6, 12.5, true, .25, boxes[0], [rowX(2), 1.4 + 3 * CONTAINER.storey, z], .35);
   }
 
   /** Lattice pylon carrying a catenary span to the next tower. */
@@ -334,10 +387,21 @@ export function buildTuasScene() {
   pipeRack(-110, 20, 140);
   flareStack(-96, 72);
   dryDock();
-  // The four stacks are stage parts a to d: a Levelution event may take one down (levelution-bindings.ts).
-  for (let i = 0; i < 4; i++) kit.stage(`container-stack-${'abcd'[i]}`, { tags: ['container-stack'] }, () => containerStack(80 + i * 34, -40, 7, 4));
-  kit.stageState('container-stack-b', 'toppled', () => toppledStack(114, -40, 1));
-  for (const x of [97, 165]) stackingCrane(x, -40);
+  // The four stacks and the two gantries over them are stage parts: a Levelution event brings a gantry
+  // down through the pair of stacks under it (levelution-bindings.ts). The west gantry goes south and
+  // the east one north, so the yard's two halves change the same way, turned half a turn.
+  const YARD = [{ crane: 'west', x: 97, stacks: [0, 1], toward: 1, flip: 1 }, { crane: 'east', x: 165, stacks: [2, 3], toward: -1, flip: -1 }] as const;
+  for (const half of YARD) {
+    for (const i of half.stacks) {
+      const id = `container-stack-${'abcd'[i]}`, sx = 80 + i * 34;
+      kit.stage(id, { tags: ['container-stack'] }, () => containerStack(sx, -40, 7, 4));
+      kit.stageState(id, 'toppled', () => toppledStack(sx, -40, half.toward, half.flip));
+    }
+    const id = `stacking-crane-${half.crane}`;
+    kit.stage(id, { tags: ['crane', 'overhead'] }, () => stackingCrane(half.x, -40));
+    kit.stageState(id, 'falling', () => fallingCrane(half.x, -40, half.toward));
+    kit.stageState(id, 'fallen', () => fallenCrane(half.x, -40, half.toward));
+  }
   containerStack(112, 100, 9, 3);
   industrialShed(137, -160);
   terminus(235, 100);

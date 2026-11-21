@@ -1600,7 +1600,9 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       }
     }
   }
-  const levelution = environment?.levelution?.events.length ? createLevelutionHost({ events: environment.levelution.events, obstacles: obstacles as Obstacle[], duration, restage, announce: text => announce(text) }) : null;
+  const levelution = environment?.levelution?.events.length ? createLevelutionHost({ events: environment.levelution.events, obstacles: obstacles as Obstacle[], duration, restage, announce: text => announce(text),
+    // The combat frame's `forward` runs against its heading, so turn it round: forward is then the way the thing fell.
+    dust: (center, heading, reach) => { startEvent({ kind: 'collapse-dust', seed: Math.floor(random() * 0xffffffff) >>> 0, target: center, heading: heading + Math.PI, intensity: 1, reach }); } }) : null;
   const score = streaks ? createMatchScore(streaks.mode, { actors: () => [...members.values()].filter(m => !m.reserve).map(m => m.actor), enemy: streaks.enemy, 
     // Hardpoint rewards stay on kills and hold time: charged any faster, bots left stations unheld on the tight courts.
     charge: (id, amount) => { if (streaks.mode !== 'hardpoint') streaks.bonus(id, amount); } }) : null;

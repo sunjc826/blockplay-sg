@@ -21,6 +21,11 @@ export type StageStep =
   | { type: 'set'; at: number; part: string; state: StageState }
   /** Whoever stands inside colliders this event adds at `at` takes `damage`, through armour. */
   | { type: 'crush'; at: number; damage: number }
+  /**
+   * Dust nobody sees through for a while: a row of clouds through `center` out to `reach` either side,
+   * then more out along `heading` (radians, x = sin, z = cos) as whatever fell that way lands.
+   */
+  | { type: 'dust'; at: number; center: { x: number; z: number }; heading: number; reach: number }
   /** A ring on the ground and the map; bots leave it. */
   | { type: 'marker'; from: number; until: number; center: { x: number; z: number }; radius: number };
 

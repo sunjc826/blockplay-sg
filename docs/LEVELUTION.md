@@ -1,7 +1,7 @@
 # Levelution: design
 
 Status: **the engine and the first event are built** (2026-11-21): stage parts, the
-`set`, `crush` and `marker` steps, and the Tuas container stack topple in Team
+`set`, `crush`, `dust` and `marker` steps, and the Tuas gantry collapse in Team
 Deathmatch, Free for All and Hardpoint. Everything else here is still a proposal;
 [What is built](#what-is-built) says exactly where the code differs from it.
 
@@ -18,7 +18,7 @@ was. The map after the event must play differently, or it is only an effect.
 ```
 stage-parts.ts          parts and their named states; the one function that swaps colliders (pure but for capture)
 levelution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
-levelution-catalog.ts   archetypes, registered on import: stack-topple
+levelution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse
 levelution-bindings.ts  which arena runs which archetype on which parts: container-yard
 levelution-host.ts      host: triggers, the obstacle list, what changed
 levelution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
@@ -34,22 +34,39 @@ levelution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes int
    every combination of settled events: spawns and patrol points clear, every
    spawn connected, every Hardpoint ring clear and reachable by both teams.
 
-**Tuas, container yard: stack topple.** The second stack (`container-stack-b`)
-gives way to the south. Two middle rows go, opening a 6.4 m lane through the
-block; the rows beside it step down 4, 2 and 1 high with spilled crates between,
-so a player can mantle up to the second tier (5.4 m); three containers and three
-crates land across the dispatch apron as cover, one of them across the lane's
-mouth so the lane is a route and not a sightline. It starts at 60% of the match,
-by the clock or by the leader's score towards the limit (a match can end on
-score before its time runs out), or as soon as blasts near the stack add up to 250 damage (grenades, a
-strike, a barrage). Six seconds of warning: banner with a countdown, alert tone,
-a ring on the map, and bots leave the ring. Whoever is still under a box when it
-lands is killed, through armour, credited to nobody.
+**Tuas, container yard: both gantries come down.** Scaled up on 2026-11-21 after the
+owner found the first version (one stack losing its middle) too small to notice.
+Two events, `container-yard-west` and `container-yard-east`, both `gantry-collapse`:
+
+- Each rail gantry tips over across an apron, pivoting on one foot and slewing as
+  it goes: the west one south, the east one north, so the two halves of the yard
+  change the same way turned half a turn and neither team is favoured.
+- The leg that swings up through the two stacks beneath takes their middles out.
+  All four stacks end with a 6.4 m lane through them, rows stepping down 4, 2 and
+  1 high with crates between (a mantle climb to the second tier, 5.4 m), and three
+  containers and crates across the apron beyond.
+- Where a gantry lies, its two near legs are 21 m chest-high barriers across the
+  apron that a player can climb onto, with the end frames as pillars and the far
+  legs, beam and trolley hanging overhead.
+- Staged over three seconds after the warning: the gantry starts to go (nothing
+  of it collides while it is in the air), the stacks burst at 1.5 s and 2.0 s, and
+  it lands at 3 s. One bank of five dust clouds per gantry blocks sight for about
+  a quarter of a minute (`collapse-dust`, an ordinary combat event the collapse
+  starts, so bots, the screen overlay and guests all get it from existing code).
+- Both start at 60% of the match, by the clock or by the leader's score towards
+  the limit; the east one warns for nine seconds to the west's six, so the yard
+  comes down west then east. Either goes early once blasts near it add up to 300.
+- Warning: banner with a countdown, alert tone, a ring on the map, bots leave.
+  Whoever is under a box or the gantry when it lands is killed, through armour,
+  credited to nobody.
+- The crane's working hoist is a clock-driven set piece (`district-set-pieces.ts`);
+  it is tagged `userData.stagePart` so the stage view hides it with its crane.
 
 **Where the build differs from the proposal below:**
 
 - **Steps.** `remove` and `place` are one step, `set`: a part takes a named state
-  or none. `move`, `water` and `light` are not built.
+  or none. `move` is a state with no colliders whose group is tagged `stageTip` and
+  animated by the view. `dust` raises a cloud bank. `water` and `light` are not built.
 - **After-states are authored, not derived.** The fallen boxes are placed by the
   scene relative to the stack. Nothing chooses the fall direction by rule.
 - **Triggers.** `blast` and `clock` only. No `interact`, `streak` or shot-damage
@@ -65,8 +82,8 @@ lands is killed, through armour, credited to nobody.
   detail, and vehicle collision buffers (arena matches have no vehicles).
 - **Starting one by hand.** The debug panel has a Levelution button, but the
   panel is not shown in `/play` matches, so today it is reachable only where
-  debug tools are mounted. `scripts/fixtures/levelution.html?area=container-yard&t=20&view=high`
-  shows any moment of an event (`view=apron|lane|tier`); `scripts/levelution-smoke.mjs`
+  debug tools are mounted. `scripts/fixtures/levelution.html?area=container-yard&t=8.3&view=south`
+  shows any moment of an arena's events (`view=high|south|north|west|east|lane`, no dust); `scripts/levelution-smoke.mjs`
   plays a real Tuas match until the clock starts it.
 
 ## The portability problem

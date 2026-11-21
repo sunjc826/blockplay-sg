@@ -162,9 +162,11 @@ export function craneState(u: number, o: { a: number; b: number; lift: number; d
   const resting = phase <= 1 && !carrying ? from : to;
   return { x, hook, carrying, resting, restingY: resting === from ? fromY : toY, cycle };
 }
-function crane(kit: Kit, o: { x: number; z: number; a: number; b: number; top: number; lift: number; colour: string; long: 'x' | 'z'; offset: number }) {
+function crane(kit: Kit, o: { x: number; z: number; a: number; b: number; top: number; lift: number; colour: string; long: 'x' | 'z'; offset: number; part?: string }) {
   const steel = kit.lit('#30363a'), box = kit.lit(o.colour, { roughness: .8 }), rope = kit.lit('#1b1d1f');
   const trolley = kit.group(), spreader = kit.group(), carried = kit.group(), parked = kit.group();
+  // The working hoist belongs to a stage part: when a Levelution event takes the crane away, the stage view hides it too.
+  if (o.part) { const rig = kit.group(); rig.userData.stagePart = o.part; rig.add(trolley, spreader, carried, parked); }
   kit.box(trolley, 0, 0, 0, 4.6, 2.2, 4.6, steel);
   const ropes = [-1, 1].map(side => kit.cylinder(trolley, 0, 0, side * 1.3, .06, 1, rope));
   kit.box(spreader, 0, 0, 0, o.long === 'z' ? 2.6 : 12.2, .35, o.long === 'z' ? 12.2 : 2.6, kit.lit('#d9a21f'));
@@ -193,7 +195,7 @@ function harbourfront(kit: Kit): SetPiece {
 // ---------------------------------------------------------------- Tuas
 
 function tuas(kit: Kit): SetPiece {
-  const cranes = [97, 165].map((x, i) => crane(kit, { x, z: -40, a: -11, b: 11, top: 21.6, lift: 15, colour: i ? '#c4882a' : '#4f7a46', long: 'z', offset: i * 17 }));
+  const cranes = [97, 165].map((x, i) => crane(kit, { x, z: -40, a: -11, b: 11, top: 21.6, lift: 15, colour: i ? '#c4882a' : '#4f7a46', long: 'z', offset: i * 17, part: `stacking-crane-${i ? 'east' : 'west'}` }));
   // The flare: tongues of flame over the stack tip, never quite still.
   const flare = kit.group(); flare.position.set(-96, 62.4, 72);
   const tongues = ['#ff7a1a', '#ffb23a', '#fff0b0'].map((c, i) => {

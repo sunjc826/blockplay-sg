@@ -85,6 +85,13 @@ export interface StageFrom { position: [number, number, number]; yaw?: number; d
 /** Tag a mesh to fall into its authored pose from `from` when its state is set. Keeps it out of the instanced batch. */
 export function stageFall<T extends THREE.Object3D>(object: T, from: StageFrom): T { object.userData.stageFrom = from; return object; }
 
+/** A group of an alternative state that goes over as one piece when the state is set: turned about its own X by `tip` and Y by `yaw`. */
+export interface StageTip { tip: number; yaw: number; seconds: number }
+/** Tag a pivot group (rotation order YXZ, built upright) to tip over when its state is set. */
+export function stageTip<T extends THREE.Object3D>(object: T, tip: StageTip): T { object.userData.stageTip = tip; return object; }
+/** Tag an object as landing hard when its state is set: `size` scales the dust, the thump and the shake. */
+export function stageImpact<T extends THREE.Object3D>(object: T, size: number): T { object.userData.stageImpact = size; return object; }
+
 /** The colliders `part` contributes in `state`. */
 export const stageObstacles = (part: StagePartData, state: StageState): readonly Obstacle[] =>
   state === null ? [] : state === STAGE_BASE ? part.obstacles : part.states[state]?.obstacles ?? part.obstacles;

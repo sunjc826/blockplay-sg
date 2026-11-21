@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
 import { stageStates, stagedParts, type LevelutionDescriptor, type ResolvedLevelution } from './levelution';
-import { STAGE_BASE, applyStageObstacles, getStageParts, type StageFrom, type StagePart, type StageState } from './stage-parts';
+import { STAGE_BASE, applyStageObstacles, getStageParts, type StageFrom, type StagePart, type StageState, type StageTip } from './stage-parts';
 
 /** Seconds a tagged mesh takes to fall into place once its state is set. */
-export const STAGE_FALL_SECONDS = 1.1;
+export const STAGE_FALL_SECONDS = 1.4;
 /** A state set longer ago than this is shown settled, with no fall (a late joiner, a resumed tab). */
 const FRESH = 4;
 
@@ -27,6 +27,9 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
   interface Fall { object: THREE.Object3D; from: THREE.Vector3; to: THREE.Vector3; fromYaw: number; toYaw: number; at: number; landed: boolean }
   const rest = new Map<THREE.Object3D, { position: THREE.Vector3; yaw: number }>();
   let falls: Fall[] = [];
+  interface Tip { object: THREE.Object3D; spec: StageTip; at: number }
+  let tips: Tip[] = [];
+  let impacts: { at: THREE.Vector3; size: number }[] = [];
   const settle = (fall: Fall) => { fall.object.position.copy(fall.to); fall.object.rotation.y = fall.toYaw; };
 
   /** When each part's current state was set, in match seconds. */
@@ -59,23 +62,37 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
       const from = objectOf(part, shown.get(part.id)!), to = objectOf(part, want);
       // What was falling into the old state is put down where it belongs before it is taken away.
       falls = falls.filter(fall => { let o: THREE.Object3D | null = fall.object; while (o && o !== from) o = o.parent; if (o) settle(fall); return !o; });
+      tips = tips.filter(tip => { let o: THREE.Object3D | null = tip.object; while (o && o !== from) o = o.parent; return !o; });
       if (from && from !== to) from.removeFromParent();
       if (to && to.parent !== world.scene) world.scene.add(to);
       shown.set(part.id, want); changed = true;
+      // Working scenery that rides on the part (a crane's hoist) goes with it and comes back with it.
+      world.scene.traverse(object => { if (object.userData.stagePart === part.id) object.visible = want === STAGE_BASE; });
       const at = times.get(part.id);
-      if (to && to !== part.object && at !== undefined && elapsed - at < FRESH) to.traverse(object => {
-        const start = object.userData.stageFrom as StageFrom | undefined; if (!start) return;
+      const fresh = at !== undefined && elapsed - at < FRESH;
+      if (to && to !== part.object) to.traverse(object => {
+        const tip = object.userData.stageTip as StageTip | undefined;
+        // Something that goes over as one piece: upright when its state is set, down `seconds` later.
+        if (tip) { if (fresh) { tips.push({ object, spec: tip, at: at! }); object.rotation.set(0, 0, 0); } else object.rotation.set(tip.tip, tip.yaw, 0); }
+        if (fresh && typeof object.userData.stageImpact === 'number') impacts.push({ at: new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()).setY(0), size: object.userData.stageImpact });
+        const start = object.userData.stageFrom as StageFrom | undefined; if (!start || !fresh) return;
         const home = rest.get(object) ?? { position: object.position.clone(), yaw: object.rotation.y }; rest.set(object, home);
-        const fall: Fall = { object, from: new THREE.Vector3(...start.position), to: home.position, fromYaw: start.yaw ?? home.yaw, toYaw: home.yaw, at: at + (start.delay ?? 0), landed: false };
+        const fall: Fall = { object, from: new THREE.Vector3(...start.position), to: home.position, fromYaw: start.yaw ?? home.yaw, toYaw: home.yaw, at: at! + (start.delay ?? 0), landed: false };
         falls.push(fall); object.position.copy(fall.from); object.rotation.y = fall.fromYaw;
       });
     }
     return changed;
   }
 
-  /** Move what is falling. Returns where something came down this frame, for dust and sound. */
+  /** Move what is falling. Returns where something came down this frame and how hard, for dust, sound and shake. */
   function update(elapsed: number) {
-    const landings: THREE.Vector3[] = [];
+    const landings = impacts; impacts = [];
+    tips = tips.filter(tip => {
+      // Slow to start and fast at the end, as something toppling is.
+      const t = Math.min(1, Math.max(0, (elapsed - tip.at) / tip.spec.seconds)), k = Math.pow(t, 2.4);
+      tip.object.rotation.set(tip.spec.tip * k, tip.spec.yaw * k, 0);
+      return t < 1;
+    });
     falls = falls.filter(fall => {
       const t = Math.min(1, Math.max(0, (elapsed - fall.at) / STAGE_FALL_SECONDS)), drop = t * t;
       // Sideways travel leads the drop a little, so a box leaves the stack before it comes down.
@@ -83,7 +100,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
       fall.object.position.set(fall.from.x + (fall.to.x - fall.from.x) * slide, fall.from.y + (fall.to.y - fall.from.y) * drop, fall.from.z + (fall.to.z - fall.from.z) * slide);
       fall.object.rotation.y = fall.fromYaw + (fall.toYaw - fall.fromYaw) * slide;
       if (t < 1) return true;
-      settle(fall); if (!fall.landed) { fall.landed = true; landings.push(fall.object.getWorldPosition(new THREE.Vector3())); }
+      settle(fall); if (!fall.landed) { fall.landed = true; landings.push({ at: fall.object.getWorldPosition(new THREE.Vector3()), size: .7 }); }
       return false;
     });
     return landings;
@@ -94,6 +111,6 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
     /** Parts currently in something other than the state they were built in. */
     get staged() { return [...shown].filter(([, state]) => state !== STAGE_BASE).length; },
     /** Back to the map as built; the scene's own dispose then frees everything. */
-    dispose() { falls.forEach(settle); falls = []; sync([], 0); for (const part of parts) for (const state of Object.values(part.states)) state.object.removeFromParent(); },
+    dispose() { falls.forEach(settle); falls = []; tips = []; impacts = []; sync([], 0); for (const part of parts) for (const state of Object.values(part.states)) state.object.removeFromParent(); },
   };
 }

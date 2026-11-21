@@ -133,63 +133,110 @@ describe('shipped bindings', () => {
   });
 });
 
-describe('Tuas container stack', () => {
-  it('opens a lane through the block, gives a climb to the second tier, and puts cover on the apron', () => {
+describe('Tuas container yard', () => {
+  const terrainOf = (w: ReturnType<typeof buildTeamDeathmatchWorld>) => createVerticalMovement({ bounds: w.bounds, obstacles: w.obstacles, surfaces: getPhysicalWalkSurfaces(w.scene), traversalObstacles: getTraversalObstacles(w.scene) });
+  const settle = (w: ReturnType<typeof buildTeamDeathmatchWorld>) => {
+    const events = w.environment.levelution!.events;
+    applyStageObstacles(w.obstacles, stagedParts(events), stageStates(events, events.map((e, i) => ({ id: `s${i}`, binding: e.binding.id, seed: 1, start: 0 })), 1e6));
+    return events;
+  };
+  it('stages both gantries and all four stacks, each with its other states kept out of the world', () => {
     const w = buildTeamDeathmatchWorld('container-yard');
     try {
-      const stack = getStageParts(w.scene).find(p => p.id === 'container-stack-b')!;
-      expect(getStageParts(w.scene).map(p => p.id)).toEqual(['container-stack-a', 'container-stack-b', 'container-stack-c', 'container-stack-d']);
-      expect(stack.object.parent).toBe(w.scene); expect(stack.states.toppled.object.parent).toBeNull();
-      for (const o of stack.states.toppled.obstacles) expect(w.obstacles).not.toContain(o);
-      const terrain = () => createVerticalMovement({ bounds: w.bounds, obstacles: w.obstacles, surfaces: getPhysicalWalkSurfaces(w.scene), traversalObstacles: getTraversalObstacles(w.scene) });
-      const centre = { x: (Math.min(...stack.obstacles.map(o => o.minX)) + Math.max(...stack.obstacles.map(o => o.maxX))) / 2, z: (stack.obstacles[0].minZ + stack.obstacles[0].maxZ) / 2 };
-      // Before: the block is solid from face to face.
-      const lane = { x: centre.x + 1.6, z: centre.z };
-      expect(terrain().canOccupy(lane.x, 0, lane.z, .4, 1.8)).toBe(false);
-      applyStageObstacles(w.obstacles, [stack], new Map([[stack.id, 'toppled']]));
-      const after = terrain();
-      for (let dz = -8; dz <= 8; dz += 1) expect(after.canOccupy(lane.x + 1.2, 0, lane.z + dz, .4, 1.8), `lane at ${dz}`).toBe(true);
-      // The climb: each step is a mantle (under 1.6 m), up to the second tier.
-      const tops = stageObstacles(stack, 'toppled').filter(o => o.supportsTop).map(o => o.maxY!).sort((a, b) => a - b);
-      expect(tops[0]).toBeCloseTo(1.35);
-      const rises = [...new Set(tops.map(t => Math.round(t * 100) / 100))].filter(t => t <= 5.41);
-      for (let i = 1; i < rises.length; i++) expect(rises[i] - rises[i - 1]).toBeLessThanOrEqual(1.6);
-      expect(rises.at(-1)).toBeCloseTo(5.4);
-      expect(after.supportHeight(centre.x - 6.4, centre.z, 5.6, .35, 1.8)).toBeCloseTo(5.4);
-      // What fell stays inside the arena and clear of both teams' spawns.
-      for (const o of stageObstacles(stack, 'toppled')) {
+      const parts = getStageParts(w.scene);
+      expect(parts.map(p => p.id).sort()).toEqual(['container-stack-a', 'container-stack-b', 'container-stack-c', 'container-stack-d', 'stacking-crane-east', 'stacking-crane-west']);
+      for (const part of parts) {
+        expect(part.object.parent).toBe(w.scene);
+        for (const state of Object.values(part.states)) { expect(state.object.parent).toBeNull(); for (const o of state.obstacles) expect(w.obstacles).not.toContain(o); }
+      }
+      expect(parts.find(p => p.id === 'stacking-crane-west')!.states.falling.obstacles).toEqual([]);
+      expect(w.environment.levelution!.events.map(e => e.binding.id)).toEqual(['container-yard-west', 'container-yard-east']);
+    } finally { w.dispose(); }
+  });
+  it('opens a lane through every block, gives a climb to the second tier, and lays the gantry legs across the aprons', () => {
+    const w = buildTeamDeathmatchWorld('container-yard');
+    try {
+      const before = terrainOf(w), parts = getStageParts(w.scene);
+      const lanes = parts.filter(p => p.id.startsWith('container-stack')).map(stack => {
+        const x = (Math.min(...stack.obstacles.map(o => o.minX)) + Math.max(...stack.obstacles.map(o => o.maxX))) / 2, z = (stack.obstacles[0].minZ + stack.obstacles[0].maxZ) / 2;
+        // The lane is on the side the standing rows are not: find it from the toppled state itself.
+        const standing = stack.states.toppled.obstacles.filter(o => !o.footprint && o.maxZ - o.minZ > 12 && o.maxY! > 10).map(o => (o.minX + o.maxX) / 2);
+        const side = standing.filter(sx => sx > x).length > standing.filter(sx => sx < x).length ? -1 : 1;
+        return { stack, x: x - side * 1.6, z };
+      });
+      for (const lane of lanes) expect(before.canOccupy(lane.x, 0, lane.z, .4, 1.8), `${lane.stack.id} solid before`).toBe(false);
+      settle(w);
+      const after = terrainOf(w);
+      for (const lane of lanes) {
+        let open = 0;
+        for (const dx of [-1.6, -.8, 0, .8, 1.6]) { let clear = true; for (let dz = -7; dz <= 7; dz += 1) clear &&= after.canOccupy(lane.x + dx, 0, lane.z + dz, .4, 1.8); if (clear) open++; }
+        expect(open, `${lane.stack.id} lane`).toBeGreaterThanOrEqual(3);
+        // The climb: each step is a mantle (under 1.6 m), up to the second tier.
+        const tops = [...new Set(stageObstacles(lane.stack, 'toppled').filter(o => o.supportsTop).map(o => Math.round(o.maxY! * 100) / 100))].sort((a, b) => a - b).filter(t => t <= 5.41);
+        expect(tops[0]).toBeCloseTo(1.35); expect(tops.at(-1)).toBeCloseTo(5.4);
+        for (let i = 1; i < tops.length; i++) expect(tops[i] - tops[i - 1]).toBeLessThanOrEqual(1.6);
+      }
+      for (const crane of parts.filter(p => p.id.startsWith('stacking-crane'))) {
+        const legs = crane.states.fallen.obstacles.filter(o => o.supportsTop);
+        expect(legs).toHaveLength(2);
+        for (const leg of legs) { expect(leg.maxY).toBeLessThanOrEqual(1.6); expect(leg.maxZ - leg.minZ).toBeGreaterThan(20); }
+      }
+      // The two halves are the same layout turned half a turn about the yard's middle.
+      const centre = { x: (80 + 182) / 2, z: -40 }, turned = (o: Obstacle) => `${(2 * centre.x - (o.minX + o.maxX) / 2).toFixed(2)},${(2 * centre.z - (o.minZ + o.maxZ) / 2).toFixed(2)}`, at = (o: Obstacle) => `${((o.minX + o.maxX) / 2).toFixed(2)},${((o.minZ + o.maxZ) / 2).toFixed(2)}`;
+      const west = ['stacking-crane-west', 'container-stack-a', 'container-stack-b'].flatMap(id => { const p = parts.find(q => q.id === id)!; return [...stageObstacles(p, p.states.fallen ? 'fallen' : 'toppled')]; });
+      const east = ['stacking-crane-east', 'container-stack-c', 'container-stack-d'].flatMap(id => { const p = parts.find(q => q.id === id)!; return [...stageObstacles(p, p.states.fallen ? 'fallen' : 'toppled')]; });
+      expect(west.map(turned).sort()).toEqual(east.map(at).sort());
+      // Everything that comes down stays inside the arena, clear of other solids and of each other.
+      const staged = new Set([...west, ...east]), others = w.obstacles.filter(o => !staged.has(o) && (o.maxY ?? 99) > .3 && o.maxX > w.bounds.minX && o.minX < w.bounds.maxX && o.maxZ > w.bounds.minZ && o.minZ < w.bounds.maxZ);
+      const corners = (o: Obstacle) => o.footprint ?? [{ x: o.minX, z: o.minZ }, { x: o.maxX, z: o.minZ }, { x: o.maxX, z: o.maxZ }, { x: o.minX, z: o.maxZ }];
+      const apart = (a: Obstacle, b: Obstacle) => (a.minY ?? 0) >= (b.maxY ?? 99) - .01 || (b.minY ?? 0) >= (a.maxY ?? 99) - .01 || [a, b].some(o => { const c = corners(o), other = corners(o === a ? b : a);
+        return c.some((p, i) => { const q = c[(i + 1) % c.length], nx = q.z - p.z, nz = p.x - q.x, mine = c.map(v => v.x * nx + v.z * nz), theirs = other.map(v => v.x * nx + v.z * nz); return Math.max(...mine) <= Math.min(...theirs) + .05 || Math.max(...theirs) <= Math.min(...mine) + .05; }); });
+      const fell = [...staged].filter(o => o.footprint || o.maxZ - o.minZ < 3);
+      for (const o of fell) {
         expect(o.minX).toBeGreaterThan(w.bounds.minX + 2); expect(o.maxX).toBeLessThan(w.bounds.maxX - 2); expect(o.minZ).toBeGreaterThan(w.bounds.minZ + 2); expect(o.maxZ).toBeLessThan(w.bounds.maxZ - 2);
+        for (const other of others) expect(apart(o, other), `${at(o)} clear of scenery at ${at(other)}`).toBe(true);
+        for (const other of fell) if (other !== o) expect(apart(o, other), `${at(o)} clear of ${at(other)}`).toBe(true);
       }
     } finally { w.dispose(); }
   });
 
-  it('runs in a match: holds through the warning, changes the map, replicates, and resets', () => {
+  it('runs in a match: warns, brings the gantry down in stages behind dust, replicates, and resets', () => {
     const w = buildHardpointWorld('container-yard');
     try {
       const terrain = { bounds: w.bounds, obstacles: w.obstacles, surfaces: getPhysicalWalkSurfaces(w.scene), traversalObstacles: getTraversalObstacles(w.scene) };
       const arena = createArena(w.obstacles, 4, 'mixed', w.environment, undefined, terrain);
-      const stack = getStageParts(w.scene).find(p => p.id === 'container-stack-b')!, base = [...stack.obstacles];
+      const parts = getStageParts(w.scene), crane = parts.find(p => p.id === 'stacking-crane-west')!, stack = parts.find(p => p.id === 'container-stack-b')!, east = parts.find(p => p.id === 'stacking-crane-east')!;
+      const has = (list: readonly Obstacle[]) => list.every(o => w.obstacles.includes(o));
       arena.addPlayer('p1', 'Player');
       for (let i = 0; i < 100; i++) arena.step(.05);
-      expect(arena.triggerLevelution('container-yard-topple')).not.toBeNull();
-      expect(arena.triggerLevelution('container-yard-topple')).toBeNull();
-      const event = w.environment.levelution!.events[0];
-      const warned = arena.snapshot();
-      expect(warned.levelution?.events).toHaveLength(1);
-      expect(validArenaSnapshot(JSON.parse(JSON.stringify(warned)), w.environment)).toBe(true);
-      for (let t = 0; t < event.warning - .2; t += .05) arena.step(.05);
-      expect(w.obstacles).toContain(base[0]);
-      for (let t = 0; t < .5; t += .05) arena.step(.05);
-      for (const o of base) expect(w.obstacles).not.toContain(o);
-      for (const o of stack.states.toppled.obstacles) expect(w.obstacles).toContain(o);
+      expect(arena.triggerLevelution('container-yard-west')).not.toBeNull();
+      expect(arena.triggerLevelution('container-yard-west')).toBeNull();
+      const event = w.environment.levelution!.events[0], run = (seconds: number) => { for (let t = 0; t < seconds - 1e-6; t += .05) arena.step(.05); };
+      expect(validArenaSnapshot(JSON.parse(JSON.stringify(arena.snapshot())), w.environment)).toBe(true);
+      run(event.warning - .2);
+      expect(has(crane.obstacles) && has(stack.obstacles)).toBe(true);
+      run(.5);
+      // In the air: the gantry's feet are gone and nothing of it collides yet; the stacks still stand.
+      expect(crane.obstacles.some(o => w.obstacles.includes(o))).toBe(false);
+      expect(crane.states.fallen.obstacles.some(o => w.obstacles.includes(o))).toBe(false);
+      expect(has(stack.obstacles)).toBe(true);
+      run(1.6);
+      expect(has(stack.states.toppled.obstacles)).toBe(true);
+      expect(has(crane.states.fallen.obstacles)).toBe(false);
+      run(1.4);
+      expect(has(crane.states.fallen.obstacles)).toBe(true);
+      const dusty = arena.snapshot();
+      expect(dusty.events?.filter(e => e.kind === 'collapse-dust').length).toBe(1);
+      expect(validArenaSnapshot(JSON.parse(JSON.stringify(dusty)), w.environment)).toBe(true);
+      expect(has(east.obstacles)).toBe(true);
       // Bots carry on over the new map without ending up inside it.
-      for (let i = 0; i < 400; i++) arena.step(.05);
+      run(20);
       const settled = arena.snapshot();
       expect(validArenaSnapshot(JSON.parse(JSON.stringify(settled)), w.environment)).toBe(true);
-      for (const a of settled.actors) if (a.alive) expect(stack.states.toppled.obstacles.some(o => a.x > o.minX + .3 && a.x < o.maxX - .3 && a.z > o.minZ + .3 && a.z < o.maxZ - .3 && !o.footprint && a.y - 1.75 < o.maxY! - .2 && a.y > o.minY!), `${a.id} inside a box`).toBe(false);
+      for (const a of settled.actors) if (a.alive) expect(stack.states.toppled.obstacles.some(o => !o.footprint && a.x > o.minX + .3 && a.x < o.maxX - .3 && a.z > o.minZ + .3 && a.z < o.maxZ - .3 && a.y - 1.75 < o.maxY! - .2 && a.y > o.minY!), `${a.id} inside a box`).toBe(false);
       arena.reset();
-      for (const o of base) expect(w.obstacles).toContain(o);
-      for (const o of stack.states.toppled.obstacles) expect(w.obstacles).not.toContain(o);
+      expect(has(crane.obstacles) && has(stack.obstacles)).toBe(true);
+      expect(stack.states.toppled.obstacles.some(o => w.obstacles.includes(o))).toBe(false);
       expect(arena.snapshot().levelution).toBeUndefined();
     } finally { w.dispose(); }
   });
@@ -218,56 +265,60 @@ describe('crush', () => {
 
 describe('stage view', () => {
   const build = () => {
-    const w = buildTeamDeathmatchWorld('container-yard'), events = w.environment.levelution!.events, stack = getStageParts(w.scene).find(p => p.id === 'container-stack-b')!;
-    return { w, events, stack, start: { id: 'stage-1', binding: events[0].binding.id, seed: 1, start: 20 }, at: 20 + events[0].warning };
+    const w = buildTeamDeathmatchWorld('container-yard'), events = w.environment.levelution!.events, parts = getStageParts(w.scene);
+    const event = events[0], start = { id: 'stage-1', binding: event.binding.id, seed: 1, start: 20 }, sets = event.steps.flatMap(s => s.type === 'set' ? [s] : []);
+    return { w, events, event, start, crane: parts.find(p => p.id === 'stacking-crane-west')!, stack: parts.find(p => p.id === 'container-stack-b')!, tipAt: 20 + sets[0].at, burstAt: 20 + sets[1].at, downAt: 20 + sets.at(-1)!.at };
   };
-  it('on a guest swaps the meshes and the colliders together, drops the fallen boxes into place, and goes back on reset', () => {
-    const { w, events, stack, start, at } = build();
+  it('on a guest tips the gantry over, bursts the stacks and swaps meshes and colliders together, and goes back on reset', () => {
+    const { w, events, start, crane, stack, tipAt, burstAt, downAt } = build();
     try {
-      const view = createStageView(w, events), toppled = stack.states.toppled;
+      const view = createStageView(w, events);
       expect(view.sync([], 5)).toBe(false);
-      expect(view.sync([start], at - .1)).toBe(false);
-      expect(stack.object.parent).toBe(w.scene);
-      expect(view.sync([start], at)).toBe(true); expect(view.sync([start], at)).toBe(false);
-      expect(stack.object.parent).toBeNull(); expect(toppled.object.parent).toBe(w.scene); expect(view.staged).toBe(1);
-      for (const o of toppled.obstacles) expect(w.obstacles).toContain(o);
-      for (const o of stack.obstacles) expect(w.obstacles).not.toContain(o);
-      const falling: { object: import('three').Object3D; rest: number }[] = [];
-      toppled.object.traverse(o => { if (o.userData.stageFrom) falling.push({ object: o, rest: 0 }); });
-      expect(falling.length).toBeGreaterThanOrEqual(8);
-      expect(view.update(at)).toEqual([]);
-      const high = falling.map(f => f.object.position.y);
-      expect(Math.max(...high)).toBeGreaterThan(5);
-      let landings = 0;
-      for (let t = at; t <= at + STAGE_FALL_SECONDS + 1; t += .05) landings += view.update(t).length;
-      expect(landings).toBe(falling.length);
-      falling.forEach((f, i) => expect(f.object.position.y).toBeLessThanOrEqual(high[i]));
+      expect(view.sync([start], tipAt - .1)).toBe(false);
+      expect(crane.object.parent).toBe(w.scene);
+      expect(view.sync([start], tipAt)).toBe(true); expect(view.sync([start], tipAt)).toBe(false);
+      expect(crane.object.parent).toBeNull(); expect(crane.states.falling.object.parent).toBe(w.scene);
+      const pivot = crane.states.falling.object.children.find(o => o.userData.stageTip)!;
+      view.update(tipAt); expect(pivot.rotation.x).toBe(0);
+      view.update(tipAt + 1.5); const half = pivot.rotation.x; expect(half).toBeGreaterThan(0); expect(half).toBeLessThan(Math.PI / 4);
+      expect(view.sync([start], burstAt)).toBe(true);
+      expect(stack.object.parent).toBeNull(); expect(stack.states.toppled.object.parent).toBe(w.scene);
+      for (const o of stack.states.toppled.obstacles) expect(w.obstacles).toContain(o);
+      let falling = 0; stack.states.toppled.object.traverse(o => { if (o.userData.stageFrom) falling++; });
+      expect(falling).toBeGreaterThanOrEqual(8);
+      let landings = 0, hardest = 0;
+      expect(view.sync([start], downAt)).toBe(true);
+      expect(crane.states.falling.object.parent).toBeNull(); expect(crane.states.fallen.object.parent).toBe(w.scene);
+      for (const o of crane.states.fallen.obstacles) expect(w.obstacles).toContain(o);
+      for (let t = burstAt; t <= downAt + STAGE_FALL_SECONDS + 1; t += .05) for (const landing of view.update(t)) { landings++; hardest = Math.max(hardest, landing.size); }
+      expect(landings).toBeGreaterThanOrEqual(falling + 1); expect(hardest).toBeGreaterThan(1);
+      expect(view.staged).toBe(3);
       expect(view.sync([], 0)).toBe(true);
-      expect(stack.object.parent).toBe(w.scene); expect(toppled.object.parent).toBeNull();
-      for (const o of stack.obstacles) expect(w.obstacles).toContain(o);
+      expect(crane.object.parent).toBe(w.scene); expect(stack.object.parent).toBe(w.scene); expect(crane.states.fallen.object.parent).toBeNull();
+      for (const o of [...stack.obstacles, ...crane.obstacles]) expect(w.obstacles).toContain(o);
     } finally { w.dispose(); }
   });
   it('shows a late joiner the settled map with nothing falling', () => {
-    const { w, events, stack, start, at } = build();
+    const { w, events, start, stack, downAt } = build();
     try {
       const view = createStageView(w, events);
-      expect(view.sync([start], at + 60)).toBe(true);
-      expect(view.update(at + 60)).toEqual([]);
+      expect(view.sync([start], downAt + 60)).toBe(true);
+      expect(view.update(downAt + 60)).toEqual([]);
       let highest = 0; stack.states.toppled.object.traverse(o => { if (o.userData.stageFrom) highest = Math.max(highest, o.position.y); });
       expect(highest).toBeLessThan(4);
     } finally { w.dispose(); }
   });
   it('beside a simulation leaves the colliders alone and reports when the simulation changes them', () => {
-    const { w, events, stack, start, at } = build();
+    const { w, events, start, stack, burstAt } = build();
     try {
       const view = createStageView(w, events, false), before = [...w.obstacles];
       // The view's clock is ahead of the simulation's: meshes swap, colliders do not.
-      expect(view.sync([start], at)).toBe(true);
+      expect(view.sync([start], burstAt)).toBe(true);
       expect(w.obstacles).toEqual(before);
-      expect(view.sync([start], at)).toBe(false);
+      expect(view.sync([start], burstAt)).toBe(false);
       applyStageObstacles(w.obstacles, [stack], new Map([[stack.id, 'toppled']]));
-      expect(view.sync([start], at)).toBe(true);
-      expect(view.sync([start], at)).toBe(false);
+      expect(view.sync([start], burstAt)).toBe(true);
+      expect(view.sync([start], burstAt)).toBe(false);
     } finally { w.dispose(); }
   });
 });

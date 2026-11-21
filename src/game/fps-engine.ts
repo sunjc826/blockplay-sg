@@ -4433,10 +4433,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     eventClock = Math.max(previous, previous + dt + (snapshot.elapsed - previous - dt) * Math.min(1, dt * 4));
     if (stageView) {
       if (stageView.sync(snapshot.levelution?.events ?? [], eventClock)) restagePlayer();
-      for (const at of stageView.update(eventClock)) {
+      for (const { at, size } of stageView.update(eventClock)) {
         const distance = at.distanceTo(camera.position); at.y = Math.max(0, at.y - 1.3);
-        combatVisuals.spot(at, '#a39d90'); combatAudio.boom(distance, .7); ambientSky.startle(at, .7);
-        shake = Math.min(1, shake + Math.max(0, 1 - distance / 45) * .6);
+        combatVisuals.spot(at, '#a39d90'); combatAudio.boom(distance, size); ambientSky.startle(at, size);
+        shake = Math.min(1, shake + Math.max(0, 1 - distance / (65 * size)) * .85 * Math.min(1.2, size));
       }
       // Events begun / parts no longer as built, for the smoke.
       const staged = `${snapshot.levelution?.events.length ?? 0}/${stageView.staged}`; if (staged !== canvas.dataset.levelution) canvas.dataset.levelution = staged;

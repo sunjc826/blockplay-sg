@@ -17358,3 +17358,16 @@ measures cover in a 1×1 pass (`Sun ray cover`): clear sun → small tight glow 
 4–30% of the source hidden → long beams (exp(-1.9d)), hollowed within ~0.08 of the sun;
 `RAY_GAIN` .6. Lens flare code untouched. Typecheck, ray tests, ray and lens smokes pass on
 ANGLE Metal; full suite run before push. Gameplay smoke not rerun.
+
+Tuas Levelution scaled up (2026-11-21, owner: the single stack was too small to notice; agreed to do all three of
+more stacks, the gantry, and a staged fall with dust):
+- `container-yard-topple` is replaced by `container-yard-west` and `-east` (`gantry-collapse`): each gantry tips over
+  across an apron through the two stacks under it. Parts `stacking-crane-west/east` have `falling` (no colliders,
+  `stageTip`) and `fallen` states; all four stacks have `toppled`. docs/LEVELUTION.md has the full description.
+- New step `dust` starts a `collapse-dust` combat event; `validArenaSnapshot` lets that one kind through in team
+  matches when the snapshot also carries Levelution events. One dust event per gantry, because team matches cap
+  events at six and a Hunter Drone needs a free slot.
+- The west and east halves are the same layout turned half a turn; a test holds that, and that nothing which
+  falls overlaps scenery, another fallen piece, a spawn, a patrol point or a Hardpoint ring.
+- Checked: tests, fixture captures on the software renderer, `scripts/levelution-smoke.mjs` (live solo TDM: both
+  gantries and four stacks down, dust banner shown). Not checked: a hosted guest, a real GPU, frame time, touch.

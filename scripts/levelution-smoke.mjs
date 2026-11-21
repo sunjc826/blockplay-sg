@@ -1,4 +1,4 @@
-// Plays a real solo Team Deathmatch on Tuas until the clock starts the container stack's Levelution event
+// Plays a real solo Team Deathmatch on Tuas until the clock starts the container yard's Levelution events
 // (60% of the way through, by time or score), and checks the warning banner and the changed map. Needs Vite and Chrome with remote
 // debugging (software rendering is fine):
 //   LEVELUTION_APP_ORIGIN=http://127.0.0.1:5197 LEVELUTION_CHROME_ORIGIN=http://127.0.0.1:9477 node scripts/levelution-smoke.mjs
@@ -15,7 +15,7 @@ const shot=async name=>fs.writeFile(`${out}/${name}.png`,Buffer.from((await send
 const click=async selector=>{await send('Page.bringToFront');const p=await ev(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const b=e.getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2}})()`);await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});};
 const key=async k=>{for(const type of ['keyDown','keyUp'])await send('Input.dispatchKeyEvent',{type,key:k,code:k,windowsVirtualKeyCode:27});};
 const stage=()=>ev('document.querySelector(".fps-game canvas")?.dataset.levelution ?? document.querySelector("canvas[data-levelution]")?.dataset.levelution ?? ""');
-const banner=()=>ev('[...document.querySelectorAll("*")].filter(e=>!e.children.length).map(e=>e.textContent).find(t=>/STACK GIVING WAY/.test(t)) ?? ""');
+const banner=()=>ev('[...document.querySelectorAll("*")].filter(e=>!e.children.length).map(e=>e.textContent).find(t=>/GANTRY COMING DOWN/.test(t)) ?? ""');
 await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
 await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('blockplay-sg-graphics-v1',JSON.stringify({scale:.7,frameCap:30,shadowDetail:'low',lensEffects:false,sightReflections:false,antialias:false}));localStorage.setItem('blockplay-sg-environment-v1',JSON.stringify({timeOfDay:'noon',weather:'sunny',shadows:false,occlusion:false,reducedEffects:true}));`});
 try {
@@ -26,11 +26,12 @@ try {
   await new Promise(r=>setTimeout(r,1500));
   // Nothing in a /play match can start it early, so wait for the clock: 60% of the match by time or by score.
   assert.equal(await stage()||'0/0','0/0');
-  await wait('document.querySelector("canvas[data-levelution]")?.dataset.levelution==="1/0"',1500);
+  await wait('document.querySelector("canvas[data-levelution]")?.dataset.levelution==="2/0"',1500);
   let warned='';for(let i=0;i<40&&!warned;i++){warned=await banner();await new Promise(r=>setTimeout(r,150));}
-  assert.match(warned,/CONTAINER STACK · STACK GIVING WAY · GET CLEAR · \d+s/);await shot('warning');
-  await wait('document.querySelector("canvas[data-levelution]")?.dataset.levelution==="1/1"',200);
-  await new Promise(r=>setTimeout(r,2500));await shot('toppled');
+  assert.match(warned,/(WEST|EAST) GANTRY · GANTRY COMING DOWN · GET CLEAR · \d+s/);await shot('warning');
+  await wait('document.querySelector("canvas[data-levelution]")?.dataset.levelution==="2/6"',300);
+  await shot('toppled');await new Promise(r=>setTimeout(r,2500));await shot('dust');
+  assert.equal(await ev('document.querySelector(".fps-game").dataset.phase'),'playing');
   assert.equal(await banner(),'');
-  assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,warned,errors},null,2));console.log('Levelution: warning shown, stack toppled in a live match. '+warned);
+  assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,warned,errors},null,2));console.log('Levelution: warning shown, both gantries and all four stacks down in a live match. '+warned);
 }finally{ws.close();await fetch(chrome+'/json/close/'+tab.id);}
