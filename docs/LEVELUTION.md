@@ -219,19 +219,56 @@ for the pool), not `damage`, so no player brings a landmark down. `wheel-drop`
 has a mild variant with no `move`: the wheel stops dark and one empty capsule
 falls.
 
-**Where they can run.** Neither is inside the one Marina arena. Garden pavilions
-spans x -57 to 58 and z 58 to 117; the Sands lifts and SkyPark deck are near
-x 90 to 151, z -18, and the Flyer's service core is near x 180, z -165. So by
-rule 4 both wait for one of:
-
-- a new Marina arena drawn round the Sands promenade or the Flyer terminal, or
-- Expedition support, where the whole district is in play.
+**Where they can run.** Both landmarks are in the Marina Bay district, so both
+events can run in any mode that plays the whole district. Neither is inside the
+small Garden pavilions slice that Team Deathmatch, Hardpoint and Free for All use
+(x -57 to 58, z 58 to 117; the Sands lifts and SkyPark deck are near x 90 to 151,
+z -18, and the Flyer's service core near x 180, z -165). The district is open
+for a redesign, and the events are authored relative to the landmark so they
+follow it wherever it ends up.
 
 **Not yet in the scene.** The SkyPark is modelled as a planted combat deck
 (`sands-skypark`) with no pool, so `pool-burst` needs the pool built first. The
 Flyer's rim and capsules are a non-colliding set piece (`district-set-pieces.ts`)
 turning on the world clock, while its service core, terminal and gantries are
 solid; `wheel-drop` needs the rim as a stage part with an authored fallen state.
+
+## Event list by district
+
+One headline event per district, agreed as the working list on 2026-11-21.
+Features come from the scene notes; exact placement on each map is still open.
+**Bold** marks the first batch.
+
+| District | Event | Archetype | What changes in the fight |
+| --- | --- | --- | --- |
+| Marina Bay | **Wheel drop**: the empty Flyer's rim settles into the bay | `wheel-drop` | A walkable arc over the water, capsules as cover |
+| Marina Bay | Pool burst: the SkyPark pool fails down the tower face | `pool-burst` | Flooded promenade, a waterfall as a sight screen |
+| Tuas | **Stack topple**: a wall of containers falls | `stack-topple` | An alley opens; the fallen boxes are cover and a climb |
+| Tuas | Crane drop: the gantry crane drops its load | `overhead-drop` | A long apron lane is cut by new climbable cover |
+| HarbourFront | Quay crane drop | `overhead-drop` | The gateway court's central crossing is blocked |
+| Bishan | **Flash flood**: the river park fills | `flash-flood` | Low lawn becomes wading; the shade court is the dry high ground |
+| Orchard | Boulevard flood in monsoon rain | `flash-flood` | The carriageway slows everyone; canopies become the fast routes |
+| Punggol | Waterway surge | `flash-flood` | The channel banks drown; crossings become choke points |
+| Queenstown | Stalled train: it stops on the viaduct with doors open | `derailment` | A raised walkway and firing line above the estate green |
+| Bukit Timah | Tree fall across the rail corridor in a squall | `tree-fall` | Vault-height cover; the corridor's long sightline is broken |
+| Upper Thomson | Tree fall across the cross street | `tree-fall` | Vehicles blocked; the route behind the houses matters more |
+| Pulau Ubin | Tide: the jetty approach floods and drains on a timer | `tide` | The jetty route comes and goes |
+| Sentosa | Span drop: the suspension bridge is cut | `span-drop` | One crossing left; the beach approach becomes the flank |
+| Jurong Lake | Garden bridge drop | `span-drop` | The garden circuit stops being a loop |
+| Changi | Terminal lockdown: shutters close | `lockdown` | One flank shuts and a service passage opens |
+| Tampines | Hub lockdown: concourse shutters | `lockdown` | Ground routes close; the galleries become the way through |
+| Chinatown | Canopy fall: the Smith Street roof panels come down | `canopy-fall` | Overhead cover goes; debris cover in the lane |
+| Woodlands | Shelter collapse in a squall | `canopy-fall` | The lawn's dividing cover is rearranged |
+| Raffles Place | Scaffold fall: hoarding comes down in the square | `canopy-fall` | The central spine is blocked; the arcades are the way round |
+| Kampong Glam | Awning fall: street awnings come down in a squall | `canopy-fall` | Lane cover changes; nothing heritage is touched |
+| Geylang | **Substation blackout** | `substation` | The lorongs go dark for the rest of the match |
+| Little India | Substation blackout | `substation` | The arcade stays lit by shopfronts; side passages go black |
+| Yishun | Substation blackout | `substation` | The courts go dark; the retail wings stay lit |
+| Toa Payoh | Water main burst | `flash-flood` | The courtyard floods ankle-deep and a spray screens the centre |
+| Katong | Water main burst in the street | `flash-flood` | The street-side rotation slows; the veranda route gains value |
+
+Weakest entries: Raffles Place (assumes scaffolding we would add), Kampong Glam,
+Katong and Toa Payoh, where the obvious features are heritage or homes.
 
 ## Build order
 
