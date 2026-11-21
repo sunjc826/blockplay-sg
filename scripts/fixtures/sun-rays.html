@@ -34,6 +34,13 @@ if(district){
  world.scene.userData.sunRays={direction:{x:-.1,y:.4,z:-1},color:'#ffe0a5',elevation:22,sunlight:1,reduced:false};
 }
 const post=createWorldOcclusion(renderer,world.scene,camera);
+// A stand-in for the carried gun: its own scene and camera, drawn over the finished world. A bar across the sun, and glass that must not block.
+const view=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(60,16/9,.01,3);
+const bar=new THREE.Mesh(new THREE.BoxGeometry(.03,.5,.03),new THREE.MeshBasicMaterial({color:'#20252a'}));
+const glass=new THREE.Mesh(new THREE.PlaneGeometry(.3,.3),new THREE.MeshBasicMaterial({color:'#9fd0ff',transparent:true,opacity:.15}));
+view.add(bar,glass);
+function placeGun(){const s=world.scene.userData.sunRays.direction,d=new THREE.Vector3(s.x,s.y,s.z).normalize().applyQuaternion(camera.quaternion.clone().invert()).multiplyScalar(.5);
+ bar.position.copy(d);bar.rotation.z=.5;glass.position.copy(d).multiplyScalar(.8);viewCamera.fov=camera.fov;viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();}
 const render=renderer.render.bind(renderer);let sceneDraws=0,passQuery=null,wantPassTiming=false;
 renderer.render=(scene,...args)=>{
  if(scene===world.scene)sceneDraws++;
@@ -42,11 +49,13 @@ renderer.render=(scene,...args)=>{
  if(wantPassTiming&&ext&&scene.material?.name==='Sun ray composite')gl.endQuery(ext.TIME_ELAPSED_EXT);
  return result;
 };
-let current={quality:'low',ao:true,bloom:true};
+let current={quality:'low',ao:true,bloom:true,gun:null,blocks:true};
 window.draw=(options={})=>{
  current={...current,...options};renderer.info.reset();sceneDraws=0;
  world.animate(1);if(air)air.update(0,camera,Date.UTC(2026,10,9,4));
- post.render(current.ao,current.bloom,false,false,current.quality);
+ bar.visible=current.gun==='bar';glass.visible=!!current.gun;if(current.gun)placeGun();
+ post.render(current.ao,current.bloom,false,false,current.quality,true,current.gun&&current.blocks?{scene:view,camera:viewCamera}:undefined);
+ if(current.gun){renderer.clearDepth();renderer.render(view,viewCamera);}
  return {enabled:post.godRaysEnabled,size:post.godRaysSize,calls:renderer.info.render.calls,sceneDraws};
 };
 function pixels(){const gl=renderer.getContext(),p=new Uint8Array(renderer.domElement.width*renderer.domElement.height*4);gl.readPixels(0,0,renderer.domElement.width,renderer.domElement.height,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;}
@@ -54,6 +63,16 @@ window.compare=()=>{
  window.draw({quality:'off'});const a=pixels();window.draw({quality:'high'});const b=pixels();let changed=0,energy=0;
  for(let i=0;i<a.length;i+=4){const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);if(d>8)changed++;energy+=d;}
  window.draw({quality:'off'});const restored=pixels().every((v,i)=>v===a[i]);return{changed,energy,restored};
+};
+// What handing the gun to the rays changes: the bar must reshape them (shade behind it, beams past it), glass alone must change nothing.
+window.gun=()=>{
+ const result={};
+ for(const gun of ['bar','glass']){
+  window.draw({quality:'high',gun,blocks:false});const a=pixels();window.draw({blocks:true});const b=pixels();let changed=0,light=0;
+  for(let i=0;i<a.length;i+=4){const d=b[i]-a[i]+b[i+1]-a[i+1]+b[i+2]-a[i+2];if(Math.abs(d)>8)changed++;light+=d;}
+  result[gun]={changed,light};
+ }
+ window.draw({quality:'off',gun:null,blocks:true});return result;
 };
 window.block=()=>{cover.visible=true;const result=window.compare();cover.visible=false;return result};
 window.gates=()=>{

@@ -17359,6 +17359,18 @@ measures cover in a 1×1 pass (`Sun ray cover`): clear sun → small tight glow 
 `RAY_GAIN` .6. Lens flare code untouched. Typecheck, ray tests, ray and lens smokes pass on
 ANGLE Metal; full suite run before push. Gameplay smoke not rerun.
 
+### The gun blocks the god rays — 21 November 2026
+
+Owner asked for the rays to interact with the gun. `sun-rays.ts` `render` takes a `SunRayBlocker`
+(scene + camera); after the sky mask it draws that scene's opaque parts into the mask as a flat
+black silhouette (`hideNonOccluders` from viewmodel-occlusion, so glass/reticles/flashes pass
+light). `world-occlusion.render` has a seventh argument for it; `fps-engine` passes the viewmodel
+scene. The gun counts as cover, so a clear sun crossed by it switches from tight glow to beams.
+`sun-rays.html` has a stand-in bar and glass (`window.gun()`), asserted in `sun-rays-smoke.mjs`;
+`sun-rays-gameplay.html` takes `x`, `z`, `drop`, `turn`. Checked on ANGLE Metal: ray smoke, and
+gameplay frames at the Marina spawn with and without the blocker. Not checked: aiming down
+sights, the cost of the extra draw, the lens and gameplay smokes.
+
 Tuas Levelution scaled up (2026-11-21, owner: the single stack was too small to notice; agreed to do all three of
 more stacks, the gantry, and a staged fall with dust):
 - `container-yard-topple` is replaced by `container-yard-west` and `-east` (`gantry-collapse`): each gantry tips over

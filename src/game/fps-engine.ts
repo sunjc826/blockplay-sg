@@ -563,6 +563,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // Night vision and thermal (N, J for the palette): it draws over every pass below.
   const wetView = createWetSurfaces(viewScene, true);
   const viewOcclusion = createViewmodelOcclusion(renderer, viewScene, viewCamera);
+  // The gun and hands stand in the god rays' way, though the world's depth never holds them.
+  const sunBlocker = { scene: viewScene, camera: viewCamera };
   const vision = createVisionSystem(renderer, { world: world.scene, view: viewScene });
   const visionState = createVisionState(!!checkpoint?.vision && !!equipment.vision);
   const iffTracker = createIffTracker();
@@ -5051,7 +5053,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         getGraphicsSettings().rainReflections && !vision.thermal && !nvgAiming && !overviewActive(),
         getGraphicsSettings().waterReflections && !vision.thermal && !nvgAiming && !overviewActive(),
         !vision.thermal && !nvgAiming && !overviewActive() ? getGraphicsSettings().godRays : 'off',
-        !vision.thermal && !nvgAiming && !overviewActive()));
+        !vision.thermal && !nvgAiming && !overviewActive(), sunBlocker));
       canvas.dataset.godRays = String(occlusion.godRaysEnabled);
       canvas.dataset.smaa = String(occlusion.smaaEnabled);
       canvas.dataset.bloom = String(occlusion.bloomEnabled);

@@ -8,11 +8,12 @@ import { createProfile, equip, purchase, resolveLoadout } from '/src/game/armory
 import { setEnvironmentSettings } from '/src/game/environment-settings.ts';
 import { setGraphicsSettings, getGraphicsSettings } from '/src/game/graphics-settings.ts';
 import { dayLighting, singaporeDayOfYear } from '/src/game/world-lighting.ts';
-const device=new URLSearchParams(location.search).get('device')||'nvg-gen2';
+const query=new URLSearchParams(location.search),device=query.get('device')||'nvg-gen2';
 const profile=equip(purchase({...createProfile(),xp:50000,credits:100000,tokens:10000},device).profile,device,0);
 setEnvironmentSettings({weather:'sunny',timeOfDay:'morning',celebration:'none',reducedEffects:false});setGraphicsSettings({godRays:'low',scale:1,bloom:true});
-const sun=dayLighting(9.5,singaporeDayOfYear(Date.now())).key,yaw=Math.atan2(-sun.x,-sun.z),pitch=Math.asin(sun.y)-.2;
-window.engine=createFpsEngine(document.getElementById('world'),hud=>window.hud=structuredClone(hud),{region:'marina-bay',combat:false,loadout:resolveLoadout(profile),deploymentIntro:false,rangeTravel:{spawn:{x:0,z:16,yaw,pitch},onTravel(){}}});
+const sun=dayLighting(9.5,singaporeDayOfYear(Date.now())).key,// `drop` and `turn` (radians) move the view off the sun, to bring the gun across it.
+ yaw=Math.atan2(-sun.x,-sun.z)+Number(query.get('turn')||0),pitch=Math.asin(sun.y)-Number(query.get('drop')||.2);
+window.engine=createFpsEngine(document.getElementById('world'),hud=>window.hud=structuredClone(hud),{region:'marina-bay',combat:false,loadout:resolveLoadout(profile),deploymentIntro:false,rangeTravel:{spawn:{x:Number(query.get('x')||0),z:Number(query.get('z')||16),yaw,pitch},onTravel(){}}});
 createRoot(document.getElementById('settings')).render(React.createElement(GraphicsSettings));
 window.settings=getGraphicsSettings;window.environment=setEnvironmentSettings;
 document.getElementById('start').onclick=()=>{window.engine.start();document.getElementById('start').style.display='none';};

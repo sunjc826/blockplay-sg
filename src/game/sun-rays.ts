@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import type { Direction } from './world-lighting';
+import { hideNonOccluders } from './viewmodel-occlusion';
 
 export type SunRayQuality = 'off' | 'low' | 'high';
 export interface SunRayLight {
@@ -10,6 +11,8 @@ export interface SunRayLight {
 }
 /** Display-space light added over unobstructed sky, for lens visibility tests. */
 export interface SunRayOverlay { texture: THREE.Texture; color: THREE.Color }
+/** Something drawn over the world afterwards that should still stand in the light's way: the carried gun and hands. */
+export interface SunRayBlocker { scene: THREE.Scene; camera: THREE.Camera }
 export const SUN_RAY_BUDGET = { low: { scale: .25, samples: 32 }, high: { scale: .5, samples: 48 } } as const;
 /** Screen heights: the sun's disc and halo radii, the halo's share of the disc's brightness, and how fast the light fades
  * with distance from the sun: `glow` (at `glowLevel`) when the source is in clear sky, `falloff` for the beams once something
@@ -54,6 +57,8 @@ const source = /* glsl */`float source(float r){float halo=max(0.0,1.0-r/${glsl(
  * draws and one one-pixel draw, and no extra scene render. Composites after tone mapping, before the
  * weapon/HUD, so the separately cleared sky cannot be overexposed.
  * Technique: GPU Gems 3, chapter 13; the source mask comes from existing depth.
+ * A blocker (the first-person gun and hands) is not in that depth, so its opaque parts are drawn into the
+ * mask as a flat silhouette: one small extra draw of that scene, only while rays are on.
  * Unlike the original, each pixel's march is normalised by the same march over open sky, so a
  * shaft's brightness is (share of the source it can see, sharpened) × (an authored falloff with distance),
  * instead of thinning with the share of the march that happens to cross the source.
@@ -133,12 +138,15 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
   Object.assign(blendMaterial, { transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
     blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor });
   maskMaterial.name = 'Sun ray mask'; coverMaterial.name = 'Sun ray cover'; scatterMaterial.name = 'Sun ray scatter'; blendMaterial.name = 'Sun ray composite';
+  const silhouette = new THREE.MeshBasicMaterial({ color: 0, side: THREE.DoubleSide, depthTest: false, depthWrite: false, toneMapped: false, fog: false });
+  silhouette.name = 'Sun ray blocker';
+  const hidden: THREE.Object3D[] = [];
   const quad = new FullScreenQuad(maskMaterial);
   const overlay: SunRayOverlay = { texture: rays.texture, color: uniforms.rayColor.value };
   return {
     overlay,
     get size() { return { width: mask.width, height: mask.height }; },
-    render(picture: THREE.WebGLRenderTarget, depth: THREE.DepthTexture, quality: Exclude<SunRayQuality, 'off'>, light: SunRayLight, uv: THREE.Vector2, strength: number) {
+    render(picture: THREE.WebGLRenderTarget, depth: THREE.DepthTexture, quality: Exclude<SunRayQuality, 'off'>, light: SunRayLight, uv: THREE.Vector2, strength: number, blocker?: SunRayBlocker) {
       const budget = SUN_RAY_BUDGET[quality], w = Math.max(1, Math.ceil(picture.width * budget.scale)), h = Math.max(1, Math.ceil(picture.height * budget.scale));
       if (mask.width !== w || mask.height !== h) { mask.setSize(w, h); rays.setSize(w, h); }
       uniforms.tDepth.value = depth; uniforms.texel.value.set(1 / picture.width, 1 / picture.height);
@@ -148,11 +156,18 @@ export function createSunRays(renderer: THREE.WebGLRenderer, camera: THREE.Persp
       const auto = renderer.autoClear; renderer.autoClear = false;
       try {
         quad.material = maskMaterial; renderer.setRenderTarget(mask); quad.render(renderer);
+        if (blocker) {
+          // Glass, reticles, flashes and sprites let the light through; everything else closes the sky behind it.
+          const override = blocker.scene.overrideMaterial;
+          hideNonOccluders(blocker.scene, hidden); blocker.scene.overrideMaterial = silhouette;
+          try { renderer.render(blocker.scene, blocker.camera); }
+          finally { blocker.scene.overrideMaterial = override; for (const object of hidden) object.visible = true; hidden.length = 0; }
+        }
         quad.material = coverMaterial; renderer.setRenderTarget(cover); quad.render(renderer);
         quad.material = scatterMaterial; renderer.setRenderTarget(rays); quad.render(renderer);
         quad.material = blendMaterial; renderer.setRenderTarget(null); quad.render(renderer);
       } finally { renderer.autoClear = auto; }
     },
-    dispose() { mask.dispose(); rays.dispose(); cover.dispose(); coverMaterial.dispose(); maskMaterial.dispose(); scatterMaterial.dispose(); blendMaterial.dispose(); quad.dispose(); },
+    dispose() { mask.dispose(); rays.dispose(); cover.dispose(); coverMaterial.dispose(); maskMaterial.dispose(); scatterMaterial.dispose(); blendMaterial.dispose(); silhouette.dispose(); quad.dispose(); },
   };
 }

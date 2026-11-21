@@ -1,4 +1,4 @@
-import { createSunRays, projectSunRays, type SunRayLight, type SunRayQuality } from './sun-rays';
+import { createSunRays, projectSunRays, type SunRayBlocker, type SunRayLight, type SunRayQuality } from './sun-rays';
 import * as THREE from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
@@ -119,8 +119,9 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       gtao?.setSize(Math.ceil(size.x / 2), Math.ceil(size.y / 2));
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
     },
-    /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied. */
-    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays, wantWaterSurface = true) {
+    /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied.
+     * `sunBlocker` is drawn later by the caller, over this picture; here it only shades the god rays. */
+    render(want: boolean, wantBloom = getGraphicsSettings().bloom, wantRainReflections = getGraphicsSettings().rainReflections, wantWaterReflections = getGraphicsSettings().waterReflections, wantGodRays: SunRayQuality = getGraphicsSettings().godRays, wantWaterSurface = true, sunBlocker?: SunRayBlocker) {
       smaaEnabled = supported && getGraphicsSettings().smaa;
       // Release optional full-resolution buffers when the player switches back to a light preset.
       if (!smaaEnabled && smaa) { smaa.dispose(); smaaTarget!.dispose(); smaa = null; smaaTarget = null; }
@@ -184,7 +185,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       gradeApplied = grade.set(colorGrade);
       dome?.draw(renderer, camera, gradeApplied ? colorGrade! : null);
       output!.render(renderer, picture, picture, 0, false);
-      if (godRaysEnabled) sunRays!.render(picture, sceneTarget!.depthTexture!, wantGodRays as Exclude<SunRayQuality, 'off'>, sun!, sunUv, rayStrength);
+      if (godRaysEnabled) sunRays!.render(picture, sceneTarget!.depthTexture!, wantGodRays as Exclude<SunRayQuality, 'off'>, sun!, sunUv, rayStrength, sunBlocker);
       renderer.autoClear = autoClear;
       return want;
     },

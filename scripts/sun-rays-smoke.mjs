@@ -23,6 +23,8 @@ try{
  assert(results.visual.changed>1000,'Visible sun shafts');assert(results.visual.restored,'Off restores exact image');
  for(const quality of ['off','low','high']){const state=await evaluate(`window.draw({quality:'${quality}'})`);assert.equal(state.sceneDraws,1);await screenshot(quality);}
  results.blocked=await evaluate('window.block()');assert.equal(results.blocked.changed,0,'Opaque cover blocks the scattering mask');
+ results.gun=await evaluate('window.gun()');console.log('Gun',JSON.stringify(results.gun));
+ assert(results.gun.bar.changed>1000,'A gun across the sun reshapes the rays');assert.equal(results.gun.glass.changed,0,'Glass on the gun lets the rays through');
  results.gates=await evaluate('window.gates()');for(const state of Object.values(results.gates))assert.equal(state.enabled,false);
  results.benchmarks=[];
  for(const [w,h]of[[1280,720],[1920,1080],[780,1688]]){

@@ -31,9 +31,17 @@ night key colour. They fade in as the moon takes over the key light (sun 4° to
 10° below the horizon); the twilight in between has none. There is no moon disc
 in the sky yet, so in open sky this reads as a soft glow where the moon is.
 
+The carried gun and hands block the light too. They are drawn after the world
+and are not in its depth buffer, so their opaque parts are drawn into the sky
+mask as a flat silhouette (`SunRayBlocker`; glass, reticles, flashes and sprites
+are left out, as for the viewmodel's ambient occlusion). A gun raised across the
+sun cuts its glow and throws beams past its edges, and counts as cover, so the
+tight clear-sky glow gives way to shafts. This is one extra draw of the
+first-person scene at the ray buffer's size, only while rays are on.
+
 The effect skips
 reduced effects/motion, thermal vision, active NVG and the overview map. Weapons,
-scope images and HUD elements are drawn separately and remain crisp.
+scope images and HUD elements are drawn separately, over the rays, and remain crisp.
 Lens-flare visibility accounts for the composited ray glow when checking sky
 pixels, preserving both effects together and retaining weapon/world obstruction.
 This reuses the ray texture in the existing 1×1 visibility pass; no extra pass
@@ -50,7 +58,8 @@ Transparent objects that do not write depth are not full ray blockers.
 The implementation reuses the main scene depth and makes three fullscreen draws
 (a conservative sky mask, radial integration and a bounded final composite) plus
 a one-pixel draw that measures how much of the source is covered.
-It does not render scene geometry a second time. Low uses quarter-resolution
+It does not render world geometry a second time; in play the first-person
+scene is drawn once more, flat, into the mask (not included in the timings below). Low uses quarter-resolution
 buffers and 32 integration samples; High uses half-resolution buffers and 48.
 Both add two RGBA8 targets, approximately **0.99 MiB / 3.96 MiB at 1080p**,
 excluding driver overhead. Targets are lazy, resized with resolution/quality,
