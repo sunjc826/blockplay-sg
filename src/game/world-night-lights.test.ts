@@ -98,7 +98,8 @@ describe('street lamps', () => {
       world.scene.traverse(o => { if (o instanceof THREE.Mesh) expect(o.geometry.getAttribute('nightSpan')).toBeUndefined(); });
       world.dispose();
     }
-  }, 30000);
+  // Builds all 23 districts: about 15 s on the development Mac, and past 30 s on a busy CI runner.
+  }, 90000);
   it('lights the authored apartment panes on every Queenstown block after batching', () => {
     const region = REGIONS.find(r => r.id === 'queenstown')!, world = region.build();
     separateInstancedMaterials(world.scene);
