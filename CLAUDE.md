@@ -28,7 +28,10 @@ Single maintainer (@sunjc826), so the branch-and-review dance is overhead:
 `main` is what deploys: a push runs `.github/workflows/deploy-cloudflare.yml`,
 which typechecks, tests, builds and publishes the Cloudflare Worker, then checks
 the live site. A red run leaves the previous deploy serving, so a broken push is
-recoverable — but run the checks here first rather than using CI to find out:
+recoverable — but run the checks here first rather than using CI to find out.
+A newer push cancels a run still in progress and deploys in its place, and a run
+stands down if the live site is already its commit or a later one
+(docs/CLOUDFLARE.md, "Deploy order"):
 
 ```sh
 pnpm install   # only when the lockfile changed

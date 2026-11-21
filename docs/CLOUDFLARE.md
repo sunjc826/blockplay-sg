@@ -94,10 +94,43 @@ Two optional settings:
 | `GOOGLE_MAPS_DEMO_API_KEY` | Secret | Enables live Street View in the deployed build. Unset means the build disables it, as it does today. |
 | `CLOUDFLARE_APP_ORIGIN` | Variable | Where the post-deploy check looks. Defaults to `https://blockplaysg.fun`, the public URL. Set it to override — the `workers.dev` origin, or a different custom domain. |
 
-Deploys run one at a time and a queued run waits rather than cancelling one
-mid-upload. Pushes from forks are ignored. The browser smokes are not part of
+Deploys run one at a time, in commit order (below). Pushes from forks are ignored. The browser smokes are not part of
 this workflow: they need a running Vite server and a Chrome with remote
 debugging, so they remain a local step.
+
+### Deploy order
+
+A run takes about seventeen minutes, most of it tests, and pushes often arrive
+closer together than that. Two rules keep that from wasting time or publishing
+an old commit over a new one:
+
+- **The latest push wins.** A newer run cancels the one in front of it
+  (`cancel-in-progress: true`) and deploys in its place. If the cancel lands in
+  the few seconds `wrangler deploy` takes, the Worker stays on the version it
+  last finished publishing until the newer run replaces it.
+- **Every build carries its depth on `main`.** After the build,
+  `node scripts/deploy-order.mjs stamp` writes `dist/deploy.json`
+  (`{ depth, sha, dirty, builtAt }`, where `depth` is `git rev-list --count HEAD`),
+  and the site serves it at `/deploy.json`. Before deploying,
+  `node scripts/deploy-order.mjs guard` reads the live stamp and stands down when
+  the live site is a later commit, or this same commit built from a clean tree.
+  The workflow asks at the start, which skips the whole run, and again just
+  before `wrangler deploy`.
+
+So a deploy by hand does not compete with a slow run: `pnpm deploy:cloudflare`
+stamps and guards the same way, and a run for that commit or an earlier one
+finds the site already there and exits green without deploying. `main` is never
+rewritten, so a greater depth is a later commit. Three cases to know:
+
+- A site with no stamp (anything deployed before this existed) is deployed over.
+- A build from a tree with uncommitted changes is stamped `dirty`; a clean build
+  of the same commit deploys over it.
+- A deploy by hand from commits that are not on `main` yet has a depth ahead of
+  `main`, and runs stand down until `main` passes it. Push, or redeploy.
+
+`DEPLOY_FORCE=1 pnpm deploy:cloudflare` deploys regardless, and so does a run
+started by hand from the Actions tab, which is how to roll back to an earlier
+commit on purpose. `curl https://blockplaysg.fun/deploy.json` says what is live.
 
 ### Cloudflare's own Git integration (alternative)
 
