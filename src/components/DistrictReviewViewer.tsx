@@ -189,9 +189,9 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
       </div>
       <div className="lr-stage-transport">
         <button onClick={() => { setPlaying(false); seekTo(0); }}>As built</button>
-        <button className="lr-primary" disabled={!events.length} onClick={() => { if (sound) audio.current?.wake(); if (!playing && stageTime >= span) seekTo(0); setPlaying(on => !on); }}>{playing ? 'Pause' : stageTime > 0 && stageTime < span ? 'Resume' : 'Play'}</button>
-        <button disabled={!events.length} aria-label="Step back a tenth of a second" onClick={() => { setPlaying(false); seekTo(stageTime - .1); }}>−0.1 s</button>
-        <button disabled={!events.length} aria-label="Step forward a tenth of a second" onClick={() => { setPlaying(false); seekTo(stageTime + .1); }}>+0.1 s</button>
+        <button className="lr-primary" disabled={!events.length} onClick={() => { if (sound) audio.current?.wake(); if (!playing && clock.current >= span) seekTo(0); else setStageTime(clock.current); setPlaying(on => !on); }}>{playing ? 'Pause' : stageTime > 0 && stageTime < span ? 'Resume' : 'Play'}</button>
+        <button disabled={!events.length} aria-label="Step back a tenth of a second" onClick={() => { setPlaying(false); seekTo(clock.current - .1); }}>−0.1 s</button>
+        <button disabled={!events.length} aria-label="Step forward a tenth of a second" onClick={() => { setPlaying(false); seekTo(clock.current + .1); }}>+0.1 s</button>
         <button disabled={!events.length} onClick={() => { setPlaying(false); seekTo(span); }}>Settled</button>
         <label>Speed<select value={speed} onChange={e => setSpeed(Number(e.target.value))}><option value={1}>1×</option><option value={.5}>0.5×</option><option value={.25}>0.25×</option></select></label>
         <button aria-pressed={sound} onClick={() => { if (!sound) audio.current?.wake(); setSound(on => !on); }}>{sound ? 'Sound on' : 'Sound off'}</button>
@@ -200,7 +200,7 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
         <input type="range" min={0} max={span} step={.05} value={stageTime} disabled={!events.length} list="lr-stage-ticks" onChange={e => { setPlaying(false); seekTo(Number(e.target.value)); }} />
         <datalist id="lr-stage-ticks">{stageTicks(events).map(tick => <option key={tick.at} value={tick.at} label={tick.label} />)}</datalist>
       </label>
-      <ol className="lr-stage-ticks">{stageTicks(events).map(tick => <li key={tick.at} data-past={stageTime >= tick.at}><button onClick={() => { setPlaying(false); seekTo(tick.at); }}>{tick.at.toFixed(1)} s</button> {tick.label}</li>)}</ol>
+      <details className="lr-stage-steps"><summary>Steps · {stageTicks(events).length}</summary><ol className="lr-stage-ticks">{stageTicks(events).map(tick => <li key={tick.at} data-past={stageTime >= tick.at}><button onClick={() => { setPlaying(false); seekTo(tick.at); }}>{tick.at.toFixed(1)} s</button> {tick.label}</li>)}</ol></details>
       <div className="lr-stage-overlays">{([['dressing', 'Arena: bounds, spawns, rings, cover'], ['ring', 'Warning ring'], ['crush', 'Where it lands (lethal)'], ['dust', 'Dust'], ['colliders', 'Colliders']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={overlays[key]} onChange={e => setOverlays(current => ({ ...current, [key]: e.target.checked }))} /> {label}</label>)}</div>
     </div>}
     <p className="lr-map-hint" role="status">{placing ? movingView ? 'Drag to orbit; Shift-drag, right-drag or two fingers slide; scroll or pinch zooms. Choose Position pin when ready.' : 'Drag or tap to position the pointer on a surface, release, then choose Pin here. Scroll or pinch still zooms; Move view orbits.' : 'Drag to orbit, or switch Drag: orbit to Drag: slide to move across the map with one finger · Shift-drag, right-drag or two fingers also slide · scroll or pinch zooms · double-click centres on a surface. Faded pins are behind geometry; dashed pins came from the schematic and sit at ground level. Drawn routes, areas and dashed sightlines show through buildings: blue is the level as built, red a problem, green a proposal.'}</p>

@@ -23,6 +23,9 @@ try {
     await press('Frame arena');await wait('(document.querySelector(".lr-model-canvas").dataset.stage||"").startsWith("2/0.00")');await shot(name+'-as-built');
     await press('Settled');await wait('Number(document.querySelector(".lr-model-canvas").dataset.stage.split("/")[1])>=15.9');
     assert.match(await ev('document.querySelector(".lr-stage-scrub").textContent'),/Settled/);await shot(name+'-settled');
+    await ev('document.querySelector(".lr-stage-steps").open=true');
+    // The district keeps most of the window.
+    if(name==='desktop')assert.ok(await ev('document.querySelector(".lr-model-stage").getBoundingClientRect().height')>=560,'the 3D view is at least 560 px tall in a 1000 px window');
     // A tick jumps to its moment: the west gantry starts to go at the end of its six-second warning.
     await ev(`[...document.querySelectorAll('.lr-stage-ticks li')].find(li=>li.textContent.includes('stacking-crane-west → falling')).querySelector('button').click()`);
     await wait('document.querySelector(".lr-model-canvas").dataset.stage==="2/6.00"');
