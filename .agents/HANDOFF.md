@@ -17383,3 +17383,13 @@ more stacks, the gantry, and a staged fall with dust):
   falls overlaps scenery, another fallen piece, a spawn, a patrol point or a Hardpoint ring.
 - Checked: tests, fixture captures on the software renderer, `scripts/levelution-smoke.mjs` (live solo TDM: both
   gantries and four stacks down, dust banner shown). Not checked: a hosted guest, a real GPU, frame time, touch.
+
+Levelution on the level review board (2026-11-21, owner approved the design in docs/LEVELUTION.md "Reviewing events
+in the debug view"; answers recorded there: sound on, a lit view from the game's own modules, AI-only proposals):
+- Built step 1 only: a Levelution strip under the board's 3D layout for any district whose arenas have events
+  (`/debug?review=tuas&view=3d`). `levelution-review.ts` drives the game's `createStageView` on the board's scene
+  (seek replays from 0 when scrubbing back, so states are entered at their own moments) and draws overlays tagged
+  `fpsEffect` so no pin lands on them. `stage-review-audio.ts` is a small synth; the board has no game audio.
+- Checked: `levelution-review.test.ts`, typecheck, the full suite, and `scripts/levelution-review-smoke.mjs` on the
+  software renderer at 1440 and 390 wide. Not checked: a real phone, touch dragging of the scrubber, the sound by ear.
+- Next in the build order: the lit view (`createDistrictRenderer` extracted from `fps-engine.ts`), then `anchor.stage`.

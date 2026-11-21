@@ -88,9 +88,10 @@ Two events, `container-yard-west` and `container-yard-east`, both `gantry-collap
 
 ## Reviewing events in the debug view
 
-Status: **proposal, nothing built** (2026-11-21). Today an event can only be judged
-by playing a match to 60% or by reading a fixture page on the development Mac.
-This puts events on the [level review board](LEVEL-REVIEW.md), which already has
+Status: **step 1 of the build order is built** (2026-11-21): the timeline strip with
+sound, arena dressing, and the ring, landing, dust and collider overlays. The rest
+is a proposal. Before this an event could only be judged by playing a match to 60%
+or by reading a fixture page on the development Mac. The design puts events on the [level review board](LEVEL-REVIEW.md), which already has
 what a review needs: the built district held still under an orbit camera, pins on
 real surfaces, drawn routes, areas and sightlines, verdicts, and cloud sync so
 nothing depends on this host.
@@ -197,8 +198,11 @@ where debug tools are mounted, and offers:
 
 ### Build order
 
-1. Timeline strip with sound, arena dressing and the collider, ring and crush
-   overlays. Enough to judge the Tuas event from a phone.
+1. **Built.** Timeline strip with sound, arena dressing and the collider, ring
+   and crush overlays (`levelution-review.ts`, `stage-review-audio.ts`, the strip in
+   `DistrictReviewViewer.tsx`; `scripts/levelution-review-smoke.mjs`). Not in it yet:
+   the parts list, and collider top heights as labels. Dust is drawn as domes, not
+   as the game's particles.
 2. Lit view: `createDistrictRenderer` extracted and used by the board.
 3. `anchor.stage`, so comments can be left on a moment.
 4. Checks panel, with the checks moved into a shared module.

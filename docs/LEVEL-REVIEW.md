@@ -8,8 +8,27 @@ pins comments to its surfaces with a real height; see [3D layout pins](#3d-layou
 The schematic is the default and builds nothing. The board does not start
 gameplay or automatically call a model.
 
-Reviewing Levelution events on this board (a stage timeline, overlays, comments on a
-moment, proposals) is designed in [LEVELUTION.md](LEVELUTION.md#reviewing-events-in-the-debug-view); it is not built.
+## Levelution timeline
+
+A district whose arenas have [Levelution](LEVELUTION.md) events (Tuas today) shows a
+**Levelution** strip under the 3D layout: `/debug?review=tuas&view=3d`.
+
+- **Events.** One chip per event; switch one off to see the other alone. **Frame
+  arena** puts the camera over the arena.
+- **Timeline.** Every chosen event starts at 0 s. Drag the scrubber, press a time
+  in the list to jump to that step, or use **As built**, **Play**, **−0.1 s**,
+  **+0.1 s** and **Settled**; speed is 1×, 0.5× or 0.25×. The scene is the game's
+  own stage view, so what it shows is what a match arrives at.
+- **Sound.** On by default: the warning's two tones when play starts from 0, and
+  a thump for each thing that lands. **Sound on / off** switches it.
+- **Overlays.** The arena (bounds, both teams' spawns, patrol points, Hardpoint
+  rings, match cover), the warning ring, where each landing kills (bright until
+  it has landed), the dust bank, and the colliders of the current state.
+- **Pins.** Comments are pinned as usual, on whatever the timeline is showing.
+  A pin does not yet remember its moment, so say the second in the comment.
+
+Comments tied to a moment, checks, proposals and a lit view are designed in
+[LEVELUTION.md](LEVELUTION.md#reviewing-events-in-the-debug-view) and not built.
 
 ## Working together
 
