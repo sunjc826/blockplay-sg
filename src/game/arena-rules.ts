@@ -1,6 +1,8 @@
 import { PRECISION_STRIKE, precisionStrikeDamage, precisionStrikePlacement } from './precision-strike';
 import { matchRegeneratedHealth, matchBotArmor, matchArmorGain, MAX_MATCH_ARMOR_DROPS, type MatchArmorDrop, type MatchArmorPickup } from './match-recovery';
 import { createMatchScore, type ScoreSnapshot } from './match-score';
+import { createLevelutionHost } from './levelution-host';
+import type { LevelutionSnapshot, ResolvedLevelution } from './levelution';
 import { BARRAGE, GUNSHIP, barrageDamage, barragePoints, createMatchStreaks, isStreakId, STREAKS, type StreakId, type StreakEffect, type StreakSnapshot } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
 import { MATCH_DROP_LIFETIME, MAX_MATCH_DROPS, matchPickupCarry, type MatchWeaponDrop, type MatchWeaponPickup } from './match-weapon-drops';
@@ -30,7 +32,7 @@ import { WORLD_VEHICLES, clearVehicleSpawn } from './world-vehicles';
 import { verticalVehicleObstacles } from './vertical-vehicle-obstacles';
 import { createVerticalNavigator, type NavigationPoint } from './vertical-navigation';
 import { createVerticalMovement, MAX_STEP_HEIGHT, type VerticalWorld } from './vertical-movement';
-import { type RegionBounds, footprintRayInterval, overlapsObstacleRect } from './region-collision';
+import { type RegionBounds, footprintRayInterval, overlapsObstacle, overlapsObstacleRect } from './region-collision';
 import { surfaceContains } from './vertical-routes';
 import { validVehicleControls, createSharedVehicle, seatOf, seatPoint, gunnerId, vehicleGunRay, vehicleRayDistance, type SharedVehicle, type VehicleControls } from './vehicle-seats';
 import { VEHICLE_KINDS, paddleVehicle, vehicleName, vehicleSpeed, stopVehicle, driveVehicle, flyVehicle, stepVehicleWreck, vehicleBounds, vehicleExit, type VehicleSpawns, type VehicleKind, type VehicleSpawn, type FlightObstacle } from './vehicle-rules';
@@ -172,6 +174,8 @@ export interface ArenaBark {
 export const MAX_ARENA_BARKS = 8;
 export interface ArenaSnapshot {
   streaks?: StreakSnapshot;
+  /** Levelution events begun this match; the map's stage follows from them and `elapsed`. */
+  levelution?: LevelutionSnapshot;
   /** Match score beyond eliminations, and the awards the HUD is still showing. */
   score?: ScoreSnapshot;
   weaponDrops?: MatchWeaponDrop[];
@@ -217,6 +221,8 @@ export interface ArenaShot { hitId: string | null; killed: boolean; damage: numb
 export interface ArenaVitals { health: number; armor: number }
 export interface ArenaEnvironment {
   hardpoint?: {area:TeamDeathmatchArea;sites:readonly ControlSite[]};
+  /** Map-changing events bound to this arena's stage parts (docs/LEVELUTION.md). */
+  levelution?: { events: readonly ResolvedLevelution[] };
   teamDeathmatch?: TeamDeathmatchArea;
   freeForAll?: FreeForAllArea;
   /** Solo expedition only; shared campaign object retains favor and pacing across travel. */
@@ -504,12 +510,12 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   const teamScores: Record<ArenaTeam, number> = {alpha:0,bravo:0};
   const duration = hardpoint ? HARDPOINT_RULES.duration : teamArea ? TDM_RULES.duration : ARENA_DURATION;
   const bounds: RegionBounds = environment?.bounds ?? MARINA_BOUNDS;
-  const swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
-  const traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
-  const deviceMovement = traversal ?? createVerticalMovement({ bounds, obstacles, surfaces: [], traversalObstacles: [] });
+  let swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
+  let traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
+  let deviceMovement = traversal ?? createVerticalMovement({ bounds, obstacles, surfaces: [], traversalObstacles: [] });
   const vehicleGround = [...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : [])];
   const navigationAnchors = arenaNavigationAnchors(obstacles, environment, vehicleOptions);
-  const navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors, environment?.bakedNavigation) : null;
+  let navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors, environment?.bakedNavigation) : null;
   const regularLimit = environment?.battlefield?.size ?? 20;
   let liftGeometryAt=-Infinity,liftGeometry:ReturnType<typeof liftBodies>=[];
   const liveLiftBodies=()=>{if(liftGeometryAt!==elapsed){liftGeometryAt=elapsed;liftGeometry=liftBodies(traversalWorld?.lifts??[],elapsed);}return liftGeometry;};
@@ -1442,6 +1448,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   type BlastItem = { hull: SharedVehicle } | { member: InternalActor } | { transport: Transport };
   function blast(point: ArenaPoint, spec: Parameters<typeof resolveBlast>[1], attacker?: InternalActor, cause?: string, source?: SharedVehicle, grenade = false, shred = 0, fromStreak = false) {
     warm(point, 3);
+    levelution?.blast(point, spec.radius, spec.damage, elapsed, attacker?.actor.name);
     if (attacker) for (const effect of [...(streaks?.effects ?? [])]) {
       const d = distance(point, effect);
       if (d < spec.radius && clearBlast(point, effect, d)) streaks?.hurt(effect, spec.damage * Math.max(0, 1 - d / spec.radius), attacker.actor);
@@ -1558,6 +1565,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   /** Ordnance from above: a roof or a wall between the burst and a body saves it. */
   function streakBlast(e: StreakEffect, at: ArenaPoint, radius: number, damageAt: (distance: number) => number) {
     const owner = members.get(e.owner); if (!owner) return;
+    levelution?.blast(at, radius, damageAt(0), elapsed, owner.actor.name);
     for (const victim of members.values()) {
       const a = victim.actor, d = Math.hypot(a.x - at.x, a.z - at.z);
       if (!a.alive || d > radius || roofed(a) || !clearBlast(at, chestOf(a), distance(at, chestOf(a)))) continue;
@@ -1565,6 +1573,34 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     }
     for (const device of [...(streaks?.effects ?? [])]) if (device !== e && distance(at, device) <= radius && clearBlast(at, device, distance(at, device))) streaks?.hurt(device, damageAt(distance(at, device)), owner.actor);
   }
+  /**
+   * The map changed under the match (Levelution): rebuild what was derived from the old colliders,
+   * and with `crush`, deal with whoever was standing where something solid now is.
+   */
+  function restage(change: { added: readonly Obstacle[]; removed: readonly Obstacle[]; crush?: { damage: number; cause: string } }) {
+    groundObstacles.length = 0; groundObstacles.push(...obstacles.filter(o => (o.maxY ?? 200) > 0.15));
+    coverObstacles.length = 0; coverObstacles.push(...obstacles.filter(o=>!o.water), ...(traversalWorld?.traversalObstacles ?? []));
+    vehicleGround.length = 0; vehicleGround.push(...obstacles, ...(traversalWorld ? verticalVehicleObstacles({...traversalWorld,bounds}) : []));
+    swimmer = traversalWorld?.obstacles.some(o=>o.water) ? createSwimmingMovement(traversalWorld) : null;
+    traversal = traversalWorld ? createVerticalMovement({...traversalWorld,surfaces:traversalWorld.surfaces.filter(s=>!s.lift)}) : null;
+    deviceMovement = traversal ?? createVerticalMovement({ bounds, obstacles, surfaces: [], traversalObstacles: [] });
+    // Bots replan on the new map: a fresh lazy graph, since a baked one describes the old geometry.
+    navigator = traversalWorld && (traversalWorld.surfaces.length || navigationAnchors.length) ? createVerticalNavigator(traversalWorld, navigationAnchors) : null;
+    for (const entry of members.values()) entry.navigation = undefined;
+    if (!change.crush) return;
+    for (const entry of members.values()) {
+      const a = entry.actor; if (!a.alive || entry.reserve || a.vehicle || a.transport) continue;
+      const feet = a.y - 1.75;
+      if (!change.added.some(o => overlapsObstacle(o, a.x, a.z, .35) && feet < (o.maxY ?? Infinity) - .05 && a.y > (o.minY ?? 0))) continue;
+      hurtActor(entry, change.crush.damage, undefined, change.crush.cause, undefined, false, true);
+      // A survivor (shielded, say) is not left inside a box: out to the nearest clear ground.
+      if (a.alive) search: for (let r = 1; r <= 16; r++) for (let k = 0; k < 12; k++) {
+        const p = { x: a.x + Math.cos(k * Math.PI / 6) * r, z: a.z + Math.sin(k * Math.PI / 6) * r };
+        if (clearSpawn(p)) { a.x = p.x; a.z = p.z; a.y = patrolGround(p.x, p.z) + 1.75; break search; }
+      }
+    }
+  }
+  const levelution = environment?.levelution?.events.length ? createLevelutionHost({ events: environment.levelution.events, obstacles: obstacles as Obstacle[], duration, restage, announce: text => announce(text) }) : null;
   const score = streaks ? createMatchScore(streaks.mode, { actors: () => [...members.values()].filter(m => !m.reserve).map(m => m.actor), enemy: streaks.enemy, 
     // Hardpoint rewards stay on kills and hold time: charged any faster, bots left stations unheld on the tight courts.
     charge: (id, amount) => { if (streaks.mode !== 'hardpoint') streaks.bonus(id, amount); } }) : null;
@@ -3026,6 +3062,10 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
         }
       }
     }
+    for (const marker of levelution?.markers(elapsed) ?? []) {
+      const dx = actor.x - marker.center.x, dz = actor.z - marker.center.z, d = Math.hypot(dx, dz);
+      if (d < marker.radius + 2) return d > .01 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 };
+    }
     return null;
   }
   function vehicleEnemy(entry: InternalActor, v: SharedVehicle) {
@@ -4066,6 +4106,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     stepRounds(dt);
     factionHeat?.step(dt);
     stepEvents(dt);
+    if (levelution) levelution.step(elapsed, hardpoint ? Math.max(hardpoint.scores().alpha, hardpoint.scores().bravo) / HARDPOINT_RULES.scoreLimit : teamArea ? Math.max(teamScores.alpha, teamScores.bravo) / TDM_RULES.scoreLimit
+      : Math.max(0, ...[...members.values()].map(m => m.actor.kills)) / ARENA_KILL_LIMIT);
     stepProxies(dt);
     if (streaks) {
       for (let i = grenadeSystem.live.length - 1; i >= 0; i--) {
@@ -4208,7 +4250,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
   function snapshot(): ArenaSnapshot {
     const reinforcementClocks: ReinforcementClocks = { airborne: { mercenaries: Math.max(0, airborneAt.mercenaries - elapsed), 'armed-forces': Math.max(0, airborneAt['armed-forces'] - elapsed) }, naval: { mercenaries: Math.max(0, navalAt.mercenaries - elapsed), 'armed-forces': Math.max(0, navalAt['armed-forces'] - elapsed) }, external: { mercenaries: Math.max(0, reserveAt.mercenaries - elapsed), 'armed-forces': Math.max(0, reserveAt['armed-forces'] - elapsed) } };
     if (finished) streaks?.reset();
-    return { type: 'arena-snapshot', tick, elapsed, ...(streaks ? { streaks: streaks.snapshot() } : {}), ...(score ? { score: score.snapshot(elapsed) } : {}), ...(!environment?.endless ? { armorDrops: armorDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })), weaponDrops: weaponDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })) } : {}), ...(environment?.freeForAll?{freeForAll:{area:environment.freeForAll.id}}:{}), ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.armorPickup ? { armorPickup: { ...m.actor.armorPickup } } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
+    const stage = levelution?.snapshot();
+    return { type: 'arena-snapshot', tick, elapsed, ...(stage ? { levelution: stage } : {}), ...(streaks ? { streaks: streaks.snapshot() } : {}), ...(score ? { score: score.snapshot(elapsed) } : {}), ...(!environment?.endless ? { armorDrops: armorDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })), weaponDrops: weaponDrops.filter(d => d.expires > elapsed).map(d => ({ ...d })) } : {}), ...(environment?.freeForAll?{freeForAll:{area:environment.freeForAll.id}}:{}), ...(environment?.teamDeathmatch?{teamDeathmatch:{area:teamArea!.id,scores:{...teamScores}}}:{}), ...(hardpoint?{hardpoint:hardpoint.snapshot(elapsed,[...members.values()].filter(m=>!m.reserve).map(m=>m.actor))}:{}), ...(merlion?{merlion:merlion.snapshot()}:{}), ...(proxies ? { proxies: proxies.snapshot() } : {}), ...(facilities || environment?.navalSites?.length || environment?.paratroopers ? { reinforcementClocks } : {}), ...(facilities ? { facilities: facilities.snapshot() } : {}), grenades: grenadeSystem.live.map(g => ({ ...g, position: { ...g.position }, velocity: { ...g.velocity }, landing: { ...g.landing } })), grenadeEvents: grenadeSystem.events.map(e => ({ ...e, point: { ...e.point } })), actors: [...members.values()].filter(m => !m.reserve).map(m => ({ ...m.actor, ...(!m.actor.bot && m.weapons[m.actor.weapon]?.equipment ? { variant: m.weapons[m.actor.weapon].equipment!.variant } : {}), ...(m.actor.armorPickup ? { armorPickup: { ...m.actor.armorPickup } } : {}), ...(m.actor.weaponPickup ? { weaponPickup: structuredClone(m.actor.weaponPickup) } : {}), ...(m.actor.proxyTargets ? { proxyTargets: [...m.actor.proxyTargets] } : {}), ...(m.actor.conditions ? { conditions: structuredClone(m.actor.conditions) } : {}), ...shieldOf(m), ...reinforceOf(m) })), feed: feed.map(event => ({ ...event })), finished, winner, ...(vehicleOptions ? { vehicles: vehicles.map(v => ({ ...v, occupants: [...v.occupants], shotEnd: v.shotEnd ? { ...v.shotEnd } : null })) } : {}),
       ...(events.length ? { events: events.map(e => ({ ...e.descriptor, target: { ...e.descriptor.target }, ...(e.descriptor.origin ? { origin: { ...e.descriptor.origin } } : {}) })) } : {}),
       ...(transports.size ? { transports: [...transports.values()].map(({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ramp }) => ({ event, mode, x, y, z, yaw, health, maxHealth, state, visible, driver, driverAlive, passengers, ...(ramp !== undefined ? { ramp } : {}) })) } : {}),
       ...(raiders.size ? { raiders: [...raiders.values()].map(({ event, kind, x, y, z, yaw, health, maxHealth, state, aim, shots, ammo }) => ({ event, kind, x, y, z, yaw, health, maxHealth, state, aim: aim ? { ...aim } : null, shots, ...(ammo !== undefined ? { ammo } : {}) })) } : {}),
@@ -4217,6 +4260,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
       ...(barks.length ? { barks: barks.map(b => ({ ...b, ...(b.at ? { at: { ...b.at } } : {}) })) } : {}) };
   }
   function reset() {
+    levelution?.reset();
     streaks?.reset(); score?.reset();
     weaponDrops.length = 0; armorDrops.length = 0;
     hardpoint?.reset();
@@ -4358,7 +4402,7 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     const entry = members.get(id);
     if (entry && !entry.actor.bot && entry.actor.alive && Number.isFinite(seconds) && seconds >= 0) entry.shieldUntil = elapsed + seconds;
   }
-  return { activateStreak, configureStreaks, preparePlayer, setStartingWeapons, configureBots, pickupArmor, pickupWeapon, holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
+  return { triggerLevelution: (binding: string, cause?: string) => levelution?.trigger(binding, elapsed, cause) ?? null, activateStreak, configureStreaks, preparePlayer, setStartingWeapons, configureBots, pickupArmor, pickupWeapon, holdPlayerShield, setPlayerRespawnSeconds: (seconds: number) => { playerRespawnSeconds = seconds; }, navigationGraphStatus: () => navigator?.status() ?? null, boatStatus, merlionAction, vehicleTravel, detachVehicle, restoreVehicleTravel, triggerProxyOperation: startProxyOperation, proxyAction, patrolStatus, navigationStatus, playerDeployments, playerRespawn, choosePlayerRespawn, setPlayerAutoRespawn, setPlayerDeployment, facilityAction, vehicleAction, addPlayer, removePlayer, setInput, reloadPlayer, shoot, callout, takeHits, inFlight, step, snapshot, reset, setPlayerLoadout, setPlayerEquipmentRentals, queuePlayerWeapons, setPlayerVitals, setPlayerSupplies, setPlayerGrenades, throwGrenade, useSupply, setPlayerHealthMultiplier, triggerEvent, setCombatEvents };
 }
 
 export type ArenaSimulation = ReturnType<typeof createArena>;

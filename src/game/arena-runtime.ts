@@ -1,3 +1,4 @@
+import { validLevelutionSnapshot } from './levelution';
 import { MAX_MATCH_ARMOR_DROPS, validMatchArmorDrop, validMatchArmorPickup } from './match-recovery';
 import { validScoreSnapshot } from './match-score';
 import { isStreakId, validStreakSnapshot, type StreakId } from './match-streaks';
@@ -92,6 +93,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (object(value) && value.reinforcementClocks !== undefined && !validReinforcementClocks(value.reinforcementClocks)) return false;
   if (object(value) && value.proxies !== undefined && (!environment?.proxies || !validProxySnapshot(value.proxies))) return false;
   if (object(value) && value.merlion !== undefined && !validMerlionState(value.merlion)) return false;
+  if (object(value) && value.levelution !== undefined && (!environment?.levelution || !finite(value.elapsed) || !validLevelutionSnapshot(value.levelution, environment.levelution.events, value.elapsed))) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : environment?.hardpoint ? HARDPOINT_RULES.duration : environment?.teamDeathmatch ? TDM_RULES.duration : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
@@ -946,6 +948,11 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     simulation.setPlayerHealthMultiplier(session.id, multiplier); publish(); return true;
   }
+  /** Debug, solo only: start one of this map's Levelution events now. */
+  function triggerLevelution(binding: string) {
+    if (disposed || session.role !== 'solo' || !simulation) return null;
+    const event = simulation.triggerLevelution(binding); publish(); return event;
+  }
   /** Solo only: guests could not see an event a private host started for itself. */
   function triggerEvent(kind: string, target?: CombatPlane) {
     if (disposed || session.role !== 'solo' || !simulation) return null;
@@ -985,6 +992,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (!simulation || disposed || started || !simulation.configureBots(count, composition)) return false;
       publish(); return true;
     },
-    configureStreaks, activateStreak, merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupArmor, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    triggerLevelution, configureStreaks, activateStreak, merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupArmor, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

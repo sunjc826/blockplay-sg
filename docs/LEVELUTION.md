@@ -1,7 +1,9 @@
 # Levelution: design
 
-Status: **proposal, nothing built.** Per-map events below are candidates; each one
-goes on the [level review board](LEVEL-REVIEW.md) for a verdict before geometry.
+Status: **the engine and the first event are built** (2026-11-21): stage parts, the
+`set`, `crush` and `marker` steps, and the Tuas container stack topple in Team
+Deathmatch, Free for All and Hardpoint. Everything else here is still a proposal;
+[What is built](#what-is-built) says exactly where the code differs from it.
 
 [Back to README](../README.md) · related: [combat events](COMBAT-EVENTS.md),
 [structures](STRUCTURES.md), [arenas](TEAM-ARENAS.md)
@@ -10,6 +12,62 @@ A Levelution event changes the map itself partway through a match: a route opens
 or closes, cover appears or goes, the ground floods. It differs from a
 [combat event](COMBAT-EVENTS.md), which passes over the map and leaves it as it
 was. The map after the event must play differently, or it is only an effect.
+
+## What is built
+
+```
+stage-parts.ts          parts and their named states; the one function that swaps colliders (pure but for capture)
+levelution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
+levelution-catalog.ts   archetypes, registered on import: stack-topple
+levelution-bindings.ts  which arena runs which archetype on which parts: container-yard
+levelution-host.ts      host: triggers, the obstacle list, what changed
+levelution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
+```
+
+**Adding an event to a map** is three edits and no engine work:
+
+1. In the scene, wrap the piece in `kit.stage('id', { tags }, () => ...)` and author
+   its other state beside it with `kit.stageState('id', 'state', () => ...)`, from
+   the same position arguments. A mesh tagged with `stageFall` falls into place.
+2. Add a line to `LEVELUTION_BINDINGS` naming the arena, the archetype and the part.
+3. Run `levelution.test.ts`. It builds the arena, resolves the binding, and checks
+   every combination of settled events: spawns and patrol points clear, every
+   spawn connected, every Hardpoint ring clear and reachable by both teams.
+
+**Tuas, container yard: stack topple.** The second stack (`container-stack-b`)
+gives way to the south. Two middle rows go, opening a 6.4 m lane through the
+block; the rows beside it step down 4, 2 and 1 high with spilled crates between,
+so a player can mantle up to the second tier (5.4 m); three containers and three
+crates land across the dispatch apron as cover, one of them across the lane's
+mouth so the lane is a route and not a sightline. It starts at 60% of the match,
+by the clock or by the leader's score towards the limit (a match can end on
+score before its time runs out), or as soon as blasts near the stack add up to 250 damage (grenades, a
+strike, a barrage). Six seconds of warning: banner with a countdown, alert tone,
+a ring on the map, and bots leave the ring. Whoever is still under a box when it
+lands is killed, through armour, credited to nobody.
+
+**Where the build differs from the proposal below:**
+
+- **Steps.** `remove` and `place` are one step, `set`: a part takes a named state
+  or none. `move`, `water` and `light` are not built.
+- **After-states are authored, not derived.** The fallen boxes are placed by the
+  scene relative to the stack. Nothing chooses the fall direction by rule.
+- **Triggers.** `blast` and `clock` only. No `interact`, `streak` or shot-damage
+  trigger. A player who sets it off is named in the feed but not credited with
+  the kills.
+- **No match setting.** It runs in every match on a map that has a binding.
+- **No ring on the ground**, only on the map.
+- **Navigation.** When colliders change the host builds a fresh lazy navigator
+  and bots replan. On Tuas that took about 60 ms in Node including 18 routes,
+  for either state. Baked navigation is dropped after a change, which only
+  matters once Expedition runs events.
+- **Not updated after a change:** the baked sky-visibility and lamp light, roof
+  detail, and vehicle collision buffers (arena matches have no vehicles).
+- **Starting one by hand.** The debug panel has a Levelution button, but the
+  panel is not shown in `/play` matches, so today it is reachable only where
+  debug tools are mounted. `scripts/fixtures/levelution.html?area=container-yard&t=20&view=high`
+  shows any moment of an event (`view=apron|lane|tier`); `scripts/levelution-smoke.mjs`
+  plays a real Tuas match until the clock starts it.
 
 ## The portability problem
 

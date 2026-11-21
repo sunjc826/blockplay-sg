@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Levelution stage review</title>
+<style>body{margin:0;background:#141f27;color:#f4f4e9;font:15px system-ui}canvas{display:block}header{position:absolute;left:20px;top:16px;background:#14232deb;padding:12px 16px;border-radius:8px}h1{font-size:20px;margin:0 0 4px}p{margin:3px 0}</style>
+<header><h1 id="name"></h1><p id="state"></p></header>
+<script type="module">
+// One arena's Levelution event at a chosen moment, for judging the authored states by eye.
+// ?area=container-yard  &event=<binding id, default the arena's first>  &t=<seconds after the event starts; omit for the map as built>
+// &view=high|apron|lane|tier  (where the camera stands relative to the part)
+import * as THREE from 'three';
+import { buildHardpointWorld } from '/src/game/hardpoint-world.ts';
+import { createStageView } from '/src/game/levelution-stage.ts';
+import { stageReach } from '/src/game/levelution.ts';
+const q=new URLSearchParams(location.search),id=q.get('area')??'container-yard',world=buildHardpointWorld(id);
+world.stamps.forEach(s=>s.visible=false);world.car.visible=false;
+const events=world.environment.levelution?.events??[],event=events.find(e=>e.binding.id===q.get('event'))??events[0];
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
+const view=createStageView(world,events),t=q.has('t')?Number(q.get('t')):null;
+if(event&&t!==null){view.sync([{id:'stage-1',binding:event.binding.id,seed:1,start:0}],t);view.update(t);}
+const reach=event?stageReach(Object.values(event.parts)[0]):{center:{x:0,z:0},radius:30},c=reach.center,r=reach.radius;
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,1500),where=q.get('view')??'high';
+if(where==='apron'){camera.position.set(c.x-6,1.75,c.z+r+14);camera.lookAt(c.x,3,c.z);}
+else if(where==='lane'){camera.position.set(c.x+3,1.75,c.z-r-10);camera.lookAt(c.x+3,2,c.z+r);}
+else if(where==='tier'){camera.position.set(c.x-7,7.2,c.z-12);camera.lookAt(c.x+4,1,c.z+12);}
+else{camera.position.set(c.x+r*.9,r*1.5,c.z+r*1.7);camera.lookAt(c.x,2,c.z);}
+document.querySelector('#name').textContent=event?`${event.binding.name} · ${event.plugin.name}`:`${id}: no Levelution event`;
+document.querySelector('#state').textContent=t===null?'As built':t<event.warning?`Warning, ${(event.warning-t).toFixed(1)} s to go`:`${(t-event.warning).toFixed(2)} s after it gives way`;
+world.scene.updateMatrixWorld(true);renderer.render(world.scene,camera);
+window.reviewReady=true;
+</script></html>

@@ -6,6 +6,7 @@ import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
 import { districtLook, surfaceHash, type DistrictLook, type LookPresetId } from './district-look';
 import { KERB, ROAD_LINE, minRadius, snapFootprint, snapModuleBox } from './block-module';
+import { captureStagePart, captureStageState } from './stage-parts';
 
 export interface SceneKitOptions {
   /** Sky and fog colour; districts pick their own daylight. */
@@ -224,6 +225,19 @@ export function createSceneKit(options: SceneKitOptions) {
     }
   }
 
+  const stageInstances: THREE.InstancedMesh[] = [];
+  /**
+   * Mark what `build` adds as a stage part: a named piece of the district a Levelution event may act on
+   * (docs/LEVELUTION.md). Build it as usual inside the callback. Trees do not belong in a part.
+   */
+  function stage(id: string, options: { tags?: readonly string[] }, build: () => void) {
+    stageInstances.push(...captureStagePart({ scene, obstacles }, id, options.tags ?? [], build));
+  }
+  /** An alternative state of a stage part, built beside it from the same position and kept out of the world until an event sets it. */
+  function stageState(id: string, state: string, build: () => void) {
+    stageInstances.push(...captureStageState({ scene, obstacles }, id, state, build));
+  }
+
   function stampRings(list: readonly RegionStamp[], material: THREE.Material) {
     const stampGeo = geo(new THREE.TorusGeometry(1.15, 0.16, 5, 20));
     return list.map(stamp => {
@@ -265,6 +279,7 @@ export function createSceneKit(options: SceneKitOptions) {
       },
       dispose() {
         instances.forEach(mesh => mesh.dispose());
+        stageInstances.forEach(mesh => mesh.dispose());
         geometries.forEach(geometry => geometry.dispose());
         materials.forEach(material => material.dispose());
         textures.forEach(texture => texture.dispose());
@@ -273,6 +288,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, THREE };
+  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, stage, stageState, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageFall } from './stage-parts';
 
 // On the verge between the tank farm and the plant road, looking west.
 export const TUAS_SPAWN = { x: -70, z: 18, yaw: Math.PI / 2 };
@@ -184,16 +185,61 @@ export function buildTuasScene() {
     for (const dx of [-17, 17]) for (let dz = -9; dz <= 9; dz += 18) box(x + dx, 0.3, z + dz, 3.4, 0.1, 1, steel);
   }
 
+  const CONTAINER = { pitch: 3.2, width: 3, height: 2.6, storey: 2.7, length: 12.2 };
+  function container(cx: number, level: number, z: number, body: THREE.Material, shadow: boolean) {
+    box(cx, 1.4 + level * CONTAINER.storey, z, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, scene, shadow);
+    for (let n = -5; n <= 5; n += 1.2) box(cx + 1.55, 1.4 + level * CONTAINER.storey, z + n, 0.16, 2.3, 0.5, body);
+    box(cx, 1.4 + level * CONTAINER.storey, z + 6.2, 2.8, 2.2, 0.2, dark);
+  }
   /** Container rows: stacked boxes with corrugated ends and door furniture. */
   function containerStack(x: number, z: number, rows: number, tall: number) {
     for (let r = 0; r < rows; r++) for (let level = 0; level < tall; level++) {
-      const cx = x + (r - (rows - 1) / 2) * 3.2, body = boxes[(r + level * 3) % boxes.length];
+      const cx = x + (r - (rows - 1) / 2) * CONTAINER.pitch, body = boxes[(r + level * 3) % boxes.length];
       if ((r + level) % 7 === 5 && level) continue;
-      box(cx, 1.4 + level * 2.7, z, 3, 2.6, 12.2, body, scene, level === tall - 1);
-      for (let n = -5; n <= 5; n += 1.2) box(cx + 1.55, 1.4 + level * 2.7, z + n, 0.16, 2.3, 0.5, body);
-      box(cx, 1.4 + level * 2.7, z + 6.2, 2.8, 2.2, 0.2, dark);
+      container(cx, level, z, body, level === tall - 1);
       if (!level) solid(cx, z, 3.2, 12.4);
     }
+  }
+  /**
+   * The same stack after it has given way towards `toward` (+1 south, -1 north): the Levelution
+   * `toppled` state (docs/LEVELUTION.md). Everything is placed from the stack's own position, so
+   * moving the stack moves this. Two middle rows are gone, which opens a lane through the block;
+   * the rows beside it step down 1, 2 and 4 high, with spilled crates as the steps between, so a
+   * player can climb to the second tier; and what fell lies across the apron beyond as cover.
+   * Rows left standing have real tops; a fallen box starts from where it was stacked.
+   */
+  function toppledStack(x: number, z: number, toward: 1 | -1) {
+    const rowX = (r: number) => x + (r - 3) * CONTAINER.pitch, face = z + toward * 6.2;
+    [4, 2, 1, 0, 0, 4, 4].forEach((high, r) => {
+      for (let level = 0; level < high; level++) container(rowX(r), level, z, boxes[(r + level * 3) % boxes.length], level === high - 1);
+      if (high) kit.obstacles.push({ minX: rowX(r) - 1.6, maxX: rowX(r) + 1.6, minZ: z - 6.2, maxZ: z + 6.2, minY: 0, maxY: high * CONTAINER.storey, supportsTop: true });
+    });
+    /** A spilled crate: a 1.35 m step, which is a mantle. */
+    const crate = (cx: number, cz: number, base: number, from: [number, number, number], delay: number) => {
+      stageFall(box(cx, base + .675, cz, 1.5, 1.35, 1.5, wood, scene, true), { position: from, delay });
+      kit.obstacles.push({ minX: cx - .75, maxX: cx + .75, minZ: cz - .75, maxZ: cz + .75, minY: base, maxY: base + 1.35, supportsTop: true });
+    };
+    crate(rowX(2), face + toward * .9, 0, [rowX(3), 6.8, z], .1);
+    crate(rowX(2) - .7, z - toward * 1, CONTAINER.storey, [rowX(2), 9.5, z], 0);
+    crate(rowX(5) - .4, face + toward * 2.2, 0, [rowX(4), 6.8, z], .25);
+    crate(x - 1, face + toward * 12, 0, [rowX(3), 9.5, z], .3);
+    crate(x + 5.5, face + toward * 13.6, 0, [rowX(4), 9.5, z], .45);
+    /** A fallen container lying on the ground, turned `yaw` from square; its collider is its turned footprint. */
+    const fallen = (cx: number, cz: number, alongX: boolean, yaw: number, body: THREE.Material, from: [number, number, number], delay: number) => {
+      const group = new THREE.Group(); group.position.set(cx, 0, cz); group.rotation.y = yaw + (alongX ? Math.PI / 2 : 0); scene.add(group);
+      box(0, 1.4, 0, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, group, true);
+      for (let n = -5; n <= 5; n += 2.4) box(1.55, 1.4, n, 0.16, 2.3, 0.5, body, group);
+      box(0, 1.4, 6.2, 2.8, 2.2, 0.2, dark, group);
+      stageFall(group, { position: from, yaw: 0, delay });
+      const angle = group.rotation.y, cos = Math.cos(angle), sin = Math.sin(angle);
+      const footprint = [[-1.6, -6.2], [1.6, -6.2], [1.6, 6.2], [-1.6, 6.2]].map(([px, pz]) => ({ x: cx + px * cos + pz * sin, z: cz - px * sin + pz * cos }));
+      kit.obstacles.push({ minX: Math.min(...footprint.map(p => p.x)), maxX: Math.max(...footprint.map(p => p.x)), minZ: Math.min(...footprint.map(p => p.z)), maxZ: Math.max(...footprint.map(p => p.z)),
+        minY: 0, maxY: CONTAINER.storey, footprint, supportsTop: true });
+    };
+    // Across the mouth of the new lane, leaving a way out to either side; one each side of it further out.
+    fallen(x + 1.6, face + toward * 6, true, .12, boxes[1], [rowX(3), 1.4 + 2 * CONTAINER.storey, z], 0);
+    fallen(x + 10.5, face + toward * 9, false, -.2, boxes[4], [rowX(4), 1.4 + 3 * CONTAINER.storey, z], .2);
+    fallen(x - 10, face + toward * 8, false, .45, boxes[0], [rowX(2), 1.4 + 3 * CONTAINER.storey, z], .35);
   }
 
   /** Lattice pylon carrying a catenary span to the next tower. */
@@ -288,7 +334,9 @@ export function buildTuasScene() {
   pipeRack(-110, 20, 140);
   flareStack(-96, 72);
   dryDock();
-  for (let i = 0; i < 4; i++) containerStack(80 + i * 34, -40, 7, 4);
+  // The four stacks are stage parts a to d: a Levelution event may take one down (levelution-bindings.ts).
+  for (let i = 0; i < 4; i++) kit.stage(`container-stack-${'abcd'[i]}`, { tags: ['container-stack'] }, () => containerStack(80 + i * 34, -40, 7, 4));
+  kit.stageState('container-stack-b', 'toppled', () => toppledStack(114, -40, 1));
   for (const x of [97, 165]) stackingCrane(x, -40);
   containerStack(112, 100, 9, 3);
   industrialShed(137, -160);

@@ -31,6 +31,12 @@ export default function FpsDebugPanel({ hud, engine }: { hud: FpsHud; engine: Fp
         {DEBUG_EVENTS.map(([kind, label, note]) => <button key={kind} disabled={hud.phase === 'loading'} onClick={() => engine?.triggerCombatEvent(kind)}>{label} <small>{note}</small></button>)}
       </div>
     </div>}
+    {hud.levelutionEvents.length > 0 && <div className="fps-debug-events" role="group" aria-label="Levelution">
+      <p>Levelution: start one of this map's map-changing events now. Each happens once a match; a player can also set it off, and the clock does at 60% of the match.</p>
+      <div className="fps-debug-options fps-debug-event-grid">
+        {hud.levelutionEvents.map(event => <button key={event.id} disabled={hud.phase === 'loading'} onClick={() => engine?.triggerLevelution(event.id)}>{event.name} <small>changes the map</small></button>)}
+      </div>
+    </div>}
     <div className="fps-debug-events" role="group" aria-label="Sky scenery">
       <p>Sky scenery beyond the district, called in ahead of you (warships on the sea side of a coastal district). It harms nobody; searchlights only show at night.</p>
       <div className="fps-debug-options fps-debug-event-grid">

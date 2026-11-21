@@ -17305,6 +17305,22 @@ Typecheck, 22 focused tests, `sun-rays-smoke` and `sun-rays-lens-smoke` pass on 
 Suggested next, not started: a real sun disc, a moon disc/phase/stars, and Ultra-only
 volumetric (shadow-map marched) shafts for off-screen and overhead sun.
 
+Levelution engine and the Tuas stack topple (2026-11-21, owner: "start on the first batch"):
+- Built: `stage-parts.ts` (`kit.stage` / `kit.stageState`, `stageFall`), `levelution.ts`, `-catalog`, `-bindings`,
+  `-host`, `-stage`. Wired into `arena-rules.ts` (host module beside the streaks; `restage()` rebuilds movement,
+  a fresh lazy navigator and the derived obstacle lists, then crushes and unsticks), `arena-runtime.ts` (snapshot
+  validation), `team-combat-world.ts` (resolves bindings against the built scene) and `fps-engine.ts` (stage view,
+  banner, map ring, player unstick). docs/LEVELUTION.md "What is built" lists every difference from the proposal.
+- Tuas `container-stack-b` topples south at 60% of the match (time or score) or after 250 blast damage near it.
+- In a solo or hosted match the simulation owns `world.obstacles` and the stage view only watches it
+  (`createStageView(..., false)`); a guest's view applies the colliders itself. Do not let both write: their clocks
+  differ by a frame or two and each would undo the other.
+- Checked: unit and world tests (`levelution.test.ts`), the full suite, typecheck, `scripts/fixtures/levelution.html`
+  on the software renderer, and `scripts/levelution-smoke.mjs` (a real solo Tuas TDM until the clock starts it).
+Not checked: a hosted match with a real guest, a real GPU, a touch device, the fall seen from the ground in play,
+and frame time. The debug panel's Levelution button is unreachable in `/play` (the panel is not mounted there).
+Still to do from the first batch: Bishan flash flood (`water`), the Flyer wheel drop, a substation blackout (`light`).
+
 ## 2026-11-21 — PWA update blocked by an in-flight request
 
 Owner saw "The update did not finish" with `TypeError: Failed to fetch` at
