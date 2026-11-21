@@ -6,7 +6,7 @@ import { getRegion } from '../game/regions';
 import type { RegionId } from '../game/region-ids';
 import { buildDistrictShapes, disposeDistrictShapes, districtShapeScale, clampDistrictView, detachedDistrictPins, districtAnchorWorld, districtOverview, districtSurfaceHit, DISTRICT_REVIEW_FOV, panDistrictView, pickDistrictAnchor, placeDistrictCamera } from '../game/district-review';
 import { threadStatus, type ReviewAnchor, type ReviewSceneView, type ReviewShape, type ReviewThread } from '../game/level-review';
-import { DEFAULT_STAGE_OVERLAYS, createStageReview, districtStageArenas, stagePhase, stageSpan, stageTicks, type StageOverlays, type StageReviewArena } from '../game/levelution-review';
+import { DEFAULT_STAGE_OVERLAYS, createStageReview, districtStageArenas, stagePhase, stageSpan, stageTicks, type StageOverlays, type StageReviewArena } from '../game/levolution-review';
 import { createStageReviewAudio } from '../game/stage-review-audio';
 
 /** The district as built for play, held still under an orbit camera. Pins are world-space points on its surfaces. */
@@ -26,7 +26,7 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
   const pickSurface = useRef<(x: number, y: number) => ReviewAnchor | null>(() => null), cancelDrag = useRef(() => {});
   const lastPlacement = useRef(-Infinity);
   const [slides, setSlides] = useState(false);
-  // Levelution: the district's events on a timeline (docs/LEVELUTION.md, "Reviewing events in the debug view").
+  // Levolution: the district's events on a timeline (docs/LEVOLUTION.md, "Reviewing events in the debug view").
   const [arenas, setArenas] = useState<StageReviewArena[]>([]), [arenaId, setArenaId] = useState(''), [off, setOff] = useState<string[]>([]);
   const [stageTime, setStageTime] = useState(0), [playing, setPlaying] = useState(false), [speed, setSpeed] = useState(1), [overlays, setOverlays] = useState<StageOverlays>(DEFAULT_STAGE_OVERLAYS), [sound, setSound] = useState(true);
   const arena = arenas.find(a => a.area.id === arenaId) ?? arenas[0], events = arena ? arena.events.filter(e => !off.includes(e.binding.id)) : [], span = stageSpan(events);
@@ -180,8 +180,8 @@ export default function DistrictReviewViewer({ district, placing, draft, draftSh
       <button aria-label="Slide left" onClick={() => step(v => panDistrictView(v, .2, 0))}>←</button><button aria-label="Slide forward" onClick={() => step(v => panDistrictView(v, 0, .2))}>↑</button><button aria-label="Slide back" onClick={() => step(v => panDistrictView(v, 0, -.2))}>↓</button><button aria-label="Slide right" onClick={() => step(v => panDistrictView(v, -.2, 0))}>→</button>
       <button aria-pressed={slides} aria-label="Drag slides the view instead of orbiting" onClick={() => setSlides(on => !on)}>{slides ? 'Drag: slide' : 'Drag: orbit'}</button><button onClick={() => changeView(districtOverview(bounds, aspect()))}>Overview</button><button onClick={() => step(v => ({ ...v, yaw: 0, pitch: 1.5 }))}>Top</button><button disabled={!selected} onClick={() => selected && focus(selected)}>{selected?.anchor.space ? 'Restore pin view' : 'Go to pin'}</button>
     </div>
-    {arena && <div className="lr-stage" role="group" aria-label="Levelution timeline">
-      <div className="lr-stage-head"><strong>Levelution</strong>
+    {arena && <div className="lr-stage" role="group" aria-label="Levolution timeline">
+      <div className="lr-stage-head"><strong>Levolution</strong>
         {arenas.length > 1 && <select aria-label="Arena" value={arena.area.id} onChange={e => { setArenaId(e.target.value); setOff([]); setPlaying(false); seekTo(0); }}>{arenas.map(a => <option key={a.area.id} value={a.area.id}>{a.area.name}</option>)}</select>}
         {arenas.length === 1 && <span>{arena.area.name}</span>}
         <span className="lr-stage-chips">{arena.events.map(e => <button key={e.binding.id} aria-pressed={!off.includes(e.binding.id)} title={e.plugin.name} onClick={() => { setOff(list => list.includes(e.binding.id) ? list.filter(id => id !== e.binding.id) : [...list, e.binding.id]); setPlaying(false); seekTo(0); }}>{e.binding.name}</button>)}</span>

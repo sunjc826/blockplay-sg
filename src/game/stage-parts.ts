@@ -3,8 +3,8 @@ import type { Obstacle } from './region-collision';
 import { instanceStaticMeshes } from './static-instances';
 
 /**
- * Stage parts: the named pieces of a district that a Levelution event may act
- * on (docs/LEVELUTION.md). A scene marks a part as it builds it; events name
+ * Stage parts: the named pieces of a district that a Levolution event may act
+ * on (docs/LEVOLUTION.md). A scene marks a part as it builds it; events name
  * the part and never hold a coordinate, so a part that is moved, resized or
  * restyled takes its events with it.
  *

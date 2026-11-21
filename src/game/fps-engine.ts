@@ -198,8 +198,8 @@ import { findWorldRoute } from './world-zones';
 import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, weaponSpread } from './fps-accuracy';
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
-import { createStageView } from './levelution-stage';
-import { levelutionMarkers } from './levelution';
+import { createStageView } from './levolution-stage';
+import { levolutionMarkers } from './levolution';
 import { bannerOf, threatens } from './combat-event-catalog';
 import { factionIdOf, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { characterBounds, characterPoints, createIffTracker, EMPTY_IFF_FRAME, type IffFrame, type IffSubject } from './fps-iff';
@@ -369,8 +369,8 @@ export interface FpsHud {
   combatBanner: { text: string; tone: 'hazard' | 'notice' } | null;
   /** Whether this round runs combat events the debug panel can call in. */
   combatEventsAvailable: boolean;
-  /** Levelution events this map can stage, for the debug panel (solo only). */
-  levelutionEvents: { id: string; name: string }[];
+  /** Levolution events this map can stage, for the debug panel (solo only). */
+  levolutionEvents: { id: string; name: string }[];
   /** Combat events on the map: rings for marked areas and crates, dots for aircraft in the air. */
   mapDangers: { id: string; x: number; z: number; radius: number; kind: 'ring' | 'crate' | 'raider' }[];
   /** Jammed: the map shows static and nothing on it. */
@@ -387,7 +387,7 @@ export interface FpsHud {
   /** The weapon in hand's laser (B) and light (L), and its offset dot (X cants onto it). */
   rail: { kind: RailDevice; on: boolean; laserOn?: boolean; lightOn?: boolean } | null; offsetDot: boolean; canted: boolean;
 }
-export const initialFpsHud: FpsHud = { levelutionEvents: [], streakPlacement: null, streakNotice: '', scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
+export const initialFpsHud: FpsHud = { levolutionEvents: [], streakPlacement: null, streakNotice: '', scopeZoom: null, proxyMenu: false, proxyReach: false, rangeDrill: null, rangeSupplyPrompt: '', grenadeHeld: null, grenadeChoice: null, grenadePicker: null, conditions: [], grenadeWarnings: [], inspecting: false, calloutWheel: null, scoreboardHeld: false, orderStatus: null, chatter: [], vision: null, rail: null, offsetDot: false, canted: false, supplyUse: null, belt: [], beltSelected: 'bandage', foodEffects: [], recoveryChoice: null, recoveryItem: null, combatItem: null, recoveryPicker: null, mapExpanded: false, objectiveHints: false, objectiveMarkers: [], combatBanner: null, combatEventsAvailable: false, mapDangers: [], mapJammed: false, cloudCover: null, vehicleHeading: 0, vehicleClimb: 0, vehiclePitch: 0, vehicleView: 'third-person', vehiclePersonalWeapon: false, vehicleSeat: null, vehicleCanFire: false, vehicleSeats: [], vehicleAimX: 50, vehicleAimY: 50, vehicleAimVisible: true, vehicleHealth: 0, vehicleMaxHealth: 0, vehicleAmmo: 0, vehicleAmmoMax: 0, vehicleWeapon: '', vehicleDamage: 'intact', prone: false, braced: false, carriedWeapons: [0, 2], carriedKg: 0, movementScale: 1, quickItem: '', quickType: '', quickCount: 0, encikCallout: null, encikVoice: true, comms: [], pilotStrategy: 'local', pilotPlan: 'Local utility planner', pilotEnabled: false, pilotStatus: 'Player controls', pilotGoal: null, pilotContacts: 0, crosshairSpread: 6, aimAssistLocked: false, hitKind: 'hit', aimProgress: 0, reloadEmpty: false, reloadSaved: 0, chambered: true, magazineOut: false, roundReady: true, emptyFires: 0, debug: { ...DEFAULT_FPS_DEBUG }, debugAvailable: true, maxHealth: 100, maxArmor: 0, phase: 'loading', weapon: 0, magazine: 30, reserve: 120, reloading: 0, hits: 0, shots: 0, landed: 0, health: 100, armor: 0, incoming: false, hurt: false, lastDamage: 0, earned: 0, earnedXp: 0, callout: '', chain: 0, elapsed: 0, aiming: false, hit: false, vehicle: 'on-foot', vehicleSpeed: 0, altitude: 0, interact: '', vehicleNotice: '', carDistance: 0, helicopterDistance: 0, locked: false, inputMode: 'mouse', message: '', muted: false, x: FPS_SPAWN.x, z: FPS_SPAWN.z, yaw: FPS_SPAWN.yaw, pitch: FPS_SPAWN.pitch, mapMarkers: [], mapContactRange: MINIMAP_CONTACT_RANGE, arena: null, arenaSelf: null, arenaConnected: true, arenaStarted: false, respawn: null, deathRecap: null, overviewZoom: 1, deployment: null, deploymentIntro: null, deploymentBriefing: null, expeditionZone: null, facility: null, facilityPrompt: '', lootPrompt: '', lootCard: null, npcPrompt: '', travelPrompt: '', lootNotice: '', fieldLoot: [], npcs: [], credits: 0, tokens: 0, sector: '', sectorHeat: null };
 
 function disposeAssets(roots: THREE.Object3D[]) {
   const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>(), textures = new Set<THREE.Texture>();
@@ -648,8 +648,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const weaponDevices = createWeaponDevices();
   const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel(), weaponWheel = createScopeZoomWheel();
   let cantWanted = false, cant = 0;
-  // Levelution: the map's stage parts follow the events the authority has started.
-  const stageEvents = options.arena?.environment?.levelution?.events ?? [];
+  // Levolution: the map's stage parts follow the events the authority has started.
+  const stageEvents = options.arena?.environment?.levolution?.events ?? [];
   const stageView = stageEvents.length ? createStageView(world, stageEvents, options.arena?.session.role === 'guest') : null;
   /** The colliders changed: rebuild the player's movement, and step out of anything that landed on them. */
   function restagePlayer() {
@@ -4434,14 +4434,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const previous = eventClock < 0 || Math.abs(snapshot.elapsed - eventClock) > .5 ? snapshot.elapsed : eventClock;
     eventClock = Math.max(previous, previous + dt + (snapshot.elapsed - previous - dt) * Math.min(1, dt * 4));
     if (stageView) {
-      if (stageView.sync(snapshot.levelution?.events ?? [], eventClock)) restagePlayer();
+      if (stageView.sync(snapshot.levolution?.events ?? [], eventClock)) restagePlayer();
       for (const { at, size } of stageView.update(eventClock)) {
         const distance = at.distanceTo(camera.position); at.y = Math.max(0, at.y - 1.3);
         combatVisuals.spot(at, '#a39d90'); combatAudio.boom(distance, size); ambientSky.startle(at, size);
         shake = Math.min(1, shake + Math.max(0, 1 - distance / (65 * size)) * .85 * Math.min(1.2, size));
       }
       // Events begun / parts no longer as built, for the smoke.
-      const staged = `${snapshot.levelution?.events.length ?? 0}/${stageView.staged}`; if (staged !== canvas.dataset.levelution) canvas.dataset.levelution = staged;
+      const staged = `${snapshot.levolution?.events.length ?? 0}/${stageView.staged}`; if (staged !== canvas.dataset.levolution) canvas.dataset.levolution = staged;
     }
     streakVisuals.update(snapshot.streaks, snapshot.actors, hud.arenaSelf, snapshot.elapsed);
     if (hud.streakPlacement && (!hud.arenaSelf?.alive || snapshot.finished)) cancelStreak();
@@ -4575,11 +4575,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (e.kind === 'gunship') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 1.5);
       if (e.kind === 'jammer' || e.kind === 'recon') drone = Math.min(drone, listener.distanceTo(new THREE.Vector3(e.x, e.y, e.z)) * 4);
     }
-    for (const descriptor of snapshot.levelution?.events ?? []) {
+    for (const descriptor of snapshot.levolution?.events ?? []) {
       const event = stageEvents.find(e => e.binding.id === descriptor.binding); if (!event) continue;
       const left = descriptor.start + event.warning - eventClock;
       if (!seenEvents.has(descriptor.id)) { seenEvents.add(descriptor.id); if (left > 0) combatAudio.alert(); }
-      for (const marker of levelutionMarkers([event], [descriptor], eventClock)) {
+      for (const marker of levolutionMarkers([event], [descriptor], eventClock)) {
         dangers.push({ id: `stage-${descriptor.id}`, x: marker.center.x, z: marker.center.z, radius: marker.radius, kind: 'ring' });
         const near = Math.hypot(marker.center.x - position.x, marker.center.z - position.z) < marker.radius + 6;
         if (left > 0) offer(`${event.binding.name.toUpperCase()} · ${event.plugin.banner} · ${Math.max(1, Math.ceil(left))}s`, near ? 'hazard' : 'notice', near ? 9 : 2);
@@ -4647,10 +4647,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * smoke 25 m, a supply drop 30 m, a blackout on you); hunters come for you;
    * a transport plans its own drop.
    */
-  /** Debug, solo only: start one of this map's Levelution events now. */
-  function triggerLevelution(binding: string) {
+  /** Debug, solo only: start one of this map's Levolution events now. */
+  function triggerLevolution(binding: string) {
     if (!arenaRuntime || disposed) return;
-    if (!arenaRuntime.triggerLevelution(binding)) { hud.message = 'That has already happened this match. Restart the match to see it again.'; publish(); }
+    if (!arenaRuntime.triggerLevolution(binding)) { hud.message = 'That has already happened this match. Restart the match to see it again.'; publish(); }
   }
   function triggerCombatEvent(kind: string) {
     if (!arenaRuntime || !hud.combatEventsAvailable || disposed) return;
@@ -5260,7 +5260,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);
       hud.combatEventsAvailable = options.arena.session.role === 'solo';
-      hud.levelutionEvents = options.arena.session.role === 'solo' ? stageEvents.map(e => ({ id: e.binding.id, name: e.binding.name })) : [];
+      hud.levolutionEvents = options.arena.session.role === 'solo' ? stageEvents.map(e => ({ id: e.binding.id, name: e.binding.name })) : [];
       if (debugAvailable) {
         arenaRuntime.setCombatEvents(debug.combatEvents);
         arenaRuntime.setHealthMultiplier(debug.healthMultiplier);
@@ -5350,7 +5350,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     skipDeathScene,
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
-    triggerLevelution,
+    triggerLevolution,
     adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },

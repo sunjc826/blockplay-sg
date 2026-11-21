@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
-import { stageStates, stagedParts, type LevelutionDescriptor, type ResolvedLevelution } from './levelution';
+import { stageStates, stagedParts, type LevolutionDescriptor, type ResolvedLevolution } from './levolution';
 import { STAGE_BASE, applyStageObstacles, getStageParts, type StageFrom, type StagePart, type StageState, type StageTip } from './stage-parts';
 
 /** Seconds a tagged mesh takes to fall into place once its state is set. */
@@ -9,7 +9,7 @@ export const STAGE_FALL_SECONDS = 1.4;
 const FRESH = 4;
 
 /**
- * The renderer's side of Levelution: keeps the scene's stage parts, and on a
+ * The renderer's side of Levolution: keeps the scene's stage parts, and on a
  * guest the obstacle list, in step with the events the host has started.
  * `sync` is idempotent and driven only by the descriptors and the match clock,
  * so a late joiner arrives at the same map as everyone else.
@@ -18,7 +18,7 @@ const FRESH = 4;
  * list and changes it on its own clock; pass `ownsObstacles: false` and this
  * only watches the list, so the two clocks cannot undo each other's work.
  */
-export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle[] }, events: readonly ResolvedLevelution[], ownsObstacles = true) {
+export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle[] }, events: readonly ResolvedLevolution[], ownsObstacles = true) {
   const ids = new Set(stagedParts(events).map(p => p.id));
   const parts = getStageParts(world.scene).filter(p => ids.has(p.id));
   const shown = new Map<string, StageState>(parts.map(p => [p.id, STAGE_BASE]));
@@ -33,7 +33,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
   const settle = (fall: Fall) => { fall.object.position.copy(fall.to); fall.object.rotation.y = fall.toYaw; };
 
   /** When each part's current state was set, in match seconds. */
-  function setTimes(running: readonly Readonly<LevelutionDescriptor>[], elapsed: number) {
+  function setTimes(running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
     const times = new Map<string, number>();
     for (const descriptor of running) {
       const event = events.find(e => e.binding.id === descriptor.binding); if (!event) continue;
@@ -43,7 +43,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
   }
 
   /** Returns whether the map changed, so the caller can rebuild what it derived from the colliders. */
-  function sync(running: readonly Readonly<LevelutionDescriptor>[], elapsed: number) {
+  function sync(running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
     const states = stageStates(events, running, elapsed);
     let changed = false;
     if (ownsObstacles) { const moved = applyStageObstacles(world.obstacles, parts, states); changed = moved.added.length + moved.removed.length > 0; }

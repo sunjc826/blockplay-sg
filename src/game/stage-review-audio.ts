@@ -1,7 +1,7 @@
 import { effectsOutput } from '../lib/effects-volume';
 
 /**
- * Sound for the Levelution timeline on the review board: the warning's two
+ * Sound for the Levolution timeline on the review board: the warning's two
  * tones and a thump for each thing that lands. Synthesised here because the
  * board runs no game and so has none of its audio; it follows the same cues and
  * the player's effects volume.

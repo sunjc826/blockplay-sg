@@ -8,10 +8,10 @@ pins comments to its surfaces with a real height; see [3D layout pins](#3d-layou
 The schematic is the default and builds nothing. The board does not start
 gameplay or automatically call a model.
 
-## Levelution timeline
+## Levolution timeline
 
-A district whose arenas have [Levelution](LEVELUTION.md) events (Tuas today) shows a
-**Levelution** strip under the 3D layout: `/debug?review=tuas&view=3d`.
+A district whose arenas have [Levolution](LEVOLUTION.md) events (Tuas today) shows a
+**Levolution** strip under the 3D layout: `/debug?review=tuas&view=3d`.
 
 - **Events.** One chip per event; switch one off to see the other alone. **Frame
   arena** puts the camera over the arena.
@@ -28,7 +28,7 @@ A district whose arenas have [Levelution](LEVELUTION.md) events (Tuas today) sho
   A pin does not yet remember its moment, so say the second in the comment.
 
 Comments tied to a moment, checks, proposals and a lit view are designed in
-[LEVELUTION.md](LEVELUTION.md#reviewing-events-in-the-debug-view) and not built.
+[LEVOLUTION.md](LEVOLUTION.md#reviewing-events-in-the-debug-view) and not built.
 
 ## Working together
 

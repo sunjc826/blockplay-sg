@@ -165,7 +165,7 @@ export function craneState(u: number, o: { a: number; b: number; lift: number; d
 function crane(kit: Kit, o: { x: number; z: number; a: number; b: number; top: number; lift: number; colour: string; long: 'x' | 'z'; offset: number; part?: string }) {
   const steel = kit.lit('#30363a'), box = kit.lit(o.colour, { roughness: .8 }), rope = kit.lit('#1b1d1f');
   const trolley = kit.group(), spreader = kit.group(), carried = kit.group(), parked = kit.group();
-  // The working hoist belongs to a stage part: when a Levelution event takes the crane away, the stage view hides it too.
+  // The working hoist belongs to a stage part: when a Levolution event takes the crane away, the stage view hides it too.
   if (o.part) { const rig = kit.group(); rig.userData.stagePart = o.part; rig.add(trolley, spreader, carried, parked); }
   kit.box(trolley, 0, 0, 0, 4.6, 2.2, 4.6, steel);
   const ropes = [-1, 1].map(side => kit.cylinder(trolley, 0, 0, side * 1.3, .06, 1, rope));

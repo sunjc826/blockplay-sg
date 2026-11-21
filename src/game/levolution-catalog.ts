@@ -1,7 +1,7 @@
-import { registerLevelution, stageReach } from './levelution';
+import { registerLevolution, stageReach } from './levolution';
 
 /**
- * Every shipped Levelution archetype, registered on import. An archetype is
+ * Every shipped Levolution archetype, registered on import. An archetype is
  * written against part roles and reads positions only from the parts it is
  * handed, so it runs unchanged on any map that can fill its roles.
  */
@@ -12,7 +12,7 @@ import { registerLevelution, stageReach } from './levelution';
  * through the block, fallen boxes as cover across the ground beyond, and a
  * climb onto the rows still standing.
  */
-registerLevelution({
+registerLevolution({
   id: 'stack-topple', name: 'Stack topple', warning: 6, settle: 3,
   banner: 'STACK GIVING WAY · GET CLEAR', cause: 'Falling containers',
   roles: { stack: { states: ['toppled'] } },
@@ -34,7 +34,7 @@ const GANTRY_FALL = 3;
  * lands. The gantry's `falling` state has no colliders (it is in the air); `fallen` is where it lies.
  * Dust hangs over each landing for a quarter of a minute.
  */
-registerLevelution({
+registerLevolution({
   id: 'gantry-collapse', name: 'Gantry collapse', warning: 6, settle: GANTRY_FALL + 4,
   banner: 'GANTRY COMING DOWN · GET CLEAR', cause: 'Falling gantry',
   roles: { crane: { states: ['falling', 'fallen'] }, first: { states: ['toppled'] }, second: { states: ['toppled'] } },

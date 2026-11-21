@@ -1,4 +1,4 @@
-import { validLevelutionSnapshot } from './levelution';
+import { validLevolutionSnapshot } from './levolution';
 import { MAX_MATCH_ARMOR_DROPS, validMatchArmorDrop, validMatchArmorPickup } from './match-recovery';
 import { validScoreSnapshot } from './match-score';
 import { isStreakId, validStreakSnapshot, type StreakId } from './match-streaks';
@@ -93,7 +93,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   if (object(value) && value.reinforcementClocks !== undefined && !validReinforcementClocks(value.reinforcementClocks)) return false;
   if (object(value) && value.proxies !== undefined && (!environment?.proxies || !validProxySnapshot(value.proxies))) return false;
   if (object(value) && value.merlion !== undefined && !validMerlionState(value.merlion)) return false;
-  if (object(value) && value.levelution !== undefined && (!environment?.levelution || !finite(value.elapsed) || !validLevelutionSnapshot(value.levelution, environment.levelution.events, value.elapsed))) return false;
+  if (object(value) && value.levolution !== undefined && (!environment?.levolution || !finite(value.elapsed) || !validLevolutionSnapshot(value.levolution, environment.levolution.events, value.elapsed))) return false;
   if (object(value) && value.facilities !== undefined && !validFacilitySnapshot(value.facilities)) return false;
   if (!object(value) || value.type !== 'arena-snapshot' || !finite(value.tick) || value.tick < 0 || !finite(value.elapsed) || value.elapsed < 0 || value.elapsed > (environment?.endless ? 1e9 : environment?.hardpoint ? HARDPOINT_RULES.duration : environment?.teamDeathmatch ? TDM_RULES.duration : 181) ||
     typeof value.finished !== 'boolean' || typeof value.winner !== 'string' || value.winner.length > 80 || !Array.isArray(value.actors) || value.actors.length > MAX_ARENA_ACTORS || !Array.isArray(value.feed) || value.feed.length > 8) return false;
@@ -155,7 +155,7 @@ export function validArenaSnapshot(value: unknown, environment?: ArenaEnvironmen
   }
   if (value.streaks !== undefined && (environment?.endless || !validStreakSnapshot(value.streaks, value.actors as ArenaActor[], environment?.hardpoint ? 'hardpoint' : teamArea ? 'team-deathmatch' : 'free-for-all', value.elapsed as number))) return false;
   if (value.score !== undefined && (value.streaks === undefined || !validScoreSnapshot(value.score, value.actors as ArenaActor[], value.elapsed as number))) return false;
-  if (teamArea && ((Array.isArray(value.events) && value.events.some(e => !object(e) || !(e.kind === 'collapse-dust' && !!environment?.levelution && value.levelution !== undefined) && (e.kind !== 'drone' || !(value.streaks as import('./match-streaks').StreakSnapshot)?.effects?.some(s => s.kind === 'hunter' && s.event === e.id)))) || (Array.isArray(value.raiders) && value.raiders.some(r => !object(r) || r.kind !== 'drone')))) return false;
+  if (teamArea && ((Array.isArray(value.events) && value.events.some(e => !object(e) || !(e.kind === 'collapse-dust' && !!environment?.levolution && value.levolution !== undefined) && (e.kind !== 'drone' || !(value.streaks as import('./match-streaks').StreakSnapshot)?.effects?.some(s => s.kind === 'hunter' && s.event === e.id)))) || (Array.isArray(value.raiders) && value.raiders.some(r => !object(r) || r.kind !== 'drone')))) return false;
   if (value.streaks !== undefined && (value.streaks as import('./match-streaks').StreakSnapshot).effects.some(e => e.event && (!Array.isArray(value.events) || !value.events.some(d => d.id === e.event && d.kind === 'drone')))) return false;
   if(environment?.hardpoint ? !validHardpointSnapshot(value.hardpoint,value.elapsed,value.actors as ArenaActor[],environment.hardpoint.sites,environment.hardpoint.area.id as HardpointAreaId) : value.hardpoint!==undefined)return false;
   if (value.proxies !== undefined) {
@@ -948,10 +948,10 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role !== 'solo' || !simulation) return false;
     simulation.setPlayerHealthMultiplier(session.id, multiplier); publish(); return true;
   }
-  /** Debug, solo only: start one of this map's Levelution events now. */
-  function triggerLevelution(binding: string) {
+  /** Debug, solo only: start one of this map's Levolution events now. */
+  function triggerLevolution(binding: string) {
     if (disposed || session.role !== 'solo' || !simulation) return null;
-    const event = simulation.triggerLevelution(binding); publish(); return event;
+    const event = simulation.triggerLevolution(binding); publish(); return event;
   }
   /** Solo only: guests could not see an event a private host started for itself. */
   function triggerEvent(kind: string, target?: CombatPlane) {
@@ -992,6 +992,6 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       if (!simulation || disposed || started || !simulation.configureBots(count, composition)) return false;
       publish(); return true;
     },
-    triggerLevelution, configureStreaks, activateStreak, merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupArmor, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
+    triggerLevolution, configureStreaks, activateStreak, merlionAction, triggerProxyOperation, proxyAction, chooseRespawn, setAutoRespawn, getDeployments: () => simulation?.playerDeployments(session.id) ?? [], getRespawn: () => simulation?.playerRespawn(session.id) ?? null, ownCorpseFeet: () => ownCorpse ? avatars.get(session.id)?.root.position.y ?? null : null, showOwnCorpse: (shown: boolean) => { ownCorpseShown = shown; }, holdSpawnShield: (seconds: number) => simulation?.holdPlayerShield(session.id, seconds), selectDeployment, getWorldState: () => { const s = simulation?.snapshot() ?? snapshot; return s ? { merlion: s.merlion, facilities: s.facilities, vehicles: s.vehicles, reinforcementClocks: s.reinforcementClocks } : undefined; }, facilityAction, presentVehicleRiders, vehicleAction, update, shoot, reload, pickupArmor, pickupWeapon, callout, reset, dispose, updateLoadout, queueRespawnLoadout, setVitals, setGrenadeSupplies, throwGrenade, useSupply, setHealthMultiplier, triggerEvent, setCombatEvents };
 }
 export type ArenaRuntime = ReturnType<typeof createArenaRuntime>;

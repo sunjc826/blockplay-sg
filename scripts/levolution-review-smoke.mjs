@@ -1,9 +1,9 @@
-// The Levelution strip on the level review board: opens Tuas in the 3D layout, scrubs and plays the gantry
+// The Levolution strip on the level review board: opens Tuas in the 3D layout, scrubs and plays the gantry
 // collapse, toggles an event and an overlay, and repeats at phone width. Needs Vite and Chrome with remote debugging:
-//   LEVELUTION_APP_ORIGIN=http://127.0.0.1:5197 LEVELUTION_CHROME_ORIGIN=http://127.0.0.1:9477 node scripts/levelution-review-smoke.mjs
+//   LEVOLUTION_APP_ORIGIN=http://127.0.0.1:5197 LEVOLUTION_CHROME_ORIGIN=http://127.0.0.1:9477 node scripts/levolution-review-smoke.mjs
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const base=process.env.LEVELUTION_APP_ORIGIN??'http://127.0.0.1:5197',chrome=process.env.LEVELUTION_CHROME_ORIGIN??'http://127.0.0.1:9477',out=process.env.LEVELUTION_SMOKE_OUTPUT??'.cache/levelution-review';
+const base=process.env.LEVOLUTION_APP_ORIGIN??'http://127.0.0.1:5197',chrome=process.env.LEVOLUTION_CHROME_ORIGIN??'http://127.0.0.1:9477',out=process.env.LEVOLUTION_SMOKE_OUTPUT??'.cache/levolution-review';
 await fs.mkdir(out,{recursive:true});
 const tab=await(await fetch(chrome+'/json/new?about:blank',{method:'PUT'})).json(),ws=new WebSocket(tab.webSocketDebuggerUrl);await new Promise(r=>ws.onopen=r);
 let serial=0;const pending=new Map(),errors=[];ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description??m.params.exceptionDetails.text);};
@@ -38,5 +38,5 @@ try {
     await press('As built');await wait('document.querySelector(".lr-model-canvas").dataset.stage==="1/0.00"');
     if(name==='phone')assert.ok(await ev('document.documentElement.scrollWidth<=document.documentElement.clientWidth+1'),'no sideways scroll on a phone');
   }
-  assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,errors},null,2));console.log('Levelution review strip: scrub, play, pause, step, single event and overlays passed at desktop and phone widths.');
+  assert.deepEqual(errors,[]);await fs.writeFile(out+'/browser-results.json',JSON.stringify({passed:true,errors},null,2));console.log('Levolution review strip: scrub, play, pause, step, single event and overlays passed at desktop and phone widths.');
 }finally{ws.close();await fetch(chrome+'/json/close/'+tab.id);}

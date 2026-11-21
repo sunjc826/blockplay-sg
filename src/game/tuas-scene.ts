@@ -207,7 +207,7 @@ export function buildTuasScene() {
   }
   /**
    * The same crane going over towards `toward`, pivoting on that pair of feet and slewing as it goes:
-   * the Levelution `falling` state (docs/LEVELUTION.md). Nothing collides while it is in the air.
+   * the Levolution `falling` state (docs/LEVOLUTION.md). Nothing collides while it is in the air.
    */
   function fallingCrane(x: number, z: number, toward: 1 | -1) {
     const pivot = new THREE.Group(); pivot.position.set(x - toward * CRANE.span, 0, z + toward * CRANE.legs); pivot.rotation.order = 'YXZ'; scene.add(pivot);
@@ -251,7 +251,7 @@ export function buildTuasScene() {
   }
   /**
    * The same stack after a falling gantry leg has gone through it towards `toward` (+1 south, -1 north):
-   * the Levelution `toppled` state (docs/LEVELUTION.md). Everything is placed from the stack's own
+   * the Levolution `toppled` state (docs/LEVOLUTION.md). Everything is placed from the stack's own
    * position, so moving the stack moves this; `flip` mirrors it east to west, which with `toward` gives
    * the yard's two halves the same layout turned half a turn. The leg takes out the two middle rows,
    * which opens a lane through the block; the rows on one side step down 1, 2 and 4 high, with spilled
@@ -387,8 +387,8 @@ export function buildTuasScene() {
   pipeRack(-110, 20, 140);
   flareStack(-96, 72);
   dryDock();
-  // The four stacks and the two gantries over them are stage parts: a Levelution event brings a gantry
-  // down through the pair of stacks under it (levelution-bindings.ts). The west gantry goes south and
+  // The four stacks and the two gantries over them are stage parts: a Levolution event brings a gantry
+  // down through the pair of stacks under it (levolution-bindings.ts). The west gantry goes south and
   // the east one north, so the yard's two halves change the same way, turned half a turn.
   const YARD = [{ crane: 'west', x: 97, stacks: [0, 1], toward: 1, flip: 1 }, { crane: 'east', x: 165, stacks: [2, 3], toward: -1, flip: -1 }] as const;
   for (const half of YARD) {

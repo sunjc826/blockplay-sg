@@ -227,8 +227,8 @@ export function createSceneKit(options: SceneKitOptions) {
 
   const stageInstances: THREE.InstancedMesh[] = [];
   /**
-   * Mark what `build` adds as a stage part: a named piece of the district a Levelution event may act on
-   * (docs/LEVELUTION.md). Build it as usual inside the callback. Trees do not belong in a part.
+   * Mark what `build` adds as a stage part: a named piece of the district a Levolution event may act on
+   * (docs/LEVOLUTION.md). Build it as usual inside the callback. Trees do not belong in a part.
    */
   function stage(id: string, options: { tags?: readonly string[] }, build: () => void) {
     stageInstances.push(...captureStagePart({ scene, obstacles }, id, options.tags ?? [], build));

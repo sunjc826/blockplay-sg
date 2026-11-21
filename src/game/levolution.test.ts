@@ -5,10 +5,10 @@ import { validArenaSnapshot } from './arena-runtime';
 import { HARDPOINT_ARENAS } from './hardpoint';
 import { buildHardpointWorld } from './hardpoint-world';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
-import { MAX_LEVELUTION_EVENTS, getLevelution, levelutionArchetypes, levelutionPhase, resolveLevelution, stageStates, stagedParts, validLevelutionSnapshot } from './levelution';
-import { LEVELUTION_BINDINGS } from './levelution-bindings';
-import { createLevelutionHost } from './levelution-host';
-import { STAGE_FALL_SECONDS, createStageView } from './levelution-stage';
+import { MAX_LEVOLUTION_EVENTS, getLevolution, levolutionArchetypes, levolutionPhase, resolveLevolution, stageStates, stagedParts, validLevolutionSnapshot } from './levolution';
+import { LEVOLUTION_BINDINGS } from './levolution-bindings';
+import { createLevolutionHost } from './levolution-host';
+import { STAGE_FALL_SECONDS, createStageView } from './levolution-stage';
 import { applyStageObstacles, getStageParts, stageObstacles, stagePartData, type StagePartData } from './stage-parts';
 import { createVerticalMovement } from './vertical-movement';
 import { createVerticalNavigator } from './vertical-navigation';
@@ -35,40 +35,40 @@ describe('stage parts', () => {
 
 describe('archetypes and bindings', () => {
   it('registers archetypes that warn before they change anything', () => {
-    expect(levelutionArchetypes().length).toBeGreaterThan(0);
-    for (const plugin of levelutionArchetypes()) expect(plugin.warning, plugin.id).toBeGreaterThanOrEqual(3);
+    expect(levolutionArchetypes().length).toBeGreaterThan(0);
+    for (const plugin of levolutionArchetypes()) expect(plugin.warning, plugin.id).toBeGreaterThanOrEqual(3);
   });
   it('resolves against parts, and says why when it cannot', () => {
     const binding = { id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers: [{ kind: 'clock' as const, at: .5 }] };
-    const good = resolveLevelution([binding], 'yard', [part()]);
+    const good = resolveLevolution([binding], 'yard', [part()]);
     expect(good.problems).toEqual([]); expect(good.events).toHaveLength(1);
     const event = good.events[0];
     for (const step of event.steps) if (step.type !== 'marker') expect(step.at).toBeGreaterThanOrEqual(event.warning);
-    expect(resolveLevelution([binding], 'elsewhere', [part()]).events).toEqual([]);
-    expect(resolveLevelution([binding], 'yard', []).problems[0]).toContain('no stage part "stack"');
-    expect(resolveLevelution([binding], 'yard', [{ ...part(), states: {} }]).problems[0]).toContain('no "toppled" state');
-    expect(resolveLevelution([{ ...binding, archetype: 'nope' }], 'yard', [part()]).problems[0]).toContain('unknown archetype');
-    expect(resolveLevelution([1, 2, 3].map(n => ({ ...binding, id: `b${n}` })), 'yard', [part()]).events).toHaveLength(MAX_LEVELUTION_EVENTS);
+    expect(resolveLevolution([binding], 'elsewhere', [part()]).events).toEqual([]);
+    expect(resolveLevolution([binding], 'yard', []).problems[0]).toContain('no stage part "stack"');
+    expect(resolveLevolution([binding], 'yard', [{ ...part(), states: {} }]).problems[0]).toContain('no "toppled" state');
+    expect(resolveLevolution([{ ...binding, archetype: 'nope' }], 'yard', [part()]).problems[0]).toContain('unknown archetype');
+    expect(resolveLevolution([1, 2, 3].map(n => ({ ...binding, id: `b${n}` })), 'yard', [part()]).events).toHaveLength(MAX_LEVOLUTION_EVENTS);
   });
   it('gives the same stage on host and guest from the descriptor alone', () => {
-    const { events } = resolveLevelution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers: [] }], 'yard', [part()]);
+    const { events } = resolveLevolution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers: [] }], 'yard', [part()]);
     const descriptor = JSON.parse(JSON.stringify({ id: 'stage-1', binding: 'b', seed: 1, start: 10 }));
     expect(stageStates(events, [descriptor], 10 + events[0].warning - .01).size).toBe(0);
     expect(stageStates(events, [descriptor], 10 + events[0].warning).get('stack')).toBe('toppled');
-    expect(levelutionPhase(events[0], descriptor, 11)).toBe('warning');
-    expect(levelutionPhase(events[0], descriptor, 10 + events[0].duration)).toBe('settled');
-    expect(validLevelutionSnapshot({ events: [descriptor] }, events, 20)).toBe(true);
-    expect(validLevelutionSnapshot({ events: [descriptor, descriptor] }, events, 20)).toBe(false);
-    expect(validLevelutionSnapshot({ events: [{ ...descriptor, binding: 'other' }] }, events, 20)).toBe(false);
-    expect(validLevelutionSnapshot({ events: [{ ...descriptor, start: 99 }] }, events, 20)).toBe(false);
+    expect(levolutionPhase(events[0], descriptor, 11)).toBe('warning');
+    expect(levolutionPhase(events[0], descriptor, 10 + events[0].duration)).toBe('settled');
+    expect(validLevolutionSnapshot({ events: [descriptor] }, events, 20)).toBe(true);
+    expect(validLevolutionSnapshot({ events: [descriptor, descriptor] }, events, 20)).toBe(false);
+    expect(validLevolutionSnapshot({ events: [{ ...descriptor, binding: 'other' }] }, events, 20)).toBe(false);
+    expect(validLevolutionSnapshot({ events: [{ ...descriptor, start: 99 }] }, events, 20)).toBe(false);
   });
 });
 
 describe('host', () => {
-  const setup = (triggers: Parameters<typeof resolveLevelution>[0][number]['triggers']) => {
+  const setup = (triggers: Parameters<typeof resolveLevolution>[0][number]['triggers']) => {
     const p = part(), obstacles = [...p.obstacles], changes: { added: number; crush?: number }[] = [];
-    const { events } = resolveLevelution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers }], 'yard', [p]);
-    const host = createLevelutionHost({ events, obstacles, duration: 100, restage: c => changes.push({ added: c.added.length, crush: c.crush?.damage }) });
+    const { events } = resolveLevolution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers }], 'yard', [p]);
+    const host = createLevolutionHost({ events, obstacles, duration: 100, restage: c => changes.push({ added: c.added.length, crush: c.crush?.damage }) });
     return { p, obstacles, changes, host, event: events[0] };
   };
   it('starts on the clock so the change lands at its mark, once', () => {
@@ -101,17 +101,17 @@ describe('host', () => {
 });
 
 describe('shipped bindings', () => {
-  const arenas = [...new Set(LEVELUTION_BINDINGS.map(b => b.arena))];
+  const arenas = [...new Set(LEVOLUTION_BINDINGS.map(b => b.arena))];
   it('names real arenas and archetypes', () => {
-    for (const b of LEVELUTION_BINDINGS) { expect(TDM_AREAS.some(a => a.id === b.arena), b.id).toBe(true); expect(getLevelution(b.archetype), b.id).toBeDefined(); }
-    expect(new Set(LEVELUTION_BINDINGS.map(b => b.id)).size).toBe(LEVELUTION_BINDINGS.length);
+    for (const b of LEVOLUTION_BINDINGS) { expect(TDM_AREAS.some(a => a.id === b.arena), b.id).toBe(true); expect(getLevolution(b.archetype), b.id).toBeDefined(); }
+    expect(new Set(LEVOLUTION_BINDINGS.map(b => b.id)).size).toBe(LEVOLUTION_BINDINGS.length);
   });
   it.each(arenas)('%s: every binding resolves against the built scene, and the map still works afterwards', arena => {
     const w = buildTeamDeathmatchWorld(arena), area = TDM_AREAS.find(a => a.id === arena)!, sites = HARDPOINT_ARENAS.find(a => a.area.id === arena)?.sites ?? [];
     try {
-      const { events, problems } = resolveLevelution(LEVELUTION_BINDINGS, arena, stagePartData(getStageParts(w.scene)));
+      const { events, problems } = resolveLevolution(LEVOLUTION_BINDINGS, arena, stagePartData(getStageParts(w.scene)));
       expect(problems).toEqual([]);
-      expect(w.environment.levelution?.events.map(e => e.binding.id)).toEqual(events.map(e => e.binding.id));
+      expect(w.environment.levolution?.events.map(e => e.binding.id)).toEqual(events.map(e => e.binding.id));
       // Every combination of settled events: at most four maps to check.
       for (let mask = 0; mask < 1 << events.length; mask++) {
         const running = events.flatMap((e, i) => mask & 1 << i ? [{ id: `s${i}`, binding: e.binding.id, seed: 1, start: 0 }] : []);
@@ -126,7 +126,7 @@ describe('shipped bindings', () => {
           for (let i = 0; i < 16; i++) expect(move.canOccupy(site.x + Math.cos(i * Math.PI / 8) * site.radius, site.y, site.z + Math.sin(i * Math.PI / 8) * site.radius, .5, 1.8), `state ${mask}: ${site.id} ring`).toBe(true);
           for (const team of ARENA_TEAMS) expect(nav.route(ground(area.spawns[team][0]), { x: site.x, y: site.y, z: site.z }).length, `state ${mask}: ${team} reaches ${site.id}`).toBeGreaterThan(0);
         }
-        const rebuilt = performance.now() - started; if (process.env.LEVELUTION_TIMING) console.log(`${arena} state ${mask}: navigator built and ${spawns.length + sites.length * 2} routes planned in ${rebuilt.toFixed(0)} ms`);
+        const rebuilt = performance.now() - started; if (process.env.LEVOLUTION_TIMING) console.log(`${arena} state ${mask}: navigator built and ${spawns.length + sites.length * 2} routes planned in ${rebuilt.toFixed(0)} ms`);
         expect(rebuilt, `state ${mask}: navigation rebuild`).toBeLessThan(4000);
       }
     } finally { w.dispose(); }
@@ -136,7 +136,7 @@ describe('shipped bindings', () => {
 describe('Tuas container yard', () => {
   const terrainOf = (w: ReturnType<typeof buildTeamDeathmatchWorld>) => createVerticalMovement({ bounds: w.bounds, obstacles: w.obstacles, surfaces: getPhysicalWalkSurfaces(w.scene), traversalObstacles: getTraversalObstacles(w.scene) });
   const settle = (w: ReturnType<typeof buildTeamDeathmatchWorld>) => {
-    const events = w.environment.levelution!.events;
+    const events = w.environment.levolution!.events;
     applyStageObstacles(w.obstacles, stagedParts(events), stageStates(events, events.map((e, i) => ({ id: `s${i}`, binding: e.binding.id, seed: 1, start: 0 })), 1e6));
     return events;
   };
@@ -150,7 +150,7 @@ describe('Tuas container yard', () => {
         for (const state of Object.values(part.states)) { expect(state.object.parent).toBeNull(); for (const o of state.obstacles) expect(w.obstacles).not.toContain(o); }
       }
       expect(parts.find(p => p.id === 'stacking-crane-west')!.states.falling.obstacles).toEqual([]);
-      expect(w.environment.levelution!.events.map(e => e.binding.id)).toEqual(['container-yard-west', 'container-yard-east']);
+      expect(w.environment.levolution!.events.map(e => e.binding.id)).toEqual(['container-yard-west', 'container-yard-east']);
     } finally { w.dispose(); }
   });
   it('opens a lane through every block, gives a climb to the second tier, and lays the gantry legs across the aprons', () => {
@@ -209,9 +209,9 @@ describe('Tuas container yard', () => {
       const has = (list: readonly Obstacle[]) => list.every(o => w.obstacles.includes(o));
       arena.addPlayer('p1', 'Player');
       for (let i = 0; i < 100; i++) arena.step(.05);
-      expect(arena.triggerLevelution('container-yard-west')).not.toBeNull();
-      expect(arena.triggerLevelution('container-yard-west')).toBeNull();
-      const event = w.environment.levelution!.events[0], run = (seconds: number) => { for (let t = 0; t < seconds - 1e-6; t += .05) arena.step(.05); };
+      expect(arena.triggerLevolution('container-yard-west')).not.toBeNull();
+      expect(arena.triggerLevolution('container-yard-west')).toBeNull();
+      const event = w.environment.levolution!.events[0], run = (seconds: number) => { for (let t = 0; t < seconds - 1e-6; t += .05) arena.step(.05); };
       expect(validArenaSnapshot(JSON.parse(JSON.stringify(arena.snapshot())), w.environment)).toBe(true);
       run(event.warning - .2);
       expect(has(crane.obstacles) && has(stack.obstacles)).toBe(true);
@@ -237,7 +237,7 @@ describe('Tuas container yard', () => {
       arena.reset();
       expect(has(crane.obstacles) && has(stack.obstacles)).toBe(true);
       expect(stack.states.toppled.obstacles.some(o => w.obstacles.includes(o))).toBe(false);
-      expect(arena.snapshot().levelution).toBeUndefined();
+      expect(arena.snapshot().levolution).toBeUndefined();
     } finally { w.dispose(); }
   });
 });
@@ -245,13 +245,13 @@ describe('Tuas container yard', () => {
 describe('crush', () => {
   it('kills whoever is still under it when it lands and nobody else, and credits no one', () => {
     const p = part(), obstacles = [...p.obstacles], bounds = { minX: -60, maxX: 60, minZ: -60, maxZ: 60 };
-    const { events } = resolveLevelution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers: [] }], 'yard', [p]);
-    const arena = createArena(obstacles, 0, 'mixed', { bounds, move: createRegionMovement(bounds).move, spawns: [{ x: 0, z: 6 }, { x: 30, z: -20 }], levelution: { events } });
+    const { events } = resolveLevolution([{ id: 'b', arena: 'yard', archetype: 'stack-topple', name: 'Stack', parts: { stack: 'stack' }, triggers: [] }], 'yard', [p]);
+    const arena = createArena(obstacles, 0, 'mixed', { bounds, move: createRegionMovement(bounds).move, spawns: [{ x: 0, z: 6 }, { x: 30, z: -20 }], levolution: { events } });
     arena.addPlayer('one', 'One'); arena.addPlayer('two', 'Two');
     for (let i = 0; i < 80; i++) arena.step(.05);
     const before = arena.snapshot().actors, under = before.filter(a => Math.hypot(a.x, a.z - 6) < .6), clear = before.filter(a => !under.includes(a));
     expect(under).toHaveLength(1); expect(clear).toHaveLength(1);
-    arena.triggerLevelution('b');
+    arena.triggerLevolution('b');
     for (let t = 0; t < events[0].warning - .2; t += .05) arena.step(.05);
     expect(arena.snapshot().actors.every(a => a.alive)).toBe(true);
     for (let t = 0; t < .5; t += .05) arena.step(.05);
@@ -265,7 +265,7 @@ describe('crush', () => {
 
 describe('stage view', () => {
   const build = () => {
-    const w = buildTeamDeathmatchWorld('container-yard'), events = w.environment.levelution!.events, parts = getStageParts(w.scene);
+    const w = buildTeamDeathmatchWorld('container-yard'), events = w.environment.levolution!.events, parts = getStageParts(w.scene);
     const event = events[0], start = { id: 'stage-1', binding: event.binding.id, seed: 1, start: 20 }, sets = event.steps.flatMap(s => s.type === 'set' ? [s] : []);
     return { w, events, event, start, crane: parts.find(p => p.id === 'stacking-crane-west')!, stack: parts.find(p => p.id === 'container-stack-b')!, tipAt: 20 + sets[0].at, burstAt: 20 + sets[1].at, downAt: 20 + sets.at(-1)!.at };
   };

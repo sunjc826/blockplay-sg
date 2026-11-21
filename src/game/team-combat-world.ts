@@ -7,8 +7,8 @@ import { createRegionMovement } from './region-collision';
 import { addPerimeterBarricades } from './district-boundaries';
 import type { TeamDeathmatchArea } from './arena-match';
 import type { ArenaEnvironment } from './arena-rules';
-import { resolveLevelution } from './levelution';
-import { LEVELUTION_BINDINGS } from './levelution-bindings';
+import { resolveLevolution } from './levolution';
+import { LEVOLUTION_BINDINGS } from './levolution-bindings';
 import { getStageParts, stagePartData } from './stage-parts';
 
 export function buildTeamCombatWorld(area:TeamDeathmatchArea,rules:Pick<ArenaEnvironment,'teamDeathmatch'|'hardpoint'|'freeForAll'>) {
@@ -22,8 +22,8 @@ export function buildTeamCombatWorld(area:TeamDeathmatchArea,rules:Pick<ArenaEnv
   const visuals=area.layout ? createStructureVisuals(world.scene,area.layout) : undefined;
   if(installed) environment.navigationAnchors=[...environment.navigationAnchors??[],...installed.navigationAnchors];
   // Events this arena's scene can actually stage; a binding whose part is missing is dropped, and a test fails on it.
-  const levelution=resolveLevelution(LEVELUTION_BINDINGS,area.id,stagePartData(getStageParts(world.scene))).events;
-  if(levelution.length) environment.levelution={events:levelution};
+  const levolution=resolveLevolution(LEVOLUTION_BINDINGS,area.id,stagePartData(getStageParts(world.scene))).events;
+  if(levolution.length) environment.levolution={events:levolution};
   const removeBarricades = addPerimeterBarricades(world.scene, bounds);
   return {...world,zone:getWorldZone(area.region),bounds,move,environment,dispose(){cover.dispose();visuals?.dispose();installed?.dispose();removeBarricades();world.dispose();}};
 }

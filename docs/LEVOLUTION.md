@@ -1,4 +1,4 @@
-# Levelution: design
+# Levolution: design
 
 Status: **the engine and the first event are built** (2026-11-21): stage parts, the
 `set`, `crush`, `dust` and `marker` steps, and the Tuas gantry collapse in Team
@@ -8,7 +8,7 @@ Deathmatch, Free for All and Hardpoint. Everything else here is still a proposal
 [Back to README](../README.md) · related: [combat events](COMBAT-EVENTS.md),
 [structures](STRUCTURES.md), [arenas](TEAM-ARENAS.md)
 
-A Levelution event changes the map itself partway through a match: a route opens
+A Levolution event changes the map itself partway through a match: a route opens
 or closes, cover appears or goes, the ground floods. It differs from a
 [combat event](COMBAT-EVENTS.md), which passes over the map and leaves it as it
 was. The map after the event must play differently, or it is only an effect.
@@ -17,11 +17,11 @@ was. The map after the event must play differently, or it is only an effect.
 
 ```
 stage-parts.ts          parts and their named states; the one function that swaps colliders (pure but for capture)
-levelution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
-levelution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse
-levelution-bindings.ts  which arena runs which archetype on which parts: container-yard
-levelution-host.ts      host: triggers, the obstacle list, what changed
-levelution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
+levolution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
+levolution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse
+levolution-bindings.ts  which arena runs which archetype on which parts: container-yard
+levolution-host.ts      host: triggers, the obstacle list, what changed
+levolution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
 ```
 
 **Adding an event to a map** is three edits and no engine work:
@@ -29,8 +29,8 @@ levelution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes int
 1. In the scene, wrap the piece in `kit.stage('id', { tags }, () => ...)` and author
    its other state beside it with `kit.stageState('id', 'state', () => ...)`, from
    the same position arguments. A mesh tagged with `stageFall` falls into place.
-2. Add a line to `LEVELUTION_BINDINGS` naming the arena, the archetype and the part.
-3. Run `levelution.test.ts`. It builds the arena, resolves the binding, and checks
+2. Add a line to `LEVOLUTION_BINDINGS` naming the arena, the archetype and the part.
+3. Run `levolution.test.ts`. It builds the arena, resolves the binding, and checks
    every combination of settled events: spawns and patrol points clear, every
    spawn connected, every Hardpoint ring clear and reachable by both teams.
 
@@ -80,10 +80,10 @@ Two events, `container-yard-west` and `container-yard-east`, both `gantry-collap
   matters once Expedition runs events.
 - **Not updated after a change:** the baked sky-visibility and lamp light, roof
   detail, and vehicle collision buffers (arena matches have no vehicles).
-- **Starting one by hand.** The debug panel has a Levelution button, but the
+- **Starting one by hand.** The debug panel has a Levolution button, but the
   panel is not shown in `/play` matches, so today it is reachable only where
-  debug tools are mounted. `scripts/fixtures/levelution.html?area=container-yard&t=8.3&view=south`
-  shows any moment of an arena's events (`view=high|south|north|west|east|lane`, no dust); `scripts/levelution-smoke.mjs`
+  debug tools are mounted. `scripts/fixtures/levolution.html?area=container-yard&t=8.3&view=south`
+  shows any moment of an arena's events (`view=high|south|north|west|east|lane`, no dust); `scripts/levolution-smoke.mjs`
   plays a real Tuas match until the clock starts it.
 
 ## Reviewing events in the debug view
@@ -101,7 +101,7 @@ scene, so every state of every part is already there to show.
 
 ### 1. See it: a stage timeline on the 3D layout
 
-A **Levelution** strip under the 3D layout, shown when the district has stage
+A **Levolution** strip under the 3D layout, shown when the district has stage
 parts:
 
 - **Arena and events.** The district's arenas that have bindings, and their
@@ -131,7 +131,7 @@ Each is a toggle, drawn without a depth test like the board's routes:
 | Dust | the cloud bank and how long it lasts | the `collapse-dust` timeline |
 | Sight change | for a chosen standing point, what it could see before and after | the layout metrics' sight disc |
 
-A **Checks** panel runs what `levelution.test.ts` runs, for the selected
+A **Checks** panel runs what `levolution.test.ts` runs, for the selected
 combination of settled events, and lists each as pass or fail with the place:
 spawns and patrol points clear, every spawn connected, Hardpoint rings clear and
 reached by both teams, nothing that falls overlapping scenery or leaving the
@@ -162,7 +162,7 @@ The agreed list has two dozen events not yet built. Each goes on the board as a
 proposal first, pushed by the AI (the designer does not author proposals), using what the board already draws plus one grouping field:
 
 ```ts
-thread.proposal?: { kind: 'levelution'; id: string; archetype: string; arena: string }
+thread.proposal?: { kind: 'levolution'; id: string; archetype: string; arena: string }
 ```
 
 The AI pushes one group per event: an area for what comes down and where it
@@ -176,9 +176,9 @@ playtest verdict.
 
 ### 5. Play it: a match on demand
 
-The debug panel's Levelution button already exists but nothing mounts it in a
+The debug panel's Levolution button already exists but nothing mounts it in a
 match. Add **Play this event** to the strip: it opens a solo match of that
-arena inside the debug workspace (`/debug?tool=arena&area=container-yard&mode=team-deathmatch&levelution=container-yard-west`),
+arena inside the debug workspace (`/debug?tool=arena&area=container-yard&mode=team-deathmatch&levolution=container-yard-west`),
 where debug tools are mounted, and offers:
 
 - start the event now, or in 10 s so there is time to get into position;
@@ -192,15 +192,15 @@ where debug tools are mounted, and offers:
 | `DistrictReviewViewer.tsx` | the strip, the stage view, overlays; the scene stays still apart from the stage |
 | `level-review.ts` | `anchor.stage` and `thread.proposal`, parsed and validated like `space` and `shape` |
 | `district-review.ts` | overlay builders; pin attachment in a stage |
-| `levelution-review.ts` (new, pure) | the checks, lifted out of `levelution.test.ts` so the test and the board run the same code |
+| `levolution-review.ts` (new, pure) | the checks, lifted out of `levolution.test.ts` so the test and the board run the same code |
 | Worker and `scripts/level-review-cloud.mjs` | carry the two new fields. Deploy the schema before pushing data that uses it |
 | `DebugApp.tsx`, debug workspace URL | an arena match by area and mode, with a named event |
 
 ### Build order
 
 1. **Built.** Timeline strip with sound, arena dressing and the collider, ring
-   and crush overlays (`levelution-review.ts`, `stage-review-audio.ts`, the strip in
-   `DistrictReviewViewer.tsx`; `scripts/levelution-review-smoke.mjs`). Not in it yet:
+   and crush overlays (`levolution-review.ts`, `stage-review-audio.ts`, the strip in
+   `DistrictReviewViewer.tsx`; `scripts/levolution-review-smoke.mjs`). Not in it yet:
    the parts list, and collider top heights as labels. Dust is drawn as domes, not
    as the game's particles.
 2. Lit view: `createDistrictRenderer` extracted and used by the board.
@@ -266,8 +266,8 @@ into three parts, and only the smallest one knows about a map:
 | Layer | Knows about | Lives in | Changes when a map is redrawn |
 | --- | --- | --- | --- |
 | **Stage ops** | collision, rays, navigation, snapshot, rendering | `stage-ops.ts` | never |
-| **Archetype** | what happens and in what order ("a crane drops its load") | `levelution-catalog.ts`, one plugin each | never |
-| **Binding** | which named parts of which map, and tuning | `levelution-bindings.ts`, per arena id | only if a named part is renamed or removed |
+| **Archetype** | what happens and in what order ("a crane drops its load") | `levolution-catalog.ts`, one plugin each | never |
+| **Binding** | which named parts of which map, and tuning | `levolution-bindings.ts`, per arena id | only if a named part is renamed or removed |
 
 Bindings hold **no coordinates**. They name parts; positions, footprints and
 heights are read from the built scene when the match loads.
@@ -290,7 +290,7 @@ Parts may also be **places** with no geometry of their own: `kit.stageArea('cana
 footprint)` for a flood basin, `kit.stageLine('track', a, b)` for a rail line.
 
 Moving, resizing or restyling a part needs no change to any event. Renaming or
-deleting one fails `levelution-bindings.test.ts`, which builds every real arena
+deleting one fails `levolution-bindings.test.ts`, which builds every real arena
 and resolves every binding against it (the way `zone-sectors.test.ts` guards
 sectors).
 
@@ -331,8 +331,8 @@ same `stage` call, hidden until placed. Nothing is fractured at run time.
 Same contract as combat events, so it inherits host authority and LAN for free:
 
 ```ts
-interface LevelutionDescriptor { id: string; binding: string; seed: number; start: number; cause?: string }
-interface LevelutionPlugin {
+interface LevolutionDescriptor { id: string; binding: string; seed: number; start: number; cause?: string }
+interface LevolutionPlugin {
   id: string; warning: number; duration: number;
   parts: Record<string, PartRequirement>;           // what a binding must supply, checked on registration
   timeline(event, resolved: ResolvedParts): StageStep[];  // pure: host and guest compute the same steps
@@ -409,7 +409,7 @@ Proposed default: one player trigger plus a `clock` fallback at 60% of the match
 | Expedition | no | needs per-state bakes and state saved across district travel |
 | Range, walk/drive | no | debug trigger only |
 
-A match setting `Levelution: off / on` next to the existing match options; a
+A match setting `Levolution: off / on` next to the existing match options; a
 debug panel entry fires any binding on the current map.
 
 ## Candidate events

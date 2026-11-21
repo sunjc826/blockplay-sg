@@ -3,32 +3,32 @@ import { TDM_AREAS, type TeamDeathmatchArea } from './arena-match';
 import { combatTimeline } from './combat-events';
 import './combat-event-catalog';
 import { HARDPOINT_ARENAS } from './hardpoint';
-import { levelutionMarkers, resolveLevelution, stageStates, stagedParts, type LevelutionDescriptor, type ResolvedLevelution, type StageStep } from './levelution';
-import { LEVELUTION_BINDINGS } from './levelution-bindings';
-import { createStageView } from './levelution-stage';
+import { levolutionMarkers, resolveLevolution, stageStates, stagedParts, type LevolutionDescriptor, type ResolvedLevolution, type StageStep } from './levolution';
+import { LEVOLUTION_BINDINGS } from './levolution-bindings';
+import { createStageView } from './levolution-stage';
 import type { Obstacle, RegionBounds } from './region-collision';
 import type { RegionId } from './region-ids';
 import { STAGE_BASE, getStageParts, stageObstacles, stagePartData, type StageState } from './stage-parts';
 
 /**
- * Levelution on the level review board (docs/LEVELUTION.md, "Reviewing events
+ * Levolution on the level review board (docs/LEVOLUTION.md, "Reviewing events
  * in the debug view"): a district's events scrubbed along a timeline on the
  * built scene, with overlays drawn from the same data the host resolves.
  * It drives the game's own stage view, so the board cannot show a map a match
  * would not arrive at.
  */
 
-export interface StageReviewArena { area: TeamDeathmatchArea; events: readonly ResolvedLevelution[] }
+export interface StageReviewArena { area: TeamDeathmatchArea; events: readonly ResolvedLevolution[] }
 /** The district's arenas that have events its scene can stage. */
 export function districtStageArenas(district: RegionId, scene: THREE.Object3D): StageReviewArena[] {
   const parts = stagePartData(getStageParts(scene));
-  return TDM_AREAS.filter(area => area.region === district).map(area => ({ area, events: resolveLevelution(LEVELUTION_BINDINGS, area.id, parts).events })).filter(arena => arena.events.length);
+  return TDM_AREAS.filter(area => area.region === district).map(area => ({ area, events: resolveLevolution(LEVOLUTION_BINDINGS, area.id, parts).events })).filter(arena => arena.events.length);
 }
 /** Seconds from the start of the warning until the last of `events` has settled. */
-export const stageSpan = (events: readonly ResolvedLevelution[]) => Math.max(1, ...events.map(e => e.duration));
+export const stageSpan = (events: readonly ResolvedLevolution[]) => Math.max(1, ...events.map(e => e.duration));
 const STEP_LABEL: Record<Exclude<StageStep['type'], 'marker'>, string> = { set: 'changes', crush: 'lands', dust: 'dust' };
 /** What happens when, for the ticks under the scrubber: one entry per distinct moment. */
-export function stageTicks(events: readonly ResolvedLevelution[]) {
+export function stageTicks(events: readonly ResolvedLevolution[]) {
   const ticks = new Map<number, string[]>();
   const add = (at: number, text: string) => { const key = Math.round(at * 100) / 100; ticks.set(key, [...(ticks.get(key) ?? []), text]); };
   for (const event of events) {
@@ -39,7 +39,7 @@ export function stageTicks(events: readonly ResolvedLevelution[]) {
   return [...ticks].sort((a, b) => a[0] - b[0]).map(([at, labels]) => ({ at, label: [...new Set(labels)].join(' · ') }));
 }
 /** Which part of its event the moment `t` falls in, for the strip's label. */
-export function stagePhase(events: readonly ResolvedLevelution[], t: number) {
+export function stagePhase(events: readonly ResolvedLevolution[], t: number) {
   if (!events.length || t <= 0) return 'As built';
   if (t >= stageSpan(events)) return 'Settled';
   return events.some(e => t >= e.warning && t < e.duration) ? 'Coming down' : events.some(e => t < e.warning) ? 'Warning' : 'Settling';
@@ -77,8 +77,8 @@ function disposeGroup(group: THREE.Object3D) {
 }
 
 /** The colliders each `crush` step of `event` lands, with the second it lands them. */
-export function crushFootprints(event: ResolvedLevelution) {
-  const descriptor: LevelutionDescriptor = { id: 'review', binding: event.binding.id, seed: 1, start: 0 }, parts = stagedParts([event]);
+export function crushFootprints(event: ResolvedLevolution) {
+  const descriptor: LevolutionDescriptor = { id: 'review', binding: event.binding.id, seed: 1, start: 0 }, parts = stagedParts([event]);
   const solids = (t: number) => { const states = stageStates([event], [descriptor], t); return new Set(parts.flatMap(part => [...stageObstacles(part, states.has(part.id) ? states.get(part.id)! : STAGE_BASE)])); };
   return event.steps.flatMap(step => {
     if (step.type !== 'crush') return [];
@@ -87,7 +87,7 @@ export function crushFootprints(event: ResolvedLevelution) {
   });
 }
 /** The dust clouds `event` raises, in seconds from its start. */
-export function dustClouds(event: ResolvedLevelution) {
+export function dustClouds(event: ResolvedLevolution) {
   return event.steps.flatMap(step => step.type !== 'dust' ? [] : combatTimeline({ id: 'review', kind: 'collapse-dust', seed: 1, start: 0, target: step.center, heading: step.heading + Math.PI, intensity: 1, reach: step.reach })
     .flatMap(payload => payload.type === 'cloud' ? [{ center: payload.center, radius: payload.radius, from: step.at + payload.from, until: step.at + payload.until }] : []));
 }
@@ -102,9 +102,9 @@ export function createStageReview(world: { scene: THREE.Scene; obstacles: Obstac
   const all = arenas.flatMap(arena => arena.events), view = createStageView(world, all);
   const ground = (x: number, z: number) => bounds.groundHeight?.(x, z) ?? 0;
   let at = 0, chosen = '', overlay: THREE.Group | null = null, dressed: THREE.Group | null = null, dressedFor = '';
-  const running = (events: readonly ResolvedLevelution[]): LevelutionDescriptor[] => events.map(e => ({ id: `review-${e.binding.id}`, binding: e.binding.id, seed: 1, start: 0 }));
+  const running = (events: readonly ResolvedLevolution[]): LevolutionDescriptor[] => events.map(e => ({ id: `review-${e.binding.id}`, binding: e.binding.id, seed: 1, start: 0 }));
 
-  function seek(events: readonly ResolvedLevelution[], t: number) {
+  function seek(events: readonly ResolvedLevolution[], t: number) {
     const key = events.map(e => e.binding.id).join(), descriptors = running(events), landings: { at: THREE.Vector3; size: number }[] = [];
     // Each state is entered at its own moment, as in play, so a scrub backwards or a new choice replays from the start.
     const replay = key !== chosen || t < at || t - at > .5;
@@ -114,11 +114,11 @@ export function createStageReview(world: { scene: THREE.Scene; obstacles: Obstac
     return landings;
   }
 
-  function overlays(events: readonly ResolvedLevelution[], t: number, options: StageOverlays, arena?: StageReviewArena) {
+  function overlays(events: readonly ResolvedLevolution[], t: number, options: StageOverlays, arena?: StageReviewArena) {
     if (overlay) disposeGroup(overlay);
-    overlay = note(new THREE.Group()); overlay.name = 'Levelution review overlays';
+    overlay = note(new THREE.Group()); overlay.name = 'Levolution review overlays';
     const descriptors = running(events), lift = (p: { x: number; z: number }) => ground(p.x, p.z) + .35;
-    if (options.ring) for (const marker of levelutionMarkers(events, descriptors, t)) for (const width of [0, .25]) overlay.add(circle(marker.center, marker.radius + width, lift(marker.center), lineMaterial('#ff5a36')));
+    if (options.ring) for (const marker of levolutionMarkers(events, descriptors, t)) for (const width of [0, .25]) overlay.add(circle(marker.center, marker.radius + width, lift(marker.center), lineMaterial('#ff5a36')));
     if (options.crush) for (const event of events) for (const crush of crushFootprints(event)) {
       // Bright while it is still to come, faint once it is down.
       const due = t < crush.at;

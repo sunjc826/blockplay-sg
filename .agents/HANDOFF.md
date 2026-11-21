@@ -17241,8 +17241,8 @@ loadout", inconsistent and hidden in a corner of the match menu):
 - Checked: component tests, and `scripts/fixtures/streak-menu.html` in headless Chrome at 1280
   and 390 wide plus its `&selftest` click-through. Not checked inside a running match.
 
-Levelution design (2026-11-21, owner asked for BF4-style map-changing events that survive map redraws):
-- `docs/LEVELUTION.md` is a proposal only; nothing is built. Three layers: stage ops (engine),
+Levolution design (2026-11-21, owner asked for BF4-style map-changing events that survive map redraws):
+- `docs/LEVOLUTION.md` is a proposal only; nothing is built. Three layers: stage ops (engine),
   archetypes (pure timelines, like combat events), bindings (per arena, name stage parts, no
   coordinates). Scenes would publish parts with `kit.stage(id, ...)`.
 - Not measured: the cost of a second lazy navigator per after-state. Candidate events are not
@@ -17305,20 +17305,20 @@ Typecheck, 22 focused tests, `sun-rays-smoke` and `sun-rays-lens-smoke` pass on 
 Suggested next, not started: a real sun disc, a moon disc/phase/stars, and Ultra-only
 volumetric (shadow-map marched) shafts for off-screen and overhead sun.
 
-Levelution engine and the Tuas stack topple (2026-11-21, owner: "start on the first batch"):
-- Built: `stage-parts.ts` (`kit.stage` / `kit.stageState`, `stageFall`), `levelution.ts`, `-catalog`, `-bindings`,
+Levolution engine and the Tuas stack topple (2026-11-21, owner: "start on the first batch"):
+- Built: `stage-parts.ts` (`kit.stage` / `kit.stageState`, `stageFall`), `levolution.ts`, `-catalog`, `-bindings`,
   `-host`, `-stage`. Wired into `arena-rules.ts` (host module beside the streaks; `restage()` rebuilds movement,
   a fresh lazy navigator and the derived obstacle lists, then crushes and unsticks), `arena-runtime.ts` (snapshot
   validation), `team-combat-world.ts` (resolves bindings against the built scene) and `fps-engine.ts` (stage view,
-  banner, map ring, player unstick). docs/LEVELUTION.md "What is built" lists every difference from the proposal.
+  banner, map ring, player unstick). docs/LEVOLUTION.md "What is built" lists every difference from the proposal.
 - Tuas `container-stack-b` topples south at 60% of the match (time or score) or after 250 blast damage near it.
 - In a solo or hosted match the simulation owns `world.obstacles` and the stage view only watches it
   (`createStageView(..., false)`); a guest's view applies the colliders itself. Do not let both write: their clocks
   differ by a frame or two and each would undo the other.
-- Checked: unit and world tests (`levelution.test.ts`), the full suite, typecheck, `scripts/fixtures/levelution.html`
-  on the software renderer, and `scripts/levelution-smoke.mjs` (a real solo Tuas TDM until the clock starts it).
+- Checked: unit and world tests (`levolution.test.ts`), the full suite, typecheck, `scripts/fixtures/levolution.html`
+  on the software renderer, and `scripts/levolution-smoke.mjs` (a real solo Tuas TDM until the clock starts it).
 Not checked: a hosted match with a real guest, a real GPU, a touch device, the fall seen from the ground in play,
-and frame time. The debug panel's Levelution button is unreachable in `/play` (the panel is not mounted there).
+and frame time. The debug panel's Levolution button is unreachable in `/play` (the panel is not mounted there).
 Still to do from the first batch: Bishan flash flood (`water`), the Flyer wheel drop, a substation blackout (`light`).
 
 ## 2026-11-21 — PWA update blocked by an in-flight request
@@ -17371,25 +17371,25 @@ scene. The gun counts as cover, so a clear sun crossed by it switches from tight
 gameplay frames at the Marina spawn with and without the blocker. Not checked: aiming down
 sights, the cost of the extra draw, the lens and gameplay smokes.
 
-Tuas Levelution scaled up (2026-11-21, owner: the single stack was too small to notice; agreed to do all three of
+Tuas Levolution scaled up (2026-11-21, owner: the single stack was too small to notice; agreed to do all three of
 more stacks, the gantry, and a staged fall with dust):
 - `container-yard-topple` is replaced by `container-yard-west` and `-east` (`gantry-collapse`): each gantry tips over
   across an apron through the two stacks under it. Parts `stacking-crane-west/east` have `falling` (no colliders,
-  `stageTip`) and `fallen` states; all four stacks have `toppled`. docs/LEVELUTION.md has the full description.
+  `stageTip`) and `fallen` states; all four stacks have `toppled`. docs/LEVOLUTION.md has the full description.
 - New step `dust` starts a `collapse-dust` combat event; `validArenaSnapshot` lets that one kind through in team
-  matches when the snapshot also carries Levelution events. One dust event per gantry, because team matches cap
+  matches when the snapshot also carries Levolution events. One dust event per gantry, because team matches cap
   events at six and a Hunter Drone needs a free slot.
 - The west and east halves are the same layout turned half a turn; a test holds that, and that nothing which
   falls overlaps scenery, another fallen piece, a spawn, a patrol point or a Hardpoint ring.
-- Checked: tests, fixture captures on the software renderer, `scripts/levelution-smoke.mjs` (live solo TDM: both
+- Checked: tests, fixture captures on the software renderer, `scripts/levolution-smoke.mjs` (live solo TDM: both
   gantries and four stacks down, dust banner shown). Not checked: a hosted guest, a real GPU, frame time, touch.
 
-Levelution on the level review board (2026-11-21, owner approved the design in docs/LEVELUTION.md "Reviewing events
+Levolution on the level review board (2026-11-21, owner approved the design in docs/LEVOLUTION.md "Reviewing events
 in the debug view"; answers recorded there: sound on, a lit view from the game's own modules, AI-only proposals):
-- Built step 1 only: a Levelution strip under the board's 3D layout for any district whose arenas have events
-  (`/debug?review=tuas&view=3d`). `levelution-review.ts` drives the game's `createStageView` on the board's scene
+- Built step 1 only: a Levolution strip under the board's 3D layout for any district whose arenas have events
+  (`/debug?review=tuas&view=3d`). `levolution-review.ts` drives the game's `createStageView` on the board's scene
   (seek replays from 0 when scrubbing back, so states are entered at their own moments) and draws overlays tagged
   `fpsEffect` so no pin lands on them. `stage-review-audio.ts` is a small synth; the board has no game audio.
-- Checked: `levelution-review.test.ts`, typecheck, the full suite, and `scripts/levelution-review-smoke.mjs` on the
+- Checked: `levolution-review.test.ts`, typecheck, the full suite, and `scripts/levolution-review-smoke.mjs` on the
   software renderer at 1440 and 390 wide. Not checked: a real phone, touch dragging of the scrubber, the sound by ear.
 - Next in the build order: the lit view (`createDistrictRenderer` extracted from `fps-engine.ts`), then `anchor.stage`.

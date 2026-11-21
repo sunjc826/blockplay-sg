@@ -1,13 +1,13 @@
-import type { LevelutionBinding } from './levelution';
-import './levelution-catalog';
+import type { LevolutionBinding } from './levolution';
+import './levolution-catalog';
 
 /**
- * Which arena runs which Levelution event on which of its stage parts. No
+ * Which arena runs which Levolution event on which of its stage parts. No
  * coordinates: a part that moves in a redesign takes its event with it, and
- * levelution-bindings.test.ts builds every arena named here and fails on a
+ * levolution-bindings.test.ts builds every arena named here and fails on a
  * part that has been renamed or removed.
  */
-export const LEVELUTION_BINDINGS: readonly LevelutionBinding[] = [
+export const LEVOLUTION_BINDINGS: readonly LevolutionBinding[] = [
   // Both gantries go on the same clock; the east one warns three seconds longer, so the yard comes down west then east.
   { id: 'container-yard-west', arena: 'container-yard', archetype: 'gantry-collapse', name: 'West gantry',
     parts: { crane: 'stacking-crane-west', first: 'container-stack-b', second: 'container-stack-a' },

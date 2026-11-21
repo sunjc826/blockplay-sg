@@ -1,17 +1,17 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Levelution stage review</title>
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Levolution stage review</title>
 <style>body{margin:0;background:#141f27;color:#f4f4e9;font:15px system-ui;overflow:hidden}canvas{display:block}header{position:absolute;left:20px;top:16px;background:#14232deb;padding:12px 16px;border-radius:8px}h1{font-size:20px;margin:0 0 4px}p{margin:3px 0}</style>
 <header><h1 id="name"></h1><p id="state"></p></header>
 <script type="module">
-// An arena's Levelution events at a chosen moment, for judging the authored states by eye. Every event of
+// An arena's Levolution events at a chosen moment, for judging the authored states by eye. Every event of
 // the arena starts at second 0 (or only &event=<binding id>); dust is not drawn here.
 // ?area=container-yard  &t=<seconds since they started; omit for the map as built>
 // &view=high|south|north|west|east|lane   &x=&y=&z=&lx=&ly=&lz= (camera and look-at, overriding the view)
 import * as THREE from 'three';
 import { buildHardpointWorld } from '/src/game/hardpoint-world.ts';
-import { createStageView } from '/src/game/levelution-stage.ts';
+import { createStageView } from '/src/game/levolution-stage.ts';
 const q=new URLSearchParams(location.search),id=q.get('area')??'container-yard',world=buildHardpointWorld(id);
 world.stamps.forEach(s=>s.visible=false);world.car.visible=false;
-const all=world.environment.levelution?.events??[],events=q.has('event')?all.filter(e=>e.binding.id===q.get('event')):all;
+const all=world.environment.levolution?.events??[],events=q.has('event')?all.filter(e=>e.binding.id===q.get('event')):all;
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);document.body.append(renderer.domElement);
 const view=createStageView(world,all),t=q.has('t')?Number(q.get('t')):null;
 // Step through the timeline so every state is entered at its own moment, as it would be in play.
@@ -21,7 +21,7 @@ const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,1500),wher
 const stand={high:[c.x,w*.62,c.z+d*1.25,c.x,0,c.z],south:[c.x-w*.2,1.75,b.maxZ-3,c.x-w*.28,6,c.z],north:[c.x+w*.2,1.75,b.minZ+3,c.x+w*.28,6,c.z],west:[b.minX+4,1.75,c.z+d*.3,c.x,4,c.z+d*.3],east:[b.maxX-4,1.75,c.z-d*.3,c.x,4,c.z-d*.3],lane:[c.x-w*.5+62,1.75,b.minZ+16,c.x-w*.5+62,2,b.maxZ]}[where]??[c.x,60,c.z+70,c.x,0,c.z];
 const n=(k,i)=>q.has(k)?Number(q.get(k)):stand[i];
 camera.position.set(n('x',0),n('y',1),n('z',2));camera.lookAt(n('lx',3),n('ly',4),n('lz',5));
-document.querySelector('#name').textContent=events.length?events.map(e=>`${e.binding.name} · ${e.plugin.name}`).join('  |  '):`${id}: no Levelution event`;
+document.querySelector('#name').textContent=events.length?events.map(e=>`${e.binding.name} · ${e.plugin.name}`).join('  |  '):`${id}: no Levolution event`;
 document.querySelector('#state').textContent=t===null?'As built':`${t.toFixed(2)} s after the warning began`;
 world.scene.updateMatrixWorld(true);renderer.render(world.scene,camera);
 window.reviewReady=true;

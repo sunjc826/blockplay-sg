@@ -410,7 +410,7 @@ export const threatens = (event: Pick<CombatEventDescriptor, 'kind' | 'faction'>
   plugin.hazard && !(event.faction === PLAYER_FACTION && AIMED_BY_SIDE.has(event.kind));
 
 /**
- * Dust from something large coming down (a Levelution collapse, docs/LEVELUTION.md). Never scheduled:
+ * Dust from something large coming down (a Levolution collapse, docs/LEVOLUTION.md). Never scheduled:
  * the collapse raises it. It hurts nobody; nobody sees through it until it thins. One event covers a
  * whole collapse, so two of them cannot crowd out a match's other events: three clouds in a row across
  * `reach` where it broke, then two more out along the heading where it landed.

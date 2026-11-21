@@ -2,13 +2,13 @@ import type { Obstacle } from './region-collision';
 import { STAGE_BASE, stageObstacles, type StagePartData, type StageState } from './stage-parts';
 
 /**
- * Levelution: events that change the map partway through a match
- * (docs/LEVELUTION.md). Three layers, and only the last knows a map:
+ * Levolution: events that change the map partway through a match
+ * (docs/LEVOLUTION.md). Three layers, and only the last knows a map:
  *
  * - stage steps (below): the small vocabulary of things that can happen to a part;
- * - archetypes (`LevelutionPlugin`, levelution-catalog.ts): what happens and in
+ * - archetypes (`LevolutionPlugin`, levolution-catalog.ts): what happens and in
  *   what order, written against part *roles*;
- * - bindings (levelution-bindings.ts): which named parts of which arena fill
+ * - bindings (levolution-bindings.ts): which named parts of which arena fill
  *   those roles. A binding holds no coordinates.
  *
  * Like a combat event, a running event is a small descriptor and everything
@@ -29,7 +29,7 @@ export type StageStep =
   /** A ring on the ground and the map; bots leave it. */
   | { type: 'marker'; from: number; until: number; center: { x: number; z: number }; radius: number };
 
-export interface LevelutionDescriptor {
+export interface LevolutionDescriptor {
   /** Unique within the match. */
   id: string;
   /** Binding id. */
@@ -41,13 +41,13 @@ export interface LevelutionDescriptor {
   cause?: string;
 }
 
-export type LevelutionTrigger =
+export type LevolutionTrigger =
   /** Starts by itself once this fraction of the match has run, by the clock or by the leader's score towards the limit, so most matches see it. */
   | { kind: 'clock'; at: number }
   /** Blast damage near the part in this role, pooled on the host. */
   | { kind: 'blast'; role: string; health: number };
 
-export interface LevelutionBinding {
+export interface LevolutionBinding {
   id: string;
   /** Arena id (arena-catalog.json). */
   arena: string;
@@ -56,12 +56,12 @@ export interface LevelutionBinding {
   name: string;
   /** Role → stage part id. */
   parts: Readonly<Record<string, string>>;
-  triggers: readonly LevelutionTrigger[];
+  triggers: readonly LevolutionTrigger[];
   /** Seconds of warning; defaults to the archetype's, and may not go below it. */
   warning?: number;
 }
 
-export interface LevelutionPlugin {
+export interface LevolutionPlugin {
   id: string;
   name: string;
   /** Least seconds between the announcement and the first change. Enforced, not advisory. */
@@ -78,23 +78,23 @@ export interface LevelutionPlugin {
   steps(parts: Readonly<Record<string, StagePartData>>): StageStep[];
 }
 
-const plugins = new Map<string, LevelutionPlugin>();
+const plugins = new Map<string, LevolutionPlugin>();
 const ID = /^[a-z][a-z0-9-]{0,39}$/;
-export function registerLevelution(plugin: LevelutionPlugin) {
-  if (!ID.test(plugin.id) || plugins.has(plugin.id)) throw new Error(`Invalid or duplicate Levelution archetype "${plugin.id}"`);
-  if (!(plugin.warning >= 3) || !(plugin.settle >= 0) || !Number.isFinite(plugin.warning + plugin.settle)) throw new Error(`Levelution archetype "${plugin.id}" must warn for at least 3 s`);
+export function registerLevolution(plugin: LevolutionPlugin) {
+  if (!ID.test(plugin.id) || plugins.has(plugin.id)) throw new Error(`Invalid or duplicate Levolution archetype "${plugin.id}"`);
+  if (!(plugin.warning >= 3) || !(plugin.settle >= 0) || !Number.isFinite(plugin.warning + plugin.settle)) throw new Error(`Levolution archetype "${plugin.id}" must warn for at least 3 s`);
   plugins.set(plugin.id, Object.freeze({ ...plugin }));
 }
-export const getLevelution = (id: string) => plugins.get(id);
-export const levelutionArchetypes = () => [...plugins.values()];
+export const getLevolution = (id: string) => plugins.get(id);
+export const levolutionArchetypes = () => [...plugins.values()];
 
 /** At most this many events on one map, so a map has four states at most to check. */
-export const MAX_LEVELUTION_EVENTS = 2;
+export const MAX_LEVOLUTION_EVENTS = 2;
 
 /** A binding with its parts found and its steps worked out against them. */
-export interface ResolvedLevelution {
-  binding: LevelutionBinding;
-  plugin: LevelutionPlugin;
+export interface ResolvedLevolution {
+  binding: LevolutionBinding;
+  plugin: LevolutionPlugin;
   parts: Readonly<Record<string, StagePartData>>;
   /** Seconds from the start of the event. */
   steps: readonly StageStep[];
@@ -106,16 +106,16 @@ export interface ResolvedLevelution {
 /**
  * Bind an arena's events to the parts its scene actually has. `problems` lists
  * every binding that cannot run and why; a match drops those and plays on, and
- * levelution-bindings.test.ts fails on any of them.
+ * levolution-bindings.test.ts fails on any of them.
  */
-export function resolveLevelution(bindings: readonly LevelutionBinding[], arena: string, parts: readonly StagePartData[]) {
-  const events: ResolvedLevelution[] = [], problems: string[] = [];
+export function resolveLevolution(bindings: readonly LevolutionBinding[], arena: string, parts: readonly StagePartData[]) {
+  const events: ResolvedLevolution[] = [], problems: string[] = [];
   for (const binding of bindings) {
     if (binding.arena !== arena) continue;
     const fail = (why: string) => { problems.push(`${binding.id}: ${why}`); };
     const plugin = plugins.get(binding.archetype);
     if (!plugin) { fail(`unknown archetype "${binding.archetype}"`); continue; }
-    if (events.length >= MAX_LEVELUTION_EVENTS) { fail(`more than ${MAX_LEVELUTION_EVENTS} events on one map`); continue; }
+    if (events.length >= MAX_LEVOLUTION_EVENTS) { fail(`more than ${MAX_LEVOLUTION_EVENTS} events on one map`); continue; }
     const found: Record<string, StagePartData> = {}; let ok = true;
     for (const [role, need] of Object.entries(plugin.roles)) {
       const part = parts.find(p => p.id === binding.parts[role]);
@@ -136,14 +136,14 @@ export function resolveLevelution(bindings: readonly LevelutionBinding[], arena:
   return { events, problems };
 }
 
-export type LevelutionPhase = 'warning' | 'transition' | 'settled';
-export const levelutionPhase = (event: ResolvedLevelution, descriptor: Readonly<LevelutionDescriptor>, elapsed: number): LevelutionPhase => {
+export type LevolutionPhase = 'warning' | 'transition' | 'settled';
+export const levolutionPhase = (event: ResolvedLevolution, descriptor: Readonly<LevolutionDescriptor>, elapsed: number): LevolutionPhase => {
   const age = elapsed - descriptor.start;
   return age < event.warning ? 'warning' : age < event.duration ? 'transition' : 'settled';
 };
 
 /** Each acted-on part's state at `elapsed`. Events do not undo, so a later event's word on a part is final. */
-export function stageStates(events: readonly ResolvedLevelution[], running: readonly Readonly<LevelutionDescriptor>[], elapsed: number) {
+export function stageStates(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
   const states = new Map<string, StageState>();
   for (const descriptor of running) {
     const event = events.find(e => e.binding.id === descriptor.binding); if (!event) continue;
@@ -154,7 +154,7 @@ export function stageStates(events: readonly ResolvedLevelution[], running: read
 }
 
 /** Every part any event of this arena may touch. */
-export const stagedParts = (events: readonly ResolvedLevelution[]) => [...new Set(events.flatMap(e => Object.values(e.parts)))];
+export const stagedParts = (events: readonly ResolvedLevolution[]) => [...new Set(events.flatMap(e => Object.values(e.parts)))];
 
 /** The box round a part's colliders in every state the event gives it, for warning rings. */
 export function stageReach(part: StagePartData, states: readonly StageState[] = [STAGE_BASE, ...Object.keys(part.states)]) {
@@ -165,19 +165,19 @@ export function stageReach(part: StagePartData, states: readonly StageState[] = 
 }
 
 /** Live warning rings at `elapsed`, for bots and the map. */
-export function levelutionMarkers(events: readonly ResolvedLevelution[], running: readonly Readonly<LevelutionDescriptor>[], elapsed: number) {
+export function levolutionMarkers(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
   return running.flatMap(descriptor => {
     const event = events.find(e => e.binding.id === descriptor.binding), age = elapsed - descriptor.start;
     return event ? event.steps.flatMap(step => step.type === 'marker' && age >= step.from && age <= step.until ? [{ ...step, event: descriptor.id }] : []) : [];
   });
 }
 
-export interface LevelutionSnapshot { events: LevelutionDescriptor[] }
+export interface LevolutionSnapshot { events: LevolutionDescriptor[] }
 /** Guest-side check of the host's word: known bindings, each at most once, finite and not from the future. */
-export function validLevelutionSnapshot(value: unknown, events: readonly ResolvedLevelution[], elapsed: number): value is LevelutionSnapshot {
-  if (!value || typeof value !== 'object' || !Array.isArray((value as LevelutionSnapshot).events)) return false;
-  const list = (value as LevelutionSnapshot).events, seen = new Set<string>();
-  if (list.length > MAX_LEVELUTION_EVENTS) return false;
+export function validLevolutionSnapshot(value: unknown, events: readonly ResolvedLevolution[], elapsed: number): value is LevolutionSnapshot {
+  if (!value || typeof value !== 'object' || !Array.isArray((value as LevolutionSnapshot).events)) return false;
+  const list = (value as LevolutionSnapshot).events, seen = new Set<string>();
+  if (list.length > MAX_LEVOLUTION_EVENTS) return false;
   return list.every(d => !!d && typeof d === 'object' && typeof d.id === 'string' && d.id.length <= 60 && typeof d.binding === 'string'
     && events.some(e => e.binding.id === d.binding) && !seen.has(d.binding) && !!seen.add(d.binding)
     && Number.isFinite(d.seed) && Number.isFinite(d.start) && d.start >= 0 && d.start <= elapsed + 1

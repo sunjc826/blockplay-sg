@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { getRegion } from './regions';
-import { DEFAULT_STAGE_OVERLAYS, createStageReview, crushFootprints, districtStageArenas, dustClouds, stagePhase, stageSpan, stageTicks } from './levelution-review';
+import { DEFAULT_STAGE_OVERLAYS, createStageReview, crushFootprints, districtStageArenas, dustClouds, stagePhase, stageSpan, stageTicks } from './levolution-review';
 import { getStageParts } from './stage-parts';
 import { districtSurfaceHit } from './district-review';
 
-describe('Levelution on the review board', () => {
+describe('Levolution on the review board', () => {
   it('finds a district\'s staged arenas and none where there are no events', () => {
     const tuas = getRegion('tuas').build(), bishan = getRegion('bishan').build();
     try {
@@ -63,16 +63,16 @@ describe('Levelution on the review board', () => {
       review.seek([events[0]], span);
       expect(getStageParts(world.scene).find(p => p.id === 'stacking-crane-east')!.object.parent).toBe(world.scene);
       review.overlays(events, events[0].warning + 3.5, { ...DEFAULT_STAGE_OVERLAYS, colliders: true }, arenas[0]);
-      const notes = world.scene.getObjectByName('Levelution review overlays')!, dressing = world.scene.getObjectByName('Arena dressing')!;
+      const notes = world.scene.getObjectByName('Levolution review overlays')!, dressing = world.scene.getObjectByName('Arena dressing')!;
       expect(notes.children.length).toBeGreaterThan(20); expect(dressing.children.length).toBeGreaterThan(20);
       world.scene.updateMatrixWorld(true);
       const ray = new THREE.Raycaster(new THREE.Vector3(97, 80, -20), new THREE.Vector3(0, -1, 0)), hit = districtSurfaceHit(world.scene, ray, region.bounds)!;
       for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) expect(o === notes || o === dressing).toBe(false);
       review.overlays(events, 0, { ring: false, crush: false, colliders: false, dust: false, dressing: false });
       expect(world.scene.getObjectByName('Arena dressing')).toBeUndefined();
-      expect(world.scene.getObjectByName('Levelution review overlays')!.children).toHaveLength(0);
+      expect(world.scene.getObjectByName('Levolution review overlays')!.children).toHaveLength(0);
       review.dispose();
-      expect(world.scene.getObjectByName('Levelution review overlays')).toBeUndefined();
+      expect(world.scene.getObjectByName('Levolution review overlays')).toBeUndefined();
       expect(crane.object.parent).toBe(world.scene);
     } finally { world.dispose(); }
   });

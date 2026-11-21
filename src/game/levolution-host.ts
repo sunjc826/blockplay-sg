@@ -1,14 +1,14 @@
 import type { Obstacle } from './region-collision';
 import { applyStageObstacles } from './stage-parts';
-import { levelutionMarkers, stageReach, stageStates, stagedParts, type LevelutionDescriptor, type LevelutionSnapshot, type ResolvedLevelution } from './levelution';
+import { levolutionMarkers, stageReach, stageStates, stagedParts, type LevolutionDescriptor, type LevolutionSnapshot, type ResolvedLevolution } from './levolution';
 
 /**
- * The host's side of Levelution: decides when an event starts, owns the
+ * The host's side of Levolution: decides when an event starts, owns the
  * obstacle list's stage parts, and tells the simulation what changed so it can
  * rebuild what it derived from the old map and deal with whoever was underneath.
  */
-export interface LevelutionHostOptions {
-  events: readonly ResolvedLevelution[];
+export interface LevolutionHostOptions {
+  events: readonly ResolvedLevolution[];
   /** The world's live obstacle list; stage parts are swapped in and out of it. */
   obstacles: Obstacle[];
   /** Match length in seconds, for clock triggers. */
@@ -23,9 +23,9 @@ export interface LevelutionHostOptions {
   dust?(center: { x: number; z: number }, heading: number, reach: number): void;
 }
 
-export function createLevelutionHost(options: LevelutionHostOptions) {
+export function createLevolutionHost(options: LevolutionHostOptions) {
   const { events, obstacles } = options, parts = stagedParts(events);
-  let running: LevelutionDescriptor[] = [], serial = 0, enabled = true;
+  let running: LevolutionDescriptor[] = [], serial = 0, enabled = true;
   const health = new Map<string, number>();
   const arm = () => { health.clear(); for (const e of events) for (const t of e.binding.triggers) if (t.kind === 'blast') health.set(e.binding.id, t.health); };
   arm();
@@ -34,7 +34,7 @@ export function createLevelutionHost(options: LevelutionHostOptions) {
   function start(binding: string, elapsed: number, cause?: string) {
     const event = events.find(e => e.binding.id === binding);
     if (!event || started(binding)) return null;
-    const descriptor: LevelutionDescriptor = { id: `stage-${++serial}`, binding, seed: (serial * 2654435761) >>> 0, start: elapsed, ...(cause ? { cause } : {}) };
+    const descriptor: LevolutionDescriptor = { id: `stage-${++serial}`, binding, seed: (serial * 2654435761) >>> 0, start: elapsed, ...(cause ? { cause } : {}) };
     running.push(descriptor);
     options.announce?.(cause ? `${cause} set off the ${event.binding.name.toLowerCase()}` : `${event.binding.name} giving way`);
     return descriptor;
@@ -86,8 +86,8 @@ export function createLevelutionHost(options: LevelutionHostOptions) {
     /** Debug and scripted starts. */
     trigger: (binding: string, elapsed: number, cause?: string) => start(binding, elapsed, cause),
     setEnabled(value: boolean) { enabled = value; },
-    markers: (elapsed: number) => levelutionMarkers(events, running, elapsed),
-    snapshot: (): LevelutionSnapshot | undefined => running.length ? { events: running.map(d => ({ ...d })) } : undefined,
+    markers: (elapsed: number) => levolutionMarkers(events, running, elapsed),
+    snapshot: (): LevolutionSnapshot | undefined => running.length ? { events: running.map(d => ({ ...d })) } : undefined,
     reset() {
       running = []; serial = 0; last = 0; arm();
       const { added, removed } = applyStageObstacles(obstacles, parts, new Map());
@@ -95,4 +95,4 @@ export function createLevelutionHost(options: LevelutionHostOptions) {
     },
   };
 }
-export type LevelutionHost = ReturnType<typeof createLevelutionHost>;
+export type LevolutionHost = ReturnType<typeof createLevolutionHost>;
