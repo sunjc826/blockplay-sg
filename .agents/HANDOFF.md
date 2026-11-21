@@ -17350,3 +17350,11 @@ Owner asked for moon rays. `SunRayLight.moon` (0–1, `moonRayAmount`: sun −4�
 twilight between has none. Same passes; NVG/thermal/reduced gates unchanged. No moon disc
 exists, so open sky shows a soft glow at the moon. Typecheck, full suite (4,511), ray and
 lens smokes pass on ANGLE Metal. Gameplay smoke not rerun.
+
+### God-ray glow follows cover — 21 November 2026
+
+Owner: the ray glow read as an oversized lens flare and hid the beams. `sun-rays.ts` now
+measures cover in a 1×1 pass (`Sun ray cover`): clear sun → small tight glow (35%, exp(-6d));
+4–30% of the source hidden → long beams (exp(-1.9d)), hollowed within ~0.08 of the sun;
+`RAY_GAIN` .6. Lens flare code untouched. Typecheck, ray tests, ray and lens smokes pass on
+ANGLE Metal; full suite run before push. Gameplay smoke not rerun.

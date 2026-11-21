@@ -9,10 +9,17 @@ palm fronds and buildings interrupt the light. The light source is a small hot
 disc with a wide dim halo (`SOURCE` in `src/game/sun-rays.ts`). Each pixel's
 brightness is the share of that source it can see along its line to the sun,
 squared for contrast, times a fixed falloff with distance from the sun
-(`exp(-1.9 × screen heights)`). Open sky therefore glows smoothly, and anything
-crossing the disc or halo cuts beams and gaps that run the length of the screen.
-Shafts appear only when something partly hides the sun; a sun in clear sky
-gives a plain glow, and one fully behind a building gives almost nothing.
+(`exp(-1.9 × screen heights)`). Anything crossing the disc or halo cuts beams
+and gaps that run the length of the screen.
+
+How far the light reaches depends on cover. A one-pixel pass measures the share
+of the on-screen source that is open sky. With the sun in clear sky there are
+no beams to show, so the pass adds only a small tight glow (35% strength,
+`exp(-6 × screen heights)`) and leaves the sun to the sky and the lens flare;
+a long glow there only read as a second, larger flare. As scenery hides 4% to
+30% of the source the long falloff takes over. Beams are also hollowed out
+within about 0.08 screen heights of the sun, where the flare already is. A sun
+fully behind a building gives almost nothing.
 
 Sun elevation and eased weather sunlight control intensity. A sun up to about
 0.4 screens outside the image still throws shafts, dimming as its source leaves
@@ -40,8 +47,9 @@ Transparent objects that do not write depth are not full ray blockers.
 
 ## Rendering cost
 
-The implementation reuses the main scene depth and makes three fullscreen draws:
-a conservative sky/source mask, radial integration and a bounded final composite.
+The implementation reuses the main scene depth and makes three fullscreen draws
+(a conservative sky mask, radial integration and a bounded final composite) plus
+a one-pixel draw that measures how much of the source is covered.
 It does not render scene geometry a second time. Low uses quarter-resolution
 buffers and 32 integration samples; High uses half-resolution buffers and 48.
 Both add two RGBA8 targets, approximately **0.99 MiB / 3.96 MiB at 1080p**,
@@ -88,6 +96,9 @@ whole-frame Marina A/B was within its run-to-run noise (+0.59 ms Low, +0.29 ms
 High, with other workloads on the machine). `sun-rays.html` accepts `?time=`
 for the district view and exposes `window.towardsSun(dx, dz)` to walk scenery
 in front of the sun.
+
+With the cover pass added the same day, isolated ray passes measured 0.242 ms
+median / 0.411 ms p95 on Low and 0.177 ms / 0.585 ms on High.
 
 Evidence: `.cache/sun-rays/results.json`, `gameplay-results.json`, and Off/Low/High,
 Marina and real FPS settings screenshots in that directory. Run Vite and an
