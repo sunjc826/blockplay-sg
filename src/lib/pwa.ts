@@ -182,6 +182,9 @@ export async function checkServiceWorkerUpdate(registration: ServiceWorkerRegist
   }
 }
 
+/** How long an accepted update waits for in-flight requests before the old worker aborts them. */
+export const FETCH_RELEASE_DELAY = 2_000;
+
 /** Wait for a usable new worker, including an update accepted by another tab. */
 export function activateServiceWorkerUpdate(
   registration: ServiceWorkerRegistration,
@@ -195,10 +198,12 @@ export function activateServiceWorkerUpdate(
     let finished = false;
     let timer: ReturnType<typeof setTimeout>;
     let poll: ReturnType<typeof setInterval>;
+    let release: ReturnType<typeof setTimeout> | undefined;
     const finish = (error?: Error) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      clearTimeout(release);
       clearInterval(poll);
       container.removeEventListener('controllerchange', changed);
       worker.removeEventListener('statechange', changed);
@@ -219,6 +224,16 @@ export function activateServiceWorkerUpdate(
     if (!finished) {
       try { worker.postMessage({ type: 'SKIP_WAITING' }); }
       catch { finish(new Error('Could not activate update')); }
+      // The browser will not activate the update while the outgoing worker is
+      // still answering a request, and a stalled download can stay open for
+      // minutes. Give ordinary requests a moment to finish, then have the old
+      // worker drop the rest: this page is about to reload regardless.
+      const outgoing = registration.active;
+      if (!finished && outgoing && outgoing !== worker) {
+        release = setTimeout(() => {
+          try { outgoing.postMessage({ type: 'RELEASE_FETCHES' }); } catch { /* Worker gone: nothing left to hold the update. */ }
+        }, FETCH_RELEASE_DELAY);
+      }
     }
   });
 }

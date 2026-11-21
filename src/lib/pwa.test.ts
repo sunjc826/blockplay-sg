@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { activateServiceWorkerUpdate, checkServiceWorkerUpdate, createPwaStore, type PwaHost } from './pwa';
+import { FETCH_RELEASE_DELAY, activateServiceWorkerUpdate, checkServiceWorkerUpdate, createPwaStore, type PwaHost } from './pwa';
 
 /** A window stand-in that records listeners so tests can fire browser events. */
 function fakeWindow(standalone = false, manualInstall = false, installedApps?: () => Promise<unknown[]>) {
@@ -191,7 +191,7 @@ it('times out stalled checks and removes installation listeners', async () => {
 });
 
 function fakeActivation() {
-  const previous = Object.assign(new EventTarget(), { state: 'activated' });
+  const previous = Object.assign(new EventTarget(), { state: 'activated', postMessage: vi.fn() });
   const worker = Object.assign(new EventTarget(), { state: 'installed', postMessage: vi.fn() });
   const registration = { waiting: worker as typeof worker | null, active: previous };
   const container = Object.assign(new EventTarget(), { controller: previous });
@@ -253,6 +253,35 @@ it('detects activation without a delivered controllerchange event', async () => 
     await vi.advanceTimersByTimeAsync(250);
     await pending;
     expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
+it('has the outgoing worker drop requests that hold an accepted update back', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fakeActivation();
+    const pending = f.apply();
+    await vi.advanceTimersByTimeAsync(FETCH_RELEASE_DELAY - 1);
+    expect(f.previous.postMessage).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.previous.postMessage).toHaveBeenCalledWith({ type: 'RELEASE_FETCHES' });
+    f.activate();
+    await vi.advanceTimersByTimeAsync(250);
+    await pending;
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
+it('leaves in-flight requests alone when the update activates promptly', async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fakeActivation();
+    const pending = f.apply();
+    f.activate();
+    await vi.advanceTimersByTimeAsync(250);
+    await pending;
+    await vi.advanceTimersByTimeAsync(FETCH_RELEASE_DELAY);
+    expect(f.previous.postMessage).not.toHaveBeenCalled();
   } finally { vi.useRealTimers(); }
 });
 

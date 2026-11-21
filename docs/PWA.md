@@ -120,7 +120,11 @@ controller and worker state as well as listening for changes: another tab may
 already have activated the update while the installed app was in the background.
 A replaced offer uses the latest waiting worker. Activation is bounded to 15
 seconds; if it stalls or messaging fails, the modal enables **Retry update** and
-explains how to recover instead of leaving **Updating…** disabled forever. A tab left open overnight
+explains how to recover instead of leaving **Updating…** disabled forever. The browser will not
+activate a waiting worker while the active one is still answering a request, so
+a download stalled on a bad connection used to run that clock out. Two seconds
+after acceptance the page sends the outgoing worker `RELEASE_FETCHES`, which
+aborts whatever it still has open. A tab left open overnight
 re-checks for a new worker when it becomes visible again, at most hourly.
 
 Browsers revalidate `sw.js` on their own (the default `updateViaCache: 'imports'`
@@ -154,7 +158,7 @@ so its first load really is a first load; both were needed to catch the redirect
 bug above, since a kinder test server and a reused browser profile each hid it.
 
 It checks normal update acceptance, an update already activated by another client,
-and a stalled activation followed by a successful retry. It checks the manifest's fields, decodes every icon it declares at its declared
+a stalled activation followed by a successful retry, and an update accepted while a download is stalled. It checks the manifest's fields, decodes every icon it declares at its declared
 size, confirms the shell cache holds the build and that its shell is not a
 redirect result, reloads once **with the server still running** (the load that
 broke), warms a model into the media cache, then with the server stopped

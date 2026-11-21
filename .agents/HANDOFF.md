@@ -17304,3 +17304,25 @@ Typecheck, 22 focused tests, `sun-rays-smoke` and `sun-rays-lens-smoke` pass on 
 (Vite 5175, own Chrome 9461, stopped). Gameplay smoke not rerun. Docs: `docs/SUN-RAYS.md`.
 Suggested next, not started: a real sun disc, a moon disc/phase/stars, and Ultra-only
 volumetric (shadow-map marched) shafts for off-screen and overhead sun.
+
+## 2026-11-21 — PWA update blocked by an in-flight request
+
+Owner saw "The update did not finish" with `TypeError: Failed to fetch` at
+`sw.js:1:2082` (`cacheFirst`'s network fetch). Cause, reproduced in headless
+Chrome against `dist`: the browser will not activate a `skipWaiting()` worker
+while the active worker still has an open fetch event, and a media download
+stalled mid-body or before headers keeps one open, so the 15 s activation wait
+expired.
+
+- `src/sw/service-worker.ts`: `cacheFirst` tracks an `AbortController` per
+  network fetch until the body is delivered or stored; a `RELEASE_FETCHES`
+  message aborts them. A failed fetch now answers `Response.error()` instead of
+  rejecting, which also removes the console line.
+- `src/lib/pwa.ts`: `activateServiceWorkerUpdate` posts `RELEASE_FETCHES` to
+  `registration.active` 2 s after `SKIP_WAITING` (`FETCH_RELEASE_DELAY`) if the
+  update has not activated.
+- `pwa-smoke.mjs` has a step for it; `docs/PWA.md` updated.
+
+The fix lives in the page and the outgoing worker, so the first upgrade *to*
+this build still runs the old code and can stall the same way; Retry works once
+the stalled request ends, or close and reopen the app.

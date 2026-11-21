@@ -29,6 +29,11 @@ const server = createServer(async (request, response) => {
     response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     response.end(JSON.stringify({ service: 'blockplay-pwa-smoke' })); return;
   }
+  // A download that starts and never finishes, as a dropped connection leaves it.
+  if (path === '/models/smoke-stalled.glb') {
+    response.writeHead(200, { 'Content-Type': 'model/gltf-binary', 'Content-Length': 1_000_000 });
+    response.write(Buffer.alloc(1000)); return;
+  }
   // Cloudflare's asset server redirects /index.html to /, and a cached
   // redirected response cannot answer a navigation. Mirror it, or this check
   // is kinder than the deployment it stands in for.
@@ -175,6 +180,17 @@ try {
   await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
   await wait(`!document.querySelector('.pwa-update-modal')`);
 
+  // A request still open through the outgoing worker keeps the browser from
+  // activating the update. Accepting must release it rather than time out.
+  updateVersion++;
+  await evaluate(`window.manualUpdateMarker = true; document.querySelector('.game-update-check').click()`);
+  await wait(`document.querySelector('.pwa-update-modal')?.open`, 30000);
+  await evaluate(`void fetch('/models/smoke-stalled.glb').then(r => r.arrayBuffer()).catch(() => {}); 1`);
+  await delay(500);
+  await evaluate(`document.querySelector('.pwa-update-modal button').click()`);
+  await wait(`!window.manualUpdateMarker && !!document.querySelector('.game-menu')`);
+  await wait(`!document.querySelector('.pwa-update-modal')`);
+
   // Media is cached on use, not on install: open the model the FPS range loads.
   await evaluate(`fetch('/models/field-kit/sar21-inspired.glb').then(r=>r.arrayBuffer())`);
   await wait(`caches.open('blockplay-media').then(c=>c.match('/models/field-kit/sar21-inspired.glb')).then(Boolean)`);
@@ -215,7 +231,7 @@ try {
   assert.deepEqual(errors, [], 'no uncaught errors offline');
   assert.equal(served, before, 'nothing was requested from the server after it stopped');
 
-  console.log('PASS PWA: manual current/update/offline checks, explicit update-and-reload, already-activated update, stalled activation/retry, manifest/icons, precache, repeat loads, media cache and offline menu/district selection. No paid API requests.');
+  console.log('PASS PWA: manual current/update/offline checks, explicit update-and-reload, already-activated update, stalled activation/retry, update past a stalled download, manifest/icons, precache, repeat loads, media cache and offline menu/district selection. No paid API requests.');
 } finally {
   ws.close();
   await fetch(`${chrome}/json/close/${tab.id}`).catch(() => {});

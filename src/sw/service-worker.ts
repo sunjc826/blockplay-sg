@@ -91,6 +91,14 @@ worker.addEventListener('activate', event => {
   })());
 });
 
+/**
+ * Network requests this worker is still answering. A waiting update cannot
+ * activate while the active worker has an unfinished fetch event, so one
+ * stalled download would hold an accepted update back until the browser gives
+ * up on it, minutes later. `RELEASE_FETCHES` aborts them instead.
+ */
+const inFlight = new Set<AbortController>();
+
 /** Oldest-first eviction; Cache API `keys()` preserves insertion order. */
 async function trim(cache: Cache, limit: number) {
   const keys = await cache.keys();
@@ -106,12 +114,29 @@ async function cacheFirst(event: FetchEventLike, cacheName: string, store: boole
   const cache = await caches.open(cacheName);
   const hit = await cache.match(event.request);
   if (hit) return hit;
-  const response = await fetch(event.request);
+  const abort = new AbortController();
+  inFlight.add(abort);
+  // The event stays open until the body has been delivered or stored, and so
+  // does this entry: a download stalled half-way must still be releasable.
+  const settled = (work: Promise<unknown>) => {
+    event.waitUntil(work.then(() => {}, () => {}).then(() => { inFlight.delete(abort); }));
+  };
+  let response: Response;
+  try {
+    response = await fetch(event.request, { signal: abort.signal });
+  } catch {
+    inFlight.delete(abort);
+    // The page sees the same failed request it would without a worker, and
+    // the worker's console stays free of an unhandled rejection per request.
+    return Response.error();
+  }
   // Only same-origin, complete, successful responses are worth keeping; an
   // opaque or partial one would poison the cache with an unreadable answer.
   if (store && response.ok && response.type === 'basic') {
     const copy = response.clone();
-    event.waitUntil(cache.put(event.request, copy).then(() => trim(cache, MEDIA_ENTRY_LIMIT)));
+    settled(cache.put(event.request, copy).then(() => trim(cache, MEDIA_ENTRY_LIMIT)));
+  } else {
+    settled(response.clone().arrayBuffer());
   }
   return response;
 }
@@ -141,5 +166,9 @@ worker.addEventListener('fetch', event => {
 // The page offers a reload rather than swapping the build under a running
 // game; this is what that button calls.
 worker.addEventListener('message', event => {
-  if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') void worker.skipWaiting();
+  const type = (event.data as { type?: string } | null)?.type;
+  if (type === 'SKIP_WAITING') void worker.skipWaiting();
+  // Sent to the outgoing worker once the player has accepted the reload: the
+  // page that asked for these downloads is about to be replaced anyway.
+  if (type === 'RELEASE_FETCHES') { for (const abort of inFlight) abort.abort(); inFlight.clear(); }
 });
