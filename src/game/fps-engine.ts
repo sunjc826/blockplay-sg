@@ -199,7 +199,7 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { createStageView } from './levolution-stage';
-import { levolutionMarkers } from './levolution';
+import { levolutionMarkers, stageDarkness } from './levolution';
 import { bannerOf, threatens } from './combat-event-catalog';
 import { factionIdOf, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { characterBounds, characterPoints, createIffTracker, EMPTY_IFF_FRAME, type IffFrame, type IffSubject } from './fps-iff';
@@ -4582,12 +4582,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       for (const marker of levolutionMarkers([event], [descriptor], eventClock)) {
         dangers.push({ id: `stage-${descriptor.id}`, x: marker.center.x, z: marker.center.z, radius: marker.radius, kind: 'ring' });
         const near = Math.hypot(marker.center.x - position.x, marker.center.z - position.z) < marker.radius + 6;
-        if (left > 0) offer(`${event.binding.name.toUpperCase()} · ${event.plugin.banner} · ${Math.max(1, Math.ceil(left))}s`, near ? 'hazard' : 'notice', near ? 9 : 2);
+        if (left > 0) offer(`${event.binding.name.toUpperCase()} · ${event.banner} · ${Math.max(1, Math.ceil(left))}s`, near ? 'hazard' : 'notice', near ? 9 : 2);
       }
     }
     hud.combatBanner = banner;
     hud.mapJammed = jammed; hud.mapDangers = jammed ? [] : dangers; hud.cloudCover = cloud;
-    blackout += ((jammed ? 1 : 0) - blackout) * Math.min(1, dt * 1.5);
+    // A jammed map or a Levolution substation: either puts the city's lights out.
+    blackout += (Math.max(jammed ? 1 : 0, stageDarkness(stageEvents, snapshot.levolution?.events ?? [], eventClock)) - blackout) * Math.min(1, dt * 1.5);
     transportNear = engine.mode ? { mode: engine.mode, gain: distanceGain(engine.distance), effort: engine.effort } : null;
     combatAudio.transport(worldLoops.playing('transport') ? null : engine.mode, engine.distance, engine.effort);
     combatAudio.loop('jet', Math.min(jet, ambientJet)); combatAudio.loop('raid', raid); combatAudio.loop('drone', drone); combatAudio.loop('siren', siren ? 0 : Infinity);

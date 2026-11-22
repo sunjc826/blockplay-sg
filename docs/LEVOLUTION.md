@@ -18,7 +18,8 @@ was. The map after the event must play differently, or it is only an effect.
 ```
 stage-parts.ts          parts and their named states; the one function that swaps colliders (pure but for capture)
 levolution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
-levolution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse
+levolution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse, give-way, lockdown, substation
+stage-props.ts          pieces a scene stands with one line: tree, canopy, shutters, substation
 levolution-bindings.ts  which arena runs which archetype on which parts: container-yard
 levolution-host.ts      host: triggers, the obstacle list, what changed
 levolution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
@@ -62,11 +63,54 @@ Two events, `container-yard-west` and `container-yard-east`, both `gantry-collap
 - The crane's working hoist is a clock-driven set piece (`district-set-pieces.ts`);
   it is tagged `userData.stagePart` so the stage view hides it with its crane.
 
+**Twelve more maps (2026-11-22).** Each is one line in its scene, from a shared
+piece in `stage-props.ts`, and one binding. The pieces are new props stood where
+the arena's own layout gives them something to change, not existing scenery.
+
+| Map | Event | Archetype | Piece | Where |
+| --- | --- | --- | --- | --- |
+| Bukit Timah | Rain tree falls south across the open middle | `give-way` | `stageTree` | (90, 56), 14 m |
+| Upper Thomson | Rain tree falls across the cross street | `give-way` | `stageTree` | (-46, 19), 11 m |
+| Jurong Lake | Rain tree falls across the north path | `give-way` | `stageTree` | (-90, -197), 12 m |
+| Pulau Ubin | Rain tree falls north into the village crossing | `give-way` | `stageTree` | (-5, 126), 12 m |
+| Chinatown | Roof over the east food street comes down | `give-way` | `stageCanopy` | (11, 80), 14 × 7 m |
+| Woodlands | Lawn shelter comes down | `give-way` | `stageCanopy` | (112, 74) |
+| Kampong Glam | Court awning comes down | `give-way` | `stageCanopy` | (120, 122) |
+| Changi | Arrival garden canopy comes down | `give-way` | `stageCanopy` | (-215, -2) |
+| Tampines | Shutters close the west ground concourse | `lockdown` | `stageShutters` | x 6 to 24.5 at z -35 |
+| Geylang | Substation fails, lights out | `substation` | `stageSubstation` | (0, -77) |
+| Little India | Substation fails, lights out | `substation` | `stageSubstation` | (-70, 73) |
+| Yishun | Substation fails, lights out | `substation` | `stageSubstation` | (0, 24) |
+
+- **Tree.** A fallen trunk is 1.05 m high: a player vaults it, a bot goes round.
+  The crown beyond it blocks. Starts at 50% of the match or after 200 blast
+  damage at its foot.
+- **Canopy.** The overhead cover goes (so air strikes and rain reach); two roof
+  panels lie on the ground as crouch cover and two posts stay as stumps.
+- **Shutters.** Clock only, at 50%. Whoever is under them takes 40 damage and is
+  pushed clear; nobody is killed. The east concourse and the raised court stay open.
+- **Substation.** The kiosk burns out and the lamps, signs and windows go out for
+  the rest of the match. **It only shows after dark.** By day nothing changes but
+  the kiosk, so on the default Singapore clock it matters in evening matches only.
+  Blast damage of 150 on the kiosk, or 50% of the match.
+
+Two changes from the list agreed on 2026-11-21: Changi has a canopy instead of a
+terminal lockdown (shutters across the east strip would have trapped a team's
+spawns), and Jurong Lake and Pulau Ubin have trees instead of a bridge and a tide
+(no bridge inside the Jurong arena; a tide needs the `water` step).
+
+**Still to do:** Bishan, Orchard, Punggol, Toa Payoh, Katong and Sentosa (all
+need `water`); HarbourFront's quay crane; and Queenstown, Raffles Place and
+Marina Bay, whose scenes are hand-built and do not use the scene kit the shared
+pieces are written for.
+
 **Where the build differs from the proposal below:**
 
 - **Steps.** `remove` and `place` are one step, `set`: a part takes a named state
-  or none. `move` is a state with no colliders whose group is tagged `stageTip` and
-  animated by the view. `dust` raises a cloud bank. `water` and `light` are not built.
+  or none. `move` is a state whose group is tagged `stageTip` and animated by the view;
+  a `set` step's `lead` draws a state before it is solid, so a thing is seen falling
+  and kills only when it lands. `dust` raises a cloud bank and `light` puts the
+  district's lights out. `water` is not built.
 - **After-states are authored, not derived.** The fallen boxes are placed by the
   scene relative to the stack. Nothing chooses the fall direction by rule.
 - **Triggers.** `blast` and `clock` only. No `interact`, `streak` or shot-damage

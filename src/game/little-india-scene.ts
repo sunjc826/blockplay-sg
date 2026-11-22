@@ -2,6 +2,7 @@ import { LITTLE_INDIA_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
 import { heritageTerraces } from './heritage-terraces';
 import { withVerticalPlaces } from './vertical-places';
+import { stageSubstation } from './stage-props';
 
 export const LITTLE_INDIA_SPAWN = { x: 20, z: 70, yaw: 0 };
 export const LITTLE_INDIA_BOUNDS = { minX: -245, maxX: 245, minZ: -205, maxZ: 205 };
@@ -97,6 +98,8 @@ export function buildLittleIndiaScene() {
   const car = k.car(saffron, glass, white, dark), stamps = k.stampRings(LITTLE_INDIA_STAMPS, mat('#efa247'));
   scene.userData.referenceFeatures = [];
   scene.userData.districtFeatures = ['tekka-open-market', 'campbell-pedestrian-lane', 'faceted-heritage-centre', 'colourful-villa', 'tiered-temple-gateway', 'textile-and-flower-arcades', 'walkable-market-gallery'];
+  // Levolution (docs/LEVOLUTION.md): The arcade's substation, at the south edge.
+  stageSubstation(k, 'substation', -70, 73);
   return withVerticalPlaces(k.finish({ car, stamps, animate() {} }), [{
     id: 'tekka-public-gallery', name: 'Tekka-inspired market gallery', note: 'Authored market-edge gallery, not a surveyed market circulation plan.',
     floors: [{ id: 'gallery', x: -170, z: 138, y: 4.8, width: 82, depth: 8 }],

@@ -50,7 +50,7 @@ export function createLevolutionHost(options: LevolutionHostOptions) {
     let crush: { damage: number; cause: string } | undefined;
     for (const descriptor of running) {
       const event = events.find(e => e.binding.id === descriptor.binding)!;
-      for (const step of event.steps) if (step.type === 'crush' && elapsed - descriptor.start >= step.at && previous - descriptor.start < step.at && (!crush || step.damage > crush.damage)) crush = { damage: step.damage, cause: event.plugin.cause };
+      for (const step of event.steps) if (step.type === 'crush' && elapsed - descriptor.start >= step.at && previous - descriptor.start < step.at && (!crush || step.damage > crush.damage)) crush = { damage: step.damage, cause: event.cause };
     }
     options.restage({ added, removed, crush });
   }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageSubstation } from './stage-props';
 
 // On the main road at a lorong mouth, looking down the terraces.
 export const GEYLANG_SPAWN = { x: -14, z: -10, yaw: Math.PI / 2 };
@@ -303,6 +304,8 @@ export function buildGeylangScene() {
   scene.userData.districtFeatures = ['close-set-lorong-grid', 'vented-parapets', 'segmental-fanlights', 'pilastered-terraces', 'five-foot-way-columns', 'upswept-gable-ends', 'ribbed-dome-drum', 'swallowtail-ridge', 'open-sided-kopitiam', 'bridged-canal'];
   scene.userData.referenceFeatures = ['lorong24a-clay-pitched-terrace-roofs', 'lorong24a-window-air-conditioners-awnings'];
 
+  // Levolution (docs/LEVOLUTION.md): The lorongs' substation, on the open ground north of the shophouse blocks.
+  stageSubstation(kit, 'substation', 0, -77);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

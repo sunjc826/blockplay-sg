@@ -17,8 +17,14 @@ import { STAGE_BASE, stageObstacles, type StagePartData, type StageState } from 
  */
 
 export type StageStep =
-  /** The part takes this state (`null` removes it) `at` seconds after the event starts. */
-  | { type: 'set'; at: number; part: string; state: StageState }
+  /**
+   * The part takes this state (`null` removes it) `at` seconds after the event starts. With `lead` the
+   * state is *drawn* that many seconds sooner, so something can be seen falling and become solid, and
+   * lethal, only when it lands.
+   */
+  | { type: 'set'; at: number; part: string; state: StageState; lead?: number }
+  /** The district's lamps and windows go to `level` dark (1 is out) and stay there. */
+  | { type: 'light'; at: number; level: number }
   /** Whoever stands inside colliders this event adds at `at` takes `damage`, through armour. */
   | { type: 'crush'; at: number; damage: number }
   /**
@@ -59,6 +65,9 @@ export interface LevolutionBinding {
   triggers: readonly LevolutionTrigger[];
   /** Seconds of warning; defaults to the archetype's, and may not go below it. */
   warning?: number;
+  /** What the banner says and what the feed blames, where the archetype's own words do not fit this map's piece. */
+  banner?: string;
+  cause?: string;
 }
 
 export interface LevolutionPlugin {
@@ -98,6 +107,9 @@ export interface ResolvedLevolution {
   parts: Readonly<Record<string, StagePartData>>;
   /** Seconds from the start of the event. */
   steps: readonly StageStep[];
+  /** The banner during the warning, and what the feed says a victim was killed by: the binding's words, or the archetype's. */
+  banner: string;
+  cause: string;
   warning: number;
   /** Seconds from start to settled. */
   duration: number;
@@ -131,7 +143,8 @@ export function resolveLevolution(bindings: readonly LevolutionBinding[], arena:
     const warning = Math.max(plugin.warning, binding.warning ?? 0);
     const steps = plugin.steps(found).map(step => step.type === 'marker' ? { ...step, until: step.until + warning } : { ...step, at: step.at + warning });
     if (steps.some(step => step.type !== 'marker' && !(step.at >= warning - 1e-9))) { fail('changes the map before its warning has run'); ok = false; }
-    if (ok) events.push({ binding, plugin, parts: found, steps, warning, duration: warning + plugin.settle });
+    if (steps.some(step => step.type === 'set' && !((step.lead ?? 0) >= 0 && (step.lead ?? 0) <= step.at))) { fail('draws a change before the event has begun'); ok = false; }
+    if (ok) events.push({ binding, plugin, parts: found, steps, banner: binding.banner ?? plugin.banner, cause: binding.cause ?? plugin.cause, warning, duration: warning + plugin.settle });
   }
   return { events, problems };
 }
@@ -143,14 +156,21 @@ export const levolutionPhase = (event: ResolvedLevolution, descriptor: Readonly<
 };
 
 /** Each acted-on part's state at `elapsed`. Events do not undo, so a later event's word on a part is final. */
-export function stageStates(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
+export function stageStates(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number, drawn = false) {
   const states = new Map<string, StageState>();
   for (const descriptor of running) {
     const event = events.find(e => e.binding.id === descriptor.binding); if (!event) continue;
     const age = elapsed - descriptor.start;
-    for (const step of event.steps) if (step.type === 'set' && age >= step.at) states.set(step.part, step.state);
+    // `drawn`: what is shown, which a step's `lead` brings forward of what is solid.
+    for (const step of event.steps) if (step.type === 'set' && age >= step.at - (drawn ? step.lead ?? 0 : 0)) states.set(step.part, step.state);
   }
   return states;
+}
+/** How dark the running events have made the district at `elapsed`, 0 to 1. */
+export function stageDarkness(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
+  let level = 0;
+  for (const descriptor of running) for (const step of events.find(e => e.binding.id === descriptor.binding)?.steps ?? []) if (step.type === 'light' && elapsed - descriptor.start >= step.at) level = Math.max(level, step.level);
+  return Math.max(0, Math.min(1, level));
 }
 
 /** Every part any event of this arena may touch. */

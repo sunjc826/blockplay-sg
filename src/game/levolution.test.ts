@@ -123,7 +123,8 @@ describe('shipped bindings', () => {
         for (const p of [...spawns, ...area.patrols]) expect(move.canOccupy(p.x, ground(p).y, p.z, .5, 1.8), `state ${mask}: ${p.x},${p.z} is clear`).toBe(true);
         for (const p of spawns.slice(1)) expect(nav.route(ground(spawns[0]), ground(p)).length, `state ${mask}: spawn ${p.x},${p.z} connects`).toBeGreaterThan(0);
         for (const site of sites) {
-          for (let i = 0; i < 16; i++) expect(move.canOccupy(site.x + Math.cos(i * Math.PI / 8) * site.radius, site.y, site.z + Math.sin(i * Math.PI / 8) * site.radius, .5, 1.8), `state ${mask}: ${site.id} ring`).toBe(true);
+          // A ring that runs off the arena's edge (Smith Street's southern passage) is only held to the part inside it.
+          for (let i = 0; i < 16; i++) { const x = site.x + Math.cos(i * Math.PI / 8) * site.radius, z = site.z + Math.sin(i * Math.PI / 8) * site.radius; if (x > w.bounds.minX + .6 && x < w.bounds.maxX - .6 && z > w.bounds.minZ + .6 && z < w.bounds.maxZ - .6) expect(move.canOccupy(x, site.y, z, .5, 1.8), `state ${mask}: ${site.id} ring`).toBe(true); }
           for (const team of ARENA_TEAMS) expect(nav.route(ground(area.spawns[team][0]), { x: site.x, y: site.y, z: site.z }).length, `state ${mask}: ${team} reaches ${site.id}`).toBeGreaterThan(0);
         }
         const rebuilt = performance.now() - started; if (process.env.LEVOLUTION_TIMING) console.log(`${arena} state ${mask}: navigator built and ${spawns.length + sites.length * 2} routes planned in ${rebuilt.toFixed(0)} ms`);

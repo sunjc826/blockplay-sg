@@ -7,6 +7,7 @@ import { insideFootprint, overlapsObstacle } from './region-collision';
 import { withVerticalPlaces } from './vertical-places';
 import { bumboat } from './bumboat';
 import type { ShopName } from './world-night-lights';
+import { stageTree } from './stage-props';
 
 export const PULAU_UBIN_SPAWN = { x: 0, z: 145, yaw: 0 };
 export const PULAU_UBIN_BOUNDS = { minX: -270, maxX: 270, minZ: -220, maxZ: 225 };
@@ -123,6 +124,8 @@ export function buildPulauUbinScene() {
   const car=k.car(mat('#9aaa87'),glass,pale,dark),stamps=k.stampRings(PULAU_UBIN_STAMPS,mat('#eda047'));
   scene.userData.referenceFeatures=[];
   scene.userData.districtFeatures=['irregular-island-shore','bumboat-landing','kampong-village','dirt-road-loop','granite-quarry','connected-quarry-lookout','mangrove-roots','wetland-boardwalk','visitor-cottage'];
+  // Levolution (docs/LEVOLUTION.md): A rain tree south of the village crossing: it comes down north into the open middle between the houses.
+  stageTree(k, 'village-tree', -5, 126, Math.PI, 12);
   return withVerticalPlaces(k.finish({car,stamps,animate:time=>ferry.animate(time)}),[{
     id:'ubin-quarry-lookout',name:'Quarry trail lookout',note:'Authored forest lookout beside a compressed quarry, not a surveyed Bukit Puaka trail.',
     floors:[{id:'lower-landing',x:-205,z:-55,y:3.2,width:20,depth:16,color:'#9a8b6b'},{id:'lookout',x:-195,z:-105,y:6.4,width:32,depth:24,color:'#9a8b6b'}],

@@ -5,6 +5,7 @@ import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { buildUpperThomsonForestGround, upperThomsonGroundHeight } from './upper-thomson-ground';
 import { THOMSON_FOREST_REST, THOMSON_PLAZA_ACCESS } from './bukit-thomson-rest-places';
+import { stageTree } from './stage-props';
 
 // On the eating strip's five-foot way, looking west toward the reservoir.
 export const UPPER_THOMSON_SPAWN = { x: -50, z: -12, yaw: Math.PI / 2 };
@@ -279,6 +280,8 @@ export function buildUpperThomsonScene() {
   scene.userData.districtFeatures = ['zinc-awning-five-foot-way', 'open-sided-kopitiam', 'ceiling-fan-bays', 'rooftop-car-park-deck', 'blue-framed-plaza-facade', 'terrace-house-porches', 'reservoir-causeway', 'pile-boardwalk', 'layered-secondary-forest', 'forest-trail-junction'];
   scene.userData.referenceFeatures = ['thomson-shops-road-0:two-storey-pitched-roof-terrace', 'thomson-shops-road-0:continuous-low-awning', 'thomson-plaza-outdoor02-0:white-clad-facade-with-offset-blue-squares'];
 
+  // Levolution (docs/LEVOLUTION.md): A rain tree on the north kerb of the cross street: it comes down across the carriageway.
+  stageTree(kit, 'street-tree', -46, 19, 0, 11);
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

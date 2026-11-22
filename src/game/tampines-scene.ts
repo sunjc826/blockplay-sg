@@ -5,6 +5,7 @@ import { STOREY } from './block-module';
 import { withVerticalPlaces } from './vertical-places';
 import { addTampinesGround, tampinesGroundHeight } from './tampines-ground';
 import { addTampinesSocialDetails } from './tampines-social-details';
+import { stageShutters } from './stage-props';
 
 // On the town-centre verge, looking across at the round market.
 export const TAMPINES_SPAWN = { x: -20, z: 8, yaw: Math.PI / 2 };
@@ -256,6 +257,8 @@ export function buildTampinesScene() {
   scene.userData.districtFeatures = ['radial-market-roof', 'vented-drum-cap', 'outward-stall-bays', 'integrated-hub-courtyard', 'screened-community-block', 'planted-roof-terraces', 'mall-link-bridges', 'sawtooth-berths', 'hawker-deck-slabs', 'vegetated-quarry-banks', 'cycle-path-run'];
   scene.userData.referenceFeatures = ['hub-exterior-0:sheltered-arrival-columns-and-louvres-only', 'hub-outdoor02-0:terracotta-patchwork-and-colored-slit-windows'];
 
+  // Levolution (docs/LEVOLUTION.md): Roller shutters across the west ground concourse, beside the raised court.
+  stageShutters(kit, 'west-concourse-shutters', 6, 24.5, -35);
   const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

@@ -4,6 +4,7 @@ import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { BUKIT_TIMAH_STATION_ACCESS, trailBench } from './bukit-thomson-rest-places';
+import { stageTree } from './stage-props';
 
 // On the corridor verge, under the truss bridge, looking up at the ridge.
 export const BUKIT_TIMAH_SPAWN = { x: 60, z: 16, yaw: Math.PI / 2 };
@@ -293,6 +294,8 @@ export function buildBukitTimahScene() {
   scene.userData.groundDesign = { type:'reserve-hill-foot-and-level-heritage-apron', surveyed:false,
     sources:['docs/BUKIT-TIMAH-THOMSON-GROUND-DESIGN.md'] };
 
+  // Levolution (docs/LEVOLUTION.md): A rain tree at the edge of the open middle of the arena: it comes down south across that long east-west sightline.
+  stageTree(kit, 'corridor-tree', 90, 56, 0, 14);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

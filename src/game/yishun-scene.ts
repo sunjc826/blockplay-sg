@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { YISHUN_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageSubstation } from './stage-props';
 
 export const YISHUN_SPAWN = { x: 0, z: 70, yaw: 0 };
 export const YISHUN_BOUNDS = { minX: -260, maxX: 260, minZ: -220, maxZ: 220 };
@@ -146,6 +147,8 @@ export function buildYishunScene() {
   const car = kit.car(ochre, glass, white, dark), stamps = kit.stampRings(YISHUN_STAMPS, mat('#f1a23b'));
   scene.userData.districtFeatures = ['northpoint-twin-retail-wings', 'walkable-retail-terrace', 'north-south-elevated-mrt', 'chong-pang-market-aisle', 'open-void-deck-housing', 'pond-park-loop', 'fictional-high-threat'];
   scene.userData.referenceFeatures = [];
+  // Levolution (docs/LEVOLUTION.md): The courts' substation, by the north edge.
+  stageSubstation(kit, 'substation', 0, 24);
   return withVerticalPlaces(kit.finish({ car, stamps, animate(time) {
     train.position.z = railState(railRoute, time).position;
     train.visible = true;

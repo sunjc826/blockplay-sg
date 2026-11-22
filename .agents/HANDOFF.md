@@ -17393,3 +17393,17 @@ in the debug view"; answers recorded there: sound on, a lit view from the game's
 - Checked: `levolution-review.test.ts`, typecheck, the full suite, and `scripts/levolution-review-smoke.mjs` on the
   software renderer at 1440 and 390 wide. Not checked: a real phone, touch dragging of the scrubber, the sound by ear.
 - Next in the build order: the lit view (`createDistrictRenderer` extracted from `fps-engine.ts`), then `anchor.stage`.
+
+Twelve more Levolution maps (2026-11-22, owner: "go on and implement the other levolutions"):
+- `stage-props.ts` has four shared pieces (`stageTree`, `stageCanopy`, `stageShutters`, `stageSubstation`); a scene
+  stands one with a single line before `kit.finish`. New archetypes `give-way`, `lockdown`, `substation`; new step
+  `light`; `set` steps take `lead` (drawn before solid). Bindings may override `banner` and `cause`.
+- Maps: trees on Bukit Timah, Upper Thomson, Jurong Lake, Pulau Ubin; canopies on Chinatown, Woodlands, Kampong Glam,
+  Changi; shutters on Tampines; substations on Geylang, Little India, Yishun. docs/LEVOLUTION.md has the table,
+  coordinates and the two departures from the agreed list.
+- Placement was done from top-down occupancy dumps of each arena (2 m cells: spawns, patrols, rings, solids), then
+  held by `levolution.test.ts` (every binding: spawns and patrols clear, spawns connected, rings clear and reached).
+- A substation blackout only shows after dark. Not checked in play: any of the twelve in a live match, the
+  blackout at night, a guest, a real GPU. Checked: tests, typecheck, fixture captures of tree, canopy and shutters.
+- Left: water events (Bishan, Orchard, Punggol, Toa Payoh, Katong, Sentosa), HarbourFront crane, and the three
+  hand-built scenes (Queenstown, Raffles Place, Marina Bay), which do not use the scene kit.

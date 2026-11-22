@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CHINATOWN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
+import { stageCanopy } from './stage-props';
 
 export const CHINATOWN_SPAWN = { x: -55, z: 80, yaw: -Math.PI / 2 };
 export const CHINATOWN_BOUNDS = { minX: -250, maxX: 250, minZ: -210, maxZ: 210 };
@@ -317,6 +318,8 @@ export function buildChinatownScene() {
   scene.userData.districtFeatures = ['shophouse-five-foot-way', 'pitched-tile-courses', 'market-canopy-lane', 'lantern-string', 'stacked-hipped-roofs', 'tiered-gopuram', 'slab-panel-grid', 'vented-hawker-roof', 'street-gateway-arch', 'terraced-slope'];
   scene.userData.referenceFeatures = ['south-bridge-stepped-parapets', 'pagoda-pale-colonnades', 'pagoda-brick-pedestrian-lane'];
 
+  // Levolution (docs/LEVOLUTION.md): A roof over the east end of the food street, east of the market crossing.
+  stageCanopy(kit, 'street-canopy', 11, 80, 14, 7);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

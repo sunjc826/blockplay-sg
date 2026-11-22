@@ -5,6 +5,7 @@ import { WOODLANDS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { stageCanopy } from './stage-props';
 
 // On the causeway approach, facing the checkpoint and the far shore.
 export const WOODLANDS_SPAWN = { x: 0, z: -110, yaw: 0 };
@@ -263,6 +264,8 @@ export function buildWoodlandsScene() {
   scene.userData.districtFeatures = ['causeway-embankment', 'rail-alongside-road', 'checkpoint-booth-rows', 'overhead-lane-gantries', 'concrete-waterfront-jetty', 'seven-level-retail-bands', 'far-shore-read', 'point-block-void-decks', 'multi-storey-car-park-ramp', 'covered-linkways', 'civic-flag-row'];
   scene.userData.referenceFeatures = ['causeway-point-outdoor02-0:silver-clad-arcade-stone-edge-and-rail-only'];
 
+  // Levolution (docs/LEVOLUTION.md): A shelter on the lawn north-west of the central crossing, clear of the practice range's line of fire.
+  stageCanopy(kit, 'lawn-shelter', 112, 74, 12, 6);
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

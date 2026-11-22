@@ -4,6 +4,7 @@ import { bumboat } from './bumboat';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageCanopy } from './stage-props';
 
 // Between two planted terraces, looking down a clear radial at the falls.
 export const CHANGI_SPAWN = { x: 16, z: -11, yaw: 1.31 };
@@ -264,6 +265,8 @@ export function buildChangiScene() {
   scene.userData.districtFeatures = ['toroidal-glazed-roof', 'radial-rib-mullions', 'oculus-waterfall', 'terraced-basin', 'ring-walkways', 'terminal-viaduct', 'flared-control-cab', 'stand-markings', 'wide-body-airliner', 'coastal-palms', 'changi-point-bumboat-landing'];
   scene.userData.referenceFeatures = ['jewel-triangular-exterior-glazing', 'changi-tower-pale-shaft-blue-strip', 'changi-tower-spherical-radome'];
 
+  // Levolution (docs/LEVOLUTION.md): A canopy in the arrival garden, south of the terminal.
+  stageCanopy(kit, 'arrival-canopy', -215, -2, 12, 6);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

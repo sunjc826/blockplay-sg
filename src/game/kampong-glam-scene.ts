@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { KAMPONG_GLAM_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageCanopy } from './stage-props';
 
 export const KAMPONG_GLAM_SPAWN = { x: 10, z: -85, yaw: Math.PI };
 export const KAMPONG_GLAM_BOUNDS = { minX: -230, maxX: 230, minZ: -200, maxZ: 200 };
@@ -265,6 +266,8 @@ export function buildKampongGlamScene() {
   scene.userData.districtFeatures = ['ribbed-onion-dome', 'corner-minarets', 'horseshoe-arcade', 'palm-lined-mall', 'painted-lane-murals', 'textile-awnings', 'limas-hipped-roof', 'louvred-shutters', 'beach-road-edge', 'banded-paving'];
   scene.userData.referenceFeatures = ['bussorah-axial-gold-dome', 'bussorah-close-cream-frontages', 'bussorah-palms-and-awnings'];
 
+  // Levolution (docs/LEVOLUTION.md): A steel awning over the east cafe court.
+  stageCanopy(kit, 'court-awning', 120, 122, 12, 6);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

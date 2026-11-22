@@ -1,4 +1,5 @@
 import { registerLevolution, stageReach } from './levolution';
+import { STAGE_GIVE_WAY_SECONDS, STAGE_SHUTTER_SECONDS } from './stage-props';
 
 /**
  * Every shipped Levolution archetype, registered on import. An archetype is
@@ -55,4 +56,57 @@ registerLevolution({
       { type: 'set', at: GANTRY_FALL, part: crane.id, state: 'fallen' }, { type: 'crush', at: GANTRY_FALL, damage: 500 },
     ];
   },
+});
+
+/**
+ * One piece of the map comes down: a tree across a lane, a canopy onto the ground under it. The part's
+ * `fallen` state is drawn from the moment it starts to go and becomes solid, and lethal, when it lands.
+ * A binding says what the piece is (`banner`, `cause`).
+ */
+registerLevolution({
+  id: 'give-way', name: 'Collapse', warning: 5, settle: STAGE_GIVE_WAY_SECONDS + 3,
+  banner: 'COMING DOWN · GET CLEAR', cause: 'Falling debris',
+  roles: { piece: { states: ['fallen'] } },
+  steps: ({ piece }) => {
+    const all = stageReach(piece)!, lying = stageReach(piece, ['fallen'])!, standing = stageReach(piece, ['base'])!;
+    const heading = Math.atan2(lying.center.x - standing.center.x, lying.center.z - standing.center.z);
+    return [
+      { type: 'marker', from: 0, until: STAGE_GIVE_WAY_SECONDS + 1, center: all.center, radius: all.radius + 2 },
+      { type: 'set', at: STAGE_GIVE_WAY_SECONDS, lead: STAGE_GIVE_WAY_SECONDS, part: piece.id, state: 'fallen' },
+      { type: 'crush', at: STAGE_GIVE_WAY_SECONDS, damage: 400 },
+      { type: 'dust', at: STAGE_GIVE_WAY_SECONDS + .1, center: lying.center, heading, reach: Math.max(3, lying.radius * .45) },
+    ];
+  },
+});
+
+/**
+ * Roller shutters come down across a passage and stay down: a route closes for the rest of the match.
+ * Nobody is killed by a shutter; whoever is under it when it closes is hurt and pushed clear.
+ */
+registerLevolution({
+  id: 'lockdown', name: 'Lockdown', warning: 6, settle: STAGE_SHUTTER_SECONDS + 1,
+  banner: 'SHUTTERS CLOSING · THIS WAY SHUTS', cause: 'Closing shutters',
+  roles: { gate: { states: ['shut'] } },
+  steps: ({ gate }) => {
+    const reach = stageReach(gate)!;
+    return [
+      { type: 'marker', from: 0, until: STAGE_SHUTTER_SECONDS, center: reach.center, radius: Math.min(reach.radius, 6) + 2 },
+      { type: 'set', at: STAGE_SHUTTER_SECONDS, lead: STAGE_SHUTTER_SECONDS, part: gate.id, state: 'shut' },
+      { type: 'crush', at: STAGE_SHUTTER_SECONDS, damage: 40 },
+    ];
+  },
+});
+
+/**
+ * A substation fails and the district's lamps, signs and windows go out for the rest of the match.
+ * It only shows after dark; by day nothing but the kiosk changes. Nothing falls and nobody is hurt.
+ */
+registerLevolution({
+  id: 'substation', name: 'Blackout', warning: 4, settle: 2,
+  banner: 'SUBSTATION FAILING · LIGHTS GOING OUT', cause: 'Substation',
+  roles: { kiosk: { states: ['wrecked'] } },
+  steps: ({ kiosk }) => [
+    { type: 'set', at: 0, part: kiosk.id, state: 'wrecked' },
+    { type: 'light', at: 0, level: 1 },
+  ],
 });

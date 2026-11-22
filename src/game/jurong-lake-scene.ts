@@ -3,6 +3,7 @@ import { registerFoliageDrift } from './ambient-drift';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
+import { stageTree } from './stage-props';
 
 export const JURONG_LAKE_SPAWN = { x: -20, z: 20, yaw: Math.PI / 2 };
 export const JURONG_LAKE_BOUNDS = { minX: -270, maxX: 270, minZ: -230, maxZ: 230 };
@@ -279,6 +280,8 @@ export function buildJurongLakeScene() {
   scene.userData.districtFeatures = ['seven-tier-octagonal-pagoda', 'pale-gallery-balustrades', 'raised-garden-causeway', 'moon-gate', 'stone-lanterns', 'lake-boardwalk', 'faceted-science-drum', 'elevated-viaduct', 'sawtooth-interchange', 'raked-gravel-garden'];
   scene.userData.referenceFeatures = ['chinese-garden-2016-asphalt-path-drain-disc-lamps', 'jem-2025-white-overhang-recessed-glazing-planted-ledge'];
 
+  // Levolution (docs/LEVOLUTION.md): A rain tree by the north wall: it comes down across the north path between the two teams.
+  stageTree(kit, 'garden-tree', -90, -197, 0, 12);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

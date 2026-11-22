@@ -37,7 +37,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
     const times = new Map<string, number>();
     for (const descriptor of running) {
       const event = events.find(e => e.binding.id === descriptor.binding); if (!event) continue;
-      for (const step of event.steps) if (step.type === 'set' && elapsed - descriptor.start >= step.at) times.set(step.part, descriptor.start + step.at);
+      for (const step of event.steps) if (step.type === 'set' && elapsed - descriptor.start >= step.at - (step.lead ?? 0)) times.set(step.part, descriptor.start + step.at - (step.lead ?? 0));
     }
     return times;
   }
@@ -55,9 +55,10 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
         if (state !== solid.get(part.id)) { solid.set(part.id, state); changed = true; }
       }
     }
-    const times = setTimes(running, elapsed);
+    // What is drawn can run ahead of what is solid: a step's `lead` shows its state falling before it lands.
+    const times = setTimes(running, elapsed), drawn = stageStates(events, running, elapsed, true);
     for (const part of parts) {
-      const want = states.has(part.id) ? states.get(part.id)! : STAGE_BASE;
+      const want = drawn.has(part.id) ? drawn.get(part.id)! : STAGE_BASE;
       if (want === shown.get(part.id)) continue;
       const from = objectOf(part, shown.get(part.id)!), to = objectOf(part, want);
       // What was falling into the old state is put down where it belongs before it is taken away.
