@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { SURFACE, applyWeaponSurface, surfaceFamily, surfacePixels, type SurfaceFamily } from './weapon-surface';
+import { SURFACE, applyWeaponSurface, surfaceFamily, surfacePixels, type SurfaceFamily, setWeaponRain, WEAPON_BEADS } from './weapon-surface';
 
 const families: SurfaceFamily[] = ['steel', 'polymer', 'rubber'];
 const named = (name: string, options: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ name, ...options });
@@ -70,13 +70,29 @@ describe('applying weapon surfaces', () => {
     const shader = { uniforms: {} as Record<string, THREE.IUniform>, vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader };
     material.onBeforeCompile(shader as never, undefined as never); return shader;
   };
+  it('beads every patched gun with one shared wetness, in the roughness, the normal and the highlights', () => {
+    const a = gun(), b = gun(); applyWeaponSurface(a.root); applyWeaponSurface(b.root);
+    const first = compile(a.steel), second = compile(b.steel);
+    expect(first.uniforms.surfaceWet).toBe(second.uniforms.surfaceWet);
+    setWeaponRain(.7, 612.5); expect(first.uniforms.surfaceWet.value.x).toBeCloseTo(.7); expect(first.uniforms.surfaceWet.value.y).toBeCloseTo(12.5);
+    setWeaponRain(3, 1); expect(first.uniforms.surfaceWet.value.x).toBe(1);
+    setWeaponRain(-1, 1); expect(first.uniforms.surfaceWet.value.x).toBe(0);
+    const source = first.fragmentShader;
+    expect(source).toContain(`surfaceBeads(dropP, ${WEAPON_BEADS.fine.toFixed(1)}, dropCover)`);
+    for (const piece of ['roughnessFactor = mix(roughnessFactor * (1. - .22 * surfaceWet.x), .04, surfaceDrop.z)', 'surfaceDropA * surfaceDrop.x + surfaceDropB * surfaceDrop.y', 'reflectedLight.directSpecular *= 1. + surfaceDrop.z * 1.1'])
+      expect(source).toContain(piece);
+    // Drops are declared before the roughness chunk reads them and used after the normal and lighting are built.
+    expect(source.indexOf('vec3 surfaceBeads(')).toBeLessThan(source.indexOf('void main()'));
+    expect(source.indexOf('vec3 surfaceDrop = vec3(0.)')).toBeLessThan(source.indexOf('normalMatrix * (surfaceDropA'));
+    expect(source.indexOf('normalMatrix * (surfaceDropA')).toBeLessThan(source.indexOf('reflectedLight.directSpecular *= 1. + surfaceDrop.z'));
+  });
   it('patches each opaque gun material once and skips the lens', () => {
     const { root, steel, lens } = gun();
     applyWeaponSurface(root);
     expect(steel.userData.weaponSurface).toBe('steel'); expect(lens.userData.weaponSurface).toBeUndefined();
     // three keys programs on the hook's source, so two patched materials still share one program.
     const other = gun(); applyWeaponSurface(other.root);
-    expect(steel.customProgramCacheKey()).toMatch(/\|weapon-surface-v2$/); expect(other.steel.customProgramCacheKey()).toBe(steel.customProgramCacheKey());
+    expect(steel.customProgramCacheKey()).toMatch(/\|weapon-surface-v3$/); expect(other.steel.customProgramCacheKey()).toBe(steel.customProgramCacheKey());
     const shader = compile(steel);
     expect(shader.uniforms.surfacePacked.value).toBeInstanceOf(THREE.DataTexture);
     expect(shader.uniforms.surfaceTuning.value.x).toBeCloseTo(1 / SURFACE.steel.tile);

@@ -89,8 +89,8 @@ it('keeps the exact soaking and gradual drying curve through shelter and changin
     expected += (rain - expected) * (1 - Math.exp(-Math.min(.1, dt) * (rain > expected ? 1.8 : .09)));
     wet.update(dt, rain);
     expect(wet.wetness).toBe(expected);
-    expect(material.roughness).toBe(THREE.MathUtils.lerp(dry, Math.min(dry, metal ? .2 : .46), expected));
-    expect(material.envMapIntensity).toBe(1.4 * (metal ? 1.3 : 1) * (1 + expected * .65));
+    expect(material.roughness).toBe(THREE.MathUtils.lerp(dry, Math.min(dry, metal ? .13 : .46), expected));
+    expect(material.envMapIntensity).toBe(1.4 * (metal ? 1.3 : 1) * (1 + expected * (metal ? 1.5 : .65)));
     expect(material.color).toEqual(color.clone().multiplyScalar(1 - expected * (metal ? .035 : .12)));
   }
   expect(wet.wetness).toBeGreaterThan(0); // No early snap to dry after rain.

@@ -480,6 +480,10 @@ rain detail has no spray and no lamp streaks.
 splatting drops, more runners and a few soft smudges in heavy rain; a sheet that drains from the top after going under
 or surfacing, with more slopped on each stroke; and a burst of fine spray from the side a round struck water.
 
+**Rain on the gun.** The carried gun's surface patch (`weapon-surface.ts`) beads it with water while it is wet
+(`setWeaponRain`): drops on the faces turned to the sky, runs down the upright ones, each a glossy dome. Wet metal
+(`wet-surfaces.ts`) goes close to a mirror finish and reflects much more of the sky.
+
 **Lightning.** `src/game/lightning.ts`, thunderstorm only: every 23 s a strike is drawn 420–680 m off, within about
 45° of where the camera faces: a forked ribbon bolt from the cloud base to the ground (hidden by anything in front of
 it), with up to three restrikes and a glow in the cloud; one strike in four is a sheet flash with no bolt. The flicker

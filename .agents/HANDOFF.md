@@ -17475,3 +17475,13 @@ Lens water differs by source (2026-11-22, owner: one look for rain, heavy rain, 
   spray from the side the round went in, each fleck drawn out away from it; `fps-engine.ts` passes the hit's screen x.
 - Checked: tests, typecheck, SwiftShader stills in Tampines with each kind forced from a temporary hook (removed).
   Not checked: real swimming or a real shot into water in play, motion, a real GPU.
+
+Rain on the carried gun (2026-11-22, owner: raindrops on the gun, more reflective metal):
+- `weapon-surface.ts`'s patch now beads the gun: two sizes of drop in model space that swell and drip away, most on
+  sky-facing faces and none underneath, and runs down upright faces; each is a glossy dome (roughness, normal, a
+  specular lift). One shared uniform, `setWeaponRain(wetness, seconds)`, driven from `wetView.wetness` in
+  `fps-engine.ts`, so beads fade as the gun dries under a roof; off with reduced effects.
+- `wet-surfaces.ts`: soaked metal goes to roughness .13 (was .2) and takes 2.5x its environment reflection (was 1.65x).
+  That applies to tagged world metal (vehicles, actors' kit) as well as the gun.
+- Checked: tests, typecheck, SwiftShader stills of the SAR 21 dry, wet and under inspection. Not checked: other guns,
+  hands (not patched, no beads), night, a real GPU, how "up" holds when the gun is tilted (it uses the model's own up).

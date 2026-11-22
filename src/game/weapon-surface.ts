@@ -6,7 +6,11 @@ import * as THREE from 'three';
  * UVs. This adds two small tiling textures per material family, projected along the three model axes:
  *   - a packed map: R cavity occlusion, G roughness (0.5 leaves the material's value alone), B metalness;
  *   - a tangent-space detail normal map.
- * Both multiply or bend what the material already has, so skins, accents and wet weather still apply. */
+ * Both multiply or bend what the material already has, so skins, accents and wet weather still apply.
+ *
+ * In the rain the same patch beads the gun with water (`setWeaponRain`): small drops that swell and drip away,
+ * most on the faces turned to the sky and none underneath, and runs down the upright faces. A drop is a glossy
+ * dome, so it picks up the sky and any light as a glint; the film between them takes the edge off the finish. */
 export type SurfaceFamily = 'steel' | 'polymer' | 'rubber';
 
 /** Texels a side, metres one repeat covers, then how strongly the normal, roughness/metalness and occlusion apply.
@@ -110,6 +114,11 @@ export function surfaceFamily(material: THREE.Material): SurfaceFamily | null {
   return material.metalness >= .3 ? 'steel' : material.roughness >= .92 ? 'rubber' : 'polymer';
 }
 
+const rain = { value: new THREE.Vector3() };
+/** How wet the carried gun is (0 dry to 1 soaked) and the clock its drops run on, in seconds. One value for every gun. */
+export function setWeaponRain(wetness: number, seconds: number) { rain.value.set(Math.max(0, Math.min(1, wetness)), seconds % 600, 0); }
+/** Drops a metre across the two bead sizes, and across and along a run: beads of about 2–4 mm and 5–10 mm, runs 7 mm wide. */
+export const WEAPON_BEADS = { fine: 150, coarse: 70, runAcross: 150, runAlong: 14 } as const;
 const vertexDeclarations = 'varying vec3 vSurfacePosition;\nvarying vec3 vSurfaceNormal;';
 // Model-space position in metres, whatever scale the part or the rig carries, so the grain keeps one size.
 const vertexBody = `vSurfacePosition = position * vec3(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz), length(modelMatrix[2].xyz));
@@ -117,6 +126,21 @@ vSurfaceNormal = normal;`;
 const fragmentDeclarations = `uniform sampler2D surfacePacked;
 uniform sampler2D surfaceNormal;
 uniform vec4 surfaceTuning;
+uniform vec3 surfaceWet;
+float surfaceHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// One layer of beads: xy the slope across a drop, z how much of a drop is here (0 none).
+vec3 surfaceBeads(vec2 p, float cells, float cover) {
+  vec2 q = p * cells, id = floor(q), f = fract(q) - .5;
+  if (surfaceHash(id) > cover) return vec3(0.);
+  // Each drop swells from nothing over twenty seconds or so, then drips away and starts again.
+  float life = fract(surfaceHash(id + 41.7) + surfaceWet.y * (.03 + .04 * surfaceHash(id + 9.1)));
+  float radius = (.15 + .2 * surfaceHash(id + 71.1)) * (.45 + .55 * life) * (1. - smoothstep(.93, 1., life));
+  vec2 d = f - (vec2(surfaceHash(id + 17.3), surfaceHash(id + 29.9)) - .5) * .5;
+  float t = dot(d, d) / max(1e-5, radius * radius);
+  if (t >= 1.) return vec3(0.);
+  float dome = sqrt(1. - t);
+  return vec3(d / (radius * max(dome, .3)), smoothstep(0., .35, dome));
+}
 #ifndef USE_NORMALMAP_OBJECTSPACE
 uniform mat3 normalMatrix;
 #endif
@@ -129,7 +153,29 @@ vec3 surfaceP = vSurfacePosition * surfaceTuning.x;
 // Sized to read at carry distance; a few centimetres from the eye the same relief would fill the view as noise.
 float surfaceRelief = smoothstep(.06, .32, length(vViewPosition));
 vec4 surfaceData = texture2D(surfacePacked, surfaceP.zy) * surfaceW.x + texture2D(surfacePacked, surfaceP.xz) * surfaceW.y + texture2D(surfacePacked, surfaceP.xy) * surfaceW.z;
-roughnessFactor = clamp(roughnessFactor * mix(1., surfaceData.g * 2., surfaceTuning.z), .045, 1.);`;
+roughnessFactor = clamp(roughnessFactor * mix(1., surfaceData.g * 2., surfaceTuning.z), .045, 1.);
+vec3 surfaceDrop = vec3(0.), surfaceDropA = vec3(1., 0., 0.), surfaceDropB = vec3(0., 1., 0.);
+if (surfaceWet.x > .01) {
+  // Drops lie in the plane of whichever model axis the face is turned to.
+  vec2 dropP = vSurfacePosition.xy;
+  if (surfaceW.x > surfaceW.y && surfaceW.x > surfaceW.z) { dropP = vSurfacePosition.zy; surfaceDropA = vec3(0., 0., 1.); }
+  else if (surfaceW.y > surfaceW.z) { dropP = vSurfacePosition.xz; surfaceDropB = vec3(0., 0., 1.); }
+  // Most on what faces the sky, some on the sides, none underneath.
+  float dropCover = surfaceWet.x * clamp(.34 + .5 * surfaceN.y, 0., .8);
+  surfaceDrop = surfaceBeads(dropP, ${WEAPON_BEADS.fine.toFixed(1)}, dropCover);
+  vec3 dropBig = surfaceBeads(dropP + 3.7, ${WEAPON_BEADS.coarse.toFixed(1)}, dropCover * .7);
+  if (dropBig.z > surfaceDrop.z) surfaceDrop = dropBig;
+  // Upright faces shed theirs as runs: a fat head going down, a thinning tail above it.
+  float dropSteep = (1. - abs(surfaceN.y)) * (1. - surfaceW.y);
+  float runColumn = floor(dropP.x * ${WEAPON_BEADS.runAcross.toFixed(1)}), runAcross = fract(dropP.x * ${WEAPON_BEADS.runAcross.toFixed(1)}) - .5;
+  float runY = dropP.y * ${WEAPON_BEADS.runAlong.toFixed(1)} + surfaceWet.y * (.12 + .3 * surfaceHash(vec2(runColumn, 3.))) + surfaceHash(vec2(runColumn, 7.)) * 9.;
+  float runAlong = fract(runY), runWidth = mix(.34, .09, smoothstep(.12, .85, runAlong));
+  float run = step(surfaceHash(vec2(runColumn, floor(runY))), surfaceWet.x * dropSteep * .2)
+    * (1. - smoothstep(runWidth * .55, runWidth, abs(runAcross))) * smoothstep(0., .1, runAlong) * (1. - smoothstep(.7, 1., runAlong));
+  if (run > surfaceDrop.z) surfaceDrop = vec3(runAcross / runWidth, 0., run * (.45 + .55 * (1. - smoothstep(.12, .5, runAlong))));
+  // Water is far smoother than any finish under it; the film between drops only takes the edge off.
+  roughnessFactor = mix(roughnessFactor * (1. - .22 * surfaceWet.x), .04, surfaceDrop.z);
+}`;
 const fragmentMetal = 'metalnessFactor *= mix(1., surfaceData.b, surfaceTuning.z);';
 // Each projection's tangent normal is swung onto the surface normal before blending, so curved parts stay smooth.
 const fragmentNormal = `vec3 surfaceX = texture2D(surfaceNormal, surfaceP.zy).xyz * 2. - 1.;
@@ -142,11 +188,16 @@ vec3 surfaceBend = normalMatrix * (normalize(surfaceX.zyx * surfaceW.x + surface
 #ifdef DOUBLE_SIDED
 surfaceBend *= faceDirection;
 #endif
-normal = normalize(normal + surfaceBend);`;
+normal = normalize(normal + surfaceBend);
+// A drop is a dome on the surface: its sides lean outwards.
+normal = normalize(normal + normalMatrix * (surfaceDropA * surfaceDrop.x + surfaceDropB * surfaceDrop.y) * .6 * surfaceDrop.z);`;
 const fragmentOcclusion = `float surfaceShade = mix(1., surfaceData.r, surfaceTuning.w * surfaceRelief);
 reflectedLight.indirectDiffuse *= surfaceShade;
 reflectedLight.indirectSpecular *= surfaceShade;
-reflectedLight.directDiffuse *= mix(1., surfaceShade, .5);`;
+reflectedLight.directDiffuse *= mix(1., surfaceShade, .5);
+// Each drop gathers light: a glint from the sky and from whatever lamp or sun reaches it.
+reflectedLight.indirectSpecular *= 1. + surfaceDrop.z * .7;
+reflectedLight.directSpecular *= 1. + surfaceDrop.z * 1.1;`;
 
 const after = (source: string, chunk: string, addition: string) => source.replace(`#include <${chunk}>`, `#include <${chunk}>\n${addition}`);
 
@@ -163,7 +214,7 @@ export function applyWeaponSurface(root: THREE.Object3D) {
         compile.call(this, shader, renderer);
         const textures = surfaceTextures(family);
         Object.assign(shader.uniforms, { surfacePacked: { value: textures.packed }, surfaceNormal: { value: textures.normal },
-          surfaceTuning: { value: new THREE.Vector4(1 / tuning.tile, tuning.normal, tuning.gloss, tuning.occlusion) } });
+          surfaceTuning: { value: new THREE.Vector4(1 / tuning.tile, tuning.normal, tuning.gloss, tuning.occlusion) }, surfaceWet: rain });
         shader.vertexShader = after(shader.vertexShader, 'common', vertexDeclarations);
         shader.vertexShader = after(shader.vertexShader, 'begin_vertex', vertexBody);
         let fragment = after(shader.fragmentShader, 'common', fragmentDeclarations);
@@ -173,7 +224,7 @@ export function applyWeaponSurface(root: THREE.Object3D) {
         shader.fragmentShader = after(fragment, 'aomap_fragment', fragmentOcclusion);
       };
       // The textures and tuning are uniforms, so every family shares one program per base material variant.
-      material.customProgramCacheKey = function () { return `${key.call(this)}|weapon-surface-v2`; };
+      material.customProgramCacheKey = function () { return `${key.call(this)}|weapon-surface-v3`; };
       material.userData.weaponSurface = family; material.needsUpdate = true;
     }
   });

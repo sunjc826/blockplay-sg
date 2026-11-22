@@ -82,6 +82,7 @@ import { WEAPON_MODE_CUE, weaponSettleCue, weaponSwitchCue } from './weapon-swit
 import { HIT_CONFIRM_GAP, createEarRing, createSlideScrape, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup, type Vitals } from './combat-feedback';
 import { createActorFootsteps } from './actor-footsteps';
 import { lightningStrike, strikeClock } from './lightning';
+import { setWeaponRain } from './weapon-surface';
 import { CRASH_SPEED_LOSS, createWorldLoops, crossedLightning, dragonBoatStroke, worldLoopTargets, type WorldSoundState } from './world-audio';
 import { playMenuSound } from '../lib/menu-audio';
 import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
@@ -3028,7 +3029,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Three negates these Euler angles when uploading the sampling matrix.
     viewScene.environmentRotation.copy(camera.rotation);
     viewScene.environmentRotation.x *= -1; viewScene.environmentRotation.y *= -1; viewScene.environmentRotation.z *= -1;
-    wetView.update(dt, atmosphere.air.sheltered ? 0 : atmosphere.air.rain);
+    wetView.update(dt, atmosphere.air.sheltered ? 0 : atmosphere.air.rain); setWeaponRain(getEnvironmentSettings().reducedEffects ? 0 : wetView.wetness, hud.elapsed);
     canvas.dataset.wetSurfaces = wetView.wetness.toFixed(3);
     viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58) * atmosphere.light.skyVisibility;
     viewSky.color.copy(VIEW_SKY).lerp(viewTint.set(lighting.skyFill), lighting.shift);

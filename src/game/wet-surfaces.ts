@@ -39,9 +39,10 @@ export function createWetSurfaces(scene: THREE.Object3D, all = false) {
           if (!m.color.equals(original.color)) m.color.copy(original.color);
           continue;
         }
-        const soaked = Math.min(dry, metal ? .2 : .46);
+        // Wet metal is the shiniest thing in the rain: nearly a mirror finish, and much more of the sky in it.
+        const soaked = Math.min(dry, metal ? .13 : .46);
         m.roughness = THREE.MathUtils.lerp(dry, soaked, wetness);
-        m.envMapIntensity = original.highlights * (1 + wetness * .65);
+        m.envMapIntensity = original.highlights * (1 + wetness * (metal ? 1.5 : .65));
         m.color.copy(original.color).multiplyScalar(1 - wetness * (metal ? .035 : .12));
       }
     },
