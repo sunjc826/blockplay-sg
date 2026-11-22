@@ -227,8 +227,8 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       shelterHit.height = rainSurface(sky.x, sky.z); shelterHit.object = undefined;
       const sheltered = vehicleRain.sample(sky.x, sky.z, shelterHit).height > sky.y + .15;
       air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.gust = reduced ? 1 : gustFactor(gustWave(sky.x, sky.z, gustClock)); air.sheltered = sheltered; air.storm = active.weather === 'thunderstorm'; air.clock = (now % 3600_000) / 1000;
-      // Rain is seen by the sky's light by day; at night it is all but dark except where a street lamp catches it.
-      rainEffects.setLight(1 - .86 * night, scene.userData.lampLight);
+      // Rain takes the air's colour, which darkens with the hour; at night it is dimmed further, all but dark except where a street lamp catches it.
+      rainEffects.setLight(1 - .6 * night, scene.userData.lampLight);
       rainEffects.update(step, exposurePoint, wetness, wind, reduced, getGraphicsSettings().rainDetail, gustClock, fog.color);
       wetSurfaces.update(step, wetness);
       ripples.update(camera,getGraphicsSettings().waterDetail,reduced,wetness);root.userData.waterRipples=ripples.mesh.count;

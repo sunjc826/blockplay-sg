@@ -51,9 +51,9 @@ describe('rain in gusts', () => {
   });
   it('keeps a steady fall with no spray under reduced effects, on low detail and in still air', () => {
     const effects = createRainEffects(new THREE.Scene(), () => 0), eye = new THREE.Vector3(0, 1.7, 0), g = effects.streaks.geometry.attributes.rainGust;
-    effects.update(.016, eye, 1, 6, true, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBeLessThanOrEqual(1); expect(g.getX(0)).toBeGreaterThan(.54);
+    effects.update(.016, eye, 1, 6, true, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(1)).toBeLessThanOrEqual(1); expect(g.getX(1)).toBeGreaterThan(.16); expect(g.getX(0)).toBeLessThan(g.getX(1) * .2);
     effects.update(.016, eye, 1, 6, false, 'low', peak); expect(effects.sprayCount).toBe(0);
-    effects.update(.016, eye, 1, 0, false, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBeLessThanOrEqual(1); expect(g.getX(0)).toBeGreaterThan(.54); expect(effects.spray.visible).toBe(false);
+    effects.update(.016, eye, 1, 0, false, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(1)).toBeLessThanOrEqual(1); expect(g.getX(1)).toBeGreaterThan(.16); expect(g.getX(0)).toBeLessThan(g.getX(1) * .2); expect(effects.spray.visible).toBe(false);
     effects.dispose();
   });
   it('never draws spray under the surface it blows across', () => {

@@ -33,6 +33,8 @@ vec3 rainLamp(vec3 world) {
   return rainLampLight * pool.r * (.3 + .7 * pool.r) * (1.0 - smoothstep(5.0, 8.5, lift)) * (.55 + .45 * smoothstep(0.0, 5.0, lift));
 }
 `;
+/** A streak's look: opacity at its plainest, the faintest drop as a share of that, the head's share of the tail's, and how much brighter than the air it is (so it darkens with the air at night). */
+export const RAIN_STREAK = { opacity: .34, faintest: .3, head: .12, lift: 1.5 } as const;
 /** How fast the fall thins with distance: a drop's distance is the radius times a uniform draw to this power. */
 export const RAIN_FALLOFF = 1.9;
 /** Distant streaks: metres per doubling of fall speed, metres per extra streak length, the longest multiple, and how much fainter at 80 m. */
@@ -54,7 +56,9 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const gusts = new Float32Array(DROP_COUNT * 2).fill(1);
   const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
   geometry.setAttribute('rainGust', new THREE.BufferAttribute(gusts, 1).setUsage(THREE.DynamicDrawUsage));
-  const material = new THREE.LineBasicMaterial({ color: '#c1deeb', transparent: true, opacity: .48, depthWrite: false });
+  // Rain is water seen against the air: a streak is the air's own colour a little lifted, and mostly see-through, so it
+  // all but vanishes against the sky and shows as faint pale strokes against anything darker. Not tone-mapped, like the sky.
+  const material = new THREE.LineBasicMaterial({ color: '#c1deeb', transparent: true, opacity: RAIN_STREAK.opacity, depthWrite: false, toneMapped: false });
   const rainEye = { value: new THREE.Vector3() }, rainReach = { value: 24 };
   // Street lamps (`world-night-lights.ts` bakes their pools top-down): rain falling through a pool catches
   // its light, so at night a lamp's glow fills out into the lit streaks and spray around it.
@@ -207,12 +211,14 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
         positions[k + 3] = d.x + blow * lean; positions[k + 4] = visible ? bottom : d.y; positions[k + 5] = d.z + blow * veer * lean;
         // Thin in a lull, dense in a gust, and banded into sheets inside it.
         // Far streaks are long and overlap: each is fainter, so together they read as a veil.
-        gusts[i * 2] = gusts[i * 2 + 1] = (1 + gustiness * (-.32 + gust * (.85 + .4 * sheet))) * (1 - RAIN_FAR.thin * Math.min(1, d.far / 80));
+        // No two drops are as plain as each other, and each fades in from its head, so a streak is a soft stroke, not a ruled line.
+        gusts[i * 2 + 1] = (1 + gustiness * (-.32 + gust * (.85 + .4 * sheet))) * (1 - RAIN_FAR.thin * Math.min(1, d.far / 80)) * (RAIN_STREAK.faintest + (1 - RAIN_STREAK.faintest) * sample(i, 6));
+        gusts[i * 2] = gusts[i * 2 + 1] * RAIN_STREAK.head;
       }
       geometry.attributes.position.needsUpdate = geometry.attributes.rainGust.needsUpdate = count > 0;
       sprayCount = Math.floor(profile.spray * THREE.MathUtils.clamp(rain, 0, 1) * gustiness);
       spray.visible = sprayCount > 0; sprayGeometry.setDrawRange(0, sprayCount);
-      if (tint) sprayMaterial.color.copy(tint);
+      if (tint) { sprayMaterial.color.copy(tint); material.color.copy(tint).multiplyScalar(RAIN_STREAK.lift).addScalar(.04); }
       for (let i = 0; i < sprayCount; i++) {
         const m = motes[i];
         let ground = sampleSurface(m.x, m.z);

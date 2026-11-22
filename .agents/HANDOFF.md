@@ -17460,3 +17460,9 @@ Rain is one fall, not near and far groups (2026-11-22, owner: the near-to-far tr
   Streak length and fall speed grow with the distance a drop began at (`RAIN_FAR`), and far streaks are fainter.
   `RAIN_DETAIL` lost `nearDrops`. Far drops falling faster than true speed is deliberate.
 - Checked: tests (ring densities, far length and speed), typecheck, a SwiftShader still in Tampines. Not checked in motion.
+
+Rain streaks are faint and air-coloured (2026-11-22, owner sent two Gray Zone Warfare frames: "the rain there doesn't
+draw opaque lines"): streaks were '#c1deeb' at .48, hard lines everywhere. Now the fog colour x1.5, opacity .34 at
+most, each drop between 30% and 100% of that, fading in from its head, not tone-mapped (`RAIN_STREAK`). They all but
+vanish against the sky and show against darker things, as in the reference. Those frames are the only GZW pictures
+this work has been compared with. Checked: tests, typecheck, SwiftShader stills in Tampines, noon and night.
