@@ -17,6 +17,8 @@ export function treePart<T extends THREE.Mesh>(mesh: T, x: number, base: number,
   return mesh;
 }
 export function animateTrees(scene: THREE.Scene, time: number) { state(scene).time.value = time; }
+/** The clock the trees' gust fronts run on, for effects that should meet the same fronts. */
+export const treeWindTime = (scene: THREE.Scene) => state(scene).time.value;
 export function setTreeWeather(scene: THREE.Scene, wind: number, reduced: boolean) {
   const uniforms = state(scene);
   uniforms.strength.value = (.018 + Math.min(7, Math.max(0, wind)) * .025) * (reduced ? .12 : 1);

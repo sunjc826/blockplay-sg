@@ -4945,7 +4945,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (effects.style.id !== canvas.dataset.fxStyle) canvas.dataset.fxStyle = effects.style.id;
     const mountedSpeed = Math.abs(vehicles.mounted?.speed || 0), clockNow = performance.now() / 1000;
     worldLoops.update(worldLoopTargets({ playing: hud.phase === 'playing' && hud.health > 0 && hud.arenaSelf?.alive !== false || hud.phase === 'playing' && !!hud.arenaSelf?.parachuting, deafened: !!conditions.deafened,
-      vehicle: vehicles.active ?? null, speed: mountedSpeed, rain: atmosphere.air.rain, wind: atmosphere.air.wind, sheltered: atmosphere.air.sheltered, coastal: !!COASTAL_SEA[region ?? ''],
+      vehicle: vehicles.active ?? null, speed: mountedSpeed, rain: atmosphere.air.rain, wind: atmosphere.air.wind * atmosphere.air.gust, sheltered: atmosphere.air.sheltered, coastal: !!COASTAL_SEA[region ?? ''],
       merlionFiring: merlionOperating() && trigger, inMovingLift: wasInMovingLift, parachuting: wasParachuting, transport: transportNear }), hud.muted);
     if (hud.phase === 'playing' && !hud.muted) {
       if ((vehicles.active ?? null) !== lastVehicle && (vehicles.active || lastVehicle) && !isDragonBoat((vehicles.active ?? lastVehicle)!)) handsSound('world-vehicle-door', 0);
@@ -5075,7 +5075,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       renderer.clearDepth(); renderer.render(viewScene, viewCamera);
       const { lighting } = atmosphere.light, air = atmosphere.air;
       if (getGraphicsSettings().lensEffects) lens.present({ camera, dt: realDt, time: now / 1000, sun: lighting.key, elevation: lighting.elevation, sunColor: lighting.keyColor, dusk: lighting.shift,
-        sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind, sheltered: air.sheltered,
+        sunlight: air.sunlight, haze: air.haze, rain: air.rain, wind: air.wind * air.gust, sheltered: air.sheltered,
         swimming: hud.phase==='playing'&&swimming(), swimSpeed:carry.length(),
         sky: atmosphere.lensSky(occlusion.gradeApplied) ?? (world.scene.background instanceof THREE.Color ? world.scene.background : null), thermal: vision.thermal,
         sunRayOverlay: occlusion.sunRayOverlay,

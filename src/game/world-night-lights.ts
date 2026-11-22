@@ -751,12 +751,13 @@ export function createNightLights(scene: THREE.Scene, options: { roads: readonly
   haloGeometry.setAttribute('size', new THREE.BufferAttribute(haloSizes, 1));
   haloGeometry.setDrawRange(0, lamps.length);
   const haloMaterial = new THREE.ShaderMaterial({
-    uniforms: { level: { value: 0 }, color: { value: new THREE.Color('#ffd49a') }, scale: { value: 600 }, fogNear: { value: 150 }, fogFar: { value: 700 } },
-    vertexShader: `uniform float scale; attribute float size; varying float vDepth;
-      void main() { vec4 view = modelViewMatrix * vec4(position, 1.0); vDepth = -view.z; gl_Position = projectionMatrix * view; gl_PointSize = clamp(scale * size / max(1.0, vDepth), 2.0, 160.0); }`,
-    fragmentShader: `uniform float level, fogNear, fogFar; uniform vec3 color; varying float vDepth;
-      void main() { float r = length(gl_PointCoord - .5) * 2.0; if (r > 1.0) discard;
-        float glow = pow(1.0 - r, 2.2) * .55 + exp(-r * r * 40.0) * .9;
+    // `rain` 0–1: falling rain scatters a lamp's light, so its halo spreads to about twice the width with a soft skirt; the core keeps its size.
+    uniforms: { level: { value: 0 }, rain: { value: 0 }, color: { value: new THREE.Color('#ffd49a') }, scale: { value: 600 }, fogNear: { value: 150 }, fogFar: { value: 700 } },
+    vertexShader: `uniform float scale, rain; attribute float size; varying float vDepth;
+      void main() { vec4 view = modelViewMatrix * vec4(position, 1.0); vDepth = -view.z; gl_Position = projectionMatrix * view; gl_PointSize = clamp(scale * size * (1.0 + rain) / max(1.0, vDepth), 2.0, 160.0 + 120.0 * rain); }`,
+    fragmentShader: `uniform float level, rain, fogNear, fogFar; uniform vec3 color; varying float vDepth;
+      void main() { float wide = length(gl_PointCoord - .5) * 2.0; if (wide > 1.0) discard; float r = min(1.0, wide * (1.0 + rain));
+        float glow = pow(1.0 - r, 2.2) * .55 + exp(-r * r * 40.0) * .9 + rain * pow(1.0 - wide, 1.6) * .5;
         float fade = 1.0 - smoothstep(fogNear, fogFar, vDepth);
         vec3 c = color * glow * level * fade; gl_FragColor = vec4(c, max(c.r, max(c.g, c.b))); }`,
     ...GLOW_BLENDING,
@@ -2281,6 +2282,12 @@ ${SHOP_SIGN_GLSL}
 
   const headOff = new THREE.Color('#4d5256'), headOn = new THREE.Color('#fff1d0').multiplyScalar(4);
   const buffer = new THREE.Vector2();
+  // For rain (`rain-effects.ts`): the baked pools and the lamps' colour at their present strength.
+  const lampHeads = new Float32Array(lamps.length * 4);
+  lamps.forEach((lamp, i) => lampHeads.set([haloPositions[i * 3], haloPositions[i * 3 + 1], haloPositions[i * 3 + 2], haloPositions[i * 3 + 1] - lamp.y], i * 4));
+  /** `heads`: x, y, z of each lamp's head and its height above the ground under it. */
+  const lampLight = { map: map as THREE.Texture, bounds: uniforms.nightBounds.value, light: new THREE.Color(0, 0, 0), heads: lampHeads };
+  scene.userData.lampLight = lampLight;
   let level = -1, dark = 0, sinceScan = 0, disposed = false;
   return {
     root,
@@ -2328,6 +2335,9 @@ ${SHOP_SIGN_GLSL}
         haloMaterial.uniforms.level.value = level ** 1.6;
       }
       halos.visible = level > .01;
+      lampLight.light.copy(uniforms.nightLampColor.value).multiplyScalar(uniforms.nightPool.value * .2);
+      const rain = (scene.userData.wetGround as { rain?: number } | undefined)?.rain ?? 0;
+      haloMaterial.uniforms.rain.value += (rain - haloMaterial.uniforms.rain.value) * Math.min(1, Math.max(0, dt) * 2);
       // Cloud and haze thin the sky out; the city's fog distance stands for how clear the air is.
       const clear = scene.fog instanceof THREE.Fog ? Math.max(0, Math.min(1, (scene.fog.far - 450) / 350)) : 1;
       const pixel = renderer.getPixelRatio();
@@ -2344,7 +2354,7 @@ ${SHOP_SIGN_GLSL}
     },
     dispose() {
       if (disposed) return; disposed = true;
-      scene.remove(root);
+      scene.remove(root); if (scene.userData.lampLight === lampLight) delete scene.userData.lampLight;
       for (const { mesh, geometry, material, attributes } of swaps) {
         const view = mesh.geometry;
         mesh.geometry = geometry; mesh.material = material;

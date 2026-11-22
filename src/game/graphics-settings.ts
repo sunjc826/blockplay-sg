@@ -30,7 +30,7 @@ export interface GraphicsSettings {
   /** Reflections of visible scenery on exposed wet pavement. */
   rainReflections: boolean;
   waterReflections: boolean;
-  /** Sun flare, haze dust and raindrops on the lens. */
+  /** Sun flare, haze dust, raindrops on the lens and falling rain bending the view. */
   lensEffects: boolean;
   /** Subtle glow around bright world lights, before the weapon and reticle draw. */
   bloom: boolean;

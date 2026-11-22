@@ -17434,3 +17434,15 @@ Carried gun takes sun shade (2026-11-22, owner: "check if shadow maps are applie
   (node, no instanced accelerators). On the VM's Metal GPU the Tampines and Orchard ranges read 0.00 at dawn
   (behind the blocks) and 1.00 at dusk, afternoon and morning, with the gun visibly darker at dawn.
   Not checked: walking across a shadow's edge in play (CDP key-holds barely moved the player), vehicles, a guest.
+
+Prettier rain (2026-11-22, owner: Gray Zone Warfare's rain: gusts, refraction, rain round lights at night):
+- `wind-gusts.ts` is the trees' and grass's gust front as numbers. Rain (`rain-effects.ts`) follows it on the trees'
+  clock: slant, length and opacity per drop, sheets inside a gust, impact droplets thrown downwind, and blown spray
+  (`Points`, 240 high / 440 ultra, none on low or reduced). Grass now runs on the same clock. `air.gust` scales the
+  wind the audio loop and lens drops get.
+- Night: streaks dim with the hour (`setLight`), take the baked lamp pools (`scene.userData.lampLight` from
+  `world-night-lights.ts`), the 24 nearest lamps within 80 m get their own lit streaks, and lamp halos widen with rain.
+- `fps-lens.ts` has a rain refraction pass (lens effects setting). No depth: it crosses the gun too.
+- Checked: tests, typecheck, SwiftShader captures in Tampines (squall and monsoon, noon and night; no shader errors).
+  Not checked: a real GPU, frame cost, how the refraction reads in motion, Marina/Queenstown/Raffles, the rain smokes
+  (`fps-rain-smoke`, `marina-rain-smoke`, `weather-quality-smoke`), Walk/drive (no lamps or lens there).

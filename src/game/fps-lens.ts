@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Direction } from './world-lighting';
 import type { SunRayOverlay } from './sun-rays';
+import { GUST_DOWNWIND } from './wind-gusts';
 
 /**
  * What the eye, as a lens, adds over the finished frame (world and weapon):
@@ -35,6 +36,9 @@ export const LENS_DROP_LIMIT = 128;
 /** Drops at least this big (share of screen height) run once they let go. */
 export const SLIDING_RADIUS = .011;
 
+/** How much falling rain bends the view, 0–1: by the rain, more in a gust (`wind` up to about 15), less from shelter, fading out looking along its fall (`lookY`). */
+export const rainRefraction = (rain: number, wind: number, sheltered: boolean, lookY: number) =>
+  rain < .03 ? 0 : Math.min(1, rain * (.7 + .3 * Math.min(1, Math.max(0, wind) / 6))) * (sheltered ? .45 : 1) * (1 - smoothstep(.6, .95, Math.abs(lookY)));
 /** How much of the falling rain the lens catches, from how far the view looks up (`lookY`, the forward vector's height). */
 export const rainExposure = (lookY: number) => .15 + .85 * smoothstep(-.5, .6, lookY);
 const smoothstep = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -243,6 +247,43 @@ void main() {
   gl_FragColor = vec4(seen, edge * vDrop.w);
 }`;
 
+/**
+ * Rain between the eye and the scene, as glass: each falling streak is a thin lens that shows the
+ * view behind it shifted sideways and a little brighter along one edge. Three depths of streak; the
+ * rest of the frame is left alone. `uLean` slants them with the wind across the view.
+ */
+const RAIN_REFRACTION_FRAGMENT = /* glsl */`
+uniform sampler2D tFrame;
+uniform vec2 uResolution;
+uniform float uAspect, uTime, uAmount, uLean;
+varying vec2 vUv;
+float streakHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void main() {
+  float shift = 0.0, cover = 0.0;
+  for (int i = 0; i < 3; i++) {
+    float layer = float(i), columns = 64.0 + layer * 52.0;
+    vec2 p = vec2(vUv.x * uAspect + vUv.y * uLean, vUv.y);
+    float column = floor(p.x * columns), across = fract(p.x * columns) - 0.5;
+    float speed = (2.4 + streakHash(vec2(column, layer)) * 1.6) * (1.0 - 0.22 * layer);
+    float slot = 0.46 - 0.12 * layer;
+    float y = (p.y + uTime * speed + streakHash(vec2(column, layer + 7.0)) * 9.0) / slot;
+    float row = floor(y), along = fract(y);
+    float on = step(1.0 - uAmount * (0.1 + 0.05 * layer), streakHash(vec2(column, row + layer * 31.0)));
+    float width = 0.2 + 0.22 * streakHash(vec2(row, column));
+    float body = (1.0 - smoothstep(width * 0.55, width, abs(across))) * smoothstep(0.0, 0.2, along) * (1.0 - smoothstep(0.5, 0.95, along));
+    float seen = on * body * (1.0 - 0.25 * layer);
+    shift += seen * across / width * (1.0 - 0.3 * layer);
+    cover = max(cover, seen);
+  }
+  if (cover < 0.02) discard;
+  float px = uResolution.y / 800.0;
+  vec2 uv = vUv + vec2(-shift * 9.0, cover * 5.0) * px / uResolution;
+  vec3 seen = texture2D(tFrame, clamp(uv, 0.0, 1.0)).rgb;
+  // The lit edge of a drop: a little of the scene's own light gathered to one side.
+  seen *= 1.0 + 0.22 * max(0.0, shift);
+  gl_FragColor = vec4(seen, min(1.0, cover * 1.15));
+}`;
+
 export interface LensFrame {
   camera: THREE.PerspectiveCamera;
   dt: number; time: number;
@@ -276,6 +317,8 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
     uniforms: { tVisible: { value: visible.texture }, uSun: { value: new THREE.Vector2() }, uFlare: { value: 0 }, uSunColor: { value: new THREE.Color() }, uAspect: { value: 1 },
       uHaze: { value: 0 }, uDust: { value: 0 }, uTime: { value: 0 }, uPxPerRadian: { value: 1000 }, uSunDirection: { value: new THREE.Vector3() },
       uInverseProjection: { value: new THREE.Matrix4() }, uCameraWorld: { value: new THREE.Matrix4() }, uLayers: { value: [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()] } } });
+  const refraction = new THREE.ShaderMaterial({ vertexShader: QUAD_VERTEX, fragmentShader: RAIN_REFRACTION_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true,
+    uniforms: { tFrame: { value: null }, uResolution: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTime: { value: 0 }, uAmount: { value: 0 }, uLean: { value: 0 } } });
   const quad = new THREE.Mesh(geometry, air); quad.frustumCulled = false; quadScene.add(quad);
 
   const dropScene = new THREE.Scene(), rain = createLensRain();
@@ -296,9 +339,9 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
   /** Metres to each dust layer, for parallax as you move; how many cells a layer wraps at, so wrapping never shows. */
   const DEPTHS = [40, 12, 3.5], CELLS = [70, 34, 15];
   let frame: THREE.FramebufferTexture | null = null, placed = false, seenSun = 0;
-  const status = { flare: 0, dust: 0, drops: 0 };
+  const status = { flare: 0, dust: 0, drops: 0, refraction: 0 };
   return {
-    /** What showed last frame: flare strength (after anything in front of the sun), dust strength, drops on the lens. */
+    /** What showed last frame: flare strength (after anything in front of the sun), dust strength, drops on the lens, and how much the falling rain bends the view (0–1). */
     get status() { return status; },
     get drops() { return rain.drops; },
     splash(strength:number,aspect:number,reduced=false) { rain.splash(strength,aspect,reduced); },
@@ -333,9 +376,11 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
       camera.getWorldPosition(lastPosition); placed = true;
 
       const drops = rain.drops.length;
-      status.dust = dust; status.drops = drops;
+      // Falling rain bends the view behind it: less from under a roof (it is all some way off), none looking straight up or down its fall.
+      const bend = f.reduced ? 0 : rainRefraction(f.rain, f.wind, f.sheltered, forward.y);
+      status.dust = dust; status.drops = drops; status.refraction = bend;
       if (flare < .002) seenSun = 0;
-      if (flare < .002 && dust < .002 && !drops) { status.flare = 0; return; }
+      if (flare < .002 && dust < .002 && !drops && bend < .02) { status.flare = 0; return; }
 
       if (!frame || frame.image.width !== size.x || frame.image.height !== size.y) {
         frame?.dispose(); frame = new THREE.FramebufferTexture(size.x, size.y);
@@ -365,6 +410,14 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
         quad.material = air; renderer.render(quadScene, quadCamera);
       }
       status.flare = flare;
+      if (bend >= .02) {
+        right.setFromMatrixColumn(camera.matrixWorld, 0);
+        const u = refraction.uniforms;
+        u.tFrame.value = frame; u.uResolution.value.copy(size); u.uAspect.value = aspect; u.uTime.value = f.time % 600; u.uAmount.value = bend;
+        // Wind across the view slants the streaks; the weather's wind blows along `GUST_DOWNWIND`.
+        u.uLean.value = Math.max(-.5, Math.min(.5, (right.x * GUST_DOWNWIND.x + right.z * GUST_DOWNWIND.z) * f.wind / 25));
+        quad.material = refraction; renderer.render(quadScene, quadCamera);
+      }
       if (drops) {
         for (let i = 0; i < drops; i++) {
           const drop = rain.drops[i], fadeIn = Math.min(1, drop.age / .08), fadeOut = Math.min(1, (drop.life - drop.age) / .6);
@@ -382,7 +435,7 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
     },
     dispose() {
       frame?.dispose(); visible.dispose(); geometry.dispose(); dropGeometry.dispose();
-      visibility.dispose(); air.dispose(); dropMaterial.dispose(); rain.clear();
+      visibility.dispose(); air.dispose(); refraction.dispose(); dropMaterial.dispose(); rain.clear();
     },
   };
 }

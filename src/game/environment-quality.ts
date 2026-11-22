@@ -2,9 +2,9 @@
 export type WorldDetail = 'low' | 'high' | 'ultra';
 export const worldDetail = (value: unknown, fallback: WorldDetail): WorldDetail => value === 'low' || value === 'high' || value === 'ultra' ? value : fallback;
 export const RAIN_DETAIL = {
-  low: { radius: 24, drops: 1200, nearDrops: 1200, height: 22 },
-  high: { radius: 80, drops: 6000, nearDrops: 1800, height: 36 },
-  ultra: { radius: 130, drops: 12000, nearDrops: 2400, height: 46 },
+  low: { radius: 24, drops: 1200, nearDrops: 1200, height: 22, spray: 0 },
+  high: { radius: 80, drops: 6000, nearDrops: 1800, height: 36, spray: 240 },
+  ultra: { radius: 130, drops: 12000, nearDrops: 2400, height: 46, spray: 440 },
 } as const;
 export function grassDetail(detail: WorldDetail, reduced: boolean, mobile: boolean) {
   if (reduced) return { near: 11, radius: 11, spacing: 1.35, farSpacing: 2, limit: 384, farLimit: 0 };

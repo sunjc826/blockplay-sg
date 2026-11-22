@@ -1,5 +1,6 @@
 import { moonRayAmount, type SunRayLight } from './sun-rays';
-import { setTreeWeather } from './tree-wind';
+import { setTreeWeather, treeWindTime } from './tree-wind';
+import { gustFactor, gustWave } from './wind-gusts';
 import { updateFoliageDisturbance } from './foliage-disturbance';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
@@ -64,8 +65,10 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const originalSunRays = scene.userData.sunRays;
   const sunRays: SunRayLight = { direction: { x: 0, y: 1, z: 0 }, color: '#fff3e2', elevation: -90, sunlight: 0, reduced: false };
   scene.userData.sunRays = sunRays;
-  /** Eased air conditions around the camera, shared with lens and audio effects. */
-  const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, sheltered: false, storm: false, clock: 0 };
+  /** Eased air conditions around the camera, shared with lens and audio effects. `gust` is the wind here and now as a share of `wind`. */
+  const air = { rain: 0, haze: 0, sunlight: 1, wind: 0, gust: 1, sheltered: false, storm: false, clock: 0 };
+  // Gust fronts run on the trees' clock where the scene animates trees, so rain meets the front the canopy leans to.
+  let gustClock = 0, treeClock = treeWindTime(scene);
   const root = new THREE.Group(); root.name = 'world-atmosphere'; root.userData.fpsEffect = true; scene.add(root);
   const foliage = scene.userData.foliageDrift as FoliageDriftDeclaration | undefined;
   const drift = foliage?.leafSources.length ? createAmbientDrift(scene, foliage) : null;
@@ -80,7 +83,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     const waterY=receivers.water(x,z);hit.kind=waterY!==null&&Math.abs(hit.height-waterY)<.001?'water':'solid';
     receivers.sample(x,z,hit);return vehicleRain.sample(x,z,hit);
   });
-  const wetGround = { surface: scene.userData.groundCover?.wetGround as ((x: number, z: number) => number | null) | undefined, exposed: rainSurface, wetness: 0, time: 0 };
+  const wetGround = { surface: scene.userData.groundCover?.wetGround as ((x: number, z: number) => number | null) | undefined, exposed: rainSurface, wetness: 0, time: 0, rain: 0 };
   scene.userData.wetGround = wetGround;
   const shelterHit = { height: 0, normal: new THREE.Vector3(0, 1, 0), object: undefined as THREE.Object3D | undefined };
   const wetSurfaces = createWetSurfaces(scene);
@@ -170,8 +173,9 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       haze += ((active.weather === 'haze' ? 1 : 0) - haze) * blend; sunlight += (preset.sun - sunlight) * blend;
       sunRays.direction = lighting.key; sunRays.color = lighting.keyColor; sunRays.elevation = lighting.elevation;
       sunRays.sunlight = sunlight; sunRays.reduced = reduced; sunRays.moon = moonRayAmount(lighting.elevation);
-      const time = (now % 3600_000) / 1000;
-      scene.userData.groundCover?.grass.update(camera, time, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail, wind);
+      const time = (now % 3600_000) / 1000, trees = treeWindTime(scene);
+      if (trees !== treeClock) gustClock = treeClock = trees; else gustClock += step;
+      scene.userData.groundCover?.grass.update(camera, gustClock, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail, wind);
       driftWeather.wind = wind; driftWeather.rain = wetness; driftWeather.sun = sunlight; driftWeather.night = night;
       driftWeather.reduced = reduced; driftWeather.detail = getGraphicsSettings().grassDetail; driftWeather.mobile = coarsePointer?.matches ?? false;
       drift?.update(time, driftWeather, exposurePoint);
@@ -218,12 +222,14 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       vehicleRain.update(step, exposurePoint, wetness, reduced, rainEffects.splash);
       shelterHit.height = rainSurface(sky.x, sky.z); shelterHit.object = undefined;
       const sheltered = vehicleRain.sample(sky.x, sky.z, shelterHit).height > sky.y + .15;
-      air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.sheltered = sheltered; air.storm = active.weather === 'thunderstorm'; air.clock = (now % 3600_000) / 1000;
-      rainEffects.update(step, exposurePoint, wetness, wind, reduced, getGraphicsSettings().rainDetail);
+      air.rain = wetness; air.haze = haze; air.sunlight = sunlight; air.wind = wind; air.gust = reduced ? 1 : gustFactor(gustWave(sky.x, sky.z, gustClock)); air.sheltered = sheltered; air.storm = active.weather === 'thunderstorm'; air.clock = (now % 3600_000) / 1000;
+      // Rain is seen by the sky's light by day; at night it is all but dark except where a street lamp catches it.
+      rainEffects.setLight(1 - .86 * night, scene.userData.lampLight);
+      rainEffects.update(step, exposurePoint, wetness, wind, reduced, getGraphicsSettings().rainDetail, gustClock, fog.color);
       wetSurfaces.update(step, wetness);
       ripples.update(camera,getGraphicsSettings().waterDetail,reduced,wetness);root.userData.waterRipples=ripples.mesh.count;
-      wetGround.wetness = wetSurfaces.wetness; wetGround.time = time;
-      root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius };
+      wetGround.wetness = wetSurfaces.wetness; wetGround.time = time; wetGround.rain = reduced ? 0 : wetness;
+      root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius, spray: rainEffects.sprayCount, lampStreaks: rainEffects.lampStreaks, gust: air.gust };
       sparks.visible = !reduced && CELEBRATIONS[active.celebration].fireworks && places.length > 0;
       if (sparks.visible) {
         const burst = Math.floor(time / 5), age = time % 5, anchor = places[burst % places.length];
