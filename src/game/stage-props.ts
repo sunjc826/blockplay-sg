@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { SceneKit } from './scene-kit';
-import { stageFall, stageImpact, stageTip, type StageZone } from './stage-parts';
+import type { Obstacle } from './region-collision';
+import { captureStagePart, captureStageState, stageFall, stageImpact, stageTip, type StageZone } from './stage-parts';
 
 /**
  * Stage parts a district can stand anywhere: each builds a piece and its other
@@ -17,6 +18,31 @@ export const STAGE_FLOOD_DEPTH = .3;
 /** Seconds roller shutters take to close (`lockdown`). */
 export const STAGE_SHUTTER_SECONDS = 2.4;
 
+/** What a piece needs of a scene: the scene kit has it all, and `createStageKit` gives it to a hand-built scene. */
+export type StageKit = Pick<SceneKit, 'scene' | 'obstacles' | 'mat' | 'box' | 'blob' | 'solid' | 'freeform' | 'stage' | 'stageState'>;
+
+/**
+ * The same for a scene built without the scene kit (Marina Bay, Raffles Place, Queenstown). New
+ * geometries and materials go on the scene's own lists, so its own dispose frees them. Call it after
+ * the scene has merged its repeated meshes: a stage part has to stay its own group.
+ */
+export function createStageKit(world: { scene: THREE.Scene; obstacles: Obstacle[]; geometries: THREE.BufferGeometry[]; materials: THREE.Material[] }): StageKit {
+  const { scene, obstacles } = world, unit = new THREE.BoxGeometry(1, 1, 1), crown = new THREE.IcosahedronGeometry(1, 1);
+  world.geometries.push(unit, crown);
+  const instances: THREE.InstancedMesh[] = [];
+  return {
+    scene, obstacles,
+    mat(color, roughness = .76, metalness = 0) { const material = new THREE.MeshStandardMaterial({ color, roughness, metalness }); world.materials.push(material); return material; },
+    box(x, y, z, w, h, d, material, parent = scene, shadow = false) { const mesh = new THREE.Mesh(unit, material); mesh.position.set(x, y, z); mesh.scale.set(w, h, d); mesh.castShadow = shadow; mesh.receiveShadow = true; parent.add(mesh); return mesh; },
+    blob(x, y, z, sx, sy, sz, material, parent = scene) { const mesh = new THREE.Mesh(crown, material); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); mesh.castShadow = true; parent.add(mesh); return mesh; },
+    solid(x, z, w, d) { obstacles.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 }); },
+    freeform: build => build(),
+    // Instanced copies are few and small here; they go with the scene when it is dropped.
+    stage(id, options, build) { instances.push(...captureStagePart({ scene, obstacles }, id, options.tags ?? [], build, options.zones)); },
+    stageState(id, state, build) { instances.push(...captureStageState({ scene, obstacles }, id, state, build)); },
+  };
+}
+
 type Point = { x: number; z: number };
 const bounds = (points: readonly Point[]) => ({ minX: Math.min(...points.map(p => p.x)), maxX: Math.max(...points.map(p => p.x)), minZ: Math.min(...points.map(p => p.z)), maxZ: Math.max(...points.map(p => p.z)) });
 
@@ -25,7 +51,7 @@ const bounds = (points: readonly Point[]) => ({ minX: Math.min(...points.map(p =
  * there: `length` metres of trunk a player can vault and a bot cannot, with the crown beyond it.
  * For the `give-way` archetype. Stand it at the edge of a lane so that the fall crosses the lane.
  */
-export function stageTree(kit: SceneKit, id: string, x: number, z: number, heading: number, length = 13) {
+export function stageTree(kit: StageKit, id: string, x: number, z: number, heading: number, length = 13) {
   const bark = kit.mat('#6b523c'), leaf = kit.mat('#3f6b3a'), pale = kit.mat('#55834a');
   const trunk = length * .62, sin = Math.sin(heading), cos = Math.cos(heading);
   /** The tree upright in `parent`'s space, set half a trunk's width behind the pivot so that it lies on the ground, not in it. */
@@ -53,7 +79,7 @@ export function stageTree(kit: SceneKit, id: string, x: number, z: number, headi
  * cover goes and two roof panels lie on the ground as crouch-height cover, with two posts left as stumps.
  * For the `give-way` archetype.
  */
-export function stageCanopy(kit: SceneKit, id: string, x: number, z: number, width = 12, depth = 6) {
+export function stageCanopy(kit: StageKit, id: string, x: number, z: number, width = 12, depth = 6) {
   const steel = kit.mat('#8d979b', .4, .5), roof = kit.mat('#c9cfc6', .6, .2), rust = kit.mat('#7d6a55');
   const posts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => ({ x: x + sx * (width / 2 - .4), z: z + sz * (depth / 2 - .4) }));
   kit.stage(id, { tags: ['canopy', 'overhead'] }, () => kit.freeform(() => {
@@ -81,7 +107,7 @@ export function stageCanopy(kit: SceneKit, id: string, x: number, z: number, wid
  * A line of roller shutters across a passage, from `x1` to `x2` at `z`: open, people walk through under
  * the header; shut, it is a wall. For the `lockdown` archetype. Give the map another way round.
  */
-export function stageShutters(kit: SceneKit, id: string, x1: number, x2: number, z: number) {
+export function stageShutters(kit: StageKit, id: string, x1: number, x2: number, z: number) {
   const frame = kit.mat('#5d676c', .5, .4), slat = kit.mat('#aab2b4', .45, .5), stripe = kit.mat('#d8a02a');
   const bays = Math.max(1, Math.round((x2 - x1) / 4.6)), bay = (x2 - x1) / bays, height = 3.2;
   const structure = () => {
@@ -112,7 +138,7 @@ export function stageShutters(kit: SceneKit, id: string, x1: number, x2: number,
  * A substation kiosk, 3 m by 2 m. Blowing it up, or the match clock, puts the district's lights out
  * (`substation` archetype). Its other state is the same cabinet burnt out, doors hanging.
  */
-export function stageSubstation(kit: SceneKit, id: string, x: number, z: number) {
+export function stageSubstation(kit: StageKit, id: string, x: number, z: number) {
   const green = kit.mat('#3f5a4a', .6, .2), plinth = kit.mat('#9a9990'), sign = kit.mat('#e2b21c'), burnt = kit.mat('#2b2a28', .9), vent = kit.mat('#24302a');
   const cabinet = (body: THREE.Material, wrecked: boolean) => kit.freeform(() => {
     kit.box(x, .12, z, 3.4, .24, 2.4, plinth);
@@ -131,7 +157,7 @@ export function stageSubstation(kit: SceneKit, id: string, x: number, z: number)
  * `STAGE_FLOOD_DEPTH` deep, where everyone on foot is slowed (`flash-flood` archetype). Dry until then.
  * Choose ground both teams have to cross, or flood both sides alike.
  */
-export function stageFlood(kit: SceneKit, id: string, zones: readonly StageZone[], colour = '#6f8f8a') {
+export function stageFlood(kit: StageKit & Pick<SceneKit, 'water'>, id: string, zones: readonly StageZone[], colour = '#6f8f8a') {
   const water = kit.water(colour);
   kit.stage(id, { tags: ['flood', 'water'], zones }, () => {});
   kit.stageState(id, 'flooded', () => kit.freeform(() => {

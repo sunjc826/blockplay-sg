@@ -7,6 +7,7 @@ import { RAFFLES_STAMPS } from '../data/region-stamps.ts';
 import type { Obstacle } from './raffles-collision';
 import { createDistrictWater } from './water';
 import { districtLook } from './district-look';
+import { createStageKit, stageTree } from './stage-props';
 
 export const RAFFLES_SPAWN = { x: 0, z: 52, yaw: 0 };
 export { RAFFLES_STAMPS } from '../data/region-stamps.ts';
@@ -310,5 +311,7 @@ export function buildRafflesScene() {
   const batches=new Map<string,THREE.Mesh[]>(),instances=batchTrees(scene,geo,m=>materials.push(m));
   for(const c of [...scene.children]){if(!(c instanceof THREE.Mesh)||c instanceof THREE.InstancedMesh||Array.isArray(c.material)||stamps.includes(c))continue;const key=`${c.geometry.uuid}:${c.material.uuid}:${c.castShadow}:${c.receiveShadow}`;const batch=batches.get(key)??[];batch.push(c);batches.set(key,batch);}
   for(const batch of batches.values()){if(batch.length<2)continue;const m=new THREE.InstancedMesh(batch[0].geometry,batch[0].material,batch.length);m.castShadow=batch[0].castShadow;m.receiveShadow=batch[0].receiveShadow;batch.forEach((b,i)=>{b.updateMatrix();m.setMatrixAt(i,b.matrix);scene.remove(b);});m.computeBoundingSphere();scene.add(m);instances.push(m);}
+  // Levolution (docs/LEVOLUTION.md): a rain tree at the west edge of the central spine comes down east across it, north of the square's ring.
+  stageTree(createStageKit({scene,obstacles,geometries,materials}),'square-tree',-12,-45,Math.PI/2,14);
   return withVerticalPlaces({scene,obstacles,car,stamps,animate(time:number){animateTrees(scene,time);water.userData.setTime(time);stamps.forEach((s,i)=>{s.rotation.y=time*0.7;s.position.y=2.2+Math.sin(time*2+i)*0.2;});pedestrians.forEach((p,i)=>{p.position.z=-90+((time*1.1+i*19)%112);p.rotation.y=i%2?0:Math.PI;});},dispose(){instances.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());sun.shadow.dispose();}}, RAFFLES_VERTICAL_PLACES);
 }

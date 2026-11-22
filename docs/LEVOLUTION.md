@@ -126,9 +126,24 @@ moves at 58% of their speed. Nobody is hurt. Each starts on the clock only.
 - Not built: deep water to swim in, the water changing what a boat can reach, and
   a ring or marker for a flood (it warns by banner only).
 
-**Still to do:** HarbourFront's quay crane; and Queenstown, Raffles Place and
-Marina Bay, whose scenes are hand-built and do not use the scene kit the shared
-pieces are written for.
+**The last four maps (2026-11-22).** A rain tree each, so that every one of the
+twenty-three arenas has an event; a test holds that. They stand in for the events
+the list names, which are still to build:
+
+| Map | Built | Listed, not built |
+| --- | --- | --- |
+| HarbourFront | Rain tree falls east across the gateway court, (165, 64) | quay crane drop |
+| Raffles Place | Rain tree falls east across the central spine, (-12, -45) | scaffold fall |
+| Queenstown | Rain tree falls east across the estate green, (-180, 58) | stalled train on the viaduct |
+| Marina Bay | Rain tree falls south across the garden road, (24, 88) | Flyer wheel drop, SkyPark pool burst (both outside this arena) |
+
+Queenstown, Raffles Place and Marina Bay are built without the scene kit, so
+`createStageKit` in `stage-props.ts` gives the shared pieces what they need from
+a hand-built scene. Call it after the scene has merged its repeated meshes.
+
+**Still to do:** the four listed events above; the three maps whose event differs
+from the list (Changi lockdown, Jurong bridge, Ubin tide); and the things each
+built event leaves out, noted under it.
 
 **Where the build differs from the proposal below:**
 

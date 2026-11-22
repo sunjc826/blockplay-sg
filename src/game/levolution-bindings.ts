@@ -16,7 +16,8 @@ export const LEVOLUTION_BINDINGS: readonly LevolutionBinding[] = [
     parts: { crane: 'stacking-crane-east', first: 'container-stack-c', second: 'container-stack-d' },
     triggers: [{ kind: 'blast', role: 'crane', health: 300 }, { kind: 'clock', at: .6 }] },
   // Trees: a squall is not needed, only time or a blast at the roots.
-  ...([['timah-corridor', 'corridor-tree'], ['thomson-crossing', 'street-tree'], ['jurong-gardens', 'garden-tree'], ['ubin-village', 'village-tree']] as const).map(([arena, part]): LevolutionBinding => ({
+  ...([['timah-corridor', 'corridor-tree'], ['thomson-crossing', 'street-tree'], ['jurong-gardens', 'garden-tree'], ['ubin-village', 'village-tree'],
+    ['harbour-gateway', 'gateway-tree'], ['raffles-square', 'square-tree'], ['queenstown-green', 'green-tree'], ['marina-gardens', 'garden-tree']] as const).map(([arena, part]): LevolutionBinding => ({
     id: `${arena}-tree`, arena, archetype: 'give-way', name: 'Rain tree', banner: 'TREE COMING DOWN · GET CLEAR', cause: 'Falling tree',
     parts: { piece: part }, triggers: [{ kind: 'blast', role: 'piece', health: 200 }, { kind: 'clock', at: .5 }] })),
   // Shelters and awnings: the overhead cover goes and what is left is low cover.

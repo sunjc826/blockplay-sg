@@ -5,6 +5,7 @@ import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces } from './vertical-places';
 import { buildBoardwalkConnection } from './boardwalk-connection';
 import { buildCoastalGround, harbourfrontGroundHeight, HARBOURFRONT_RIDGE_STAIR, HARBOURFRONT_RIDGE_REST, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
+import { stageTree } from './stage-props';
 
 // On the quay between the mall and the water, looking along the berth.
 export const HARBOURFRONT_SPAWN = { x: 20, z: 134, yaw: Math.PI / 2 };
@@ -435,6 +436,8 @@ export function buildHarbourfrontScene() {
 
   const ground = buildCoastalGround('harbourfront'); scene.add(ground.mesh);
   scene.userData.groundDesign = { type: 'level-quay-and-wooded-ridge', sources: COASTAL_GROUND_SOURCES, surveyed: false };
+  // Levolution (docs/LEVOLUTION.md): a rain tree west of the gateway crossing comes down east across the court's middle, between the two teams.
+  stageTree(kit, 'gateway-tree', 165, 64, Math.PI / 2, 13);
   const world = withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

@@ -7,13 +7,13 @@ import { districtSurfaceHit } from './district-review';
 
 describe('Levolution on the review board', () => {
   it('finds a district\'s staged arenas and none where there are no events', () => {
-    const tuas = getRegion('tuas').build(), quiet = getRegion('harbourfront').build();
+    const tuas = getRegion('tuas').build(), quiet = new THREE.Scene();
     try {
       const arenas = districtStageArenas('tuas', tuas.scene);
       expect(arenas.map(a => a.area.id)).toEqual(['container-yard']);
       expect(arenas[0].events.map(e => e.binding.id)).toEqual(['container-yard-west', 'container-yard-east']);
-      expect(districtStageArenas('harbourfront', quiet.scene)).toEqual([]);
-    } finally { tuas.dispose(); quiet.dispose(); }
+      expect(districtStageArenas('tuas', quiet)).toEqual([]);
+    } finally { tuas.dispose(); }
   });
 
   it('lays the events out as a timeline, with where each crush lands and when the dust hangs', () => {

@@ -17416,3 +17416,8 @@ Six Levolution floods (2026-11-22): Bishan, Orchard, Punggol, Toa Payoh, Katong,
   sheet rising), the full suite, typecheck, fixture captures. Not checked in play: how the slowing feels, bots
   crossing, splashes on the sheet, a guest.
 - Nineteen of the twenty-three arenas now have an event. Left: HarbourFront, Queenstown, Raffles Place, Marina Bay.
+
+Every arena has a Levolution event (2026-11-22): rain trees on HarbourFront, Raffles Place, Queenstown and Marina
+gardens as stand-ins for their listed events (quay crane, scaffold, stalled train, Flyer and SkyPark), which are not
+built. `createStageKit` adapts a hand-built scene for the shared pieces; call it after the scene's own batching.
+`levolution.test.ts` now requires an event on every arena.

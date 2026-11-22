@@ -21,6 +21,7 @@ import { MARINA_HELIX, MARINA_ESPLANADE, MARINA_LAWN } from './marina-routes';
 import { MARINA_LOOK } from './district-look';
 import { captureFoliageDrift, registerFoliageDrift } from './ambient-drift';
 import { BAND, BAY, BLOCK, DETAIL, RAIL, SHAPE_FREEFORM_ZONES, SLAB, STOREY, snap, snapFootprint, snapModuleBox } from './block-module';
+import { createStageKit, stageTree } from './stage-props';
 
 export const MARINA_SPAWN = marinaPoint({ x: -44, z: 67, yaw: -0.82 });
 // Authoring scale 0.54: SkyPark 340 × 38m, elevation 200m (Arup/MBS).
@@ -910,6 +911,9 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
+  // Levolution (docs/LEVOLUTION.md): a rain tree north of the garden road comes down south across it, clear of the carriageway until it falls. The Flyer and
+  // SkyPark events are a different matter and stand outside this arena.
+  stageTree(createStageKit({ scene, obstacles, geometries, materials }), 'garden-tree', 24, 88, 0, 13);
   return withMarinaInteriors(withBuildingLifts(withVerticalPlaces({
     scene, obstacles, car, stamps,
     animate(time: number) { animateTrees(scene, time); water.userData.setTime(time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.5; stamp.position.y = 3 + Math.sin(time * 1.7 + i) * 0.35; });

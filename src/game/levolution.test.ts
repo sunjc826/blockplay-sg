@@ -102,6 +102,9 @@ describe('host', () => {
 
 describe('shipped bindings', () => {
   const arenas = [...new Set(LEVOLUTION_BINDINGS.map(b => b.arena))];
+  it('gives every arena an event', () => {
+    for (const area of TDM_AREAS) expect(arenas, area.id).toContain(area.id);
+  });
   it('names real arenas and archetypes', () => {
     for (const b of LEVOLUTION_BINDINGS) { expect(TDM_AREAS.some(a => a.id === b.arena), b.id).toBe(true); expect(getLevolution(b.archetype), b.id).toBeDefined(); }
     expect(new Set(LEVOLUTION_BINDINGS.map(b => b.id)).size).toBe(LEVOLUTION_BINDINGS.length);

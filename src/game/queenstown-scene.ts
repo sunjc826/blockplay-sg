@@ -15,6 +15,7 @@ import type { Obstacle } from './queenstown-collision';
 import { QUEENSTOWN_HDB_BLOCKS, QUEENSTOWN_HOUSING_PLACES, HDB_CORE_OFFSET } from './queenstown-housing';
 import { QUEENSTOWN_HILLSIDE_PATHS, QUEENSTOWN_LANDSCAPE_PLACES, QUEENSTOWN_PATHS, QUEENSTOWN_SHADE_TREES, QUEENSTOWN_SHRUB_BEDS, queenstownTerrainHeight } from './queenstown-landscape';
 import { districtLook } from './district-look';
+import { createStageKit, stageTree } from './stage-props';
 
 export const QUEENSTOWN_SPAWN = { x: -18, z: 83, yaw: -0.35 };
 export const QUEENSTOWN_MAP_ROADS = [
@@ -596,6 +597,8 @@ export function buildQueenstownScene() {
     batch.forEach((item, i) => { item.updateMatrix(); mesh.setMatrixAt(i, item.matrix); scene.remove(item); });
     mesh.computeBoundingSphere(); scene.add(mesh); instances.push(mesh);
   }
+  // Levolution (docs/LEVOLUTION.md): a rain tree on the estate green comes down east across the middle, between the two teams.
+  stageTree(createStageKit({ scene, obstacles, geometries, materials }), 'green-tree', -180, 58, Math.PI / 2, 13);
   const world = withVerticalPlaces({ scene, obstacles, car, stamps,
     animate(time: number) { animateTrees(scene, time); stamps.forEach((stamp, i) => { stamp.rotation.y = time * 0.7; stamp.position.y = queenstownTerrainHeight(stamp.position.x,stamp.position.z) + 2.2 + Math.sin(time * 2 + i) * 0.2; }); },
     dispose() { raycastDisposers.forEach(dispose=>dispose()); instances.forEach(mesh => mesh.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); textures.forEach(t => t.dispose()); sun.shadow.dispose(); terrain.dispose(); },
