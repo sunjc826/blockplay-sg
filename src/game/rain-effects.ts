@@ -33,6 +33,10 @@ vec3 rainLamp(vec3 world) {
   return rainLampLight * pool.r * (.3 + .7 * pool.r) * (1.0 - smoothstep(5.0, 8.5, lift)) * (.55 + .45 * smoothstep(0.0, 5.0, lift));
 }
 `;
+/** How fast the fall thins with distance: a drop's distance is the radius times a uniform draw to this power. */
+export const RAIN_FALLOFF = 1.9;
+/** Distant streaks: metres per doubling of fall speed, metres per extra streak length, the longest multiple, and how much fainter at 80 m. */
+export const RAIN_FAR = { speed: 45, stretch: 11, longest: 8, thin: .45 } as const;
 /** Rain shown falling through the cones of the nearest lamps: how many lamps, streaks under each, how far off, and the cone's radius per metre below the head. */
 export const LAMP_RAIN = { lamps: 24, streaks: 48, reach: 80, spread: .8 } as const;
 export interface RainLamps { map: THREE.Texture; bounds: THREE.Vector4; light: THREE.Color; heads?: Float32Array }
@@ -107,11 +111,10 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const nearLamps: number[] = []; let lamps: RainLamps | null = null, lampScan = 0;
   const motes = Array.from({ length: SPRAY_COUNT }, () => ({ x: 0, y: 0, z: 0, age: 0, life: 0, size: 1, cycle: 0 }));
   root.traverse(o => { o.raycast = () => {}; o.userData.fpsEffect = true; });
-  const drops = Array.from({ length: DROP_COUNT }, () => ({ x: 0, y: 0, z: 0, cycle: 0, ready: false }));
+  const drops = Array.from({ length: DROP_COUNT }, () => ({ x: 0, y: 0, z: 0, far: 0, cycle: 0, ready: false }));
   const impacts = Array.from({ length: SPLASH_COUNT }, () => ({ x: 0, y: 0, z: 0, age: 1, strength: 0, attachment: undefined as THREE.Object3D | undefined, origin: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0), velocity: new THREE.Vector3(), sprayOnly: false }));
   let cursor = 0, disposed = false, detail: WorldDetail = 'low';
   let profile: typeof RAIN_DETAIL[WorldDetail] = RAIN_DETAIL.low;
-  let nearCount: number = profile.nearDrops;
   let activeCount = 0, clock = 0, sprayCount = 0;
   const blown = new THREE.Vector3();
   const hit: VehicleRainHit = { height: 0, normal: new THREE.Vector3(0, 1, 0) };
@@ -133,9 +136,10 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   }
   function spawn(i: number, eye: THREE.Vector3, initial: boolean) {
     const d = drops[i], salt = ++d.cycle * 7;
-    const span = i < nearCount ? (i % 3 === 0 ? 16 : 48) : profile.radius * 2;
-    d.x = eye.x + (sample(i, salt) - .5) * span; d.z = eye.z + (sample(i, salt + 1) - .5) * span;
-    const top = eye.y + (i < nearCount ? 22 : profile.height), floor = Math.max(eye.y - 12, sampleSurface(d.x, d.z));
+    // One fall, densest round the eye and thinning steadily out to the radius: no ring where near rain ends and far rain begins.
+    const angle = sample(i, salt) * Math.PI * 2; d.far = .5 + (profile.radius - .5) * sample(i, salt + 1) ** RAIN_FALLOFF;
+    d.x = eye.x + Math.cos(angle) * d.far; d.z = eye.z + Math.sin(angle) * d.far;
+    const top = eye.y + 22 + (profile.height - 22) * Math.min(1, d.far / profile.radius), floor = Math.max(eye.y - 12, sampleSurface(d.x, d.z));
     d.y = initial ? floor + sample(i, salt + 2) * Math.max(0, top - floor) : top;
     d.ready = true;
   }
@@ -171,7 +175,6 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
       if (detail !== nextDetail) { detail = nextDetail; drops.forEach(d => { d.ready = false; }); }
       profile = RAIN_DETAIL[detail]; rainEye.value.copy(eye); rainReach.value = profile.radius;
       const count = Math.floor(profile.drops * THREE.MathUtils.clamp(rain, 0, 1) * (reduced ? .18 : 1));
-      nearCount = Math.floor(count * profile.nearDrops / profile.drops);
       streaks.visible = count > 0; geometry.setDrawRange(0, count * 2);
       for (let i = count; i < activeCount; i++) drops[i].ready = false;
       activeCount = count;
@@ -181,7 +184,8 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
         const previousY = d.y;
         const wave = gustiness ? gustWave(d.x, d.z, clock) : 0, gust = wave * wave * wave * gustiness, sheet = gust ? gustSheet(d.x, d.z, clock) : 0;
         const blow = wind * (gustiness ? gustFactor(wave) : 1), veer = .18 + .2 * sheet * gust, fall = 21 + sample(i, 4) * 9;
-        d.x += blow * step; d.z += blow * veer * step; d.y -= fall * step;
+        // A distant drop at its true speed crosses a pixel or two a frame and reads as drifting; it falls faster the further off it began.
+        d.x += blow * step; d.z += blow * veer * step; d.y -= fall * (1 + d.far / RAIN_FAR.speed) * step;
         const floor = sampleSurface(d.x, d.z), k = i * 6;
         let exposed = floor;
         if (d.y <= floor || d.y < eye.y - 12) {
@@ -196,13 +200,14 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
           exposed = sampleSurface(d.x, d.z);
         }
         // No segment crosses the exposed surface, including the tail.
-        const bottom = Math.max(exposed + .02, d.y - (.65 + sample(i, 5) * .3) * (i < nearCount ? 1 : 1.8) * (1 + .3 * gust));
+        const bottom = Math.max(exposed + .02, d.y - (.65 + sample(i, 5) * .3) * Math.min(RAIN_FAR.longest, 1 + d.far / RAIN_FAR.stretch) * (1 + .3 * gust));
         // The tail trails downwind by the drop's own slope, drawn half again as steep so a gust reads at a glance.
         const visible = d.y > exposed, lean = visible ? (d.y - bottom) / fall * 1.5 : 0;
         positions[k] = d.x; positions[k + 1] = d.y; positions[k + 2] = d.z;
         positions[k + 3] = d.x + blow * lean; positions[k + 4] = visible ? bottom : d.y; positions[k + 5] = d.z + blow * veer * lean;
         // Thin in a lull, dense in a gust, and banded into sheets inside it.
-        gusts[i * 2] = gusts[i * 2 + 1] = 1 + gustiness * (-.32 + gust * (.85 + .4 * sheet));
+        // Far streaks are long and overlap: each is fainter, so together they read as a veil.
+        gusts[i * 2] = gusts[i * 2 + 1] = (1 + gustiness * (-.32 + gust * (.85 + .4 * sheet))) * (1 - RAIN_FAR.thin * Math.min(1, d.far / 80));
       }
       geometry.attributes.position.needsUpdate = geometry.attributes.rainGust.needsUpdate = count > 0;
       sprayCount = Math.floor(profile.spray * THREE.MathUtils.clamp(rain, 0, 1) * gustiness);

@@ -51,9 +51,9 @@ describe('rain in gusts', () => {
   });
   it('keeps a steady fall with no spray under reduced effects, on low detail and in still air', () => {
     const effects = createRainEffects(new THREE.Scene(), () => 0), eye = new THREE.Vector3(0, 1.7, 0), g = effects.streaks.geometry.attributes.rainGust;
-    effects.update(.016, eye, 1, 6, true, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBe(1);
+    effects.update(.016, eye, 1, 6, true, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBeLessThanOrEqual(1); expect(g.getX(0)).toBeGreaterThan(.54);
     effects.update(.016, eye, 1, 6, false, 'low', peak); expect(effects.sprayCount).toBe(0);
-    effects.update(.016, eye, 1, 0, false, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBe(1); expect(effects.spray.visible).toBe(false);
+    effects.update(.016, eye, 1, 0, false, 'ultra', peak); expect(effects.sprayCount).toBe(0); expect(g.getX(0)).toBeLessThanOrEqual(1); expect(g.getX(0)).toBeGreaterThan(.54); expect(effects.spray.visible).toBe(false);
     effects.dispose();
   });
   it('never draws spray under the surface it blows across', () => {
@@ -91,6 +91,33 @@ describe('rain under street lamps', () => {
     light.light.setRGB(0, 0, 0); effects.update(.016, eye, 1, 3, false, 'high', 12.1); expect(effects.cones.visible).toBe(false);
     light.light.setRGB(.8, .7, .5); effects.update(.016, eye, 1, 3, false, 'low', 12.2); expect(effects.cones.visible).toBe(false);
     effects.setLight(1, null); effects.update(.016, eye, 1, 3, false, 'high', 12.3); expect(effects.cones.visible).toBe(false);
+    effects.dispose();
+  });
+});
+
+describe('one fall of rain, near to far', () => {
+  it('thins steadily with distance, with no step where near rain used to end, and stretches and speeds up far off', () => {
+    const effects = createRainEffects(new THREE.Scene(), () => 0), eye = new THREE.Vector3(0, 1.7, 0);
+    effects.update(0, eye, 1, 0, false, 'ultra');
+    const p = effects.streaks.geometry.attributes.position, rings = new Array(13).fill(0), length = [0, 0], seen = [0, 0];
+    const before = Array.from({ length: 12000 }, (_, i) => p.getY(i * 2));
+    for (let i = 0; i < 12000; i++) {
+      const far = Math.hypot(p.getX(i * 2), p.getZ(i * 2)); rings[Math.min(12, Math.floor(far / 10))]++;
+      const tail = p.getY(i * 2) - p.getY(i * 2 + 1), band = far < 10 ? 0 : far > 70 ? 1 : -1;
+      if (band >= 0 && tail > .5) { length[band] += tail; seen[band]++; }
+    }
+    // Drops per square metre in each 10 m ring falls every ring, and never by more than three fifths from one to the next past the first.
+    const density = rings.slice(0, 13).map((n, k) => n / (Math.PI * 100 * (2 * k + 1)));
+    for (let k = 1; k < 13; k++) { expect(density[k]).toBeLessThan(density[k - 1]); if (k > 1) expect(density[k]).toBeGreaterThan(density[k - 1] * .4); }
+    expect(rings[0]).toBeGreaterThan(2000); expect(rings.slice(7).reduce((a, b) => a + b)).toBeGreaterThan(2000);
+    expect(length[1] / seen[1]).toBeGreaterThan(length[0] / seen[0] * 4);
+    effects.update(.02, eye, 1, 0, false, 'ultra');
+    const fell = [0, 0], count = [0, 0];
+    for (let i = 0; i < 12000; i++) {
+      const far = Math.hypot(p.getX(i * 2), p.getZ(i * 2)), drop = before[i] - p.getY(i * 2), band = far < 10 ? 0 : far > 70 ? 1 : -1;
+      if (band >= 0 && drop > 0 && drop < 5) { fell[band] += drop; count[band]++; }
+    }
+    expect(fell[1] / count[1]).toBeGreaterThan(fell[0] / count[0] * 2.2);
     effects.dispose();
   });
 });

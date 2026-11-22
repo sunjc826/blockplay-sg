@@ -17453,3 +17453,10 @@ Lightning bolts (2026-11-22, owner: "improve lightning streaks too"): there were
   (.24 at most, was .16), so no strobe. Thunder delay and loudness now come from the strike's distance.
 - Checked: tests, typecheck, SwiftShader captures in Tampines at dusk and night with the storm clock frozen on a
   strike. Not checked: in motion, the restrike flicker, thunder timing by ear, a real GPU, Walk/drive.
+
+Rain is one fall, not near and far groups (2026-11-22, owner: the near-to-far transition was obvious, far drops fell slowly):
+- `rain-effects.ts` used to fill two square boxes round the eye (8 m, 24 m) and scatter the rest evenly, which left
+  density steps at the box edges. Every drop now spawns at radius x u^`RAIN_FALLOFF` on a disc, so it thins steadily.
+  Streak length and fall speed grow with the distance a drop began at (`RAIN_FAR`), and far streaks are fainter.
+  `RAIN_DETAIL` lost `nearDrops`. Far drops falling faster than true speed is deliberate.
+- Checked: tests (ring densities, far length and speed), typecheck, a SwiftShader still in Tampines. Not checked in motion.
