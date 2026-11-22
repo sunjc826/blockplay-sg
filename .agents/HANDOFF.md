@@ -17466,3 +17466,12 @@ draw opaque lines"): streaks were '#c1deeb' at .48, hard lines everywhere. Now t
 most, each drop between 30% and 100% of that, fading in from its head, not tone-mapped (`RAIN_STREAK`). They all but
 vanish against the sky and show against darker things, as in the reference. Those frames are the only GZW pictures
 this work has been compared with. Checked: tests, typecheck, SwiftShader stills in Tampines, noon and night.
+
+Lens water differs by source (2026-11-22, owner: one look for rain, heavy rain, swimming and rounds into water):
+- `fps-lens.ts` drops have a `kind`. Rain: beads as before. Heavy rain (`heavyRain`, from .55 up): more and bigger,
+  landing as a splat, sooner to run, plus up to five soft out-of-focus smudges. Swimming: `dunk` on going under and on
+  coming up sets `film`, a full-lens sheet that drains from the top (own pass, `FILM_FRAGMENT`) and leaves runners;
+  `slosh` per stroke wets the lower lens. Rounds into water: `splash(strength, aspect, reduced, from)` throws fine
+  spray from the side the round went in, each fleck drawn out away from it; `fps-engine.ts` passes the hit's screen x.
+- Checked: tests, typecheck, SwiftShader stills in Tampines with each kind forced from a temporary hook (removed).
+  Not checked: real swimming or a real shot into water in play, motion, a real GPU.

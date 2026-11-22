@@ -30,7 +30,15 @@ import { GUST_DOWNWIND } from './wind-gusts';
  */
 
 /** One drop on the lens. Screen units: x across 0–1, y up 0–1, radius a share of the screen's height. */
-export interface LensDrop { x: number; y: number; radius: number; age: number; life: number; stick: number; speed: number; seed: number; travelled: number; splash?: boolean }
+export interface LensDrop { x: number; y: number; radius: number; age: number; life: number; stick: number; speed: number; seed: number; travelled: number; splash?: boolean;
+  /** What put it there, which sets its look. */
+  kind: LensWater;
+  /** Heavy rain: it landed hard and is still spreading. */
+  impact?: boolean;
+  /** Spray: which way it is drawn out (radians, 0 tail up) and by how much. */
+  angle?: number; stretch?: number }
+/** A clinging bead, a runner off a dunking, a soft out-of-focus smudge, or a fleck of spray. */
+export type LensWater = 'bead' | 'runner' | 'smear' | 'spray';
 export const waterSplashExposure = (distance:number, facing:number, height:number) => facing < -.1 || height > 3 ? 0 : Math.max(0,1-distance/5.5) * Math.max(0,1-height/4);
 export const LENS_DROP_LIMIT = 128;
 /** Drops at least this big (share of screen height) run once they let go. */
@@ -43,54 +51,100 @@ export const rainRefraction = (rain: number, wind: number, sheltered: boolean, l
 export const rainExposure = (lookY: number) => .15 + .85 * smoothstep(-.5, .6, lookY);
 const smoothstep = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-/** The rain that has landed on the lens, as a bounded pool of drops. */
+/** How heavy the rain is for the lens, 0–1: showers are none of it, a monsoon some, a thunderstorm or squall nearly all. */
+export const heavyRain = (rain: number) => smoothstep(.55, .9, rain);
+
+/**
+ * The water on the lens, as a bounded pool of drops and a film. How it got there decides what it looks like:
+ * - Rain: small crisp beads that cling; the big ones let go and run, leaving beads behind.
+ * - Heavy rain: more of them and bigger, each landing as a splat that settles, and now and then a
+ *   drop so near the glass it is only a large soft smudge drifting down.
+ * - Swimming: going under or coming up sheets the whole lens (`film`), which drains from the top
+ *   and leaves fast runners; each stroke slops more across the bottom.
+ * - A round into water close by: a burst of fine spray from that side, flung outwards, gone in a second or two.
+ */
 export function createLensRain(random: () => number = Math.random) {
   const drops: LensDrop[] = [];
-  let due = 0, swimDue = 0, wasSwimming = false;
-  const add = (x: number, y: number, radius: number, life: number, stick: number) => {
+  let due = 0, swimDue = 0, wasSwimming = false, film = 0;
+  const add = (x: number, y: number, radius: number, life: number, stick: number, kind: LensWater = 'bead') => {
     if (drops.length >= LENS_DROP_LIMIT) return null;
-    const drop: LensDrop = { x, y, radius, age: 0, life, stick, speed: 0, seed: random(), travelled: 0 };
+    const drop: LensDrop = { x, y, radius, age: 0, life, stick, speed: 0, seed: random(), travelled: 0, kind };
     drops.push(drop); return drop;
   };
-  function land(aspect: number) {
-    const radius = .004 + random() ** 2.5 * .02, x = random(), y = .04 + random() * .96;
+  function land(aspect: number, heavy: number) {
+    if (random() < heavy * .09 && drops.filter(d => d.kind === 'smear').length < 5) {
+      add(random(), .12 + random() * .8, .035 + random() * .05, 2.4 + random() * 2.6, 98, 'smear'); return;
+    }
+    const radius = .004 + random() ** 2.5 * .02 * (1 + heavy * .5), x = random(), y = .04 + random() * .96;
     // A drop landing on another joins it, which is how the big runners form.
     for (const drop of drops) {
-      if (Math.hypot((drop.x - x) * aspect, drop.y - y) < drop.radius + radius) {
+      if (drop.kind === 'bead' && Math.hypot((drop.x - x) * aspect, drop.y - y) < drop.radius + radius) {
         drop.radius = Math.min(.03, Math.hypot(drop.radius, radius)); drop.life = Math.max(drop.life, drop.age + 3); return;
       }
     }
-    add(x, y, radius, 2.5 + random() * 4.5, .2 + random() * 2.2);
+    const drop = add(x, y, radius, 2.5 + random() * 4.5, (.2 + random() * 2.2) * (1 - heavy * .5));
+    if (drop && heavy > .3) drop.impact = true;
   }
-  function splash(strength:number, aspect:number, reduced=false) {
-    const amount=Math.max(0,Math.min(1,strength));
-    for(let i=0;i<Math.ceil(amount*(reduced?8:26));i++){
-      const d=add(.5+(random()-.5)*Math.min(.88,1.5/Math.max(.5,aspect)),.15+random()*.8,.006+random()*.019,2.2+random()*2.8,random()*.2);
-      if(d){d.splash=true;d.speed=.12+random()*.25;}
+  /** Spray off water struck close by. `from` is where across the screen (0–1) it was struck. */
+  function splash(strength: number, aspect: number, reduced = false, from = .5) {
+    const amount = Math.max(0, Math.min(1, strength)), origin = Math.max(0, Math.min(1, from));
+    for (let i = 0; i < Math.ceil(amount * (reduced ? 10 : 34)); i++) {
+      const x = Math.max(0, Math.min(1, origin + (random() + random() + random() - 1.5) * .3)), y = .1 + random() * .75;
+      const d = add(x, y, .003 + random() ** 2 * .009, .7 + random() * 1.6, 97, 'spray');
+      if (!d) break;
+      // Each fleck is drawn out along the way it was flung: away from where the round went in, low on the screen.
+      const ax = (x - origin) * aspect, ay = y - .3;
+      d.splash = true; d.angle = Math.atan2(ax, -ay); d.stretch = .6 + random() * 2.2;
+    }
+    for (let i = 0; i < Math.ceil(amount * (reduced ? 2 : 6)); i++) {
+      const d = add(Math.max(0, Math.min(1, origin + (random() - .5) * .5)), .15 + random() * .7, .009 + random() * .014, 1.8 + random() * 2.2, random() * .2);
+      if (d) { d.splash = true; d.speed = .12 + random() * .25; }
+    }
+  }
+  /** Head through the surface, either way: the lens is sheeted, then drains into runners. */
+  function dunk(reduced = false) {
+    film = 1;
+    for (let i = 0; i < (reduced ? 6 : 16); i++) {
+      const d = add(random(), .5 + random() * .5, .012 + random() * .013, 2 + random() * 2, random() * .25, 'runner');
+      if (d) { d.splash = true; d.speed = .25 + random() * .3; }
+    }
+  }
+  /** A stroke's worth of water over the lower lens. */
+  function slosh(reduced = false) {
+    film = Math.max(film, .3);
+    for (let i = 0; i < (reduced ? 4 : 10); i++) {
+      const d = add(random(), .04 + random() * .4, .006 + random() * .015, 2.2 + random() * 2.8, random() * .2);
+      if (d) { d.splash = true; d.speed = .1 + random() * .2; }
     }
   }
   return {
-    drops, splash,
+    drops, splash, dunk, slosh,
+    /** The sheet of water over the lens after a dunking, 1 just after to 0 once it has drained. */
+    get film() { return film; },
     /**
      * `rain` 0–1 from the weather, `exposure` from `rainExposure`, `aspect` the
      * screen's width over height, `wind` the weather's, `reduced` fewer drops.
      */
     step(dt: number, air: { rain: number; exposure: number; sheltered: boolean; aspect: number; wind?: number; reduced?: boolean; swimming?: boolean; swimSpeed?: number }) {
       dt = Math.max(0, Math.min(.1, dt));
-      if(air.swimming&&!wasSwimming)splash(1,air.aspect,air.reduced);
-      wasSwimming=!!air.swimming;
-      swimDue=air.swimming?swimDue+dt*(.8+Math.min(2,air.swimSpeed??0)*1.8):0;
-      if(swimDue>=1){swimDue-=1;splash(.55,air.aspect,air.reduced);}
+      if (!!air.swimming !== wasSwimming) dunk(air.reduced);
+      wasSwimming = !!air.swimming;
+      swimDue = air.swimming ? swimDue + dt * (.8 + Math.min(2, air.swimSpeed ?? 0) * 1.8) : 0;
+      if (swimDue >= 1) { swimDue -= 1; slosh(air.reduced); }
+      film = Math.max(0, film - dt / 2.2);
+      const heavy = heavyRain(air.rain);
       // The weather eases between presets, so the last of a shower counts as none.
-      const rate = air.sheltered || air.rain < .03 ? 0 : air.rain * air.exposure * 22 * (air.reduced ? .35 : 1);
+      const rate = air.sheltered || air.rain < .03 ? 0 : air.rain * air.exposure * 22 * (1 + heavy * .6) * (air.reduced ? .35 : 1);
       due = Math.min(4, due + rate * dt);
-      while (due >= 1) { due -= 1; land(air.aspect); }
+      while (due >= 1) { due -= 1; land(air.aspect, heavy); }
       for (let i = drops.length - 1; i >= 0; i--) {
         const drop = drops[i];
         drop.age += dt;
         // Out of the rain the lens dries: whatever is left goes within a couple of seconds.
         if (rate === 0 && !drop.splash) drop.life = Math.min(drop.life, drop.age + 1.2 + drop.seed * .8);
-        if (drop.radius >= SLIDING_RADIUS && drop.age > drop.stick) {
+        // A smudge is water too near to focus on: it sags slowly and spreads, and never runs.
+        if (drop.kind === 'smear') { drop.y -= dt * .025; drop.radius *= 1 + dt * .06; }
+        else if (drop.radius >= SLIDING_RADIUS && drop.age > drop.stick) {
           drop.speed = Math.min(.6, drop.speed + dt * (.25 + drop.radius * 20));
           const fall = drop.speed * dt;
           drop.y -= fall; drop.travelled += fall;
@@ -105,7 +159,7 @@ export function createLensRain(random: () => number = Math.random) {
         if (drop.age > drop.life || drop.y + drop.radius < 0) drops.splice(i, 1);
       }
     },
-    clear() { drops.length = 0; due = swimDue = 0; wasSwimming=false; },
+    clear() { drops.length = 0; due = swimDue = film = 0; wasSwimming=false; },
   };
 }
 
@@ -210,15 +264,18 @@ vec3 dust() {
 void main() { gl_FragColor = vec4(flare() + dust(), 1.0); }`;
 const DROP_VERTEX = /* glsl */`
 attribute vec4 aDrop;
-attribute vec2 aShape;
+attribute vec4 aShape;
 uniform float uAspect;
 varying vec2 vLocal;
 varying vec4 vDrop;
-varying vec2 vShape;
+varying vec4 vShape;
 void main() {
   vLocal = position.xy; vDrop = aDrop; vShape = aShape;
-  vec2 size = vec2(aDrop.z / uAspect, aDrop.z * (1.0 + aShape.x)) * 2.0;
-  gl_Position = vec4(aDrop.xy * 2.0 - 1.0 + position.xy * size, 0.0, 1.0);
+  // Stretch (x) draws it out along its own up; the angle (w) turns that up, for spray flung sideways.
+  vec2 reach = position.xy * vec2(aDrop.z, aDrop.z * (1.0 + aShape.x)) * 2.0;
+  float c = cos(aShape.w), s = sin(aShape.w);
+  reach = vec2(reach.x * c - reach.y * s, reach.x * s + reach.y * c);
+  gl_Position = vec4(aDrop.xy * 2.0 - 1.0 + vec2(reach.x / uAspect, reach.y), 0.0, 1.0);
 }`;
 const DROP_FRAGMENT = /* glsl */`
 uniform sampler2D tFrame;
@@ -226,8 +283,10 @@ uniform vec2 uResolution;
 uniform float uAspect;
 varying vec2 vLocal;
 varying vec4 vDrop;
-varying vec2 vShape;
+varying vec4 vShape;
 void main() {
+  // vShape.z: 0 a crisp bead in focus, 1 a smudge too near the glass to focus on.
+  float soft = vShape.z;
   // A runner is a teardrop: a round front with its tail narrowing upward.
   vec2 q = vec2(vLocal.x * (1.0 + max(vLocal.y, 0.0) * vShape.x * 1.6), vLocal.y);
   float d = length(q);
@@ -235,15 +294,20 @@ void main() {
   float height = sqrt(max(0.0, 1.0 - d * d));
   vec2 centre = vDrop.xy, extent = vec2(vDrop.z / uAspect, vDrop.z);
   // Shrunk and upside down: the drop gathers light from a patch a few times its size.
-  vec2 uv = centre - q * extent * (2.2 + 1.8 * (1.0 - height)), blur = extent * 0.18;
+  // A smudge neither shrinks nor flips what is behind it: it only blurs it, wide.
+  vec2 uv = centre - q * extent * mix(2.2 + 1.8 * (1.0 - height), -0.75, soft), blur = extent * mix(0.18, 0.8, soft);
   vec3 seen = (texture2D(tFrame, uv).rgb * 2.0 + texture2D(tFrame, uv + blur).rgb + texture2D(tFrame, uv - blur).rgb
-    + texture2D(tFrame, uv + vec2(blur.x, -blur.y)).rgb + texture2D(tFrame, uv + vec2(-blur.x, blur.y)).rgb) / 6.0;
+    + texture2D(tFrame, uv + vec2(blur.x, -blur.y)).rgb + texture2D(tFrame, uv + vec2(-blur.x, blur.y)).rgb
+    + texture2D(tFrame, uv + vec2(blur.x, 0.0) * 0.5).rgb + texture2D(tFrame, uv - vec2(blur.x, 0.0) * 0.5).rgb
+    + texture2D(tFrame, uv + vec2(0.0, blur.y) * 0.5).rgb + texture2D(tFrame, uv - vec2(0.0, blur.y) * 0.5).rgb) / 10.0;
   // Dark at the rim, where light bends past the eye; a little brighter through the middle.
-  seen *= mix(0.45, 1.08, smoothstep(0.0, 0.75, height));
+  seen *= mix(mix(0.45, 1.08, smoothstep(0.0, 0.75, height)), 1.0, soft);
+  // A smudge instead washes what is behind it a little milky, as water out of focus does.
+  seen = mix(seen, seen * 0.84 + 0.12, soft);
   vec3 normal = normalize(vec3(q, height * 1.4));
   float highlight = pow(max(dot(normal, normalize(vec3(-0.35, 0.55, 0.75))), 0.0), 40.0);
-  seen += highlight * 0.6;
-  float edge = 1.0 - smoothstep(0.84, 1.0, d);
+  seen += highlight * 0.6 * (1.0 - soft);
+  float edge = 1.0 - smoothstep(mix(0.84, 0.45, soft), 1.0, d);
   gl_FragColor = vec4(seen, edge * vDrop.w);
 }`;
 
@@ -284,6 +348,32 @@ void main() {
   gl_FragColor = vec4(seen, min(1.0, cover * 1.15));
 }`;
 
+/**
+ * A sheet of water over the lens after a dunking. It covers everything at first and drains from the
+ * top, its lower part still running: what is behind it wobbles and blurs, and a bright ragged line
+ * marks where the glass has cleared down to.
+ */
+const FILM_FRAGMENT = /* glsl */`
+uniform sampler2D tFrame;
+uniform float uAspect, uTime, uFilm;
+varying vec2 vUv;
+void main() {
+  vec2 p = vec2(vUv.x * uAspect, vUv.y);
+  float front = uFilm * 1.45 - 0.25 + 0.05 * sin(p.x * 6.0 + uTime * 1.7) + 0.025 * sin(p.x * 19.0 - uTime * 2.6);
+  float cover = 1.0 - smoothstep(front - 0.14, front, vUv.y);
+  if (cover < 0.01) discard;
+  vec2 wave = vec2(sin(p.y * 13.0 + uTime * 5.0 + 2.0 * sin(p.x * 7.0)), cos(p.x * 11.0 - uTime * 2.0 + 2.0 * sin(p.y * 9.0 + uTime * 4.0)));
+  wave += 0.5 * vec2(sin(p.x * 31.0 + p.y * 17.0 + uTime * 7.0), cos(p.y * 37.0 - uTime * 9.0));
+  float depth = cover * (0.35 + 0.65 * uFilm);
+  vec2 uv = clamp(vUv + wave * vec2(0.006 / uAspect, 0.01) * depth, 0.0, 1.0), blur = vec2(0.004 / uAspect, 0.004) * depth;
+  vec3 seen = (texture2D(tFrame, uv).rgb * 2.0 + texture2D(tFrame, uv + blur).rgb + texture2D(tFrame, uv - blur).rgb
+    + texture2D(tFrame, uv + vec2(blur.x, -blur.y)).rgb + texture2D(tFrame, uv + vec2(-blur.x, blur.y)).rgb) / 6.0;
+  // The draining edge catches the light.
+  float edge = smoothstep(front - 0.05, front - 0.01, vUv.y) * (1.0 - smoothstep(front - 0.01, front, vUv.y));
+  seen = seen * (1.0 - 0.06 * cover) + 0.1 * edge;
+  gl_FragColor = vec4(seen, min(1.0, cover * 1.6));
+}`;
+
 export interface LensFrame {
   camera: THREE.PerspectiveCamera;
   dt: number; time: number;
@@ -319,15 +409,17 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
       uInverseProjection: { value: new THREE.Matrix4() }, uCameraWorld: { value: new THREE.Matrix4() }, uLayers: { value: [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()] } } });
   const refraction = new THREE.ShaderMaterial({ vertexShader: QUAD_VERTEX, fragmentShader: RAIN_REFRACTION_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true,
     uniforms: { tFrame: { value: null }, uResolution: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uTime: { value: 0 }, uAmount: { value: 0 }, uLean: { value: 0 } } });
+  const film = new THREE.ShaderMaterial({ vertexShader: QUAD_VERTEX, fragmentShader: FILM_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true,
+    uniforms: { tFrame: { value: null }, uAspect: { value: 1 }, uTime: { value: 0 }, uFilm: { value: 0 } } });
   const quad = new THREE.Mesh(geometry, air); quad.frustumCulled = false; quadScene.add(quad);
 
   const dropScene = new THREE.Scene(), rain = createLensRain();
   const dropGeometry = new THREE.InstancedBufferGeometry();
   dropGeometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3));
   dropGeometry.setIndex([0, 1, 2, 0, 2, 3]);
-  const dropData = new Float32Array(LENS_DROP_LIMIT * 4), shapeData = new Float32Array(LENS_DROP_LIMIT * 2);
+  const dropData = new Float32Array(LENS_DROP_LIMIT * 4), shapeData = new Float32Array(LENS_DROP_LIMIT * 4);
   const dropAttribute = new THREE.InstancedBufferAttribute(dropData, 4).setUsage(THREE.DynamicDrawUsage);
-  const shapeAttribute = new THREE.InstancedBufferAttribute(shapeData, 2).setUsage(THREE.DynamicDrawUsage);
+  const shapeAttribute = new THREE.InstancedBufferAttribute(shapeData, 4).setUsage(THREE.DynamicDrawUsage);
   dropGeometry.setAttribute('aDrop', dropAttribute); dropGeometry.setAttribute('aShape', shapeAttribute); dropGeometry.instanceCount = 0;
   const dropMaterial = new THREE.ShaderMaterial({ vertexShader: DROP_VERTEX, fragmentShader: DROP_FRAGMENT, depthTest: false, depthWrite: false, toneMapped: false, transparent: true,
     uniforms: { tFrame: { value: null }, uResolution: { value: new THREE.Vector2() }, uAspect: { value: 1 } } });
@@ -339,12 +431,13 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
   /** Metres to each dust layer, for parallax as you move; how many cells a layer wraps at, so wrapping never shows. */
   const DEPTHS = [40, 12, 3.5], CELLS = [70, 34, 15];
   let frame: THREE.FramebufferTexture | null = null, placed = false, seenSun = 0;
-  const status = { flare: 0, dust: 0, drops: 0, refraction: 0 };
+  const status = { flare: 0, dust: 0, drops: 0, refraction: 0, film: 0 };
   return {
     /** What showed last frame: flare strength (after anything in front of the sun), dust strength, drops on the lens, and how much the falling rain bends the view (0–1). */
     get status() { return status; },
     get drops() { return rain.drops; },
-    splash(strength:number,aspect:number,reduced=false) { rain.splash(strength,aspect,reduced); },
+    /** Spray off water struck close by; `from` is where across the screen (0–1) it was struck. */
+    splash(strength:number,aspect:number,reduced=false,from=.5) { rain.splash(strength,aspect,reduced,from); },
     clear() { rain.clear(); },
     present(f: LensFrame) {
       const camera = f.camera;
@@ -378,9 +471,10 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
       const drops = rain.drops.length;
       // Falling rain bends the view behind it: less from under a roof (it is all some way off), none looking straight up or down its fall.
       const bend = f.reduced ? 0 : rainRefraction(f.rain, f.wind, f.sheltered, forward.y);
-      status.dust = dust; status.drops = drops; status.refraction = bend;
+      const sheet = rain.film;
+      status.dust = dust; status.drops = drops; status.refraction = bend; status.film = sheet;
       if (flare < .002) seenSun = 0;
-      if (flare < .002 && dust < .002 && !drops && bend < .02) { status.flare = 0; return; }
+      if (flare < .002 && dust < .002 && !drops && bend < .02 && sheet < .01) { status.flare = 0; return; }
 
       if (!frame || frame.image.width !== size.x || frame.image.height !== size.y) {
         frame?.dispose(); frame = new THREE.FramebufferTexture(size.x, size.y);
@@ -418,14 +512,24 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
         u.uLean.value = Math.max(-.5, Math.min(.5, (right.x * GUST_DOWNWIND.x + right.z * GUST_DOWNWIND.z) * f.wind / 25));
         quad.material = refraction; renderer.render(quadScene, quadCamera);
       }
+      if (sheet >= .01) {
+        const u = film.uniforms;
+        u.tFrame.value = frame; u.uAspect.value = aspect; u.uTime.value = f.reduced ? 0 : f.time % 600; u.uFilm.value = sheet;
+        quad.material = film; renderer.render(quadScene, quadCamera);
+      }
       if (drops) {
         for (let i = 0; i < drops; i++) {
           const drop = rain.drops[i], fadeIn = Math.min(1, drop.age / .08), fadeOut = Math.min(1, (drop.life - drop.age) / .6);
-          dropData[i * 4] = drop.x; dropData[i * 4 + 1] = drop.y; dropData[i * 4 + 2] = drop.radius; dropData[i * 4 + 3] = .92 * fadeIn * Math.max(0, fadeOut);
-          shapeData[i * 2] = Math.min(drop.splash?2.4:.9, drop.speed * (drop.splash?5:2.2)); shapeData[i * 2 + 1] = drop.seed;
+          const smear = drop.kind === 'smear', spray = drop.kind === 'spray';
+          // A hard landing spreads wide and flat for a moment before it draws back into a bead.
+          const splat = drop.impact ? Math.exp(-drop.age / .07) : 0;
+          dropData[i * 4] = drop.x; dropData[i * 4 + 1] = drop.y; dropData[i * 4 + 2] = drop.radius * (1 + .8 * splat);
+          dropData[i * 4 + 3] = (smear ? .88 * Math.min(1, drop.age / .35) : spray ? .8 * fadeIn : .92 * fadeIn) * Math.max(0, smear ? Math.min(1, (drop.life - drop.age) / 1.2) : fadeOut);
+          shapeData[i * 4] = smear ? .15 : spray ? drop.stretch ?? 1 : Math.min(drop.splash?2.4:.9, drop.speed * (drop.splash?5:2.2)); shapeData[i * 4 + 1] = drop.seed;
+          shapeData[i * 4 + 2] = smear ? 1 : .5 * splat; shapeData[i * 4 + 3] = spray ? drop.angle ?? 0 : 0;
         }
         dropAttribute.clearUpdateRanges(); dropAttribute.addUpdateRange(0, drops * 4); dropAttribute.needsUpdate = true;
-        shapeAttribute.clearUpdateRanges(); shapeAttribute.addUpdateRange(0, drops * 2); shapeAttribute.needsUpdate = true;
+        shapeAttribute.clearUpdateRanges(); shapeAttribute.addUpdateRange(0, drops * 4); shapeAttribute.needsUpdate = true;
         dropGeometry.instanceCount = drops;
         dropMaterial.uniforms.tFrame.value = frame; dropMaterial.uniforms.uResolution.value.copy(size); dropMaterial.uniforms.uAspect.value = aspect;
         renderer.render(dropScene, quadCamera);
@@ -435,7 +539,7 @@ export function createLensEffects(renderer: THREE.WebGLRenderer) {
     },
     dispose() {
       frame?.dispose(); visible.dispose(); geometry.dispose(); dropGeometry.dispose();
-      visibility.dispose(); air.dispose(); refraction.dispose(); dropMaterial.dispose(); rain.clear();
+      visibility.dispose(); air.dispose(); refraction.dispose(); film.dispose(); dropMaterial.dispose(); rain.clear();
     },
   };
 }

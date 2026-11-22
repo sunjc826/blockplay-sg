@@ -476,6 +476,10 @@ effects on, `fps-lens.ts` adds a refraction pass: falling streaks that show the 
 has no depth to go by, so it also crosses the carried gun. Reduced effects keep a steady fall with none of this; low
 rain detail has no spray and no lamp streaks.
 
+**Water on the lens.** `fps-lens.ts` draws it differently by how it got there: clinging beads in rain; bigger
+splatting drops, more runners and a few soft smudges in heavy rain; a sheet that drains from the top after going under
+or surfacing, with more slopped on each stroke; and a burst of fine spray from the side a round struck water.
+
 **Lightning.** `src/game/lightning.ts`, thunderstorm only: every 23 s a strike is drawn 420–680 m off, within about
 45° of where the camera faces: a forked ribbon bolt from the cloud base to the ground (hidden by anything in front of
 it), with up to three restrikes and a glow in the cloud; one strike in four is a sheet flash with no bolt. The flicker

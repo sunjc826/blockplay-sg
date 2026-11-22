@@ -3118,7 +3118,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const amount=waterSplashExposure(distance,toward.normalize().dot(camera.getWorldDirection(new THREE.Vector3())),Math.max(0,eye.y-hit.point.y));
       if(amount>.02){
         const start=hit.point.clone();start.y+=.12;const toEye=eye.clone().sub(start),range=toEye.length();toEye.normalize();
-        if(facilityCover.distance(start,toEye,range)>=range-.12)lens.splash(Math.min(1,amount*energy*2.5),camera.aspect,getEnvironmentSettings().reducedEffects||!!motionPreference?.matches);
+        if(facilityCover.distance(start,toEye,range)>=range-.12)lens.splash(Math.min(1,amount*energy*2.5),camera.aspect,getEnvironmentSettings().reducedEffects||!!motionPreference?.matches,hit.point.clone().project(camera).x*.5+.5);
       }
     }
     return skip;
