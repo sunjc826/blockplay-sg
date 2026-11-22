@@ -11,6 +11,7 @@ import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { buildBoardwalkConnection } from './boardwalk-connection';
 import { buildCoastalGround, sentosaGroundHeight, SENTOSA_FORT_GROUND, coastalBench, COASTAL_GROUND_SOURCES } from './harbourfront-sentosa-ground';
+import { stageFlood } from './stage-props';
 
 // Just inside the boardwalk landing, looking down the island's spine.
 export const SENTOSA_SPAWN = { x: 108, z: -168, yaw: Math.PI };
@@ -345,6 +346,8 @@ export function buildSentosaScene() {
   const ground = buildCoastalGround('sentosa'); scene.add(ground.mesh);
   captureRainReceivers(scene);
   scene.userData.groundDesign = { type: 'low-shore-and-defensive-hillside', sources: COASTAL_GROUND_SOURCES, surveyed: false };
+  // Levolution (docs/LEVOLUTION.md): The tide comes in over the beach side of the palm court, the south edge, between the two teams' corners.
+  stageFlood(kit, 'beach-tide', [{ minX: 126, maxX: 206, minZ: 112, maxZ: 126 }], '#68bdb6');
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

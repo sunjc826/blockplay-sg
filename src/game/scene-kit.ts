@@ -6,7 +6,7 @@ import type { Obstacle } from './region-collision';
 import type { RegionStamp, RegionWorld } from './regions';
 import { districtLook, surfaceHash, type DistrictLook, type LookPresetId } from './district-look';
 import { KERB, ROAD_LINE, minRadius, snapFootprint, snapModuleBox } from './block-module';
-import { captureStagePart, captureStageState } from './stage-parts';
+import { captureStagePart, captureStageState, type StageZone } from './stage-parts';
 
 export interface SceneKitOptions {
   /** Sky and fog colour; districts pick their own daylight. */
@@ -230,8 +230,8 @@ export function createSceneKit(options: SceneKitOptions) {
    * Mark what `build` adds as a stage part: a named piece of the district a Levolution event may act on
    * (docs/LEVOLUTION.md). Build it as usual inside the callback. Trees do not belong in a part.
    */
-  function stage(id: string, options: { tags?: readonly string[] }, build: () => void) {
-    stageInstances.push(...captureStagePart({ scene, obstacles }, id, options.tags ?? [], build));
+  function stage(id: string, options: { tags?: readonly string[]; zones?: readonly StageZone[] }, build: () => void) {
+    stageInstances.push(...captureStagePart({ scene, obstacles }, id, options.tags ?? [], build, options.zones));
   }
   /** An alternative state of a stage part, built beside it from the same position and kept out of the world until an event sets it. */
   function stageState(id: string, state: string, build: () => void) {

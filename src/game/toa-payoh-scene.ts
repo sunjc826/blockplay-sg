@@ -5,6 +5,7 @@ import { STOREY } from './block-module';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
 import { TOA_PAYOH_GROUND_PLACES, addToaPayohSocialDetails, toaPayohGroundHeight } from './toa-payoh-ground';
+import { stageFlood } from './stage-props';
 
 // In the precinct courtyard, looking across the sand pit at the dragon.
 export const TOA_PAYOH_SPAWN = { x: 50, z: -2, yaw: Math.PI / 2 };
@@ -261,6 +262,8 @@ export function buildToaPayohScene() {
   scene.userData.districtFeatures = ['balcony-access-decks', 'end-service-stairs', 'y-plan-point-block', 'mosaic-dragon-head', 'arched-spine-segments', 'sand-pit-apron', 'open-modernist-lookout', 'ramped-pond-bank-walk', 'banded-hub-towers', 'vented-hawker-roof'];
   scene.userData.referenceFeatures = ['town-park-road-0:straight-shaded-paver-path'];
 
+  // Levolution (docs/LEVOLUTION.md): A burst main floods the courtyard on both sides of the playground alike; the raised playground stays dry.
+  stageFlood(kit, 'courtyard-flood', [{ minX: 4, maxX: 96, minZ: -80, maxZ: -72 }, { minX: 4, maxX: 96, minZ: -28, maxZ: -20 }]);
   const world = withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

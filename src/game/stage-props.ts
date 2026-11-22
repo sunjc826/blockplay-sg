@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { SceneKit } from './scene-kit';
-import { stageFall, stageImpact, stageTip } from './stage-parts';
+import { stageFall, stageImpact, stageTip, type StageZone } from './stage-parts';
 
 /**
  * Stage parts a district can stand anywhere: each builds a piece and its other
@@ -10,6 +10,10 @@ import { stageFall, stageImpact, stageTip } from './stage-parts';
 
 /** Seconds a piece of the `give-way` archetype takes to come down; the archetype draws it that long before it lands. */
 export const STAGE_GIVE_WAY_SECONDS = 1.8;
+/** Seconds flood water takes to rise (`flash-flood`). */
+export const STAGE_FLOOD_SECONDS = 6;
+/** How deep a flood stands: over the ankles, and shallow enough that someone lying in it still shows. */
+export const STAGE_FLOOD_DEPTH = .3;
 /** Seconds roller shutters take to close (`lockdown`). */
 export const STAGE_SHUTTER_SECONDS = 2.4;
 
@@ -120,4 +124,21 @@ export function stageSubstation(kit: SceneKit, id: string, x: number, z: number)
   });
   kit.stage(id, { tags: ['substation'] }, () => cabinet(green, false));
   kit.stageState(id, 'wrecked', () => cabinet(burnt, true));
+}
+
+/**
+ * Ground that floods: `zones` are rectangles of level ground that go under a sheet of water
+ * `STAGE_FLOOD_DEPTH` deep, where everyone on foot is slowed (`flash-flood` archetype). Dry until then.
+ * Choose ground both teams have to cross, or flood both sides alike.
+ */
+export function stageFlood(kit: SceneKit, id: string, zones: readonly StageZone[], colour = '#6f8f8a') {
+  const water = kit.water(colour);
+  kit.stage(id, { tags: ['flood', 'water'], zones }, () => {});
+  kit.stageState(id, 'flooded', () => kit.freeform(() => {
+    for (const zone of zones) {
+      const cx = (zone.minX + zone.maxX) / 2, cz = (zone.minZ + zone.maxZ) / 2;
+      const sheet = kit.box(cx, STAGE_FLOOD_DEPTH - .3, cz, zone.maxX - zone.minX, .6, zone.maxZ - zone.minZ, water);
+      stageFall(sheet, { position: [cx, -.34, cz], seconds: STAGE_FLOOD_SECONDS, rise: true });
+    }
+  }));
 }

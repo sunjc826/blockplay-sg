@@ -20,6 +20,8 @@ export interface StagePartData {
   readonly tags: readonly string[];
   /** The part's colliders at the start of a match. They are in the world's obstacle list. */
   readonly obstacles: readonly Obstacle[];
+  /** Ground this part can put under water (a flood): rectangles an event may make slow to cross. */
+  readonly zones?: readonly StageZone[];
   /** Alternative states by name. Their colliders are not in the world until set. */
   readonly states: Readonly<Record<string, { readonly obstacles: readonly Obstacle[] }>>;
 }
@@ -27,6 +29,7 @@ export interface StagePart extends StagePartData {
   readonly object: THREE.Group;
   readonly states: Readonly<Record<string, { readonly obstacles: readonly Obstacle[]; readonly object: THREE.Group }>>;
 }
+export interface StageZone { minX: number; maxX: number; minZ: number; maxZ: number }
 /** The state a part is built in. */
 export const STAGE_BASE = 'base';
 export type StageState = string | null;
@@ -34,7 +37,7 @@ export type StageState = string | null;
 interface StageWorld { scene: THREE.Object3D; obstacles: Obstacle[] }
 export const getStageParts = (scene: THREE.Object3D): readonly StagePart[] => scene.userData.stageParts ?? [];
 export const stagePartData = (parts: readonly StagePartData[]): StagePartData[] =>
-  parts.map(p => ({ id: p.id, tags: p.tags, obstacles: p.obstacles, states: Object.fromEntries(Object.entries(p.states).map(([name, s]) => [name, { obstacles: s.obstacles }])) }));
+  parts.map(p => ({ id: p.id, tags: p.tags, obstacles: p.obstacles, ...(p.zones ? { zones: p.zones } : {}), states: Object.fromEntries(Object.entries(p.states).map(([name, s]) => [name, { obstacles: s.obstacles }])) }));
 
 const VALID_ID = /^[a-z][a-z0-9-]{0,39}$/;
 /** Runs `build` and takes what it added to the scene and to the obstacle list. */
@@ -54,13 +57,13 @@ function capture(world: StageWorld, name: string, build: () => void) {
  * leave them alone and an event can take them away together) and the colliders
  * stay in the obstacle list. Returns instanced meshes for the caller to dispose.
  */
-export function captureStagePart(world: StageWorld, id: string, tags: readonly string[], build: () => void) {
+export function captureStagePart(world: StageWorld, id: string, tags: readonly string[], build: () => void, zones?: readonly StageZone[]) {
   if (!VALID_ID.test(id)) throw new Error(`Invalid stage part id "${id}"`);
   const parts: StagePart[] = world.scene.userData.stageParts ??= [];
   if (parts.some(p => p.id === id)) throw new Error(`Duplicate stage part "${id}"`);
   const { group, obstacles, instances } = capture(world, `stage:${id}`, build);
   world.scene.add(group);
-  parts.push({ id, tags: [...tags], obstacles, object: group, states: {} });
+  parts.push({ id, tags: [...tags], obstacles, object: group, states: {}, ...(zones ? { zones: zones.map(z => ({ ...z })) } : {}) });
   return instances;
 }
 
@@ -81,7 +84,7 @@ export function captureStageState(world: StageWorld, id: string, state: string, 
 }
 
 /** Where a mesh of an alternative state starts from when the state is set, in the part's space. */
-export interface StageFrom { position: [number, number, number]; yaw?: number; delay?: number }
+export interface StageFrom { position: [number, number, number]; yaw?: number; delay?: number; /** Seconds it takes; a fall's 1.4 s when absent. `rise` moves at an even pace, as water does. */ seconds?: number; rise?: boolean }
 /** Tag a mesh to fall into its authored pose from `from` when its state is set. Keeps it out of the instanced batch. */
 export function stageFall<T extends THREE.Object3D>(object: T, from: StageFrom): T { object.userData.stageFrom = from; return object; }
 

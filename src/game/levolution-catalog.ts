@@ -1,5 +1,5 @@
 import { registerLevolution, stageReach } from './levolution';
-import { STAGE_GIVE_WAY_SECONDS, STAGE_SHUTTER_SECONDS } from './stage-props';
+import { STAGE_FLOOD_SECONDS, STAGE_GIVE_WAY_SECONDS, STAGE_SHUTTER_SECONDS } from './stage-props';
 
 /**
  * Every shipped Levolution archetype, registered on import. An archetype is
@@ -108,5 +108,22 @@ registerLevolution({
   steps: ({ kiosk }) => [
     { type: 'set', at: 0, part: kiosk.id, state: 'wrecked' },
     { type: 'light', at: 0, level: 1 },
+  ],
+});
+
+/**
+ * Low ground floods and stays flooded: a sheet of water rises over the part's zones and everyone on
+ * foot in it, player or bot, moves at a little over half pace. Nothing is hurt. Dry ground beside it
+ * becomes the fast way round, and whoever crosses the water is slow in the open.
+ */
+export const FLOOD_PACE = .58;
+registerLevolution({
+  id: 'flash-flood', name: 'Flood', warning: 5, settle: STAGE_FLOOD_SECONDS + 1,
+  banner: 'WATER RISING · LOW GROUND FLOODS', cause: 'Flood',
+  roles: { water: { states: ['flooded'] } },
+  steps: ({ water }) => [
+    { type: 'set', at: STAGE_FLOOD_SECONDS, lead: STAGE_FLOOD_SECONDS, part: water.id, state: 'flooded' },
+    // It slows once it is over the ankles, about halfway up.
+    { type: 'wade', at: STAGE_FLOOD_SECONDS * .5, zones: water.zones ?? [], pace: FLOOD_PACE },
   ],
 });

@@ -4,6 +4,7 @@ import { PUNGGOL_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { stageFlood } from './stage-props';
 
 // On the north promenade, looking across the waterway at the footbridge.
 export const PUNGGOL_SPAWN = { x: 20, z: -58, yaw: 0 };
@@ -276,6 +277,8 @@ export function buildPunggolScene() {
   scene.userData.referenceFeatures = ['jewel-bridge-exterior-0:precinct-olive-and-white-facade-only', 'waterway-point-outdoor02-0:street-podium-and-residential-screens'];
   scene.userData.researchedFeatures = ['watertown-residential-over-retail', 'waterway-point-terraced-frontage'];
 
+  // Levolution (docs/LEVOLUTION.md): The waterway comes over its banks down the middle of the green, across both teams' way to each other.
+  stageFlood(kit, 'waterway-flood', [{ minX: 124, maxX: 160, minZ: -70, maxZ: 14 }]);
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

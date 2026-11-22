@@ -1,6 +1,6 @@
 import type { Obstacle } from './region-collision';
 import { applyStageObstacles } from './stage-parts';
-import { levolutionMarkers, stageReach, stageStates, stagedParts, type LevolutionDescriptor, type LevolutionSnapshot, type ResolvedLevolution } from './levolution';
+import { levolutionMarkers, stagePace, stageReach, stageStates, stagedParts, type LevolutionDescriptor, type LevolutionSnapshot, type ResolvedLevolution } from './levolution';
 
 /**
  * The host's side of Levolution: decides when an event starts, owns the
@@ -87,6 +87,8 @@ export function createLevolutionHost(options: LevolutionHostOptions) {
     trigger: (binding: string, elapsed: number, cause?: string) => start(binding, elapsed, cause),
     setEnabled(value: boolean) { enabled = value; },
     markers: (elapsed: number) => levolutionMarkers(events, running, elapsed),
+    /** Share of their speed someone on foot at (x, z) moves at: under 1 in flood water. */
+    pace: (elapsed: number, x: number, z: number) => running.length ? stagePace(events, running, elapsed, x, z) : 1,
     snapshot: (): LevolutionSnapshot | undefined => running.length ? { events: running.map(d => ({ ...d })) } : undefined,
     reset() {
       running = []; serial = 0; last = 0; arm();

@@ -1,5 +1,5 @@
 import type { Obstacle } from './region-collision';
-import { STAGE_BASE, stageObstacles, type StagePartData, type StageState } from './stage-parts';
+import { STAGE_BASE, stageObstacles, type StagePartData, type StageState, type StageZone } from './stage-parts';
 
 /**
  * Levolution: events that change the map partway through a match
@@ -23,6 +23,8 @@ export type StageStep =
    * lethal, only when it lands.
    */
   | { type: 'set'; at: number; part: string; state: StageState; lead?: number }
+  /** The part's `zones` go under water: everyone on foot in them moves at `pace` of their speed from then on. */
+  | { type: 'wade'; at: number; zones: readonly StageZone[]; pace: number }
   /** The district's lamps and windows go to `level` dark (1 is out) and stay there. */
   | { type: 'light'; at: number; level: number }
   /** Whoever stands inside colliders this event adds at `at` takes `damage`, through armour. */
@@ -165,6 +167,13 @@ export function stageStates(events: readonly ResolvedLevolution[], running: read
     for (const step of event.steps) if (step.type === 'set' && age >= step.at - (drawn ? step.lead ?? 0 : 0)) states.set(step.part, step.state);
   }
   return states;
+}
+/** How fast someone on foot at (x, z) moves at `elapsed`, as a share of their speed: under 1 in flood water. */
+export function stagePace(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number, x: number, z: number) {
+  let pace = 1;
+  for (const descriptor of running) for (const step of events.find(e => e.binding.id === descriptor.binding)?.steps ?? [])
+    if (step.type === 'wade' && elapsed - descriptor.start >= step.at && step.zones.some(zone => x >= zone.minX && x <= zone.maxX && z >= zone.minZ && z <= zone.maxZ)) pace = Math.min(pace, step.pace);
+  return pace;
 }
 /** How dark the running events have made the district at `elapsed`, 0 to 1. */
 export function stageDarkness(events: readonly ResolvedLevolution[], running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {

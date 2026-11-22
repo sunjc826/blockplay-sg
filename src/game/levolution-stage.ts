@@ -24,7 +24,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
   const shown = new Map<string, StageState>(parts.map(p => [p.id, STAGE_BASE]));
   const solid = new Map<string, StageState>(parts.map(p => [p.id, STAGE_BASE]));
   const objectOf = (part: StagePart, state: StageState) => state === null ? null : state === STAGE_BASE ? part.object : part.states[state]?.object ?? part.object;
-  interface Fall { object: THREE.Object3D; from: THREE.Vector3; to: THREE.Vector3; fromYaw: number; toYaw: number; at: number; landed: boolean }
+  interface Fall { object: THREE.Object3D; from: THREE.Vector3; to: THREE.Vector3; fromYaw: number; toYaw: number; at: number; landed: boolean; seconds: number; rise: boolean }
   const rest = new Map<THREE.Object3D, { position: THREE.Vector3; yaw: number }>();
   let falls: Fall[] = [];
   interface Tip { object: THREE.Object3D; spec: StageTip; at: number }
@@ -78,7 +78,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
         if (fresh && typeof object.userData.stageImpact === 'number') impacts.push({ at: new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()).setY(0), size: object.userData.stageImpact });
         const start = object.userData.stageFrom as StageFrom | undefined; if (!start || !fresh) return;
         const home = rest.get(object) ?? { position: object.position.clone(), yaw: object.rotation.y }; rest.set(object, home);
-        const fall: Fall = { object, from: new THREE.Vector3(...start.position), to: home.position, fromYaw: start.yaw ?? home.yaw, toYaw: home.yaw, at: at! + (start.delay ?? 0), landed: false };
+        const fall: Fall = { object, from: new THREE.Vector3(...start.position), to: home.position, fromYaw: start.yaw ?? home.yaw, toYaw: home.yaw, at: at! + (start.delay ?? 0), landed: !!start.rise, seconds: start.seconds ?? STAGE_FALL_SECONDS, rise: !!start.rise };
         falls.push(fall); object.position.copy(fall.from); object.rotation.y = fall.fromYaw;
       });
     }
@@ -95,7 +95,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
       return t < 1;
     });
     falls = falls.filter(fall => {
-      const t = Math.min(1, Math.max(0, (elapsed - fall.at) / STAGE_FALL_SECONDS)), drop = t * t;
+      const t = Math.min(1, Math.max(0, (elapsed - fall.at) / fall.seconds)), drop = fall.rise ? t : t * t;
       // Sideways travel leads the drop a little, so a box leaves the stack before it comes down.
       const slide = 1 - (1 - t) * (1 - t);
       fall.object.position.set(fall.from.x + (fall.to.x - fall.from.x) * slide, fall.from.y + (fall.to.y - fall.from.y) * drop, fall.from.z + (fall.to.z - fall.from.z) * slide);

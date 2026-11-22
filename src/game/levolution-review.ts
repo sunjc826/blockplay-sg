@@ -26,7 +26,7 @@ export function districtStageArenas(district: RegionId, scene: THREE.Object3D): 
 }
 /** Seconds from the start of the warning until the last of `events` has settled. */
 export const stageSpan = (events: readonly ResolvedLevolution[]) => Math.max(1, ...events.map(e => e.duration));
-const STEP_LABEL: Record<Exclude<StageStep['type'], 'marker'>, string> = { set: 'changes', crush: 'lands', dust: 'dust', light: 'lights out' };
+const STEP_LABEL: Record<Exclude<StageStep['type'], 'marker'>, string> = { set: 'changes', crush: 'lands', dust: 'dust', light: 'lights out', wade: 'water slows movement' };
 /** What happens when, for the ticks under the scrubber: one entry per distinct moment. */
 export function stageTicks(events: readonly ResolvedLevolution[]) {
   const ticks = new Map<number, string[]>();

@@ -199,7 +199,7 @@ import { advanceBloom, createWeaponBloom, recordBloomShot, sampleShotSpread, wea
 import { combatCues, combatPhase, combatTimeline, cratePose, flyerPose, getCombatEvent, transportPose, WHISTLE_LEAD, type CombatEventDescriptor } from './combat-events';
 import { createCombatEventVisuals } from './combat-event-visuals';
 import { createStageView } from './levolution-stage';
-import { levolutionMarkers, stageDarkness } from './levolution';
+import { levolutionMarkers, stageDarkness, stagePace } from './levolution';
 import { bannerOf, threatens } from './combat-event-catalog';
 import { factionIdOf, getArenaFaction, hostile, isProxyFaction, PLAYER_FACTION, SQUAD_FACTIONS, type SquadFaction } from './arena-factions';
 import { characterBounds, characterPoints, createIffTracker, EMPTY_IFF_FRAME, type IffFrame, type IffSubject } from './fps-iff';
@@ -4781,7 +4781,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const move = resolveMovement(keys, moveStick, stickRunning);
         stickRunning = !!moveStick && move.sprint;
         const forward = move.forward, side = move.side;
-        const onGround = grounded(), burden = movement(), footScale = footSpeedScale(foodEffects);
+        const onGround = grounded(), burden = movement(), footScale = footSpeedScale(foodEffects) * (stageEvents.length && hud.arena?.levolution ? stagePace(stageEvents, hud.arena.levolution.events, eventClock, position.x, position.z) : 1);
         coolSlide(slide, dt);
         if (onGround) { lastGroundY = vertical; diving = false; }
         if (mantle.active) {

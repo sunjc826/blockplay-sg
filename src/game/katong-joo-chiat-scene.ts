@@ -2,6 +2,7 @@ import { KATONG_JOO_CHIAT_STAMPS } from '../data/region-stamps';
 import { createSceneKit } from './scene-kit';
 import { heritageTerraces } from './heritage-terraces';
 import { withVerticalPlaces } from './vertical-places';
+import { stageFlood } from './stage-props';
 
 export const KATONG_JOO_CHIAT_SPAWN = { x: 30, z: 110, yaw: 0 };
 export const KATONG_JOO_CHIAT_BOUNDS = { minX: -265, maxX: 265, minZ: -210, maxZ: 210 };
@@ -66,6 +67,8 @@ export function buildKatongJooChiatScene() {
   const car = k.car(mat('#9ab8bd'), glass, cream, dark), stamps = k.stampRings(KATONG_JOO_CHIAT_STAMPS, mat('#eda047'));
   scene.userData.referenceFeatures = [];
   scene.userData.districtFeatures = ['pastel-ornate-terraces', 'continuous-five-foot-ways', 'rear-service-lanes', 'raised-residential-porches', 'red-house-corner', 'neighbourhood-veranda', 'east-coast-food-row'];
+  // Levolution (docs/LEVOLUTION.md): A burst main floods a strip down the middle of the court, across both teams' way to each other.
+  stageFlood(k, 'street-flood', [{ minX: -58, maxX: -34, minZ: 67, maxZ: 139 }]);
   return withVerticalPlaces(k.finish({ car, stamps, animate() {} }), [{
     id: 'katong-neighbourhood-veranda', name: 'Neighbourhood pavilion veranda', note: 'Authored public pavilion with two stairs, separate from private conserved homes.',
     floors: [{ id: 'veranda', x: -45, z: 135, y: 3.6, width: 82, depth: 10 }],

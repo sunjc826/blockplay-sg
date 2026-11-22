@@ -3655,7 +3655,8 @@ export function createArena(obstacles: readonly Obstacle[], botCount: number, co
     if(riding && entry.heal){entry.heal=undefined;delete actor.healing;}
     const conditions = arenaConditionModifiers(actor.conditions);
     if (conditions.frozen) { entry.target = ''; entry.burst = 0; entry.aimFocus = undefined; return; }
-    const role = entry.role!;
+    // Flood water slows a bot as it slows a player (Levolution).
+    const wading = levolution?.pace(elapsed, entry.actor.x, entry.actor.z) ?? 1, role = wading < 1 ? { ...entry.role!, speed: entry.role!.speed * wading } : entry.role!;
     // Patching up: kneeling still, weapon down, until it is done or a hit interrupts it.
     if (entry.heal) {
       const heal = entry.heal;

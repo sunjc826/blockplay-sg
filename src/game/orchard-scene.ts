@@ -4,6 +4,7 @@ import { type VerticalRoute } from './vertical-routes';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { ORCHARD_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
+import { stageFlood } from './stage-props';
 
 // On the one-way shopping boulevard, looking along the belt.
 export const ORCHARD_SPAWN = { x: 30, z: 5, yaw: Math.PI / 2 };
@@ -391,6 +392,8 @@ export function buildOrchardScene() {
   scene.userData.districtFeatures = ['one-way-boulevard', 'rain-tree-crowns', 'faceted-glass-shell', 'granite-twin-towers', 'steep-pitched-tile-roof', 'tangs-layered-eaves', 'wisma-blue-glass', 'peranakan-shutters', 'covered-footway', 'overhead-crossing'];
   scene.userData.referenceFeatures = ['orchard-one-way-carriageway', 'ion-scalloped-diagrid', 'tangs-green-eaves-hotel-tower', 'ngee-ann-red-granite-square', 'emerald-pale-arcades', 'gateway-glass-link'];
 
+  // Levolution (docs/LEVOLUTION.md): The middle of the boulevard floods; the canopies and mall edges either side stay dry.
+  stageFlood(kit, 'boulevard-flood', [{ minX: -62, maxX: 64, minZ: -2, maxZ: 12 }]);
   return withVerticalPlaces(kit.finish({
     car, stamps,
     animate(time: number) {

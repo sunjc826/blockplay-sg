@@ -18,8 +18,8 @@ was. The map after the event must play differently, or it is only an effect.
 ```
 stage-parts.ts          parts and their named states; the one function that swaps colliders (pure but for capture)
 levolution.ts           steps, archetype registry, bindings, resolve, stage-at-time, snapshot validation (pure)
-levolution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse, give-way, lockdown, substation
-stage-props.ts          pieces a scene stands with one line: tree, canopy, shutters, substation
+levolution-catalog.ts   archetypes, registered on import: stack-topple, gantry-collapse, give-way, lockdown, substation, flash-flood
+stage-props.ts          pieces a scene stands with one line: tree, canopy, shutters, substation, flood
 levolution-bindings.ts  which arena runs which archetype on which parts: container-yard
 levolution-host.ts      host: triggers, the obstacle list, what changed
 levolution-stage.ts     renderer: swaps a part's meshes, drops tagged meshes into place
@@ -99,8 +99,34 @@ terminal lockdown (shutters across the east strip would have trapped a team's
 spawns), and Jurong Lake and Pulau Ubin have trees instead of a bridge and a tide
 (no bridge inside the Jurong arena; a tide needs the `water` step).
 
-**Still to do:** Bishan, Orchard, Punggol, Toa Payoh, Katong and Sentosa (all
-need `water`); HarbourFront's quay crane; and Queenstown, Raffles Place and
+**Six floods (2026-11-22).** `stageFlood` in `stage-props.ts`, the `flash-flood`
+archetype and a `wade` step. A sheet of water 0.3 m deep rises over level ground
+in six seconds and stays; from halfway up, everyone on foot in it, player or bot,
+moves at 58% of their speed. Nobody is hurt. Each starts on the clock only.
+
+| Map | Event | Ground that floods |
+| --- | --- | --- |
+| Bishan | The river park floods | the lawn between the north approach and the shade court, x -98 to -22, z -166 to -150 |
+| Orchard | The boulevard floods | the middle strip, x -62 to 64, z -2 to 12 |
+| Punggol | The waterway comes over its banks | a strip down the middle, x 124 to 160, the arena's whole depth |
+| Toa Payoh | A water main bursts | both sides of the playground alike, z -80 to -72 and z -28 to -20 |
+| Katong | A water main bursts | a strip down the middle, x -58 to -34, the arena's whole depth |
+| Sentosa | The tide comes in | the beach side, x 126 to 206, z 112 to 126 |
+
+- Every flood is either across both teams' way to each other or the same on both
+  sides, so neither is favoured. A test holds that no spawn is in or beside the
+  water and that at least 90% of it lies on level ground.
+- The slowing is applied where speed is decided: in the client for players
+  (`stagePace` on the foot speed) and in the host for bots. The host does not
+  police a player's speed, here or anywhere else.
+- Shots into the sheet splash and stop, as into any water. It is kept to 0.3 m so
+  that someone lying prone in it still shows above the surface.
+- The Sentosa tide comes in and stays; it does not go out again, because events
+  are one-way within a match.
+- Not built: deep water to swim in, the water changing what a boat can reach, and
+  a ring or marker for a flood (it warns by banner only).
+
+**Still to do:** HarbourFront's quay crane; and Queenstown, Raffles Place and
 Marina Bay, whose scenes are hand-built and do not use the scene kit the shared
 pieces are written for.
 
@@ -109,8 +135,9 @@ pieces are written for.
 - **Steps.** `remove` and `place` are one step, `set`: a part takes a named state
   or none. `move` is a state whose group is tagged `stageTip` and animated by the view;
   a `set` step's `lead` draws a state before it is solid, so a thing is seen falling
-  and kills only when it lands. `dust` raises a cloud bank and `light` puts the
-  district's lights out. `water` is not built.
+  and kills only when it lands. `dust` raises a cloud bank, `light` puts the
+  district's lights out and `wade` slows whoever is in flood water. There is no step
+  for deep water.
 - **After-states are authored, not derived.** The fallen boxes are placed by the
   scene relative to the stack. Nothing chooses the fall direction by rule.
 - **Triggers.** `blast` and `clock` only. No `interact`, `streak` or shot-damage

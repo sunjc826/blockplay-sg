@@ -4,6 +4,7 @@ import { createSceneKit } from './scene-kit';
 import { STOREY } from './block-module';
 import { withVerticalRoutes } from './vertical-routes';
 import { withVerticalPlaces } from './vertical-places';
+import { stageFlood } from './stage-props';
 
 // Face east along the park path, not north into the lamp at (-60, -78).
 // The position stays on the northern lawn; the town centre is south of the river.
@@ -195,6 +196,8 @@ export function buildBishanScene() {
   scene.userData.districtFeatures = ['meandering-river-chain', 'shelving-silt-edge', 'grassy-floodplain-shelves', 'channel-boulders', 'stepping-stones', 'walkable-river-footbridges', 'recessed-loggia-slabs', 'corner-core-towers', 'shade-sail-court', 'ground-level-station'];
   scene.userData.referenceFeatures = ['bishan-park-road-0:oval-shade-pavilion', 'bishan-park-road-0:open-park-lawn'];
 
+  // Levolution (docs/LEVOLUTION.md): The lawn between the north court approach and the shade court floods, as the river park is built to: the shade court is the dry ground.
+  stageFlood(kit, 'park-flood', [{ minX: -98, maxX: -22, minZ: -166, maxZ: -150 }]);
   return withVerticalPlaces(withVerticalRoutes(kit.finish({
     car, stamps,
     animate(time: number) {

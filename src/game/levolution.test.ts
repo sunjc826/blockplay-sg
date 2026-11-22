@@ -323,3 +323,47 @@ describe('stage view', () => {
     } finally { w.dispose(); }
   });
 });
+
+describe('floods', () => {
+  const floods = LEVOLUTION_BINDINGS.filter(b => b.archetype === 'flash-flood');
+  it('slow whoever is in the water once it is over the ankles, and nobody else', () => {
+    const w = buildTeamDeathmatchWorld('punggol-green');
+    try {
+      const events = w.environment.levolution!.events, event = events.find(e => e.plugin.id === 'flash-flood')!, zone = event.parts.water.zones![0];
+      const host = createLevolutionHost({ events, obstacles: w.obstacles, duration: 300, restage: () => {} });
+      const inside = { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2 }, outside = { x: zone.minX - 5, z: inside.z };
+      expect(host.pace(10, inside.x, inside.z)).toBe(1);
+      host.trigger(event.binding.id, 10);
+      const wade = event.steps.find(s => s.type === 'wade')!;
+      expect(wade.type === 'wade' && wade.at).toBeGreaterThan(event.warning);
+      expect(host.pace(10 + (wade as { at: number }).at - .1, inside.x, inside.z)).toBe(1);
+      expect(host.pace(10 + (wade as { at: number }).at, inside.x, inside.z)).toBeCloseTo(.58);
+      expect(host.pace(200, outside.x, outside.z)).toBe(1);
+      host.reset(); expect(host.pace(200, inside.x, inside.z)).toBe(1);
+    } finally { w.dispose(); }
+  });
+  it.each(floods.map(b => b.arena))('%s: the water lies on level ground, clear of spawns, and its sheet rises into place', arena => {
+    const w = buildTeamDeathmatchWorld(arena), area = TDM_AREAS.find(a => a.id === arena)!;
+    try {
+      const events = w.environment.levolution!.events, event = events.find(e => e.plugin.id === 'flash-flood')!, part = getStageParts(w.scene).find(p => p.id === event.parts.water.id)!;
+      expect(part.zones!.length).toBeGreaterThan(0);
+      let level = 0, total = 0;
+      for (const zone of part.zones!) {
+        expect(zone.minX).toBeGreaterThanOrEqual(w.bounds.minX); expect(zone.maxX).toBeLessThanOrEqual(w.bounds.maxX); expect(zone.minZ).toBeGreaterThanOrEqual(w.bounds.minZ); expect(zone.maxZ).toBeLessThanOrEqual(w.bounds.maxZ);
+        for (let x = zone.minX + 1; x < zone.maxX; x += 2) for (let z = zone.minZ + 1; z < zone.maxZ; z += 2) { total++; if (Math.abs(w.bounds.groundHeight?.(x, z) ?? 0) < .2) level++; }
+        // Nobody spawns standing in it.
+        for (const p of ARENA_TEAMS.flatMap(team => area.spawns[team])) expect(p.x > zone.minX - 2 && p.x < zone.maxX + 2 && p.z > zone.minZ - 2 && p.z < zone.maxZ + 2, `spawn ${p.x},${p.z}`).toBe(false);
+      }
+      expect(level / total, 'share of the flood on level ground').toBeGreaterThan(.9);
+      const view = createStageView(w, events), start = { id: 's', binding: event.binding.id, seed: 1, start: 0 }, set = event.steps.find(s => s.type === 'set')! as { at: number; lead?: number };
+      view.sync([start], set.at - set.lead! + .1); view.update(set.at - set.lead! + .1);
+      const sheet = part.states.flooded.object.children[0];
+      expect(part.states.flooded.object.parent).toBe(w.scene);
+      const low = sheet.position.y; expect(low).toBeLessThan(-.2);
+      view.sync([start], set.at - set.lead! / 2); view.update(set.at - set.lead! / 2);
+      expect(sheet.position.y).toBeGreaterThan(low); expect(sheet.position.y).toBeLessThan(0);
+      view.sync([start], set.at + 1); view.update(set.at + 1);
+      expect(sheet.position.y).toBeCloseTo(0, 5);
+    } finally { w.dispose(); }
+  });
+});

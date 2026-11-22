@@ -17407,3 +17407,12 @@ Twelve more Levolution maps (2026-11-22, owner: "go on and implement the other l
   blackout at night, a guest, a real GPU. Checked: tests, typecheck, fixture captures of tree, canopy and shutters.
 - Left: water events (Bishan, Orchard, Punggol, Toa Payoh, Katong, Sentosa), HarbourFront crane, and the three
   hand-built scenes (Queenstown, Raffles Place, Marina Bay), which do not use the scene kit.
+
+Six Levolution floods (2026-11-22): Bishan, Orchard, Punggol, Toa Payoh, Katong, Sentosa.
+- `stageFlood(kit, id, zones)` + `flash-flood` + step `wade`. A stage part can carry `zones` (rectangles); the
+  flooded state is a water sheet with `stageFall({ rise: true, seconds })`. `stagePace` slows players in
+  `fps-engine.ts` (on `footScale`) and bots in `arena-rules.ts` (a slowed copy of the role in the bot step).
+- Checked: `levolution.test.ts` (pace in and out of the water and before it rises, level ground, spawns clear, the
+  sheet rising), the full suite, typecheck, fixture captures. Not checked in play: how the slowing feels, bots
+  crossing, splashes on the sheet, a guest.
+- Nineteen of the twenty-three arenas now have an event. Left: HarbourFront, Queenstown, Raffles Place, Marina Bay.

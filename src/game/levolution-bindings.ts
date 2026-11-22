@@ -27,4 +27,9 @@ export const LEVOLUTION_BINDINGS: readonly LevolutionBinding[] = [
   // Blackouts only show after dark; by day the kiosk burns out and nothing else changes.
   ...(['geylang-lorongs', 'little-india-lanes', 'yishun-courts'] as const).map((arena): LevolutionBinding => ({
     id: `${arena}-blackout`, arena, archetype: 'substation', name: 'Substation', parts: { kiosk: 'substation' }, triggers: [{ kind: 'blast', role: 'kiosk', health: 150 }, { kind: 'clock', at: .5 }] })),
+  // Floods: the clock only. Nothing a player does brings the water.
+  ...([['bishan-court', 'park-flood', 'River park', .5], ['orchard-boulevard', 'boulevard-flood', 'Boulevard', .5], ['punggol-green', 'waterway-flood', 'Waterway', .5],
+    ['dragon-courtyard', 'courtyard-flood', 'Water main', .5], ['katong-court', 'street-flood', 'Water main', .5], ['sentosa-palms', 'beach-tide', 'Tide', .45]] as const).map(([arena, part, name, at]): LevolutionBinding => ({
+    id: `${arena}-flood`, arena, archetype: 'flash-flood', name, ...(name === 'Tide' ? { banner: 'TIDE COMING IN · THE BEACH SIDE FLOODS' } : name === 'Water main' ? { banner: 'WATER MAIN BURST · LOW GROUND FLOODS' } : {}),
+    parts: { water: part }, triggers: [{ kind: 'clock', at }] })),
 ];
