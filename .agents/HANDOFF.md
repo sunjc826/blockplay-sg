@@ -17446,3 +17446,10 @@ Prettier rain (2026-11-22, owner: Gray Zone Warfare's rain: gusts, refraction, r
 - Checked: tests, typecheck, SwiftShader captures in Tampines (squall and monsoon, noon and night; no shader errors).
   Not checked: a real GPU, frame cost, how the refraction reads in motion, Marina/Queenstown/Raffles, the rain smokes
   (`fps-rain-smoke`, `marina-rain-smoke`, `weather-quality-smoke`), Walk/drive (no lamps or lens there).
+
+Lightning bolts (2026-11-22, owner: "improve lightning streaks too"): there were none, only a light pulse.
+- `lightning.ts`: seeded strike per 23 s period (same moment `crossedLightning` cues thunder), forked ribbon bolt with
+  restrikes and a cloud glow, drawn ahead of the camera; one in four is a sheet flash. Scene light is one smooth pulse
+  (.24 at most, was .16), so no strobe. Thunder delay and loudness now come from the strike's distance.
+- Checked: tests, typecheck, SwiftShader captures in Tampines at dusk and night with the storm clock frozen on a
+  strike. Not checked: in motion, the restrike flicker, thunder timing by ear, a real GPU, Walk/drive.

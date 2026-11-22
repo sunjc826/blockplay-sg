@@ -53,7 +53,7 @@ export function dragonBoatStroke(kind: VehicleKind | null, speed: number) {
 }
 /** A sudden loss of this much speed in a frame is a crash, whichever way the vehicle's rules recorded it. */
 export const CRASH_SPEED_LOSS = 5;
-/** The lightning cycle in `world-atmosphere`: a flash when `time % 23` passes 1. Thunder follows after the distance's delay. */
+/** The lightning cycle (`lightning.ts`): a strike when `time % 23` passes 1. Thunder follows after the distance's delay. */
 export const crossedLightning = (from: number, to: number) => to > from && Math.floor((from + 22) / 23) !== Math.floor((to + 22) / 23);
 
 /** One looping voice per name, faded to its target every frame. Silent until its recording has loaded; stops after fading out. */

@@ -1,6 +1,7 @@
 import { moonRayAmount, type SunRayLight } from './sun-rays';
 import { setTreeWeather, treeWindTime } from './tree-wind';
 import { gustFactor, gustWave } from './wind-gusts';
+import { createLightning } from './lightning';
 import { updateFoliageDisturbance } from './foliage-disturbance';
 import * as THREE from 'three';
 import type { Obstacle } from './region-collision';
@@ -83,6 +84,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     const waterY=receivers.water(x,z);hit.kind=waterY!==null&&Math.abs(hit.height-waterY)<.001?'water':'solid';
     receivers.sample(x,z,hit);return vehicleRain.sample(x,z,hit);
   });
+  const bolts = createLightning(root);
   const wetGround = { surface: scene.userData.groundCover?.wetGround as ((x: number, z: number) => number | null) | undefined, exposed: rainSurface, wetness: 0, time: 0, rain: 0 };
   scene.userData.wetGround = wetGround;
   const shelterHit = { height: 0, normal: new THREE.Vector3(0, 1, 0), object: undefined as THREE.Object3D | undefined };
@@ -179,8 +181,10 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       driftWeather.wind = wind; driftWeather.rain = wetness; driftWeather.sun = sunlight; driftWeather.night = night;
       driftWeather.reduced = reduced; driftWeather.detail = getGraphicsSettings().grassDetail; driftWeather.mobile = coarsePointer?.matches ?? false;
       drift?.update(time, driftWeather, exposurePoint);
-      // A gentle cloud glow, never a full-screen white strobe. Disabled with reduced motion.
-      const lightning = !reduced && active.weather === 'thunderstorm' ? Math.max(0, 1 - Math.abs(time % 23 - 1) / .4) * .16 : 0;
+      // A bolt some way off and one smooth pulse over the scene, never a full-screen white strobe. Disabled with reduced motion.
+      camera.getWorldPosition(exposurePoint);
+      const lightning = bolts.update(time, camera, !reduced && active.weather === 'thunderstorm', groundHeight?.(exposurePoint.x, exposurePoint.z) ?? 0) * .24;
+      root.userData.lightning = lightning;
       keyDirection.set(lighting.key.x, lighting.key.y, lighting.key.z);
       for (const { light, intensity, sun, color, ground, reach } of lights) {
         light.intensity += (intensity * (sun ? (preset.sun + lightning) * lighting.keyScale : (preset.ambient * cloudFill + lightning) * lighting.ambientScale) - light.intensity) * blend;
@@ -229,7 +233,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       wetSurfaces.update(step, wetness);
       ripples.update(camera,getGraphicsSettings().waterDetail,reduced,wetness);root.userData.waterRipples=ripples.mesh.count;
       wetGround.wetness = wetSurfaces.wetness; wetGround.time = time; wetGround.rain = reduced ? 0 : wetness;
-      root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius, spray: rainEffects.sprayCount, lampStreaks: rainEffects.lampStreaks, gust: air.gust };
+      root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius, spray: rainEffects.sprayCount, lampStreaks: rainEffects.lampStreaks, gust: air.gust, lightning: root.userData.lightning ?? 0 };
       sparks.visible = !reduced && CELEBRATIONS[active.celebration].fireworks && places.length > 0;
       if (sparks.visible) {
         const burst = Math.floor(time / 5), age = time % 5, anchor = places[burst % places.length];
@@ -248,7 +252,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       drift?.dispose();
       if (originalSunRays === undefined) delete scene.userData.sunRays; else scene.userData.sunRays = originalSunRays;
       bulbs.forEach(mesh => mesh.dispose());
-      rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
+      bolts.dispose(); rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
       look?.dispose(); delete scene.userData.colorGrade;
       exposure.dispose();

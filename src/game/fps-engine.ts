@@ -81,6 +81,7 @@ import { HANDS_MIX, plateCue } from './hands-audio';
 import { WEAPON_MODE_CUE, weaponSettleCue, weaponSwitchCue } from './weapon-switch-audio';
 import { HIT_CONFIRM_GAP, createEarRing, createSlideScrape, damageCues, grenadeBounces, hitConfirmGroups, lowHealthPulse, stepGroup, type Vitals } from './combat-feedback';
 import { createActorFootsteps } from './actor-footsteps';
+import { lightningStrike, strikeClock } from './lightning';
 import { CRASH_SPEED_LOSS, createWorldLoops, crossedLightning, dragonBoatStroke, worldLoopTargets, type WorldSoundState } from './world-audio';
 import { playMenuSound } from '../lib/menu-audio';
 import { GRENADE_MIN_WINDUP, GRENADE_PIN_OUT, GRENADE_READY_SECONDS, GRENADE_RECOVERY_SECONDS, GRENADE_STOW_SECONDS, GRENADE_SWING_SECONDS } from './fps-grenade-motion';
@@ -929,7 +930,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let enemyStepsHeard = 0;
   // What the world loops and one-off world sounds compare against between frames.
   let lastVehicle: VehicleKind | null = null, lastSeat: number | null = null, lastVehicleSpeed = 0, lastCrash = -Infinity, nextStrokeBeat = 0, wasAiming = false, lastStance = 'stand', wasOnGround = true;
-  let pendingBrass = 0, lastBrass = -Infinity, wasParachuting = false, wasInMovingLift = false, wasStarted = false, stormClock = -1, thunderAt = 0;
+  let pendingBrass = 0, lastBrass = -Infinity, wasParachuting = false, wasInMovingLift = false, wasStarted = false, stormClock = -1, thunderAt = 0, thunderFrom = 0;
   let transportNear: WorldSoundState['transport'] = null;
   const siteOwners = new Map<string, string | null | undefined>();
   let audio: AudioContext | null = null, soundBuffer: AudioBuffer | null = null;
@@ -4955,9 +4956,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (stroke && clockNow >= nextStrokeBeat) { playTake('world-dragon-drum', .9); playTake('world-paddle', .7, { pan: Math.random() < .5 ? -.3 : .3 }); nextStrokeBeat = clockNow + stroke; }
       if (pendingBrass && clockNow >= pendingBrass) { if (clockNow - lastBrass > .2) { playTake('world-brass', .55, { pan: .25 }); lastBrass = clockNow; } pendingBrass = 0; }
       const stormNow = atmosphere.air.clock;
-      if (atmosphere.air.storm && stormClock >= 0 && crossedLightning(stormClock, stormNow)) thunderAt = clockNow + 1 + Math.random() * 4;
+      // Thunder follows its bolt by the distance to the cell, and is quieter from further off.
+      if (atmosphere.air.storm && stormClock >= 0 && crossedLightning(stormClock, stormNow)) { thunderFrom = lightningStrike(strikeClock(stormNow).index).distance; thunderAt = clockNow + thunderFrom / 343; }
       stormClock = stormNow;
-      if (thunderAt && clockNow >= thunderAt) { playTake('world-thunder', .9, { pan: Math.random() * .8 - .4 }); thunderAt = 0; }
+      if (thunderAt && clockNow >= thunderAt) { playTake('world-thunder', 1 - .45 * Math.min(1, thunderFrom / 2000), { pan: Math.random() * .8 - .4 }); thunderAt = 0; }
     }
     lastVehicle = vehicles.active ?? null; lastSeat = vehicles.seat ?? null; lastVehicleSpeed = mountedSpeed;
     if (motor && motorGain && audio) {
