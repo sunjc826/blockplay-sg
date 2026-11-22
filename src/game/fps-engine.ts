@@ -227,6 +227,7 @@ import { advanceFoodEffects, aimSpeedScale, applyFoodEffects, cycleRate, damageD
 import { ammoBlocked, ammoTarget, beltRoom, focusLoot, lootCard, withinReach, type CarriedGun, type LootCard } from './loot-focus';
 import { armorPickup, type ArmorPickupAction } from './armor-pickup';
 import { createSunShadows } from './fps-sun-shadows';
+import { createViewmodelSunShade } from './viewmodel-sun-shade';
 import { createWorldOcclusion } from './world-occlusion';
 import { createViewmodelOcclusion } from './viewmodel-occlusion';
 import { createVisionSystem } from './fps-vision';
@@ -3031,13 +3032,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     viewSky.intensity = 2.1 * Math.min(1.25, ambient / .58) * atmosphere.light.skyVisibility;
     viewSky.color.copy(VIEW_SKY).lerp(viewTint.set(lighting.skyFill), lighting.shift);
     viewSky.groundColor.copy(VIEW_GROUND).lerp(viewTint.set(lighting.groundFill), lighting.shift);
-    weaponLight.intensity = 2.5 * Math.min(1.25, key / 1.12) * atmosphere.light.moonVisibility;
+    // The sun's shadow map never reaches the view scene, so the gun asks whether the sun reaches the eye.
+    const sunlit = viewShade.update(dt, sunShadows.enabled, camera.getWorldPosition(shadeEye), lighting.key);
+    weaponLight.intensity = 2.5 * Math.min(1.25, key / 1.12) * atmosphere.light.moonVisibility * sunlit;
     weaponLight.color.copy(VIEW_KEY).lerp(viewTint.set(lighting.keyColor), lighting.shift);
     weaponLight.position.set(lighting.key.x, lighting.key.y, lighting.key.z).applyQuaternion(viewQuaternion.copy(camera.quaternion).invert());
     lampLight.intensity = 3.2 * nightLights.lightAt(camera.position);
     lampLight.position.copy(UP).applyQuaternion(viewQuaternion);
     canvas.dataset.sunShadows = String(sunShadows.enabled); canvas.dataset.shadowCasters = String(sunShadows.casters); canvas.dataset.timeOfDay = lighting.elevation.toFixed(1);
     canvas.dataset.shadowMapSize = String(sunShadows.mapSize);
+    canvas.dataset.weaponSunlit = sunlit.toFixed(2);
     canvas.dataset.nightLights = `${nightLights.level.toFixed(2)}:${nightLights.lamps.length}`;
   }
   // Effects and the viewmodel never obstruct a gameplay ray.
@@ -3047,6 +3051,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** Rounds in flight, many rays a frame: refreshed once per frame in advanceRounds. */
   const roundIndex = createGameplayRayIndex(world.scene, gameplayRoot);
+  const viewShade = createViewmodelSunShade(roundIndex), shadeEye = new THREE.Vector3();
   const surface = new THREE.Vector3();
   /**
    * The world-space normal of whatever a ray struck, for orienting an impact.

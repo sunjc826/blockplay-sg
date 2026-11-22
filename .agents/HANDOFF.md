@@ -17421,3 +17421,16 @@ Every arena has a Levolution event (2026-11-22): rain trees on HarbourFront, Raf
 gardens as stand-ins for their listed events (quay crane, scaffold, stalled train, Flyer and SkyPark), which are not
 built. `createStageKit` adapts a hand-built scene for the shared pieces; call it after the scene's own batching.
 `levolution.test.ts` now requires an event on every arena.
+
+Carried gun takes sun shade (2026-11-22, owner: "check if shadow maps are applied to guns" → "yes, add it"):
+- The view scene (gun, hands) never had the sun's shadow map; under a roof the gun stayed sunlit.
+  `viewmodel-sun-shade.ts` traces the eye-to-sun line both ways about 15 times a second through `roundIndex`,
+  counts only meshes the shadow pass draws (`castShadow`, or a vehicle part behind a shadow proxy), eases the
+  answer (~0.09 s) and `lightView` multiplies `weaponLight` by it. Off, and fully lit, while sun shadows are off
+  (setting or software renderer). `canvas.dataset.weaponSunlit` reports it.
+- It is one answer for the whole gun, not a shadow map on it: a shadow's edge does not cross the gun, and the gun
+  throws no shadow of its own.
+- Checked: unit tests, full suite, typecheck; about 0.2–0.7 ms a sample in Tampines, Orchard and Bukit Timah
+  (node, no instanced accelerators). On the VM's Metal GPU the Tampines and Orchard ranges read 0.00 at dawn
+  (behind the blocks) and 1.00 at dusk, afternoon and morning, with the gun visibly darker at dawn.
+  Not checked: walking across a shadow's edge in play (CDP key-holds barely moved the player), vehicles, a guest.
