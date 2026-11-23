@@ -183,7 +183,7 @@ import { createOpticReflectionRenderer } from './weapon-reflections';
 import { weaponReloadMotion, handleSide, INSPECT_DURATION, inspectMotion, READY_BEATS, READY_SECONDS, readyMotion, reloadStage, smoothStep } from './fps-weapon-motion';
 import { armReloadGate, reloadInterrupt } from './fps-reload';
 import { runningWeaponMotion } from './fps-weapon-run';
-import { advanceSprintBreak, createSprintBreak } from './fps-sprint';
+import { advanceSprintBreak, createSprintBreak, sprintDropsToggledAim } from './fps-sprint';
 import { SLIDE_ENTRY_SHARE, SLIDE_EYE_HEIGHT, slideSpread, advanceSlide, coolSlide, createSlide, endSlide, resolveSlideContact, startSlide } from './fps-slide';
 import { createMantleHands, mantleMotion } from './fps-mantle-hands';
 import { advanceSwim, createSwim, createSwimHands, swimMotion } from './fps-swim-hands';
@@ -840,8 +840,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let scopeJolt = 0, scopeRelief = 0, lastEyeY: number | undefined;
   const aimedTurnLag = createAimedTurnLag(), turnLagPivot = new THREE.Vector3(), turnLagTurn = new THREE.Quaternion(), turnLagAngles = new THREE.Euler();
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
-  // Sights raised in the air beat a held sprint, and keep beating it after the landing until aim is let go.
-  let airAim = false;
+  // Aim beats sprint. On the ground it breaks the run as the trigger does; in the air the jump keeps its speed.
+  let airAim = false, sightsReady = true, sprintKeyWas = false;
   const bodyMotion = createMovementMotion();
   let bailoutAge: number | undefined;
   // Two-stage recoil: see fps-recoil. The view still couples through the same
@@ -2750,7 +2750,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null); swimHands.update(null);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !weaponSwitch && (!swimming() || swimmingCanFire(hud.weapon,carry.length())) && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && (!sprinting || airAim) && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !weaponSwitch && (!swimming() || swimmingCanFire(hud.weapon,carry.length())) && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && (!sprinting || airAim) && sightsReady && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     if (aiming && !wasAiming && hud.phase === 'playing') handsSound('world-aim', .05);
     wasAiming = aiming;
     actualAim = aiming;
@@ -4824,7 +4824,15 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         const wantsSprint = !swimming() && move.sprint && forward > .5 && poseStance === 'stand', pulled = trigger || pullBuffer > 0;
         sprintIntent = wantsSprint && keys.has('shift');
         // Fire beats sprint: a held trigger drops the run to a jog, and it picks back up on its own.
-        ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled, wasSprinting, dt, burden.sprintOut));
+        // Aim beats it too, and the sights wait out the same raise. A toggled aim gives way to a fresh sprint key.
+        const sprintKey = keys.has('shift');
+        if (!pilotEnabled && sprintDropsToggledAim(touchAim, ads, sprintKey, sprintKeyWas, wantsSprint)) { touchAim = false; publish(); }
+        sprintKeyWas = sprintKey;
+        const aimHeld = (ads || touchAim) && !grenadeHeld && !grenadeAfter;
+        airAim = aimHeld && !onGround && !swimming();
+        // Sights already up have nothing to raise: a landing or a shot from an aimed jump does not wait.
+        ({ sprint: sprinting, fire: fireReady } = advanceSprintBreak(sprintBreak, wantsSprint, pulled || aimHeld && onGround, wasSprinting && !actualAim, dt, burden.sprintOut));
+        sightsReady = sprintBreak.raise === 0;
         // A fresh trigger pull or sprint key stops a reload; one already held when
         // it began does not, and a held sprint drops to a run until the reload ends.
         if (loadout[hud.weapon].reloadRemaining > 0) {
@@ -4833,9 +4841,6 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         // A fresh trigger pull or sprint key puts a supply away; one already held walks.
         if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
-        // The jump keeps its sprint momentum; only once back on the ground does the held aim slow the run.
-        airAim = (ads || touchAim) && (airAim || !onGround && !swimming());
-        if (airAim && onGround) sprinting = false;
         const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? INFANTRY_SPEED.prone : poseStance === 'crouch' ? INFANTRY_SPEED.crouch : sprinting ? INFANTRY_SPEED.sprint : (ads || touchAim) ? Math.min(INFANTRY_SPEED.walk, INFANTRY_SPEED.aim * burden.aimMove) : INFANTRY_SPEED.walk) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
         // A dive is committed: the stick does nothing until it lands.
         const target = diving ? { x: 0, z: 0 } : movementInput(forward, side, yaw, speed * burden.movement, 1);

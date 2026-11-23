@@ -17650,5 +17650,12 @@ Owner asked for scoping in while jumping, "more arcady and call of duty like".
 - `fps-engine.ts`: `airAim` latches when aim is held off the ground (not swimming) and clears when aim is released.
   While it is set the sights come up despite the sprint; the jump keeps its sprint speed in the air, and after the
   landing the held aim drops the run to aimed pace until aim is let go.
-- On the ground sprint still beats aim, as before. Not changed: airborne spread and recoil penalties.
+- Follow-up the same day, owner's call: aim beats sprint on the ground too. A held aim goes into
+  `advanceSprintBreak` as the trigger does, so the run drops and the sights wait out `burden.sprintOut`
+  (`sightsReady`). Sights already up skip the raise, so a landing or a shot from an aimed jump does not wait.
+  `airAim` is no longer a latch: in the air the sprint speed is kept, on the ground the aim breaks it.
+- Toggled aim (Q, touch button): a fresh sprint-key press that asks for a sprint drops it
+  (`sprintDropsToggledAim` in `fps-sprint.ts`). The touch stick at the rim does not, and the autopilot is exempt.
+- A grenade in hand is exempt: aim there is the lob and does not break the run.
+- Not changed: airborne spread and recoil penalties.
 - Checked: tests, typecheck. Not checked in a browser.

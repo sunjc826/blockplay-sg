@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { advanceSprintBreak, createSprintBreak, SPRINT_OUT, SPRINT_RESUME } from './fps-sprint';
+import { advanceSprintBreak, createSprintBreak, sprintDropsToggledAim, SPRINT_OUT, SPRINT_RESUME } from './fps-sprint';
 
 const frame = 1 / 60;
 
@@ -49,4 +49,26 @@ it('raises a handier gun sooner when told how long it takes', () => {
     return time;
   };
   expect(wait(.08)).toBeLessThan(wait(SPRINT_OUT)); expect(wait(.16)).toBeGreaterThan(wait(SPRINT_OUT));
+});
+
+it('holds the sights back for the raise when aim breaks a sprint, but not when they are already up', () => {
+  // The engine passes a held aim on the ground in as the trigger.
+  const state = createSprintBreak();
+  expect(advanceSprintBreak(state, true, true, true, frame).sprint).toBe(false);
+  expect(state.raise).toBe(SPRINT_OUT);
+  for (let t = 0; t < SPRINT_OUT; t += frame) advanceSprintBreak(state, true, true, false, frame);
+  expect(state.raise).toBe(0);
+  // Landing from an aimed sprint jump: the run breaks, with nothing to raise.
+  const landed = createSprintBreak();
+  expect(advanceSprintBreak(landed, true, true, false, frame).sprint).toBe(false);
+  expect(landed.raise).toBe(0);
+});
+it('lets only a fresh sprint key drop a toggled aim', () => {
+  expect(sprintDropsToggledAim(true, false, true, false, true)).toBe(true);
+  // Already down when aim was toggled, or pressed with nowhere to run.
+  expect(sprintDropsToggledAim(true, false, true, true, true)).toBe(false);
+  expect(sprintDropsToggledAim(true, false, true, false, false)).toBe(false);
+  // A held aim wins, and with no toggle there is nothing to drop.
+  expect(sprintDropsToggledAim(true, true, true, false, true)).toBe(false);
+  expect(sprintDropsToggledAim(false, true, true, false, true)).toBe(false);
 });
