@@ -17562,8 +17562,9 @@ Owner asked for the sun's glint on metal beams (not glass; a per-pane glass tilt
   beads. Works on plain and instanced unit boxes; tubes and plates are untouched. Cache key suffix `round-bars-v3`.
 - Marina `steel` and `helixSteel` and Raffles `silver` are also retuned (roughness about .24, metalness .7 to .75,
   envMapIntensity 1.4). The `steel` of the fifteen other districts that have one gets `roundMetalBars` with its
-  values unchanged; GPU stills of Orchard, Changi, Tuas and HarbourFront were looked at, the rest were not. Street
-  props, `iron`, and the districts with no `steel` (Queenstown, Chinatown, Kampong Glam, Little India, Katong, Ubin)
+  values unchanged; GPU stills of Orchard, Changi, Tuas and HarbourFront were looked at, the rest were not. Street-prop
+  `steel` (bench arms, notice-board posts, tray-return and letterbox frames) has it too; its shader compiled and drew
+  on the GPU in Orchard, but no still of a box-built steel prop was captured. `iron` and the districts with no `steel` (Queenstown, Chinatown, Kampong Glam, Little India, Katong, Ubin)
   are untouched.
 - `world-occlusion.ts`: the bloom extraction now averages four taps and caps a source pixel at `BLOOM_SOURCE_CAP` (6).
   One unfiltered, unbounded sample turned one-pixel sun highlights into blocky blobs at quarter resolution. This

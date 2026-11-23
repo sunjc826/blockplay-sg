@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { shadeLeaves } from './leaf-shading';
+import { roundMetalBars } from './metal-bar';
 import { batchRigidMeshes } from './rigid-batches';
 import { createVegetationKit, isVegetationKind, VEGETATION_PROPS, type VegetationKind } from './vegetation-props';
 
@@ -61,7 +62,7 @@ export function createStreetPropKit() {
   // Foliage is its own material so leaves never count as ballistic cover.
   const mat = (color: Color, doubleSided=false, foliage=false) => {
     const key=`${color}:${doubleSided}:${foliage}`;let m = materials.get(key);
-    if (!m) { m = new THREE.MeshStandardMaterial({ color: palette[color], roughness: color === 'steel' ? .4 : .82, metalness: color === 'steel' ? .65 : 0, side:doubleSided?THREE.DoubleSide:THREE.FrontSide }); if(foliage){m.userData.visualCover=true;shadeLeaves(m,{thin:doubleSided});} materials.set(key, m); }
+    if (!m) { m = new THREE.MeshStandardMaterial({ color: palette[color], roughness: color === 'steel' ? .4 : .82, metalness: color === 'steel' ? .65 : 0, side:doubleSided?THREE.DoubleSide:THREE.FrontSide }); if(foliage){m.userData.visualCover=true;shadeLeaves(m,{thin:doubleSided});} if (color === 'steel') roundMetalBars(m); materials.set(key, m); }
     return m;
   };
   function build(kind: StreetPropKind) {
