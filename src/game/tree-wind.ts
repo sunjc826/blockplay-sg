@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { foliageDeclarations, foliageTreeShake, foliageUniforms } from './foliage-disturbance';
+import { inheritLeafShade, shadeLeaves } from './leaf-shading';
 
 interface TreePart { root: THREE.Vector3; height: number; flutter: number }
 interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number }; foliage: ReturnType<typeof foliageUniforms> }
@@ -104,7 +105,10 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     let material = materials.get(source);
     if (!material) {
       material = source.clone(); material.onBeforeCompile = source.onBeforeCompile; material.customProgramCacheKey = source.customProgramCacheKey;
-      patch(material, uniforms); materials.set(source, material); trackMaterial(material);
+      inheritLeafShade(source, material); patch(material, uniforms);
+      // Crowns and fronds pass light through (leaf-shading.ts); trunks and branches do not.
+      if (parts.some(part => (part.userData.treePart as TreePart).flutter > 0)) shadeLeaves(material);
+      materials.set(source, material); trackMaterial(material);
     }
     const geometry = first.geometry.clone(); trackGeometry(geometry);
     const roots = new Float32Array(parts.length * 4), flutter = new Float32Array(parts.length);

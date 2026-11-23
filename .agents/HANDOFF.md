@@ -17529,3 +17529,25 @@ Tuas metal, containers and tank domes (2026-11-23, owner: "is the world lacking 
   at night or in rain, the browser smokes. Known: a faint diagonal shading pattern on container door faces, cause not
   looked into. No test covers `skylineAt`. Other districts' metals are still partial-metalness paint-like values;
   `metal()` is local to Tuas.
+
+## Species palms and leaf light (2026-11-23)
+
+Owner asked for a vegetation quality review, then picked "palms and leaf shading" from the list and asked for
+actual Singapore plants researched from NParks.
+
+- `palm-species.ts` / `palm-models.ts`: coconut, royal, sealing wax (clumping) and footstool (fan) palms from the
+  NParks FFW pages (table and limits in docs/SINGAPORE-VEGETATION.md, "Palms"). One palm is a trunk mesh and a crown
+  mesh on two white vertex-coloured materials (`impactSurface` wood / foliage), three fixed shapes per species so
+  `batchTrees` keeps them instanced. `kit.palm(species, x, z, height)` in scene-kit; Marina uses `createPalmKit`.
+- Placed: royal at Marina Bay and the Kampong Glam mall, coconut at Sentosa and Changi. Sealing wax and footstool are
+  built but unplaced (lineup only). Raffles keeps its old fan palms. Colliders and cover are unchanged.
+- `leaf-shading.ts`: `shadeLeaves` adds transmitted light by redefining `RE_Direct` after
+  `lights_physical_pars_fragment`, so it composes with night-exposure's replaced light loop. Applied in `batchTrees`
+  to parts with flutter > 0, and to vegetation-props and street-props foliage. Cache key suffix `leaf-shade-v1-…`.
+- `scripts/fixtures/palms.html`: lineup. Captures were taken on SwiftShader only.
+- Not done: the shader warm-up list was not recaptured here (`pnpm shaders:capture`, untracked output), so the
+  changed foliage programs are only pre-warmed once that list is regenerated. No frame timing on a real GPU; triangle counts are in the doc. Bussorah Street's real
+  palm species is unconfirmed.
+- Still open from the review list: crowns/fronds stopping rounds (owner's call), lasting damage, blast stripping,
+  dynamic felling, a generated replacement for the kit tree, understorey, LODs, and a Botanic Gardens level as the
+  testing ground (layout to the review board first).

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { batchRigidMeshes } from './rigid-batches';
+import { shadeLeaves } from './leaf-shading';
 import type { StreetPropSpec } from './street-props';
 
 export type VegetationKind = 'snake-pot' | 'snake-trough' | 'money-pot' | 'money-pole' | 'bird-nest-pot' | 'bird-nest-fern' | 'sword-fern' | 'rain-tree' | 'sea-almond' | 'sea-apple';
@@ -126,7 +127,7 @@ export function createVegetationKit() {
       if(spec.behavior!=='breakable')batchRigidMeshes(group,{trackGeometry:keep});
       // Flatten so existing fragment motion can handle pots, and preserve the
       // foliage/wood distinction through district instancing and cover indexing.
-      for(const child of [...group.children]){if(group===foliage)(child as THREE.Mesh<THREE.BufferGeometry,THREE.Material>).material.userData.visualCover=true;root.add(child);}root.remove(group);
+      for(const child of [...group.children]){if(group===foliage){const m=(child as THREE.Mesh<THREE.BufferGeometry,THREE.Material>).material;m.userData.visualCover=true;shadeLeaves(m,{thin:true});}root.add(child);}root.remove(group);
     }
     return root;
   }

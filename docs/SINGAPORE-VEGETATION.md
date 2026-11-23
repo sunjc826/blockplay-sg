@@ -73,3 +73,50 @@ and `FPS_CHROME_ORIGIN`; the vegetation smoke writes district overview/walk-heig
 screenshots and render metrics. Automated tests check shared resources, grounding,
 model extents, actual scene floors, complete groups and foliage/wood cover
 separation. Render metrics describe the local renderer, not a mobile FPS guarantee.
+
+## Palms (23 November 2026)
+
+Four palms that grow in Singapore replace the pole-and-star palms. Morphology is
+from each species' NParks Flora & Fauna Web page, read on 23 November 2026;
+where FFW gives no figure the fallback is named. Numbers live in
+`src/game/palm-species.ts`, geometry in `src/game/palm-models.ts`. Original
+procedural geometry; no photographs, textures or outside models.
+
+| Species and status (as NParks states it) | Evidence | Geometry and placement |
+| --- | --- | --- |
+| Coconut, *Cocos nucifera* — originally Western Pacific, now pantropical | [FFW 5618](https://www.nparks.gov.sg/florafaunaweb/flora/5/6/5618): solitary; slender grey trunk prominently ringed with leaf scars; pinnate leaves to 5 m, ascending to spreading to drooping; 80–100 pairs of lanceolate leaflets 50–150 cm; inflorescence from within the lower fronds; ovoid fruit to 30 cm, green or yellow ripening brown. Landscape use: coastal, roadside, beachfront. Photographs by Jessica Teo and Robert Teo Chee Hin. | Leaning ringed trunk with a flared foot, no crownshaft, a fibrous boss, 14 fronds from an upright spear to one dead hanging frond, flat-plane drooping leaflets, a cluster of nuts. Sentosa beaches and lawns, Changi coastal strip. The lean and flared foot are not on FFW; they are common habit, authored. |
+| Royal palm, *Roystonea regia* — introduced (Florida, Mexico, Central America, Caribbean) | [FFW 2682](https://www.nparks.gov.sg/florafaunaweb/flora/2/6/2682): solitary; massive trunk bulging slightly towards the middle, concrete-grey with closely spaced rings; glossy green crownshaft to 2 m; pinnate leaves to 3 m, plumose and rather tangled; dead fronds fall whole; inflorescence below the crownshaft; "impressive when formally massed along avenues". About 15 leaves is from Wikipedia citing Zona (1996). | Straight grey trunk with a mid-height bulge, green crownshaft, 14 fronds with leaflets in four planes, no hanging dead fronds. Marina Bay: PWP Landscape Architecture describes the waterfront promenade's "[triple allée of Roystonia palms](https://pwpla.com/projects/marina-bay)"; the species within *Roystonea* is not confirmed. Kampong Glam mall: an authored avenue choice. |
+| Sealing wax palm, *Cyrtostachys renda* — native, Critically Endangered | [FFW 2618](https://www.nparks.gov.sg/florafaunaweb/flora/2/6/2618): clustering; distinctively red crownshaft, red leaf sheaths about 60 cm; leaves about 1.5 m by 0.6 m with bright red stalks and midribs; boat-shaped leaflets about 45 by 4 cm; semi-shade or sun, wet ground; the palm in the Singapore Botanic Gardens' logo. Stems to 10 cm are from Wikipedia citing Heatubun et al. (2009). Photographs by Mervyn Tan, Jennie Tang Yurue and Shi Biying. | A clump of six slender ringed stems of mixed heights, red crownshafts and red ribs, stiff upswept fronds. Built and in the lineup; **not placed in any district yet** (it wants a wet garden edge, such as a Botanic Gardens level). |
+| Footstool palm, *Saribus rotundifolius* — non-native (spontaneous, casual) | [FFW 2653](https://www.nparks.gov.sg/florafaunaweb/flora/2/6/2653): solitary; long-stalked, spirally arranged fan leaves, blades almost round, regularly divided to about half their length, 1.2 m across; "suitable for growing along streetscapes". Trunk 15–25 cm with shallow rings is from Wikipedia citing Whitmore. | Slender trunk, a round head of long-stalked pleated fans whose outer half is free tips. Built and in the lineup; **not placed in any district yet**. |
+
+Limits and unknowns:
+
+- Game-scale heights (6–12 m) are younger palms, far under the species maxima.
+- A drawn frond carries 8–14 pairs of wide leaflets where the plant has 50–100
+  narrow ones; each stands for several.
+- Bussorah Street's real palms were not identified from any source; royal palms
+  there are an authored choice, not a record. Sentosa's coconuts rest on FFW's
+  beachfront use and travel guides, not an official planting list.
+- Raffles Place keeps its earlier folded fan palms.
+- Colliders, cover and what stops a round are unchanged: palm fronds still stop
+  rounds as the old fronds did, and each palm keeps its 0.9–1 m square collider.
+
+Cost: a coconut or royal palm is about 1,430–1,500 triangles in two instanced
+draws per shape (three shapes per species). Marina Bay's 79 palms are about
+119,000 of the district's 583,000 triangles; Sentosa's 81 are about 116,000 of
+283,000 (its old blob palms were about 880 each). Counted from the built scene,
+not a frame-rate measurement.
+
+### Leaf light
+
+`src/game/leaf-shading.ts` gives foliage a transmitted-light term: light landing
+on the far face of a thin leaf comes through yellower, for the sun, moon and
+lamps, after their shadows; closed crown shapes get a wider wrap; both get a
+small unshadowed share of the sun for the light a crown passes down through
+itself. It applies to palm fronds, every wind-batched crown (`batchTrees`), the
+species props above and street-prop foliage. Colour detail on palms (ring scars,
+paler ribs, darker leaflet tips, yellowing old fronds, shade inside the crown)
+is in vertex colours, not textures.
+
+Review: `scripts/fixtures/palms.html` shows the four species, three shapes each,
+beside a 1.75 m figure, with the same controls as `vegetation.html`.

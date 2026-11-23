@@ -1,5 +1,7 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { captureFoliageDrift } from './ambient-drift';
+import { createPalmKit, type PalmKit } from './palm-models';
+import type { PalmSpecies } from './palm-species';
 import * as THREE from 'three';
 import { createDistrictWater, type WaterMaterial } from './water';
 import type { Obstacle } from './region-collision';
@@ -119,6 +121,15 @@ export function createSceneKit(options: SceneKitOptions) {
   function tree(x: number, z: number, h: number, trunk: THREE.Material, leaf: THREE.Material) {
     treePart(box(x, h / 2, z, 0.6, h, 0.6, trunk, scene, true), x, 0, z, h); solid(x, z, 0.8, 0.8);
     for (let i = 0; i < 3; i++) treePart(blob(x + (i - 1) * 1.7, h + i % 2, z, 3.6, 2.5, 3.5, leaf), x, 0, z, h, 1);
+  }
+  let palms: PalmKit | undefined;
+  /**
+   * A palm of a named species (palm-species.ts), rooted at the ground with its fronds leaving the trunk
+   * `height` metres up. No collider: the district says how much room the trunk takes with `solid`.
+   */
+  function palm(species: PalmSpecies, x: number, z: number, height?: number, base = 0) {
+    palms ??= createPalmKit({ geometry: geo, material: m => materials.push(m) });
+    return palms.place(species, scene, x, base, z, height);
   }
   /** Simple animated bystander. Groups are never batched, so they can move. */
   function walker(x: number, z: number, shirt: THREE.Material, skin: THREE.Material, legs: THREE.Material) {
@@ -288,6 +299,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, walker, car, streetGrid, stampRings, finish, freeform, stage, stageState, THREE };
+  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, palm, walker, car, streetGrid, stampRings, finish, freeform, stage, stageState, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;

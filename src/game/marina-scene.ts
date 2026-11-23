@@ -1,4 +1,5 @@
 import { treePart, batchTrees, animateTrees } from './tree-wind';
+import { createPalmKit } from './palm-models';
 import { withMarinaInteriors } from './marina-interiors';
 import { filterThinDetail } from './thin-detail';
 import { buildMerlionModel } from './merlion-model';
@@ -175,25 +176,10 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
     box(x, 7.45, 80.4, 0.65, 0.16, 1.5, dark);
     box(x, 0.6, 80.5, 0.75, 1.2, 0.65, dark); collider(x, 81, 0.8, 0.8, 7.8);
   }
-  // Bent, tapered fronds with individual leaflets instead of star-shaped cones.
-  const frondVertices: number[] = [];
-  for (let i = 0; i < 8; i++) {
-    const t = i / 8, next = (i + 1) / 8;
-    const y = (u: number) => Math.sin(u * Math.PI) * 0.7 - u * u * 1.1;
-    const width = Math.sin((t + 0.08) * Math.PI) * 0.6;
-    frondVertices.push(t * 4.8, y(t), 0, next * 4.8, y(next), 0, t * 4.8 - 0.25, y(t) - 0.1, width);
-    frondVertices.push(t * 4.8, y(t), 0, t * 4.8 - 0.25, y(t) - 0.1, -width, next * 4.8, y(next), 0);
-  }
-  const frondGeo = geo(new THREE.BufferGeometry()); frondGeo.setAttribute('position', new THREE.Float32BufferAttribute(frondVertices, 3)); frondGeo.computeVertexNormals();
-  const palmLeaf = mat('#2e6631', { side: THREE.DoubleSide });
-  const trunkGeo = geo(new THREE.CylinderGeometry(0.18, 0.32, 1, 7));
+  // Royal palms (Roystonea regia, palm-species.ts): the waterfront promenade's allee is Roystonea.
+  const palms = createPalmKit({ geometry: geo, material: m => materials.push(m) });
   function palm(x: number, z: number, height = 11, parent: THREE.Object3D = scene, collision = true, base = 0) {
-    const stem = new THREE.Mesh(trunkGeo, trunk); stem.position.set(x, base + height / 2, z); stem.scale.y = height; stem.castShadow = true; parent.add(stem); treePart(stem, x, base, z, height);
-    for (let j = 0; j < 10; j++) {
-      const frond = new THREE.Mesh(frondGeo, palmLeaf);
-      frond.position.set(x, base + height, z); frond.rotation.y = j / 10 * Math.PI * 2; frond.rotation.z = (j % 3) * 0.15;
-      frond.castShadow = true; parent.add(frond); treePart(frond, x, base, z, height, 1.8);
-    }
+    palms.place('royal', parent, x, base, z, height);
     if (collision) collider(x, z, 1, 1, base + height + 1);
   }
   // Palms on the raised lawn (marina-routes) are rooted in it, not in the paving below.

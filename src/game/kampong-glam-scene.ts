@@ -1,4 +1,3 @@
-import { treePart } from './tree-wind';
 import * as THREE from 'three';
 import { KAMPONG_GLAM_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -29,7 +28,7 @@ export function buildKampongGlamScene() {
     sun: { x: -90, y: 200, z: -120 }, shadow: { extent: 240, far: 600 },
     hemisphere: { sky: '#f8f5ec', ground: '#7d7566', intensity: 1.8 },
   });
-  const { scene, box, cylinder, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
+  const { scene, box, cylinder, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#5b6164'), white = mat('#eae7d9'), paving = mat('#c3bba9'), kerb = mat('#d3ccbc');
   const plaster = mat('#efe7d6'), cream = mat('#e6dcc2'), dark = mat('#3a4448'), wood = mat('#7d6146');
@@ -116,12 +115,8 @@ export function buildKampongGlamScene() {
     for (let z = fromZ; z < toZ; z += 6) box(x, 0.32, z, 42, 0.02, 4.4, (Math.round(z / 6) % 2) ? cream : stone);
     for (let z = fromZ + 8; z < toZ - 12; z += 18) for (const side of [-1, 1]) {
       const px = x + side * 17;
-      treePart(cylinder(px, 4.4, z, 0.45, 8.8, wood), px, 0, z, 8.8); solid(px, z, 1, 1);
-      for (let i = 0; i < 7; i++) {
-        const angle = i * Math.PI * 2 / 7;
-        const frond = blob(px + Math.cos(angle) * 2.6, 9.2 + (i % 3) * 0.5, z + Math.sin(angle) * 2.6, 3.2, 0.7, 1.5, leaf);
-        frond.rotation.y = angle; treePart(frond, px, 0, z, 8.8, 1.8);
-      }
+      // Royal palms (Roystonea regia): an authored avenue palm; the mall's real species is not confirmed.
+      kit.palm('royal', px, z, 8.8); solid(px, z, 1, 1);
       box(px + side * 3.6, 0.85, z + 4, 3.2, 0.2, 3.2, wood); solid(px + side * 3.6, z + 4, 3.4, 3.4);
       for (const dz of [-1.3, 1.3]) box(px + side * 3.6, 0.5, z + 4 + dz, 2.6, 1, 0.9, cream);
     }

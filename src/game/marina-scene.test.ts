@@ -57,7 +57,8 @@ it('uses published SkyPark proportions and batches static details', () => {
     expect(MARINA_LANDMARKS.skyParkWidth / MARINA_LANDMARKS.skyParkLength).toBeCloseTo(38 / 340);
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
     expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(8000);
-    expect(instances.length).toBeLessThan(60);
+    // Royal palms come in three shapes, each a trunk draw and a crown draw (palm-models.ts).
+    expect(instances.length).toBeLessThan(64);
     expect(world.scene.userData.referenceFeatures).toHaveLength(23);
   } finally { world.dispose(); }
 });
@@ -71,10 +72,12 @@ it('models the reviewed facade and landmark details without expanding the play f
     expect(world.scene.userData.qualityDetails).toEqual({ esplanadeSunshades: 472, wheelCapsules: 16, conservatoryGlazingSegments: 224, sandsMullions: 2040 });
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
     // The promenade is 1,728 one-metre module slabs (formerly 4,320 jointed
-    // pavers), so the instanced total sits lower than before the module.
-    expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(12000);
+    // pavers), so the instanced total sits lower than before the module. A palm is
+    // now two instances (trunk, crown), not eleven (trunk and ten fronds).
+    expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(11000);
     expect(instances.filter(mesh => mesh.name === 'marina-promenade-slabs').reduce((sum, mesh) => sum + mesh.count, 0)).toBe(108 * 16);
-    expect(instances.length).toBeLessThan(60);
+    // Royal palms come in three shapes, each a trunk draw and a crown draw (palm-models.ts).
+    expect(instances.length).toBeLessThan(64);
     expect(world.scene.children.length).toBeLessThan(240);
   } finally { world.dispose(); }
 });

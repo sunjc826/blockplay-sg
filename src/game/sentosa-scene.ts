@@ -1,4 +1,3 @@
-import { treePart } from './tree-wind';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -53,7 +52,7 @@ export function buildSentosaScene() {
   const pale = mat('#e8e1d1'), stone = mat('#b7b5ab'), concrete = mat('#adaca2'), dark = mat('#36434a');
   const glass = mat('#72a0b2', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7c6248'), plank = mat('#a07f58');
   const terra = mat('#b3684c'), gold = mat('#c59a34', 0.42, 0.55), rust = mat('#a8563a');
-  const palmLeaf = mat('#4f8a4a'), leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
+  const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const cloth = ['#e6dcc4', '#c96a4a', '#4f8fa0', '#d8b24a'].map(color => mat(color));
 
   // Stop the opaque inland fill before the sloping, submerged sand.
@@ -87,16 +86,9 @@ export function buildSentosaScene() {
   landing(LANDING_X);
   buildBoardwalkConnection(kit, 'sentosa');
 
-  /** Palm: a leaning trunk in collars under a crown of fronds. */
-  function palm(x: number, z: number, height: number, lean = 0) {
-    for (let i = 0; i < 6; i++) treePart(cylinder(x + lean * i * 0.5, height * (i + 0.5) / 6, z, 0.42 - i * 0.02, height / 6, wood), x, 0, z, height);
-    solid(x, z, 1, 1);
-    for (let i = 0; i < 8; i++) {
-      const angle = i * Math.PI / 4;
-      const frond = blob(x + lean * 3 + Math.cos(angle) * 3.2, height + 0.4 - (i % 3) * 0.5, z + Math.sin(angle) * 3.2, 3.6, 0.7, 1.5, palmLeaf);
-      frond.rotation.y = angle; treePart(frond, x, 0, z, height, 1.8);
-    }
-    for (const dz of [-0.9, 0.9]) treePart(blob(x + lean * 3, height - 0.5, z + dz, 1, 0.7, 1, terra), x, 0, z, height);
+  /** Coconut palms (Cocos nucifera): the beachfront palm, leaning as each shape does. */
+  function palm(x: number, z: number, height: number, _lean = 0) {
+    kit.palm('coconut', x, z, height); solid(x, z, 1, 1);
   }
   for (let x = -208; x <= 208; x += 13) {
     if (NS_ROADS.some(road => Math.abs(x - road) < 14) || Math.abs(x - LANDING_X) < 14) continue;

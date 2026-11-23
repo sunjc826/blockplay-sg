@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- The palm species in a row (palm-models.ts), three shapes each, with a 1.75 m figure. Same controls as vegetation.html.
+     Any district's plants, for judging trees, grass, wind and how they react to shots and blasts.
+     ?region=pulau-ubin  &cam=x,y,z  &look=x,y,z  &fov=65  &time=noon (or night, afternoon...)  &weather=sunny (showers, thunderstorm, squall...)  &reduced=1  &shadows=1 (sun shadows; leave off at night)
+     window.veg.step(seconds, frames) advances the world and renders; window.veg.hit(x,y,z,radius,strength) shakes the plants there;
+     window.veg.bodies([{x,y,z,radius}]) presses grass; window.veg.at(cam, look) moves the camera; window.veg.play() runs in real time. -->
+<html><body style="margin:0;background:#000"><script type="module">
+const params=new URLSearchParams(location.search),vec=(s,d)=>s?s.split(',').map(Number):d;
+localStorage.setItem('blockplay-sg-environment-v1', JSON.stringify({weather:params.get('weather')??'sunny',celebration:'none',timeOfDay:params.get('time')??'noon',reducedEffects:params.get('reduced')==='1',shadows:params.get('shadows')==='1',occlusion:true}));
+const {getRegion}=await import('/src/game/regions.ts');
+// The same copy of three the game's modules were given, so their instanceof checks hold.
+const THREE=await import(performance.getEntriesByType('resource').map(e=>e.name).find(n=>/deps\/three\.js/.test(n)));
+const {separateInstancedMaterials}=await import('/src/game/instanced-materials.ts');
+const {createWorldAtmosphere}=await import('/src/game/world-atmosphere.ts');
+const {createNightLights}=await import('/src/game/world-night-lights.ts');
+const {createWorldOcclusion}=await import('/src/game/world-occlusion.ts');
+const {disturbFoliage,setFoliageBodies}=await import('/src/game/foliage-disturbance.ts');
+const W=innerWidth,H=innerHeight;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.autoClear=false;if(params.get('shadows')==='1')renderer.shadowMap.enabled=true;document.body.append(renderer.domElement);
+const {createSceneKit}=await import('/src/game/scene-kit.ts');
+const {createPalmKit}=await import('/src/game/palm-models.ts');
+const {PALM_SPECIES,PALM_SPECS}=await import('/src/game/palm-species.ts');
+const kit=createSceneKit({background:'#a9cfe8',fogNear:140,fogFar:520,look:'coast'});
+const lawn=kit.mat('#6f9a52'),path=kit.mat('#b9b3a4'),figure=kit.mat('#c8553d');
+kit.box(0,-.25,0,160,.5,90,lawn);kit.box(0,.01,9,160,.04,4,path);
+const palms=createPalmKit({geometry:kit.geo,material:()=>{}});
+const report=[];
+PALM_SPECIES.forEach((species,i)=>{for(let j=0;j<3;j++){const x=(i-(PALM_SPECIES.length-1)/2)*24+(j-1)*7.5,z=-j*5+(i%2);const h=PALM_SPECS[species].height*(.88+.12*j);const p=palms.place(species,kit.scene,x,0,z,h);report.push({species,x,z,h,tri:p.model.triangles});}});
+// A 1.75 m figure for scale.
+kit.box(-3,.875,6,.5,1.75,.3,figure);
+const world=kit.finish({car:new THREE.Group(),stamps:[],animate(){}});separateInstancedMaterials(world.scene);
+const region={stamps:[]};window.palmReport=report;
+const atmosphere=createWorldAtmosphere(world.scene,region.stamps,world.obstacles,false,renderer);
+const nightLights={update(){}};
+const camera=new THREE.PerspectiveCamera(Number(params.get('fov')??65),W/H,.08,800);
+const occlusion=createWorldOcclusion(renderer,world.scene,camera);
+let clock=40,wall=Date.now();
+function at(cam=[0,1.7,0],look=[0,1.5,-30]){camera.position.set(...cam);camera.lookAt(...look);camera.updateMatrixWorld(true);}
+function step(seconds=0,frames=1){
+  for(let i=0;i<frames;i++){
+    const dt=seconds/frames;clock+=dt;wall+=dt*1000;
+    atmosphere.update(dt,camera,wall);nightLights.update(atmosphere.light.lighting,clock,dt,camera,renderer,atmosphere.look?.uniforms);
+    world.animate(clock);
+  }
+  renderer.toneMappingExposure=atmosphere.light.lighting.exposure;occlusion.render(true);
+  return {calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,grass:world.scene.userData.groundCover?.grass.count??0};
+}
+at(vec(params.get('cam')),vec(params.get('look')));
+// Weather eases in over several seconds; settle it before the first look.
+step(20,100);
+let playing=0;
+window.veg={world,camera,renderer,at,step,THREE,
+  hit:(x,y,z,radius=3,strength=1)=>disturbFoliage(world.scene,{x,y,z},radius,strength),
+  bodies:list=>setFoliageBodies(world.scene,list),
+  play(){let last=performance.now();const frame=now=>{step(Math.min(.1,(now-last)/1000));last=now;playing=requestAnimationFrame(frame)};playing=requestAnimationFrame(frame);},
+  stop(){cancelAnimationFrame(playing);},ready:true};
+</script></body></html>
