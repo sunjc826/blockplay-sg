@@ -74,3 +74,41 @@ for (const [quality, radius, drops] of [['high',80,6000],['ultra',130,12000]] as
   effects.update(.016,eye,1,0,false,'low');expect(effects.counts.drops).toBe(1200);
   effects.dispose();
 });
+
+describe('asking where rain lands only near a surface', () => {
+  const obstacles = [
+    { minX: -30, maxX: -18, minZ: -9, maxZ: 9, maxY: 40 }, { minX: 6, maxX: 14, minZ: 2, maxZ: 20, maxY: 9 },
+    { minX: 20, maxX: 24, minZ: -24, maxZ: -20, maxY: 16, footprint: [{ x: 20, z: -24 }, { x: 24, z: -24 }, { x: 20, z: -20 }] },
+  ];
+  const ground = (x: number, z: number) => .8 * Math.sin(x * .11) + .5 * Math.cos(z * .07);
+  it('bounds the surface over any rectangle', () => {
+    const surface = createRainSurface(obstacles, ground);
+    for (let x = -40; x < 40; x += 3) for (let z = -40; z < 40; z += 3) {
+      const top = surface.ceiling(x, z, x + 3, z + 3);
+      for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) expect(top).toBeGreaterThanOrEqual(surface(x + i / 2, z + j / 2));
+    }
+    expect(surface.ceiling(0, 0, 3, 3)).toBeLessThan(3); expect(surface.ceiling(-18.5, 0, -15.5, 3)).toBe(40);
+  });
+  it('draws the same rain with a ceiling as without, for a fraction of the questions', () => {
+    const run = (bounded: boolean) => {
+      const surface = createRainSurface(obstacles, ground); let asked = 0;
+      const counted = (x: number, z: number) => { asked++; return surface(x, z); };
+      const effects = createRainEffects(new THREE.Scene(), counted, undefined, bounded ? { ceiling: surface.ceiling } : {}), eye = new THREE.Vector3(0, 1.7, 0);
+      for (let n = 0; n < 150; n++) { eye.x += .2; effects.update(1 / 60, eye, 1, 3, false, 'high', n / 60); }
+      const result = { asked, streaks: Array.from(effects.streaks.geometry.attributes.position.array), splashes: Array.from(effects.splashes.geometry.attributes.position.array), counts: effects.counts };
+      effects.dispose(); return result;
+    };
+    const plain = run(false), bounded = run(true);
+    expect(bounded.streaks).toEqual(plain.streaks); expect(bounded.splashes).toEqual(plain.splashes); expect(bounded.counts).toEqual(plain.counts);
+    expect(plain.counts.splashes).toBeGreaterThan(20);
+    expect(bounded.asked).toBeLessThan(plain.asked * .3);
+  });
+  it('still lands rain on a vehicle that is above everything static', () => {
+    const roof = (x: number, z: number, hit: { height: number; kind?: string }, low = -Infinity) => { if (Math.abs(x) < 4 && Math.abs(z) < 4 && low <= 30 && hit.height < 30) hit.height = 30; return hit; };
+    const effects = createRainEffects(new THREE.Scene(), () => 0, undefined, { ceiling: () => 1, vehicles: roof as never }), eye = new THREE.Vector3(0, 31.7, 0);
+    for (let n = 0; n < 120; n++) effects.update(1 / 60, eye, 1, 0, false, 'high');
+    const p = effects.streaks.geometry.attributes.position;
+    for (let i = 0; i < effects.streaks.geometry.drawRange.count; i += 2) if (Math.abs(p.getX(i)) < 3.9 && Math.abs(p.getZ(i)) < 3.9) expect(p.getY(i + 1)).toBeGreaterThanOrEqual(30);
+    expect(effects.counts.splashes).toBeGreaterThan(5); effects.dispose();
+  });
+});

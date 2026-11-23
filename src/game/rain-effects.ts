@@ -6,20 +6,39 @@ import { gustFactor, gustSheet, gustWave } from './wind-gusts';
 
 export interface RainSplashOptions { strength?: number; normal?: THREE.Vector3; attachment?: THREE.Object3D; velocity?: THREE.Vector3; sprayOnly?: boolean }
 
+/** A grid cell as one integer, exact within 16,000 cells of the origin: no string is built per query. */
+export const rainCell = (x: number, z: number) => (x + 16384) * 32768 + z + 16384;
+/** No surface inside the rectangle stands higher than the result. */
+export type RainCeiling = (minX: number, minZ: number, maxX: number, maxZ: number) => number;
+export interface RainSurface { (x: number, z: number): number; ceiling: RainCeiling }
+/** Metres added over the highest of the ground heights sampled in a rectangle, for a rise between them. */
+const GROUND_RISE = 1;
+
 /** Static column index shared by streak clipping, roof splashes and shelter. */
-export function createRainSurface(obstacles: readonly Obstacle[], ground: (x: number, z: number) => number = () => 0) {
-  const cells = new Map<string, Obstacle[]>(), size = 12;
+export function createRainSurface(obstacles: readonly Obstacle[], ground: (x: number, z: number) => number = () => 0): RainSurface {
+  const cells = new Map<number, Obstacle[]>(), size = 12;
   for (const o of obstacles.filter(o => !o.water)) for (let x = Math.floor(o.minX / size); x <= Math.floor(o.maxX / size); x++)
     for (let z = Math.floor(o.minZ / size); z <= Math.floor(o.maxZ / size); z++) {
-      const key = `${x},${z}`, bucket = cells.get(key) ?? []; bucket.push(o); cells.set(key, bucket);
+      const key = rainCell(x, z), bucket = cells.get(key) ?? []; bucket.push(o); cells.set(key, bucket);
     }
-  return (x: number, z: number) => {
+  const surface = (x: number, z: number) => {
     let height = ground(x, z);
-    for (const o of cells.get(`${Math.floor(x / size)},${Math.floor(z / size)}`) ?? []) {
+    const bucket = cells.get(rainCell(Math.floor(x / size), Math.floor(z / size)));
+    if (bucket) for (const o of bucket) {
       if (x >= o.minX && x <= o.maxX && z >= o.minZ && z <= o.maxZ && (!o.footprint || insideFootprint(o.footprint, x, z))) height = Math.max(height, o.maxY ?? 12);
     }
     return height;
   };
+  /** Every obstacle whose box reaches into the rectangle counts whole; the ground is sampled at the corners and the middle. */
+  const ceiling: RainCeiling = (minX, minZ, maxX, maxZ) => {
+    let top = Math.max(ground(minX, minZ), ground(maxX, minZ), ground(minX, maxZ), ground(maxX, maxZ), ground((minX + maxX) / 2, (minZ + maxZ) / 2)) + GROUND_RISE;
+    for (let x = Math.floor(minX / size); x <= Math.floor(maxX / size); x++) for (let z = Math.floor(minZ / size); z <= Math.floor(maxZ / size); z++) {
+      const bucket = cells.get(rainCell(x, z));
+      if (bucket) for (const o of bucket) if (o.maxX >= minX && o.minX <= maxX && o.maxZ >= minZ && o.minZ <= maxZ) top = Math.max(top, o.maxY ?? 12);
+    }
+    return top;
+  };
+  return Object.assign(surface, { ceiling });
 }
 
 const DROP_COUNT = RAIN_DETAIL.ultra.drops, SPRAY_COUNT = RAIN_DETAIL.ultra.spray, SPRAY_REACH = 42, SPLASH_COUNT = 192, SPOKES = 4, RING_SEGMENTS = 12;
@@ -50,7 +69,16 @@ const sample = (i: number, salt: number) => { const n = Math.sin(i * 127.1 + sal
  * straight and thin; as a front passes it slants, lengthens and brightens in sheets, impacts
  * throw their droplets downwind, and blown spray crosses roofs and roads with the front.
  */
-export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z: number) => number, movingSurface?: (x: number, z: number, hit: VehicleRainHit) => VehicleRainHit) {
+/**
+ * `ceiling` bounds everything `surface` and `movingSurface` can answer over a rectangle; with it, a drop
+ * is only asked where it lands once its streak is down to that height, which is most of the saving in a
+ * large fall. `vehicles` are asked apart from it, as they move: `low` is the streak's lowest point.
+ */
+export interface RainEffectsOptions { ceiling?: RainCeiling; vehicles?: (x: number, z: number, hit: VehicleRainHit, low?: number) => VehicleRainHit }
+/** Metres a side of the cells a ceiling is remembered for. */
+export const CEILING_CELL = 3;
+export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z: number) => number, movingSurface?: (x: number, z: number, hit: VehicleRainHit) => VehicleRainHit, options: RainEffectsOptions = {}) {
+  const { ceiling, vehicles } = options, ceilings = new Map<number, number>();
   const root = new THREE.Group(); root.name = 'rain-effects'; parent.add(root);
   const positions = new Float32Array(DROP_COUNT * 6);
   const gusts = new Float32Array(DROP_COUNT * 2).fill(1);
@@ -115,7 +143,7 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const nearLamps: number[] = []; let lamps: RainLamps | null = null, lampScan = 0;
   const motes = Array.from({ length: SPRAY_COUNT }, () => ({ x: 0, y: 0, z: 0, age: 0, life: 0, size: 1, cycle: 0 }));
   root.traverse(o => { o.raycast = () => {}; o.userData.fpsEffect = true; });
-  const drops = Array.from({ length: DROP_COUNT }, () => ({ x: 0, y: 0, z: 0, far: 0, cycle: 0, ready: false }));
+  const drops = Array.from({ length: DROP_COUNT }, () => ({ x: 0, y: 0, z: 0, far: 0, cycle: 0, ready: false, cell: -1, ceiling: Infinity }));
   const impacts = Array.from({ length: SPLASH_COUNT }, () => ({ x: 0, y: 0, z: 0, age: 1, strength: 0, attachment: undefined as THREE.Object3D | undefined, origin: new THREE.Vector3(), normal: new THREE.Vector3(0, 1, 0), velocity: new THREE.Vector3(), sprayOnly: false }));
   let cursor = 0, disposed = false, detail: WorldDetail = 'low';
   let profile: typeof RAIN_DETAIL[WorldDetail] = RAIN_DETAIL.low;
@@ -123,9 +151,20 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
   const blown = new THREE.Vector3();
   const hit: VehicleRainHit = { height: 0, normal: new THREE.Vector3(0, 1, 0) };
   const impactPoint = new THREE.Vector3(), ringPoint = new THREE.Vector3(), ringNormal = new THREE.Vector3(), u = new THREE.Vector3(), v = new THREE.Vector3(), matrix = new THREE.Matrix3();
-  function sampleSurface(x: number, z: number) {
+  function sampleSurface(x: number, z: number, low?: number) {
     hit.height = surface(x, z); hit.object = undefined; hit.kind = 'solid'; hit.normal.set(0, 1, 0);
-    movingSurface?.(x, z, hit); return hit.height;
+    movingSurface?.(x, z, hit); vehicles?.(x, z, hit, low); return hit.height;
+  }
+  /** The highest anything static stands in the drop's cell, looked up again only when it crosses into another. */
+  function ceilingOver(d: typeof drops[number]) {
+    const cx = Math.floor(d.x / CEILING_CELL), cz = Math.floor(d.z / CEILING_CELL), key = rainCell(cx, cz);
+    if (key === d.cell) return d.ceiling;
+    let top = ceilings.get(key);
+    if (top === undefined) {
+      if (ceilings.size > 60000) ceilings.clear();
+      top = ceiling!(cx * CEILING_CELL, cz * CEILING_CELL, (cx + 1) * CEILING_CELL, (cz + 1) * CEILING_CELL); ceilings.set(key, top);
+    }
+    d.cell = key; return d.ceiling = top;
   }
   function splash(point: THREE.Vector3, options: RainSplashOptions = {}) {
     if (disposed) return;
@@ -190,7 +229,13 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
         const blow = wind * (gustiness ? gustFactor(wave) : 1), veer = .18 + .2 * sheet * gust, fall = 21 + sample(i, 4) * 9;
         // A distant drop at its true speed crosses a pixel or two a frame and reads as drifting; it falls faster the further off it began.
         d.x += blow * step; d.z += blow * veer * step; d.y -= fall * (1 + d.far / RAIN_FAR.speed) * step;
-        const floor = sampleSurface(d.x, d.z), k = i * 6;
+        const length = (.65 + sample(i, 5) * .3) * Math.min(RAIN_FAR.longest, 1 + d.far / RAIN_FAR.stretch) * (1 + .3 * gust), low = d.y - length - .05, k = i * 6;
+        let floor: number;
+        // A streak wholly above everything static in its cell can only meet a vehicle.
+        if (ceiling && low > ceilingOver(d)) {
+          hit.height = -Infinity; hit.object = undefined; hit.kind = 'solid'; hit.normal.set(0, 1, 0);
+          floor = vehicles ? vehicles(d.x, d.z, hit, low).height : -Infinity;
+        } else floor = sampleSurface(d.x, d.z, low);
         let exposed = floor;
         if (d.y <= floor || d.y < eye.y - 12) {
           if (hit.kind !== 'water' && i % 3 === 0 && Math.hypot(d.x - eye.x, d.z - eye.z) < 28 && previousY > floor && d.y <= floor && Math.abs(floor - eye.y) < 9) {
@@ -204,7 +249,7 @@ export function createRainEffects(parent: THREE.Object3D, surface: (x: number, z
           exposed = sampleSurface(d.x, d.z);
         }
         // No segment crosses the exposed surface, including the tail.
-        const bottom = Math.max(exposed + .02, d.y - (.65 + sample(i, 5) * .3) * Math.min(RAIN_FAR.longest, 1 + d.far / RAIN_FAR.stretch) * (1 + .3 * gust));
+        const bottom = Math.max(exposed + .02, d.y - length);
         // The tail trails downwind by the drop's own slope, drawn half again as steep so a gust reads at a glance.
         const visible = d.y > exposed, lean = visible ? (d.y - bottom) / fall * 1.5 : 0;
         positions[k] = d.x; positions[k + 1] = d.y; positions[k + 2] = d.z;

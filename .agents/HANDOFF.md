@@ -17485,3 +17485,29 @@ Rain on the carried gun (2026-11-22, owner: raindrops on the gun, more reflectiv
   That applies to tagged world metal (vehicles, actors' kit) as well as the gun.
 - Checked: tests, typecheck, SwiftShader stills of the SAR 21 dry, wet and under inspection. Not checked: other guns,
   hands (not patched, no beads), night, a real GPU, how "up" holds when the gun is tilted (it uses the model's own up).
+
+Rain's CPU cost (2026-11-23, owner: slowdowns in rain, worst in a helicopter; "do fixes 1-3"):
+- Measured first (Orchard, Ultra, Metal, uncapped): storm 21 ms a frame in the cockpit against 4.8 ms in sun. It was
+  the rain update, not the reflections (a half-resolution screen-space pass; off made no difference): every drop asked
+  where it lands every frame, and over a vehicle that was a raycast against each exterior mesh.
+- `vehicle-rain.ts` draws each rigid piece's top surface once into an 8 cm grid in its own frame (hull, and each of
+  `VEHICLE_MOVING_PARTS`, now in `vehicle-moving-parts.ts`), so a query is a transform and a read wherever the vehicle
+  is. Cells are solid columns: leaning, rain meets a roof's edge where a ray would pass under it. A part that moved on
+  its body is read by ray until still for .3 s, then the body is redrawn; a body past about 45 degrees is read by ray.
+  `sample(x, z, hit, low)` passes over a vehicle wholly below `low`.
+- `rain-effects.ts`: `createRainSurface` returns `surface.ceiling(rect)`, and with `options.ceiling` a drop is only
+  asked where it lands once its streak is down to the highest thing in its 3 m cell. The streaks drawn are identical
+  (tested against a run without it). Vehicles are asked apart from that (`options.vehicles`), as they move.
+  The ground's ceiling is five samples plus 1 m (`GROUND_RISE`): not a true bound on a cliff inside one cell.
+- Cell keys are integers (`rainCell`), and a sample asks for the water once (remembered within the frame in
+  `world-atmosphere.ts`).
+- Checked: tests (grid against rays on both real models, level and banked; a spinning rotor; a moved part; identical
+  streaks), full suite, typecheck. Node benchmark of `atmosphere.update` in Orchard at Ultra, storm minus sun: cockpit
+  flying 9.1 -> 1.4 ms, beside a parked helicopter 12.5 -> 2.3 ms, on foot clear of vehicles 3.5 -> 2.0 ms. The engine
+  ran it under SwiftShader with no errors and no raycasts in the profile.
+- Not checked: the Metal frame times again (the VM's screen was locked, so a new Chrome got no GPU), a tumbling
+  wreck, dragon boats. `scripts/vehicle-rain-smoke.mjs` fails on its own stale cap (expects 1,200 drops; the default
+  rain detail is High, 5,100): its other assertions hold. `fps-rain-smoke` times out finding `.location-card` at /debug.
+  Both untouched here.
+- Left: the wet-ground mask (`rain-reflections.ts`) still builds a string key per cell and clears its whole cache at
+  24,000 entries, a likely hitch in fast flight; `getProgram` shows about 0.5 ms a frame even in sun.

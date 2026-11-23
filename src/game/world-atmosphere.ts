@@ -76,14 +76,18 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
   const driftWeather: AmbientDriftWeather = { wind: 0, rain: 0, sun: 1, night: 0, reduced: false, detail: 'high', mobile: false };
   look?.attach(scene, root);
   const receivers = createRainReceivers(scene), rainGround = scene.userData.rainGroundHeight ?? groundHeight ?? (() => 0);
-  const columns = createRainSurface(obstacles, (x,z) => receivers.water(x,z) ?? rainGround(x,z));
+  // One sample asks for the water here twice (as the ground, then to tell water from solid); the second reads the first's answer.
+  let waterX = NaN, waterZ = NaN, waterY: number | null = null;
+  const waterAt = (x:number,z:number) => { if(x!==waterX||z!==waterZ){waterX=x;waterZ=z;waterY=receivers.water(x,z);}return waterY; };
+  const columns = createRainSurface(obstacles, (x,z) => waterAt(x,z) ?? rainGround(x,z));
   const staticHit = { height: 0, normal: new THREE.Vector3(0,1,0) };
   const rainSurface = (x:number,z:number) => { staticHit.height=columns(x,z);return receivers.sample(x,z,staticHit).height; };
   const vehicleRain = createVehicleRain(scene, groundHeight ?? (() => 0));
   const rainEffects = createRainEffects(root, columns, (x,z,hit) => {
-    const waterY=receivers.water(x,z);hit.kind=waterY!==null&&Math.abs(hit.height-waterY)<.001?'water':'solid';
-    receivers.sample(x,z,hit);return vehicleRain.sample(x,z,hit);
-  });
+    const waterY=waterAt(x,z);hit.kind=waterY!==null&&Math.abs(hit.height-waterY)<.001?'water':'solid';
+    return receivers.sample(x,z,hit);
+  }, { ceiling: (minX,minZ,maxX,maxZ) => Math.max(columns.ceiling(minX,minZ,maxX,maxZ), receivers.ceiling(minX,minZ,maxX,maxZ)),
+    vehicles: (x,z,hit,low) => vehicleRain.sample(x,z,hit,low) });
   const bolts = createLightning(root);
   const wetGround = { surface: scene.userData.groundCover?.wetGround as ((x: number, z: number) => number | null) | undefined, exposed: rainSurface, wetness: 0, time: 0, rain: 0 };
   scene.userData.wetGround = wetGround;
@@ -150,6 +154,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
     lensSky(graded: boolean) { return look ? look.skyAtSun(graded ? scene.userData.colorGrade as ColorGrade : null, lensSky) : null; },
     update(dt: number, camera: THREE.Camera, now = Date.now()) {
       if (disposed) return;
+      waterX = NaN; // The water moves: an answer is only good within the frame.
       const settings = getEnvironmentSettings();
       if (settings !== lastSettings || now - lastCheck >= 1000 || now < lastNow) {
         active = resolveEnvironment(multiplayer ? { ...DEFAULT_ENVIRONMENT, reducedEffects: settings.reducedEffects, shadows: settings.shadows, occlusion: settings.occlusion } : courseSettings(settings), now);

@@ -115,3 +115,85 @@ it('the atmosphere shelters a seated camera but exposes an outside chase camera'
   car.position.x = 8; camera.position.set(7.5, 1.72, -.4); atmosphere.update(.1, camera); expect(atmosphere.air.sheltered).toBe(true);
   camera.position.x = -.5; atmosphere.update(.1, camera); expect(atmosphere.air.sheltered).toBe(false); atmosphere.dispose();
 });
+
+describe('baked vehicle surfaces', () => {
+  /** What a ray straight down finds on the model's receivers, the answer the baked surface stands in for: the height, and whether that face looks up. */
+  function byRay(model: THREE.Object3D, x: number, z: number) {
+    const receivers: THREE.Object3D[] = []; model.traverse(o => { if (o instanceof THREE.Mesh && o.userData.rainReceiver) receivers.push(o); });
+    const hits = new THREE.Raycaster(new THREE.Vector3(x, 60, z), new THREE.Vector3(0, -1, 0)).intersectObjects(receivers, false);
+    if (!hits.length) return null;
+    const top = hits.reduce((a, b) => a.point.y > b.point.y ? a : b);
+    return { height: top.point.y, flat: Math.abs(top.face!.normal.clone().transformDirection(top.object.matrixWorld).y) > .7 };
+  }
+  /** Counts rays cast at the model's receivers from here on. */
+  function countRays(model: THREE.Object3D) {
+    const counter = { rays: 0 };
+    model.traverse(o => { if (o instanceof THREE.Mesh && o.userData.rainReceiver) { const cast = o.raycast; o.raycast = (...args) => { counter.rays++; cast.apply(o, args); }; } });
+    return counter;
+  }
+  it('answers as a ray does on the real models, level, climbing and banked, without casting one', () => {
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+    for (const kind of ['car', 'helicopter'] as const) for (const pose of [[0, 0, 0, 0], [40, .5, .12, -.1], [9, 2.4, -.2, .16]] as const) {
+      const scene = new THREE.Scene(), model = buildVehicleModel(kind); scene.add(model);
+      model.position.set(3, pose[0], -7); model.rotation.set(pose[2], pose[1], pose[3], 'YXZ'); model.updateMatrixWorld(true);
+      const rain = createVehicleRain(scene, () => 0);
+      rain.update(.1, model.position.clone(), 1, false, () => {});
+      const expected: ReturnType<typeof byRay>[] = [], points: [number, number][] = [];
+      for (let x = -3; x <= 3; x += .23) for (let z = -6.5; z <= 6.5; z += .23) { points.push([3 + x, -7 + z]); expected.push(byRay(model, 3 + x, -7 + z)); }
+      const counter = countRays(model);
+      let flat = 0, exact = 0, near = 0, agree = 0;
+      points.forEach(([x, z], i) => {
+        const hit = rain.sample(x, z, { height: -100, normal: new THREE.Vector3(0, 1, 0) }), ray = expected[i];
+        if (!!hit.object === !!ray) agree++;
+        // A face seen nearly edge-on says little: a finger's width sideways is half a metre down it.
+        if (!hit.object || !ray?.flat) return;
+        flat++; if (Math.abs(hit.height - ray.height) < .04) exact++; if (Math.abs(hit.height - ray.height) < .15) near++;
+      });
+      const label = `${kind} ${pose}`, level = !pose[2] && !pose[3];
+      expect(counter.rays, label).toBe(0); expect(flat, label).toBeGreaterThan(150);
+      // Cells are 8 cm, so an outline can be a cell out.
+      expect(agree / points.length, `${label} outline`).toBeGreaterThan(.95);
+      // Leaning, each cell stands as a solid column: rain does not blow in under a roof, where a ray would pass beneath it.
+      if (level) expect(exact / flat, `${label} height`).toBeGreaterThan(.9);
+      else expect(near / flat, `${label} height`).toBeGreaterThan(.9);
+      rain.dispose();
+    }
+  });
+  it('follows a spinning rotor in its own frame', () => {
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => ({ fillRect() {}, fillText() {} }) }) });
+    const scene = new THREE.Scene(), model = buildVehicleModel('helicopter'); scene.add(model);
+    const rain = createVehicleRain(scene, () => 0), rotor = model.getObjectByName('main-rotor')!;
+    rain.update(.1, eye, 1, false, () => {});
+    const counter = countRays(model);
+    for (let n = 0; n < 6; n++) {
+      rotor.rotation.y += .37; rain.update(.016, eye, 1, false, () => {});
+      // Out along a blade, clear of the hull below it.
+      const tip = rotor.localToWorld(new THREE.Vector3(0, 0, -4)), hit = rain.sample(tip.x, tip.z, query());
+      expect(hit.height).toBeGreaterThan(3.1); expect(hit.height).toBeLessThan(3.4);
+      const between = rotor.localToWorld(new THREE.Vector3(2.8, 0, -2.8));
+      expect(rain.sample(between.x, between.z, query()).height).toBeLessThan(3);
+    }
+    expect(counter.rays).toBe(0); rain.dispose();
+  });
+  it('reads a part that has moved on its body by ray until it settles, then draws it where it stands', () => {
+    const { panel, rain, emit } = setup(), counter = { rays: 0 }, cast = panel.raycast;
+    panel.raycast = (...args) => { counter.rays++; cast.apply(panel, args); };
+    expect(rain.sample(0, 0, query()).height).toBeCloseTo(2.05); expect(counter.rays).toBe(0);
+    panel.position.x = 5; panel.updateMatrixWorld(true); rain.update(.05, eye, 1, false, emit);
+    expect(rain.sample(5, 0, query()).height).toBeCloseTo(2.05); expect(counter.rays).toBe(1);
+    expect(rain.sample(0, 0, query()).height).toBe(0);
+    for (let n = 0; n < 8; n++) rain.update(.05, eye, 1, false, emit);
+    counter.rays = 0;
+    expect(rain.sample(5, 0, query()).height).toBeCloseTo(2.05); expect(rain.sample(0, 0, query()).height).toBe(0);
+    expect(counter.rays).toBe(0); rain.dispose();
+  });
+  it('reads a body on its side by ray, and passes over a vehicle below what is asking', () => {
+    const { root, panel, rain, emit } = setup(), counter = { rays: 0 }, cast = panel.raycast;
+    panel.raycast = (...args) => { counter.rays++; cast.apply(panel, args); };
+    expect(rain.sample(0, 0, query(), 2.2).object).toBeUndefined();
+    expect(rain.sample(0, 0, query(), 2).object).toBe(panel); expect(counter.rays).toBe(0);
+    root.rotation.z = 1.3; rain.update(.05, eye, 1, false, emit);
+    const side = panel.localToWorld(new THREE.Vector3(0, 0, 0)), hit = rain.sample(side.x, side.z, query());
+    expect(hit.object).toBe(panel); expect(counter.rays).toBeGreaterThan(0); rain.dispose();
+  });
+});

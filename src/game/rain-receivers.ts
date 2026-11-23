@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { VehicleRainHit } from './vehicle-rain';
+import { rainCell } from './rain-effects';
 
 export type RainContact = 'solid' | 'rail' | 'water';
 interface Receiver { mesh: THREE.Mesh; kind: RainContact; bounds: THREE.Box3; inverse: THREE.Matrix4; floor?: (x: number, z: number) => number | undefined }
@@ -21,10 +22,10 @@ export function captureRainReceivers(scene: THREE.Scene) {
 /** Exact box/plane queries in a small spatial index, independent of inflated
  * movement barriers. Water establishes the base, then decks and rails occlude it. */
 export function createRainReceivers(scene: THREE.Scene) {
-  const cells = new Map<string, Receiver[]>(), receivers = (scene.userData.rainReceivers ?? []) as Receiver[], size = 12;
+  const cells = new Map<number, Receiver[]>(), receivers = (scene.userData.rainReceivers ?? []) as Receiver[], size = 12;
   for (const r of receivers) for (let x=Math.floor(r.bounds.min.x/size);x<=Math.floor(r.bounds.max.x/size);x++)
     for (let z=Math.floor(r.bounds.min.z/size);z<=Math.floor(r.bounds.max.z/size);z++) {
-      const key=`${x}:${z}`, row=cells.get(key)??[];row.push(r);cells.set(key,row);
+      const key=rainCell(x,z), row=cells.get(key)??[];row.push(r);cells.set(key,row);
     }
   const ray = new THREE.Ray(), point = new THREE.Vector3(), down = new THREE.Vector3(0,-1,0), world = new THREE.Vector3();
   const hits: THREE.Intersection[] = [], caster = new THREE.Raycaster();
@@ -49,7 +50,7 @@ export function createRainReceivers(scene: THREE.Scene) {
   return {
     water(x:number,z:number) {
       let top: number | null=null;
-      for(const r of cells.get(`${Math.floor(x/size)}:${Math.floor(z/size)}`)??[])if(r.kind==='water'){
+      for(const r of cells.get(rainCell(Math.floor(x/size),Math.floor(z/size)))??[])if(r.kind==='water'){
         const y=height(r,x,z);if(y!==null){
           const material=r.mesh.material as THREE.ShaderMaterial, u=material.uniforms;
           const time=u?.uTime?.value??0, chop=u?.uChop?.value??0;
@@ -62,8 +63,16 @@ export function createRainReceivers(scene: THREE.Scene) {
       }
       return top;
     },
+    /** Nothing here stands higher than this anywhere in the rectangle (-Infinity: nothing there). Water is given room for its chop. */
+    ceiling(minX:number,minZ:number,maxX:number,maxZ:number) {
+      let top=-Infinity;
+      for(let x=Math.floor(minX/size);x<=Math.floor(maxX/size);x++)for(let z=Math.floor(minZ/size);z<=Math.floor(maxZ/size);z++)
+        for(const r of cells.get(rainCell(x,z))??[])if(r.bounds.max.x>=minX&&r.bounds.min.x<=maxX&&r.bounds.max.z>=minZ&&r.bounds.min.z<=maxZ)
+          top=Math.max(top,r.bounds.max.y+(r.kind==='water'?.5:0));
+      return top;
+    },
     sample(x:number,z:number,hit:VehicleRainHit) {
-      for(const r of cells.get(`${Math.floor(x/size)}:${Math.floor(z/size)}`)??[])if(r.kind!=='water'){
+      for(const r of cells.get(rainCell(Math.floor(x/size),Math.floor(z/size)))??[])if(r.kind!=='water'){
         const y=height(r,x,z);if(y!==null&&y>hit.height){hit.height=y;hit.kind=r.kind;hit.normal.set(0,1,0);}
       }
       return hit;
