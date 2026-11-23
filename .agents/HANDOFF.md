@@ -17572,3 +17572,19 @@ Owner asked for the sun's glint on metal beams (not glass; a per-pane glass tilt
   Check highlight changes there before showing them.
 - Checked: tests, typecheck, GPU stills of Marina and Raffles in sunny afternoon, SwiftShader stills at night, and the
   owner looked at it live. Not checked: rain, frame rate, the browser smokes, the shader warm-up list.
+
+## Botanic Gardens level proposal (2026-11-23, nothing built)
+
+Owner agreed to a Botanic Gardens level as the vegetation testing ground and asked for the layout to be drawn first.
+- The review board cannot hold it yet: `parseReview` requires `district` to be a registered `RegionId`, and registering
+  one means building the district. The proposal is therefore a private page, https://claude.ai/artifact/BmeZPovcjpqB2qcm8kW3U3
+  (owner's account), drawn from `docs/level-reviews/botanic-gardens-plan.json` (world metres; terrain, water, buildings,
+  three lanes, cross links, eight overlooks, objectives, posts).
+- `docs/level-reviews/botanic-gardens-threads.json` is the same proposal as 19 board threads with stable IDs. It only
+  validates once `botanic-gardens` is a region id (or the board learns a "planned site"); do not push it before then.
+- Layout facts come from the official SBG visitor map (August 2026) and NParks pages; heights, the valley step and the
+  six palm plots are authored. Scope is the Tanglin and Central cores; the north post is beside the Cool House so the
+  lanes measure 519 / 563 / 629 m.
+- Waiting on the owner's verdict per numbered item, and on seven decisions listed at the foot of the page (board
+  support for planned sites, scope, graded ground to 11 m, leaves not stopping rounds, north post, reference captures,
+  four more plants). Build nothing before that. The Marina Bay reading on the board still has no verdicts either.

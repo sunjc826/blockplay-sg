@@ -1,0 +1,1018 @@
+{
+ "id": "botanic-gardens",
+ "name": "Botanic Gardens",
+ "status": "proposal, nothing built",
+ "frame": "World metres. x grows east, z grows south (north is -z, as on the review board). Heights are metres above the lake level.",
+ "bounds": {
+  "minX": -215,
+  "maxX": 215,
+  "minZ": -265,
+  "maxZ": 265
+ },
+ "roads": [
+  {
+   "id": "cluny",
+   "name": "Cluny Road",
+   "points": [
+    [
+     205,
+     -262
+    ],
+    [
+     205,
+     262
+    ]
+   ]
+  },
+  {
+   "id": "napier",
+   "name": "Holland Road / Napier Road",
+   "points": [
+    [
+     -205,
+     258
+    ],
+    [
+     205,
+     258
+    ]
+   ]
+  },
+  {
+   "id": "tyersall",
+   "name": "Tyersall Avenue",
+   "points": [
+    [
+     -205,
+     262
+    ],
+    [
+     -205,
+     -262
+    ]
+   ]
+  },
+  {
+   "id": "north",
+   "name": "North service road",
+   "points": [
+    [
+     -205,
+     -258
+    ],
+    [
+     205,
+     -258
+    ]
+   ]
+  },
+  {
+   "id": "ring",
+   "name": "Dell Lane and Lower Ring Road",
+   "points": [
+    [
+     -205,
+     34
+    ],
+    [
+     -70,
+     30
+    ],
+    [
+     0,
+     36
+    ],
+    [
+     70,
+     40
+    ],
+    [
+     205,
+     36
+    ]
+   ]
+  }
+ ],
+ "terrain": [
+  {
+   "id": "bandstand-hill",
+   "name": "Bandstand hill",
+   "kind": "hill",
+   "cx": 5,
+   "cz": 95,
+   "rx": 56,
+   "rz": 46,
+   "top": 6
+  },
+  {
+   "id": "orchid-hill",
+   "name": "Orchid hill",
+   "kind": "hill",
+   "cx": -125,
+   "cz": -40,
+   "rx": 78,
+   "rz": 86,
+   "top": 11,
+   "steps": [
+    4,
+    8,
+    11
+   ]
+  },
+  {
+   "id": "forest-ridge",
+   "name": "Rain forest ridge",
+   "kind": "ridge",
+   "x": 80,
+   "z": -110,
+   "w": 120,
+   "d": 220,
+   "top": 5
+  },
+  {
+   "id": "valley",
+   "name": "Palm Valley",
+   "kind": "valley",
+   "points": [
+    [
+     -42,
+     8
+    ],
+    [
+     58,
+     8
+    ],
+    [
+     78,
+     -150
+    ],
+    [
+     -62,
+     -150
+    ]
+   ],
+   "head": 6,
+   "foot": 1,
+   "lip": {
+    "z": -62,
+    "drop": 1.5
+   }
+  },
+  {
+   "id": "corner-rise",
+   "name": "Corner House slope",
+   "kind": "hill",
+   "cx": 98,
+   "cz": -192,
+   "rx": 30,
+   "rz": 24,
+   "top": 4
+  }
+ ],
+ "water": [
+  {
+   "id": "swan-lake",
+   "name": "Swan Lake",
+   "cx": -105,
+   "cz": 188,
+   "rx": 60,
+   "rz": 40,
+   "island": {
+    "cx": -112,
+    "cz": 176,
+    "r": 9
+   }
+  },
+  {
+   "id": "symphony-lake",
+   "name": "Symphony Lake",
+   "cx": 22,
+   "cz": -204,
+   "rx": 66,
+   "rz": 36,
+   "island": {
+    "cx": -12,
+    "cz": -182,
+    "r": 16
+   }
+  }
+ ],
+ "buildings": [
+  {
+   "id": "botany-centre-a",
+   "name": "Botany Centre",
+   "x": 62,
+   "z": 212,
+   "w": 72,
+   "d": 26,
+   "storeys": 2,
+   "enter": "open ground-floor arcade"
+  },
+  {
+   "id": "botany-centre-b",
+   "name": "Botany Centre (north wing)",
+   "x": 124,
+   "z": 176,
+   "w": 26,
+   "d": 40,
+   "storeys": 2,
+   "enter": "open ground-floor arcade"
+  },
+  {
+   "id": "holttum-hall",
+   "name": "Holttum Hall",
+   "x": 52,
+   "z": 176,
+   "w": 18,
+   "d": 14,
+   "storeys": 2,
+   "enter": "ground floor and stair"
+  },
+  {
+   "id": "bandstand",
+   "name": "Bandstand",
+   "x": -1,
+   "z": 89,
+   "w": 12,
+   "d": 12,
+   "storeys": 1,
+   "enter": "open octagon, roofed",
+   "round": true
+  },
+  {
+   "id": "swan-gazebo",
+   "name": "Swan Lake gazebo",
+   "x": -100,
+   "z": 222,
+   "w": 9,
+   "d": 9,
+   "storeys": 1,
+   "enter": "open, roofed",
+   "round": true
+  },
+  {
+   "id": "corner-house",
+   "name": "Corner House",
+   "x": 88,
+   "z": -200,
+   "w": 20,
+   "d": 16,
+   "storeys": 2,
+   "enter": "both floors, verandah on three sides, at the top of a slope"
+  },
+  {
+   "id": "burkill-hall",
+   "name": "Burkill Hall",
+   "x": -130,
+   "z": -52,
+   "w": 22,
+   "d": 16,
+   "storeys": 2,
+   "enter": "both floors, verandah all round"
+  },
+  {
+   "id": "cool-house",
+   "name": "Cool House",
+   "x": -128,
+   "z": -168,
+   "w": 36,
+   "d": 18,
+   "storeys": 1,
+   "enter": "glasshouse, two doors, fogged interior"
+  },
+  {
+   "id": "stage",
+   "name": "Symphony Stage",
+   "x": -26,
+   "z": -192,
+   "w": 28,
+   "d": 20,
+   "storeys": 1,
+   "enter": "open shell facing the valley",
+   "round": false
+  },
+  {
+   "id": "visitor-centre",
+   "name": "Nassim Gate visitor centre",
+   "x": 124,
+   "z": -212,
+   "w": 62,
+   "d": 24,
+   "storeys": 1,
+   "enter": "open concourse under a long roof"
+  }
+ ],
+ "areas": [
+  {
+   "id": "tanglin-court",
+   "name": "Tanglin Gate court",
+   "points": [
+    [
+     -30,
+     240
+    ],
+    [
+     140,
+     240
+    ],
+    [
+     140,
+     262
+    ],
+    [
+     -30,
+     262
+    ]
+   ],
+   "note": "Gate court along the Botany Centre. South command post."
+  },
+  {
+   "id": "lawn-e",
+   "name": "Lawn E",
+   "points": [
+    [
+     -34,
+     142
+    ],
+    [
+     40,
+     142
+    ],
+    [
+     40,
+     204
+    ],
+    [
+     -34,
+     204
+    ]
+   ],
+   "note": "Open lawn under the heritage Tembusu, between Swan Lake and the Bandstand hill."
+  },
+  {
+   "id": "ginger-garden",
+   "name": "Ginger Garden",
+   "points": [
+    [
+     -180,
+     62
+    ],
+    [
+     -88,
+     62
+    ],
+    [
+     -88,
+     124
+    ],
+    [
+     -180,
+     124
+    ]
+   ],
+   "note": "Head-high gingers and heliconias; waterfall wall on its north side with a passage behind the water."
+  },
+  {
+   "id": "orchid-garden",
+   "name": "National Orchid Garden",
+   "points": [
+    [
+     -200,
+     -122
+    ],
+    [
+     -52,
+     -122
+    ],
+    [
+     -52,
+     22
+    ],
+    [
+     -200,
+     22
+    ]
+   ],
+   "note": "Terraced hill; trellised paths, hedged rooms."
+  },
+  {
+   "id": "rain-forest",
+   "name": "Rain Forest",
+   "points": [
+    [
+     80,
+     -110
+    ],
+    [
+     200,
+     -110
+    ],
+    [
+     200,
+     110
+    ],
+    [
+     80,
+     110
+    ]
+   ],
+   "note": "Closed canopy; raised boardwalk; two clearings."
+  },
+  {
+   "id": "orchid-plaza",
+   "name": "Orchid Plaza",
+   "points": [
+    [
+     -30,
+     2
+    ],
+    [
+     52,
+     2
+    ],
+    [
+     52,
+     30
+    ],
+    [
+     -30,
+     30
+    ]
+   ],
+   "note": "Paved saddle at the head of Palm Valley: crane fountain, clock tower, the Orchid Garden gate and the end of Maranta Avenue."
+  },
+  {
+   "id": "secret-ravine",
+   "name": "Secret Ravine and Cool House",
+   "points": [
+    [
+     -176,
+     -190
+    ],
+    [
+     -68,
+     -190
+    ],
+    [
+     -68,
+     -126
+    ],
+    [
+     -176,
+     -126
+    ]
+   ],
+   "note": "A sunken, planted path between rock walls leading to the glasshouse. North command post beside it."
+  },
+  {
+   "id": "evolution-garden",
+   "name": "Evolution Garden",
+   "points": [
+    [
+     70,
+     -262
+    ],
+    [
+     200,
+     -262
+    ],
+    [
+     200,
+     -226
+    ],
+    [
+     70,
+     -226
+    ]
+   ],
+   "note": "Petrified wood columns, cycads and tree ferns along a winding path."
+  },
+  {
+   "id": "nassim-court",
+   "name": "Nassim Gate court",
+   "points": [
+    [
+     112,
+     -214
+    ],
+    [
+     200,
+     -214
+    ],
+    [
+     200,
+     -156
+    ],
+    [
+     112,
+     -156
+    ]
+   ],
+   "note": "Visitor centre concourse and drop-off. Not a command post: the far end of the long flank."
+  }
+ ],
+ "palmIslands": [
+  [
+   -14,
+   -12
+  ],
+  [
+   30,
+   -28
+  ],
+  [
+   -26,
+   -52
+  ],
+  [
+   36,
+   -82
+  ],
+  [
+   -12,
+   -104
+  ],
+  [
+   40,
+   -128
+  ]
+ ],
+ "objectives": [
+  {
+   "id": "obj-bandstand",
+   "name": "Bandstand",
+   "x": 5,
+   "z": 95,
+   "y": 6
+  },
+  {
+   "id": "obj-plaza",
+   "name": "Orchid Plaza",
+   "x": 12,
+   "z": 16,
+   "y": 6
+  },
+  {
+   "id": "obj-stage",
+   "name": "Symphony Stage",
+   "x": -12,
+   "z": -182,
+   "y": 1
+  }
+ ],
+ "posts": [
+  {
+   "id": "post-south",
+   "name": "South command post",
+   "x": 56,
+   "z": 248
+  },
+  {
+   "id": "post-north",
+   "name": "North command post",
+   "x": -112,
+   "z": -206
+  }
+ ],
+ "routes": [
+  {
+   "id": "lane-hill",
+   "name": "Lane A: the hill",
+   "tone": "proposal",
+   "level": "Ground to 11 m",
+   "points": [
+    [
+     56,
+     248,
+     0
+    ],
+    [
+     -34,
+     212,
+     0
+    ],
+    [
+     -40,
+     160,
+     1
+    ],
+    [
+     -78,
+     124,
+     2
+    ],
+    [
+     -120,
+     100,
+     3
+    ],
+    [
+     -130,
+     64,
+     4
+    ],
+    [
+     -124,
+     26,
+     4
+    ],
+    [
+     -120,
+     -12,
+     8
+    ],
+    [
+     -118,
+     -42,
+     11
+    ],
+    [
+     -104,
+     -90,
+     7
+    ],
+    [
+     -96,
+     -135,
+     3
+    ],
+    [
+     -112,
+     -206,
+     2
+    ]
+   ]
+  },
+  {
+   "id": "lane-valley",
+   "name": "Lane B: the valley",
+   "tone": "proposal",
+   "level": "Ground to 6 m",
+   "points": [
+    [
+     56,
+     248,
+     0
+    ],
+    [
+     8,
+     160,
+     1
+    ],
+    [
+     5,
+     95,
+     6
+    ],
+    [
+     2,
+     48,
+     5
+    ],
+    [
+     12,
+     16,
+     6
+    ],
+    [
+     6,
+     -12,
+     5.5
+    ],
+    [
+     0,
+     -60,
+     4
+    ],
+    [
+     -4,
+     -110,
+     2
+    ],
+    [
+     -40,
+     -152,
+     1
+    ],
+    [
+     -112,
+     -206,
+     2
+    ]
+   ]
+  },
+  {
+   "id": "lane-forest",
+   "name": "Lane C: the forest",
+   "tone": "proposal",
+   "level": "Ground to 6.5 m boardwalk, then the lake shore",
+   "points": [
+    [
+     56,
+     248,
+     0
+    ],
+    [
+     112,
+     190,
+     1
+    ],
+    [
+     126,
+     112,
+     3
+    ],
+    [
+     136,
+     60,
+     6
+    ],
+    [
+     140,
+     0,
+     6
+    ],
+    [
+     118,
+     -46,
+     6.5
+    ],
+    [
+     68,
+     -100,
+     3
+    ],
+    [
+     40,
+     -152,
+     1.5
+    ],
+    [
+     -12,
+     -182,
+     1
+    ],
+    [
+     -50,
+     -214,
+     1
+    ],
+    [
+     -112,
+     -206,
+     2
+    ]
+   ]
+  },
+  {
+   "id": "link-ring",
+   "name": "Cross link: Dell Lane and Lower Ring Road",
+   "tone": "proposal",
+   "level": "Ground, 3 to 5 m",
+   "points": [
+    [
+     -205,
+     34,
+     3
+    ],
+    [
+     -70,
+     30,
+     4
+    ],
+    [
+     0,
+     36,
+     5
+    ],
+    [
+     70,
+     40,
+     5
+    ],
+    [
+     205,
+     36,
+     4
+    ]
+   ]
+  },
+  {
+   "id": "link-maranta",
+   "name": "Cross link: Maranta Avenue",
+   "tone": "proposal",
+   "level": "Ground, 5 to 6 m",
+   "points": [
+    [
+     36,
+     74,
+     5
+    ],
+    [
+     66,
+     50,
+     5
+    ],
+    [
+     58,
+     10,
+     6
+    ]
+   ]
+  },
+  {
+   "id": "link-flank",
+   "name": "Cross link: the long flank by Nassim Gate",
+   "tone": "proposal",
+   "level": "Ground, 1 to 5 m",
+   "points": [
+    [
+     130,
+     -100,
+     5
+    ],
+    [
+     152,
+     -140,
+     3
+    ],
+    [
+     150,
+     -176,
+     2
+    ],
+    [
+     100,
+     -212,
+     4
+    ],
+    [
+     72,
+     -244,
+     2
+    ],
+    [
+     -8,
+     -246,
+     1
+    ],
+    [
+     -50,
+     -214,
+     1
+    ]
+   ]
+  }
+ ],
+ "sightlines": [
+  {
+   "id": "sight-bandstand-road",
+   "name": "Bandstand over Main Gate Road at the lake",
+   "tone": "proposal",
+   "from": [
+    5,
+    95,
+    7.6
+   ],
+   "to": [
+    -32,
+    146,
+    2.6
+   ]
+  },
+  {
+   "id": "sight-waterfall-ginger",
+   "name": "Waterfall top over the Ginger Garden path",
+   "tone": "proposal",
+   "from": [
+    -132,
+    58,
+    8.6
+   ],
+   "to": [
+    -120,
+    96,
+    4.6
+   ]
+  },
+  {
+   "id": "sight-burkill-lookout",
+   "name": "Burkill Hall verandah over the east lookout",
+   "tone": "proposal",
+   "from": [
+    -108,
+    -45,
+    15.6
+   ],
+   "to": [
+    -66,
+    -48,
+    9.6
+   ]
+  },
+  {
+   "id": "sight-orchid-valley",
+   "name": "Orchid east lookout over the upper valley",
+   "tone": "proposal",
+   "from": [
+    -66,
+    -48,
+    9.6
+   ],
+   "to": [
+    -26,
+    -52,
+    5.2
+   ]
+  },
+  {
+   "id": "sight-forest-plaza",
+   "name": "Rain forest gate over Orchid Plaza",
+   "tone": "proposal",
+   "from": [
+    82,
+    22,
+    7.6
+   ],
+   "to": [
+    30,
+    16,
+    7.6
+   ]
+  },
+  {
+   "id": "sight-forest-valley",
+   "name": "Forest lookout over the lower valley",
+   "tone": "proposal",
+   "from": [
+    82,
+    -46,
+    8.1
+   ],
+   "to": [
+    36,
+    -82,
+    4.6
+   ]
+  },
+  {
+   "id": "sight-stage-lawn",
+   "name": "Stage over the valley foot",
+   "tone": "proposal",
+   "from": [
+    -12,
+    -182,
+    3.6
+   ],
+   "to": [
+    5,
+    -125,
+    3.1
+   ]
+  },
+  {
+   "id": "sight-corner-shore",
+   "name": "Corner House verandah over the lake's east shore",
+   "tone": "proposal",
+   "from": [
+    98,
+    -192,
+    8.6
+   ],
+   "to": [
+    52,
+    -164,
+    3.1
+   ]
+  },
+  {
+   "id": "sight-valley-axis",
+   "name": "The line to prevent: valley head to the stage",
+   "tone": "problem",
+   "from": [
+    8,
+    4,
+    7.6
+   ],
+   "to": [
+    -12,
+    -182,
+    2.6
+   ]
+  }
+ ],
+ "sources": [
+  "https://sbg.nparks.gov.sg/visit/general-info/ (official visitor map, August 2026)",
+  "https://sbg.nparks.gov.sg/attractions/the-gardens/",
+  "https://sbg.nparks.gov.sg/attractions/heritage-trees-and-landscapes/",
+  "https://sbg.nparks.gov.sg/attractions/nature-areas/",
+  "https://sbg.nparks.gov.sg/about/our-history/",
+  "https://whc.unesco.org/en/list/1483/",
+  "https://www.ura.gov.sg/conservation/find-a-building/conservation-portal/sbg/",
+  "https://heritagetrees.nparks.gov.sg/explore/heritage-tree-register/"
+ ],
+ "tembusu": [
+  -8,
+  168
+ ]
+}
