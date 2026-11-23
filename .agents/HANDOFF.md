@@ -17551,3 +17551,21 @@ actual Singapore plants researched from NParks.
 - Still open from the review list: crowns/fronds stopping rounds (owner's call), lasting damage, blast stripping,
   dynamic felling, a generated replacement for the kit tree, understorey, LODs, and a Botanic Gardens level as the
   testing ground (layout to the review board first).
+
+## Brushed steel bars and bloom fireflies (2026-11-23)
+
+Owner asked for the sun's glint on metal beams (not glass; a per-pane glass tilt trial was shown and dropped).
+
+- `metal-bar.ts`: `roundMetalBars(material)` shades long thin faces of unit-box bars (under 0.6 m across, 3:1 or
+  longer) as a rounded, brushed section: the normal swings across the bar, follows the sun's half vector along it, and
+  roughness rises with the normal's screen-space change so a bar a pixel or two wide gets a soft sheen instead of
+  beads. Works on plain and instanced unit boxes; tubes and plates are untouched. Cache key suffix `round-bars-v3`.
+- Applied to Marina `steel` and `helixSteel` and Raffles `silver` only (roughness about .24, metalness .7 to .75,
+  envMapIntensity 1.4). Other districts' steel is unchanged.
+- `world-occlusion.ts`: the bloom extraction now averages four taps and caps a source pixel at `BLOOM_SOURCE_CAP` (6).
+  One unfiltered, unbounded sample turned one-pixel sun highlights into blocky blobs at quarter resolution. This
+  touches every bloom source; lamps, muzzle flash and sun on water were not compared before and after.
+- The beading and blobs only showed on the real GPU (headless Chrome with Metal); SwiftShader stills looked clean.
+  Check highlight changes there before showing them.
+- Checked: tests, typecheck, GPU stills of Marina and Raffles in sunny afternoon, SwiftShader stills at night, and the
+  owner looked at it live. Not checked: rain, frame rate, the browser smokes, the shader warm-up list.

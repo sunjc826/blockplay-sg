@@ -84,10 +84,25 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
     stabilizeGtao(gtao);
     aoTemporal = createAoTemporal();
   }
+  /** Brightest scene value a pixel may hand to bloom (the extraction threshold is 1.4). */
+  const BLOOM_SOURCE_CAP = 6;
   function buildBloom() {
     // The pass halves this again: its largest blur target is quarter resolution.
     bloom = new UnrealBloomPass(new THREE.Vector2(Math.max(32, Math.ceil(sceneTarget!.width / 2)), Math.max(32, Math.ceil(sceneTarget!.height / 2))), .12, 0, 1.4);
     bloom.materialHighPassFilter.uniforms.smoothWidth.value = .3;
+    // A sun highlight on polished metal or glass is hundreds of times brighter than the threshold and often one
+    // pixel wide. Unbounded and point-sampled, such a line became a string of blocky blobs in the quarter-resolution
+    // blur; cap what one pixel can add and average a wider footprint on the way down.
+    const highPass = bloom.materialHighPassFilter;
+    highPass.uniforms.sourceTexel = { value: new THREE.Vector2(1 / sceneTarget!.width, 1 / sceneTarget!.height) };
+    highPass.fragmentShader = highPass.fragmentShader.replace('uniform sampler2D tDiffuse;', 'uniform sampler2D tDiffuse;\n\t\tuniform vec2 sourceTexel;')
+      .replace('vec4 texel = texture2D( tDiffuse, vUv );', `vec4 texel = vec4(0.0);
+        for (int i = 0; i < 4; i++) {
+          vec4 tap = texture2D(tDiffuse, vUv + vec2(i == 0 || i == 2 ? -1.0 : 1.0, i < 2 ? -1.0 : 1.0) * sourceTexel);
+          tap.rgb *= min(1.0, ${BLOOM_SOURCE_CAP.toFixed(1)} / max(max(tap.r, tap.g), max(tap.b, 1e-4)));
+          texel += tap * 0.25;
+        }`);
+    bloom.materialHighPassFilter.needsUpdate = true;
     // Add light without overwriting scene coverage: otherwise transparent sky
     // pixels become opaque black and lose the separately drawn sky colour.
     Object.assign(bloom.blendMaterial, { blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
@@ -118,6 +133,7 @@ export function createWorldOcclusion(renderer: THREE.WebGLRenderer, scene: THREE
       smaaTarget?.setSize(size.x, size.y); smaa?.setSize(size.x, size.y);
       gtao?.setSize(Math.ceil(size.x / 2), Math.ceil(size.y / 2));
       bloom?.setSize(Math.max(32, Math.ceil(size.x / 2)), Math.max(32, Math.ceil(size.y / 2)));
+      bloom?.materialHighPassFilter.uniforms.sourceTexel?.value.set(1 / size.x, 1 / size.y);
     },
     /** Draws the world to the canvas, with occlusion when `want` and the GPU allow. Returns whether it was applied.
      * `sunBlocker` is drawn later by the caller, over this picture; here it only shades the god rays. */

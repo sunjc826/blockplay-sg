@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { captureFoliageDrift } from './ambient-drift';
 import * as THREE from 'three';
@@ -66,7 +67,7 @@ export function buildRafflesScene() {
   const grass = mat('#8e9d70'), leaf = mat('#4d7243'), wood = mat('#80654d'), orange = mat('#f0a044'), water = createDistrictWater('#598e9b', { sun: sun.position, background: scene.background as THREE.Color });
   materials.push(water);
   glass.roughness=0.28;glass.metalness=0.25;blue.roughness=0.34;blue.metalness=0.18;
-  const glazingLight=mat('#90a7ad'),iron=mat('#36594a'),tileDark=mat('#965d48'),silver=mat('#b8c0c0');silver.roughness=0.32;silver.metalness=0.55;
+  const glazingLight=mat('#90a7ad'),iron=mat('#36594a'),tileDark=mat('#965d48'),silver=mat('#b8c0c0');silver.roughness=0.24;silver.metalness=0.7;silver.envMapIntensity=1.4;roundMetalBars(silver);
   const cylinderGeo=geo(new THREE.CylinderGeometry(1,1,1,10));
   function cylinder(x:number,y:number,z:number,r:number,h:number,material:THREE.Material){const m=new THREE.Mesh(cylinderGeo,material);m.position.set(x,y,z);m.scale.set(r,h,r);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;}
   function box(x: number, y: number, z: number, w: number, h: number, d: number, material: THREE.Material, parent: THREE.Object3D = scene, shadow = false) {

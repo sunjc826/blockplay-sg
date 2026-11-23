@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { createPalmKit } from './palm-models';
 import { withMarinaInteriors } from './marina-interiors';
@@ -116,7 +117,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   const orange = mat('#ed8e42'), mint = mat('#5dafa6');
   const water = createWaterMaterial({ deep: '#1d4750', shallow: '#3d7c84', sky: '#8db6d4', horizon: '#557788', sun: sun.position, clarity: 0.55, choppiness: 0.9 });
   materials.push(water);
-  const steel = mat('#a6afb2', { roughness: 0.35, metalness: 0.65 }), wood = mat('#766257'), hedge = mat('#466b2d');
+  const steel = roundMetalBars(mat('#a6afb2', { roughness: 0.24, metalness: 0.7, envMapIntensity: 1.4 })), wood = mat('#766257'), hedge = mat('#466b2d');
   const detail = (source: THREE.MeshStandardMaterial, width: number, backing?: THREE.Color) => {
     const material = filterThinDetail(source, width * S, backing); materials.push(material); return material;
   };
@@ -762,7 +763,7 @@ export function buildMarinaScene(options: { batchFlyer?: boolean } = {}) {
   // Helix Bridge, in world metres. The deck, stairs and piers are walkable
   // structure (marina-routes); this is the steel that names it: two pairs of
   // counter-wound tubes round the deck, clear of anyone standing on it.
-  const hx = MARINA_HELIX, helixSteel = mat('#c2cacc', { roughness: .3, metalness: .7 });
+  const hx = MARINA_HELIX, helixSteel = roundMetalBars(mat('#c2cacc', { roughness: .22, metalness: .75, envMapIntensity: 1.4 }));
   for (const [turns, radius, thickness] of [[7, 1, .1], [-7, .93, .07]]) for (const phase of [0, Math.PI]) {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 168; i++) {
