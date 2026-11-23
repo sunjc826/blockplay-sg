@@ -120,3 +120,41 @@ is in vertex colours, not textures.
 
 Review: `scripts/fixtures/palms.html` shows the four species, three shapes each,
 beside a 1.75 m figure, with the same controls as `vegetation.html`.
+
+## Botanic Gardens plants (24 November 2026)
+
+Five more plants, built for the Botanic Gardens district. Morphology is from the
+NParks pages named below, read on 24 November 2026. Numbers live in
+`src/game/plant-species.ts` (and `palm-species.ts` for the nibong), geometry in
+`src/game/plant-models.ts`. Original procedural geometry; no photographs,
+textures or outside models. `scripts/fixtures/plants.html` shows them in a row.
+
+| Species and status (as NParks states it) | Evidence | Geometry and placement |
+| --- | --- | --- |
+| Nibong, *Oncosperma tigillarium* — native, Least Concern | [FFW 2659](https://www.nparks.gov.sg/florafaunaweb/flora/2/6/2659): tall, slender, tuft-forming palm massed with armed trunks; trunks to 15 cm across, ringed, up to 50 to a clump, densely armed with slender black spines 5–10 cm long; conspicuous armed crownshaft; pendulous, arched fronds with drooping leaflets; purple to black fruit 1 cm across | Six slender stems to a clump, black spines standing off each, hanging leaflets. On Swan Lake's island and at its shore |
+| Tembusu, *Cyrtophyllum fragrans* — native, Least Concern | [FFW 2895](https://www.nparks.gov.sg/florafaunaweb/flora/2/8/2895): to 30 m, deeply fissured bark, buttress roots to 2.5 m tall, irregular shape, elliptic leaves 5–13 cm, berries turning orange or red. [HT 2001-26](https://heritagetrees.nparks.gov.sg/heritagetrees/ht-2001-26/): the Lawn E tree is 20 m tall with a 5 m girth, dark brown fissured bark, light green leaves and a "unique lower lateral branch" | Dark bark in alternating strips, limbs that leave level and turn up, small buttresses, orange berries. Half the lawn trees; the Lawn E tree is its own shape with the long low limb |
+| Jelawai Jaha, *Terminalia subspathulata* — native, Critically Endangered | [HT 2001-25](https://heritagetrees.nparks.gov.sg/heritagetrees/ht-2001-25/), the tree at the Rain Forest entrance: 38.4 m tall, girth 8 m, "buttresses are up to 5 m high", trunk heavily buttressed, bark pale brown with narrow cracks, crown wide, flat-topped, open and tiered. [FFW 3302](https://www.nparks.gov.sg/florafaunaweb/flora/3/3/3302): to 45 m | Six plank buttresses to 5 m, a clear pale bole, three flat tiers of limbs. One Rain Forest tree in six, at 25–31 m |
+| Torch ginger, *Etlingera elatior* — non-native, grown as an ornamental | [FFW 1990](https://www.nparks.gov.sg/florafaunaweb/flora/1/9/1990): upright, arching at the tips, 2–6 m, in large colonies; leaves in two ranks, 38–85 by 8–18 cm; an egg-shaped head of crimson-pink bracts on its own stalk 60–200 cm long | Nine arching stems with two-ranked leaves and heads on separate stalks. Most Ginger Garden clumps, 2.6–3.8 m |
+| Hanging lobster claw, *Heliconia rostrata* 'Green Tip' — non-native, cultivated only | [FFW 8045](https://www.nparks.gov.sg/florafaunaweb/flora/8/0/8045): about 1.5 m, paddle-shaped leaves, pendant inflorescences in one plane, bright red bracts with yellow edges | Long-stalked paddle leaves and hanging chains of red and yellow bracts. Drifts along Palm Valley's east rim, where SBG places its Heliwalk |
+
+What NParks does not state, and so is authored:
+
+- Nibong: frond length, crownshaft and trunk colour, and its place in the
+  Gardens. The NParks page that described Swan Lake's island returned 404; the
+  nibong there rests on a search summary of that page, not a page I could read.
+- Tembusu: the low limb's length, height and girth (modelled 10 m long, leaving
+  2 m up). NParks' own figures for the tree disagree: 20 m and 5 m girth on the
+  register, 30 m and 6 m in a 2016 SBG list. The register's are used.
+- Jelawai Jaha: buttress spread and thickness, and the height of clear bole.
+  Other large trees NParks names for the Rain Forest (Jelutong, Nemesu, Seraya,
+  Kempas) are not modelled; this one was chosen because its buttresses are
+  measured.
+- Torch ginger: the size of the flower head. Heliconia: leaf size and the
+  number of bracts. The Ginger Garden page names no species, so torch ginger
+  there is an authored choice from the ginger order it holds.
+- A tree's leaf sprays and a herb's leaves are far fewer and larger than life.
+
+Cost: a Tembusu is about 1,500 triangles, a Jelawai Jaha 2,200, a nibong clump
+3,500, a ginger clump 700 and a heliconia 300. The Botanic Gardens draws about
+463,000 triangles in all, 157,000 of them these trees and herbs and 120,000 its
+palms. No frame-rate measurement was taken on a real GPU.

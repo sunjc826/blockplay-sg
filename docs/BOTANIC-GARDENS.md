@@ -65,15 +65,18 @@ upper verandah reached by one outside stair.
 
 ## Limits
 
-- Most trees are stand-in shapes: a trunk that stops rounds and a crown that
-  only hides. The plants the plan names for each area (nibong, Tembusu, a
-  buttressed forest giant, gingers and heliconias) are not yet modelled; the
-  palms are coconut, royal, sealing wax and footstool.
+- Modelled species (docs/SINGAPORE-VEGETATION.md): coconut, royal, sealing wax,
+  footstool and nibong palms; Tembusu, with the Lawn E heritage tree as its own
+  shape; Jelawai Jaha on plank buttresses in the Rain Forest; torch ginger; and
+  hanging heliconia along the valley's east rim. The other half of the lawn
+  trees, five forest trees in six, the yellow ring round the Bandstand and the
+  cycads and tree ferns are still stand-in shapes.
 - No reviewed photograph informed the geometry, so `referenceFeatures` is empty.
   Positions follow the official visitor map (August 2026) and NParks pages
   listed in the plan file; every height is authored.
-- Every sector measures `open` on the cover test, the Rain Forest included
-  (median 67 m to hard cover): trunks on an 11 m grid are sparse.
+- Every sector but the Rain Forest measures `open` on the cover test. The
+  forest measured open too (median 67 m to cover) until the species trees went
+  in; it is now `broken` (median 9 m).
 - Visibility targets in the plan are unmeasured. `pnpm analyse:layout` counts
   colliders only, so it does not see ground folds or foliage.
 - The Cool House has no fog, Holttum Hall has no stair, and the waterfall has no

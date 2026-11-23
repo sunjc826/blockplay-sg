@@ -66,9 +66,9 @@ const hash = (x: number, z: number, salt = 0) => { const n = Math.sin(x * 127.1 
  */
 export function buildBotanicGardensScene() {
   const k = createSceneKit({ look: 'nature', background: '#cfe0d6', fogNear: 300, fogFar: 1050, shadow: { extent: 290, far: 760 }, module: true });
-  const { scene, box, cylinder, blob, solid, mat, sign } = k;
+  const { scene, box, cylinder, blob, solid, mat, sign, plant } = k;
   const grass = mat('#7f9c5c'), asphalt = mat('#5b5d5c', .9), paint = mat('#e9e4cf'), white = mat('#efe9da'), cream = mat('#e3d8bd');
-  const roof = mat('#7d4f3f'), slate = mat('#59625f'), timber = mat('#7b5d45'), bark = mat('#6a5744'), paleBark = mat('#8d8271'), rock = mat('#8f9186'), iron = mat('#3f4a47', .6, .3);
+  const roof = mat('#7d4f3f'), slate = mat('#59625f'), timber = mat('#7b5d45'), bark = mat('#6a5744'), rock = mat('#8f9186'), iron = mat('#3f4a47', .6, .3);
   const glass = mat('#a9cfc9', .15, .1); glass.transparent = true; glass.opacity = .38;
   const leaves = [mat('#3f6a3c'), mat('#557d43'), mat('#2f5a36'), mat('#6d8f45')], yellow = mat('#b9b54a'), ginger = [mat('#4d8040'), mat('#679647')], hedge = mat('#3c6b3b');
   const pane = mat('#5d7b78', .3, .1); pane.userData.nightWindow = true;
@@ -223,22 +223,34 @@ export function buildBotanicGardensScene() {
   for (let x = 90; x <= 194; x += 11) for (let z = -104; z <= 104; z += 11) {
     const px = x + (hash(x, z) - .5) * 6, pz = z + (hash(x, z, 1) - .5) * 6;
     if (!clear(px, pz, 1) || clearings.some(c => Math.hypot(px - c.x, pz - c.z) < 11)) continue;
-    const giant = hash(x, z, 2) > .82, height = giant ? 22 + hash(x, z, 3) * 5 : 11 + hash(x, z, 3) * 7;
-    tree(px, pz, height, giant ? paleBark : bark, leaves[Math.floor(hash(x, z, 4) * 3)], giant ? 1.9 : 1.35, giant ? 1.3 : .7);
-    if (giant) { const base = ground(px, pz); for (const [dx, dz] of [[1.3, 0], [-1.3, 0], [0, 1.3], [0, -1.3]]) box(px + dx, base + 1.1, pz + dz, dx ? 1.6 : .25, 2.2, dz ? 1.6 : .25, paleBark, scene, true); solid(px, pz, 2.8, 2.8); }
+    // One tree in six is an emergent Jelawai Jaha on plank buttresses; the buttresses are part of what stops a round.
+    if (hash(x, z, 2) > .83) { const giant = plant('jelawai-jaha', px, pz, 25 + hash(x, z, 3) * 6); solid(px, pz, giant.model.footing * giant.scale * 1.1, giant.model.footing * giant.scale * 1.1); continue; }
+    tree(px, pz, 11 + hash(x, z, 3) * 7, bark, leaves[Math.floor(hash(x, z, 4) * 3)], 1.35, .7);
   }
   // Lawn and garden trees everywhere else, off the valley floor, which stays open between the palm plots.
   for (let x = -190; x <= 190; x += 21) for (let z = -236; z <= 236; z += 21) {
     const px = x + (hash(x, z, 5) - .5) * 12, pz = z + (hash(x, z, 6) - .5) * 12;
     if (hash(x, z, 7) < .42 || inForest(px, pz) || valleyFloor(px, pz) || !clear(px, pz, 2) || Math.hypot(px + 1, pz - 89) < 24 || Math.hypot(px + 8, pz - 168) < 22) continue;
+    // Half the lawn trees are Tembusu; the rest are still stand-ins.
+    if (hash(x, z, 9) < .5) { const t = plant('tembusu', px, pz, 11 + hash(x, z, 8) * 6); solid(px, pz, t.model.radius * t.scale * 2.2, t.model.radius * t.scale * 2.2); continue; }
     tree(px, pz, 8 + hash(x, z, 8) * 6, bark, leaves[Math.floor(hash(x, z, 9) * 4)], 1.2 + hash(x, z, 10) * .5);
   }
   for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + .2, x = -1 + Math.cos(a) * 16, z = 89 + Math.sin(a) * 15; if (clear(x, z)) tree(x, z, 8.5, bark, yellow, 1.5); }
-  // The heritage Tembusu on Lawn E, with its long low branch.
-  const tembusu = { x: -8, z: 168 }, lawn = ground(tembusu.x, tembusu.z);
-  tree(tembusu.x, tembusu.z, 13, bark, leaves[2], 2.4, 1.5);
-  k.freeform(() => { k.beam(new THREE.Vector3(tembusu.x, lawn + 2.2, tembusu.z), new THREE.Vector3(tembusu.x + 9, lawn + 1.7, tembusu.z + 1), .34, bark); k.beam(new THREE.Vector3(tembusu.x + 9, lawn + 1.7, tembusu.z + 1), new THREE.Vector3(tembusu.x + 12, lawn + 4.6, tembusu.z + 1.5), .26, bark); });
-  k.obstacles.push({ minX: tembusu.x, maxX: tembusu.x + 9, minZ: tembusu.z - .4, maxZ: tembusu.z + 1.4, minY: lawn + 1.3, maxY: lawn + 2.6 });
+  // The heritage Tembusu on Lawn E: 20 m tall, 5 m in girth, with its long low limb (Heritage Tree register HT 2001-26).
+  const tembusu = { x: -8, z: 168 }, lawn = ground(tembusu.x, tembusu.z), heritage = plant('tembusu-heritage', tembusu.x, tembusu.z, 20, lawn);
+  solid(tembusu.x, tembusu.z, 2.2, 2.2);
+  // Broadleaf crowns hide a figure and are not hard cover, like every other crown here.
+  (heritage.leaf.material as THREE.Material).userData.visualCover = true;
+  const limb = heritage.model.lowLimb;
+  if (limb) {
+    // The limb is turned and scaled with the tree, so its collider is read off the placed model.
+    const turn = (q: readonly number[]) => ({ x: tembusu.x + (q[0] * Math.cos(heritage.yaw) + q[2] * Math.sin(heritage.yaw)) * heritage.scale, y: lawn + q[1] * heritage.scale, z: tembusu.z + (-q[0] * Math.sin(heritage.yaw) + q[2] * Math.cos(heritage.yaw)) * heritage.scale });
+    const from = turn(limb.from), to = turn(limb.to);
+    for (let i = 0; i < 4; i++) {
+      const x = from.x + (to.x - from.x) * (i + .5) / 4, z = from.z + (to.z - from.z) * (i + .5) / 4, y = from.y + (to.y - from.y) * (i + .5) / 4;
+      k.obstacles.push({ minX: x - 1, maxX: x + 1, minZ: z - 1, maxZ: z + 1, minY: y - .5, maxY: y + .5 });
+    }
+  }
 
   // Palm Valley: island beds of palms on the open lawn, one mix of species to a bed.
   for (const [x, z, mix] of PALM_PLOTS) {
@@ -250,13 +262,23 @@ export function buildBotanicGardensScene() {
   }
   // Sealing wax palms, the palm of the Gardens' logo, by the water and at the Orchid Garden gate.
   for (const [x, z] of [[46, -166], [60, -170], [-34, 22], [-36, 8], [-62, 146], [-140, 150]] as const) { k.palm('sealing-wax', x, z, 5 + hash(x, z) * 1.6, ground(x, z)); solid(x, z, 1.2, 1.2); }
-  const island = SWAN_ISLAND; tree(island.x, island.z, 9, bark, leaves[1], 1.4);
+  // Nibong, the native clustering palm with spined trunks, on Swan Lake's island and at its shore.
+  const island = SWAN_ISLAND;
+  for (const [x, z, h] of [[island.x, island.z, 12], [island.x + 4, island.z - 3, 9.5], [-166, 214, 10.5], [-44, 222, 10]] as const) { k.palm('nibong', x, z, h, ground(x, z)); if (x !== island.x + 4) solid(x, z, 2, 2); }
 
   // Ginger Garden: head-high clumps that hide a standing figure and stop nothing.
   for (let x = -178; x <= -90; x += 7) for (let z = 74; z <= 122; z += 7) {
     const px = x + (hash(x, z, 11) - .5) * 3, pz = z + (hash(x, z, 12) - .5) * 3;
     if (hash(x, z, 13) < .25 || distanceToPaths(px, pz) < 2 || !clear(px, pz, -2)) continue;
+    // Torch ginger clumps, taller than a standing figure, with a few stand-in masses left between them.
+    if (hash(x, z, 14) < .7) { plant('torch-ginger', px, pz, 2.6 + hash(x, z, 15) * 1.2, ground(px, pz)); continue; }
     const m = ginger[Math.floor(hash(x, z, 14) * 2)]; blob(px, 1.1, pz, 1.7, 1.5, 1.7, m); blob(px + .5, 1.9, pz - .4, 1.2, 1.1, 1.2, m);
+  }
+  // The Heliwalk: hanging heliconias in drifts along the east rim of Palm Valley.
+  for (let z = -6; z >= -140; z -= 5.5) for (const row of [0, 1]) {
+    const t = (8 - z) / 158, x = 62 + 20 * t + row * 2.6 + (hash(z, row, 16) - .5) * 1.6, pz = z + (hash(z, row, 17) - .5) * 2;
+    if (hash(z, row, 18) < .25 || distanceToPaths(x, pz) < 1.5 || distanceToRing(x, pz) < 8) continue;
+    plant('heliconia', x, pz, 1.5 + hash(z, row, 19) * .5, ground(x, pz));
   }
   // National Orchid Garden: trellis arches over the path up the hill, flower beds beside it and hedged rooms on the middle terrace.
   const orchid = BOTANIC_GARDENS_PATHS.find(path => path.id === 'orchid')!.points;

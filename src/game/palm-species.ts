@@ -5,7 +5,7 @@
  * Heights are game-scale younger palms, well under each species' maximum. Leaflets are far fewer
  * and wider than life (a coconut frond has 80 to 100 pairs): each drawn leaflet stands for several.
  */
-export type PalmSpecies = 'coconut' | 'royal' | 'sealing-wax' | 'footstool';
+export type PalmSpecies = 'coconut' | 'royal' | 'sealing-wax' | 'footstool' | 'nibong';
 export interface PalmSpec {
   name: string; scientific: string;
   /** As NParks states it. */
@@ -25,6 +25,8 @@ export interface PalmSpec {
     ringSpacing: number; maxRings: number; ridge: number; scarDepth: number; sides: number;
     /** Lean at the foot, as a share of height: least and most. */
     lean: readonly [number, number];
+    /** Slender spines standing off the trunk: how many a stem shows, their length (m) and colour. */
+    spines?: { count: number; length: number; colour: string };
   };
   crownshaft?: { colour: string; top: string; length: number; swell: number; neck: number };
   fruit?: { count: number; size: number; drop: number; colours: readonly string[] };
@@ -101,6 +103,23 @@ export const PALM_SPECS: Readonly<Record<PalmSpecies, PalmSpec>> = {
       length: 1.45, segments: 3, hub: .05, spreadHeight: .3, ribWidth: .026, petiole: 1, pairs: 0, planes: [0], sweep: 0, droop: 0,
       leaflet: 0, leafletWidth: 0, yellowing: .35, deadFronds: 1, spear: 0,
       fan: { radius: .62, arc: 320, segments: 14, pleat: .05, joined: .52, droop: .3, tilt: 12 } },
+  },
+  // FFW 2659: tall, slender, tuft-forming palm massed with armed trunks, to 30 m; trunks up to 15 cm across, ringed,
+  // up to 50 to a clump, densely armed with slender black spines 5 to 10 cm long; conspicuous armed crownshaft;
+  // pinnate fronds ascending to spreading, pendulous and elegantly arched, dark to bright green, drooping leaflets;
+  // globose purple to black fruit 1 cm across. FFW gives no frond length, crownshaft colour or trunk colour.
+  nibong: {
+    name: 'Nibong', scientific: 'Oncosperma tigillarium', status: 'Native to Singapore (Least Concern)',
+    source: 'https://www.nparks.gov.sg/florafaunaweb/flora/2/6/2659', seed: 67, height: 11,
+    trunk: { colour: '#7f7868', scar: '#5a5448', young: '#7d8262', boss: '#5a5040', base: .078, top: .064, taper: 1, flare: .012, flareHeight: .3,
+      bulge: 0, bulgeAt: .5, bulgeWidth: .3, ringSpacing: 1.3, maxRings: 6, ridge: .05, scarDepth: .5, sides: 6, lean: [.01, .04],
+      spines: { count: 12, length: .1, colour: '#17140f' } },
+    crownshaft: { colour: '#6c7a55', top: '#8a9a62', length: .9, swell: 1.2, neck: .7 },
+    fruit: { count: 4, size: .04, drop: .25, colours: ['#2a1d2e', '#3a2440'] },
+    clump: { stems: 6, spread: 1.1, shortest: .42, lean: .05 },
+    frond: { leaf: '#3f8038', tip: '#2f6630', old: '#8a9a4c', dead: '#8a6a41', rib: '#7f9a52', count: 8, rise: [72, -18], spread: 1.1, bend: [34, 78], curve: 1.3,
+      length: 2.6, segments: 5, hub: .04, spreadHeight: .2, ribWidth: .03, petiole: .12, pairs: 8, planes: [-34], sweep: 18, droop: 1.5,
+      leaflet: .72, leafletWidth: .1, yellowing: .25, deadFronds: 0, spear: .5 },
   },
 };
 export const PALM_SPECIES = Object.keys(PALM_SPECS) as PalmSpecies[];

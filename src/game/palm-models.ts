@@ -27,24 +27,25 @@ export interface PalmModel {
   triangles: { trunk: number; crown: number };
 }
 
-type V3 = [number, number, number];
-const add = (a: V3, b: V3, s = 1): V3 => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const unit = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-const mix3 = (a: V3, b: V3, t: number): V3 => [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const smooth = (a: number, b: number, v: number) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
-const rgb = (hex: string): V3 => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
-const DEG = Math.PI / 180;
-function random(seed: number) {
+export type V3 = [number, number, number];
+export const add = (a: V3, b: V3, s = 1): V3 => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
+export const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+export const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+export const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+export const unit = (a: V3): V3 => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+export const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+export const mix3 = (a: V3, b: V3, t: number): V3 => [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
+export const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+export const smooth = (a: number, b: number, v: number) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+export const rgb = (hex: string): V3 => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
+export const DEG = Math.PI / 180;
+export function random(seed: number) {
   let a = seed >>> 0;
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-class Mesher {
+/** Triangle soup with normals and vertex colours, shared by the palm and plant builders. */
+export class Mesher {
   position: number[] = []; normal: number[] = []; color: number[] = [];
   /** Wound to face the first normal, so double-sided materials light the right side. */
   tri(a: V3, b: V3, c: V3, na: V3, nb: V3, nc: V3, ca: V3, cb: V3, cc: V3) {
@@ -97,7 +98,7 @@ function trunkAt(stem: Stem, t: number): V3 {
   const out = stem.lean * stem.height * (1 - (1 - t) * (1 - t));
   return [stem.foot[0] + Math.cos(stem.heading) * out, stem.foot[1] + stem.height * t, stem.foot[2] + Math.sin(stem.heading) * out];
 }
-function frame(tangent: V3): { u: V3; v: V3 } {
+export function frame(tangent: V3): { u: V3; v: V3 } {
   const u = unit(cross(tangent, Math.abs(tangent[1]) > .95 ? [1, 0, 0] : [0, 1, 0]));
   return { u, v: unit(cross(tangent, u)) };
 }
@@ -120,6 +121,15 @@ function buildStem(spec: PalmSpec, stem: Stem, trunk: Mesher, crown: Mesher, ran
     }
   }
   trunk.tube(rings, t.sides);
+  if (t.spines) {
+    // Spines stand straight off the trunk, scattered up its length.
+    const colour = rgb(t.spines.colour);
+    for (let i = 0; i < t.spines.count; i++) {
+      const v = .06 + .9 * (i + rand()) / t.spines.count, a = i * 2.39996 + rand(), at = trunkAt(stem, v), out: V3 = [Math.cos(a), 0, Math.sin(a)];
+      const root = add(at, out, radiusAt(v) * .9), length = t.spines.length * (.7 + .6 * rand());
+      trunk.flat(add(root, [0, .02, 0]), add(root, [0, -.02, 0]), add(add(root, out, length), [0, -.02, 0]), [-out[2], 0, out[0]], .2, colour, colour, colour);
+    }
+  }
   let top = trunkAt(stem, 1);
   const tangent = unit(sub(top, trunkAt(stem, .97)));
   const shaft = spec.crownshaft;

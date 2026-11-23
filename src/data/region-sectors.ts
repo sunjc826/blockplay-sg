@@ -979,7 +979,7 @@ export const BOTANIC_GARDENS_SECTORS: readonly ZoneSector[] = [
     bounds: { minX:-48,maxX:70,minZ:-148,maxZ:44 },
     anchors: [{x:12,z:16}, {x:10,z:-80}, {x:0,z:-60}, {x:-8,z:-130}],
   },
-  { id: 'rain-forest', name: 'Rain Forest', cover: 'open', lootWeight: 3, tierBias: 1, botWeight: 2,
+  { id: 'rain-forest', name: 'Rain Forest', cover: 'broken', lootWeight: 3, tierBias: 1, botWeight: 2,
     bounds: { minX:80,maxX:200,minZ:-112,maxZ:112 },
     anchors: [{x:140,z:0}, {x:136,z:60}, {x:118,z:-46}, {x:150,z:62}],
   },

@@ -17636,9 +17636,12 @@ proposal was built rather than given planned-site support on the board.
 - `docs/level-reviews/botanic-gardens-threads.json` now carries the as-built
   routes and heights and the district's map revision. Push it to the cloud board
   only after the deploy that registers the id is live.
+- 2026-11-24: the four plants were modelled at the owner's request (nibong, Tembusu and
+  the Lawn E tree, Jelawai Jaha, torch ginger, plus a hanging heliconia):
+  `plant-species.ts`, `plant-models.ts`, `kit.plant()`, fixture `scripts/fixtures/plants.html`.
+  `palm-models.ts` now exports its mesh helpers. Rain Forest sector relabelled `broken`.
 - Still open, owner's call: verdicts on the 19 threads; whether leaves should
-  stop rounds; the four plants to model (nibong, Tembusu, buttressed giant,
-  ginger/heliconia); reference captures (need authorization).
+  stop rounds; reference captures (need authorization).
 - Not done: real-GPU timing; shader warm-up recapture; navigation bake was not
   rerun by hand (the build does it); browser smokes not run.
 

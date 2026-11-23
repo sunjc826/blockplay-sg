@@ -2,6 +2,8 @@ import { treePart, batchTrees, animateTrees } from './tree-wind';
 import { captureFoliageDrift } from './ambient-drift';
 import { createPalmKit, type PalmKit } from './palm-models';
 import type { PalmSpecies } from './palm-species';
+import { createPlantKit, type PlantKit } from './plant-models';
+import type { PlantSpecies } from './plant-species';
 import * as THREE from 'three';
 import { createDistrictWater, type WaterMaterial } from './water';
 import type { Obstacle } from './region-collision';
@@ -130,6 +132,15 @@ export function createSceneKit(options: SceneKitOptions) {
   function palm(species: PalmSpecies, x: number, z: number, height?: number, base = 0) {
     palms ??= createPalmKit({ geometry: geo, material: m => materials.push(m) });
     return palms.place(species, scene, x, base, z, height);
+  }
+  let plants: PlantKit | undefined;
+  /**
+   * A broadleaf tree or herb clump of a named species (plant-species.ts), rooted at the ground and scaled to
+   * stand `height` metres tall. No collider: the district says how much room the trunk and its buttresses take.
+   */
+  function plant(species: PlantSpecies, x: number, z: number, height?: number, base = 0) {
+    plants ??= createPlantKit({ geometry: geo, material: m => materials.push(m) });
+    return plants.place(species, scene, x, base, z, height);
   }
   /** Simple animated bystander. Groups are never batched, so they can move. */
   function walker(x: number, z: number, shirt: THREE.Material, skin: THREE.Material, legs: THREE.Material) {
@@ -299,6 +310,6 @@ export function createSceneKit(options: SceneKitOptions) {
     };
   }
 
-  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, palm, walker, car, streetGrid, stampRings, finish, freeform, stage, stageState, THREE };
+  return { scene, obstacles, geo, mat, water, box, cylinder, beam, blob, solid, sign, tree, palm, plant, walker, car, streetGrid, stampRings, finish, freeform, stage, stageState, THREE };
 }
 export type SceneKit = ReturnType<typeof createSceneKit>;
