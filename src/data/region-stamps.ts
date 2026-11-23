@@ -321,3 +321,17 @@ export const PULAU_UBIN_STAMPS = [
   { name: 'Wetland boardwalk', x: 205, z: 100 },
   { name: 'Southern grove', x: 70, z: 145 },
 ];
+
+export const BOTANIC_GARDENS_STAMPS = [
+  { name: 'Tanglin Gate court', x: 30, z: 246 },
+  { name: 'Swan Lake gazebo', x: -100, z: 238 },
+  { name: 'Heritage Tembusu lawn', x: 0, z: 180 },
+  { name: 'Bandstand hill', x: 6, z: 98 },
+  { name: 'Ginger Garden waterfall', x: -152, z: 78 },
+  { name: 'Orchid Plaza', x: 12, z: 16 },
+  { name: 'Burkill Hall lawn', x: -134, z: -34 },
+  { name: 'Palm Valley lawn', x: 10, z: -80 },
+  { name: 'Rain Forest path', x: 140, z: 0 },
+  { name: 'Symphony Stage', x: -12, z: -178 },
+  { name: 'Nassim Gate', x: 150, z: -196 },
+];

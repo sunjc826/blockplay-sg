@@ -42,4 +42,5 @@ export const DISTRICT_INTERIORS: Record<RegionId, NightInteriors> = {
   punggol: { offices: .08, cbd: false, boutiques: 1, shops: HEARTLAND_SHOPS },
   yishun: { offices: .08, cbd: false, boutiques: 1, shops: HEARTLAND_SHOPS },
   'pulau-ubin': { offices: 0, cbd: false, boutiques: 1, shops: ['bicycles', 'provisionShop', 'kopitiam'] },
+  'botanic-gardens': { offices: 0, cbd: false },
 };

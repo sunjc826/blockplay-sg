@@ -122,6 +122,7 @@ export function rollZoneArmor(rules: ZoneLootRules, random: () => number, tierBi
 
 /** Tier probabilities apply to each weapon crate, independently. CBD means Raffles Place. */
 export const ZONE_LOOT_RULES: Readonly<Record<WorldZoneId, Readonly<ZoneLootRules>>> = {
+  'botanic-gardens': { eliteChance: .09, fieldChance: .36, weaponCount: 2, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 50, medicalAmount: 32 },
   'pulau-ubin': { eliteChance: .18, fieldChance: .46, weaponCount: 3, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 58, medicalAmount: 38 },
   'katong-joo-chiat': { eliteChance: .09, fieldChance: .36, weaponCount: 2, ammoCount: 2, medicalCount: 2, armorCount: 1, ammoAmount: 50, medicalAmount: 32 },
   'little-india': { eliteChance: .16, fieldChance: .49, weaponCount: 3, ammoCount: 3, medicalCount: 2, armorCount: 1, ammoAmount: 58, medicalAmount: 38 },

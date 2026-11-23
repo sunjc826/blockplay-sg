@@ -21,6 +21,7 @@ export const BOUNDARY_PROFILES: Record<RegionId, BoundaryProfile> = {
   'bukit-timah': { style: 'forest' }, bishan: { style: 'estate' }, orchard: { style: 'city' },
   yishun: { style: 'estate' }, 'little-india': { style: 'heritage' }, 'katong-joo-chiat': { style: 'heritage' },
   'pulau-ubin': { style: 'forest', open: ['west', 'east', 'north', 'south'] },
+  'botanic-gardens': { style: 'forest' },
 };
 export const BOUNDARY_SIDES: readonly BoundarySide[] = ['west', 'east', 'north', 'south'];
 export function boundaryFrame(bounds: RegionBounds, side: BoundarySide) {

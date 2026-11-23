@@ -18,7 +18,7 @@ const CENTRES: Record<WorldZoneId, readonly [number, number]> = {
   'katong-joo-chiat': [845, 400], queenstown: [380, 395], orchard: [490, 375],
   'little-india': [585, 405], 'kampong-glam': [670, 415], chinatown: [515, 460],
   'raffles-place': [610, 485], 'marina-bay': [720, 480], harbourfront: [405, 480],
-  sentosa: [430, 560], 'pulau-ubin': [870, 115],
+  sentosa: [430, 560], 'pulau-ubin': [870, 115], 'botanic-gardens': [432, 332],
 };
 const COAST = 'M65 400 L83 330 125 305 160 245 218 228 250 180 290 175 315 115 360 98 408 125 450 105 510 122 550 155 605 158 650 184 705 150 755 177 795 210 858 215 915 233 950 275 965 335 930 390 870 440 810 455 770 505 720 535 665 520 620 532 570 515 515 512 470 530 420 515 370 518 340 472 285 455 250 428 190 447 145 420 102 435 Z';
 const OFFSHORE: Partial<Record<WorldZoneId, string>> = {

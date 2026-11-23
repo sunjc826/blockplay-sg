@@ -91,6 +91,8 @@ export const WORLD_ZONES: readonly WorldZone[] = [
     risk: 'low', lootTier: 1, botCount: 3, composition: 'assault', encounterSpawns: [{ x: -45, z: -84 }, { x: -190, z: -88 }, { x: -45, z: -144 }, { x: 85, z: 13 }, { x: -190, z: 49 }, { x: -190, z: 158 }, { x: -45, z: 112 }, { x: 85, z: 143 }, { x: 195, z: 65 }, { x: -115, z: 15 }] },
   { id: 'pulau-ubin', name: 'Pulau Ubin', description: 'Village lanes, quarry trails and wetland boardwalks. Reach the island on foot via the Changi Point bumboat crossing; the return boat leaves from the village jetty.', spawn: { x: 0, z: 145, yaw: 0, pitch: 0 },
     risk: 'medium', lootTier: 2, botCount: 4, composition: 'mixed', encounterSpawns: [{x:0,z:135},{x:-50,z:0},{x:-175,z:-90},{x:60,z:-140},{x:190,z:-20},{x:215,z:45},{x:205,z:100},{x:70,z:145}] },
+  { id: 'botanic-gardens', name: 'Botanic Gardens', description: 'Two hills, Palm Valley and the Rain Forest between the Tanglin Gate and Symphony Lake. Three ways north: over the Orchid hill, down the open valley, or under the trees.', spawn: { x: 56, z: 244, yaw: 0, pitch: 0 },
+    risk: 'low', lootTier: 1, botCount: 4, composition: 'mixed', encounterSpawns: [{x:0,z:180},{x:6,z:98},{x:-152,z:78},{x:12,z:16},{x:-134,z:-34},{x:10,z:-80},{x:140,z:0},{x:-12,z:-178},{x:150,z:-196},{x:-100,z:238}] },
 ];
 
 // These connections compress travel between districts. They do not claim that
@@ -98,6 +100,10 @@ export const WORLD_ZONES: readonly WorldZone[] = [
 // Explicit checkpoint arrivals face inwards, twelve metres past the return point.
 // The physical boardwalk instead maps movement across paired boundary planes.
 export const WORLD_GATEWAYS: readonly WorldGateway[] = [
+  { id: 'orchard-to-botanic-gardens', from: 'orchard', to: 'botanic-gardens', name: 'Botanic Gardens checkpoint', position: { x: -235, z: 140 }, radius: 4, arrival: { x: 178, z: 258, yaw: Math.PI / 2, pitch: 0 } },
+  { id: 'botanic-gardens-to-orchard', from: 'botanic-gardens', to: 'orchard', name: 'Orchard checkpoint', position: { x: 190, z: 258 }, radius: 4, arrival: { x: -223, z: 140, yaw: -Math.PI / 2, pitch: 0 } },
+  { id: 'bukit-timah-to-botanic-gardens', from: 'bukit-timah', to: 'botanic-gardens', name: 'Botanic Gardens checkpoint', position: { x: 130, z: 180 }, radius: 4, arrival: { x: 60, z: -246, yaw: Math.PI, pitch: 0 } },
+  { id: 'botanic-gardens-to-bukit-timah', from: 'botanic-gardens', to: 'bukit-timah', name: 'Bukit Timah checkpoint', position: { x: 60, z: -258 }, radius: 4, arrival: { x: 130, z: 168, yaw: 0, pitch: 0 } },
   { id: 'changi-to-pulau-ubin', from: 'changi', to: 'pulau-ubin', name: 'Changi Point bumboat to Pulau Ubin', kind: 'ferry', markerYaw: Math.PI / 2, position: { x: 267, z: 180 }, radius: 4, arrival: { x: 0, z: 193, yaw: 0, pitch: 0 } },
   { id: 'pulau-ubin-to-changi', from: 'pulau-ubin', to: 'changi', name: 'Ubin village bumboat to Changi', kind: 'ferry', position: { x: 0, z: 205 }, radius: 4, arrival: { x: 255, z: 180, yaw: Math.PI/2, pitch: 0 } },
   { id: 'little-india-to-kampong-glam', from: 'little-india', to: 'kampong-glam', name: 'Kampong Glam checkpoint', position: { x: -220, z: 30 }, radius: 4, arrival: { x: -193, z: -30, yaw: -1.5707963267948966, pitch: 0 } },

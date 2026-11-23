@@ -17614,3 +17614,30 @@ CPU version over a GPU simulation (pools are a few hundred particles; no GPU com
   bounce by eye (SwiftShader ran at about 3 fps), an explosion in the game, frame rate, `pnpm build`, other smokes.
 - `scripts/fps-effects-smoke.mjs` is stale since the debug workspace redesign of 2026-11-11: it opens `/debug` and waits
   for a "Marina FPS" button, but the range now sits behind `/debug?tool=fps` and loads straight to "Enter range". Not fixed.
+
+## Botanic Gardens district, first pass (2026-11-23)
+
+Owner's instruction after seeing the plan page: "just add a district for it". So the
+proposal was built rather than given planned-site support on the board.
+
+- New district `botanic-gardens` (24th). Scene `src/game/botanic-gardens-scene.ts`,
+  ground `src/game/botanic-gardens-ground.ts`, page `docs/BOTANIC-GARDENS.md`
+  (what is built, where it departs from the plan, limits).
+- Graded ground from one sampled grid that is both mesh and `groundHeight`. Paths,
+  ring road and floors are one draped mesh flagged `userData.groundPaving`;
+  `ground-cover.ts` got one branch that keeps grass off any mesh with that flag.
+- Registered in every table a district needs: stamps, location, sectors, zone,
+  gateways (Orchard west edge at z = 140, Bukit Timah south edge at x = 130),
+  FPS range (north-west lawn), loot, boundaries, interiors, street-prop sites,
+  both map pickers, inland paratroopers, one arena (`gardens-cool-house`, the
+  north-west lawn) with a falling-tree Levolution event. No set piece or animals entry.
+- Every sector measures `open` on the cover test, the Rain Forest included (median
+  67 m to cover): trunks on an 11 m grid are sparse and ground folds are not counted.
+- `docs/level-reviews/botanic-gardens-threads.json` now carries the as-built
+  routes and heights and the district's map revision. Push it to the cloud board
+  only after the deploy that registers the id is live.
+- Still open, owner's call: verdicts on the 19 threads; whether leaves should
+  stop rounds; the four plants to model (nibong, Tembusu, buttressed giant,
+  ginger/heliconia); reference captures (need authorization).
+- Not done: real-GPU timing; shader warm-up recapture; navigation bake was not
+  rerun by hand (the build does it); browser smokes not run.

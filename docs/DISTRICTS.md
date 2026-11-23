@@ -1,6 +1,6 @@
 # Districts
 
-Twenty-three Singapore districts are playable. Every one is an authored, compressed
+Twenty-four Singapore districts are playable. Every one is an authored, compressed
 interpretation built for play — none is a surveyed map, a reconstruction or a
 navigation tool. Real place names label stylised counterparts.
 
@@ -29,6 +29,7 @@ navigation tool. Real place names label stylised counterparts.
 | Little India | Rochor | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 | Katong / Joo Chiat | East coast | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
 | Pulau Ubin | Northeast island | 11 | Researched landmarks; schematic geometry, no reviewed photograph claims |
+| Botanic Gardens | Tanglin | 11 | Positions from the official visitor map and NParks pages; authored heights; no reviewed photograph claims |
 
 ## Reference coverage
 
@@ -39,7 +40,8 @@ bounded previews, acceptance/rejection records and feature corrections. The
 
 [Yishun](YISHUN.md), [Little India and Katong/Joo Chiat](HERITAGE-DISTRICTS.md),
 and [Pulau Ubin](PULAU-UBIN.md) were added later with researched landmark selection and schematic geometry.
-These four additions have no accepted photographic-reference features or
+The [Botanic Gardens](BOTANIC-GARDENS.md) followed as a first pass built from a level plan, on graded ground.
+These five additions have no accepted photographic-reference features or
 reviewed learning cards. Yishun’s exaggerated danger is fictional game tuning.
 
 `scene.userData.referenceFeatures` lists only features actually informed by
@@ -105,7 +107,7 @@ for its kind of place.
 | `city` | Glass and stone towers (the defaults, as tuned on Marina) | Marina Bay, Raffles Place, Orchard Road |
 | `heartland` | HDB estates: slab blocks, painted walls, softer warmer shade | Queenstown, Toa Payoh, Tampines, Bishan, Yishun, Woodlands, Punggol |
 | `heritage` | Shophouse streets: warm light, deep five-foot ways, more grime | Chinatown, Kampong Glam, Little India, Katong / Joo Chiat, Geylang |
-| `nature` | Forest, reservoir, island: humid air, green-tinted shade | Bukit Timah, Upper Thomson, Jurong Lake, Pulau Ubin |
+| `nature` | Forest, reservoir, island: humid air, green-tinted shade | Bukit Timah, Upper Thomson, Jurong Lake, Pulau Ubin, Botanic Gardens |
 | `coast` | Sea fronts and the airport by the sea: bright air, sand bounce | Sentosa, HarbourFront, Changi |
 | `industrial` | Yards and plants: flatter colour, harder contrast, bigger panels | Tuas |
 

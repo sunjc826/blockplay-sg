@@ -113,5 +113,10 @@
     "name": "Pulau Ubin \u00b7 Village lanes",
     "region": "pulau-ubin",
     "hardpoint": true
+  },
+  "gardens-cool-house": {
+    "name": "Botanic Gardens \u00b7 Cool House lawn",
+    "region": "botanic-gardens",
+    "hardpoint": true
   }
 }

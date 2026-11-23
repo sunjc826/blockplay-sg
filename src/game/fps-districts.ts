@@ -9,6 +9,12 @@ export interface FpsDistrict {
   props: readonly (readonly [asset: number, x: number, z: number, width: number, depth: number])[];
 }
 const districts: Record<WorldZoneId, FpsDistrict> = {
+  'botanic-gardens': {
+    label: 'Gardens FPS', setting: 'north lawn', spawn: { x: -155, z: -205, yaw: 0, pitch: -.03 },
+    targets: [{x:-155,z:-235},{x:-161,z:-234},{x:-149,z:-234},{x:-167,z:-229},{x:-143,z:-229},{x:-169,z:-221},{x:-141,z:-221},{x:-155,z:-245}],
+    vehicles: { car: { x: -165, z: -201, yaw: -Math.PI/2 }, helicopter: { x: -125, z: -205, yaw: 0 } },
+    props: [[3,-157,-199,.77,.52],[4,-151,-202,1.87,.41],[5,-156,-198,.37,.37],[5,-154,-198,.37,.37]],
+  },
   'pulau-ubin': {
     label: 'Ubin FPS', setting: 'forest clearing', spawn: { x: 80, z: 0, yaw: 0, pitch: -.03 },
     targets: [{x:80,z:-30},{x:74,z:-29},{x:86,z:-29},{x:68,z:-24},{x:92,z:-24},{x:66,z:-16},{x:94,z:-16},{x:80,z:-40}],

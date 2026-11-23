@@ -190,6 +190,17 @@ export const DISTRICT_TEAM_ARENAS = [
     cover:[{"x":-12,"z":90,"width":2.5,"depth":7,"height":2.5,"color":"#8c8170"},{"x":12,"z":104,"width":2.5,"depth":7,"height":2.5,"color":"#687e73"},{"x":-42,"z":130,"width":2.5,"depth":7,"height":2.5,"color":"#a07d61"},{"x":-18,"z":144,"width":2.5,"depth":7,"height":2.5,"color":"#8c8170"},{"x":-15,"z":61,"width":3,"depth":10,"height":2.5,"color":"#8c8170"},{"x":15,"z":61,"width":3,"depth":10,"height":2.5,"color":"#8c8170"}],
     sites:[{"x":0,"z":97,"y":0,"id":"village-crossing","name":"Village crossing","radius":4},{"x":-30,"z":137,"y":0,"id":"jetty-approach","name":"Jetty approach","radius":4},{"x":0,"z":61,"y":0,"id":"forest-approach","name":"Forest approach","radius":4}],
   },
+  {
+    id:"gardens-cool-house",
+    region:"botanic-gardens",
+    name:"Botanic Gardens · Cool House lawn",
+    description:"An open lawn north of the glasshouse: the Cool House closes its south side and is the only hard cover.",
+    bounds:{"minX":-196,"maxX":-106,"minZ":-252,"maxZ":-150},
+    spawns:{"alpha":[{"x":-190,"z":-246},{"x":-190,"z":-230},{"x":-190,"z":-214},{"x":-190,"z":-198},{"x":-174,"z":-238},{"x":-174,"z":-222}],"bravo":[{"x":-112,"z":-246},{"x":-112,"z":-230},{"x":-112,"z":-214},{"x":-112,"z":-198},{"x":-128,"z":-238},{"x":-128,"z":-222}]},
+    patrols:[{"x":-164,"z":-226},{"x":-128,"z":-212},{"x":-128,"z":-186},{"x":-171,"z":-226},{"x":-157,"z":-226},{"x":-135,"z":-212},{"x":-121,"z":-212},{"x":-134,"z":-186},{"x":-122,"z":-186}],
+    cover:[{"x":-140,"z":-210,"width":2.5,"depth":7,"height":2.5,"color":"#8c8170"},{"x":-156,"z":-222,"width":2.5,"depth":7,"height":2.5,"color":"#687e73"},{"x":-138,"z":-230,"width":2.5,"depth":7,"height":2.5,"color":"#a07d61"},{"x":-152,"z":-238,"width":2.5,"depth":7,"height":2.5,"color":"#8c8170"},{"x":-160,"z":-202,"width":2.5,"depth":7,"height":2.5,"color":"#687e73"}],
+    sites:[{"x":-164,"z":-226,"y":0,"id":"north-lawn","name":"North lawn","radius":4},{"x":-128,"z":-212,"y":0,"id":"house-approach","name":"Cool House approach","radius":4},{"x":-128,"z":-186,"y":0,"id":"cool-house","name":"Cool House front","radius":4}],
+  },
 ] satisfies readonly (TeamDeathmatchArea & {sites:readonly ControlSite[]})[];
 
 export const DRAGON_CONTROL_SITES:readonly ControlSite[] = [{"x":9,"z":-50,"y":0,"id":"west-courtyard","name":"West courtyard","radius":4},{"x":89,"z":-50,"y":0,"id":"east-courtyard","name":"East courtyard","radius":4},{"x":43,"z":-20,"y":0,"id":"dragon-approach","name":"Dragon approach","radius":4}];

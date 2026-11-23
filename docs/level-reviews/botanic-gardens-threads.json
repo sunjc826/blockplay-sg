@@ -7,11 +7,11 @@
    "district": "botanic-gardens",
    "title": "Two hills and a valley divide the map",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -182,
     "z": -72,
-    "level": "Bandstand hill 6 m \u00b7 Orchid hill 11 m \u00b7 valley 6 m down to 1 m"
+    "level": "Bandstand hill 6 m · Orchid hill 11 m · valley 6 m down to 1 m"
    },
    "events": [
     {
@@ -19,6 +19,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "The real Gardens are rolling ground, so the level is too. The Bandstand hill stands between the south gate and everything else. The Orchid hill fills the west. Palm Valley runs north between the Orchid hill and the Rain Forest, falling to Symphony Lake. Nothing here is a wall dropped on a lawn: you see the next place only when you come over or round a rise."
+    },
+    {
+     "id": "botanic-plan-01-ground-hills-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built as a first pass. Heights as built: Bandstand hill 6 m, Orchid hill terraces at 4, 8 and 11 m, Orchid Plaza 6 m, valley lawn 6 m down to 1 m with the step at z = -62. The ring road climbs over the saddle at the plaza and stays under a 1 in 6 grade so cars can use it."
     }
    ]
   },
@@ -27,11 +33,11 @@
    "district": "botanic-gardens",
    "title": "The Rain Forest is the east wall",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 168,
     "z": 30,
-    "level": "120 m by 220 m \u00b7 ridge at 5 m \u00b7 boardwalk at 6.5 m"
+    "level": "120 m by 220 m · ridge at 5 m · boardwalk at 6.5 m"
    },
    "events": [
     {
@@ -39,6 +45,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "A closed block of tall forest, as the real 6 ha remnant is. From outside it is a dark edge you cannot see into. Inside, views are 10 to 25 m between buttressed trunks. It has four ways in (Botany Centre side, Maranta Avenue, Heliconia Walk, the Nassim side) and two clearings, so it is a place to fight through, not a hedge."
+    },
+    {
+     "id": "botanic-plan-02-ground-forest-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built: the ridge stands 6.5 m at its west rim and 5 m to the east, planted on an 11 m grid with emergents on buttress roots and two clearings. The raised boardwalk is not built: Lane C is a path on the forest floor."
     }
    ]
   },
@@ -47,11 +59,11 @@
    "district": "botanic-gardens",
    "title": "Two lakes close the corners",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -150,
     "z": 205,
-    "level": "Swan Lake south-west \u00b7 Symphony Lake north"
+    "level": "Swan Lake south-west · Symphony Lake north"
    },
    "events": [
     {
@@ -59,6 +71,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "Swan Lake keeps the south-west corner from being a fourth lane; Main Gate Road runs along its east shore as it really does. Symphony Lake sits behind the stage. Both can be swum, slowly and in the open."
+    },
+    {
+     "id": "botanic-plan-03-ground-water-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built. Symphony Lake is narrower than drawn (56 m half-width, not 66) so the Corner House slope stays out of the water. The stage islet joins the north shore; the gazebo stands on a landing at Swan Lake's south end."
     }
    ]
   },
@@ -67,49 +85,49 @@
    "district": "botanic-gardens",
    "title": "Lane A: over the Orchid hill",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -124,
     "z": 26,
-    "level": "563 m \u00b7 climbs to 11 m \u00b7 hedged rooms, trellis arches, two houses",
+    "level": "563 m · climbs to 11 m · hedged rooms, trellis arches, two houses",
     "shape": {
      "kind": "route",
      "tone": "proposal",
      "points": [
       {
        "x": 56,
-       "z": 248,
+       "z": 244,
        "y": 0
       },
       {
-       "x": -34,
+       "x": -30,
        "z": 212,
        "y": 0
       },
       {
-       "x": -40,
+       "x": -34,
        "z": 160,
-       "y": 1
+       "y": 0
       },
       {
        "x": -78,
        "z": 124,
-       "y": 2
+       "y": 0
       },
       {
        "x": -120,
        "z": 100,
-       "y": 3
+       "y": 0
       },
       {
        "x": -130,
        "z": 64,
-       "y": 4
+       "y": 0
       },
       {
        "x": -124,
        "z": 26,
-       "y": 4
+       "y": 0
       },
       {
        "x": -120,
@@ -117,24 +135,24 @@
        "y": 8
       },
       {
-       "x": -118,
-       "z": -42,
+       "x": -112,
+       "z": -38,
        "y": 11
       },
       {
        "x": -104,
        "z": -90,
-       "y": 7
+       "y": 7.2
       },
       {
        "x": -96,
        "z": -135,
-       "y": 3
+       "y": 0
       },
       {
        "x": -112,
        "z": -206,
-       "y": 2
+       "y": 0
       }
      ]
     }
@@ -145,6 +163,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "Along Swan Lake, through the head-high Ginger Garden, behind the waterfall, up the orchid terraces to Burkill Hall at the top, then down through the Secret Ravine to the north post. The high road: slow to climb, rich in cover, and it looks down on lane B twice."
+    },
+    {
+     "id": "botanic-plan-04-lane-hill-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built as drawn, with the line redrawn here to the path as laid. It passes east of Burkill Hall rather than through its lawn."
     }
    ]
   },
@@ -153,64 +177,99 @@
    "district": "botanic-gardens",
    "title": "Lane B: Bandstand and Palm Valley",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 0,
     "z": -60,
-    "level": "519 m \u00b7 the shortest and most exposed",
+    "level": "519 m · the shortest and most exposed",
     "shape": {
      "kind": "route",
      "tone": "proposal",
      "points": [
       {
        "x": 56,
-       "z": 248,
+       "z": 244,
+       "y": 0
+      },
+      {
+       "x": 24,
+       "z": 232,
+       "y": 0
+      },
+      {
+       "x": 10,
+       "z": 200,
        "y": 0
       },
       {
        "x": 8,
        "z": 160,
-       "y": 1
+       "y": 0
       },
       {
-       "x": 5,
-       "z": 95,
+       "x": 12,
+       "z": 104,
        "y": 6
+      },
+      {
+       "x": 12,
+       "z": 74,
+       "y": 5.2
       },
       {
        "x": 2,
        "z": 48,
-       "y": 5
+       "y": 5.8
       },
       {
        "x": 12,
-       "z": 16,
+       "z": 30,
+       "y": 6
+      },
+      {
+       "x": 12,
+       "z": 4,
        "y": 6
       },
       {
        "x": 6,
        "z": -12,
-       "y": 5.5
+       "y": 5.8
       },
       {
        "x": 0,
        "z": -60,
-       "y": 4
+       "y": 4.4
       },
       {
        "x": -4,
        "z": -110,
-       "y": 2
+       "y": 1.9
+      },
+      {
+       "x": -12,
+       "z": -150,
+       "y": 1
+      },
+      {
+       "x": -12,
+       "z": -170,
+       "y": 0.6
       },
       {
        "x": -40,
-       "z": -152,
-       "y": 1
+       "z": -190,
+       "y": 0
+      },
+      {
+       "x": -50,
+       "z": -214,
+       "y": 0
       },
       {
        "x": -112,
        "z": -206,
-       "y": 2
+       "y": 0
       }
      ]
     }
@@ -221,6 +280,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "Up Main Gate Road, over or round the Bandstand, across Orchid Plaza and down the open lawn of Palm Valley. Watched from the Orchid lookout on one side and the forest lookout on the other. Cover is the palm plots and a 1.5 m step halfway down the lawn. Fast if nobody holds the flanks."
+    },
+    {
+     "id": "botanic-plan-05-lane-valley-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built, redrawn here to the path as laid. It leaves the gate court west of the Botany Centre and passes east of the Bandstand, not through it."
     }
    ]
   },
@@ -229,69 +294,74 @@
    "district": "botanic-gardens",
    "title": "Lane C: through the Rain Forest",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 140,
     "z": 0,
-    "level": "629 m \u00b7 close range \u00b7 ends over the stage causeways",
+    "level": "629 m · close range · ends over the stage causeways",
     "shape": {
      "kind": "route",
      "tone": "proposal",
      "points": [
       {
        "x": 56,
-       "z": 248,
+       "z": 244,
+       "y": 0
+      },
+      {
+       "x": 104,
+       "z": 236,
+       "y": 0
+      },
+      {
+       "x": 108,
+       "z": 196,
        "y": 0
       },
       {
        "x": 112,
-       "z": 190,
-       "y": 1
+       "z": 150,
+       "y": 0
       },
       {
        "x": 126,
        "z": 112,
-       "y": 3
+       "y": 2.8
       },
       {
        "x": 136,
        "z": 60,
-       "y": 6
+       "y": 5.2
       },
       {
        "x": 140,
        "z": 0,
-       "y": 6
+       "y": 5.1
       },
       {
        "x": 118,
        "z": -46,
-       "y": 6.5
+       "y": 5.8
       },
       {
        "x": 68,
        "z": -100,
-       "y": 3
+       "y": 2.3
       },
       {
        "x": 40,
        "z": -152,
-       "y": 1.5
+       "y": 1
+      },
+      {
+       "x": 10,
+       "z": -164,
+       "y": 0.6
       },
       {
        "x": -12,
-       "z": -182,
-       "y": 1
-      },
-      {
-       "x": -50,
-       "z": -214,
-       "y": 1
-      },
-      {
-       "x": -112,
-       "z": -206,
-       "y": 2
+       "z": -170,
+       "y": 0.6
       }
      ]
     }
@@ -302,6 +372,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "Past the Botany Centre, into the forest, along the boardwalk, out down Heliconia Walk to the lake and across the stage. The longest lane and the most hidden. It delivers you onto the stage objective from the side lane B cannot see."
+    },
+    {
+     "id": "botanic-plan-06-lane-forest-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built, redrawn here to the path as laid. It runs between the two Botany Centre blocks, at ground level through the forest, and reaches the stage along the north shore."
     }
    ]
   },
@@ -310,11 +386,11 @@
    "district": "botanic-gardens",
    "title": "Three cross links",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 150,
     "z": -176,
-    "level": "Dell Lane and Lower Ring Road 411 m \u00b7 Maranta Avenue 79 m \u00b7 Nassim flank 319 m"
+    "level": "Dell Lane and Lower Ring Road 411 m · Maranta Avenue 79 m · Nassim flank 319 m"
    },
    "events": [
     {
@@ -330,11 +406,11 @@
    "district": "botanic-gardens",
    "title": "Bandstand over Main Gate Road",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 5,
     "z": 95,
-    "level": "63 m \u00b7 5.0 m above its target",
+    "level": "63 m · 5.0 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -347,7 +423,7 @@
       {
        "x": -32,
        "z": 146,
-       "y": 2.6
+       "y": 1.6
       }
      ]
     }
@@ -366,11 +442,11 @@
    "district": "botanic-gardens",
    "title": "Waterfall top over the Ginger Garden",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -132,
     "z": 58,
-    "level": "40 m \u00b7 4.0 m above its target",
+    "level": "40 m · 4.0 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -378,12 +454,12 @@
       {
        "x": -132,
        "z": 58,
-       "y": 8.6
+       "y": 1.6
       },
       {
        "x": -120,
        "z": 96,
-       "y": 4.6
+       "y": 1.6
       }
      ]
     }
@@ -402,24 +478,24 @@
    "district": "botanic-gardens",
    "title": "Burkill Hall verandah over the east lookout",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -108,
     "z": -45,
-    "level": "43 m \u00b7 6.0 m above its target",
+    "level": "43 m · 6.0 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
      "points": [
       {
-       "x": -108,
+       "x": -117,
        "z": -45,
-       "y": 15.6
+       "y": 15.9
       },
       {
        "x": -66,
        "z": -48,
-       "y": 9.6
+       "y": 5.6
       }
      ]
     }
@@ -438,11 +514,11 @@
    "district": "botanic-gardens",
    "title": "Orchid east lookout over the upper valley",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -66,
     "z": -48,
-    "level": "40 m \u00b7 4.4 m above its target",
+    "level": "40 m · 4.4 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -450,12 +526,12 @@
       {
        "x": -66,
        "z": -48,
-       "y": 9.6
+       "y": 5.6
       },
       {
        "x": -26,
        "z": -52,
-       "y": 5.2
+       "y": 6.2
       }
      ]
     }
@@ -474,11 +550,11 @@
    "district": "botanic-gardens",
    "title": "Rain Forest gate over Orchid Plaza",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 82,
     "z": 22,
-    "level": "52 m \u00b7 0.0 m above its target",
+    "level": "52 m · 0.0 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -486,7 +562,7 @@
       {
        "x": 82,
        "z": 22,
-       "y": 7.6
+       "y": 6
       },
       {
        "x": 30,
@@ -510,11 +586,11 @@
    "district": "botanic-gardens",
    "title": "Forest lookout over the lower valley",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 82,
     "z": -46,
-    "level": "59 m \u00b7 3.5 m above its target",
+    "level": "59 m · 3.5 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -522,12 +598,12 @@
       {
        "x": 82,
        "z": -46,
-       "y": 8.1
+       "y": 5.8
       },
       {
        "x": 36,
        "z": -82,
-       "y": 4.6
+       "y": 4.4
       }
      ]
     }
@@ -546,11 +622,11 @@
    "district": "botanic-gardens",
    "title": "Stage over the valley foot",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -12,
     "z": -182,
-    "level": "59 m \u00b7 0.5 m above its target",
+    "level": "59 m · 0.5 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
@@ -558,12 +634,12 @@
       {
        "x": -12,
        "z": -182,
-       "y": 3.6
+       "y": 2.5
       },
       {
        "x": 5,
        "z": -125,
-       "y": 3.1
+       "y": 3
       }
      ]
     }
@@ -582,24 +658,24 @@
    "district": "botanic-gardens",
    "title": "Corner House over the lake shore",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
-    "x": 98,
+    "x": 118,
     "z": -192,
-    "level": "54 m \u00b7 5.5 m above its target",
+    "level": "54 m · 5.5 m above its target",
     "shape": {
      "kind": "sightline",
      "tone": "proposal",
      "points": [
       {
-       "x": 98,
+       "x": 118,
        "z": -192,
-       "y": 8.6
+       "y": 8.9
       },
       {
        "x": 52,
        "z": -164,
-       "y": 3.1
+       "y": 2.2
       }
      ]
     }
@@ -610,6 +686,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "The bungalow on its slope covers lane C coming out of Heliconia Walk."
+    },
+    {
+     "id": "botanic-plan-15-sight-corner-shore-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built with the Corner House 8 m east of the drawing, at x = 106, so the line is redrawn from its verandah as built."
     }
    ]
   },
@@ -618,7 +700,7 @@
    "district": "botanic-gardens",
    "title": "The line this plan must not allow",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 4,
     "z": -95,
@@ -635,7 +717,7 @@
       {
        "x": -12,
        "z": -182,
-       "y": 2.6
+       "y": 2.5
       }
      ]
     }
@@ -654,11 +736,11 @@
    "district": "botanic-gardens",
    "title": "Three objectives, one per kind of ground",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 12,
     "z": 16,
-    "level": "Bandstand (hilltop) \u00b7 Orchid Plaza (saddle) \u00b7 Symphony Stage (water)"
+    "level": "Bandstand (hilltop) · Orchid Plaza (saddle) · Symphony Stage (water)"
    },
    "events": [
     {
@@ -674,11 +756,11 @@
    "district": "botanic-gardens",
    "title": "Command posts on the diagonal",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": 56,
     "z": 248,
-    "level": "South: Botany Centre court \u00b7 North: beside the Cool House"
+    "level": "South: Botany Centre court · North: beside the Cool House"
    },
    "events": [
     {
@@ -694,11 +776,11 @@
    "district": "botanic-gardens",
    "title": "Ten buildings, all of them enterable",
    "kind": "discussion",
-   "mapRevision": "unbuilt",
+   "mapRevision": "schematic-d3e6c928",
    "anchor": {
     "x": -152,
     "z": -66,
-    "level": "6757 m\u00b2 of floor plan, 3% of the land"
+    "level": "6757 m² of floor plan, 3% of the land"
    },
    "events": [
     {
@@ -706,6 +788,12 @@
      "at": "2026-11-23T12:00:00.000Z",
      "author": "ai",
      "body": "Botany Centre (open arcade), Holttum Hall, the Swan Lake gazebo, the Bandstand, Burkill Hall and Corner House (two floors with verandahs), the Cool House (fogged glasshouse), the stage shell and the visitor centre concourse. No solid blocks. Buildings are few because the hills and the forest do the dividing."
+    },
+    {
+     "id": "botanic-plan-19-buildings-built",
+     "at": "2026-11-23T15:00:00.000Z",
+     "author": "ai",
+     "body": "Built: Burkill Hall and the Corner House have a walled ground floor and an open upper verandah reached by one outside stair. The Botany Centre is an open arcade under a closed upper block; Holttum Hall has no stair yet; the Cool House has two doors and no fog; the Bandstand, gazebo, stage and visitor centre are open under their roofs."
     }
    ]
   }

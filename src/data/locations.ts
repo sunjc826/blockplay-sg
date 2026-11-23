@@ -240,6 +240,13 @@ export const locations = [
     tags: ['Island trails', 'Bumboat crossing'],
     viewpoints: [{ label: 'Village jetty', lat: 1.4011, lng: 103.9700, heading: 0 }],
   },
+  {
+    id: 'botanic-gardens', name: 'Botanic Gardens', subtitle: 'Hills, a valley and two lakes', district: 'TANGLIN',
+    description: 'The Tanglin and Central cores as graded ground: the Bandstand hill, the Orchid Garden terraces, Palm Valley, the Rain Forest and two lakes. A first pass, authored and compressed for play.',
+    lat: 1.3138, lng: 103.8159, heading: 0, color: '#7fa06a', block: 1,
+    tags: ['Graded gardens', 'Palm Valley'],
+    viewpoints: [{ label: 'Botanic Gardens', lat: 1.3138, lng: 103.8159, heading: 0 }],
+  },
 ] as const;
 
 export type Location = (typeof locations)[number];

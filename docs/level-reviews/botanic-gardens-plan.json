@@ -1,7 +1,7 @@
 {
  "id": "botanic-gardens",
  "name": "Botanic Gardens",
- "status": "proposal, nothing built",
+ "status": "proposal; a first pass was built from it on 23 November 2026 (docs/BOTANIC-GARDENS.md lists where the build departs from these numbers)",
  "frame": "World metres. x grows east, z grows south (north is -z, as on the review board). Heights are metres above the lake level.",
  "bounds": {
   "minX": -215,

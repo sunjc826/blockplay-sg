@@ -79,6 +79,10 @@ export const STREET_PROP_SITES: Record<RegionId,readonly StreetPropSite[]> = {
     strip('beach-rest','Beach pedestrian edge','rest',[-152,112],[-46,112],26,pi),
     strip('resort-front','Resort retail frontage','shopfront',[2,-13],[58,-13],12),
   ],
+  'botanic-gardens': [
+    point('gate-rest','Tanglin Gate court bench bay','rest',100,246,pi),
+    point('gate-cycles','Tanglin Gate court cycle racks','cycle-parking',-4,246),
+  ],
   'pulau-ubin': [
     strip('village-kopi','Kopi and provisions shop veranda','kopitiam',[-63,127],[-43,127],6),
     strip('village-provisions','Village shop side delivery area','loading',[-77,105],[-77,117],12,pi/2),

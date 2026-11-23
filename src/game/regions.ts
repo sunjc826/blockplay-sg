@@ -8,6 +8,9 @@ import { buildKatongJooChiatScene, KATONG_JOO_CHIAT_BOUNDS, KATONG_JOO_CHIAT_MAP
 import { KATONG_JOO_CHIAT_STAMPS } from '../data/region-stamps';
 import { buildPulauUbinScene, PULAU_UBIN_BOUNDS, PULAU_UBIN_MAP_ROADS, PULAU_UBIN_SPAWN } from './pulau-ubin-scene';
 import { PULAU_UBIN_STAMPS } from '../data/region-stamps';
+import { buildBotanicGardensScene, BOTANIC_GARDENS_BOUNDS, BOTANIC_GARDENS_BUILDINGS, BOTANIC_GARDENS_MAP_ROADS, BOTANIC_GARDENS_PATHS, BOTANIC_GARDENS_SPAWN } from './botanic-gardens-scene';
+import { SWAN_LAKE, SYMPHONY_LAKE } from './botanic-gardens-ground';
+import { BOTANIC_GARDENS_STAMPS } from '../data/region-stamps';
 import { withSetPieces, type SetPieceCue } from './district-set-pieces';
 import { withDistrictBoundaries } from './district-boundaries';
 import { withGroundCover } from './ground-cover';
@@ -123,7 +126,23 @@ const yishunMovement = createRegionMovement(YISHUN_BOUNDS);
 const little_indiaMovement = createRegionMovement(LITTLE_INDIA_BOUNDS);
 const katong_joo_chiatMovement = createRegionMovement(KATONG_JOO_CHIAT_BOUNDS);
 const pulauUbinMovement = createRegionMovement(PULAU_UBIN_BOUNDS);
+const botanicGardensMovement = createRegionMovement(BOTANIC_GARDENS_BOUNDS);
 const definitions: Record<RegionId, RegionDefinition> = {
+  'botanic-gardens': {
+    id: 'botanic-gardens', name: 'Botanic Gardens', shortName: 'Gardens', modeName: 'Botanic Gardens 3D', modeSubtitle: 'Hills, a valley and two lakes',
+    className: 'botanic-gardens-game', badge: 'BOTANIC GARDENS · GAME WORLD', title: 'Botanic Gardens · hills, valley & lakes',
+    subtitle: 'Authored garden · graded ground from the Tanglin Gate to Symphony Lake', mapTitle: 'TANGLIN & CENTRAL CORES',
+    stampNoun: 'garden stamps', exploreNoun: 'the Gardens', cameraFar: 1500,
+    spawn: BOTANIC_GARDENS_SPAWN, stamps: BOTANIC_GARDENS_STAMPS, bounds: BOTANIC_GARDENS_BOUNDS, mapRoads: BOTANIC_GARDENS_MAP_ROADS,
+    mapPaper: '#b9cba0', roadStroke: '#8f918a', roadWidth: 11,
+    decor: [
+      { kind: 'rect', x: 84, z: -110, width: 114, depth: 220, fill: '#8fae7c', layer: 'under', fpsFill: '#3d5840', fpsLayer: 'under' },
+      ...[SWAN_LAKE, SYMPHONY_LAKE].map((lake): RegionMapShape => ({ kind: 'rect', x: lake.cx - lake.rx, z: lake.cz - lake.rz, width: lake.rx * 2, depth: lake.rz * 2, radius: lake.rz, fill: '#5d8f86', layer: 'under' })),
+      ...BOTANIC_GARDENS_PATHS.flatMap(path => path.points.slice(1).map((to, i): RegionMapShape => ({ kind: 'line', from: path.points[i], to, stroke: '#ded3b6', width: path.width, layer: 'under' }))),
+      ...Object.values(BOTANIC_GARDENS_BUILDINGS).map((f): RegionMapShape => ({ kind: 'rect', x: f.x - f.w / 2, z: f.z - f.d / 2, width: f.w, depth: f.d, fill: '#d8cfb8', layer: 'over' })),
+    ],
+    hasGuide: false, build: buildBotanicGardensScene, move: botanicGardensMovement.move, canOccupy: botanicGardensMovement.canOccupy,
+  },
   'pulau-ubin': {
     id: 'pulau-ubin', name: 'Pulau Ubin', shortName: 'Ubin', modeName: 'Pulau Ubin 3D', modeSubtitle: 'A bumboat away',
     className: 'pulau-ubin-game', badge: 'PULAU UBIN · GAME WORLD', title: 'Pulau Ubin · village, quarry & wetlands',

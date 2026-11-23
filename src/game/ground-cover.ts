@@ -99,6 +99,13 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
       patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass: false, wettable: true, mesh: object });
       corrected++; continue;
     }
+    // Paving draped over graded ground (the Botanic Gardens' paths): no grass wherever it lies.
+    if (object.userData.groundPaving) {
+      box.copy(local).applyMatrix4(object.matrixWorld);
+      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass: false, wettable: true, mesh: object });
+      object.userData.noShadowCast = true; object.castShadow = false;
+      continue;
+    }
     if (object.userData.terrain) {
       box.copy(local).applyMatrix4(object.matrixWorld);
       const grass = object.userData.terrainCover !== 'sand';

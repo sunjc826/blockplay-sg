@@ -39,6 +39,7 @@ const labels: Record<Location['id'], { x: number; y: number; width: number; area
   'little-india': { x: 118, y: 202, width: 86, area: 'central' },
   'katong-joo-chiat': { x: 188, y: 140, width: 126, area: 'island' },
   'pulau-ubin': { x: 204, y: 0, width: 88, area: 'island' },
+  'botanic-gardens': { x: 114, y: 150, width: 112, area: 'island' },
   yishun: { x: 202, y: 20, width: 78, area: 'island' },
   woodlands: { x: 96, y: 20, width: 100, area: 'island' },
   tampines: { x: 232, y: 96, width: 86, area: 'island' },
