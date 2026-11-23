@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
 import { JURONG_LAKE_STAMPS } from '../data/region-stamps.ts';
@@ -40,7 +41,7 @@ export function buildJurongLakeScene() {
   const stone = mat('#b6b5ac'), pale = mat('#ded8c8'), dark = mat('#39464a'), wood = mat('#7c6046');
   const lacquer = mat('#a8402f'), gold = mat('#c59a34', 0.42, 0.55);
   const leaf = mat('#4e7444'), willow = mat('#6f9153'), orange = mat('#f0a044'), skin = mat('#b18c71');
-  const glass = mat('#6d90a0', 0.24, 0.3), steel = mat('#adb5b8', 0.3, 0.55), concrete = mat('#a8a79d');
+  const glass = mat('#6d90a0', 0.24, 0.3), steel = roundMetalBars(mat('#adb5b8', 0.3, 0.55)), concrete = mat('#a8a79d');
 
   box(0, -0.5, 0, 620, 1, 540, grass);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });

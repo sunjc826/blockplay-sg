@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
 import { BUKIT_TIMAH_STAMPS } from '../data/region-stamps.ts';
@@ -79,7 +80,7 @@ export function buildBukitTimahScene() {
   const asphalt = mat('#565c5a'), white = mat('#e9e7d8'), paving = mat('#bab5a6'), kerb = mat('#cdc7b7');
   const water = kit.water('#4d8490'), lawn = mat('#87a568'), grass = mat('#79935c');
   const concrete = mat('#a9a89d'), pale = mat('#efeade'), stone = mat('#b3b2a8'), dark = mat('#333f42');
-  const glass = mat('#6d92a0', 0.24, 0.3), steel = mat('#9aa4a6', 0.3, 0.6), wood = mat('#6f5740'), timber = mat('#3a2f26');
+  const glass = mat('#6d92a0', 0.24, 0.3), steel = roundMetalBars(mat('#9aa4a6', 0.3, 0.6)), wood = mat('#6f5740'), timber = mat('#3a2f26');
   const leaf = mat('#3d6b38'), fern = mat('#548245'), deep = mat('#2c5230'), moss = mat('#6b8f4c');
   const terra = mat('#a9604a'), rust = mat('#8f4a32'), orange = mat('#f0a044'), skin = mat('#b18c71'), teal = mat('#2f7b7b');
   const ballast = mat('#8b8880'), bands = ['#e8e2d4', '#cfd6cc', '#ded4bd'].map(color => mat(color));

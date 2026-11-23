@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
 import { HARBOURFRONT_STAMPS } from '../data/region-stamps.ts';
@@ -49,7 +50,7 @@ export function buildHarbourfrontScene() {
   const asphalt = mat('#565d61'), white = mat('#eae8da'), paving = mat('#bdb8ab'), kerb = mat('#cfc9bb');
   const water = kit.water('#3f7e95'), shallow = kit.water('#589cae'), lawn = mat('#8aa56c'), grass = mat('#7b9560');
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7b6148'), plank = mat('#9c7c57');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = roundMetalBars(mat('#b2babd', 0.28, 0.58)), wood = mat('#7b6148'), plank = mat('#9c7c57');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const hull = mat('#20404f'), deckWhite = mat('#f0ece0'), funnel = mat('#b8453a'), crane = mat('#c8843a');
   const container = ['#a8563a', '#2f6b78', '#4f7a45', '#9a9a8c', '#b08a3a'].map(color => mat(color));

@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -26,7 +27,7 @@ export function buildYishunScene() {
   const { scene, box, cylinder, solid, sign, tree, blob, mat } = kit;
   const grass = mat('#91a66e'), lawn = mat('#a2b57b'), asphalt = mat('#555b5b');
   const concrete = mat('#b9b9ad'), pale = mat('#e5dfcf'), white = mat('#f0ecdd');
-  const dark = mat('#34454a'), glass = mat('#72949a', .24, .3), steel = mat('#a6b2b1', .4, .45);
+  const dark = mat('#34454a'), glass = mat('#72949a', .24, .3), steel = roundMetalBars(mat('#a6b2b1', .4, .45));
   const red = mat('#b44a3d'), ochre = mat('#d1ad69'), wood = mat('#806444'), leaf = mat('#4e7747');
   const pond = kit.water('#4c8d89'), reed = mat('#8caa65');
   const panels = ['#d5b37d', '#afc8b4', '#d5a99a', '#acbdc9'].map(c => mat(c));

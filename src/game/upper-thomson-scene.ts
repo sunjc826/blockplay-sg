@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { registerFoliageDrift } from './ambient-drift';
 import { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -45,7 +46,7 @@ export function buildUpperThomsonScene() {
   const asphalt = mat('#575d5f'), white = mat('#e9e7d8'), paving = mat('#bab5a8'), kerb = mat('#cdc7b9');
   const water = kit.water('#4f8496'), grass = mat('#87a06c'), lawn = mat('#93ac74');
   const plaster = mat('#e6dfcd'), stone = mat('#b4b3aa'), concrete = mat('#a8a79d'), dark = mat('#36434a');
-  const wood = mat('#7a6046'), plank = mat('#9a7a55'), zinc = mat('#9fa6a4', 0.34, 0.5), steel = mat('#adb5b8', 0.3, 0.55);
+  const wood = mat('#7a6046'), plank = mat('#9a7a55'), zinc = mat('#9fa6a4', 0.34, 0.5), steel = roundMetalBars(mat('#adb5b8', 0.3, 0.55));
   const glass = mat('#6d90a0', 0.24, 0.3), leaf = mat('#3f6b3a'), fern = mat('#57854a'), deep = mat('#2f5a38');
   const orange = mat('#f0a044'), skin = mat('#b18c71'), tealSign = mat('#2f6b6b'), rust = mat('#a8563a');
   const shopColors = ['#e0d3ae', '#a9c2b4', '#d9bfa2', '#9fb4c6', '#cfa79b', '#d8cf9e'].map(color => mat(color));

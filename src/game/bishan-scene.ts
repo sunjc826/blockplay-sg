@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -48,7 +49,7 @@ export function buildBishanScene() {
   const asphalt = mat('#565c5c'), white = mat('#e9e7d8'), kerb = mat('#cec8b9');
   const water = kit.water('#4b8b92'), lawn = mat('#8aa96a'), grass = mat('#7b9a5e');
   const concrete = mat('#a9a89e'), pale = mat('#e6e1d3'), stone = mat('#b4b3a9'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = roundMetalBars(mat('#b0b8bb', 0.28, 0.55)), wood = mat('#7b6148');
   const silt = mat('#a8926a'), cobble = mat('#9a978c'), reed = mat('#93a857'), sedge = mat('#7f9a48');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c');
   const orange = mat('#f0a044'), skin = mat('#b18c71');

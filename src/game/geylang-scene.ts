@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { GEYLANG_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -46,7 +47,7 @@ export function buildGeylangScene() {
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#b9b3a6'), kerb = mat('#cdc7b9');
   const water = kit.water('#4b7f86'), grass = mat('#849c66'), lawn = mat('#90a870');
   const plaster = mat('#e9e2d0'), stone = mat('#b6b4ab'), concrete = mat('#a9a89e'), dark = mat('#36434a');
-  const wood = mat('#7b6148'), zinc = mat('#a0a7a5', 0.34, 0.5), steel = mat('#b0b8bb', 0.28, 0.55);
+  const wood = mat('#7b6148'), zinc = mat('#a0a7a5', 0.34, 0.5), steel = roundMetalBars(mat('#b0b8bb', 0.28, 0.55));
   const glass = mat('#6d90a0', 0.24, 0.3), terra = mat('#b0644a'), tileDark = mat('#8a4b38');
   const jade = mat('#2f6b52'), lacquer = mat('#8c2f26'), gold = mat('#c59a34', 0.42, 0.55), teal = mat('#2f7b84');
   const leaf = mat('#48733f'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');

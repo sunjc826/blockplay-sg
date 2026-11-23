@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
 import { registerFoliageDrift } from './ambient-drift';
@@ -46,7 +47,7 @@ export function buildWoodlandsScene() {
   const asphalt = mat('#575d60'), white = mat('#eae8da'), paving = mat('#bcb7aa'), kerb = mat('#cfc9bb');
   const water = kit.water('#46849c'), lawn = mat('#8aa66c'), grass = mat('#7c9560');
   const concrete = mat('#adaca2'), pale = mat('#e5dfd1'), stone = mat('#b5b4ab'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = roundMetalBars(mat('#b0b8bb', 0.28, 0.55)), wood = mat('#7b6148');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const teal = mat('#2f6b78'), rust = mat('#a8563a'), navy = mat('#2b4a6b'), safety = mat('#d8a02a');
   const ballast = mat('#8d8a80');

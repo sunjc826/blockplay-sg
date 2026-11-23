@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -50,7 +51,7 @@ export function buildSentosaScene() {
   const asphalt = mat('#575d5e'), white = mat('#eae8da'), paving = mat('#c0bbae'), kerb = mat('#d1cbbd');
   const sea = kit.water('#3f88a4'), shallow = kit.water('#63aec0', { falls: true }), sand = mat('#ded0a6'), lawn = mat('#89a76a');
   const pale = mat('#e8e1d1'), stone = mat('#b7b5ab'), concrete = mat('#adaca2'), dark = mat('#36434a');
-  const glass = mat('#72a0b2', 0.22, 0.32), steel = mat('#b2babd', 0.28, 0.58), wood = mat('#7c6248'), plank = mat('#a07f58');
+  const glass = mat('#72a0b2', 0.22, 0.32), steel = roundMetalBars(mat('#b2babd', 0.28, 0.58)), wood = mat('#7c6248'), plank = mat('#a07f58');
   const terra = mat('#b3684c'), gold = mat('#c59a34', 0.42, 0.55), rust = mat('#a8563a');
   const leaf = mat('#44703d'), fern = mat('#5b8a4c'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const cloth = ['#e6dcc4', '#c96a4a', '#4f8fa0', '#d8b24a'].map(color => mat(color));

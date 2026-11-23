@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { TOA_PAYOH_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -40,7 +41,7 @@ export function buildToaPayohScene() {
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
   const water = kit.water('#4a879c'), lawn = mat('#8ba76d'), grass = mat('#7d9661');
   const concrete = mat('#aaa99f'), pale = mat('#e7e1d3'), stone = mat('#b4b3aa'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = roundMetalBars(mat('#b0b8bb', 0.28, 0.55)), wood = mat('#7b6148');
   const scale1 = mat('#b8453a'), scale2 = mat('#d8a02a'), scale3 = mat('#e6e0d2');
   const teal = mat('#2f7b84'), rust = mat('#a8563a'), leaf = mat('#45713e'), fern = mat('#5b8a4c');
   const orange = mat('#f0a044'), skin = mat('#b18c71'), terra = mat('#b0644a');

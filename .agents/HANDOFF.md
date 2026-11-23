@@ -17560,8 +17560,11 @@ Owner asked for the sun's glint on metal beams (not glass; a per-pane glass tilt
   longer) as a rounded, brushed section: the normal swings across the bar, follows the sun's half vector along it, and
   roughness rises with the normal's screen-space change so a bar a pixel or two wide gets a soft sheen instead of
   beads. Works on plain and instanced unit boxes; tubes and plates are untouched. Cache key suffix `round-bars-v3`.
-- Applied to Marina `steel` and `helixSteel` and Raffles `silver` only (roughness about .24, metalness .7 to .75,
-  envMapIntensity 1.4). Other districts' steel is unchanged.
+- Marina `steel` and `helixSteel` and Raffles `silver` are also retuned (roughness about .24, metalness .7 to .75,
+  envMapIntensity 1.4). The `steel` of the fifteen other districts that have one gets `roundMetalBars` with its
+  values unchanged; GPU stills of Orchard, Changi, Tuas and HarbourFront were looked at, the rest were not. Street
+  props, `iron`, and the districts with no `steel` (Queenstown, Chinatown, Kampong Glam, Little India, Katong, Ubin)
+  are untouched.
 - `world-occlusion.ts`: the bloom extraction now averages four taps and caps a source pixel at `BLOOM_SOURCE_CAP` (6).
   One unfiltered, unbounded sample turned one-pixel sun highlights into blocky blobs at quarter resolution. This
   touches every bloom source; lamps, muzzle flash and sun on water were not compared before and after.

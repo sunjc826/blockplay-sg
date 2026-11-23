@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { TUAS_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -44,7 +45,7 @@ export function buildTuasScene() {
   // Bare metal is all reflection: its colour is what it reflects head-on, and it takes more of the sky than the
   // fill light alone carries, or it reads as dark paint.
   const metal = (color: string, roughness: number) => { const m = mat(color, roughness, 1); m.envMapIntensity = 1.7; return m; };
-  const steel = metal('#bcc3c7', 0.3), galv = metal('#d3d8da', 0.26), tank = metal('#d9dbd8', 0.42);
+  const steel = roundMetalBars(metal('#bcc3c7', 0.3)), galv = metal('#d3d8da', 0.26), tank = metal('#d9dbd8', 0.42);
   const rust = mat('#a05a38'), safety = mat('#d8a02a'), hazard = mat('#c4472e'), pipe = metal('#aab1b4', 0.34);
   const glass = mat('#6d90a0', 0.24, 0.3), hull = mat('#2b4652'), boot = mat('#8c3a2c'), deck = mat('#cfc9b8');
   const orange = mat('#f0a044'), skin = mat('#b18c71'), wood = mat('#7b6148'), leaf = mat('#4a7040');

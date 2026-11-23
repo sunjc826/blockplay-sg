@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { bumboat } from './bumboat';
 import { CHANGI_STAMPS } from '../data/region-stamps.ts';
@@ -35,7 +36,7 @@ export function buildChangiScene() {
   const { scene, box, cylinder, beam, blob, solid, sign, tree, walker, stampRings, mat, geo } = kit;
 
   const asphalt = mat('#5a6064'), white = mat('#eceadc'), paving = mat('#c2beb2'), kerb = mat('#d2ccbe');
-  const concrete = mat('#b3b1a7'), pale = mat('#e3ded0'), dark = mat('#38444a'), steel = mat('#aeb6ba', 0.28, 0.55);
+  const concrete = mat('#b3b1a7'), pale = mat('#e3ded0'), dark = mat('#38444a'), steel = roundMetalBars(mat('#aeb6ba', 0.28, 0.55));
   const glass = mat('#7fa3b0', 0.2, 0.35), deepGlass = mat('#6b8f9e', 0.18, 0.4), water = kit.water('#86b6c6'), falling = kit.water('#86b6c6', { falls: true });
   // Translucent roof panes keep the indoor forest readable in the browser.
   glass.transparent = true; glass.opacity = 0.52;

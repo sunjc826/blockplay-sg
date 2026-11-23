@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
 import { createSceneKit } from './scene-kit';
@@ -40,7 +41,7 @@ export function buildTampinesScene() {
   const asphalt = mat('#565c5f'), white = mat('#e9e7d8'), paving = mat('#bbb6a9'), kerb = mat('#cec8ba');
   const water = kit.water('#4a8a9c'), lawn = mat('#8ca86e'), grass = mat('#7e9762');
   const concrete = mat('#aaa99f'), pale = mat('#e6e0d2'), stone = mat('#b4b3aa'), dark = mat('#36434a');
-  const glass = mat('#6f95a6', 0.22, 0.32), steel = mat('#b0b8bb', 0.28, 0.55), wood = mat('#7b6148');
+  const glass = mat('#6f95a6', 0.22, 0.32), steel = roundMetalBars(mat('#b0b8bb', 0.28, 0.55)), wood = mat('#7b6148');
   const terra = mat('#b0644a'), teal = mat('#2f7b84'), rust = mat('#a8563a'), safety = mat('#d8a02a');
   const leaf = mat('#45713e'), fern = mat('#5b8a4c'), reed = mat('#94a558'), orange = mat('#f0a044'), skin = mat('#b18c71');
   const clay = mat('#9c6a4a');

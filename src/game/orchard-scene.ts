@@ -1,3 +1,4 @@
+import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
 import { type VerticalRoute } from './vertical-routes';
@@ -85,7 +86,7 @@ export function buildOrchardScene() {
 
   const asphalt = mat('#565c60'), white = mat('#eae8da'), paving = mat('#bdb8ac'), kerb = mat('#d0cabc');
   const granite = mat('#9d655a'), pale = mat('#e4ded0'), cream = mat('#e8dfc9'), concrete = mat('#aeaca2');
-  const glass = mat('#7ba0b2', 0.22, 0.34), deepGlass = mat('#5f8798', 0.18, 0.42), steel = mat('#b0b7ba', 0.3, 0.55);
+  const glass = mat('#7ba0b2', 0.22, 0.34), deepGlass = mat('#5f8798', 0.18, 0.42), steel = roundMetalBars(mat('#b0b7ba', 0.3, 0.55));
   // The malls' shop units: glazed walls that show a designed shop window in every bay, matching the sign over them.
   const fashionGlass = mat('#5f8798', 0.18, 0.42), lifestyleGlass = mat('#5f8798', 0.18, 0.42);
   fashionGlass.userData.nightShopWindow = ['fashion', 'jeweller', 'bags', 'beauty', 'sports'];
