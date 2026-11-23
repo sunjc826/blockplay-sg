@@ -11,6 +11,10 @@ import * as THREE from 'three';
  * The sky part is scaled so walls receive on average what the hemisphere
  * light gave them: shade is redistributed between faces, not brightened. The
  * ground is lit by the actual sun, so bounce rises and falls with the key.
+ *
+ * Round the horizon stands a skyline of blocks (`SKYLINE`), lit by the same sun
+ * and sky. It is there for what reflects: polished metal shows a broken dark
+ * line between sky and ground, not a smooth gradient that reads as paint.
  * Colours are linear RGB.
  */
 export type Rgb = readonly [number, number, number];
@@ -31,6 +35,19 @@ export const SKY_WIDTH = 128, SKY_HEIGHT = 64;
 /** Share of the ground in view that is in sun rather than in some building's shadow. */
 const SUNLIT_GROUND = .5;
 const ZENITH_TINT: Rgb = [.62, .78, 1.2], HORIZON_TINT: Rgb = [1.3, 1.24, 1.12];
+/**
+ * The skyline in the sky light: `blocks` buildings round the horizon, each `low` to `high` tall as the tangent
+ * of its elevation (most are low), `albedo[0]` to `albedo[1]` grey, and `haze` of the way to the horizon's colour.
+ */
+export const SKYLINE = { blocks: 40, low: .03, high: .42, albedo: [.3, .55], haze: .3 } as const;
+const hash = (n: number, seed: number) => { const v = Math.sin(n * 127.1 + seed * 311.7) * 43758.5453; return v - Math.floor(v); };
+/** How tall the skyline stands at longitude `lon`, as the tangent of its elevation, and how pale that building is. */
+export function skylineAt(lon: number) {
+  const turn = (lon / (2 * Math.PI) + .5) * SKYLINE.blocks, block = Math.floor(turn);
+  // A building's own height times its neighbourhood's, so tall ones cluster and most of the horizon stays low.
+  const tall = SKYLINE.low + (SKYLINE.high - SKYLINE.low) * hash(block, 3) * hash(Math.floor(turn * .31), 7);
+  return { tall, albedo: SKYLINE.albedo[0] + (SKYLINE.albedo[1] - SKYLINE.albedo[0]) * hash(block, 11) };
+}
 const luminance = (c: Rgb) => .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
 const WALLS = Array.from({ length: 8 }, (_, i) => ({ x: Math.cos(i * Math.PI / 4), y: 0, z: Math.sin(i * Math.PI / 4) }));
 const wallLuminance = (data: Float32Array, width: number, height: number) =>
@@ -53,7 +70,15 @@ export function skyRadiance(input: SkyLightInput, width = SKY_WIDTH, height = SK
     for (let i = 0; i < width; i++) {
       const lon = ((i + .5) / width - .5) * 2 * Math.PI, x = cos * Math.cos(lon), z = cos * Math.sin(lon);
       const k = (j * width + i) * 4;
-      if (y >= 0) {
+      const skyline = y >= 0 ? skylineAt(lon) : null;
+      if (skyline && y < skyline.tall * cos) {
+        // The face a building turns to us looks back along the view: sunlit when the sun is behind us.
+        const lit = ratio * Math.max(0, -(x * d.x + z * d.z) / Math.max(cos, 1e-4));
+        for (let c = 0; c < 3; c++) {
+          const wall = skyline.albedo * (input.sky[c] + lit * key[c]);
+          ground[k + c] = wall + (rim[c] - wall) * SKYLINE.haze;
+        }
+      } else if (y >= 0) {
         const t = Math.sqrt(y), facing = Math.max(0, x * d.x + y * d.y + z * d.z);
         const glow = glowScale * (facing ** 8 * .7 + facing ** 2 * .5);
         for (let c = 0; c < 3; c++) sky[k + c] = rim[c] + (zenith[c] - rim[c]) * t + key[c] * glow;

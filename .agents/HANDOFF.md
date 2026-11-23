@@ -17511,3 +17511,21 @@ Rain's CPU cost (2026-11-23, owner: slowdowns in rain, worst in a helicopter; "d
   Both untouched here.
 - Left: the wet-ground mask (`rain-reflections.ts`) still builds a string key per cell and clears its whole cache at
   24,000 entries, a likely hitch in fast flight; `getProgram` shows about 0.5 ms a frame even in sun.
+
+Tuas metal, containers and tank domes (2026-11-23, owner: "is the world lacking metalness?", then "check the tuas metal crates"):
+- `world-sky-light.ts`: the sky light's map now has a low band of buildings round the horizon (`SKYLINE`, `skylineAt`),
+  so a shiny surface has something to reflect besides sky. It is written into the unscaled ground half, so the wall
+  irradiance normalisation is unchanged. Shared by every district: spawn views of Changi, Raffles, HarbourFront and
+  Ubin, day and night, showed no visible change with and without it.
+- `tuas-scene.ts`: bare metal (steel, galvanised, pipe, tank shells) is full metalness with a lighter base colour and
+  `envMapIntensity` 1.7 (`metal()`); at .6 metalness under a sky-only map it read as dark paint. Tank shells went from
+  cream paint to bare cladding: a taste call the owner accepted from stills.
+- Containers are built by `containerShell`: corrugation ribs on exposed sides only, ribs on the closed end, and a door
+  end with locking bars, handles, seam and data plate. Paint roughness .58. Colliders unchanged. About +12% triangles
+  and +20 draw calls in a yard view.
+- Tank domes sat about .36 x radius above their tanks since Tuas landed (the sphere cap was placed by its centre); now
+  lowered by the rim's height.
+- Checked: tests, typecheck, SwiftShader stills of Tuas before and after. Not checked: frame rate on a real GPU, Tuas
+  at night or in rain, the browser smokes. Known: a faint diagonal shading pattern on container door faces, cause not
+  looked into. No test covers `skylineAt`. Other districts' metals are still partial-metalness paint-like values;
+  `metal()` is local to Tuas.

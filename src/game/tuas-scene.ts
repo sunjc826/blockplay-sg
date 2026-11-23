@@ -41,11 +41,15 @@ export function buildTuasScene() {
   const sea = kit.water('#3d7b90'), gravel = mat('#9a958a');
   gravel.userData.soil = true;
   const concrete = mat('#a8a79e'), pale = mat('#dcd6c8'), stone = mat('#b0afa6'), dark = mat('#333e44');
-  const steel = mat('#9ba4a8', 0.32, 0.6), galv = mat('#b9c0c2', 0.3, 0.7), tank = mat('#d8d6cc', 0.5, 0.25);
-  const rust = mat('#a05a38'), safety = mat('#d8a02a'), hazard = mat('#c4472e'), pipe = mat('#8e9698', 0.36, 0.55);
+  // Bare metal is all reflection: its colour is what it reflects head-on, and it takes more of the sky than the
+  // fill light alone carries, or it reads as dark paint.
+  const metal = (color: string, roughness: number) => { const m = mat(color, roughness, 1); m.envMapIntensity = 1.7; return m; };
+  const steel = metal('#bcc3c7', 0.3), galv = metal('#d3d8da', 0.26), tank = metal('#d9dbd8', 0.42);
+  const rust = mat('#a05a38'), safety = mat('#d8a02a'), hazard = mat('#c4472e'), pipe = metal('#aab1b4', 0.34);
   const glass = mat('#6d90a0', 0.24, 0.3), hull = mat('#2b4652'), boot = mat('#8c3a2c'), deck = mat('#cfc9b8');
   const orange = mat('#f0a044'), skin = mat('#b18c71'), wood = mat('#7b6148'), leaf = mat('#4a7040');
-  const boxes = ['#a8563a', '#2f6b78', '#4f7a45', '#93938a', '#b08a3a', '#7a5c86'].map(color => mat(color));
+  // Container paint: a semi-gloss coat, so a stack catches the sky along its ribs.
+  const boxes = ['#a8563a', '#2f6b78', '#4f7a45', '#93938a', '#b08a3a', '#7a5c86'].map(color => mat(color, .58));
 
   box(0, -0.6, 0, 600, 1, 500, gravel);
   kit.streetGrid({ ew: EW_ROADS, ns: NS_ROADS, edgeX: EDGE_X, edgeZ: EDGE_Z, asphalt, line: white, kerb });
@@ -61,8 +65,10 @@ export function buildTuasScene() {
     cylinder(x, height / 2, z, radius, height, tank); solid(x, z, radius * 2, radius * 2);
     for (let course = 1; course * 4 < height; course++) cylinder(x, course * 4, z, radius + 0.12, 0.3, steel);
     cylinder(x, height + 0.4, z, radius + 0.5, 0.8, galv);
-    const cap = new THREE.Mesh(geo(new THREE.SphereGeometry(radius, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2.6)), tank);
-    cap.position.set(x, height + 0.6, z); cap.castShadow = true; scene.add(cap);
+    // The dome is the top of a sphere: lowered by the height of its own rim, so the rim sits on the tank's.
+    const DOME = Math.PI / 2.6;
+    const cap = new THREE.Mesh(geo(new THREE.SphereGeometry(radius, 14, 6, 0, Math.PI * 2, 0, DOME)), tank);
+    cap.position.set(x, height + 0.8 - radius * Math.cos(DOME), z); cap.castShadow = true; scene.add(cap);
     // Spiral stair wrapping the shell, with a landing at the top.
     for (let n = 0; n < 26; n++) {
       const angle = n * 0.34, y = n * height / 26;
@@ -235,17 +241,34 @@ export function buildTuasScene() {
   }
 
   const CONTAINER = { pitch: 3.2, width: 3, height: 2.6, storey: 2.7, length: 12.2 };
-  function container(cx: number, level: number, z: number, body: THREE.Material, shadow: boolean) {
-    box(cx, 1.4 + level * CONTAINER.storey, z, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, scene, shadow);
-    for (let n = -5; n <= 5; n += 1.2) box(cx + 1.55, 1.4 + level * CONTAINER.storey, z + n, 0.16, 2.3, 0.5, body);
-    box(cx, 1.4 + level * CONTAINER.storey, z + 6.2, 2.8, 2.2, 0.2, dark);
+  /**
+   * A shipping container about (`cx`, `cy`, `z`) in `parent`: corrugated walls on the long sides that show
+   * (`left` is -x, `right` +x; a side against a neighbour is left plain), a corrugated closed end, and at the
+   * +z end two door leaves under a header and over a sill, with their locking bars, handles and a data plate.
+   * Nothing is thinner than the 0.1 m detail floor.
+   */
+  function containerShell(parent: THREE.Object3D, cx: number, cy: number, z: number, body: THREE.Material, shadow: boolean, left = true, right = true) {
+    box(cx, cy, z, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, parent, shadow);
+    for (const side of [left ? -1 : 0, right ? 1 : 0]) if (side)
+      for (let n = -5.4; n <= 5.41; n += .6) box(cx + side * 1.55, cy, z + n, .16, 2.3, .3, body, parent);
+    for (let n = -1.2; n <= 1.21; n += .6) box(cx + n, cy, z - 6.15, .3, 2.3, .16, body, parent);
+    const door = z + 6.15;
+    for (const dy of [-1.2, 1.2]) box(cx, cy + dy, door, CONTAINER.width, .2, .1, dark, parent);
+    box(cx, cy, door, .1, 2.2, .1, dark, parent);
+    for (const dx of [-1.1, -.4, .4, 1.1]) box(cx + dx, cy, door, .1, 2.2, .1, galv, parent);
+    for (const dx of [-.6, .6]) box(cx + dx, cy - .3, door + .05, .4, .1, .1, galv, parent);
+    box(cx + .75, cy + .6, door, .5, .3, .1, white, parent);
   }
-  /** Container rows: stacked boxes with corrugated ends and door furniture. */
+  function container(cx: number, level: number, z: number, body: THREE.Material, shadow: boolean, left = true, right = true) {
+    containerShell(scene, cx, 1.4 + level * CONTAINER.storey, z, body, shadow, left, right);
+  }
+  /** Container rows: stacked boxes, corrugated where a side shows, doors to the south. */
   function containerStack(x: number, z: number, rows: number, tall: number) {
     for (let r = 0; r < rows; r++) for (let level = 0; level < tall; level++) {
       const cx = x + (r - (rows - 1) / 2) * CONTAINER.pitch, body = boxes[(r + level * 3) % boxes.length];
-      if ((r + level) % 7 === 5 && level) continue;
-      container(cx, level, z, body, level === tall - 1);
+      const stacked = (row: number) => row >= 0 && row < rows && !((row + level) % 7 === 5 && level);
+      if (!stacked(r)) continue;
+      container(cx, level, z, body, level === tall - 1, !stacked(r - 1), !stacked(r + 1));
       if (!level) solid(cx, z, 3.2, 12.4);
     }
   }
@@ -261,8 +284,11 @@ export function buildTuasScene() {
    */
   function toppledStack(x: number, z: number, toward: 1 | -1, flip: 1 | -1) {
     const rowX = (r: number) => x + flip * (r - 3) * CONTAINER.pitch, face = z + toward * 6.2;
-    [4, 2, 1, 0, 0, 4, 4].forEach((high, r) => {
-      for (let level = 0; level < high; level++) container(rowX(r), level, z, boxes[(r + level * 3) % boxes.length], level === high - 1);
+    const heights = [4, 2, 1, 0, 0, 4, 4];
+    heights.forEach((high, r) => {
+      // `flip` turns the rows round, so the neighbour on the -x side is the row before or the row after.
+      for (let level = 0; level < high; level++) container(rowX(r), level, z, boxes[(r + level * 3) % boxes.length], level === high - 1,
+        !((heights[r - flip] ?? 0) > level), !((heights[r + flip] ?? 0) > level));
       if (high) kit.obstacles.push({ minX: rowX(r) - 1.6, maxX: rowX(r) + 1.6, minZ: z - 6.2, maxZ: z + 6.2, minY: 0, maxY: high * CONTAINER.storey, supportsTop: true });
     });
     /** A spilled crate: a 1.35 m step, which is a mantle. `dx` across from the stack's middle, `dz` out from its face. */
@@ -280,9 +306,7 @@ export function buildTuasScene() {
     const fallen = (dx: number, dz: number, alongX: boolean, yaw: number, body: THREE.Material, from: [number, number, number], delay: number) => {
       const cx = x + flip * dx, cz = face + toward * dz;
       const group = new THREE.Group(); group.position.set(cx, 0, cz); group.rotation.y = flip * toward * yaw + (alongX ? Math.PI / 2 : 0); scene.add(group);
-      box(0, 1.4, 0, CONTAINER.width, CONTAINER.height, CONTAINER.length, body, group, true);
-      for (let n = -5; n <= 5; n += 2.4) box(1.55, 1.4, n, 0.16, 2.3, 0.5, body, group);
-      box(0, 1.4, 6.2, 2.8, 2.2, 0.2, dark, group);
+      containerShell(group, 0, 1.4, 0, body, true);
       stageFall(group, { position: from, yaw: 0, delay });
       const angle = group.rotation.y, cos = Math.cos(angle), sin = Math.sin(angle);
       const footprint = [[-1.6, -6.2], [1.6, -6.2], [1.6, 6.2], [-1.6, 6.2]].map(([px, pz]) => ({ x: cx + px * cos + pz * sin, z: cz - px * sin + pz * cos }));
