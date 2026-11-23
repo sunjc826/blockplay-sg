@@ -101,7 +101,8 @@ describe('explosion particles without arena events', () => {
     const visuals = createCombatEventVisuals(scene, origin => new THREE.Vector3(origin.x, 0, origin.z), { reduced: () => false, ground: terrace });
     const debris = scene.getObjectByName('combat-debris') as THREE.InstancedMesh, matrix = new THREE.Matrix4(), at = new THREE.Vector3();
     let onTerrace = 0, onGround = 0;
-    for (let burst = 0; burst < 6; burst++) {
+    // Chunks fly at random, and six blasts left the terrace empty about one run in ten; twenty-four do not.
+    for (let burst = 0; burst < 24; burst++) {
       visuals.blast(new THREE.Vector3(0, .15, 0));
       for (let frame = 0; frame < 80; frame++) {
         visuals.update(1 / 60, [], frame / 60, camera);
