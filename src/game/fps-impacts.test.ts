@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, SPARKS_PER_IMPACT, IMPACT_VISIBILITY, visibility } from './fps-impacts';
+import { DEBRIS_BOUNCE, EMBER_EVERY, type GroundLookup, advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, RING_LIFE, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, SPARKS_PER_IMPACT, IMPACT_VISIBILITY, visibility } from './fps-impacts';
 import { DEFAULT_IMPACT_PROFILE, impactProfile } from './fps-impact-profile';
 
 const wall = { x: 2, y: 1.5, z: -3 }, out = { x: 0, y: 0, z: 1 };
@@ -165,5 +165,88 @@ describe('impact visibility', () => {
     expect(impact.profile.smokeSize).toBeCloseTo(DEFAULT_IMPACT_PROFILE.smokeSize * IMPACT_VISIBILITY.smokeSize);
     expect(impact.life).toBeGreaterThan(DEFAULT_IMPACT_PROFILE.smokeLifetime);
     expect(field.debris.length).toBeGreaterThan(0);
+  });
+});
+
+describe('landing on the world', () => {
+  const low = { x: 0, y: .3, z: 0 }, up = { x: 0, y: 1, z: 0 };
+  const fall = (field: ReturnType<typeof createImpactField>, seconds: number, ground: GroundLookup, each?: () => void) => {
+    for (let t = 0; t < seconds; t += 1 / 60) { advanceImpacts(field, 1 / 60, ground); each?.(); }
+  };
+  /** Solid ground at `height`, found only from on or above it, as the engine's lookup answers. */
+  const flat = (height: number): GroundLookup => (_x, _z, y) => y >= height ? height : null;
+
+  it('falls through without a ground lookup, as it always has', () => {
+    const field = createImpactField();
+    recordImpact(field, low, out, 'surface', 1, Math.random, undefined, DEFAULT_IMPACT_PROFILE, 'concrete');
+    run(field, .5);
+    expect(Math.min(...field.debris.map(piece => piece.y))).toBeLessThan(0);
+  });
+
+  it('keeps sparks and fragments on or above the ground they come down on', () => {
+    const field = createImpactField();
+    let lowest = Infinity;
+    for (let i = 0; i < 12; i++) recordImpact(field, low, out, 'surface', 1, Math.random, undefined, DEFAULT_IMPACT_PROFILE, i % 2 ? 'metal' : 'concrete');
+    fall(field, .9, flat(0), () => { for (const p of [...field.sparks, ...field.debris]) lowest = Math.min(lowest, p.y); });
+    expect(lowest).toBe(0);
+  });
+
+  it('bounces a stone chip back up with part of its fall and lays it to rest after', () => {
+    const field = createImpactField();
+    recordImpact(field, low, out, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'concrete');
+    const chip = field.debris[0]; chip.life = 5; chip.vx = 1; chip.vy = 0; chip.vz = 0;
+    let fell = 0, rebound = 0;
+    fall(field, .6, flat(0), () => { if (!rebound && chip.vy < 0) fell = chip.vy; if (!rebound && fell && chip.vy > 0) rebound = chip.vy; });
+    expect(rebound).toBeGreaterThan(0);
+    // `fell` is the speed one step before it struck; gravity adds at most one more step to that.
+    expect(rebound).toBeLessThanOrEqual((-fell + chip.gravity / 60) * DEBRIS_BOUNCE + 1e-9);
+    fall(field, 2, flat(0));
+    expect(chip.resting).toBe(true);
+    expect(chip.y).toBe(0);
+    const at = { x: chip.x, z: chip.z, angle: chip.angle };
+    fall(field, .5, flat(0));
+    expect({ x: chip.x, z: chip.z, angle: chip.angle }).toEqual(at);
+  });
+
+  it('drops a leaf and a drop of blood where they land, with no bounce', () => {
+    for (const surface of ['foliage', 'flesh'] as const) {
+      const field = createImpactField();
+      recordImpact(field, low, out, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, surface);
+      const piece = field.debris[0]; piece.life = 20;
+      let rose = false, landed = false;
+      fall(field, 6, flat(0), () => { if (piece.y === 0) landed = true; else if (landed) rose = true; });
+      expect(landed, surface).toBe(true);
+      expect(rose, surface).toBe(false);
+      expect(piece.resting, surface).toBe(true);
+    }
+  });
+
+  it('lands on a ledge where there is one and falls past its edge where there is not', () => {
+    // A 1 m deck over x < 0, bare ground beyond it; nothing at all past x = 3.
+    const stepped: GroundLookup = (x, _z, y) => x > 3 ? null : x < 0 && y >= 1 ? 1 : y >= 0 ? 0 : null;
+    const field = createImpactField();
+    recordImpact(field, { x: -1, y: 1.4, z: 0 }, up, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'concrete');
+    const [onDeck, offDeck, lost] = field.debris;
+    for (const piece of [onDeck, offDeck, lost]) { piece.life = 9; piece.vy = 0; piece.vz = 0; piece.drag = 0; }
+    onDeck.vx = 0; offDeck.vx = 4; offDeck.x = -.2; lost.vx = 4; lost.x = 2.9;
+    fall(field, 3, stepped);
+    expect(onDeck.y).toBe(1);
+    expect(offDeck.x).toBeGreaterThan(0); expect(offDeck.y).toBe(0);
+    expect(lost.y).toBeLessThan(-1);
+  });
+
+  it('gives one spark in a few the life to reach the ground, and skips it along', () => {
+    const field = createImpactField();
+    recordImpact(field, low, out, 'surface', 1, () => .5, undefined, DEFAULT_IMPACT_PROFILE, 'metal');
+    const embers = field.sparks.filter((_spark, i) => i % EMBER_EVERY === 0), flecks = field.sparks.filter((_spark, i) => i % EMBER_EVERY !== 0);
+    expect(Math.min(...embers.map(spark => spark.life))).toBeGreaterThan(Math.max(...flecks.map(spark => spark.life)));
+    const ember = embers[0]; ember.vx = 2; ember.vy = -3; ember.vz = 0;
+    let bounced = false;
+    fall(field, .3, flat(0), () => { if (ember.vy > 0) bounced = true; expect(ember.y).toBeGreaterThanOrEqual(0); });
+    expect(bounced).toBe(true);
+    expect(ember.x).toBeGreaterThan(low.x);
+    // A hit on a range target keeps its short, clean flash.
+    clearImpactField(field); recordImpact(field, low, out, 'target', 1, () => .5);
+    expect(new Set(field.sparks.map(spark => spark.life)).size).toBe(1);
   });
 });

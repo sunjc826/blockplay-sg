@@ -17589,3 +17589,28 @@ Owner agreed to a Botanic Gardens level as the vegetation testing ground and ask
 - Waiting on the owner's verdict per numbered item, and on seven decisions listed at the foot of the page (board
   support for planned sites, scope, graded ground to 11 m, leaves not stopping rounds, north post, reference captures,
   four more plants). Build nothing before that. The Marina Bay reading on the board still has no verdicts either.
+
+## Sparks and fragments land on the world (2026-11-23)
+
+Owner asked for particles that interact with the world, "sparks that fall and bounce on the ground", and chose the
+CPU version over a GPU simulation (pools are a few hundred particles; no GPU compute exists in the codebase).
+
+- `fps-impacts.ts`: `advanceImpacts(field, dt, ground?)` takes a `GroundLookup` `(x, z, y) => floor | null`. Sparks
+  bounce (`SPARK_BOUNCE`) and skitter; hard fragments bounce (`DEBRIS_BOUNCE`), lose their tumble and come to rest
+  (`resting`) until they shrink out; leaves and blood drops stay where they land (`bounce: 0`). Each particle remembers
+  the floor it last sampled and asks again after 0.25 m of travel; a `null` answer is not remembered, because a spark
+  leaving a wall starts inside that wall's footprint. Without `ground` everything behaves as before.
+- One surface spark in three (`EMBER_EVERY`) now lives 2.5 times as long (`EMBER_LIFE`, under a second), since the old
+  0.2 to 0.4 s lifetimes burnt out before reaching the ground. Target hits keep the short flash. This is a look change.
+- `fps-engine.ts`: `particleFloor` is `footMovement.supportHeight(x, z, y, .01, .02)`: terrain, walk surfaces and
+  supporting obstacle tops, nothing over open water. Passed to `effects.update` and to `createCombatEventVisuals`
+  (`options.ground`), where thrown sparks and chunks re-sample their `floor` each metre instead of bouncing on the
+  height the blast went off at.
+- Ground only. Nothing collides with walls, vehicles or non-supporting props; a particle that comes down inside such a
+  footprint still falls through. Brass still lands on the single `brassFloor` height under the player.
+- Checked: tests, typecheck; a throwaway run against the real Marina collision world (about 0.7 microseconds a lookup,
+  about 2 lookups a frame under fire, 2253 of 2304 fragments came to rest, the rest fell where there is no support);
+  the range entered and fired into the ground in headless Chrome on SwiftShader with no exceptions. Not checked: the
+  bounce by eye (SwiftShader ran at about 3 fps), an explosion in the game, frame rate, `pnpm build`, other smokes.
+- `scripts/fps-effects-smoke.mjs` is stale since the debug workspace redesign of 2026-11-11: it opens `/debug` and waits
+  for a "Marina FPS" button, but the range now sits behind `/debug?tool=fps` and loads straight to "Enter range". Not fixed.

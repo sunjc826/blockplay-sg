@@ -669,7 +669,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const combatVisuals = createCombatEventVisuals(world.scene, (origin, direction, far) => {
     eventRay.set(origin, direction); eventRay.near = 0; eventRay.far = far;
     return firstVisibleHit(eventRay, gameplayCandidates())?.point ?? null;
-  }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
+  }, { reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches, ground: (x, z, y) => particleFloor(x, z, y) });
   const grenadeVisuals = createGrenadeVisuals(world.scene, (at, damage) => { combatVisuals.blast(at, damage > 90 ? 1 : .5); combatAudio.boom(at.distanceTo(camera.position), damage > 90 ? 1 : .5); ambientSky.startle(at, 1); }, p => { eventRay.set(p.clone().setY(160), new THREE.Vector3(0, -1, 0)); eventRay.near = 0; eventRay.far = 180; return (firstVisibleHit(eventRay, gameplayCandidates())?.point.clone() ?? p).add(new THREE.Vector3(0, .15, 0)); });
   const combatAudio = createCombatAudio(() => audio, () => hud.muted);
   const streakVisuals = createStreakVisuals(world.scene, at => { combatVisuals.blast(at, 1); combatAudio.boom(at.distanceTo(camera.position), 1); });
@@ -751,6 +751,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   // four seconds.
   const floorRay = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 8);
   let brassFloor = 0, floorCheck = 0;
+  /** What a spark or a fragment at height `y` comes down on: terrain, decks, roofs and prop tops, and nothing over open water. */
+  const particleFloor = (x: number, z: number, y: number) => footMovement.supportHeight(x, z, y, .01, .02);
   const healthGeometry = new THREE.PlaneGeometry(.54, .055), healthMaterial = new THREE.MeshBasicMaterial({ color: "#e1a74e", side: THREE.DoubleSide });
   let disposed = false, loadout = createPooledLoadout(specs, equipment.carriedFamilies, rangeTravel?.checkpoint), position = { x: spawn.x, z: spawn.z };
   if (rangeTravel?.checkpoint) {
@@ -4927,7 +4929,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       brassFloor = ground ? ground.point.y : 0;
     }
     // A hair proud of the deck, so a case lies on it rather than in it.
-    effects.update(realDt, camera, brassFloor + .004);
+    effects.update(realDt, camera, brassFloor + .004, particleFloor);
     impactAudio.update(); bulletFlybys.update();
     gunshots.update(); emptyFireAudio.update();
     reloadAudio.update();

@@ -9,6 +9,7 @@ import { buildVehicleModel } from './vehicle-models';
 import { withInstanceOpacity } from './fps-impact-material';
 import { createExplosionTexture } from './explosion-textures';
 import { disturbFoliage } from './foliage-disturbance';
+import type { GroundLookup } from './fps-impacts';
 
 /**
  * Draws combat events from their descriptors: shells and bombs in their last
@@ -19,6 +20,8 @@ import { disturbFoliage } from './foliage-disturbance';
  * resolves hits on live raiders, transport hulls and seated drivers separately.
  */
 
+/** How far a thrown particle travels before the ground under it is looked up again, and how far above itself it looks. */
+const FLOOR_REACH = 1, FLOOR_STEP = .3;
 const FIRE = 96, SMOKE = 256, DEBRIS = 96, SPARKS = 128, SHELLS = 24, CRATERS = 40, MARKERS = 18, TRANSPORTS = 3, ROPERS = 6;
 const BOMBS = 16, FLYERS = 4, RAIDERS = 2, PITS = 2, CRATES = 2, PUFFS = 192;
 /** Shells are drawn at an arcade speed so their last half-second is visible at all. */
@@ -31,7 +34,7 @@ const CRATER_LIFE = 60;
 const noRaycast = () => {};
 export type CombatCast = (origin: THREE.Vector3, direction: THREE.Vector3, far: number) => THREE.Vector3 | null;
 
-interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; spin: number; floor: number;
+interface Particle { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; size: number; grow: number; colour: THREE.Color; spin: number; floor: number; floorX: number; floorZ: number;
   /** Upward acceleration: hot or signal smoke climbs, dust settles. */
   lift: number; opacity: number }
 function radial(size: number, edge: number) {
@@ -190,7 +193,7 @@ const hashText = (text: string) => { let h = 2166136261; for (let i = 0; i < tex
 /** What the renderer saw happen to raiders this frame, for the engine to play. */
 export interface RaiderHappenings { shots: THREE.Vector3[]; blasts: { at: THREE.Vector3; size: number }[] }
 
-export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, options: { reduced: () => boolean }) {
+export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, options: { reduced: () => boolean; ground?: GroundLookup }) {
   const root = new THREE.Group(); root.name = 'combat-events'; root.userData.fpsEffect = true; scene.add(root);
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [], textures: THREE.Texture[] = [radial(64, 1.4), radial(64, .7), createExplosionTexture(true), createExplosionTexture(false)];
   const [soft, blot, flame, billow] = textures;
@@ -305,7 +308,7 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
   const carried = new THREE.Vector3();
   function particle(at: THREE.Vector3, spread: number, up: number, life: number, size: number, grow: number, colour: THREE.Color): Particle {
     const angle = Math.random() * Math.PI * 2, out = Math.random() * spread;
-    return { x: at.x, y: at.y, z: at.z, vx: Math.cos(angle) * out + carried.x, vy: up * (.5 + Math.random() * .5) + carried.y, vz: Math.sin(angle) * out + carried.z, age: 0, life: life * (.7 + Math.random() * .6), size, grow, colour, spin: Math.random() * 6, floor: at.y, lift: 0, opacity: .85 };
+    return { x: at.x, y: at.y, z: at.z, vx: Math.cos(angle) * out + carried.x, vy: up * (.5 + Math.random() * .5) + carried.y, vz: Math.sin(angle) * out + carried.z, age: 0, life: life * (.7 + Math.random() * .6), size, grow, colour, spin: Math.random() * 6, floor: at.y, floorX: at.x, floorZ: at.z, lift: 0, opacity: .85 };
   }
   const dust = new THREE.Color('#857762'), soot = new THREE.Color('#3a3530'), chunk = new THREE.Color('#2c2620'), wash = new THREE.Color('#a69a80'), oilSmoke = new THREE.Color('#141312'), hullChunk = new THREE.Color('#1c1d1b');
   /** A shell landing: fireball, smoke, thrown dirt, a crater and a flash. `size` 1 is an artillery round. */
@@ -387,9 +390,14 @@ export function createCombatEventVisuals(scene: THREE.Scene, cast: CombatCast, o
       const elapsed = p.age === 0 ? Math.min(dt, 1 / 60) : dt;
       p.age += elapsed;
       if (p.age >= p.life) { list.splice(i, 1); continue; }
-      const damp = Math.exp(-drag * elapsed);
+      const damp = Math.exp(-drag * elapsed), fromY = p.y;
       p.vx *= damp; p.vz *= damp; p.vy = p.vy * damp + (p.lift - gravity) * elapsed;
       p.x += p.vx * elapsed; p.y += p.vy * elapsed; p.z += p.vz * elapsed;
+      // Thrown wide, a spark or a chunk comes down on whatever is there, not on the height the blast went off at.
+      if (gravity > 0 && options.ground && p.vy < 0 && Math.abs(p.x - p.floorX) + Math.abs(p.z - p.floorZ) > FLOOR_REACH) {
+        const floor = options.ground(p.x, p.z, fromY + FLOOR_STEP);
+        if (floor !== null) { p.floor = floor; p.floorX = p.x; p.floorZ = p.z; }
+      }
       if (gravity > 0 && p.y < p.floor) { p.y = p.floor; p.vy *= -.25; p.vx *= .5; p.vz *= .5; }
       p.spin += elapsed * 4;
     }

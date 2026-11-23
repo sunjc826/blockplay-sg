@@ -94,4 +94,27 @@ describe('explosion particles without arena events', () => {
     for (const layer of ['fire', 'smoke', 'debris', 'sparks', 'craters']) expect(mesh(`combat-${layer}`).count).toBe(0);
     visuals.dispose(); expect(scene.getObjectByName('combat-events')).toBeUndefined();
   });
+  it('brings thrown chunks down on the ground where they land, not at the height of the blast', () => {
+    // A blast on flat ground beside a 2 m terrace that starts 4 m out along +x.
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();
+    const terrace = (x: number, _z: number, y: number) => x > 4 ? (y >= 2 ? 2 : null) : y >= 0 ? 0 : null;
+    const visuals = createCombatEventVisuals(scene, origin => new THREE.Vector3(origin.x, 0, origin.z), { reduced: () => false, ground: terrace });
+    const debris = scene.getObjectByName('combat-debris') as THREE.InstancedMesh, matrix = new THREE.Matrix4(), at = new THREE.Vector3();
+    let onTerrace = 0, onGround = 0;
+    for (let burst = 0; burst < 6; burst++) {
+      visuals.blast(new THREE.Vector3(0, .15, 0));
+      for (let frame = 0; frame < 80; frame++) {
+        visuals.update(1 / 60, [], frame / 60, camera);
+        for (let i = 0; i < debris.count; i++) {
+          debris.getMatrixAt(i, matrix); at.setFromMatrixPosition(matrix);
+          expect(at.y).toBeGreaterThanOrEqual(-1e-6);
+          if (at.x > 5 && Math.abs(at.y - 2) < 1e-6) onTerrace++;
+          if (at.x < 3 && Math.abs(at.y) < 1e-6) onGround++;
+        }
+      }
+    }
+    expect(onTerrace).toBeGreaterThan(0);
+    expect(onGround).toBeGreaterThan(0);
+    visuals.dispose();
+  });
 });

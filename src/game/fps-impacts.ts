@@ -28,15 +28,24 @@ export type ImpactKind = 'surface' | 'target';
  * once the player has switched to another one.
  */
 export interface Impact { x: number; y: number; z: number; nx: number; ny: number; nz: number; age: number; life: number; kind: ImpactKind; profile: ImpactProfile; spin: number; style?: string; surface?: SurfaceKind }
-export interface Spark { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; style?: string }
+/** What a falling particle remembers of the ground under it: the last floor sampled, and where it was sampled. */
+interface Grounded { floorY?: number; floorX?: number; floorZ?: number }
+export interface Spark extends Grounded { x: number; y: number; z: number; vx: number; vy: number; vz: number; age: number; life: number; style?: string }
 export interface Scorch { x: number; y: number; z: number; nx: number; ny: number; nz: number; radius: number; depth: number; spin: number; age: number; life: number; style?: string; decal: DecalKind }
 /** A solid fragment: a chip, splinter, shard, leaf or droplet. It tumbles and shrinks away. */
-export interface Debris {
+export interface Debris extends Grounded {
   x: number; y: number; z: number; vx: number; vy: number; vz: number;
   ax: number; ay: number; az: number; angle: number; spin: number;
   sx: number; sy: number; sz: number; gravity: number; drag: number;
   age: number; life: number; colour: string; flutter: number;
+  /** Share of its fall speed a fragment keeps off the ground: a stone chip skips, a leaf or a droplet stays where it lands. */
+  bounce: number; resting?: boolean;
 }
+/**
+ * The highest thing a particle at height `y` could land on at (`x`, `z`): terrain, a deck, a roof, a crate top.
+ * `null` where there is nothing under it (open water, a void), and the particle falls on through.
+ */
+export type GroundLookup = (x: number, z: number, y: number) => number | null;
 export interface ImpactField { impacts: Impact[]; sparks: Spark[]; scorches: Scorch[]; debris: Debris[] }
 
 export const MAX_IMPACTS = 24, MAX_SPARKS = 120, MAX_SCORCHES = 96, MAX_DEBRIS = 400;
@@ -58,6 +67,15 @@ export const RING_LIFE = 0.11, SCORCH_LIFE = 6;
 /** Sparks per impact, and how far a spark's streak trails behind it per unit of speed. */
 export const SPARKS_PER_IMPACT = 7, SPARK_TRAIL = 0.024;
 const SPARK_GRAVITY = 14, SPARK_DRAG = 2.4;
+/** One spark in this many is a heavier fleck of hot metal that outlives the flash, long enough to reach the ground and skip. */
+export const EMBER_EVERY = 3, EMBER_LIFE = 2.5;
+/** What a spark and a hard fragment keep of their fall speed and of their run along the ground at each bounce. */
+export const SPARK_BOUNCE = .45, DEBRIS_BOUNCE = .32;
+const SPARK_GRIP = .7, DEBRIS_GRIP = .55;
+/** Below this rebound a particle stays down; a resting one loses its slide at `SLIDE_DRAG` per second. */
+const SETTLE_SPEED = .35, SLIDE_DRAG = 9;
+/** How far a particle travels before the floor under it is looked up again, and how far above itself it looks for one. */
+const FLOOR_REACH = .25, FLOOR_STEP = .05;
 
 export const createImpactField = (): ImpactField => ({ impacts: [], sparks: [], scorches: [], debris: [] });
 export function clearImpactField(field: ImpactField) { field.impacts.length = 0; field.sparks.length = 0; field.scorches.length = 0; field.debris.length = 0; }
@@ -120,7 +138,7 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
     const d = unit({ x: dx, y: dy, z: dz });
     push(field.sparks, {
       x: point.x, y: point.y, z: point.z, vx: d.x * speed, vy: d.y * speed, vz: d.z * speed,
-      age: 0, life: (kind === 'target' ? 0.12 : 0.18) + random() * 0.2, style,
+      age: 0, life: ((kind === 'target' ? 0.12 : 0.18) + random() * 0.2) * (kind === 'surface' && i % EMBER_EVERY === 0 ? EMBER_LIFE : 1), style,
     }, MAX_SPARKS);
   }
   if (look) {
@@ -135,7 +153,7 @@ export function recordImpact(field: ImpactField, point: ImpactVector, normal: Im
         ax: axis.x, ay: axis.y, az: axis.z, angle: random() * Math.PI * 2, spin: (6 + random() * 18) * (random() < .5 ? -1 : 1),
         sx: size * debris.shape[0], sy: size * debris.shape[1], sz: size * debris.shape[2], gravity: debris.gravity, drag: debris.drag,
         age: 0, life: debris.life * (.6 + random() * .7), colour: debris.colours[Math.floor(random() * debris.colours.length) % debris.colours.length],
-        flutter: debris.gravity < 5 ? .8 + random() * .8 : 0,
+        flutter: debris.gravity < 5 ? .8 + random() * .8 : 0, bounce: surface === 'foliage' || surface === 'flesh' ? 0 : DEBRIS_BOUNCE,
       }, MAX_DEBRIS);
     }
   }
@@ -174,8 +192,29 @@ export function recordDecal(field: ImpactField, point: ImpactVector, normal: Imp
   }, MAX_SCORCHES);
 }
 
-export function advanceImpacts(field: ImpactField, dt: number) {
-  const step = Math.max(0, Math.min(dt, 0.25));
+/**
+ * Brings a falling particle to rest on, or back off, whatever is under it. `fromY` is where it was before this step,
+ * so the floor it started on or above is found and one it began below is not. The floor is remembered and only looked
+ * up again once the particle has moved on, which keeps a full pool to a handful of lookups a frame.
+ */
+function land(p: Grounded & { x: number; y: number; z: number; vx: number; vy: number; vz: number }, fromY: number, ground: GroundLookup, bounce: number, grip: number) {
+  if (p.vy >= 0) return false;
+  if (p.floorY === undefined || Math.abs(p.x - p.floorX!) + Math.abs(p.z - p.floorZ!) > FLOOR_REACH) {
+    const floor = ground(p.x, p.z, fromY + FLOOR_STEP);
+    // Nothing under it here: ask again next step rather than remember a hole, since a spark leaving a wall starts inside its footprint.
+    if (floor === null || !Number.isFinite(floor)) { p.floorY = undefined; return false; }
+    p.floorY = floor; p.floorX = p.x; p.floorZ = p.z;
+  }
+  if (p.y > p.floorY) return false;
+  p.y = p.floorY; p.vy *= -bounce;
+  // A real bounce scrubs speed off along the ground; one too weak to come back up just stays down.
+  if (p.vy < SETTLE_SPEED) p.vy = 0; else { p.vx *= grip; p.vz *= grip; }
+  return true;
+}
+
+/** Steps every pool. With `ground`, sparks and fragments land on the world instead of falling through it. */
+export function advanceImpacts(field: ImpactField, dt: number, ground?: GroundLookup) {
+  const step = Math.max(0, Math.min(dt, 0.25)), slide = Math.exp(-SLIDE_DRAG * step);
   for (let i = field.impacts.length - 1; i >= 0; i--) if ((field.impacts[i].age += step) >= field.impacts[i].life) field.impacts.splice(i, 1);
   for (let i = field.scorches.length - 1; i >= 0; i--) if ((field.scorches[i].age += step) >= field.scorches[i].life) field.scorches.splice(i, 1);
   // Exponential drag rather than a per-frame multiplier, so the arc is the same
@@ -185,21 +224,31 @@ export function advanceImpacts(field: ImpactField, dt: number) {
     const piece = field.debris[i];
     piece.age += step;
     if (piece.age >= piece.life) { field.debris.splice(i, 1); continue; }
-    const slow = Math.exp(-piece.drag * step);
+    // Lying where it came down: it only waits out its life and shrinks away.
+    if (piece.resting) continue;
+    const slow = Math.exp(-piece.drag * step), fromY = piece.y;
     piece.vy -= piece.gravity * step;
     piece.vx *= slow; piece.vy *= slow; piece.vz *= slow;
     // A leaf rocks side to side on its way down instead of dropping straight.
     const sway = piece.flutter * Math.sin(piece.age * 9 + piece.angle) * step;
     piece.x += piece.vx * step + sway; piece.y += piece.vy * step; piece.z += piece.vz * step + sway * .6;
     piece.angle += piece.spin * step;
+    if (ground && land(piece, fromY, ground, piece.bounce, DEBRIS_GRIP)) {
+      // Each landing takes most of the tumble out of it; one that does not come back up stops dead.
+      piece.spin *= .4;
+      if (piece.vy === 0) { piece.resting = true; piece.vx = piece.vz = 0; }
+    }
   }
   for (let i = field.sparks.length - 1; i >= 0; i--) {
     const spark = field.sparks[i];
     spark.age += step;
     if (spark.age >= spark.life) { field.sparks.splice(i, 1); continue; }
+    const fromY = spark.y;
     spark.vy -= SPARK_GRAVITY * step;
     spark.vx *= drag; spark.vy *= drag; spark.vz *= drag;
     spark.x += spark.vx * step; spark.y += spark.vy * step; spark.z += spark.vz * step;
+    // A spark that no longer comes back up skitters along the ground until it is out.
+    if (ground && land(spark, fromY, ground, SPARK_BOUNCE, SPARK_GRIP) && spark.vy === 0) { spark.vx *= slide; spark.vz *= slide; }
   }
 }
 

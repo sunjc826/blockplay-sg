@@ -1,7 +1,7 @@
 import { createBulletHoleMaterial, createDecalAtlas, decalTile, withInstanceOpacity } from './fps-impact-material';
 import * as THREE from 'three';
 import { advanceCasings, casingFade, ejectCasing, MAX_CASINGS, type Casing } from './fps-casings';
-import { advanceImpacts, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
+import { advanceImpacts, type GroundLookup, clearImpactField, createImpactField, debrisScale, impactDust, impactRing, MAX_DEBRIS, MAX_IMPACTS, MAX_SCORCHES, MAX_SPARKS, recordDecal, recordImpact, scorchAlpha, scorchRelief, sparkHeat, sparkStreak, type ImpactKind } from './fps-impacts';
 import { SURFACE_LOOKS, type DecalKind, type SurfaceKind } from './fps-surfaces';
 import { advanceMuzzle, createMuzzle, igniteMuzzle, muzzleShape, resetMuzzle } from './fps-muzzle';
 import { MAX_ROUNDS_IN_FLIGHT } from './fps-projectiles';
@@ -390,15 +390,16 @@ export function createFpsEffects(world: THREE.Scene, view: THREE.Scene, options:
     /**
      * Advances every pool and writes it into the buffers the renderer reads.
      * `groundY` is the floor brass lands on; `camera` billboards the puffs.
+     * `ground` is what sparks and fragments land on, wherever they come down.
      */
-    update(dt: number, camera: THREE.Camera, groundY = 0) {
+    update(dt: number, camera: THREE.Camera, groundY = 0, ground?: GroundLookup) {
       if (advanceMuzzle(muzzle, dt) && flare.parent) {
         flare.getWorldPosition(position); camera.localToWorld(position);
         if (smoke.length >= MAX_SMOKE) smoke.shift();
         smoke.push({ x: position.x, y: position.y, z: position.z, vy: .22 + Math.random() * .16, drift: Math.random() * Math.PI * 2, age: 0, life: 1.1 + Math.random() * .6 });
       }
       advanceCasings(casings, dt, groundY);
-      advanceImpacts(field, dt);
+      advanceImpacts(field, dt, ground);
       advanceSplashes(splashField, dt);
       advanceShotSmoke(shotSmoke, dt);
       for (let i = smoke.length - 1; i >= 0; i--) {
