@@ -17641,3 +17641,14 @@ proposal was built rather than given planned-site support on the board.
   ginger/heliconia); reference captures (need authorization).
 - Not done: real-GPU timing; shader warm-up recapture; navigation bake was not
   rerun by hand (the build does it); browser smokes not run.
+
+## Aim in the air beats a held sprint (2026-11-24)
+
+Owner asked for scoping in while jumping, "more arcady and call of duty like".
+
+- Nothing gated aim on being grounded; what blocked it was `!sprinting`, and a sprint jump keeps Shift held.
+- `fps-engine.ts`: `airAim` latches when aim is held off the ground (not swimming) and clears when aim is released.
+  While it is set the sights come up despite the sprint; the jump keeps its sprint speed in the air, and after the
+  landing the held aim drops the run to aimed pace until aim is let go.
+- On the ground sprint still beats aim, as before. Not changed: airborne spread and recoil penalties.
+- Checked: tests, typecheck. Not checked in a browser.

@@ -840,6 +840,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let scopeJolt = 0, scopeRelief = 0, lastEyeY: number | undefined;
   const aimedTurnLag = createAimedTurnLag(), turnLagPivot = new THREE.Vector3(), turnLagTurn = new THREE.Quaternion(), turnLagAngles = new THREE.Euler();
   let trigger = false, pullBuffer = 0, ads = false, touchAim = false, actualAim = false, hitTime = 0;
+  // Sights raised in the air beat a held sprint, and keep beating it after the landing until aim is let go.
+  let airAim = false;
   const bodyMotion = createMovementMotion();
   let bailoutAge: number | undefined;
   // Two-stage recoil: see fps-recoil. The view still couples through the same
@@ -2748,7 +2750,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       actualAim = ads || touchAim; aimProgress = 0; rig.visible = false; supplyHands.update(null, 0); mantleHands.update(null); swimHands.update(null);
       updateVehicleCamera(dt); return;
     }
-    const aiming = !weaponSwitch && (!swimming() || swimmingCanFire(hud.weapon,carry.length())) && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && !sprinting && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
+    const aiming = !weaponSwitch && (!swimming() || swimmingCanFire(hud.weapon,carry.length())) && !grenadeHeld && !grenadeAfter && arenaConditionModifiers(conditions).aim > 0 && (ads || touchAim) && (!sprinting || airAim) && loadout[hud.weapon].reloadRemaining === 0 && !supplyUse;
     if (aiming && !wasAiming && hud.phase === 'playing') handsSound('world-aim', .05);
     wasAiming = aiming;
     actualAim = aiming;
@@ -4831,6 +4833,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         }
         // A fresh trigger pull or sprint key puts a supply away; one already held walks.
         if (supplyUse) { if (reloadInterrupt(supplyGate, pulled, sprintIntent, true)) endSupply(); else sprinting = false; }
+        // The jump keeps its sprint momentum; only once back on the ground does the held aim slow the run.
+        airAim = (ads || touchAim) && (airAim || !onGround && !swimming());
+        if (airAim && onGround) sprinting = false;
         const speed = swimming()?SWIMMING.speed : (poseStance === 'prone' ? INFANTRY_SPEED.prone : poseStance === 'crouch' ? INFANTRY_SPEED.crouch : sprinting ? INFANTRY_SPEED.sprint : (ads || touchAim) ? Math.min(INFANTRY_SPEED.walk, INFANTRY_SPEED.aim * burden.aimMove) : INFANTRY_SPEED.walk) * (supplyUse ? SUPPLY_MOVE_SCALE : 1) * footScale;
         // A dive is committed: the stick does nothing until it lands.
         const target = diving ? { x: 0, z: 0 } : movementInput(forward, side, yaw, speed * burden.movement, 1);
