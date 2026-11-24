@@ -234,8 +234,34 @@ angle a leaf leaves its twig at; the count of pinnae and leaflets on a rain
 tree leaf; how far and how fast a leaf swings.
 
 Limits: palms, the cycad, the tree fern, the gingers and heliconias already
-model each leaf or leaflet as geometry and are unchanged. The stand-in trees
-of the other eighteen districts and the Gardens' boundary backdrop are still
-closed crown shapes. Under thermal vision a spray is still a whole sheet. A
-spray seen edge-on is hidden rather than drawn as a streak. Checked in
-software-rendered captures only; no frame-rate measurement on a real GPU.
+model each leaf or leaflet as geometry and are unchanged. Under thermal vision
+a spray is still a whole sheet. A spray seen edge-on is hidden rather than
+drawn as a streak. Checked in software-rendered captures only; no frame-rate
+measurement on a real GPU.
+
+### Every other district (24 November 2026, fourth pass)
+
+The trees of the other districts are a trunk under rounded crown shapes, with
+no species. `batchTrees` in `src/game/tree-wind.ts` now draws each such shape
+as a mass of 48 leaf sprays the size of the shape (`leafMassGeometry`), in the
+crown's own colour, each crown turned differently, with the same per-leaf and
+per-spray motion and leaf-cut shadows.
+
+- This covers every tree built through the scene kit's `tree()` and the
+  hand-built trees of Raffles Place, Queenstown, Marina Bay and Pulau Ubin:
+  any wind-animated crown that is an icosahedron.
+- Cover is exactly as built. The rounded shape stays in the scene, undrawn, and
+  is what a line of sight or a round meets; the sprays take no rays and are
+  marked `coverApart`, so the drawn district and the simulation's copy agree.
+  Sprays reach a little past the shape, so a leaf at the edge of a crown hides
+  nothing.
+- These trees have no species, so the leaf is not a claim about one: simple
+  elliptic leaves in opposite pairs, the Tembusu's tile. Naming and modelling
+  each district's trees from NParks is a separate piece of work.
+- Cost: 96 drawn triangles a crown in place of 80 (20 in Marina Bay's
+  low-detail crowns), and one more instanced draw per crown material.
+
+Not changed: shrubs, hedges and planters built from the same rounded shape
+but not as trees, the Botanic Gardens' boundary backdrop, and crowns under
+thermal vision. Seen in captures of Pulau Ubin and Bishan only; the other
+districts share the same code path and were not each looked at.

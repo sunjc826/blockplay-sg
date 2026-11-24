@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { LEAF_PATTERNS, LEAF_VARIANTS, cutLeafCards, drawLeafAtlas, hasLeafCards, inheritLeafCards, layoutSpray, leafCardFragment, leafCardVertex, leafTile } from './leaf-cards';
+import { LEAF_MASS_TRIANGLES, LEAF_PATTERNS, LEAF_VARIANTS, cutLeafCards, leafMassGeometry, drawLeafAtlas, hasLeafCards, inheritLeafCards, layoutSpray, leafCardFragment, leafCardVertex, leafTile } from './leaf-cards';
 import { buildPlant } from './plant-models';
 import { PLANT_SPECIES, PLANT_SPECS } from './plant-species';
 import { batchTrees, treePart } from './tree-wind';
+import { createSceneCover } from './scene-cover';
+import { isVisualCover } from './cover-kind';
 
 describe('leaf sprays', () => {
   it('gives every arrangement its own tiles inside the atlas', () => {
@@ -93,5 +95,38 @@ describe('leaf sprays', () => {
     expect(depth.vertexShader.indexOf('#define TREE_WIND')).toBeLessThan(depth.vertexShader.indexOf('attribute vec4 leafCard'));
     expect(depth.vertexShader.indexOf('float treeWave')).toBeLessThan(depth.vertexShader.indexOf('vLeafCard = leafCard'));
     expect(depth.fragmentShader).toContain('discard');
+  });
+
+  it('draws a rounded crown as sprays and keeps its shape, undrawn, as the cover', () => {
+    const mass = leafMassGeometry();
+    expect(mass.getAttribute('position').count).toBe(LEAF_MASS_TRIANGLES * 3); expect(leafMassGeometry()).toBe(mass);
+    const card = mass.getAttribute('leafCard'), position = mass.getAttribute('position');
+    for (let i = 0; i < card.count; i++) { expect(card.getZ(i)).toBeGreaterThan(0); expect(Math.hypot(position.getX(i), position.getY(i), position.getZ(i))).toBeLessThan(1.6); }
+
+    const scene = new THREE.Scene(), crownShape = new THREE.IcosahedronGeometry(1, 1), trunkShape = new THREE.BoxGeometry(.6, 8, .6), leaf = new THREE.MeshStandardMaterial({ color: '#4f8a44' }), wood = new THREE.MeshStandardMaterial({ color: '#5a4636' });
+    leaf.userData.visualCover = true; leaf.userData.impactSurface = 'foliage';
+    for (const x of [0, 12]) {
+      const trunk = new THREE.Mesh(trunkShape, wood); trunk.position.set(x, 4, 0); scene.add(treePart(trunk, x, 0, 0, 8));
+      const crown = new THREE.Mesh(crownShape, leaf); crown.position.set(x, 8, 0); crown.scale.set(3.6, 2.5, 3.5); crown.castShadow = true; scene.add(treePart(crown, x, 0, 0, 8, 1));
+    }
+    const batches = batchTrees(scene, () => {}, () => {});
+    const shape = batches.find(mesh => mesh.name === 'Tree crown cover')!, leaves = batches.find(mesh => mesh.name === 'Wind-animated leaves')!;
+    expect(shape.count).toBe(2); expect(leaves.count).toBe(2); expect(batches).toHaveLength(3);
+    // The shape is never drawn but is still foliage to a ray; the sprays are drawn and stand apart from cover.
+    expect((shape.material as THREE.Material).visible).toBe(false); expect(shape.visible).toBe(true); expect(isVisualCover(shape)).toBe(true);
+    expect((shape.material as THREE.Material).userData.impactSurface).toBe('foliage');
+    expect(leaves.userData.coverApart).toBe(true); expect(leaves.castShadow).toBe(true); expect(hasLeafCards(leaves.material as THREE.Material)).toBe(true);
+    expect((leaves.material as THREE.MeshStandardMaterial).color.getHexString()).toBe('4f8a44'); expect((leaves.material as THREE.Material).side).toBe(THREE.DoubleSide);
+    // Each crown's sprays are turned differently, about the crown's own centre.
+    const a = new THREE.Matrix4(), b = new THREE.Matrix4(); leaves.getMatrixAt(0, a); leaves.getMatrixAt(1, b);
+    expect(new THREE.Vector3().setFromMatrixPosition(a).toArray()).toEqual([0, 8, 0]); expect(a.elements[0]).not.toBeCloseTo(b.elements[0], 3);
+    // A sight line through the crown stops where the shape is; a round passes, as through any foliage.
+    scene.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster(new THREE.Vector3(-20, 9, 0), new THREE.Vector3(1, 0, 0));
+    expect(ray.intersectObject(leaves)).toHaveLength(0); expect(ray.intersectObject(shape).length).toBeGreaterThan(0);
+    const cover = createSceneCover(scene);
+    const sight = cover.sightDistance({ x: -20, y: 9, z: 0 }, { x: 1, y: 0, z: 0 }, 60);
+    expect(sight).toBeGreaterThan(16); expect(sight).toBeLessThan(17.6);
+    expect(cover.distance({ x: -20, y: 9, z: 0 }, { x: 1, y: 0, z: 0 }, 60)).toBe(60);
   });
 });

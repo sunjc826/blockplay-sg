@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { foliageDeclarations, foliageTreeShake, foliageUniforms } from './foliage-disturbance';
 import { inheritLeafShade, shadeLeaves } from './leaf-shading';
-import { cutLeafCards, hasLeafCards, inheritLeafCards } from './leaf-cards';
+import { cutLeafCards, hasLeafCards, inheritLeafCards, leafMassGeometry } from './leaf-cards';
 
 interface TreePart { root: THREE.Vector3; height: number; flutter: number }
 interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number }; foliage: ReturnType<typeof foliageUniforms> }
@@ -93,7 +93,15 @@ function patch(material: THREE.Material, uniforms: WindState) {
   material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v4'; };
 }
 
-/** Keep trees instanced, with one root/height per part. The scene builder owns all returned resources. */
+/** A rounded crown shape: what a tree without a modelled species carries on its trunk. */
+const isCrownShape = (part: THREE.Mesh) => (part.userData.treePart as TreePart).flutter > 0 && part.geometry.type === 'IcosahedronGeometry';
+/**
+ * Keep trees instanced, with one root/height per part. The scene builder owns all returned resources.
+ *
+ * A rounded crown shape is drawn as a mass of leaf sprays (leaf-cards.ts) the size of the shape. The shape
+ * itself stays in the scene, undrawn, as what a line of sight or a round meets, so cover is as it was built;
+ * the sprays are marked `coverApart`.
+ */
 export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGeometry) => unknown, trackMaterial: (m: THREE.Material) => unknown) {
   const groups = new Map<string, THREE.Mesh[]>(), batches: THREE.InstancedMesh[] = [];
   scene.traverse(object => {
@@ -101,28 +109,22 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     const key = [object.parent!.id, object.geometry.id, object.material.id, object.castShadow, object.receiveShadow].join(':');
     const group = groups.get(key) ?? []; group.push(object); groups.set(key, group);
   });
-  const materials = new Map<THREE.Material, THREE.Material>(), uniforms = state(scene);
-  for (const parts of groups.values()) {
-    const first = parts[0], source = first.material as THREE.Material;
-    let material = materials.get(source);
-    if (!material) {
-      material = source.clone(); material.onBeforeCompile = source.onBeforeCompile; material.customProgramCacheKey = source.customProgramCacheKey;
-      inheritLeafShade(source, material); inheritLeafCards(source, material); patch(material, uniforms);
-      // Crowns and fronds pass light through (leaf-shading.ts); trunks and branches do not.
-      if (parts.some(part => (part.userData.treePart as TreePart).flutter > 0)) shadeLeaves(material);
-      materials.set(source, material); trackMaterial(material);
-    }
-    const geometry = first.geometry.clone(); trackGeometry(geometry);
+  const materials = new Map<THREE.Material, THREE.Material>(), leafy = new Map<THREE.Material, THREE.Material>(), hidden = new Map<THREE.Material, THREE.Material>(), uniforms = state(scene);
+  const turn = new THREE.Matrix4(), placed = new THREE.Matrix4();
+  /** One instanced, wind-bent mesh of `shape` for every part; `sprays` turns each about its own upright by where it stands. */
+  const instance = (parts: THREE.Mesh[], shape: THREE.BufferGeometry, material: THREE.Material, sprays: boolean) => {
+    const first = parts[0], geometry = shape.clone(); trackGeometry(geometry);
     const roots = new Float32Array(parts.length * 4), flutter = new Float32Array(parts.length);
     const mesh = new THREE.InstancedMesh(geometry, material, parts.length);
-    mesh.name = 'Wind-animated trees'; mesh.castShadow = first.castShadow; mesh.receiveShadow = first.receiveShadow;
-    mesh.userData.visualCover = first.userData.visualCover ?? source.userData.visualCover ?? false;
-    const parent = first.parent!, tint = new THREE.Color(); let padding = 0;
+    mesh.castShadow = first.castShadow; mesh.receiveShadow = first.receiveShadow;
+    const tint = new THREE.Color(); let padding = 0;
     parts.forEach((part, i) => {
       const tree = part.userData.treePart as TreePart;
       roots.set([tree.root.x, tree.root.y, tree.root.z, tree.height], i * 4); flutter[i] = tree.flutter;
       padding = Math.max(padding, tree.height * .4 + .6);
-      part.updateMatrix(); mesh.setMatrixAt(i, part.matrix); mesh.setColorAt(i, treeTint(tree.root.x, tree.root.z, i, tree.flutter > 0, tint)); parent.remove(part);
+      part.updateMatrix(); placed.copy(part.matrix);
+      if (sprays) placed.multiply(turn.makeRotationY(fract(Math.sin(part.position.x * 12.9898 + part.position.z * 78.233 + part.position.y * 37.719) * 43758.5453) * Math.PI * 2));
+      mesh.setMatrixAt(i, placed); mesh.setColorAt(i, treeTint(tree.root.x, tree.root.z, i, tree.flutter > 0, tint));
     });
     geometry.setAttribute('treeRootHeight', new THREE.InstancedBufferAttribute(roots, 4));
     geometry.setAttribute('treeFlutter', new THREE.InstancedBufferAttribute(flutter, 1));
@@ -133,7 +135,45 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     for (const shadow of [mesh.customDepthMaterial, mesh.customDistanceMaterial]) { if (hasLeafCards(material)) cutLeafCards(shadow); patch(shadow, uniforms); trackMaterial(shadow); }
     mesh.computeBoundingBox(); mesh.computeBoundingSphere();
     mesh.boundingBox!.expandByScalar(padding); mesh.boundingSphere!.radius += padding;
-    parent.add(mesh); batches.push(mesh);
+    return mesh;
+  };
+  const inherit = (source: THREE.Material) => { const copy = source.clone(); copy.onBeforeCompile = source.onBeforeCompile; copy.customProgramCacheKey = source.customProgramCacheKey; return copy; };
+  for (const parts of groups.values()) {
+    const first = parts[0], source = first.material as THREE.Material, parent = first.parent!;
+    if (isCrownShape(first)) {
+      // The shape, kept for cover and never drawn. It carries the source's own notes (foliage, impact surface).
+      let cover = hidden.get(source);
+      if (!cover) { cover = new THREE.MeshBasicMaterial({ name: 'tree crown cover', colorWrite: false, depthWrite: false }); cover.visible = false; cover.userData = source.userData; hidden.set(source, cover); trackMaterial(cover); }
+      const shape = new THREE.InstancedMesh(first.geometry, cover, parts.length);
+      shape.name = 'Tree crown cover'; shape.userData.visualCover = first.userData.visualCover ?? source.userData.visualCover ?? false;
+      parts.forEach((part, i) => { part.updateMatrix(); shape.setMatrixAt(i, part.matrix); });
+      shape.computeBoundingBox(); shape.computeBoundingSphere(); parent.add(shape); batches.push(shape);
+      // The sprays, in the crown's own colour, lit from both sides as thin leaves.
+      let material = leafy.get(source);
+      if (!material) {
+        material = inherit(source); material.side = THREE.DoubleSide; material.vertexColors = true;
+        cutLeafCards(material); patch(material, uniforms); shadeLeaves(material, { thin: true, transmit: .35 });
+        leafy.set(source, material); trackMaterial(material);
+      }
+      const mesh = instance(parts, leafMassGeometry(), material, true);
+      mesh.name = 'Wind-animated leaves'; mesh.castShadow = first.castShadow; mesh.userData.coverApart = true;
+      // Nothing strikes the sprays: a ray meets the shape they stand for, here and in the simulation's copy.
+      mesh.raycast = () => {};
+      parts.forEach(part => parent.remove(part)); parent.add(mesh); batches.push(mesh);
+      continue;
+    }
+    let material = materials.get(source);
+    if (!material) {
+      material = inherit(source);
+      inheritLeafShade(source, material); inheritLeafCards(source, material); patch(material, uniforms);
+      // Crowns and fronds pass light through (leaf-shading.ts); trunks and branches do not.
+      if (parts.some(part => (part.userData.treePart as TreePart).flutter > 0)) shadeLeaves(material);
+      materials.set(source, material); trackMaterial(material);
+    }
+    const mesh = instance(parts, first.geometry, material, false);
+    mesh.name = 'Wind-animated trees';
+    mesh.userData.visualCover = first.userData.visualCover ?? source.userData.visualCover ?? false;
+    parts.forEach(part => parent.remove(part)); parent.add(mesh); batches.push(mesh);
   }
   return batches;
 }

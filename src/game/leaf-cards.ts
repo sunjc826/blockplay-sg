@@ -296,3 +296,40 @@ export function cutLeafCards<T extends THREE.Material>(material: T): T {
 }
 /** A clone made for batching keeps the source's compile hook; this records that it is cut too. */
 export function inheritLeafCards(source: THREE.Material, target: THREE.Material) { if (carded.has(source)) carded.add(target); }
+
+let mass: THREE.BufferGeometry | undefined;
+/** Triangles in one leaf mass. */
+export const LEAF_MASS_TRIANGLES = 96;
+/**
+ * A crown of leaf sprays filling the unit sphere, for the trees that are a trunk under rounded crown shapes
+ * (tree-wind.ts scales one to each crown). Forty-four sprays face outward over four that cross the middle;
+ * colour is in the vertices, paler above. One shared shape: callers clone it and turn each crown differently.
+ */
+export function leafMassGeometry(pattern: LeafPattern = 'opposite') {
+  if (mass) return mass;
+  const rand = random(4219), position: number[] = [], normal: number[] = [], color: number[] = [], card: number[] = [], lever: number[] = [];
+  const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const spray = (at: THREE.Vector3, out: THREE.Vector3, size: number, droop: number, shade: number) => {
+    const side = v(0, 1, 0).cross(out); if (side.lengthSq() < .01) side.set(1, 0, 0);
+    const along = side.normalize().applyAxisAngle(out, rand() * Math.PI * 2), across = out.clone().cross(along).normalize();
+    const base = at.clone().addScaledVector(along, -size * .58).addScaledVector(out, -size * .06), end = at.clone().addScaledVector(along, size * .62).addScaledVector(out, size * .1); end.y -= size * droop;
+    const tile = leafTile(pattern, Math.floor(rand() * LEAF_VARIANTS)), phase = .04 + .96 * rand(), flip = rand() < .5 ? 1 : -1;
+    const corner = (p: THREE.Vector3, x: number, y: number) => ({ p: p.clone().addScaledVector(across, x * size * 1.04), k: [tile.u + tile.side * (.5 + x * flip), tile.v + tile.side * y, phase, size, x, y], c: shade * (y ? 1 : .85) });
+    const a = corner(base, -.5, 0), b = corner(base, .5, 0), c = corner(end, -.5, 1), d = corner(end, .5, 1);
+    const face = b.p.clone().sub(a.p).cross(c.p.clone().sub(a.p)).normalize(), flipped = face.dot(out) < 0, n = face.multiplyScalar(flipped ? -1 : 1).addScaledVector(out, .8).normalize();
+    for (const tri of flipped ? [[a, c, b], [b, c, d]] : [[a, b, c], [b, d, c]]) for (const q of tri) {
+      position.push(q.p.x, q.p.y, q.p.z); normal.push(n.x, n.y, n.z); color.push(q.c * .96, q.c, q.c * .9);
+      card.push(q.k[0], q.k[1], q.k[2], q.k[3]); lever.push(q.k[4], q.k[5]);
+    }
+  };
+  for (let i = 0; i < 4; i++) { const a = i * 1.571 + rand(), out = v(Math.cos(a) * .8, .35 + .4 * rand(), Math.sin(a) * .8).normalize(); spray(out.clone().multiplyScalar(.1), out, 1.2, 0, .5 + .1 * rand()); }
+  for (let i = 0; i < 44; i++) {
+    const y = -.6 + 1.6 * (i + .5) / 44, ring = Math.sqrt(Math.max(0, 1 - y * y)), a = i * 2.39996 + rand() * .5, out = v(Math.cos(a) * ring, y, Math.sin(a) * ring).normalize();
+    spray(out.clone().multiplyScalar(.74 + .24 * rand()), out, .52 + .2 * rand(), .14, (.68 + .32 * Math.max(0, Math.min(1, .5 + out.y * .7))) * (.92 + .16 * rand()));
+  }
+  mass = new THREE.BufferGeometry();
+  mass.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); mass.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); mass.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  mass.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); mass.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 2));
+  mass.computeBoundingBox(); mass.computeBoundingSphere();
+  return mass;
+}

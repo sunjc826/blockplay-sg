@@ -57,8 +57,9 @@ it('uses published SkyPark proportions and batches static details', () => {
     expect(MARINA_LANDMARKS.skyParkWidth / MARINA_LANDMARKS.skyParkLength).toBeCloseTo(38 / 340);
     const instances = world.scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
     expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(8000);
+    // Counted as draws: a tree crown's undrawn cover shape (tree-wind.ts) is not one.
     // Royal palms come in three shapes, each a trunk draw and a crown draw (palm-models.ts).
-    expect(instances.length).toBeLessThan(64);
+    expect(instances.filter(mesh => [mesh.material].flat().every(material => material.visible)).length).toBeLessThan(64);
     expect(world.scene.userData.referenceFeatures).toHaveLength(23);
   } finally { world.dispose(); }
 });
@@ -76,8 +77,9 @@ it('models the reviewed facade and landmark details without expanding the play f
     // now two instances (trunk, crown), not eleven (trunk and ten fronds).
     expect(instances.reduce((sum, mesh) => sum + mesh.count, 0)).toBeGreaterThan(11000);
     expect(instances.filter(mesh => mesh.name === 'marina-promenade-slabs').reduce((sum, mesh) => sum + mesh.count, 0)).toBe(108 * 16);
+    // Counted as draws: a tree crown's undrawn cover shape (tree-wind.ts) is not one.
     // Royal palms come in three shapes, each a trunk draw and a crown draw (palm-models.ts).
-    expect(instances.length).toBeLessThan(64);
+    expect(instances.filter(mesh => [mesh.material].flat().every(material => material.visible)).length).toBeLessThan(64);
     expect(world.scene.children.length).toBeLessThan(240);
   } finally { world.dispose(); }
 });

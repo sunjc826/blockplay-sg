@@ -17723,3 +17723,10 @@ On request ("trees should show individual leaves instead of massive green square
 - **Order matters.** `cutLeafCards` must be applied before `tree-wind.ts` patches a material: the card motion reads `treeWave`, `treePhase` and the wind uniforms, and is compiled only under `#define TREE_WIND`. `batchTrees` does this for the depth and distance materials, so shadows are cut too. A material clone keeps the hook through `onBeforeCompile`; `inheritLeafCards` only records it.
 - **Crown cores removed.** The dark octahedron in each leaf mass showed through the cut-outs as a block; three crossing cards replace it.
 - **Not done:** thermal vision still draws whole cards; the other districts' kit trees and the Gardens' boundary backdrop are untouched; atlas build is about 0.4 s in Node on first compile and was not timed in a browser; no real-GPU frame rate; browser smokes not run. SwiftShader captures only.
+
+## 2026-11-24: leaf sprays on every district's trees
+On request ("Sure, all districts"). `batchTrees` (`tree-wind.ts`) now treats any wind-animated icosahedron crown as a rounded crown shape and makes two instanced meshes of it:
+- **`Tree crown cover`**: the original shape on a material with `visible = false` (and `colorWrite` off, so thermal vision leaves it alone). Never drawn; it is what `scene-cover.ts` and three's raycasts meet, with the source material's `userData` (foliage, impact surface). Cover in all districts is therefore unchanged, and the worker's copy matches.
+- **`Wind-animated leaves`**: `leafMassGeometry()` from `leaf-cards.ts` (48 sprays in the unit sphere, 96 triangles) scaled by each crown's matrix and turned by a hash of its position. `coverApart`, and `raycast` is a no-op: without that, three's raycast in `firstVisibleHit` struck sprays outside the shape and `map-cover-audit` reported authority mismatches (Toa Payoh).
+- `marina-scene.test.ts` counts instanced meshes as a draw budget; it now counts only drawn ones.
+- **Not done:** shrubs and hedges that are rounded shapes but not `treePart`s; species for these trees; real-GPU frame rate; browser smokes. Captures: Pulau Ubin and Bishan only (SwiftShader).
