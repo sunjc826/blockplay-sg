@@ -542,8 +542,6 @@ export function buildQueenstownScene() {
   const stampGeo = geo(new THREE.TorusGeometry(1.15, 0.16, 5, 20));
   const stamps = QUEENSTOWN_STAMPS.map(point => { const stamp = new THREE.Mesh(stampGeo, orange); stamp.position.set(point.x, 2.2, point.z); scene.add(stamp); return stamp; });
   for (const stamp of stamps) stamp.userData.coverMetricIgnore = true;
-  // No lawn sward here yet: sampling this district's ground takes 28 ms for each 2 m the viewer moves (ground-cover.ts).
-  scene.userData.lawnSward = false;
   scene.userData.referenceFeatures = ['station-east', 'estate-north', 'estate-south', 'stirling-90', 'stirling-270-retry', 'margaret-0', 'margaret-90', 'library-270'];
   scene.userData.detailFeatures = ['open-deck-lobbies', 'station-platform-edges', 'bus-shelters', 'playground', 'community-pavilion', 'court-fence', 'parked-cars', 'layered-roadside-planting'];
   scene.userData.qualityFeatures=['rounded-viaduct-piers','projecting-station-louvers','framed-lattice-galleries','barrel-roof-seams','round-kopi-tables','four-sided-tower-facades','branched-canopies','gateway-louver-panels'];

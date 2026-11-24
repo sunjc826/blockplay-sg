@@ -308,9 +308,12 @@ is short, so the height is not copied; the density and the curl are.
   medium green. The blades are drawn broad and blunt for that reason. Which
   turf the Gardens' own lawns carry was not checked.
 - **Where.** Tried on the Botanic Gardens first, then turned on for every
-  district except Queenstown (`scene.userData.lawnSward = false` there:
-  sampling its ground made each rebuild take 28 ms in the test VM, against 1
-  to 8 ms elsewhere). It grows wherever the tufts grow, verges and forest
+  district (a scene can opt out with `scene.userData.lawnSward = false`; none
+  does). Queenstown waited one change longer: finding whether paving lay over
+  a point fired a ray at each of its eleven paving meshes, 28 ms a rebuild in
+  the test VM. `footprint` in `ground-cover.ts` now answers that from the
+  triangles sorted into 2 m squares, and a rebuild there takes 1 to 7 ms like
+  the rest. It grows wherever the tufts grow, verges and forest
   floor included, not only on mown lawns.
 - **The sward.** Every such district gets a third
   grass mesh, `Lawn sward`, beside the two tuft meshes (`createGrass` in

@@ -27,6 +27,39 @@ function index<T extends { minX: number; maxX: number; minZ: number; maxZ: numbe
   return (x: number, z: number) => bins.get(key(x, z)) ?? [];
 }
 
+/** Whether a draped mesh (paving, a shore outline) lies over a point, within `above` and `below` of height `y`:
+ * what a ray dropped on it would find, answered from its triangles sorted once into 2 m squares. A district
+ * asks this for every tuft and blade, and a ray against each of Queenstown's eleven paving meshes was most of
+ * the cost of growing its grass. */
+export function footprint(mesh: THREE.Mesh) {
+  const position = mesh.geometry.getAttribute('position'), index = mesh.geometry.index, count = Math.floor((index?.count ?? position.count) / 3);
+  const corners = new Float32Array(count * 9), point = new THREE.Vector3(), cell = 2, bins = new Map<number, number[]>();
+  const bin = (x: number, z: number) => (Math.floor(x / cell) + 32768) * 65536 + Math.floor(z / cell) + 32768;
+  for (let face = 0; face < count; face++) {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (let c = 0; c < 3; c++) {
+      point.fromBufferAttribute(position, index ? index.getX(face * 3 + c) : face * 3 + c).applyMatrix4(mesh.matrixWorld);
+      corners[face * 9 + c * 3] = point.x; corners[face * 9 + c * 3 + 1] = point.y; corners[face * 9 + c * 3 + 2] = point.z;
+      minX = Math.min(minX, point.x); maxX = Math.max(maxX, point.x); minZ = Math.min(minZ, point.z); maxZ = Math.max(maxZ, point.z);
+    }
+    for (let x = Math.floor(minX / cell); x <= Math.floor(maxX / cell); x++) for (let z = Math.floor(minZ / cell); z <= Math.floor(maxZ / cell); z++) {
+      const k = bin(x * cell, z * cell), row = bins.get(k); if (row) row.push(face); else bins.set(k, [face]);
+    }
+  }
+  return (x: number, z: number, y: number, above: number, below: number) => {
+    const row = bins.get(bin(x, z)); if (!row) return false;
+    for (const face of row) {
+      const o = face * 9, ax = corners[o], az = corners[o + 2], bx = corners[o + 3], bz = corners[o + 5], cx = corners[o + 6], cz = corners[o + 8];
+      const area = (bx - ax) * (cz - az) - (cx - ax) * (bz - az); if (Math.abs(area) < 1e-9) continue;
+      const u = ((x - ax) * (cz - az) - (cx - ax) * (z - az)) / area, v = ((bx - ax) * (z - az) - (x - ax) * (bz - az)) / area;
+      if (u < 0 || v < 0 || u + v > 1) continue;
+      const height = corners[o + 1] + u * (corners[o + 4] - corners[o + 1]) + v * (corners[o + 7] - corners[o + 1]);
+      if (height <= y + above && height >= y - below) return true;
+    }
+    return false;
+  };
+}
+
 /** A vertex-painted terrain's colour at any point: its vertices' colours gathered into bins a vertex spacing and a
  * half wide, and blended between bin centres. Undefined for a terrain of one material colour. */
 function terrainTint(mesh: THREE.Mesh, box: THREE.Box3) {
@@ -194,17 +227,19 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   const ownership = partitionGroundCaps(caps);
   world.scene.updateMatrixWorld(true);
   const patchesAt = index(patches), surfacesAt = index([...surfaces]), obstaclesAt = index<Obstacle>(world.obstacles);
-  const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3);
+  const footprints = new Map<THREE.Mesh, ReturnType<typeof footprint>>();
+  const covers = (mesh: THREE.Mesh, x: number, z: number, y: number) => {
+    let test = footprints.get(mesh); if (!test) { test = footprint(mesh); footprints.set(mesh, test); }
+    // The reach of the ray this replaces: from a metre above the ground to two below it.
+    return test(x, z, y, 1, 2);
+  };
   const sampleState = (x: number, z: number) => {
     let y = ground(x, z), grass = false, wettable = false, owner = -Infinity, color: THREE.Color | undefined, tint: Patch['tint'];
     for (const patch of patchesAt(x, z)) {
       if (x < patch.minX || x > patch.maxX || z < patch.minZ || z > patch.maxZ) continue;
       const top = Number.isNaN(patch.y) ? y : patch.y;
       if (top < y - .02 || top < owner - 1e-5) continue;
-      if (patch.mesh) {
-        ray.ray.origin.set(x, y + 1, z);
-        if (!ray.intersectObject(patch.mesh).length) continue;
-      }
+      if (patch.mesh && !covers(patch.mesh, x, z, y)) continue;
       // Paving wins over a coplanar soil plate at its edge.
       if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; color = patch.color; tint = patch.tint; }
       y = Math.max(y, top);

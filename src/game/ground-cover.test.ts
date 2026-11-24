@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { createGrass, SWARD_BLADES, SWARD_CAPACITY, withGroundCover } from './ground-cover';
+import { createGrass, footprint, SWARD_BLADES, SWARD_CAPACITY, withGroundCover } from './ground-cover';
 import { getRegion, REGION_IDS } from './regions';
 import { getFpsDistrict } from './fps-districts';
 import { createRainSurface } from './rain-effects';
@@ -170,3 +170,26 @@ it('tufts on ground painted vertex by vertex take the paint, not the white mater
     cover.grass.mesh.getColorAt(5, shade); expect(shade.g).toBeCloseTo(east.g, 3); expect(shade.g).toBeLessThan(.5);
   } finally { world.dispose(); }
 });
+
+for (const id of ['queenstown', 'botanic-gardens', 'sentosa'] as const) it(`${id}: a draped mesh's footprint answers as a ray dropped on it does`, () => {
+  const region = getRegion(id), world = region.build(), ground = region.bounds.groundHeight ?? (() => 0);
+  try {
+    world.scene.updateMatrixWorld(true);
+    const draped = world.scene.children.filter((o): o is THREE.Mesh => o instanceof THREE.Mesh && !(o instanceof THREE.InstancedMesh) && !Array.isArray(o.material) && (o.name === 'Queenstown graded paving' || o.userData.groundPaving === true || o.geometry.type === 'ShapeGeometry' || o.geometry.type === 'PlaneGeometry'));
+    expect(draped.length).toBeGreaterThan(0);
+    const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3), box = new THREE.Box3();
+    let checked = 0, covered = 0, differ = 0;
+    for (const mesh of draped.slice(0, 12)) {
+      const test = footprint(mesh); box.setFromObject(mesh);
+      for (let i = 0; i < 400; i++) {
+        const x = box.min.x + (box.max.x - box.min.x) * ((i * .6180339) % 1), z = box.min.z + (box.max.z - box.min.z) * ((i * .7548777) % 1), y = ground(x, z);
+        ray.ray.origin.set(x, y + 1, z);
+        const hit = ray.intersectObject(mesh).length > 0, inside = test(x, z, y, 1, 2);
+        checked++; if (hit) covered++; if (hit !== inside) differ++;
+      }
+    }
+    expect(covered).toBeGreaterThan(20);
+    // A point exactly on an edge may fall either way.
+    expect(differ / checked).toBeLessThan(.002);
+  } finally { world.dispose(); }
+}, 30000);
