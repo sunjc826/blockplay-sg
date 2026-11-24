@@ -367,5 +367,15 @@ had none.
   fifteen), chosen by eye so the highlight is visible; not a measured value.
 - **Grass**: tufts and the lawn sward went from roughness 1 to .72, which
   gives a lawn a pale sheen when you look toward a low sun.
-- Not done: palms (still one fixed roughness), wet leaves in rain, the herbs.
+- **Palms**: the frond material is glossier (roughness .5 to .42) and reflects
+  more, through a `gloss` option on `shadeLeaves` (.7). One value for every
+  palm species; fronds are modelled leaflets, not cut cards, so there is no
+  per-leaflet variation beyond their own facing.
+- **Rain** (`leafWetness` in `src/game/leaf-shading.ts`, moved by
+  `world-atmosphere.ts` with the same wetness that darkens the ground): a
+  wet leaf, frond or blade is smoother (roughness down to .4) and reflects a
+  little more, and under cloud it picks up the sky at glancing angles, with
+  the scene's ambient light standing in for the sky. It dries as slowly as
+  the ground does.
+- Not done: the herbs; a palm gloss per species; drops on leaves.
 

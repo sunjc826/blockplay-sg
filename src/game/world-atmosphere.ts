@@ -13,6 +13,7 @@ import type { WaterMaterial } from './water';
 import { createNightExposure, skyVisibility } from './night-exposure';
 import { createRainEffects, createRainSurface } from './rain-effects';
 import { createWetSurfaces } from './wet-surfaces';
+import { leafWetness } from './leaf-shading';
 import { getGraphicsSettings } from './graphics-settings';
 import { createAmbientDrift, type AmbientDriftWeather, type FoliageDriftDeclaration } from './ambient-drift';
 import { createWaterRipples } from './water-ripples';
@@ -235,7 +236,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       // Rain takes the air's colour, which darkens with the hour; at night it is dimmed further, all but dark except where a street lamp catches it.
       rainEffects.setLight(1 - .6 * night, scene.userData.lampLight);
       rainEffects.update(step, exposurePoint, wetness, wind, reduced, getGraphicsSettings().rainDetail, gustClock, fog.color);
-      wetSurfaces.update(step, wetness);
+      wetSurfaces.update(step, wetness); leafWetness.value = wetSurfaces.wetness;
       ripples.update(camera,getGraphicsSettings().waterDetail,reduced,wetness);root.userData.waterRipples=ripples.mesh.count;
       wetGround.wetness = wetSurfaces.wetness; wetGround.time = time; wetGround.rain = reduced ? 0 : wetness;
       root.userData.rain = { ...rainEffects.counts, radius: rainEffects.radius, spray: rainEffects.sprayCount, lampStreaks: rainEffects.lampStreaks, gust: air.gust, lightning: root.userData.lightning ?? 0 };
@@ -257,7 +258,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       drift?.dispose();
       if (originalSunRays === undefined) delete scene.userData.sunRays; else scene.userData.sunRays = originalSunRays;
       bulbs.forEach(mesh => mesh.dispose());
-      bolts.dispose(); rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); delete scene.userData.wetGround;
+      bolts.dispose(); rainEffects.dispose(); ripples.dispose(); vehicleRain.dispose(); wetSurfaces.dispose(); leafWetness.value = 0; delete scene.userData.wetGround;
       skyLight?.dispose(); if (skyFill) skyFill.visible = true;
       look?.dispose(); delete scene.userData.colorGrade;
       exposure.dispose();

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { leafWetDeclarations, leafWetness } from './leaf-shading';
 
 /**
  * Leaves on a tree's sprays. A spray is a flat card a metre or two across (plant-models.ts); this draws
@@ -264,12 +265,12 @@ vec3 leafTilt = vec3(0.0);
 `;
 /** After the material's roughness: each leaf has its own, about the species' gloss. */
 export const leafCardRoughness = /* glsl */`
-if (leafRough >= 0.0) roughnessFactor = leafRough;
+if (leafRough >= 0.0) roughnessFactor = mix(leafRough, min(leafRough, .4), leafWet);
 `;
 /** After the material's surface is set up: a waxy cuticle mirrors more of the sun than the engine's stock
  * four percent, by eye rather than by measurement, so a glossy crown visibly glitters. */
 export const leafCardSpecular = /* glsl */`
-if (leafRough >= 0.0 && leafRough < .9) material.specularColor = vec3(.04 + .13 * vLeafGloss);
+if (leafRough >= 0.0 && leafRough < .9) material.specularColor = max(material.specularColor, vec3(.04 + .13 * vLeafGloss + .03 * leafWet));
 `;
 /** After the material's normal: each leaf faces a little its own way, and turns as it flaps, so the sun
  * glints off one leaf and then its neighbour instead of lying across the whole spray as one sheen. */
@@ -311,7 +312,7 @@ if (vLeafCard.z > 0.0) {
 }
 `;
 
-const KEY = 'leaf-cards-v2';
+const KEY = 'leaf-cards-v3';
 const carded = new WeakSet<THREE.Material>();
 export const hasLeafCards = (material: THREE.Material) => carded.has(material);
 /**
@@ -329,7 +330,8 @@ export function cutLeafCards<T extends THREE.Material>(material: T): T {
     shader.uniforms.leafAtlas = { value: textures.map }; shader.uniforms.leafStalks = { value: textures.ids };
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + leafCardVertexDeclarations)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + leafCardVertex);
-    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + leafCardFragmentDeclarations)
+    shader.uniforms.leafWet = leafWetness;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + leafWetDeclarations + leafCardFragmentDeclarations)
       .replace('#include <alphatest_fragment>', leafCardFragment + '#include <alphatest_fragment>')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafCardRoughness)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + leafCardNormal)

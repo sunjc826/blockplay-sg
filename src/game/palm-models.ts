@@ -300,7 +300,7 @@ export interface PalmPlacement { trunk: THREE.Mesh; crown: THREE.Mesh; model: Pa
 export function createPalmKit(track: { geometry: (g: THREE.BufferGeometry) => unknown; material: (m: THREE.Material) => unknown }) {
   const models = new Map<string, PalmModel>();
   const wood = new THREE.MeshStandardMaterial({ name: 'palm trunk wood', color: '#ffffff', vertexColors: true, roughness: .86 });
-  const leaf = shadeLeaves(new THREE.MeshStandardMaterial({ name: 'palm leaf foliage', color: '#ffffff', vertexColors: true, roughness: .5, side: THREE.DoubleSide }), { thin: true, transmit: .45 });
+  const leaf = shadeLeaves(new THREE.MeshStandardMaterial({ name: 'palm leaf foliage', color: '#ffffff', vertexColors: true, roughness: .42, side: THREE.DoubleSide }), { thin: true, transmit: .45, gloss: .7 });
   wood.userData.impactSurface = 'wood'; leaf.userData.impactSurface = 'foliage';
   track.material(wood); track.material(leaf);
   function model(species: PalmSpecies, variant: number) {

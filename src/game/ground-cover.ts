@@ -6,6 +6,7 @@ import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
 import { grassDetail, swardDetail, type WorldDetail } from './environment-quality';
 import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
+import { leafWetDeclarations, leafWetRoughness, leafWetSky, leafWetness } from './leaf-shading';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
 interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh; /** A lawn's own colour, which its tufts take. */ color?: THREE.Color; /** The same for ground painted vertex by vertex. */ tint?: (x: number, z: number) => THREE.Color }
@@ -334,7 +335,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const farReach = { value: 23 }, nearReach = { value: 23 };
   const wind = { value: 0 }, foliage = foliageUniforms(scene);
   material.onBeforeCompile = shader => {
-    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassWind: wind }, foliage);
+    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassWind: wind, leafWet: leafWetness }, foliage);
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n#ifdef GRASS_BLOOM\nattribute float grassBloom;\n#endif\nuniform float grassTime, grassWind;\nuniform vec3 grassEye;\nuniform float grassReach;' + foliageDeclarations)
       // A lawn is not one green: broad drier and lusher patches, and every tuft a little its own.
       .replace('#include <color_vertex>', `#include <color_vertex>
@@ -379,11 +380,13 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         vec3 grassOffset = vec3(grassLean.x, 0.0, grassLean.y) * length(instanceMatrix[1].xyz) * position.y * position.y * grassFade;
         transformed += vec3(dot(grassOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz), 0.0,
                             dot(grassOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));`);
-    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal *= faceDirection;');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal *= faceDirection;')
+      .replace('#include <common>', '#include <common>\n' + leafWetDeclarations).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafWetRoughness)
+      .replace('#include <lights_fragment_end>', leafWetSky + '#include <lights_fragment_end>');
   };
   type Defined = THREE.MeshStandardMaterial & { defines: Record<string, string> };
   (material as Defined).defines = { STANDARD: '', GRASS_BLOOM: '' };
-  material.customProgramCacheKey = () => 'ground-grass-v4';
+  material.customProgramCacheKey = () => 'ground-grass-v6';
   const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
@@ -409,7 +412,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       grassFade *= smoothstep(grassNear - 6.0, grassNear, distance(grassRoot.xz,grassEye.xz));
       transformed.y *= grassFade * grassLush;`);
   };
-  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v4';
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v6';
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
@@ -428,7 +431,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         float grassFade = (1.0 - smoothstep(grassReach - 1.5, grassReach, swardFar)) * step(smoothstep(grassReach - 5.0, grassReach - .5, swardFar), fract(grassPick * 7.0) + .001);`)
         .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= step(.001, grassFade); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
     };
-    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v1';
+    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v3';
     sward = new THREE.InstancedMesh(swardGeometry(new THREE.Color().setRGB(.7, .74, .7), new THREE.Color().setRGB(1.3, 1.24, .98)), swardMaterial, SWARD_CAPACITY);
     sward.name = 'Lawn sward'; sward.count = 0; sward.visible = false;
     sward.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sward.receiveShadow = true;

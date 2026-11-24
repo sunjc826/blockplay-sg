@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { LEAF_MASS_TRIANGLES, LEAF_REED_TRIANGLES, leafReedGeometry, LEAF_PATTERNS, LEAF_VARIANTS, cutLeafCards, leafMassGeometry, drawLeafAtlas, hasLeafCards, inheritLeafCards, layoutSpray, leafCardFragment, leafCardVertex, leafTile } from './leaf-cards';
 import { buildPlant } from './plant-models';
+import { leafWetness } from './leaf-shading';
 import { PLANT_SPECIES, PLANT_SPECS } from './plant-species';
 import { batchTrees, leafShape, treePart } from './tree-wind';
 import { createSceneCover } from './scene-cover';
@@ -166,13 +167,15 @@ describe('leaf sprays', () => {
     const f = shader.fragmentShader;
     // Set where the leaf is cut out, read after the material's own roughness, normal and surface.
     expect(f.indexOf('leafRough = clamp(')).toBeGreaterThan(0);
-    expect(f.indexOf('roughnessFactor = leafRough')).toBeGreaterThan(f.indexOf('leafRough = clamp('));
-    expect(f.indexOf('normal = normalize(normal + leafTilt)')).toBeGreaterThan(f.indexOf('roughnessFactor = leafRough'));
-    expect(f.indexOf('material.specularColor = vec3(.04')).toBeGreaterThan(f.indexOf('normal = normalize(normal + leafTilt)'));
+    expect(f.indexOf('roughnessFactor = mix(leafRough')).toBeGreaterThan(f.indexOf('leafRough = clamp('));
+    expect(f.indexOf('normal = normalize(normal + leafTilt)')).toBeGreaterThan(f.indexOf('roughnessFactor = mix(leafRough'));
+    expect(f.indexOf('vec3(.04 + .13 * vLeafGloss + .03 * leafWet)')).toBeGreaterThan(f.indexOf('normal = normalize(normal + leafTilt)'));
     expect(shader.vertexShader).toContain('vLeafGloss = leafLever.z');
+    // Rain: one shared wetness, declared once however many hooks add it.
+    expect((shader.uniforms as Record<string, unknown>).leafWet).toBe(leafWetness); expect(f.match(/uniform float leafWet;/g)).toHaveLength(1);
     // A depth material has none of those stages and must still compile the cut.
     const depth = cutLeafCards(new THREE.MeshDepthMaterial()), depthShader = { uniforms: {}, vertexShader: THREE.ShaderLib.depth.vertexShader, fragmentShader: THREE.ShaderLib.depth.fragmentShader };
     depth.onBeforeCompile(depthShader as unknown as THREE.WebGLProgramParametersWithUniforms, undefined as unknown as THREE.WebGLRenderer);
-    expect(depthShader.fragmentShader).not.toContain('roughnessFactor = leafRough'); expect(depthShader.fragmentShader).toContain('float leafRough');
+    expect(depthShader.fragmentShader).not.toContain('roughnessFactor = mix(leafRough'); expect(depthShader.fragmentShader).toContain('float leafRough');
   });
 });

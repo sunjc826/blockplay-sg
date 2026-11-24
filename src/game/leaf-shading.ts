@@ -23,9 +23,29 @@ export interface LeafShade {
   transmit?: number;
   /** What the leaf does to the light on its way through, as multipliers on the leaf's own colour. */
   tint?: readonly [number, number, number];
+  /** How much the leaf's upper face shines beyond a plain surface: 0 matte, 1 waxy (a palm frond). Cut leaves carry their own (leaf-cards.ts). */
+  gloss?: number;
 }
 export const LEAF_TRANSMIT_TINT: readonly [number, number, number] = [1.35, 1.25, .35];
-const KEY = 'leaf-shade-v1';
+const KEY = 'leaf-shade-v3';
+/** How wet the plants are, 0 dry to 1 soaked. world-atmosphere.ts moves it with the rain; one value for whichever world is drawn. */
+export const leafWetness = { value: 0 };
+/** Guarded, because a material can be both shaded here and cut into leaves, and each adds it. */
+export const leafWetDeclarations = /* glsl */`
+#ifndef LEAF_WET
+#define LEAF_WET
+uniform float leafWet;
+#endif
+`;
+/** Under cloud there is no sun to mirror, but a wet leaf still shows the sky, most at a glancing angle. The
+ * scene's ambient light stands in for the sky's colour. Goes before the lights are summed. */
+export const leafWetSky = /* glsl */`
+reflectedLight.indirectSpecular += ambientLightColor * leafWet * (.04 + .35 * pow(1.0 - saturate(dot(geometryNormal, geometryViewDir)), 4.0));
+`;
+/** A film of water is smoother than any leaf: a wet leaf's highlight is tight and bright. */
+export const leafWetRoughness = /* glsl */`
+roughnessFactor = mix(roughnessFactor, min(roughnessFactor, .4), leafWet);
+`;
 const shaded = new WeakMap<THREE.Material, Required<LeafShade>>();
 export const leafShade = (material: THREE.Material) => shaded.get(material);
 
@@ -65,7 +85,7 @@ export function leafCrownChunk(shade: Required<LeafShade>) {
 /** Idempotent. Keeps whatever the material already compiles (wind, district look, wetness). */
 export function shadeLeaves<T extends THREE.Material>(material: T, options: LeafShade = {}): T {
   if (shaded.has(material) || !(material as unknown as THREE.MeshStandardMaterial).isMeshStandardMaterial) return material;
-  const shade = { thin: options.thin ?? material.side === THREE.DoubleSide, transmit: options.transmit ?? .42, tint: options.tint ?? LEAF_TRANSMIT_TINT };
+  const shade = { thin: options.thin ?? material.side === THREE.DoubleSide, transmit: options.transmit ?? .42, tint: options.tint ?? LEAF_TRANSMIT_TINT, gloss: options.gloss ?? 0 };
   shaded.set(material, shade);
   const before = material.onBeforeCompile, key = material.customProgramCacheKey;
   material.onBeforeCompile = function(shader, renderer) {
@@ -73,10 +93,15 @@ export function shadeLeaves<T extends THREE.Material>(material: T, options: Leaf
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <lights_physical_pars_fragment>', '#include <lights_physical_pars_fragment>\n' + leafLightChunk(shade));
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <lights_fragment_end>', leafCrownChunk(shade) + '#include <lights_fragment_end>');
+      .replace('#include <lights_fragment_end>', leafCrownChunk(shade) + leafWetSky + '#include <lights_fragment_end>');
+    // Shine: the species' gloss, and more of it under a film of rain. `max`, so the order this and the leaf cut run in does not matter.
+    shader.uniforms.leafWet = leafWetness;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + leafWetDeclarations)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafWetRoughness)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>\nmaterial.specularColor = max(material.specularColor, vec3(${n(.04 + .13 * shade.gloss)} + .03 * leafWet));\n`);
   };
   material.customProgramCacheKey = function() {
-    return `${key.call(this)}|${KEY}-${shade.thin ? 'thin' : 'thick'}-${n(shade.transmit)}-${shade.tint.map(n).join('-')}`;
+    return `${key.call(this)}|${KEY}-${shade.thin ? 'thin' : 'thick'}-${n(shade.transmit)}-${shade.tint.map(n).join('-')}-${n(shade.gloss)}`;
   };
   material.needsUpdate = true;
   return material;
