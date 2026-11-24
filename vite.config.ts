@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => {
   define: { 'import.meta.env.VITE_ROOM_BUILD': JSON.stringify(buildHash.digest('hex').slice(0, 16)), ...(mode === 'sites' || mode === 'cloudflare'
     ? { 'import.meta.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(mode === 'sites' ? '' : demo || '') }
     : demo ? { 'import.meta.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(demo) } : {}) },
+  // The simulation worker (src/game/sim-worker.ts) is a module worker, and shares its chunks' format.
+  worker: { format: 'es' },
   build: {
     rollupOptions: {
       output: { manualChunks: { three: ['three'] } },

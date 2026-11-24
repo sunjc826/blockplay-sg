@@ -5,6 +5,7 @@ import { CARRIER_CAPACITY, CARRIER_NAME, carrierUsed, stepCarrierTransfer, trans
 import { createMaidFollower } from './maid-companion';
 import { createMaidModel } from './carrier-models';
 import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
+import { markSimWorkerFailed, simThreadForMatch } from './sim-thread-setting';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { BARRAGE, GUNSHIP, STREAKS, barragePoints, type StreakId } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
@@ -161,7 +162,7 @@ import { createExpeditionMarkers } from './expedition-visuals';
 import { createLootGround } from './expedition-ground';
 import { worldGatewayAction, findWorldGateway, resolveWorldTransition, resolveWorldBorderCrossing, getWorldZone, WORLD_GATEWAYS, type WorldZoneId, type WorldTransition, type ZoneSpawn } from './world-zones';
 import { createFpsSurface, fpsPixelRatio, type FpsSurface } from './fps-surface';
-import { beginProfiledFrame, endProfiledFrame } from './perf-overlay';
+import { beginProfiledFrame, endProfiledFrame, reportSimulationThread } from './perf-overlay';
 import { createFrameLimiter, getGraphicsSettings, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
 import { nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
@@ -1798,16 +1799,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   /** A vehicle crossing waiting on a hosted simulation's answer about its crew. */
   let heldCrossing: WorldTransition | null = null;
-  function commitTravel(transition: WorldTransition, physical = false, ferry = false) {
+  /** The worker hosting this district's simulation stopped; the district is reloaded with the simulation on this thread. */
+  let simulationLost = false;
+  function recoverSimulation() {
+    if (!simulationLost || !expedition || travelPending || disposed || hud.phase === 'paused' || hud.phase === 'loading') return;
+    simulationLost = false;
+    // Alive and in play: come back where the player stands, carrying what they carry. Otherwise the district starts as it was entered.
+    if (hud.phase === 'playing' && hud.health > 0) commitTravel({ gatewayId: 'simulation-recovery', from: expedition.zone, to: expedition.zone, spawn: { x: position.x, z: position.z, yaw, pitch } }, true, false, true);
+    else { travelPending = true; expedition.onTravel({ gatewayId: 'simulation-recovery', from: expedition.zone, to: expedition.zone, spawn: expedition.spawn! }, expedition.checkpoint!); }
+  }
+  function commitTravel(transition: WorldTransition, physical = false, ferry = false, recovery = false) {
     const travel = expedition ?? rangeTravel;
     if (!travel || travelPending || hud.phase !== 'playing' || hud.health <= 0) return;
-    comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
-    if (hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
+    if (recovery) comms.add('system', 'Simulation', 'Background simulation stopped. The district restarted without it.');
+    else comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
+    if (!recovery && hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
     const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
     checkpoint.maidTravelSeconds = maid?.travelSeconds(playerFeet()) ?? maidArrivalSeconds;
     checkpoint.vehicleDepartures = structuredClone((expedition?.checkpoint ?? rangeTravel?.checkpoint)?.vehicleDepartures ?? {});
-    if (physical && vehicles.mounted) {
+    if (physical && vehicles.mounted && !recovery) {
       const source = { ...vehicles.mounted };
       const state = { ...source, x: transition.spawn.x, z: transition.spawn.z };
       const crew = arenaRuntime?.vehicleTravel(region);
@@ -4726,6 +4737,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (!deploymentIntro.active) finishDeployment();
     }
     if (pilotEnabled && hud.phase === 'playing' && now >= nextPilotAt) { nextPilotAt = now + PILOT_INTERVAL * 1000; updatePilot(now / 1000); }
+    recoverSimulation();
     if (disposed || travelPending) return;
     const previousHull = vehicles.mounted ? { ...vehicles.mounted } : null;
     const previousVehicle = vehicles.active, previousHeading = vehicles.viewMounted?.yaw;
@@ -5287,15 +5299,18 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
       const arenaVehicles = boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition };
-      // Development switch: `globalThis.blockplayWorkerSim = true` hosts an expedition's simulation in a worker
-      // (sim-remote.ts). Production builds drop this branch, and with it the worker.
+      // Settings › Video › Background simulation hosts a solo expedition's simulation in a worker (sim-remote.ts).
+      // One that cannot start leaves this district, and the rest of this visit, on the main thread.
       let remote: import('./sim-client').SimClient | undefined;
-      if (import.meta.env.DEV && expedition && (globalThis as { blockplayWorkerSim?: boolean }).blockplayWorkerSim === true) {
-        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: options.arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
-          .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); return undefined; });
+      if (expedition && options.arena.session.role === 'solo' && simThreadForMatch() === 'worker') {
+        const arena = options.arena;
+        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
+          .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); markSimWorkerFailed(String((error as Error)?.message ?? error)); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
+        remote?.onLost?.(reason => { console.warn('Simulation worker lost; reloading the district on the main thread.', reason); markSimWorkerFailed(reason); simulationLost = true; });
       }
       canvas.dataset.simulationThread = remote ? 'worker' : 'main';
+      reportSimulationThread(remote ? remote.stats : 'main');
       // Development probe: the drawn scene's answer to cover rays, to compare with the worker's (`blockplaySimCover`).
       if (import.meta.env.DEV) (globalThis as { blockplayMainCover?: unknown }).blockplayMainCover = (rays: Parameters<typeof facilityCover.probe>[0]) => ({ elapsed: hud.elapsed, ...facilityCover.probe(rays) });
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, remote, onFiguresAdded: patchMaterials, figureDetail, vehicles: arenaVehicles });
@@ -5436,7 +5451,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       maidModel?.dispose();
       vision.dispose(); lens.dispose(); deploymentBlur.dispose(); overview.dispose();
       wetView.dispose();merlionVisuals.dispose();
-      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
+      void audio?.close().catch(() => {}); arenaRuntime?.dispose(); reportSimulationThread(undefined); expeditionSession?.close(); markers?.dispose(); vehicles.dispose(); undress.forEach(fn => fn()); handling.forEach(model => model.dispose()); disposeAssets(templates); nightLights.dispose(); atmosphere.dispose(); playerBody.dispose(); world.dispose();
       proxyVisuals.dispose();
       stageView?.dispose();
       healthGeometry.dispose(); healthMaterial.dispose(); streakVisuals.dispose(); combatVisuals.dispose(); combatAudio.dispose(); railEffects.dispose(); gunshots.dispose(); gunshotSpaces.clear(); emptyFireAudio.dispose(); impactAudio.dispose(); bulletFlybys.dispose(); earRing.dispose(); slideScrape.dispose(); worldLoops.dispose(); reloadAudio.dispose(); sfx.dispose(); ambientSky.dispose(); hitOverlay.dispose();

@@ -6,14 +6,18 @@ import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
 let engine,hud,frames=[],recording=false,last;
 function frame(now){if(recording&&last)frames.push(now-last);last=now;requestAnimationFrame(frame);}requestAnimationFrame(frame);
-window.loadTrial=async(id,size)=>{
+const profile=createProfile(),loot=createExpeditionLoot('battlefield-browser');
+// As ExpeditionGame does: the same district again, where the player stood, after its simulation worker was lost.
+function mount(id,size,spawn,checkpoint){
  engine?.dispose();document.querySelector('#stage').replaceChildren();hud=undefined;
- const profile=createProfile();
  engine=createFpsEngine(document.querySelector('#stage'),next=>{
   hud=next;window.hud=next;
   document.querySelector('#state').textContent=`${id} · ${size} troops · ${next.phase} · ${next.arena?.facilities?.sites.length??0} objectives · ${next.arena?.actors.filter(a=>a.bot&&a.squad&&a.alive).length??0} alive`;
- },{loadout:resolveLoadout(profile),expedition:{zone:id,battlefieldSize:size,profile,loot:createExpeditionLoot('battlefield-browser'),autoRespawn:true,onTravel(){},onEquipment(){},onVendorPurchase(){throw Error('Purchases are not part of this smoke');}}});
+ },{loadout:resolveLoadout(profile),expedition:{zone:id,spawn,checkpoint,battlefieldSize:size,profile,loot,autoRespawn:true,onTravel(transition,state){if(transition.gatewayId==='simulation-recovery'){window.recoveries=(window.recoveries??0)+1;mount(transition.to,size,transition.spawn,state);}},onEquipment(){},onVendorPurchase(){throw Error('Purchases are not part of this smoke');}}});
  window.engine=engine;document.querySelector('#start').onclick=()=>{engine.chooseDeployment('entry');engine.start();};
+}
+window.loadTrial=async(id,size)=>{
+ mount(id,size);
  const start=performance.now();while(hud?.phase!=='ready'){if(hud?.phase==='error'||performance.now()-start>60000)throw Error('Engine failed to load');await new Promise(r=>setTimeout(r,100));}
  return {bots:hud.arena.actors.filter(a=>a.bot&&a.squad).length,friendlies:hud.arena.actors.filter(a=>a.bot&&a.squad&&a.faction==='armed-forces').length,sites:hud.arena.facilities.sites.map(s=>({id:s.id,name:s.name,kind:s.kind}))};
 };

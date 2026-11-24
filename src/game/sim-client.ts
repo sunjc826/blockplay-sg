@@ -15,6 +15,8 @@ export interface SimClient {
   stats: SimClientStats;
   /** How long the host took to build its district, when it built one. */
   buildMs?: number;
+  /** Called once if the host is lost after it started; nothing asked of it afterwards is answered. */
+  onLost?(handler: (reason: string) => void): void;
   dispose?(): void;
 }
 /** Functions cannot be posted; anything carrying one is sent without it. */

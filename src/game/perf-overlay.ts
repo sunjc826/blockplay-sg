@@ -102,12 +102,41 @@ export function summarizeFrames(frameIntervals: ArrayLike<number>, frameWork: Ar
   return { fps: frames * 1000 / total, lowFps: 1000 / p99, frameMs: total / frames, worstMs: sorted[n - 1], workMs: workTotal / frames, workMaxMs: workMax };
 }
 
+/** Step counters of a simulation hosted on another thread, as sim-client.ts keeps them. */
+export interface SimulationCounters { steps: number; stepMs: number; maxStepMs: number; droppedMs: number }
+export interface SimulationSummary {
+  thread: 'main' | 'worker';
+  /** Worker only, over about the last second: steps taken, mean time of one, and simulated time given up per second. */
+  stepsPerSecond?: number; stepMs?: number; droppedMs?: number;
+  /** Worker only: the slowest wake since the district loaded. */
+  maxStepMs?: number;
+}
+let simulation: SimulationCounters | 'main' | undefined;
+let simBase: { at: number; steps: number; stepMs: number; droppedMs: number } | undefined, simShown: SimulationSummary | undefined;
+/** Says where the running game's simulation is hosted; `undefined` when the game ends. A worker passes its live counters. */
+export function reportSimulationThread(source: SimulationCounters | 'main' | undefined) { simulation = source; simBase = undefined; simShown = undefined; }
+function simulationSummary(now: number): SimulationSummary | undefined {
+  if (!simulation) return undefined;
+  if (simulation === 'main') return { thread: 'main' };
+  const mark = () => { const live = simulation as SimulationCounters; simBase = { at: now, steps: live.steps, stepMs: live.stepMs, droppedMs: live.droppedMs }; };
+  if (!simBase) mark();
+  else if (now - simBase.at >= 1000) {
+    const seconds = (now - simBase.at) / 1000, steps = simulation.steps - simBase.steps;
+    // Held still (paused, or not yet deployed) there is no step to time.
+    simShown = steps ? { thread: 'worker', stepsPerSecond: steps / seconds, stepMs: (simulation.stepMs - simBase.stepMs) / steps, droppedMs: (simulation.droppedMs - simBase.droppedMs) / seconds, maxStepMs: simulation.maxStepMs } : { thread: 'worker', stepsPerSecond: 0 };
+    mark();
+  }
+  return simShown ?? { thread: 'worker' };
+}
+
 export interface PerfSnapshot extends FrameSummary {
   /** Frame intervals in ms, oldest first, for the graph. */
   history: number[];
   renderer?: RendererCounts;
   /** Used JS heap, where the browser reports it (Chromium). */
   heapMb?: number;
+  /** Where the simulation runs, when the running game has one that can be hosted (Open World). */
+  simulation?: SimulationSummary;
 }
 
 /** What the overlay shows, or undefined when no game has drawn a frame in the last second and a half. */
@@ -120,8 +149,8 @@ export function perfSnapshot(now = performance.now()): PerfSnapshot | undefined 
   }
   const summary = summarizeFrames(history, workHistory)!;
   const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
-  return { ...summary, history, renderer: counts, heapMb: memory ? memory.usedJSHeapSize / 1048576 : undefined };
+  return { ...summary, history, renderer: counts, heapMb: memory ? memory.usedJSHeapSize / 1048576 : undefined, simulation: simulationSummary(now) };
 }
 
 /** Forgets recorded frames (tests). */
-export function resetPerfFrames() { head = 0; filled = 0; lastFrameAt = -Infinity; inFrame = false; pendingInterval = 0; lastReport = -Infinity; counts = undefined; tracked = undefined; }
+export function resetPerfFrames() { head = 0; filled = 0; lastFrameAt = -Infinity; inFrame = false; pendingInterval = 0; lastReport = -Infinity; counts = undefined; tracked = undefined; simulation = undefined; simBase = undefined; simShown = undefined; }

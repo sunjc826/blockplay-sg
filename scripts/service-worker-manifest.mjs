@@ -19,7 +19,8 @@ const IGNORED = /\.(map|txt)$/i;
  */
 export function shellPaths(bundleFiles, publicFiles = []) {
   const paths = [...bundleFiles, ...publicFiles]
-    .filter(file => !IGNORED.test(file) && !/(?:^|\/)navigation-[^/]+\.json$/.test(file))
+    // District navigation graphs and the simulation worker (an optional setting) are fetched when first wanted.
+    .filter(file => !IGNORED.test(file) && !/(?:^|\/)(?:navigation-[^/]+\.json|sim-worker-[^/]+\.js)$/.test(file))
     .map(file => (file.startsWith('/') ? file : `/${file}`))
     .map(path => (path === '/index.html' ? '/' : path));
   return [...new Set(paths)].sort();

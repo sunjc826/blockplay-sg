@@ -1,5 +1,5 @@
 // Worker entry: the arena simulation and its own copy of the district, off the main thread.
-// Development only for now (see sim-remote.ts).
+// Started by sim-remote.ts when Settings › Video › Background simulation is on.
 import { buildExpeditionDistrict } from './expedition-district';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { getBuildingLifts } from './building-lifts';
@@ -29,7 +29,7 @@ function build(init: SimWorkerInit) {
   const { world, structureVisuals } = buildExpeditionDistrict(init.zone, init.spawn);
   accelerateInstancedRaycasts(world.scene); world.scene.updateMatrixWorld(true);
   const cover = createSceneCover(world.scene);
-  probe = rays => cover.probe(rays);
+  if (import.meta.env.DEV) probe = rays => cover.probe(rays);
   // Everything function-valued is this district's own; the rest is what the engine resolved.
   const campaign = init.campaign ?? createProxyCampaign();
   setBotDifficulty(init.difficulty);

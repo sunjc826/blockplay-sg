@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { beginProfiledFrame, endProfiledFrame, getPerfOverlay, perfSnapshot, resetPerfFrames, setPerfOverlay, summarizeFrames } from './perf-overlay';
+import { reportSimulationThread, beginProfiledFrame, endProfiledFrame, getPerfOverlay, perfSnapshot, resetPerfFrames, setPerfOverlay, summarizeFrames } from './perf-overlay';
 
 describe('performance overlay', () => {
   afterEach(() => { setPerfOverlay('off'); resetPerfFrames(); vi.restoreAllMocks(); });
@@ -43,5 +43,21 @@ describe('performance overlay', () => {
     expect(perfSnapshot()!.renderer).toEqual({ calls: 7, triangles: 1200, geometries: 3, textures: 2, programs: 2, width: 800, height: 600, pixelRatio: 1.5 });
     setPerfOverlay('off'); beginProfiledFrame(32, renderer as never);
     expect(renderer.info.autoReset).toBe(true);
+  });
+
+  it('says where the simulation runs, and a worker\'s step rate over the last second', () => {
+    let clock = 0; vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    setPerfOverlay('profiler');
+    const draw = (until: number) => { for (; clock < until; clock += 20) { beginProfiledFrame(clock); endProfiledFrame(); } };
+    draw(200); expect(perfSnapshot(clock)!.simulation).toBeUndefined();
+    reportSimulationThread('main'); expect(perfSnapshot(clock)!.simulation).toEqual({ thread: 'main' });
+    const counters = { steps: 100, stepMs: 900, maxStepMs: 31, droppedMs: 0 };
+    reportSimulationThread(counters); expect(perfSnapshot(clock)!.simulation).toEqual({ thread: 'worker' });
+    draw(clock + 1000); Object.assign(counters, { steps: 120, stepMs: 1060, droppedMs: 50 });
+    const sim = perfSnapshot(clock)!.simulation!;
+    expect(sim.stepsPerSecond).toBeCloseTo(20, 5); expect(sim.stepMs).toBeCloseTo(8, 5); expect(sim.droppedMs).toBeCloseTo(50, 5); expect(sim.maxStepMs).toBe(31);
+    // Between whole seconds the last figures stand.
+    draw(clock + 300); expect(perfSnapshot(clock)!.simulation).toEqual(sim);
+    reportSimulationThread(undefined); expect(perfSnapshot(clock)!.simulation).toBeUndefined();
   });
 });

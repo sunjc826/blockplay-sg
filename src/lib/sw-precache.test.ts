@@ -31,3 +31,7 @@ it('changes the version when the build output changes', () => {
 it('loads navigation graphs on demand instead of precaching every district', () => {
   expect(shellPaths([...BUNDLE, 'assets/navigation-queenstown-abc123.json'], PUBLIC)).toEqual(shellPaths(BUNDLE, PUBLIC));
 });
+
+it('leaves the optional simulation worker to be fetched by players who turn it on', () => {
+  expect(shellPaths([...BUNDLE, 'assets/sim-worker-abc123.js', 'assets/sim-remote-abc123.js'], PUBLIC)).toEqual(shellPaths([...BUNDLE, 'assets/sim-remote-abc123.js'], PUBLIC));
+});

@@ -10,6 +10,7 @@ import VoiceSettings from './VoiceSettings';
 import GraphicsSettings from './GraphicsSettings';
 import AimAssistToggle from './AimAssistToggle';
 import PerfOverlaySettings from './PerfOverlaySettings';
+import SimThreadSettings from './SimThreadSettings';
 import { MENU_DESIGNS, setMenuDesign, useMenuDesign } from '../lib/menu-design';
 import { RELOAD_STYLES, setReloadStyle, useReloadStyle } from '../game/reload-style-setting';
 import { progression } from '../game/progression';
@@ -83,6 +84,7 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
           <div role="group" aria-label="Menu layout">{MENU_DESIGNS.map(design => <MenuButton variant="choice" key={design.id} data-menu-design={design.id} aria-pressed={menuDesign === design.id} onClick={() => setMenuDesign(design.id)}><span><strong>{design.name}</strong><small>{design.description}</small></span></MenuButton>)}</div>
         </div>
         <GraphicsSettings />
+        <SimThreadSettings />
         <PerfOverlaySettings />
       </>}
       {tab === 'audio' && <>

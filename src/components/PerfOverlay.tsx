@@ -44,7 +44,7 @@ export default function PerfOverlay() {
   }, [mode]);
   useEffect(() => { if (graph.current && snapshot) drawGraph(graph.current, snapshot.history); }, [snapshot]);
   if (mode === 'off' || !snapshot || !host) return null;
-  const fps = Math.round(snapshot.fps), r = snapshot.renderer;
+  const fps = Math.round(snapshot.fps), r = snapshot.renderer, sim = snapshot.simulation;
   return createPortal(<div className="perf-overlay" data-perf-mode={mode} data-fps={fps} aria-hidden="true">
     <div className="perf-fps" data-rate={rate(snapshot.fps)}><strong>{fps}</strong> FPS</div>
     {mode === 'profiler' && <>
@@ -58,6 +58,10 @@ export default function PerfOverlay() {
           <dt>Geo · tex</dt><dd>{r.geometries} · {r.textures}</dd>
           <dt>Shaders</dt><dd>{r.programs}</dd>
           <dt>Buffer</dt><dd>{r.width}×{r.height} <small>@{r.pixelRatio.toFixed(2)}</small></dd>
+        </>}
+        {sim && <>
+          <dt>Simulation</dt><dd data-sim-thread={sim.thread}>{sim.thread === 'worker' ? 'background' : 'main thread'}{sim.stepsPerSecond !== undefined && <> <small>{Math.round(sim.stepsPerSecond)}/s</small></>}</dd>
+          {sim.stepMs !== undefined && <><dt>Sim step</dt><dd data-rate={sim.droppedMs ? 'poor' : sim.stepMs! > 25 ? 'fair' : 'good'}>{sim.stepMs.toFixed(1)} ms <small>max {sim.maxStepMs!.toFixed(0)}{sim.droppedMs ? ` · late ${Math.round(sim.droppedMs)} ms/s` : ''}</small></dd></>}
         </>}
         {snapshot.heapMb !== undefined && <><dt>JS heap</dt><dd>{Math.round(snapshot.heapMb)} MB</dd></>}
       </dl>
