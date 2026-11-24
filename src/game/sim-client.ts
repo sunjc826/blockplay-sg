@@ -33,7 +33,7 @@ function plain(value: unknown): unknown {
  */
 export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: string, first: Extract<SimFromHost, { type: 'state' }>, navigation: ReturnType<Arena['navigationGraphStatus']>, campaign?: ProxyCampaign): SimClient {
   let snapshot: ArenaSnapshot = first.snapshot, respawn: PlayerRespawnView | null = first.respawn, deployments: DeploymentPoint[] = first.deployments;
-  const hits: ArenaShot[] = [...first.hits];
+  const hits: ArenaShot[] = [...first.hits], peerHits = new Map<string, ArenaShot[]>();
   const stats: SimClientStats = { states: 0, steps: 0, stepMs: 0, maxStepMs: 0, droppedMs: 0, calls: 0, errors: [] };
   const waiting = new Map<number, (value: unknown) => void>();
   let sequence = 0, latest: Promise<unknown> = Promise.resolve(undefined);
@@ -41,6 +41,7 @@ export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: str
   port.listen(message => {
     if (message.type === 'state') {
       snapshot = message.snapshot; respawn = message.respawn; deployments = message.deployments; hits.push(...message.hits);
+      for (const [id, landed] of Object.entries(message.peerHits ?? {})) { const held = peerHits.get(id); if (held) held.push(...landed); else peerHits.set(id, [...landed]); }
       if (campaign && message.campaign) Object.assign(campaign, message.campaign);
       stats.states++; if (message.clock) count(message.clock);
     } else if (message.type === 'answer') { waiting.get(message.id)?.(message.value); waiting.delete(message.id); }
@@ -61,7 +62,7 @@ export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: str
     choosePlayerRespawn: (_id: string, zone: string) => !!respawn?.zones.some(z => z.id === zone && z.available),
   };
   const views: Partial<Record<SimMethod, (...args: never[]) => unknown>> = {
-    snapshot: () => snapshot, takeHits: (id: string) => id === self ? hits.splice(0) : [],
+    snapshot: () => snapshot, takeHits: (id: string) => id === self ? hits.splice(0) : peerHits.get(id)?.splice(0) ?? [],
     playerRespawn: () => respawn, playerDeployments: () => deployments, navigationGraphStatus: () => navigation,
   };
   const arena: Record<string, (...args: never[]) => unknown> = {};

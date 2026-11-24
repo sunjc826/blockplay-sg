@@ -22,7 +22,9 @@ const SILENT_SECONDS = 4;
  * district, or does not answer in time. Once started, a worker that fails or falls silent while it should be
  * stepping is terminated and reported through `onLost`.
  */
-export function createWorkerSimulation(init: { world: SimWorldSpec; props?: SimWorkerInit['props']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string; vehicleTravel?: SimWorkerInit['vehicleTravel'] }): Promise<SimClient> {
+export function createWorkerSimulation(init: { world: SimWorldSpec; props?: SimWorkerInit['props'];
+  /** A match with guests plays at one difficulty for everyone, whatever this player's own setting. */
+  fixedDifficulty?: SimWorkerInit['difficulty']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string; vehicleTravel?: SimWorkerInit['vehicleTravel'] }): Promise<SimClient> {
   return new Promise<SimClient>((resolve, reject) => {
     const worker = new Worker(new URL('./sim-worker.ts', import.meta.url), { type: 'module' });
     const environment: Record<string, unknown> = {};
@@ -54,7 +56,7 @@ export function createWorkerSimulation(init: { world: SimWorldSpec; props?: SimW
         if (started) return;
         started = true; clearTimeout(startTimer);
         const client = createSimClient({ post: out => worker.postMessage(out), listen: next => { handler = next; } }, init.self, message.first, message.navigation, init.environment?.proxies);
-        unsubscribe = subscribeBotDifficulty(() => worker.postMessage({ type: 'difficulty', value: getBotDifficulty() }));
+        if (!init.fixedDifficulty) unsubscribe = subscribeBotDifficulty(() => worker.postMessage({ type: 'difficulty', value: getBotDifficulty() }));
         if (import.meta.env.DEV) {
           // Development probe: what the worker's own copy of the district answers to these cover rays.
           (globalThis as { blockplaySimCover?: unknown }).blockplaySimCover = (rays: SimCoverRay[]) => new Promise(done => { const id = ++probes; probing.set(id, done); worker.postMessage({ type: 'probe', id, rays }); });
@@ -72,7 +74,7 @@ export function createWorkerSimulation(init: { world: SimWorldSpec; props?: SimW
       } else handler?.(message);
     };
     try {
-      worker.postMessage({ type: 'init', world: init.world, props: init.props, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition, vehicleTravel: init.vehicleTravel } as SimWorkerInit);
+      worker.postMessage({ type: 'init', world: init.world, props: init.props, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: init.fixedDifficulty ?? getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition, vehicleTravel: init.vehicleTravel } as SimWorkerInit);
     } catch (error) { fail(`Simulation worker could not be given the district: ${String(error)}`); }
   });
 }

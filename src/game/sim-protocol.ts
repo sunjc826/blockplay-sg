@@ -46,7 +46,9 @@ export type SimToHost =
   | { type: 'call'; method: SimMethod; args: unknown[]; id?: number }
   | { type: 'run'; running: boolean };
 export type SimFromHost =
-  | { type: 'state'; snapshot: ArenaSnapshot; hits: ArenaShot[]; respawn: PlayerRespawnView | null; deployments: DeploymentPoint[]; clock?: SimClockReport;
+  | { type: 'state'; snapshot: ArenaSnapshot; hits: ArenaShot[];
+      /** Hits landed by the other players this host was asked to add (a LAN or public match's guests), by player id. */
+      peerHits?: Record<string, ArenaShot[]>; respawn: PlayerRespawnView | null; deployments: DeploymentPoint[]; clock?: SimClockReport;
       /** The expedition's proxy campaign as the host now holds it; it outlives the district, so the caller keeps a copy. */
       campaign?: ProxyCampaign }
   | { type: 'answer'; id: number; method: SimMethod; value: unknown }

@@ -71,7 +71,7 @@ export interface ArenaRuntimeOptions {
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
   profile?: ArmoryProfile; botCount: number; composition?: string;
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
-  /** A simulation hosted on another thread (sim-client.ts), in place of one built here. Solo only. */
+  /** A simulation hosted on another thread (sim-client.ts), in place of one built here. Solo games and hosts; a guest has none. */
   remote?: SimClient;
 }
 export const FIGURE_POSE = { none: 0, half: 1, full: 2 } as const;
@@ -487,7 +487,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const loadoutRequests = new Map<number, (accepted: boolean) => void>();
   const authority = session.role !== 'guest';
   // A hosted simulation keeps its own time and answers a moment later; its figures are drawn as a guest's are.
-  const remote = session.role === 'solo' ? options.remote : undefined;
+  const remote = authority ? options.remote : undefined;
+  /** Acts on a simulation call's result: at once for a simulation here, on its real answer for a hosted one. Call straight after the call it follows. */
+  const settle = <T,>(provisional: T, then: (result: T) => void) => { if (remote) void remote.lastAnswer().then(real => { if (!disposed) then(real as T); }); else then(provisional); };
   let crossing: { district: string; at: number; crew: import('./arena-rules').VehicleCrewTransfer | null } | null = null, crossingAsked: string | null = null;
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
@@ -584,13 +586,16 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       } else if (registered.has(from) && payload.type === 'arena-loadout' && Number.isSafeInteger(payload.request)) {
         const admitted = peerInventories.get(from), next = admitted && applyRespawnLoadout(spendRentalTime(admitted, snapshot?.actors.find(actor => actor.id === from)?.rentalTimeMs ?? 0), payload.selection);
         const loadout = next && resolveLoadout(next);
-        const accepted = !!loadout && (payload.deployment === true ? simulation.setStartingWeapons(from, loadout.weapons, loadout.carriedFamilies) : simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies));
-        if (accepted && payload.deployment === true) publish();
-        session.send({ type: 'arena-loadout-result', request: payload.request, accepted }, from);
+        const request = payload.request, deployment = payload.deployment === true;
+        const reply = (accepted: boolean) => { if (accepted && deployment) publish(); session.send({ type: 'arena-loadout-result', request, accepted }, from); };
+        if (!loadout) reply(false);
+        else settle(deployment ? simulation.setStartingWeapons(from, loadout.weapons, loadout.carriedFamilies) : simulation.queuePlayerWeapons(from, loadout.weapons, loadout.carriedFamilies), accepted => reply(accepted === true));
       } else if (registered.has(from) && started && payload.type === 'arena-vehicle' && ['enter', 'exit', 'switch'].includes(String(payload.action)) && (payload.kind === undefined || isVehicleKind(payload.kind))) {
-        const accepted = simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined);
-        if (accepted) acknowledgements.delete(from);
-        session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
+        settle(simulation.vehicleAction(from, payload.action as 'enter' | 'exit' | 'switch', payload.kind as VehicleKind | undefined), result => {
+          const accepted = !!result;
+          if (accepted) acknowledgements.delete(from);
+          session.send({ type: 'arena-vehicle-result', accepted }, from); publish();
+        });
       } else if (registered.has(from) && payload.type === 'arena-input' && validArenaInput(payload.input)) {
         const actor = snapshot?.actors.find(actor => actor.id === from);
         if (payload.sequence !== undefined) {
@@ -605,27 +610,34 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
       else if (registered.has(from) && started && payload.type === 'arena-armor-pickup' && typeof payload.id === 'string' && payload.id.length <= 40) { if (simulation.pickupArmor(from, payload.id)) publish(); }
       else if (registered.has(from) && payload.type === 'arena-reload' && validWeaponIndex(payload.weapon)) simulation.reloadPlayer(from, payload.weapon, typeof payload.capacity === 'number' ? payload.capacity : undefined);
       else if (registered.has(from) && started && payload.type === 'throwGrenade' && validThrowGrenade(payload.grenade)) {
-        const accepted = simulation.throwGrenade(from, payload.grenade);
-        if (Number.isSafeInteger(payload.request)) session.send({ type: 'grenade-result', request: payload.request, accepted }, from);
-        if (accepted) publish();
+        const request = payload.request;
+        settle(simulation.throwGrenade(from, payload.grenade), result => {
+          const accepted = result === true;
+          if (Number.isSafeInteger(request)) session.send({ type: 'grenade-result', request, accepted }, from);
+          if (accepted) publish();
+        });
       }
       else if (registered.has(from) && started && payload.type === 'arena-supply' && typeof payload.item === 'string' && payload.item.length <= 64) { if (simulation.useSupply(from, payload.item)) publish(); }
       else if (registered.has(from) && started && payload.type === 'merlion-action' && validMerlionAction(payload.action)) { if(simulation.merlionAction(from,payload.action))publish(); }
       else if (registered.has(from) && started && payload.type === 'facility-action' && typeof payload.site === 'string' && payload.site.length <= 100) { if (simulation.facilityAction(from, payload.site)) publish(); }
       else if (registered.has(from) && payload.type === 'streak-loadout') { if (simulation.configureStreaks(from, payload.loadout)) publish(); }
       else if (registered.has(from) && started && payload.type === 'streak-use' && isStreakId(payload.kind) && (payload.at === undefined || point(payload.at))) {
-        const accepted = simulation.activateStreak(from, payload.kind, payload.at as ArenaPoint | undefined);
-        if (Number.isSafeInteger(payload.request)) session.send({ type: 'streak-result', request: payload.request, accepted }, from);
-        if (accepted) publish();
+        const request = payload.request;
+        settle(simulation.activateStreak(from, payload.kind, payload.at as ArenaPoint | undefined), result => {
+          const accepted = result === true;
+          if (Number.isSafeInteger(request)) session.send({ type: 'streak-result', request, accepted }, from);
+          if (accepted) publish();
+        });
       }
       else if (registered.has(from) && started && payload.type === 'arena-callout' && getPlayerCallout(payload.callout) && (payload.at === undefined || point(payload.at))) {
         if (simulation.callout(from, payload.callout as string, payload.at as ArenaPoint | undefined)) publish();
       }
       else if (registered.has(from) && started && payload.type === 'arena-shot' && point(payload.origin) && point(payload.direction) && validWeaponIndex(payload.weapon)) {
         // Rounds fly, so the hit is usually sent when one lands (see deliverHits); an instant one is sent now.
-        const hit = simulation.shoot(from, payload.origin, payload.direction, payload.weapon, payload.maxDistance === undefined ? undefined : finite(payload.maxDistance) ? payload.maxDistance : 0);
-        if (hit.hitId) session.send({ type: 'arena-hit', hit }, from);
-        refresh();
+        settle(simulation.shoot(from, payload.origin, payload.direction, payload.weapon, payload.maxDistance === undefined ? undefined : finite(payload.maxDistance) ? payload.maxDistance : 0), hit => {
+          if (hit?.hitId) session.send({ type: 'arena-hit', hit }, from);
+          refresh();
+        });
       }
     } else if (from === hostId) {
       if (payload.type === 'streak-result' && Number.isSafeInteger(payload.request) && typeof payload.accepted === 'boolean') { const callback = streakRequests.get(payload.request as number); streakRequests.delete(payload.request as number); callback?.(payload.accepted); }

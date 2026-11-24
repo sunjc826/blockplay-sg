@@ -307,3 +307,58 @@ describe('the district an expedition simulates in', () => {
     } finally { structureVisuals.dispose(); world.dispose(); }
   });
 });
+
+describe('a match host whose simulation is hosted on another thread', () => {
+  /** Host and guest sessions joined directly; packets are copied and delivered on the next timer turn. */
+  function match() {
+    const handlers = [new Set<(from: string, payload: unknown) => void>(), new Set<(from: string, payload: unknown) => void>()];
+    const received: Record<string, unknown>[][] = [[], []];
+    const sessions = [0, 1].map(index => ({
+      id: index ? 'guest' : 'host', role: index ? 'guest' : 'host', name: index ? 'Guest' : 'Host',
+      send(payload: unknown) { const copy = structuredClone(payload) as Record<string, unknown>; setTimeout(() => { received[1 - index].push(copy); for (const cb of handlers[1 - index]) cb(index ? 'guest' : 'host', copy); }, 0); },
+      subscribe(cb: (from: string, payload: unknown) => void) { handlers[index].add(cb); return () => { handlers[index].delete(cb); }; },
+      getPeers: () => [{ id: index ? 'host' : 'guest', name: index ? 'Host' : 'Guest' }], onPeers: () => () => {}, close() {},
+    })) as unknown as import('./lan-peer').LanSession[];
+    const rules = { bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 }, move: createRegionMovement({ minX: -400, maxX: 400, minZ: -400, maxZ: 400 }).move, spawns: [{ x: 0, z: 0 }, { x: 0, z: 30 }], endless: true } as ArenaEnvironment;
+    const link = hosted(createArena([], 0, 'mixed', rules), 'host');
+    const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: sessions[0], environment: rules, remote: link.client });
+    const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: sessions[1], environment: rules });
+    const at = { host: { x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, playing: true }, guest: { x: 0, y: 1.75, z: 30, yaw: 0, pitch: 0, weapon: 0, playing: true } };
+    /** One 50 ms turn of both machines and the worker between them. */
+    async function turn(count = 1) {
+      for (let n = 0; n < count; n++) {
+        link.tick(); await vi.advanceTimersByTimeAsync(50);
+        const mine = host.update(.05, at.host); if (mine.spawn && mine.self) Object.assign(at.host, { x: mine.self.x, z: mine.self.z });
+        const theirs = guest.update(.05, at.guest); if (theirs.spawn && theirs.self) Object.assign(at.guest, { x: theirs.self.x, z: theirs.self.z });
+      }
+    }
+    return { link, host, guest, received, at, turn, dispose() { host.dispose(); guest.dispose(); } };
+  }
+
+  it('admits a guest, lands the guest\'s rounds and tells them so, and answers their requests with the simulation\'s own word', async () => {
+    vi.useFakeTimers();
+    const m = match();
+    try {
+      // The guest's hello needs a second to go out; then both stand in the hosted simulation.
+      await m.turn(60);
+      const actors = () => m.host.update(0, m.at.host).snapshot!.actors;
+      expect(actors().map(a => a.id).sort()).toEqual(['guest', 'host']);
+      expect(m.guest.update(0, m.at.guest).snapshot?.actors.map(a => a.id).sort()).toEqual(['guest', 'host']);
+      const before = actors().find(a => a.id === 'host')!.health;
+      // Straight at the host, chest high, until something lands.
+      const dx = m.at.host.x - m.at.guest.x, dz = m.at.host.z - m.at.guest.z, reach = Math.hypot(dx, dz);
+      expect(reach).toBeGreaterThan(5);
+      for (let n = 0; n < 40 && !m.received[1].some(p => p.type === 'arena-hit'); n++) { m.guest.shoot({ ...m.at.guest, y: 1.2 }, { x: dx / reach, y: 0, z: dz / reach }, 0); await m.turn(2); }
+      const told = m.received[1].find(p => p.type === 'arena-hit') as { hit: ArenaShot } | undefined;
+      expect(told?.hit.hitId).toBe('host');
+      expect(actors().find(a => a.id === 'host')!.health).toBeLessThan(before);
+      // No vehicle stands here: the refusal is the simulation's, not the provisional yes a hosted call returns at once.
+      m.received[0].length = 0; m.received[1].length = 0;
+      (m.guest as unknown as { vehicleAction(action: string, kind?: string): unknown }).vehicleAction('enter', 'car');
+      await m.turn(4);
+      expect(m.received[0].some(p => p.type === 'arena-vehicle')).toBe(true);
+      expect(m.received[1].filter(p => p.type === 'arena-vehicle-result')).toEqual([{ type: 'arena-vehicle-result', accepted: false }]);
+      expect(m.link.client.stats.errors).toEqual([]);
+    } finally { m.dispose(); }
+  }, 30000);
+});

@@ -1,6 +1,8 @@
 // Worker entry: the arena simulation and its own copy of the district, off the main thread.
 // Started by sim-remote.ts when Settings › Video › Background simulation is on.
 import { buildExpeditionDistrict } from './expedition-district';
+import { buildDistrictWorld } from './district-world';
+import { MARINA_BOUNDS } from './marina-collision';
 import { buildHardpointWorld } from './hardpoint-world';
 import { buildTeamDeathmatchWorld } from './team-deathmatch-world';
 import { buildFreeForAllWorld } from './free-for-all-world';
@@ -23,7 +25,9 @@ import type { WorldZoneId } from './world-zones';
 /** Which map the simulation stands in; the worker builds its own copy from this alone. */
 export type SimWorldSpec =
   | { kind: 'expedition'; zone: WorldZoneId; spawn?: Parameters<typeof buildExpeditionDistrict>[1] }
-  | { kind: 'team-deathmatch' | 'hardpoint' | 'free-for-all'; area: string };
+  | { kind: 'team-deathmatch' | 'hardpoint' | 'free-for-all'; area: string }
+  /** A free-for-all across a whole district with its vehicles: the LAN and public default. */
+  | { kind: 'district'; zone: WorldZoneId };
 export interface SimWorkerInit { type: 'init'; world: SimWorldSpec; self: string;
   /** Collision boxes of models only the engine can load; they stand here as boxes (prop-cover.ts). */
   props?: Obstacle[]; environment: Partial<ArenaEnvironment>; campaign?: ProxyCampaign; difficulty: BotDifficulty; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string;
@@ -42,30 +46,40 @@ function stand(spec: SimWorldSpec) {
   if (spec.kind === 'expedition') {
     const { world, structureVisuals } = buildExpeditionDistrict(spec.zone, spec.spawn);
     // Structures change with the facility that owns them; cover is re-read four times a second, so every fifth step is often enough.
-    return { world, follow: (now: ArenaSnapshot, steps: number) => { if (steps % 5 === 0) structureVisuals.update(now.facilities); } };
+    return { world, rules: world.environment as ArenaEnvironment | undefined, follow: (now: ArenaSnapshot, steps: number) => { if (steps % 5 === 0) structureVisuals.update(now.facilities); } };
+  }
+  if (spec.kind === 'district') {
+    // The engine builds this one with barricades at the district's edge, and gives the simulation no rules of the district's own.
+    const world = buildDistrictWorld(spec.zone, undefined, { barricades: true });
+    for (const stamp of world.stamps) stamp.visible = false;
+    return { world, rules: undefined, follow: () => {} };
   }
   const world = spec.kind === 'hardpoint' ? buildHardpointWorld(spec.area) : spec.kind === 'team-deathmatch' ? buildTeamDeathmatchWorld(spec.area) : buildFreeForAllWorld(spec.area);
   for (const stamp of world.stamps) stamp.visible = false;
   // The simulation moves a staged part's colliders itself; this moves what stands in the scene, which is what sight and rounds meet.
   const events = world.environment.levolution?.events ?? [], stage = events.length ? createStageView(world, events, false) : null;
-  return { world, follow: (now: ArenaSnapshot) => {
+  return { world, rules: world.environment as ArenaEnvironment | undefined, follow: (now: ArenaSnapshot) => {
     if (stage) { stage.sync(now.levolution?.events ?? [], now.elapsed); stage.update(now.elapsed); }
     if ('controlStations' in world) (world as ReturnType<typeof buildHardpointWorld>).controlStations.update(now.hardpoint);
   } };
 }
 
 function build(init: SimWorkerInit) {
-  const { world, follow: followMap } = stand(init.world);
+  const { world, rules, follow: followMap } = stand(init.world);
   if (init.props?.length) { world.obstacles.push(...init.props); addPropCover(world.scene, init.props); }
   accelerateInstancedRaycasts(world.scene); world.scene.updateMatrixWorld(true);
   const cover = createSceneCover(world.scene);
   if (import.meta.env.DEV) probe = rays => cover.probe(rays);
   // Everything function-valued is this district's own; the rest is what the engine resolved.
-  const campaign = init.campaign ?? createProxyCampaign();
+  // Only an expedition has a proxy campaign; a match given one would start proxy operations of its own.
+  const campaign = init.world.kind === 'expedition' ? init.campaign ?? createProxyCampaign() : undefined;
   setBotDifficulty(init.difficulty);
-  const environment = { ...world.environment, ...init.environment, proxies: campaign, dropColumnClear: createDropColumnCheck(cover) } as ArenaEnvironment;
+  const given = { ...rules, ...init.environment, ...(campaign ? { proxies: campaign } : {}) } as ArenaEnvironment;
+  if (given.paratroopers || given.proxies) given.dropColumnClear = createDropColumnCheck(cover);
+  // As the runtime does for a simulation of its own: no rules at all is the Marina Bay free-for-all.
+  const environment = Object.keys(given).length ? given : undefined;
   const arena = createArena(world.obstacles, init.botCount, init.composition, environment, init.vehicles,
-    { bounds: world.bounds, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene), lifts: getBuildingLifts(world.scene) },
+    { bounds: environment?.bounds ?? MARINA_BOUNDS, obstacles: world.obstacles, surfaces: getWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene), lifts: getBuildingLifts(world.scene) },
     cover.distance, (from, to) => {
       const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
       const hit = cover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);

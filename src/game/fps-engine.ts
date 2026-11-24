@@ -5317,22 +5317,25 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
       const arenaVehicles = boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition };
-      // Settings › Video › Background simulation hosts a solo game's simulation in a worker (sim-remote.ts):
-      // an Open World district, or a match in an arena. One that cannot start leaves this game, and the rest
+      // Settings › Video › Background simulation hosts the simulation in a worker (sim-remote.ts) for a solo game
+      // (an Open World district, or a match in an arena) and for the host of a LAN or public match. One that cannot start leaves this game, and the rest
       // of this visit, on the main thread.
       let remote: import('./sim-client').SimClient | undefined;
       const simWorld: import('./sim-worker').SimWorldSpec | undefined = expedition ? { kind: 'expedition', zone: expedition.zone, spawn: expedition.spawn }
-        : hardpoint ? { kind: 'hardpoint', area: hardpoint.area.id } : tdm ? { kind: 'team-deathmatch', area: tdm.area } : ffa ? { kind: 'free-for-all', area: ffa.id } : undefined;
-      if (simWorld && options.arena.session.role === 'solo' && simThreadForMatch() === 'worker') {
+        : hardpoint ? { kind: 'hardpoint', area: hardpoint.area.id } : tdm ? { kind: 'team-deathmatch', area: tdm.area } : ffa ? { kind: 'free-for-all', area: ffa.id }
+        // The whole-district free-for-all (the LAN and public default), when nothing but the district itself shapes its rules.
+        : freeForAll && !options.tutorial && !options.arena.environment ? { kind: 'district', zone: region } : undefined;
+      if (simWorld && options.arena.session.role !== 'guest' && simThreadForMatch() === 'worker') {
         const arena = options.arena;
-        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ world: simWorld, props: propBoxes, self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
+        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ world: simWorld, props: propBoxes, fixedDifficulty: arena.session.role === 'solo' ? undefined : 'normal', self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
           .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); markSimWorkerFailed(String((error as Error)?.message ?? error)); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
         remote?.onLost?.(reason => { console.warn('Simulation worker lost; reloading the district on the main thread.', reason); markSimWorkerFailed(reason); simulationLost = true; });
       }
       hostedSimulation = !!remote;
       canvas.dataset.simulationThread = remote ? 'worker' : 'main';
-      reportSimulationThread(remote ? remote.stats : 'main');
+      // A guest simulates nothing: the overlay says so by saying nothing.
+      reportSimulationThread(remote ? remote.stats : options.arena.session.role === 'guest' ? undefined : 'main');
       // Development probe: the drawn scene's answer to cover rays, to compare with the worker's (`blockplaySimCover`).
       if (import.meta.env.DEV) (globalThis as { blockplayMainCover?: unknown }).blockplayMainCover = (rays: Parameters<typeof facilityCover.probe>[0]) => ({ elapsed: hud.elapsed, ...facilityCover.probe(rays) });
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, remote, onFiguresAdded: patchMaterials, figureDetail, vehicles: arenaVehicles });

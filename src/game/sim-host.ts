@@ -22,13 +22,16 @@ export const realClock: SimHostClock = { now: () => performance.now(), every: (m
 /**
  * Runs a simulation for a runtime on another thread: applies its calls in the
  * order sent, keeps time itself, and pushes the state after every wake that
- * stepped. `self` is the one local player whose hits and spawn views travel;
+ * stepped. `self` is the one local player whose spawn views travel; hits travel
+ * for `self` and for every other player the runtime adds (a match's guests);
  * `campaign` is the object the simulation was given as `environment.proxies`.
  */
 export function createSimHost(arena: Arena, self: string, port: SimPort<SimFromHost, SimToHost>, clock: SimHostClock = realClock, campaign?: ProxyCampaign) {
   let running = false, last = 0, owed = 0;
+  const guests = new Set<string>();
+  const peerHits = () => { const out: Record<string, ReturnType<Arena['takeHits']>> = {}; let any = false; for (const id of guests) { const hits = arena.takeHits(id); if (hits.length) { out[id] = hits; any = true; } } return any ? { peerHits: out } : {}; };
   const state = (report?: { steps: number; stepMs: number; droppedMs: number }): SimFromHost =>
-    ({ type: 'state', snapshot: arena.snapshot(), hits: arena.takeHits(self), respawn: arena.playerRespawn(self), deployments: arena.playerDeployments(self), ...(report ? { clock: report } : {}), ...(campaign ? { campaign } : {}) });
+    ({ type: 'state', snapshot: arena.snapshot(), hits: arena.takeHits(self), ...peerHits(), respawn: arena.playerRespawn(self), deployments: arena.playerDeployments(self), ...(report ? { clock: report } : {}), ...(campaign ? { campaign } : {}) });
   function wake() {
     if (!running) return;
     const now = clock.now(); owed += (now - last) / 1000; last = now;
@@ -46,6 +49,7 @@ export function createSimHost(arena: Arena, self: string, port: SimPort<SimFromH
       if (message.type === 'run') { if (message.running && !running) { last = clock.now(); owed = 0; } running = message.running === true; return; }
       if (message.type !== 'call' || !isPosted(message.method) || !Array.isArray(message.args)) throw new Error('Not a simulation call');
       const value = (arena[message.method] as (...args: unknown[]) => unknown)(...message.args);
+      if (typeof message.args[0] === 'string' && message.args[0] !== self) { if (message.method === 'addPlayer') guests.add(message.args[0]); else if (message.method === 'removePlayer') guests.delete(message.args[0]); }
       if (SIM_METHODS[message.method] === 'answer' && message.id !== undefined) port.post({ type: 'answer', id: message.id, method: message.method, value });
       if (!QUIET_METHODS.has(message.method)) port.post(state());
     } catch (error) {

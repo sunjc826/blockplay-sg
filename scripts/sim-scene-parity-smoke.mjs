@@ -8,7 +8,8 @@
 //   FPS_APP_ORIGIN       Vite dev server (default http://127.0.0.1:5192)
 //   FPS_CHROME_ORIGIN    Chrome remote debugging (default http://127.0.0.1:9357)
 //   PARITY_DISTRICTS     comma-separated zone ids (default: every world zone; `none` for no districts)
-//   PARITY_MATCHES       comma-separated mode:area solo matches, such as hardpoint:smith-street (default: none;
+//   PARITY_MATCHES       comma-separated mode:area solo matches, such as hardpoint:smith-street, or
+//                        free-for-all:district for the whole-district one in Marina Bay (default: none;
 //                        `all` for every arena in every mode)
 //   PARITY_SECONDS       play time between the two looks (default 30)
 import assert from 'node:assert/strict';
@@ -67,7 +68,7 @@ try {
   const districts = [...zones, ...matches];
   for (const district of districts) {
     const [mode, area] = district.split(':');
-    await evaluate(area ? `loadMatch(${JSON.stringify(mode)},${JSON.stringify(area)},9)` : `loadTrial(${JSON.stringify(district)},32)`);
+    await evaluate(area ? `loadMatch(${JSON.stringify(mode)},${area === 'district' ? 'undefined' : JSON.stringify(area)},9)` : `loadTrial(${JSON.stringify(district)},32)`);
     assert.equal(await evaluate(`document.querySelector('canvas').dataset.simulationThread`), 'worker', `${district}: the simulation did not start in a worker`);
     const point = await evaluate(`(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] }); await delay(80); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

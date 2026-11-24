@@ -1,4 +1,5 @@
 // Build first. Uses genuine browser input + WebRTC, two isolated Chrome processes.
+// ARENA_LAN_WORKER=1 runs the host's simulation in the Background simulation worker (src/game/sim-remote.ts).
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
@@ -10,6 +11,8 @@ const output = new URL('../.cache/arena-lan/', import.meta.url); await mkdir(out
 const server = createLanServer(); await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const delay = ms => new Promise(resolve=>setTimeout(resolve,ms));
+// A slow machine (two software-rendered browsers) needs longer waits; the assertions are unchanged. ARENA_LAN_PACE=4 on a VM.
+const pace=Math.max(1,Number(process.env.ARENA_LAN_PACE)||1);
 const browsers=[], pages=[];
 async function page(port) {
   const child=spawn(process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--no-proxy-server',`--user-data-dir=${join(directory,String(port))}`,`--remote-debugging-port=${port}`,'--window-size=1440,1100','about:blank'],{stdio:'ignore'});browsers.push(child);
@@ -20,13 +23,13 @@ async function page(port) {
   ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){const p=pending.get(m.id);if(p){pending.delete(m.id);clearTimeout(p.timer);m.error?p.reject(Error(m.error.message)):p.resolve(m.result);}}if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text);};
   const send=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;const timer=setTimeout(()=>{pending.delete(n);reject(Error(`CDP timeout ${method}`));},30000);pending.set(n,{resolve,reject,timer});ws.send(JSON.stringify({id:n,method,params}));});
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
-  const wait=async(expression,timeout=20000)=>{const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(100);}throw Error(`Timed out: ${expression}`);};
+  const wait=async(expression,timeout=20000)=>{timeout*=pace;const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(expression))return;await delay(100);}throw Error(`Timed out: ${expression}`);};
   const click=async expression=>{await send('Page.bringToFront');const p=await evaluate(`(()=>{const e=${expression};if(!e)throw Error('Missing control');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});};
   const key=async(key,code,hold=0)=>{await send('Page.bringToFront');await send('Input.dispatchKeyEvent',{type:'keyDown',key,code});if(hold)await delay(hold);await send('Input.dispatchKeyEvent',{type:'keyUp',key,code});if(key==='Escape')await wait('!document.pointerLockElement');};
   const screenshot=async name=>{const result=await send('Page.captureScreenshot',{format:'png'});await writeFile(new URL(name+'.png',output),Buffer.from(result.data,'base64'));};
   await send('Runtime.enable');await send('Page.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   // Observe outbound authoritative snapshots; do not alter game or network state.
-  await send('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
+  await send('Page.addScriptToEvaluateOnNewDocument',{source:`${process.env.ARENA_LAN_WORKER&&port===9226?'globalThis.blockplayWorkerSim=true;':''}(()=>{window.captureErrors=[];const capture=HTMLCanvasElement.prototype.requestPointerLock;HTMLCanvasElement.prototype.requestPointerLock=function(options){const p=capture.call(this,options);return p?.catch(e=>{window.captureErrors.push({name:e.name,message:e.message,focus:document.hasFocus(),hidden:document.hidden});throw e;});};const original=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){try{const p=JSON.parse(data).payload;if(p?.type==='arena-state')window.lastArenaSnapshot=p.snapshot;}catch{}return original.call(this,data);};})()`});
   await send('Page.navigate',{ url: `${origin}/debug` });
   const p={send,evaluate,wait,click,key,screenshot,errors,close:()=>ws.close()};pages.push(p);return p;
 }
@@ -46,6 +49,7 @@ try{
   await guest.wait(`!!${button('Enter multiplayer match')}`);await host.wait(`document.querySelector('.lan-roster').textContent.includes('Bravo')`);
   await host.click(button('Deploy squad'));await guest.click(button('Enter multiplayer match'));
   await Promise.all([host.wait(phase('ready')),guest.wait(phase('ready'))]);
+  if(process.env.ARENA_LAN_WORKER)assert.equal(await host.evaluate(`document.querySelector('canvas').dataset.simulationThread`),'worker','The host simulates in the worker');
   console.log('Starting match');await host.click(button('Start match'));await host.wait(phase('playing'));
   await guest.click(button('Enter match'));await guest.wait(phase('playing'));
   await host.wait(`window.lastArenaSnapshot?.actors.length===2`);
