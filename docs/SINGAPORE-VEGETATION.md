@@ -297,7 +297,7 @@ sways about its own base.
   patches the colour already followed, with an occasional ragged clump.
 - No triangles were added to the grass.
 
-## A mown lawn, blade by blade (sixth pass, Botanic Gardens only)
+## A mown lawn, blade by blade (sixth pass)
 
 A trial after looking at how Crysis 3 drew grass (Crytek's GDC 2013 talk):
 dense fields of separate blades that bend along their length. Singapore lawn
@@ -307,7 +307,12 @@ is short, so the height is not copied; the density and the curl are.
   turfgrass in Singapore and rates it coarse in texture, low in density and
   medium green. The blades are drawn broad and blunt for that reason. Which
   turf the Gardens' own lawns carry was not checked.
-- **The sward.** A district that sets `scene.userData.lawnSward` gets a third
+- **Where.** Tried on the Botanic Gardens first, then turned on for every
+  district except Queenstown (`scene.userData.lawnSward = false` there:
+  sampling its ground made each rebuild take 28 ms in the test VM, against 1
+  to 8 ms elsewhere). It grows wherever the tufts grow, verges and forest
+  floor included, not only on mown lawns.
+- **The sward.** Every such district gets a third
   grass mesh, `Lawn sward`, beside the two tuft meshes (`createGrass` in
   `src/game/ground-cover.ts`). Each instance is a clump of five blades, 14 to
   23 cm tall (raised from 8 to 14 cm, which the owner found short), arching outward; each blade has three joints (25 triangles a

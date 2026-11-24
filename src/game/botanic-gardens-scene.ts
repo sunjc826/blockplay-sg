@@ -322,8 +322,6 @@ export function buildBotanicGardensScene() {
   stamps.forEach((stamp, i) => { stamp.userData.baseY = ground(BOTANIC_GARDENS_STAMPS[i].x, BOTANIC_GARDENS_STAMPS[i].z); });
   // No reviewed photograph informed this geometry: positions come from the official visitor map and NParks pages, heights are authored.
   scene.userData.referenceFeatures = [];
-  // The Gardens' lawns are mown turf: ground-cover.ts lays a dense sward of short blades close to the viewer.
-  scene.userData.lawnSward = true;
   scene.userData.districtFeatures = ['graded-hills-and-valley', 'swan-lake', 'symphony-lake-stage', 'bandstand', 'palm-valley-species-beds', 'rain-forest-ridge', 'orchid-terraces', 'ginger-garden-waterfall', 'black-and-white-verandahs', 'cool-house'];
   const world = withVerticalPlaces(k.finish({ car, stamps, animate: () => stamps.forEach(stamp => { stamp.position.y += stamp.userData.baseY; }) }), places);
   const dispose = world.dispose;

@@ -220,7 +220,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     const p = sample(x, z);
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
-  }, (x, z) => sampleState(x, z).color, { sward: world.scene.userData.lawnSward === true });
+  }, (x, z) => sampleState(x, z).color, { sward: world.scene.userData.lawnSward !== false });
   const wetGround = (x: number, z: number) => {
     const p = sampleState(x, z); return p.wettable && !p.grass ? p.y : null;
   };

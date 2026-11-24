@@ -17743,7 +17743,8 @@ On request ("look into improving the shrubs and grass next").
 On request ("take a look at Crysis 3's grass", then "try it on Botanic Gardens").
 - **`scene.userData.lawnSward = true`** (set only in `botanic-gardens-scene.ts`) makes `createGrass` add a third instanced mesh, `Lawn sward`: clumps of five three-jointed blades (`swardGeometry`, 25 triangles), 14 to 23 cm tall (raised from 8 to 14 cm at the owner's word), at `swardDetail()` spacing and reach (`environment-quality.ts`; none on Low or reduced effects). Same shader as the tufts with its own reach uniform; thins by dropping clumps over its last 4 m. Follows the camera in 2 m steps, writing instance buffers directly; numeric cache keys, cleared at 160,000 entries.
 - **Fix for 8e30051:** tufts took `material.color`, which is white on vertex-painted terrain, so Botanic Gardens, Upper Thomson, HarbourFront/Sentosa and Queenstown had white tufts and no turf pattern. `terrainTint` bins the terrain's vertex colours and `sampleState` returns that; `soilMaterial`'s turf block is now gated on the fragment being green (cache key `-soil-v3`).
-- **Not done:** other districts (awaiting the owner's verdict on the trial); real-GPU frame rate; browser smokes. The owner has not said whether the tall tufts should stay on a mown lawn.
+- **Rolled out** at the owner's word: the sward is now on unless a scene sets `lawnSward = false`, which only Queenstown does (its ground sampling made a sward rebuild take 28 ms per 2 m step, and its tuft rebuild already takes about 35 ms per 4 m; worth profiling `sampleState` there).
+- **Not done:** Queenstown; real-GPU frame rate; browser smokes. The owner has not said whether the tall tufts should stay on a mown lawn.
 
 ## 2026-11-24: simulation worker, phase 4: shipped as a setting, with a way back
 On request ("Sure go on with phase 4"). The worker is now in the production build, off by default.
