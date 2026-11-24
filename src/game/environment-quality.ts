@@ -6,13 +6,16 @@ export const RAIN_DETAIL = {
   high: { radius: 80, drops: 6000, height: 36, spray: 240 },
   ultra: { radius: 130, drops: 12000, height: 46, spray: 440 },
 } as const;
-/** The mown sward close to the viewer, on lawns that ask for it: clumps of short blades `spacing` apart out to
- * `radius`. Null where the budget has no room for it. */
+/** The sward of short blades round the viewer: a clump every `spacing` out to `inner`, then fewer and wider
+ * clumps until none are left at `radius`. Null where the budget has no room for it. */
 export function swardDetail(detail: WorldDetail, reduced: boolean, mobile: boolean) {
   if (reduced || detail === 'low') return null;
-  if (detail === 'high') return mobile ? { radius: 7, spacing: .28 } : { radius: 10, spacing: .22 };
-  return mobile ? { radius: 9, spacing: .24 } : { radius: 13, spacing: .19 };
+  if (detail === 'high') return mobile ? { radius: 14, inner: 5, spacing: .28 } : { radius: 22, inner: 7, spacing: .22 };
+  return mobile ? { radius: 18, inner: 6, spacing: .24 } : { radius: 30, inner: 9, spacing: .19 };
 }
+/** The share of the sward's clumps still standing at `distance`: all of them to `inner`, none by `radius`,
+ * falling away fast at first so the far, thin part costs little. The grass shader computes the same. */
+export const swardDensity = (distance: number, inner: number, radius: number) => { const t = Math.min(1, Math.max(0, (distance - inner) / (radius - inner))); return (1 - t) * (1 - t); };
 export function grassDetail(detail: WorldDetail, reduced: boolean, mobile: boolean) {
   if (reduced) return { near: 11, radius: 11, spacing: 1.35, farSpacing: 2, limit: 384, farLimit: 0 };
   if (detail === 'low') return mobile

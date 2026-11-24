@@ -4,7 +4,7 @@ import type { RegionWorld } from './regions';
 import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-routes';
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
-import { grassDetail, swardDetail, type WorldDetail } from './environment-quality';
+import { grassDetail, swardDensity, swardDetail, type WorldDetail } from './environment-quality';
 import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
 import { leafWetDeclarations, leafWetRoughness, leafWetSky, leafWetness } from './leaf-shading';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
@@ -270,7 +270,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
 /** How far the weather's wind (0 still to 7 squall) lays grass over: mean tip travel as a share of blade height. */
 export const grassWindLean = (wind: number) => .1 + Math.min(7, Math.max(0, wind)) * .1;
 
-export const SWARD_BLADES = 5, SWARD_CAPACITY = 26000;
+export const SWARD_BLADES = 5, SWARD_CAPACITY = 32000;
 /** One clump of a mown lawn: broad, blunt blades (cow grass, Axonopus compressus) that arch outward from the
  * crown. Each blade has three joints along its length, so the wind's lean (which grows with the square of
  * height) curls it over instead of tipping it as a straight piece. Height is 0 to 1; the instance sets it. */
@@ -417,22 +417,27 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
   // The sward: the same shader, so it leans to the same wind fronts, bodies and shots, on its own short reach.
-  const swardReach = { value: 0 };
+  const swardReach = { value: 0 }, swardInner = { value: 0 };
   let sward: THREE.InstancedMesh | undefined;
   if (options.sward) {
     const swardMaterial = material.clone(); (swardMaterial as Defined).defines = { STANDARD: '' };
     swardMaterial.onBeforeCompile = (shader, renderer) => {
       material.onBeforeCompile(shader, renderer);
-      shader.uniforms.grassReach = swardReach;
-      // Mown to one height, near enough: only a little of the lush-and-dry difference the tufts show. It thins
-      // out over its last four metres by losing clumps, then height, so there is no ring where it stops.
-      shader.vertexShader = shader.vertexShader.replace('float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));', `
-        float swardFar = distance(grassRoot.xz, grassEye.xz);
-        float grassFade = (1.0 - smoothstep(grassReach - 1.5, grassReach, swardFar)) * step(smoothstep(grassReach - 5.0, grassReach - .5, swardFar), fract(grassPick * 7.0) + .001);`)
-        .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= step(.001, grassFade); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
+      shader.uniforms.grassReach = swardReach; shader.uniforms.swardInner = swardInner;
+      // Mown to one height, near enough: only a little of the lush-and-dry difference the tufts show.
+      // Beyond the inner reach it thins: each clump has its own place in the queue (swardPick) and stands while
+      // the density at its distance (swardDensity in environment-quality.ts) is above that. A clump grows from
+      // nothing over a tenth of the range instead of appearing whole, and the ones left spread wider to cover
+      // for those gone, so walking forward the lawn fills in rather than popping in.
+      shader.vertexShader = 'attribute float swardPick;\nuniform float swardInner;\n' + shader.vertexShader.replace('float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));', `
+        float swardT = clamp((distance(grassRoot.xz, grassEye.xz) - swardInner) / max(.01, grassReach - swardInner), 0.0, 1.0);
+        float swardThin = (1.0 - swardT) * (1.0 - swardT);
+        float grassFade = clamp((swardThin * 1.1 - swardPick) * 10.0, 0.0, 1.0);`)
+        .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= smoothstep(0.0, .5, grassFade) * min(2.2, inversesqrt(max(swardThin, .2))); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
     };
-    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v3';
+    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v4';
     sward = new THREE.InstancedMesh(swardGeometry(new THREE.Color().setRGB(.7, .74, .7), new THREE.Color().setRGB(1.3, 1.24, .98)), swardMaterial, SWARD_CAPACITY);
+    sward.geometry.setAttribute('swardPick', new THREE.InstancedBufferAttribute(new Float32Array(SWARD_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage));
     sward.name = 'Lawn sward'; sward.count = 0; sward.visible = false;
     sward.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sward.receiveShadow = true;
     sward.userData.noShadowCast = true; sward.userData.fpsEffect = true; sward.raycast = () => {};
@@ -444,20 +449,24 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const dummy = new THREE.Object3D(), cameraPosition = new THREE.Vector3();
   let cellX = Infinity, cellZ = Infinity, lastQuality = '', disposed = false;
   let swardX = Infinity, swardZ = Infinity, swardQuality = '';
-  /** The sward follows the viewer in 2 m steps, finer than the tufts, since its reach is only a few strides. */
-  const fillSward = (target: THREE.InstancedMesh, quality: string, profile: { radius: number; spacing: number } | null) => {
+  /** The sward follows the viewer in 2 m steps, finer than the tufts. It keeps every clump that could stand
+   * anywhere in the step; the shader decides, from the viewer's exact place, which do and how tall. */
+  const fillSward = (target: THREE.InstancedMesh, quality: string, profile: { radius: number; inner: number; spacing: number } | null) => {
     const step = 2, cx = Math.floor(cameraPosition.x / step) * step + step / 2, cz = Math.floor(cameraPosition.z / step) * step + step / 2;
-    swardReach.value = profile?.radius ?? 0;
+    swardReach.value = profile?.radius ?? 0; swardInner.value = profile?.inner ?? 0;
     if (cx === swardX && cz === swardZ && quality === swardQuality) return;
     if (quality !== swardQuality || swardHeights.size > 160000) { swardHeights.clear(); swardTints.clear(); }
     swardX = cx; swardZ = cz; swardQuality = quality;
     let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
-    const matrices = target.instanceMatrix.array, shades = target.instanceColor!.array;
+    const matrices = target.instanceMatrix.array, shades = target.instanceColor!.array, picks = target.geometry.getAttribute('swardPick') as THREE.InstancedBufferAttribute;
     if (profile) {
-      const { radius, spacing } = profile, edge = radius + step * .71, edge2 = edge * edge;
+      const { radius, inner, spacing } = profile, slack = step * .71 + spacing, edge = radius + step * .71, edge2 = edge * edge;
       for (let ix = Math.floor((cx - edge) / spacing); ix <= Math.ceil((cx + edge) / spacing); ix++)
         for (let iz = Math.floor((cz - edge) / spacing); iz <= Math.ceil((cz + edge) / spacing); iz++) {
           if (count >= SWARD_CAPACITY) break;
+          // Its place in the queue first: most of the outer ground is turned away here, cheaply.
+          const pick = hash(ix, iz, 10), ax = (ix + .5) * spacing - cx, az = (iz + .5) * spacing - cz;
+          if (pick > swardDensity(Math.sqrt(ax * ax + az * az) - slack, inner, radius) * 1.1) continue;
           const x = (ix + hash(ix, iz, 5)) * spacing, z = (iz + hash(ix, iz, 6)) * spacing, dx = x - cx, dz = z - cz;
           if (dx * dx + dz * dz > edge2 || x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) continue;
           const k = (ix + 32768) * 65536 + iz + 32768;
@@ -472,10 +481,10 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
           matrices[m + 4] = 0; matrices[m + 5] = .14 + hash(ix, iz, 9) * .09; matrices[m + 6] = 0; matrices[m + 7] = 0;
           matrices[m + 8] = s; matrices[m + 9] = 0; matrices[m + 10] = c; matrices[m + 11] = 0;
           matrices[m + 12] = dx; matrices[m + 13] = y - .004; matrices[m + 14] = dz; matrices[m + 15] = 1;
-          shades[count * 3] = tint.r; shades[count * 3 + 1] = tint.g; shades[count * 3 + 2] = tint.b; count++;
+          shades[count * 3] = tint.r; shades[count * 3 + 1] = tint.g; shades[count * 3 + 2] = tint.b; picks.array[count] = pick; count++;
         }
     }
-    target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; target.instanceColor!.needsUpdate = true;
+    target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; target.instanceColor!.needsUpdate = true; picks.needsUpdate = true;
     target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
     if (count) {
       const reach = (profile?.radius ?? 0) + 3;

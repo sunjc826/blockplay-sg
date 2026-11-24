@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { createGrass, footprint, SWARD_BLADES, SWARD_CAPACITY, withGroundCover } from './ground-cover';
 import { getRegion, REGION_IDS } from './regions';
+import { swardDensity } from './environment-quality';
 import { getFpsDistrict } from './fps-districts';
 import { createRainSurface } from './rain-effects';
 import { createSunShadows } from './fps-sun-shadows';
@@ -130,9 +131,19 @@ it('a lawn that asks for a sward gets short jointed blades close by, and none wh
     const sward = grass.sward!;
     grass.update(camera, 0, false); expect(sward.count).toBe(0); expect(sward.visible).toBe(false);
     grass.update(camera, 0, false, false, 'high');
-    // Far denser than the tufts over the same ground: about twenty clumps to the square metre.
+    // Far denser than the tufts close by (about twenty clumps to the square metre within 7 m), thinning to none by 22 m.
     expect(sward.count).toBeGreaterThan(6000); expect(sward.count).toBeLessThanOrEqual(SWARD_CAPACITY);
-    expect(sward.count / (Math.PI * 12 ** 2)).toBeGreaterThan(grass.mesh.count / (Math.PI * 28 ** 2) * 4);
+    const pick = sward.geometry.getAttribute('swardPick'), at = new THREE.Matrix4();
+    let close = 0, mid = 0, far = 0;
+    for (let i = 0; i < sward.count; i++) {
+      sward.getMatrixAt(i, at); const d = Math.hypot(at.elements[12] + sward.position.x - camera.position.x, at.elements[14] + sward.position.z - camera.position.z);
+      if (d < 5) close++; else if (d > 10 && d < 12) mid++; else if (d > 18 && d < 20) far++;
+      // Every clump kept is one the shader could stand up somewhere within this 2 m step, and no more.
+      expect(pick.getX(i)).toBeLessThanOrEqual(swardDensity(d - 3.1, 7, 22) * 1.1 + 1e-6);
+    }
+    const per = (n: number, from: number, to: number) => n / (Math.PI * (to * to - from * from));
+    expect(per(close, 0, 5)).toBeGreaterThan(grass.mesh.count / (Math.PI * 28 ** 2) * 4);
+    expect(per(mid, 10, 12)).toBeLessThan(per(close, 0, 5) * .8); expect(per(far, 18, 20)).toBeLessThan(per(mid, 10, 12) * .4); expect(far).toBeGreaterThan(0);
     // Three joints to a blade, so it can curl; the tufts' blades have one.
     const y = sward.geometry.getAttribute('position'), levels = new Set<number>();
     for (let i = 0; i < y.count / SWARD_BLADES; i++) levels.add(+y.getY(i).toFixed(4));
@@ -140,7 +151,7 @@ it('a lawn that asks for a sward gets short jointed blades close by, and none wh
     const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), scale = new THREE.Vector3(), turn = new THREE.Quaternion(), shade = new THREE.Color();
     for (let i = 0; i < sward.count; i += 37) {
       sward.getMatrixAt(i, matrix); matrix.decompose(place, turn, scale);
-      expect(Math.hypot(place.x, place.z)).toBeLessThan(12); expect(scale.y).toBeLessThan(.24); expect(scale.y).toBeGreaterThan(.13);
+      expect(Math.hypot(place.x, place.z)).toBeLessThan(24); expect(scale.y).toBeLessThan(.24); expect(scale.y).toBeGreaterThan(.13);
       expect(scale.x).toBeCloseTo(scale.z); sward.getColorAt(i, shade); expect(shade.g).toBeCloseTo(lawn.g);
     }
     // It follows the viewer in 2 m steps and does not rebuild in between.

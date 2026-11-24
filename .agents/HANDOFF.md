@@ -17806,3 +17806,9 @@ On request ("put this behind an advanced setting"). `ArmorySettings.tsx` has a f
 - **Later the same day (palms and rain):** `shadeLeaves` takes `gloss` (palm kit .7, roughness .42) and every shaded, cut or grass material reads one shared uniform, `leafWetness` (`leaf-shading.ts`), which `world-atmosphere.ts` sets from `wetSurfaces.wetness` and zeroes on dispose. Wet lowers roughness to at most .4, adds a little reflectance and a sky term from `ambientLightColor` (`leafWetSky`). The uniform is declared behind `#ifndef LEAF_WET` because two hooks add it; specular uses `max` so hook order does not matter. Cache keys: `leaf-shade-v3`, `leaf-cards-v3`, grass `v6`/sward `v3`.
 - **`dragon-boat-ai.test.ts` now mocks `performance.now`** (half a millisecond per read): `NAVIGATION_BUDGET` in `arena-rules.ts` is 6 ms of wall clock per step, so bot planning, and with it line 87, depended on runner speed. That had failed four deploys. Other arena tests that step bots share the dependence and are not pinned.
 
+## 2026-11-25: grass reach and pop-in
+On request ("improve the render distance, or at least how obvious the incremental pop in is, for grass").
+- `swardDetail` now returns `{ radius, inner, spacing }` (High desktop 22 / 7 / .22; was a 10 m radius). `swardDensity(distance, inner, radius)` is the share of clumps standing; the sward vertex shader computes the same from the eye's exact position and compares it with the per-instance `swardPick` attribute, growing a clump over a tenth of the range and widening the survivors. `fillSward` keeps the superset for its 2 m step (`slack`). The old edge used `step()`, so whole clumps appeared at once.
+- Capacity 32,000. About 12,000 clumps on High (was 7,600).
+- **Not done:** the tufts' own reach and fade are unchanged (28 m near, 60 m far on High); Low detail still has no sward. Stills only: the fill-in was not watched in motion, and there is no real-GPU frame rate.
+

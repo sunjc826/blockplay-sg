@@ -325,6 +325,16 @@ is short, so the height is not copied; the density and the curl are.
   or with reduced effects. High: 10 m reach, a clump every 22 cm (about 7,600
   clumps, 190,000 triangles). Ultra: 13 m, every 19 cm. Phones get 7 m and 9 m
   at wider spacing. The last four metres thin out clump by clump.
+- **Reach, revised 2026-11-25** (the budget above is the first version): the
+  owner found the edge of the grass and its filling-in too obvious. The
+  sward now runs to 22 m on High and 30 m on Ultra (14 m and 18 m on
+  phones). It is full density only to 7 m (9 m on Ultra); beyond that the
+  share of clumps standing falls as the square of the remaining distance
+  (`swardDensity`), and those left spread up to 2.2 times wider. Each clump
+  has a fixed place in that queue (`swardPick`, a per-instance attribute)
+  and grows from nothing over a tenth of the range, so nothing appears
+  whole. About 12,000 clumps on High, up from 7,600; a rebuild took 2 to 8 ms
+  in the test VM.
 - It uses the tufts' shader, so it leans to the same gust fronts, lies down
   under bodies and shakes from shots and blasts. No blade is simulated.
 - It follows the viewer in 2 m steps. A rebuild took 1 to 6 ms in the test
