@@ -6,6 +6,8 @@ import { createMaidFollower } from './maid-companion';
 import { createMaidModel } from './carrier-models';
 import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
 import { markSimWorkerFailed, simThreadForMatch } from './sim-thread-setting';
+import { addPropCover } from './prop-cover';
+import type { Obstacle } from './region-collision';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
 import { BARRAGE, GUNSHIP, STREAKS, barragePoints, type StreakId } from './match-streaks';
 import { guardianPlacement } from './guardian-placement';
@@ -408,7 +410,11 @@ function disposeAssets(roots: THREE.Object3D[]) {
 
 export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => void, options: { armoryProfile?: () => ArmoryProfile; surface?: FpsSurface; rangeTravel?: FpsRangeTravelOptions; rangeDrill?: RangeDrillId; tutorial?: boolean; deploymentIntro?: boolean; region?: WorldZoneId; playerPilot?: PlayerPilot; onLoadout?: (equipment: ResolvedLoadout) => void; onRentalTime?: (elapsedMs: number) => void; loadout?: ResolvedLoadout; combat?: boolean; arena?: FpsArenaOptions; expedition?: FpsExpeditionOptions; onComplete?: (reward: ExerciseReward) => void; onElimination?: (id: string, bounty?: RaiderBounty) => void; onConsume?: (id: string) => void; onFullscreen?: () => void; loadScreen?: PlayLoadScreen;
   /** Read per callout, so a level-up mid-exercise is heard immediately. */
-  encik?: () => EncikAddress } = {}) {
+  encik?: () => EncikAddress;
+  /** A match's simulation worker stopped mid-match. The match cannot go on; the caller starts it again (the worker is not tried twice). */
+  onSimulationLost?: () => void;
+  /** Shown on the start card once loaded: why this game is starting again. */
+  notice?: string } = {}) {
   const expedition = options.expedition;
   /**
    * The per-frame JSON state on the canvas (movement, magazines, shake, rain...)
@@ -633,6 +639,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const shotRight = new THREE.Vector3(), shotUp = new THREE.Vector3();
   const targets: { tier: RangeArmorTier; armor: number; meter: RangeDamageMeter; label?: ReturnType<typeof createRangeDamageLabel>; root: THREE.Group; hinge: THREE.Group; hitZone: THREE.Mesh; headZone: THREE.Mesh; alive: boolean; activation: number; collider: { minX: number; maxX: number; minZ: number; maxZ: number; maxY: number }; health: number; maxHealth: number; bar: THREE.Mesh }[] = [];
   const decorations = new THREE.Group(); world.scene.add(decorations);
+  const propBoxes: Obstacle[] = [];
   /** Your section and some onlookers at a practice range: friendlies and neutrals for an IFF reader. */
   let rangeFigures: ReturnType<typeof createRangeFigures> | null = null;
   const targetGeometry = new THREE.CircleGeometry(0.265, 32);
@@ -655,7 +662,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let cantWanted = false, cant = 0;
   // Levolution: the map's stage parts follow the events the authority has started.
   const stageEvents = options.arena?.environment?.levolution?.events ?? [];
-  const stageView = stageEvents.length ? createStageView(world, stageEvents, options.arena?.session.role === 'guest') : null;
+  /** Set once this match's simulation is hosted on another thread: nothing here then moves the map's colliders but the stage view. */
+  let hostedSimulation = false;
+  const stageView = stageEvents.length ? createStageView(world, stageEvents, () => options.arena?.session.role === 'guest' || hostedSimulation) : null;
   /** The colliders changed: rebuild the player's movement, and step out of anything that landed on them. */
   function restagePlayer() {
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
@@ -1802,7 +1811,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** The worker hosting this district's simulation stopped; the district is reloaded with the simulation on this thread. */
   let simulationLost = false;
   function recoverSimulation() {
-    if (!simulationLost || !expedition || travelPending || disposed || hud.phase === 'paused' || hud.phase === 'loading') return;
+    if (!simulationLost || travelPending || disposed || hud.phase === 'loading') return;
+    // A match has no checkpoint to come back to: it starts again, at once.
+    if (!expedition) { simulationLost = false; if (options.onSimulationLost) { travelPending = true; if (document.pointerLockElement === canvas) document.exitPointerLock(); options.onSimulationLost(); } return; }
+    if (hud.phase === 'paused') return;
     simulationLost = false;
     // Alive and in play: come back where the player stands, carrying what they carry. Otherwise the district starts as it was entered.
     if (hud.phase === 'playing' && hud.health > 0) commitTravel({ gatewayId: 'simulation-recovery', from: expedition.zone, to: expedition.zone, spawn: { x: position.x, z: position.z, yaw, pitch } }, true, false, true);
@@ -4683,7 +4695,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Debug, solo only: start one of this map's Levolution events now. */
   function triggerLevolution(binding: string) {
     if (!arenaRuntime || disposed) return;
-    if (!arenaRuntime.triggerLevolution(binding)) { hud.message = 'That has already happened this match. Restart the match to see it again.'; publish(); }
+    const refused = () => { hud.message = 'That has already happened this match. Restart the match to see it again.'; publish(); };
+    if (!arenaRuntime.triggerLevolution(binding, refused)) refused();
   }
   function triggerCombatEvent(kind: string) {
     if (!arenaRuntime || !hud.combatEventsAvailable || disposed) return;
@@ -4691,12 +4704,12 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const plugin = getCombatEvent(kind), transport = kind.startsWith('transport-'); if (!plugin) return;
     const reach = transport || plugin.targeting?.policy === 'player' ? null : ({ 'smoke-screen': 25, 'supply-drop': 30, blackout: 0 } as Record<string, number>)[kind] ?? 35;
     const ahead = reach === null ? undefined : { x: position.x - Math.sin(yaw) * reach, z: position.z - Math.cos(yaw) * reach };
-    const event = arenaRuntime.triggerEvent(kind, ahead);
-    if (!event) {
+    const refused = () => {
       hud.message = transport ? 'No clear drop for that transport right now.' : !hud.arenaSelf?.alive && reach === null ? 'That event comes for you: call it once you are back on your feet.'
         : kind === 'mortar' || kind === 'sniper' ? 'Nowhere for that team to set up here right now.' : 'Fire control is busy. Try again when the current events finish.';
       publish();
-    }
+    };
+    if (!arenaRuntime.triggerEvent(kind, ahead, refused)) refused();
   }
 
   const resize = () => {
@@ -5289,9 +5302,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const floor = world.bounds.groundHeight?.(x,z) ?? 0;
       const prop = loaded[asset].clone(true); prop.position.set(x, floor + .14, z); decorations.add(prop);
       const top = new THREE.Box3().setFromObject(prop).max.y;
-      world.obstacles.push({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2,
-        minY: floor, maxY: top, supportsTop: asset === 3 || asset === 4 });
+      const box: Obstacle = { minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2,
+        minY: floor, maxY: top, supportsTop: asset === 3 || asset === 4 };
+      world.obstacles.push(box);
+      // In a match the box is the cover, as it is for a simulation on another thread, which has no model (prop-cover.ts).
+      if (options.arena) { prop.userData.coverApart = true; propBoxes.push(box); }
     }
+    if (propBoxes.length) addPropCover(world.scene, propBoxes);
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
@@ -5300,16 +5317,20 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
       const arenaVehicles = boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition };
-      // Settings › Video › Background simulation hosts a solo expedition's simulation in a worker (sim-remote.ts).
-      // One that cannot start leaves this district, and the rest of this visit, on the main thread.
+      // Settings › Video › Background simulation hosts a solo game's simulation in a worker (sim-remote.ts):
+      // an Open World district, or a match in an arena. One that cannot start leaves this game, and the rest
+      // of this visit, on the main thread.
       let remote: import('./sim-client').SimClient | undefined;
-      if (expedition && options.arena.session.role === 'solo' && simThreadForMatch() === 'worker') {
+      const simWorld: import('./sim-worker').SimWorldSpec | undefined = expedition ? { kind: 'expedition', zone: expedition.zone, spawn: expedition.spawn }
+        : hardpoint ? { kind: 'hardpoint', area: hardpoint.area.id } : tdm ? { kind: 'team-deathmatch', area: tdm.area } : ffa ? { kind: 'free-for-all', area: ffa.id } : undefined;
+      if (simWorld && options.arena.session.role === 'solo' && simThreadForMatch() === 'worker') {
         const arena = options.arena;
-        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
+        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ world: simWorld, props: propBoxes, self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
           .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); markSimWorkerFailed(String((error as Error)?.message ?? error)); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
         remote?.onLost?.(reason => { console.warn('Simulation worker lost; reloading the district on the main thread.', reason); markSimWorkerFailed(reason); simulationLost = true; });
       }
+      hostedSimulation = !!remote;
       canvas.dataset.simulationThread = remote ? 'worker' : 'main';
       reportSimulationThread(remote ? remote.stats : 'main');
       // Development probe: the drawn scene's answer to cover rays, to compare with the worker's (`blockplaySimCover`).
@@ -5340,7 +5361,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     await yieldToPaint();
     await gpuCaughtUp(renderer.getContext() as WebGL2RenderingContext);
     if (disposed) return;
-    hud.phase = 'ready'; updateCameras(0, false, false); publish();
+    hud.phase = 'ready'; if (options.notice) hud.message = options.notice; updateCameras(0, false, false); publish();
     if (resumeCrossing) {
       resumeCrossing = false;
       hud.muted = checkpoint?.continuation?.muted ?? hud.muted;

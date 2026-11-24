@@ -974,14 +974,19 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     simulation.setPlayerHealthMultiplier(session.id, multiplier); publish(); return true;
   }
   /** Debug, solo only: start one of this map's Levolution events now. */
-  function triggerLevolution(binding: string) {
+  function triggerLevolution(binding: string, refused?: () => void): unknown {
     if (disposed || session.role !== 'solo' || !simulation) return null;
-    const event = simulation.triggerLevolution(binding); publish(); return event;
+    const event = simulation.triggerLevolution(binding); publish();
+    // A hosted simulation says a moment later whether it began; `refused` is told if it did not.
+    if (remote) { void remote.lastAnswer().then(began => { if (!began && !disposed) refused?.(); }); return true; }
+    return event;
   }
   /** Solo only: guests could not see an event a private host started for itself. */
-  function triggerEvent(kind: string, target?: CombatPlane) {
+  function triggerEvent(kind: string, target?: CombatPlane, refused?: () => void): unknown {
     if (disposed || session.role !== 'solo' || !simulation) return null;
-    const event = simulation.triggerEvent(kind, target); publish(); return event;
+    const event = simulation.triggerEvent(kind, target); publish();
+    if (remote) { void remote.lastAnswer().then(began => { if (!began && !disposed) refused?.(); }); return true; }
+    return event;
   }
   function setCombatEvents(enabled: boolean) {
     if (disposed || session.role !== 'solo' || !simulation) return false;

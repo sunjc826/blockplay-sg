@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Where an Open World district's simulation (bots, vehicles, structures) runs,
+ * Where a solo game's simulation (bots, vehicles, structures) runs: an Open
+ * World district, or a Team Deathmatch, Hardpoint or Free for All arena;
  * chosen in Settings › Video. `worker` hosts it on a second thread
  * (sim-remote.ts); `main` runs it beside the drawing, as every other mode does.
  * Saved per browser. `main` by default.

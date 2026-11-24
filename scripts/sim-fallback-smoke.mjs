@@ -1,9 +1,12 @@
-// Does a district carry on when its simulation worker cannot start, crashes, or goes silent?
+// Does a game carry on when its simulation worker cannot start, crashes, or goes silent?
 //
 // With Settings › Video › Background simulation on, an Open World district's bots run in a worker
 // (src/game/sim-remote.ts). This starts a district that way three times: with no worker to be had, with one that
 // is then ended as a crash would end it, and with one that is ended without a word. Each time the district must
 // end up playing with its simulation on the main thread, the player where they stood, and bots alive and moving.
+// A solo match has no checkpoint to return to: when its worker is lost it must start again on the main thread.
+//
+//   FALLBACK_MATCH       mode:area of the solo match (default team-deathmatch:smith-street)
 //
 //   FPS_APP_ORIGIN       Vite dev server (default http://127.0.0.1:5192)
 //   FPS_CHROME_ORIGIN    Chrome remote debugging (default http://127.0.0.1:9357)
@@ -12,7 +15,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 
 const origin = process.env.FPS_APP_ORIGIN || 'http://127.0.0.1:5192', chrome = process.env.FPS_CHROME_ORIGIN || 'http://127.0.0.1:9357';
-const district = process.env.FALLBACK_DISTRICT || 'toa-payoh';
+const district = process.env.FALLBACK_DISTRICT || 'toa-payoh', [matchMode, matchArea] = (process.env.FALLBACK_MATCH || 'team-deathmatch:smith-street').split(':');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // An explicit agent: with a proxy in the environment, Node's default one sends loopback requests to it.
 const request = (url, method = 'GET') => new Promise((resolve, reject) => {
@@ -36,11 +39,11 @@ const bots = `hud.arena.actors.filter(a=>a.bot&&a.alive).map(a=>[a.id,a.x,a.z])`
 
 let script = null;
 /** A fresh page each time: a worker that failed is not tried again until the page is reloaded. */
-async function enter(before) {
+async function enter(before, load = `loadTrial(${JSON.stringify(district)},32)`) {
   if (script) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: script });
   script = (await send('Page.addScriptToEvaluateOnNewDocument', { source: 'globalThis.blockplayWorkerSim=true;' + before })).identifier;
   await send('Page.navigate', { url: origin + '/scripts/fixtures/battlefield.html' }); await wait('window.ready===true');
-  await evaluate(`loadTrial(${JSON.stringify(district)},32)`);
+  await evaluate(load);
 }
 async function play() {
   const point = await evaluate(`(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
@@ -48,12 +51,12 @@ async function play() {
   await wait(`hud.phase==='playing'||hud.phase==='deploying'`); await evaluate(`engine.skipDeployment();clearInterval(window.healthTimer);window.healthTimer=setInterval(()=>window.engine.refillHealth(),250)`); await wait(`hud.phase==='playing'&&!!hud.arenaSelf?.alive`);
 }
 /** Playing on the main thread, with bots that move. */
-async function carriesOn(label) {
+async function carriesOn(label, least = 8) {
   await wait(`${thread}==='main'&&hud?.phase==='playing'&&!!hud.arenaSelf?.alive`);
   const before = await evaluate(bots); await delay(4000); const after = new Map((await evaluate(bots)).map(([id, x, z]) => [id, { x, z }]));
-  assert(before.length > 8, `${label}: only ${before.length} bots alive`);
+  assert(before.length > least, `${label}: only ${before.length} bots alive`);
   const moved = before.filter(([id, x, z]) => { const now = after.get(id); return now && Math.hypot(now.x - x, now.z - z) > .2; }).length;
-  assert(moved > 3, `${label}: only ${moved} of ${before.length} bots moved in four seconds`);
+  assert(moved > least / 3, `${label}: only ${moved} of ${before.length} bots moved in four seconds`);
   return { bots: before.length, moved };
 }
 
@@ -83,6 +86,14 @@ try {
     console.log(JSON.stringify({ case: label, secondsToPlayingAgain: +seconds.toFixed(1), ...await carriesOn(label) }));
     assert.equal(await evaluate('window.recoveries'), 1, `${label}: the district reloaded more than once`);
   }
+  // A match: lost mid-match, it is back at its start card on the main thread, saying why, and plays from there.
+  await enter('', `loadMatch(${JSON.stringify(matchMode)},${JSON.stringify(matchArea)},9)`);
+  assert.equal(await evaluate(thread), 'worker', 'match: the simulation did not start in a worker');
+  await play(); await delay(3000); await evaluate('blockplaySimKill()');
+  await wait(`window.recoveries===1&&${thread}==='main'&&hud?.phase==='ready'`, 45000);
+  assert.equal(await evaluate('hud.message'), 'restarted', 'A restarted match says why on its start card');
+  await play(); console.log(JSON.stringify({ case: 'match crashed', ...await carriesOn('match crashed', 3) }));
+  assert.equal(await evaluate('window.recoveries'), 1, 'match: restarted more than once');
   assert.deepEqual(errors, []);
-  console.log('The district carried on each time its simulation worker failed.');
+  console.log('Each game carried on when its simulation worker failed.');
 } finally { await evaluate('clearInterval(window.healthTimer);window.engine?.dispose()').catch(() => {}); ws.close(); await request(chrome + '/json/close/' + tab.id).catch(() => {}); }

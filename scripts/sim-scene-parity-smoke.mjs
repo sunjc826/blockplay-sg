@@ -1,13 +1,15 @@
-// Does the simulation worker's own copy of a district stand as the same cover as the drawn one?
+// Does the simulation worker's own copy of a district or match arena stand as the same cover as the drawn one?
 //
-// With the worker switch on (development only; see src/game/sim-remote.ts) bots see and shoot through the
+// With Background simulation on (src/game/sim-remote.ts) bots see and shoot through the
 // worker's copy while the player looks at the engine's. This holds the simulation still, asks both copies the
 // same sight and bullet rays, and compares what each counts as cover part by part. It does so soon after the
 // match starts and again later, so something the engine adds or moves mid-match is caught as well.
 //
 //   FPS_APP_ORIGIN       Vite dev server (default http://127.0.0.1:5192)
 //   FPS_CHROME_ORIGIN    Chrome remote debugging (default http://127.0.0.1:9357)
-//   PARITY_DISTRICTS     comma-separated zone ids (default: every world zone)
+//   PARITY_DISTRICTS     comma-separated zone ids (default: every world zone; `none` for no districts)
+//   PARITY_MATCHES       comma-separated mode:area solo matches, such as hardpoint:smith-street (default: none;
+//                        `all` for every arena in every mode)
 //   PARITY_SECONDS       play time between the two looks (default 30)
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -59,16 +61,24 @@ try {
   await send('Page.bringToFront');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: 'globalThis.blockplayWorkerSim=true;' });
   await send('Page.navigate', { url: origin + '/scripts/fixtures/battlefield.html' }); await wait('window.ready===true');
-  const districts = process.env.PARITY_DISTRICTS?.split(',') ?? await evaluate(`import('/src/game/world-zones.ts').then(m => m.WORLD_ZONES.map(zone => zone.id))`);
+  const zones = process.env.PARITY_DISTRICTS === 'none' ? [] : process.env.PARITY_DISTRICTS?.split(',') ?? await evaluate(`import('/src/game/world-zones.ts').then(m => m.WORLD_ZONES.map(zone => zone.id))`);
+  const matches = process.env.PARITY_MATCHES === 'all' ? await evaluate(`Promise.all([import('/src/game/arena-match.ts'),import('/src/game/hardpoint.ts')]).then(([m,h]) => [...m.TDM_AREAS.map(a => 'team-deathmatch:' + a.id), ...m.FFA_AREAS.map(a => 'free-for-all:' + a.id), ...h.HARDPOINT_ARENAS.map(c => 'hardpoint:' + c.area.id)])`)
+    : process.env.PARITY_MATCHES?.split(',').filter(Boolean) ?? [];
+  const districts = [...zones, ...matches];
   for (const district of districts) {
-    await evaluate(`loadTrial(${JSON.stringify(district)},32)`);
+    const [mode, area] = district.split(':');
+    await evaluate(area ? `loadMatch(${JSON.stringify(mode)},${JSON.stringify(area)},9)` : `loadTrial(${JSON.stringify(district)},32)`);
     assert.equal(await evaluate(`document.querySelector('canvas').dataset.simulationThread`), 'worker', `${district}: the simulation did not start in a worker`);
     const point = await evaluate(`(()=>{const r=document.querySelector('#start').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
     await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...point, id: 1 }] }); await delay(80); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await wait(`hud.phase==='playing'||hud.phase==='deploying'`); await evaluate(`engine.skipDeployment();window.healthTimer=setInterval(()=>engine.refillHealth(),250)`); await wait(`hud.phase==='playing'`);
     for (const after of [6, seconds]) {
+      // Before the later look, a match that can stage a map event starts its first: parts fall, and cover changes with them.
+      const staged = after === seconds && await evaluate(`hud.levolutionEvents[0]?.id ?? null`);
+      if (staged) await evaluate(`engine.triggerLevolution(${JSON.stringify(staged)})`);
       await delay(after * 1000);
       const result = await evaluate(look);
+      if (staged) { result.staged = await evaluate(`document.querySelector('canvas').dataset.levolution`); assert.match(result.staged, /^[1-9]\d*\/[1-9]/, `${district}: the map event ${staged} did not stage`); }
       console.log(JSON.stringify({ district, ...result }));
       if (!result.sameInstant || result.differ || Object.keys(result.census).length) failures.push({ district, ...result });
     }
@@ -78,5 +88,5 @@ try {
   }
   assert.deepEqual(failures, [], 'The worker\'s district and the drawn one differ as cover');
   assert.deepEqual(errors, []);
-  console.log(`Scene parity held in ${districts.length} district${districts.length === 1 ? '' : 's'}.`);
+  console.log(`Scene parity held in ${zones.length} district${zones.length === 1 ? '' : 's'} and ${matches.length} match${matches.length === 1 ? '' : 'es'}.`);
 } finally { await evaluate('clearInterval(window.healthTimer);window.engine?.dispose()').catch(() => {}); ws.close(); await request(chrome + '/json/close/' + tab.id).catch(() => {}); }

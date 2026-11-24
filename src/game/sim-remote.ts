@@ -1,8 +1,7 @@
 import type { ArenaEnvironment, ArenaVehicleOptions } from './arena-rules';
 import { createSimClient, type SimClient } from './sim-client';
 import type { SimFromHost } from './sim-protocol';
-import type { SimCoverRay, SimWorkerInit } from './sim-worker';
-import type { WorldZoneId } from './world-zones';
+import type { SimCoverRay, SimWorkerInit, SimWorldSpec } from './sim-worker';
 import { getBotDifficulty, subscribeBotDifficulty } from './bot-difficulty-setting';
 
 /** Rebuilt by the worker from its own district: functions, or objects that carry them. */
@@ -19,11 +18,11 @@ const START_LIMIT_MS = 45_000;
 const SILENT_SECONDS = 4;
 
 /**
- * Starts an expedition's simulation in a worker. Rejects if the worker cannot be made, cannot build the
+ * Starts a solo game's simulation in a worker. Rejects if the worker cannot be made, cannot build the
  * district, or does not answer in time. Once started, a worker that fails or falls silent while it should be
  * stepping is terminated and reported through `onLost`.
  */
-export function createWorkerSimulation(init: { zone: WorldZoneId; spawn?: SimWorkerInit['spawn']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string; vehicleTravel?: SimWorkerInit['vehicleTravel'] }): Promise<SimClient> {
+export function createWorkerSimulation(init: { world: SimWorldSpec; props?: SimWorkerInit['props']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string; vehicleTravel?: SimWorkerInit['vehicleTravel'] }): Promise<SimClient> {
   return new Promise<SimClient>((resolve, reject) => {
     const worker = new Worker(new URL('./sim-worker.ts', import.meta.url), { type: 'module' });
     const environment: Record<string, unknown> = {};
@@ -73,7 +72,7 @@ export function createWorkerSimulation(init: { zone: WorldZoneId; spawn?: SimWor
       } else handler?.(message);
     };
     try {
-      worker.postMessage({ type: 'init', zone: init.zone, spawn: init.spawn, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition, vehicleTravel: init.vehicleTravel } as SimWorkerInit);
+      worker.postMessage({ type: 'init', world: init.world, props: init.props, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition, vehicleTravel: init.vehicleTravel } as SimWorkerInit);
     } catch (error) { fail(`Simulation worker could not be given the district: ${String(error)}`); }
   });
 }

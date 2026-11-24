@@ -325,6 +325,18 @@ describe('stage view', () => {
       expect(view.sync([start], burstAt)).toBe(false);
     } finally { w.dispose(); }
   });
+  it('takes the colliders over once the simulation turns out to be hosted on another thread', () => {
+    const { w, events, start, stack, burstAt } = build();
+    try {
+      let hosted = false;
+      const view = createStageView(w, events, () => hosted), before = [...w.obstacles];
+      view.sync([start], burstAt); expect(w.obstacles).toEqual(before);
+      // Nothing on this thread moves them now: the player must still be stopped by what fell.
+      hosted = true; view.sync([start], burstAt);
+      for (const o of stack.obstacles) expect(w.obstacles).not.toContain(o);
+      for (const o of stack.states.toppled.obstacles) expect(w.obstacles).toContain(o);
+    } finally { w.dispose(); }
+  });
 });
 
 describe('floods', () => {

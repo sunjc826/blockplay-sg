@@ -4,6 +4,7 @@
 import {createFpsEngine} from '/src/game/fps-engine.ts';
 import {createProfile,resolveLoadout} from '/src/game/armory-state.ts';
 import {createExpeditionLoot} from '/src/game/expedition-loot.ts';
+import {createSoloSession} from '/src/game/lan-peer.ts';
 let engine,hud,frames=[],recording=false,last;
 function frame(now){if(recording&&last)frames.push(now-last);last=now;requestAnimationFrame(frame);}requestAnimationFrame(frame);
 const profile=createProfile(),loot=createExpeditionLoot('battlefield-browser');
@@ -20,6 +21,17 @@ window.loadTrial=async(id,size)=>{
  mount(id,size);
  const start=performance.now();while(hud?.phase!=='ready'){if(hud?.phase==='error'||performance.now()-start>60000)throw Error('Engine failed to load');await new Promise(r=>setTimeout(r,100));}
  return {bots:hud.arena.actors.filter(a=>a.bot&&a.squad).length,friendlies:hud.arena.actors.filter(a=>a.bot&&a.squad&&a.faction==='armed-forces').length,sites:hud.arena.facilities.sites.map(s=>({id:s.id,name:s.name,kind:s.kind}))};
+};
+// A solo match in an arena, as MatchGame starts one.
+let session;
+window.loadMatch=async(mode,area,bots=3)=>{
+ engine?.dispose();session?.close();document.querySelector('#stage').replaceChildren();hud=undefined;session=createSoloSession('Operator');
+ engine=createFpsEngine(document.querySelector('#stage'),next=>{hud=next;window.hud=next;document.querySelector('#state').textContent=`${mode} · ${area} · ${next.phase}`;},{loadout:resolveLoadout(profile),arena:{session,profile,botCount:bots,composition:'mixed',match:{mode,area}},notice:window.matchNotice,
+  // As FpsGame does: the match again from the start, once its simulation worker is lost.
+  onSimulationLost(){window.recoveries=(window.recoveries??0)+1;window.matchNotice='restarted';window.loadMatch(mode,area,bots);}});
+ window.engine=engine;document.querySelector('#start').onclick=()=>engine.start();
+ const start=performance.now();while(hud?.phase!=='ready'){if(hud?.phase==='error'||performance.now()-start>60000)throw Error('Engine failed to load');await new Promise(r=>setTimeout(r,100));}
+ return {bots:hud.arena.actors.filter(a=>a.bot).length};
 };
 window.measureTrial=async(seconds)=>{
  engine.skipDeployment();await new Promise(r=>setTimeout(r,2000));frames=[];last=undefined;recording=true;

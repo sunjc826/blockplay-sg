@@ -103,6 +103,8 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
   const fullscreen = useFpsFullscreen(stage, () => engine.current?.pause());
   const fullscreenAction = useRef(fullscreen.toggle); fullscreenAction.current = fullscreen.toggle;
   const [hud, setHud] = useState(initialFpsHud), [epoch, setEpoch] = useState(0);
+  /** Why the engine was started again by itself, for the next start card. */
+  const restartNotice = useRef<string | undefined>(undefined);
   const promoted = hud.phase === 'complete' && rank.level > startingLevel.current;
   useEffect(() => { if (promoted && !hud.muted) playOnce('world-rank-up'); }, [promoted]); // eslint-disable-line react-hooks/exhaustive-deps
   const debug = useDebugMode();
@@ -125,7 +127,7 @@ export default function FpsGame({ region: initialRegion = 'marina-bay', suspende
           setHud(current => ({ ...current, phase: 'loading' }));
           setScene({ region: transition.to, spawn: transition.spawn, checkpoint });
         } },
-        loadout: loadoutRef.current, onLoadout: setLiveEquipment, combat, arena: arenaOptions, onComplete: result => rewardCallback.current(result), onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
+        loadout: loadoutRef.current, onLoadout: setLiveEquipment, combat, arena: arenaOptions, notice: restartNotice.current, onSimulationLost: () => { restartNotice.current = 'Background simulation stopped, so the match has started again without it.'; setEpoch(n => n + 1); }, onComplete: result => rewardCallback.current(result), onRentalTime: elapsed => rentalCallback.current?.(elapsed), onElimination: (id, bounty) => eliminationCallback.current(id, bounty), onConsume: id => consumeCallback.current(id), onFullscreen: () => { void fullscreenAction.current(); }, encik: () => speaking.current });
     }
     catch {
       if (document.pointerLockElement === surface.current?.renderer.domElement) document.exitPointerLock();

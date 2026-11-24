@@ -15,10 +15,13 @@ const FRESH = 4;
  * so a late joiner arrives at the same map as everyone else.
  *
  * Where a simulation runs on this machine (solo, host) it owns the obstacle
- * list and changes it on its own clock; pass `ownsObstacles: false` and this
- * only watches the list, so the two clocks cannot undo each other's work.
+ * list and changes it on its own clock; pass `owns: false` and this only
+ * watches the list, so the two clocks cannot undo each other's work. `owns` may
+ * be a function where that is only known later (a simulation that may yet be
+ * hosted on another thread, which leaves this machine's list to this view).
  */
-export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle[] }, events: readonly ResolvedLevolution[], ownsObstacles = true) {
+export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle[] }, events: readonly ResolvedLevolution[], owns: boolean | (() => boolean) = true) {
+  const ownsObstacles = () => typeof owns === 'function' ? owns() : owns;
   const ids = new Set(stagedParts(events).map(p => p.id));
   const parts = getStageParts(world.scene).filter(p => ids.has(p.id));
   const shown = new Map<string, StageState>(parts.map(p => [p.id, STAGE_BASE]));
@@ -46,7 +49,7 @@ export function createStageView(world: { scene: THREE.Scene; obstacles: Obstacle
   function sync(running: readonly Readonly<LevolutionDescriptor>[], elapsed: number) {
     const states = stageStates(events, running, elapsed);
     let changed = false;
-    if (ownsObstacles) { const moved = applyStageObstacles(world.obstacles, parts, states); changed = moved.added.length + moved.removed.length > 0; }
+    if (ownsObstacles()) { const moved = applyStageObstacles(world.obstacles, parts, states); changed = moved.added.length + moved.removed.length > 0; }
     else {
       // Whichever state's colliders are in the list now is the state the simulation has set.
       const live = new Set(world.obstacles);
