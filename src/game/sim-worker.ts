@@ -1,5 +1,5 @@
 // Worker entry: the arena simulation and its own copy of the district, off the main thread.
-// Started by sim-remote.ts when Settings › Video › Background simulation is on.
+// Started by sim-remote.ts when Settings › Advanced › Background simulation is on.
 import { buildExpeditionDistrict } from './expedition-district';
 import { buildDistrictWorld } from './district-world';
 import { MARINA_BOUNDS } from './marina-collision';

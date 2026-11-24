@@ -17799,3 +17799,7 @@ On request ("Yes, repair it"). `pnpm test:arena:lan` passes end to end again, wi
 - **Test harness:** `hosted(..., late = true)` in `sim-host.test.ts` holds the host's messages until the next tick, as a real worker's arrive; the host-and-guest test uses it and now covers a restart (it fails without the fix).
 - **Checked**: `tsc -b`; vitest 465 files, 4,704 tests; `vite build`; the LAN smoke both ways on the production build: room, roster, guest movement replicated, host kills guest, guest respawns, scoreboard, shared reset, host disconnect.
 - **Not checked**: a guest killing the host in a browser (unit test only); public rooms; hosted Team Deathmatch or Hardpoint with guests in a browser; worker loss with guests connected; a hidden host tab; a real phone.
+
+## 2026-11-24: Background simulation moved to a Settings › Advanced tab
+On request ("put this behind an advanced setting"). `ArmorySettings.tsx` has a fifth tab, `advanced` (experimental switches), holding `SimThreadSettings`; it is gone from Video. The Performance overlay stays under Video. Still off by default. Everything through `ca8f671` was already live (`/deploy.json` showed `a43d851`).
+- **Checked**: `tsc -b`; `ArmoryShop.test.tsx` (the tab holds it, Video does not); `vite build`; the tab opened at 1100 px and 390 px in headless Chrome on the dev server (five tabs; the bar scrolls on a phone). The full suite had one failure, `leaf-cards.test.ts`, from another session's uncommitted leaf-shading edits in the shared checkout; the other 4,703 passed.

@@ -1,6 +1,6 @@
 import { MenuButton, MenuTabs } from './MenuControls';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Gamepad2, Monitor, UserRound, Volume2 } from 'lucide-react';
+import { Gamepad2, Monitor, SlidersHorizontal, UserRound, Volume2 } from 'lucide-react';
 import RankBadge from './RankBadge';
 import HudHintsToggle from './HudHintsToggle';
 import BotDifficultySettings from './BotDifficultySettings';
@@ -25,6 +25,8 @@ export const SETTINGS_TABS = [
   { id: 'video', name: 'Video', icon: Monitor },
   { id: 'audio', name: 'Audio', icon: Volume2 },
   { id: 'profile', name: 'Profile', icon: UserRound },
+  // Experimental switches most players should leave alone.
+  { id: 'advanced', name: 'Advanced', icon: SlidersHorizontal },
 ] as const;
 export type SettingsTab = typeof SETTINGS_TABS[number]['id'];
 /** The tab last opened, remembered per browser so the in-game overlay reopens where you left it. */
@@ -84,8 +86,13 @@ export default function ArmorySettings({ store, tab: initialTab }: { store: Pick
           <div role="group" aria-label="Menu layout">{MENU_DESIGNS.map(design => <MenuButton variant="choice" key={design.id} data-menu-design={design.id} aria-pressed={menuDesign === design.id} onClick={() => setMenuDesign(design.id)}><span><strong>{design.name}</strong><small>{design.description}</small></span></MenuButton>)}</div>
         </div>
         <GraphicsSettings />
-        <SimThreadSettings />
         <PerfOverlaySettings />
+      </>}
+      {tab === 'advanced' && <>
+        <div className="armory-settings-group">
+          <h2>Advanced</h2><p>Experimental options. They are off unless you turn them on, and the game runs the usual way if one cannot work on this device.</p>
+        </div>
+        <SimThreadSettings />
       </>}
       {tab === 'audio' && <>
         <MusicSettings />

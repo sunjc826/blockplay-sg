@@ -6,7 +6,7 @@ const DESCRIPTIONS = {
   worker: 'Enemies are simulated on a second processor core',
 } as const;
 
-/** Settings › Video: whether Open World, solo matches and hosted matches simulate their enemies off the drawing thread. */
+/** Settings › Advanced: whether Open World, solo matches and hosted matches simulate their enemies off the drawing thread. */
 export default function SimThreadSettings() {
   const thread = useSimThread(), failure = useSimWorkerFailure();
   return <div className="armory-settings-group sim-thread-settings">

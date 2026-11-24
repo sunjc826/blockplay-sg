@@ -1,6 +1,6 @@
 // Does a game carry on when its simulation worker cannot start, crashes, or goes silent?
 //
-// With Settings › Video › Background simulation on, an Open World district's bots run in a worker
+// With Settings › Advanced › Background simulation on, an Open World district's bots run in a worker
 // (src/game/sim-remote.ts). This starts a district that way three times: with no worker to be had, with one that
 // is then ended as a crash would end it, and with one that is ended without a word. Each time the district must
 // end up playing with its simulation on the main thread, the player where they stood, and bots alive and moving.

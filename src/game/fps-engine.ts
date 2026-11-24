@@ -5317,7 +5317,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
       const arenaVehicles = boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition };
-      // Settings › Video › Background simulation hosts the simulation in a worker (sim-remote.ts) for a solo game
+      // Settings › Advanced › Background simulation hosts the simulation in a worker (sim-remote.ts) for a solo game
       // (an Open World district, or a match in an arena) and for the host of a LAN or public match. One that cannot start leaves this game, and the rest
       // of this visit, on the main thread.
       let remote: import('./sim-client').SimClient | undefined;

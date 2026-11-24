@@ -160,12 +160,15 @@ it('shows rental expiry and renewal alongside equipping, without calling a renta
 
 it('sorts settings into gameplay, video, audio and profile tabs', () => {
   const store = storeFor(createProfile());
-  const panel = (tab: 'gameplay' | 'video' | 'audio' | 'profile') => renderToStaticMarkup(<ArmorySettings store={store} tab={tab} />);
+  const panel = (tab: 'gameplay' | 'video' | 'audio' | 'profile' | 'advanced') => renderToStaticMarkup(<ArmorySettings store={store} tab={tab} />);
   const gameplay = panel('gameplay');
   expect(gameplay).toContain('aria-selected="true" aria-controls="settings-panel-gameplay"');
   for (const heading of ['Touch aim assist', 'HUD hints', 'Reload animation']) expect(gameplay).toContain(heading);
   expect(gameplay).not.toContain('<h2>Graphics</h2>');
   expect(panel('video')).toContain('<h2>Graphics</h2>');
+  // Experimental switches stay out of the everyday tabs.
+  expect(panel('video')).not.toContain('Background simulation');
+  expect(panel('advanced')).toContain('<h2>Background simulation</h2>');
   const audio = panel('audio');
   for (const heading of ['Sound effects', 'Voice']) expect(audio).toContain(heading);
   expect(audio).not.toContain('Rank insignia');
