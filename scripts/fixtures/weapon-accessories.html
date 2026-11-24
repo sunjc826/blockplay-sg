@@ -11,7 +11,7 @@ import {createProfile,equip,resolveLoadout} from '/src/game/armory-state.ts';
 import {buildServiceWeapon} from '/src/game/service-weapon-models.ts';
 import {dressWeapon} from '/src/game/armory-visuals.ts';
 import {railEmitters} from '/src/game/weapon-accessory-models.ts';
-import {createRailEffects} from '/src/game/weapon-rail-effects.ts';
+import {createRailEffects,railDeviceAim} from '/src/game/weapon-rail-effects.ts';
 const params=new URLSearchParams(location.search),variant=params.get('variant')||'p30-silent',view=params.get('view')||'side',night=params.get('night')==='1';
 const W=1200,H=800;
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.9;renderer.autoClear=false;document.body.append(renderer.domElement);
@@ -27,7 +27,7 @@ const model=buildServiceWeapon(weapon.id)??(await new GLTFLoader().loadAsync('/m
 dressWeapon(model,weapon);
 const camera=new THREE.PerspectiveCamera(65,W/H,.08,800);camera.position.set(0,1.6,0);camera.updateMatrixWorld(true);
 const viewCamera=new THREE.PerspectiveCamera(54,W/H,.01,3);
-const scope=createScopeRenderer(renderer),rail=createRailEffects(world,true);
+const scope=createScopeRenderer(renderer),rail=createRailEffects(world,true,true);
 window.info={variant,weapon:weapon.name,accessories:weapon.accessories??null,optic:weapon.optic};
 if(view==='side'){
   // A turntable close-up: the model alone, lit, from its right and a little above.
@@ -49,7 +49,7 @@ if(view==='side'){
   viewCamera.fov=THREE.MathUtils.lerp(65,54,aim);viewCamera.updateProjectionMatrix();viewScene.updateMatrixWorld(true);
   const active=off&&cant>.5?off:sight;if(off)(active===sight?off:sight).lens.visible=false;
   // Laser and torch as updateRail draws them.
-  const emitters=railEmitters(model,weapon),forward=camera.getWorldDirection(new THREE.Vector3());
+  const emitters=railEmitters(model,weapon),forward=railDeviceAim(emitters.laser??emitters.light??model,camera,new THREE.Vector3());
   if(emitters.lens)emitters.lens.material.emissiveIntensity=emitters.light?2.4:0;
   world.updateMatrixWorld(true);
   const frame={camera,dark:night?1:0};

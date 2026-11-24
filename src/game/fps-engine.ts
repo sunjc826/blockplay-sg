@@ -177,7 +177,7 @@ import { magazineAmmoState } from './magazine-ammo';
 import { createScopeRenderer, getWeaponSight, scopeScreenScale, setSightNightVision } from './weapon-optics';
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
-import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
+import { accessorySpreadScale, hasLaser, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
 import { createRailEffects, railDeviceAim } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
@@ -654,7 +654,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const effects = createFpsEffects(world.scene, viewScene, { style: weaponStyles[0], reduced: () => getEnvironmentSettings().reducedEffects || !!motionPreference?.matches });
   effects.setStyles(weaponStyles, 0);
   // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
-  const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)));
+  const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)), specs.some(spec => hasLaser(spec.accessories)));
   const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3(), railLightForward = new THREE.Vector3();
   /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
   const weaponDevices = createWeaponDevices();
