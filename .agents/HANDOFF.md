@@ -17662,3 +17662,11 @@ Owner asked for scoping in while jumping, "more arcady and call of duty like".
 - A grenade in hand is exempt: aim there is the lob and does not break the run.
 - Not changed: airborne spread and recoil penalties.
 - Checked: tests, typecheck. Not checked in a browser.
+
+## 2026-11-24: simulation-in-a-worker prototype (measured, not landed)
+On request, a throwaway prototype of the Web Worker discussed on 2026-11-07. Nothing in `src` changed on `main`.
+- **Shape**: the worker runs `createArena` against its own copy of the district (`buildDistrictWorld` + infrastructure + structures, own `createSceneCover`); the main thread's runtime gets a proxy in place of the simulation (`remoteArena` option). The existing 50 ms timer posts the steps; the worker posts back the snapshot and the player's hits. Setters become messages; a shot's hit arrives as a later message.
+- **Result**, Metal headless Chrome, 844x390 @2.75, Low, sunny noon, 32-bot expedition, 4x CPU throttle on the main thread, three alternating runs each: Toa Payoh 29.9/27.5/26.6 to 36.8/37.6/36.4 fps (main-thread task time 40-45 to 32-33 ms a frame); Marina Bay 18.3/18.0/17.6 to 30.1/32.3/30.7 fps (66-68 to 37-40 ms). Unthrottled, both sit at 60 fps either way.
+- **Costs seen**: worker scene build 0.5 s (Toa Payoh) and 1.4 s (Marina Bay) native; message handling on the main thread about 15 ms per 10 s; a state answer took 28-33 ms on average to come back under throttle, so bots are drawn up to about a tick later.
+- **Limits**: CDP refuses CPU throttling on worker targets, so the worker ran at native speed (2.3 ms a step in Toa Payoh, 8 ms in Marina Bay, worst 59 ms); on a phone those would be several times longer. Stationary observer, unseeded fights, dev build, no real phone. The proxy answers `true` to most calls and stubs vehicle travel, levolution and event triggers; the worker has its own proxy campaign and Normal bot difficulty; nothing mirrors main-thread scene changes into the worker's copy.
+- **Where it is**: `.cache/worker-prototype/` (untracked) holds `prototype.patch` against `730f083`, the worktree `tree/`, `trial.mjs`/`run.sh` (CDP driver; Vite on 5291, Chrome on 9461) and the raw rows. Remove the worktree with `git worktree remove --force .cache/worker-prototype/tree`.
