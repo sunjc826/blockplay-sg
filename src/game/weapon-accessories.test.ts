@@ -11,6 +11,7 @@ import { buildSightHousing } from './weapon-sight-housings';
 import { fitWeaponOptic, getWeaponSight } from './weapon-optics';
 import { buildServiceWeapon } from './service-weapon-models';
 import { hardwareByPart } from './weapon-hardware';
+import { railDeviceAim } from './weapon-rail-effects';
 
 const resolved = (id: string) => {
   const item = itemById(id)!, base = createProfile();
@@ -83,6 +84,25 @@ describe('the models', () => {
       const at = model.getObjectByName(name)!.getWorldPosition(new THREE.Vector3());
       // Under the dust cover and ahead of the trigger guard.
       expect(at.y).toBeLessThan(.155); expect(at.z).toBeLessThan(-.09);
+    }
+  });
+  it('points the laser and the torch where the gun points, not where the eye does', () => {
+    const model = buildServiceWeapon('p30-inspired')!;
+    fitWeaponAccessories(model, resolved('p30-sotong'));
+    // As the engine holds it: a rig in camera space, under a camera turned to face +X.
+    const rig = new THREE.Group(); rig.position.set(.2, -.32, -.78); rig.add(model);
+    const camera = new THREE.PerspectiveCamera(); camera.rotation.y = -Math.PI / 2; camera.updateMatrixWorld(true);
+    const aim = new THREE.Vector3();
+    for (const name of [LASER_EMITTER, LIGHT_EMITTER]) {
+      const emitter = model.getObjectByName(name)!;
+      rig.rotation.set(0, 0, 0); rig.updateMatrixWorld(true);
+      railDeviceAim(emitter, camera, aim);
+      expect(aim.x).toBeCloseTo(1); expect(aim.y).toBeCloseTo(0); expect(aim.z).toBeCloseTo(0);
+      // Muzzle swung 30 degrees to the left of the view and tipped 20 degrees down.
+      rig.rotation.set(-20 * Math.PI / 180, 30 * Math.PI / 180, 0, 'YXZ'); rig.updateMatrixWorld(true);
+      railDeviceAim(emitter, camera, aim);
+      expect(aim.y).toBeCloseTo(-Math.sin(20 * Math.PI / 180));
+      expect(Math.atan2(-aim.z, aim.x)).toBeCloseTo(30 * Math.PI / 180);
     }
   });
   it('stands the offset dot at 45 degrees, so canting by that much brings it to the top', () => {

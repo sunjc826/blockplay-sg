@@ -23,6 +23,17 @@ export interface RailEffectsFrame {
   nightVision?: boolean;
 }
 
+/**
+ * Where a rail device on the weapon in hand points, in world space. The
+ * emitter looks down the bore (−Z) and the viewmodel is posed in camera space,
+ * so its direction there goes through the camera. A gun at rest lies along the
+ * eye line and gives the camera's own forward; a gun turned by a reload, an
+ * inspection, a sprint or recoil turns the beam with it.
+ */
+export function railDeviceAim(emitter: THREE.Object3D, camera: THREE.Object3D, into: THREE.Vector3) {
+  return into.set(0, 0, -1).transformDirection(emitter.matrixWorld).transformDirection(camera.matrixWorld);
+}
+
 export function createRailEffects(world: THREE.Scene, withLight: boolean) {
   const root = new THREE.Group(); root.name = 'fps-rail-effects'; root.userData.fpsEffect = true; world.add(root);
   // A thin open tube from z 0 to −1, scaled out to the beam's length.

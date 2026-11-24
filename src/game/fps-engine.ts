@@ -176,7 +176,7 @@ import { createScopeRenderer, getWeaponSight, scopeScreenScale, setSightNightVis
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
 import { accessorySpreadScale, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
-import { createRailEffects } from './weapon-rail-effects';
+import { createRailEffects, railDeviceAim } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
@@ -648,7 +648,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   effects.setStyles(weaponStyles, 0);
   // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
   const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)));
-  const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3();
+  const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3(), railLightForward = new THREE.Vector3();
   /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
   const weaponDevices = createWeaponDevices();
   const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel(), weaponWheel = createScopeZoomWheel();
@@ -1953,8 +1953,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /**
    * The laser's beam and dot and the torch, from the emitters on the weapon in
    * hand. The viewmodel is drawn in camera space, so an emitter's place there
-   * goes through the camera to reach the world. The beam meets the world where
-   * the crosshair does, which is where the round goes.
+   * goes through the camera to reach the world, and so does the way it points.
+   * Each is sighted from the eye along the gun's own direction: a gun held at
+   * rest puts the dot where the crosshair is, which is where the round goes,
+   * and one turned aside by a reload, an inspection or a sprint takes it along.
    */
   function updateRail(active: boolean, nightVision = false) {
     const model = weapons[hud.weapon], spec = specs[hud.weapon];
@@ -1966,12 +1968,11 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     canvas.dataset.rail = spec?.accessories?.rail ? `${spec.accessories.rail}:${laserOn || lightOn ? 'on' : 'off'}` : '';
     canvas.dataset.railLaser = String(laserOn); canvas.dataset.railLight = String(lightOn);
     if ((!laserOn && !lightOn) || (!emitters.laser && !emitters.light)) { railEffects.update({ camera }); return; }
-    camera.getWorldDirection(railForward);
     let laser: Parameters<typeof railEffects.update>[0]['laser'];
     if (emitters.laser && laserOn) {
       emitters.laser.updateWorldMatrix(true, false);
       camera.localToWorld(emitters.laser.getWorldPosition(railFrom));
-      laserRay.set(camera.position, railForward); laserRay.near = .05; laserRay.far = 150;
+      laserRay.set(camera.position, railDeviceAim(emitters.laser, camera, railForward)); laserRay.near = .05; laserRay.far = 150;
       const hit = stopAtWater(visibleHits(laserRay, gameplayCandidates(), 1))[0];
       railTo.copy(hit?.point ?? laserRay.ray.at(150, railTo));
       laser = { from: railFrom, to: railTo, hit: !!hit };
@@ -1979,7 +1980,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     let light: Parameters<typeof railEffects.update>[0]['light'];
     if (emitters.light && lightOn) {
       emitters.light.updateWorldMatrix(true, false);
-      light = { from: camera.localToWorld(emitters.light.getWorldPosition(railLight)), direction: railForward };
+      light = { from: camera.localToWorld(emitters.light.getWorldPosition(railLight)), direction: railDeviceAim(emitters.light, camera, railLightForward) };
     }
     railEffects.update({ camera, laser, light, nightVision, dark: atmosphere.light.lighting.shift });
   }
