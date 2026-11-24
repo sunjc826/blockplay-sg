@@ -1796,6 +1796,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const transition = resolveWorldTransition(expedition.zone, gateway.id, position); if (!transition) return;
     commitTravel(transition, false, gateway.kind === 'ferry');
   }
+  /** A vehicle crossing waiting on a hosted simulation's answer about its crew. */
+  let heldCrossing: WorldTransition | null = null;
   function commitTravel(transition: WorldTransition, physical = false, ferry = false) {
     const travel = expedition ?? rangeTravel;
     if (!travel || travelPending || hud.phase !== 'playing' || hud.health <= 0) return;
@@ -1809,6 +1811,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const source = { ...vehicles.mounted };
       const state = { ...source, x: transition.spawn.x, z: transition.spawn.z };
       const crew = arenaRuntime?.vehicleTravel(region);
+      // A simulation on another thread has not said yet who crosses: hold the crossing and ask again next frame.
+      if (arenaRuntime && crew === undefined) { heldCrossing = transition; return; }
+      heldCrossing = null;
       if (arenaRuntime && !crew) { vehicles.setNotice('The whole crew must be ready to cross.'); return; }
       if (crew) { crew.vehicle.x = state.x; crew.vehicle.z = state.z; }
       checkpoint.vehicleTravel = { state, seat: vehicles.seat ?? 0, view: vehicleView, ...(crew ? { crew } : {}) };
@@ -2045,23 +2050,26 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   function chooseProxyAction(action: ProxyAction) {
     if (!expedition || !arenaRuntime || hud.phase!=='playing' || hud.arenaSelf?.alive!==true) return false;
     const rewardId = hud.arena?.proxies?.operation?.weaponId;
-    if (!arenaRuntime.proxyAction(action)) { hud.lootNotice='Unable to transfer: approach the cargo or an operational friendly facility with room for support.'; lootNoticeTime=4; publish(); return false; }
-    const menuWasOpen=hud.proxyMenu;
-    if (action==='keep') {
-      const item=itemById(rewardId!)!, family=item.family!;
-      const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
-      const next=recoverProxyWeapon(fieldProfile,item.id,hud.weapon);
-      fieldProfile=next; equipment=resolveLoadout(next, { deferRentalExpiry: true }); specs=equipment.weapons;
-      loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
-      if (comesWithCargoKit(item.id) && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
-      arenaRuntime.updateLoadout(fieldProfile);
-      undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressCarriedWeapon(model,specs[index])));
-      weaponStyles[family] = effectStyleForWeapon(specs[family]);
-      switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
-    }
-    if (menuWasOpen) closeProxyMenu();
-    else { canvas.focus({preventScroll:true}); publish(); }
-    return true;
+    // The simulation's own answer decides: a hosted one gives it a moment after its provisional yes, and the weapon is kept only then.
+    return arenaRuntime.proxyAction(action, accepted => {
+      if (disposed) return;
+      if (!accepted) { hud.lootNotice='Unable to transfer: approach the cargo or an operational friendly facility with room for support.'; lootNoticeTime=4; publish(); return; }
+      const menuWasOpen=hud.proxyMenu;
+      if (action==='keep') {
+        const item=itemById(rewardId!)!, family=item.family!;
+        const previousSpecs=specs, previousCarry=equipment.carriedFamilies;
+        const next=recoverProxyWeapon(fieldProfile,item.id,hud.weapon);
+        fieldProfile=next; equipment=resolveLoadout(next, { deferRentalExpiry: true }); specs=equipment.weapons;
+        loadout=replacePooledWeapon(loadout,previousSpecs,previousCarry,specs,equipment.carriedFamilies,family);
+        if (comesWithCargoKit(item.id) && supplyProxyMagazines(loadout, family)) { hud.lootNotice = 'Cargo kit: excess rifle spares exchanged for launcher magazines.'; lootNoticeTime = 5; }
+        arenaRuntime?.updateLoadout(fieldProfile);
+        undress.splice(0).forEach(dispose=>dispose()); weapons.forEach((model,index)=>undress.push(dressCarriedWeapon(model,specs[index])));
+        weaponStyles[family] = effectStyleForWeapon(specs[family]);
+        switchWeapon(family); expedition.onEquipment(copyProfile(fieldProfile));
+      }
+      if (menuWasOpen) closeProxyMenu();
+      else { canvas.focus({preventScroll:true}); publish(); }
+    });
   }
   function merlionState() { return rangeMerlion?.state ?? hud.arena?.merlion; }
   function rangeMerlionPlayer(): WaterActor {
@@ -4776,7 +4784,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
         if (!arenaRuntime) yaw += vehicles.step(drivingKeys(), dt);
         if (vehicles.mounted) position = { x: vehicles.mounted.x, z: vehicles.mounted.z };
         carry.set(0, 0, 0);
-        if ((expedition || rangeTravel) && previousHull && vehicles.mounted) {
+        if (heldCrossing) { if (vehicles.mounted) commitTravel(heldCrossing, true); else heldCrossing = null; if (travelPending) return; }
+        if ((expedition || rangeTravel) && previousHull && vehicles.mounted && !heldCrossing) {
           const crossing = resolveVehicleCrossing(region, previousHull, vehicles.mounted, { yaw, pitch });
           if (crossing) {
             const destination = buildDistrictWorld(crossing.transition.to);
@@ -5282,13 +5291,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // (sim-remote.ts). Production builds drop this branch, and with it the worker.
       let remote: import('./sim-client').SimClient | undefined;
       if (import.meta.env.DEV && expedition && (globalThis as { blockplayWorkerSim?: boolean }).blockplayWorkerSim === true) {
-        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: options.arena.session.id, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
+        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: options.arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
           .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
       }
       canvas.dataset.simulationThread = remote ? 'worker' : 'main';
       // Development probe: the drawn scene's answer to cover rays, to compare with the worker's (`blockplaySimCover`).
-      if (import.meta.env.DEV) (globalThis as { blockplayMainCover?: unknown }).blockplayMainCover = facilityCover.probe;
+      if (import.meta.env.DEV) (globalThis as { blockplayMainCover?: unknown }).blockplayMainCover = (rays: Parameters<typeof facilityCover.probe>[0]) => ({ elapsed: hud.elapsed, ...facilityCover.probe(rays) });
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, remote, onFiguresAdded: patchMaterials, figureDetail, vehicles: arenaVehicles });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');

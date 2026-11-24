@@ -80,6 +80,8 @@ export type FigurePose = typeof FIGURE_POSE[keyof typeof FIGURE_POSE];
 const FIGURE_SETTLE_AFTER = .25;
 /** Seconds a hosted simulation's figures trail its 20 Hz states by, to move smoothly between them. */
 const REMOTE_PRESENTATION_DELAY = .075;
+/** A hosted simulation's word on who crosses with a vehicle is acted on within this long, or asked for again. */
+const CROSSING_ANSWER_MS = 500;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const RAIDER_STATES: readonly ArenaRaiderState[] = ['landing', 'landed', 'inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -486,6 +488,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   const authority = session.role !== 'guest';
   // A hosted simulation keeps its own time and answers a moment later; its figures are drawn as a guest's are.
   const remote = session.role === 'solo' ? options.remote : undefined;
+  let crossing: { district: string; at: number; crew: import('./arena-rules').VehicleCrewTransfer | null } | null = null, crossingAsked: string | null = null;
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
   const sceneCover = createSceneCover(scene);
@@ -832,9 +835,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (disposed || session.role!=='solo' || !simulation) return false;
     const accepted=simulation.triggerProxyOperation(); publish(); return accepted;
   }
-  function proxyAction(action: ProxyAction) {
-    if (disposed || !started || !localAdopted || session.role !== 'solo' || !simulation) return false;
-    const accepted=simulation.proxyAction(session.id,action); publish(); return accepted;
+  /**
+   * `settled` hears the simulation's own answer: at once from one on this thread, a moment later from a hosted
+   * one, whose provisional yes is what this returns. Whatever must not happen on a refusal belongs in `settled`.
+   */
+  function proxyAction(action: ProxyAction, settled?: (accepted: boolean) => void) {
+    if (disposed || !started || !localAdopted || session.role !== 'solo' || !simulation) { settled?.(false); return false; }
+    const accepted=simulation.proxyAction(session.id,action);
+    if (remote) void remote.lastAnswer().then(ok => { if (!disposed) settled?.(ok === true); }); else settled?.(accepted);
+    publish(); return accepted;
   }
   function merlionAction(action: MerlionAction) {
     if(disposed||!started||!localAdopted||!validMerlionAction(action))return;
@@ -924,7 +933,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) {
       const accepted = deployment ? simulation.setStartingWeapons(session.id, loadout.weapons, loadout.carriedFamilies) : simulation.queuePlayerWeapons(session.id, loadout.weapons, loadout.carriedFamilies);
       if (accepted && deployment) publish();
-      return Promise.resolve(accepted);
+      // A hosted simulation's own word follows its provisional yes; this caller can wait for it.
+      return remote ? remote.lastAnswer().then(ok => ok === true) : Promise.resolve(accepted);
     }
     if (!hostId || !snapshot?.actors.some(actor => actor.id === session.id) || !(session.isConnected?.() ?? true)) return Promise.resolve(false);
     return new Promise(resolve => { const request = ++loadoutRequest; loadoutRequests.set(request, resolve); session.send({ type: 'arena-loadout', request, selection, deployment }, hostId); });
@@ -997,10 +1007,25 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   return {
     navigationGraphStatus: () => simulation?.navigationGraphStatus() ?? null,
-    vehicleTravel: (district: string) => session.role === 'solo' ? simulation?.vehicleTravel(session.id, district) ?? null : null,
+    /**
+     * The crew that crosses with the player's vehicle, or null if they cannot cross. A hosted simulation answers
+     * a frame or two after it is asked: until then this is `undefined`, and the caller asks again next frame.
+     */
+    vehicleTravel(district: string): import('./arena-rules').VehicleCrewTransfer | null | undefined {
+      if (session.role !== 'solo' || !simulation) return null;
+      if (!remote) return simulation.vehicleTravel(session.id, district);
+      if (crossing && crossing.district === district && performance.now() - crossing.at < CROSSING_ANSWER_MS) { const { crew } = crossing; crossing = null; return crew; }
+      crossing = null;
+      if (crossingAsked !== district) {
+        crossingAsked = district; simulation.vehicleTravel(session.id, district);
+        void remote.lastAnswer().then(crew => { crossingAsked = null; if (!disposed) crossing = { district, at: performance.now(), crew: (crew ?? null) as import('./arena-rules').VehicleCrewTransfer | null }; });
+      }
+      return undefined;
+    },
     detachVehicle: () => { if (session.role === 'solo') simulation?.detachVehicle(session.id); },
     restoreVehicleTravel(transfer: import('./arena-rules').VehicleCrewTransfer) {
-      const accepted = session.role === 'solo' && simulation?.restoreVehicleTravel(transfer, session.id);
+      // A hosted simulation was handed the crew when it was made and seats them as the player joins (sim-host.ts).
+      const accepted = session.role === 'solo' && (remote ? true : simulation?.restoreVehicleTravel(transfer, session.id));
       if (accepted) refresh(); // Adopt seats before the renderer restores held crossing controls.
       return accepted;
     },

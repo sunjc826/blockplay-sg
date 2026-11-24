@@ -3,23 +3,27 @@
 import { buildExpeditionDistrict } from './expedition-district';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { getBuildingLifts } from './building-lifts';
-import { createArena, type ArenaEnvironment, type ArenaVehicleOptions } from './arena-rules';
+import { createArena, type ArenaEnvironment, type ArenaVehicleOptions, type VehicleCrewTransfer } from './arena-rules';
 import { createSceneCover } from './scene-cover';
 import { createDropColumnCheck } from './paratrooper-route-validation';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { createProxyCampaign, type ProxyCampaign } from './proxy-operations';
 import { getBotDifficulty, setBotDifficulty } from './bot-difficulty-setting';
 import type { BotDifficulty } from './bot-difficulty';
-import { createSimHost } from './sim-host';
+import { createSimHost, seatArrivingCrew } from './sim-host';
 import type { SimToHost } from './sim-protocol';
 import type { WorldZoneId } from './world-zones';
 
-export interface SimWorkerInit { type: 'init'; zone: WorldZoneId; spawn?: Parameters<typeof buildExpeditionDistrict>[1]; self: string; environment: Partial<ArenaEnvironment>; campaign?: ProxyCampaign; difficulty: BotDifficulty; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string }
+export interface SimWorkerInit { type: 'init'; zone: WorldZoneId; spawn?: Parameters<typeof buildExpeditionDistrict>[1]; self: string; environment: Partial<ArenaEnvironment>; campaign?: ProxyCampaign; difficulty: BotDifficulty; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string;
+  /** The vehicle and crew the player drove in from the last district; they are seated as the player joins. */
+  vehicleTravel?: VehicleCrewTransfer }
 const scope = globalThis as unknown as { postMessage(message: unknown): void; addEventListener(type: 'message', handler: (event: MessageEvent) => void): void };
 
 /** Development probe: this copy's answer to the same rays the engine's drawn scene is asked (sim-remote.ts). */
 export interface SimCoverRay { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number }; range: number }
-let probe: ((rays: SimCoverRay[]) => { sight: number[]; bullet: number[]; struck: string[] }) | null = null;
+let probe: ((rays: SimCoverRay[]) => { census: Record<string, [number, number]>; sight: number[]; bullet: number[]; struck: string[] }) | null = null;
+/** The simulation time this copy's moving scenery was last placed for. */
+let sceneClock = 0;
 
 function build(init: SimWorkerInit) {
   const { world, structureVisuals } = buildExpeditionDistrict(init.zone, init.spawn);
@@ -37,18 +41,20 @@ function build(init: SimWorkerInit) {
       const hit = cover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
       return hit?.face ? { point: hit.point, normal: hit.face.normal.clone().transformDirection(hit.object.matrixWorld) } : null;
     }, cover.sightDistance, getBotDifficulty);
-  // Trains and other moving scenery block sight where they are now, as in the drawn district.
+  // Trains and other moving scenery stand where the simulation's own clock puts them, which is the
+  // clock the engine draws them by, so a bot's sight meets a train where the player sees it.
   // Structures change with the facility that owns them; cover is re-read four times a second, so that is often enough.
-  let elapsed = 0, steps = 0;
-  const animate = () => { world.animate(elapsed); if (steps++ % 5 === 0) structureVisuals.update(arena.snapshot().facilities); world.scene.updateMatrixWorld(); };
-  return { campaign, arena: { ...arena, step(dt: number) { elapsed += dt; animate(); arena.step(dt); }, reset() { elapsed = 0; steps = 0; arena.reset(); animate(); } } };
+  let steps = 0;
+  const follow = () => { const now = arena.snapshot(); sceneClock = now.elapsed; world.animate(now.elapsed); if (steps++ % 5 === 0) structureVisuals.update(now.facilities); world.scene.updateMatrixWorld(); };
+  follow();
+  return { campaign, arena: { ...seatArrivingCrew(arena, init.self, init.vehicleTravel), step(dt: number) { arena.step(dt); follow(); }, reset() { steps = 0; arena.reset(); follow(); } } };
 }
 
 let deliver: ((message: SimToHost) => void) | null = null;
 scope.addEventListener('message', event => {
   const message = event.data as SimWorkerInit | SimToHost | { type: 'probe'; id: number; rays: SimCoverRay[] } | { type: 'difficulty'; value: BotDifficulty };
   if (message.type === 'difficulty') { setBotDifficulty(message.value); return; }
-  if (message.type === 'probe') { scope.postMessage({ type: 'probed', id: message.id, ...probe?.(message.rays) }); return; }
+  if (message.type === 'probe') { scope.postMessage({ type: 'probed', id: message.id, elapsed: sceneClock, ...probe?.(message.rays) }); return; }
   if (message.type !== 'init') { deliver?.(message); return; }
   try {
     const start = performance.now(), { arena, campaign } = build(message);

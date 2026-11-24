@@ -14,14 +14,14 @@ function plain(value: unknown): unknown {
 }
 
 /** Starts an expedition's simulation in a worker; rejects if the worker cannot build the district. */
-export function createWorkerSimulation(init: { zone: WorldZoneId; spawn?: SimWorkerInit['spawn']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string }): Promise<SimClient> {
+export function createWorkerSimulation(init: { zone: WorldZoneId; spawn?: SimWorkerInit['spawn']; self: string; environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; botCount: number; composition?: string; vehicleTravel?: SimWorkerInit['vehicleTravel'] }): Promise<SimClient> {
   const worker = new Worker(new URL('./sim-worker.ts', import.meta.url), { type: 'module' });
   const environment: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(init.environment ?? {})) if (!REBUILT.has(key) && typeof value !== 'function') environment[key] = plain(value);
   return new Promise<SimClient>((resolve, reject) => {
     const fail = (reason: string) => { worker.terminate(); reject(new Error(reason)); };
     let handler: ((message: SimFromHost) => void) | null = null, probes = 0;
-    const probing = new Map<number, (result: { sight: number[]; bullet: number[]; struck: string[] }) => void>();
+    const probing = new Map<number, (result: unknown) => void>();
     worker.onerror = event => fail(`Simulation worker failed: ${event.message}`);
     worker.onmessage = event => {
       const message = event.data;
@@ -32,11 +32,13 @@ export function createWorkerSimulation(init: { zone: WorldZoneId; spawn?: SimWor
         const unsubscribe = subscribeBotDifficulty(() => worker.postMessage({ type: 'difficulty', value: getBotDifficulty() }));
         // Development probe: what the worker's own copy of the district answers to these cover rays.
         (globalThis as { blockplaySimCover?: unknown }).blockplaySimCover = (rays: SimCoverRay[]) => new Promise(done => { const id = ++probes; probing.set(id, done); worker.postMessage({ type: 'probe', id, rays }); });
+        // Development probe: hold the simulation still, so both copies can be asked at the same instant.
+        (globalThis as { blockplaySimRun?: unknown }).blockplaySimRun = (running: boolean) => client.setRunning(running);
         // For profiling scripts and, later, the performance overlay.
         (globalThis as { blockplaySimStats?: unknown }).blockplaySimStats = Object.assign(client.stats, { buildMs: message.buildMs });
         resolve({ ...client, buildMs: message.buildMs, dispose: () => { unsubscribe(); worker.terminate(); } });
       } else handler?.(message);
     };
-    worker.postMessage({ type: 'init', zone: init.zone, spawn: init.spawn, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition } as SimWorkerInit);
+    worker.postMessage({ type: 'init', zone: init.zone, spawn: init.spawn, self: init.self, environment, campaign: init.environment?.proxies && { ...init.environment.proxies, favor: { ...init.environment.proxies.favor } }, difficulty: getBotDifficulty(), vehicles: plain(init.vehicles), botCount: init.botCount, composition: init.composition, vehicleTravel: init.vehicleTravel } as SimWorkerInit);
   });
 }

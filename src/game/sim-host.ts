@@ -1,5 +1,20 @@
 import type { ProxyCampaign } from './proxy-operations';
+import type { VehicleCrewTransfer } from './arena-rules';
 import { isPosted, QUIET_METHODS, SIM_MAX_CATCH_UP, SIM_METHODS, SIM_TICK, type Arena, type SimFromHost, type SimPort, type SimToHost } from './sim-protocol';
+
+/**
+ * The vehicle and crew a player drove in from the last district take their seats in the same call that adds
+ * the player, so no state ever shows the player arrived on foot. A crew that cannot be seated fails that call.
+ */
+export function seatArrivingCrew(arena: Arena, self: string, transfer?: VehicleCrewTransfer): Arena {
+  if (!transfer) return arena;
+  let waiting: VehicleCrewTransfer | undefined = transfer;
+  return { ...arena, addPlayer(...args: Parameters<Arena['addPlayer']>) {
+    const added = arena.addPlayer(...args);
+    if (waiting && args[0] === self) { const crew = waiting; waiting = undefined; if (!arena.restoreVehicleTravel(crew, self)) throw new Error('Vehicle crew could not enter the destination district'); }
+    return added;
+  } };
+}
 
 export interface SimHostClock { now(): number; every(ms: number, wake: () => void): () => void }
 export const realClock: SimHostClock = { now: () => performance.now(), every: (ms, wake) => { const timer = setInterval(wake, ms); return () => clearInterval(timer); } };
@@ -33,7 +48,11 @@ export function createSimHost(arena: Arena, self: string, port: SimPort<SimFromH
       const value = (arena[message.method] as (...args: unknown[]) => unknown)(...message.args);
       if (SIM_METHODS[message.method] === 'answer' && message.id !== undefined) port.post({ type: 'answer', id: message.id, method: message.method, value });
       if (!QUIET_METHODS.has(message.method)) port.post(state());
-    } catch (error) { port.post({ type: 'error', method: message.type === 'call' ? String(message.method) : message.type, error: String((error as Error)?.stack ?? error) }); }
+    } catch (error) {
+      port.post({ type: 'error', method: message.type === 'call' ? String(message.method) : message.type, error: String((error as Error)?.stack ?? error) });
+      // Whoever waits on this call is told it did not happen, rather than left waiting.
+      if (message.type === 'call' && typeof message.id === 'number' && isPosted(message.method)) port.post({ type: 'answer', id: message.id, method: message.method, value: null });
+    }
   });
   return { first: () => state(), wake, dispose: stop };
 }

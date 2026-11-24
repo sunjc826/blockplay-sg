@@ -4,7 +4,9 @@ import { createArenaRuntime } from './arena-runtime';
 import { createSoloSession } from './lan-peer';
 import { createArena, type ArenaEnvironment, type ArenaShot } from './arena-rules';
 import { createSimClient } from './sim-client';
-import { createSimHost, type SimHostClock } from './sim-host';
+import { createSimHost, seatArrivingCrew, type SimHostClock } from './sim-host';
+import { createSharedVehicle } from './vehicle-seats';
+import { createRegionMovement } from './region-collision';
 import { createProxyCampaign, type ProxyCampaign } from './proxy-operations';
 import { createSceneCover } from './scene-cover';
 import { buildExpeditionDistrict } from './expedition-district';
@@ -192,6 +194,93 @@ describe('a runtime around a hosted simulation', () => {
       runtime.reset(); link.tick(); link.tick();
       expect(runtime.update(1 / 60, { ...playing, playing: false }).snapshot?.elapsed).toBe(0);
     } finally { runtime.dispose(); }
+    expect(link.client.stats.errors).toEqual([]);
+  });
+});
+
+describe('a runtime asking a hosted simulation something it may refuse', () => {
+  it('reports a proxy transfer the host refused, after the provisional yes', async () => {
+    const session = createSoloSession('Explorer');
+    const link = hosted(createArena([], 0, 'assault', environment()), session.id);
+    const runtime = createArenaRuntime({ scene: new THREE.Scene(), session, obstacles: [], botCount: 0, environment: environment(), remote: link.client });
+    try {
+      const playing = { x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, playing: true };
+      for (let i = 0; i < 10; i++) { runtime.update(1 / 60, playing); link.tick(); }
+      const heard: boolean[] = [];
+      // No proxy operation is running, so the simulation will say no; the caller hears that, not the provisional yes.
+      expect(runtime.proxyAction('keep', accepted => heard.push(accepted))).toBe(true);
+      expect(heard).toEqual([]);
+      await link.client.lastAnswer(); await Promise.resolve();
+      expect(heard).toEqual([false]);
+    } finally { runtime.dispose(); }
+  });
+});
+
+describe('a vehicle crossing between districts with a hosted simulation', () => {
+  const bounds = { minX: -150, maxX: 150, minZ: -150, maxZ: 150 }, spawns = { car: { x: 0, z: 0, yaw: 0 }, helicopter: { x: 40, z: 0, yaw: 0 } };
+  const district = (): ArenaEnvironment => ({ bounds, move: createRegionMovement(bounds).move, spawns: [{ x: 10, z: 0 }], playerSpawn: { x: 3.5, z: 0 }, endless: true,
+    facilities: { sites: [{ id: 'command', name: 'Command', kind: 'command', x: 10, y: 0, z: 0, initialOwner: 'armed-forces', deployment: { x: 7, z: 0, yaw: 0 } }],
+      savedVehicles: (['car', 'helicopter'] as const).map(kind => ({ ...createSharedVehicle(kind, spawns[kind]), faction: 'armed-forces' })) } });
+  const vehicles = { spawns, openWorld: true };
+  const playing = { x: 3.5, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, playing: true };
+
+  it('waits for the host to say who crosses, then hands over the same crew a local simulation would', async () => {
+    const session = createSoloSession('Explorer'), arena = createArena([], 0, 'assault', district(), vehicles);
+    const link = hosted(arena, session.id);
+    const runtime = createArenaRuntime({ scene: new THREE.Scene(), session, obstacles: [], botCount: 0, composition: 'assault', environment: district(), vehicles, remote: link.client });
+    try {
+      runtime.update(1 / 60, playing);
+      link.client.arena.callout(session.id, 'gather'); link.client.arena.vehicleAction(session.id, 'enter', 'car');
+      for (let i = 0; i < 120; i++) { link.tick(); runtime.update(1 / 60, playing); }
+      expect(runtime.update(1 / 60, playing).self?.vehicle).toBe('car');
+      // Asked, not yet answered: the engine holds the crossing and asks again next frame, without asking the host twice.
+      const calls = link.client.stats.calls;
+      expect(runtime.vehicleTravel('harbourfront')).toBeUndefined();
+      expect(runtime.vehicleTravel('harbourfront')).toBeUndefined();
+      expect(link.client.stats.calls).toBe(calls + 1);
+      await link.client.lastAnswer(); await Promise.resolve();
+      const crew = runtime.vehicleTravel('harbourfront');
+      expect(crew).toEqual(arena.vehicleTravel(session.id, 'harbourfront'));
+      expect(crew?.playerId).toBe(session.id);
+      // The answer is spent: another crossing asks again.
+      expect(runtime.vehicleTravel('harbourfront')).toBeUndefined();
+    } finally { runtime.dispose(); }
+    expect(link.client.stats.errors).toEqual([]);
+  });
+
+  it('says no when the host does, and when the host fails', async () => {
+    const session = createSoloSession('Explorer'), arena = createArena([], 0, 'assault', district(), vehicles);
+    const link = hosted(arena, session.id);
+    const runtime = createArenaRuntime({ scene: new THREE.Scene(), session, obstacles: [], botCount: 0, composition: 'assault', environment: district(), vehicles, remote: link.client });
+    const silenced = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      runtime.update(1 / 60, playing); link.tick();
+      // On foot: nothing to cross with.
+      expect(runtime.vehicleTravel('harbourfront')).toBeUndefined();
+      await link.client.lastAnswer(); await Promise.resolve();
+      expect(runtime.vehicleTravel('harbourfront')).toBeNull();
+      // A call the host could not carry out still answers, so nobody is left waiting on it.
+      vi.spyOn(arena, 'vehicleTravel').mockImplementation(() => { throw new Error('broken'); });
+      const failing = hosted(arena, session.id);
+      failing.client.arena.vehicleTravel(session.id, 'harbourfront');
+      await expect(failing.client.lastAnswer()).resolves.toBeNull();
+      expect(failing.client.stats.errors).toHaveLength(1);
+    } finally { runtime.dispose(); silenced.mockRestore(); }
+  });
+
+  it('seats an arriving crew in the call that adds the player', () => {
+    const source = createArena([], 0, 'assault', district(), vehicles);
+    source.addPlayer('old', 'Explorer', 0, 0, [], undefined, true);
+    source.callout('old', 'gather'); source.vehicleAction('old', 'enter', 'car');
+    for (let t = 0; t < 6; t += SIM_TICK) source.step(SIM_TICK);
+    const transfer = source.vehicleTravel('old', 'harbourfront')!;
+    expect(transfer.crew.length).toBeGreaterThan(0);
+    const link = hosted(seatArrivingCrew(createArena([], 0, 'assault', district(), vehicles), 'new', structuredClone(transfer)), 'new');
+    link.client.arena.addPlayer('new', 'Explorer', 0, 0, [], undefined, true);
+    // The first state that shows the player shows them in their seat, with the crew beside them.
+    const state = link.sent.filter((message): message is Extract<SimFromHost, { type: 'state' }> => message.type === 'state').find(message => message.snapshot.actors.some(actor => actor.id === 'new'))!;
+    expect(state.snapshot.actors.find(actor => actor.id === 'new')).toMatchObject({ vehicle: 'car' });
+    expect(state.snapshot.actors.filter(actor => transfer.crew.some(member => member.actor.id === actor.id))).toHaveLength(transfer.crew.length);
     expect(link.client.stats.errors).toEqual([]);
   });
 });
