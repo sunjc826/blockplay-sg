@@ -28,7 +28,9 @@ export function createFpsVehicles(scene: THREE.Scene, obstacles: Obstacle[], ski
   const bounds: VehicleWorldBounds = options.bounds ?? MARINA_BOUNDS;
   const drivingObstacles = verticalVehicleObstacles({ bounds, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene) });
   const sceneObstacles = options.deriveFlightObstacles ? sceneFlightObstacles(scene) : null;
-  const root = new THREE.Group(); scene.add(root);
+  // Vehicles are the simulation's own bodies, hit by its rules; none of this group is cover (see scene-cover).
+  // That holds for the dragon boats and the helipad too, which carry no `vehicleKind` of their own.
+  const root = new THREE.Group(); root.userData.coverApart = true; scene.add(root);
   const states = keyed(freshState);
   const waterBoats: WaterBoat[] = VEHICLE_KINDS.filter(isDragonBoat).filter(kind=>spawns[kind]).map(id=>({
     id, x: 0, z: 0, yaw: 0, speed: 0, active: false, revision: 0, wakeBlend: 0,

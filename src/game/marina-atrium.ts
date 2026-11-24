@@ -56,9 +56,11 @@ export function withMarinaAtrium<T extends RegionWorld>(world:T):T {
     const list=panes.get(m)??[];list.push(g);panes.set(m,list);
   };
   const label=(text:string,x:number,y:number,z:number,w:number,yaw=Math.PI)=>{
-    if(typeof document==='undefined')return;const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=128;const c=canvas.getContext('2d');if(!c)return;
-    c.fillStyle='#d9c79c';c.textAlign='center';c.font='500 42px serif';c.fillText(text,512,82);
-    const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;textures.push(tex);const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false});materials.push(mat);
+    // The panel exists with or without a canvas, so a headless copy of the atrium has the same cover; unlettered it is clear.
+    const mat=new THREE.MeshBasicMaterial({transparent:true,depthWrite:false});materials.push(mat);
+    const canvas=typeof document==='undefined'?null:document.createElement('canvas'),c=canvas?.getContext('2d');
+    if(canvas&&c){canvas.width=1024;canvas.height=128;c.fillStyle='#d9c79c';c.textAlign='center';c.font='500 42px serif';c.fillText(text,512,82);
+      const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;textures.push(tex);mat.map=tex;}else mat.opacity=0;
     const mesh=new THREE.Mesh(geometry(new THREE.PlaneGeometry(w,w/8)),mat);mesh.position.set(x,y,z);mesh.rotation.y=yaw;root.add(mesh);
   };
   // A single stone concourse joins all three towers. Thin joints establish human scale.

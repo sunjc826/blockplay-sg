@@ -75,12 +75,17 @@ export function buildRafflesScene() {
   }
   function solid(x: number,z: number,w: number,d: number) { obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2}); }
   function beam(a:THREE.Vector3,b:THREE.Vector3,r:number,material:THREE.Material){const m=cylinder(0,0,0,r,a.distanceTo(b),material);m.position.copy(a).add(b).multiplyScalar(0.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());return m;}
+  // Each sign is its own draw (its own lettering); they sit together under one part of the scene.
+  const signs=new THREE.Group();signs.name='Lettered signs';scene.add(signs);
   function sign(text: string,x: number,y: number,z: number,w=16,h=2,color='#235749') {
-    if (typeof document === 'undefined') return;
-    const canvas=document.createElement('canvas'); canvas.width=768;canvas.height=128;const ctx=canvas.getContext('2d');if(!ctx)return;
-    ctx.fillStyle=color;ctx.fillRect(0,0,768,128);ctx.fillStyle='#fff9e8';ctx.font='bold 54px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,66,740);
-    const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;textures.push(texture);const material=new THREE.MeshBasicMaterial({map:texture});materials.push(material);
-    const panel=new THREE.Mesh(geo(new THREE.PlaneGeometry(w,h)),material);panel.position.set(x,y,z);scene.add(panel);return panel;
+    // Built with or without a canvas, as scene-kit's sign is: the panel is cover, the lettering is optional.
+    const material=new THREE.MeshBasicMaterial();materials.push(material);
+    const canvas=typeof document==='undefined'?null:document.createElement('canvas'),ctx=canvas?.getContext('2d');
+    if(canvas&&ctx){
+      canvas.width=768;canvas.height=128;ctx.fillStyle=color;ctx.fillRect(0,0,768,128);ctx.fillStyle='#fff9e8';ctx.font='bold 54px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,384,66,740);
+      const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;textures.push(texture);material.map=texture;
+    }else material.color.set(color);
+    const panel=new THREE.Mesh(geo(new THREE.PlaneGeometry(w,h)),material);panel.position.set(x,y,z);signs.add(panel);return panel;
   }
   box(0,-0.6,62,600,1,430,paving); box(0,-0.2,-161,600,0.15,48,water);
   // New district loop connects old streets without altering the original walk/drive routes.

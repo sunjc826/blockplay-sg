@@ -19,6 +19,11 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
     }
     return false;
   };
+  /** Not cover, with everything under it: actors, effects, vehicles, facility markers, structures that say so,
+   * and whatever the renderer adds for itself and marks `coverApart`. A simulation on another thread holds its own
+   * copy of the district without the renderer's additions, so anything that is cover must be in the district as built. */
+  const apart = (node: THREE.Object3D) => !!(node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.coverApart || node.userData.facilityId ||
+    node.userData.structureCover === 'external' || node.userData.structureCover === 'none' || ignore?.(node));
   /** Physical trace includes glazing; bullet and sight distances below omit it. */
   function trace(from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number, includeFoliage = false, includeGlass = true) {
     direction.set(heading.x, heading.y, heading.z);
@@ -30,8 +35,7 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
       // Retain hidden static meshes too; visibility can change between cache
       // refreshes and is checked at query time.
       const collect = (node: THREE.Object3D) => {
-        if (node.userData.arenaActorId || node.userData.fpsEffect || node.userData.vehicleKind || node.userData.facilityId ||
-          node.userData.structureCover === 'external' || node.userData.structureCover === 'none' || ignore?.(node)) return;
+        if (apart(node)) return;
         if (node instanceof THREE.Mesh) surfaces.push(node);
         node.children.forEach(collect);
       };
@@ -55,9 +59,25 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
       const parts: string[] = [];
       for (let n: THREE.Object3D | null = node; n && n !== scene && parts.length < 5; n = n.parent) parts.push([n.name || n.type, ...Object.keys(n.userData).slice(0, 4)].join(':'));
       const at = node.getWorldPosition(new THREE.Vector3());
-      return `${parts.join(' < ')} [${(node as THREE.Mesh).geometry?.type ?? ''}] @${Math.round(at.x)},${Math.round(at.z)}`;
+      const material = (node as THREE.Mesh).material as THREE.Material | undefined;
+      return `${parts.join(' < ')} [${(node as THREE.Mesh).geometry?.type ?? ''} ${material?.name || material?.type || ''}] @${Math.round(at.x)},${Math.round(at.y)},${Math.round(at.z)}`;
     };
-    return { sight: rays.map(ray => trace(ray.origin, ray.direction, ray.range, true, false)?.distance ?? ray.range), bullet: rays.map(ray => trace(ray.origin, ray.direction, ray.range, false, false)?.distance ?? ray.range),
+    // What stands as cover, by the scene's top-level parts: [meshes, of which shown]. A part only one copy
+    // of a district holds shows here wherever the rays happened to go.
+    const census: Record<string, [number, number]> = {};
+    const shown = (node: THREE.Object3D) => { for (let n: THREE.Object3D | null = node; n; n = n.parent) if (!n.visible) return false; return true; };
+    for (const part of scene.children) {
+      // A part with no name is told apart by what it carries and what it is made of.
+      let made = ''; if (!part.name && !(part instanceof THREE.Mesh)) part.traverse(node => { if (!made && node instanceof THREE.Mesh) made = node.geometry.type; });
+      const key = part.name || `(${[part.type, ...Object.keys(part.userData), made].join(' ')})`;
+      const count = (node: THREE.Object3D) => {
+        if (apart(node)) return;
+        if (node instanceof THREE.Mesh) { const entry = census[key] ??= [0, 0]; entry[0]++; if (shown(node)) entry[1]++; }
+        node.children.forEach(count);
+      };
+      count(part);
+    }
+    return { census, sight: rays.map(ray => trace(ray.origin, ray.direction, ray.range, true, false)?.distance ?? ray.range), bullet: rays.map(ray => trace(ray.origin, ray.direction, ray.range, false, false)?.distance ?? ray.range),
       struck: rays.map(ray => struck(trace(ray.origin, ray.direction, ray.range, true, false)?.object)) };
   }
   return { trace, probe,

@@ -55,15 +55,14 @@ export function withBuildingLifts<T extends RegionWorld>(world:T,lifts:readonly 
       const bulb=new THREE.Mesh(geometry,lamp);bulb.position.set(x+w/2+.28,y+2.6,z-d/2-.31);bulb.scale.set(.08,.35,.035);group.add(bulb);
       const indicator:{lift:BuildingLift;y:number;lamp:THREE.MeshStandardMaterial;paint?:(text:string)=>void;last?:string}={lift,y,lamp};indicators.push(indicator);
       box(group,x,y+3.54,z-d/2-.16,w,.6,.15,'#253d45');
-      // Canvas labels are optional in headless geometry tests.
-      if(typeof document!=='undefined'){
-        const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;const ctx=canvas.getContext('2d');
-        if(ctx){
-          const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;labels.push(tex);
-          indicator.paint=text=>{ctx.fillStyle='#243b43';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f5e5b6';ctx.textAlign='center';ctx.font='500 25px sans-serif';ctx.fillText(y===bottom?'SKYPARK  ↑  EXPRESS':'LOBBY  ↓  EXPRESS',256,34);ctx.font='500 23px sans-serif';ctx.fillText(text,256,77);ctx.font='18px sans-serif';ctx.fillText('Walk in when green',256,112);tex.needsUpdate=true;};
-          const mat=new THREE.MeshBasicMaterial({map:tex});const sign=new THREE.Mesh(new THREE.PlaneGeometry(w-.4,.55),mat);sign.position.set(x,y+3.54,z-d/2-.245);sign.rotation.y=Math.PI;group.add(sign);}
-
-      }
+      // The panel is built with or without a canvas, so a headless copy (tests, the simulation worker) has the same cover; only the lettering is optional.
+      const mat=new THREE.MeshBasicMaterial();const sign=new THREE.Mesh(new THREE.PlaneGeometry(w-.4,.55),mat);sign.position.set(x,y+3.54,z-d/2-.245);sign.rotation.y=Math.PI;group.add(sign);
+      const canvas=typeof document==='undefined'?null:document.createElement('canvas'),ctx=canvas?.getContext('2d');
+      if(canvas&&ctx){
+        canvas.width=512;canvas.height=128;
+        const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;labels.push(tex);mat.map=tex;
+        indicator.paint=text=>{ctx.fillStyle='#243b43';ctx.fillRect(0,0,512,128);ctx.fillStyle='#f5e5b6';ctx.textAlign='center';ctx.font='500 25px sans-serif';ctx.fillText(y===bottom?'SKYPARK  ↑  EXPRESS':'LOBBY  ↓  EXPRESS',256,34);ctx.font='500 23px sans-serif';ctx.fillText(text,256,77);ctx.font='18px sans-serif';ctx.fillText('Walk in when green',256,112);tex.needsUpdate=true;};
+      }else mat.color.set('#243b43');
     }
     const car=new THREE.Group();car.position.set(x,bottom,z);car.name='Express lift cabin';group.add(car);
     box(car,0,-.12,0,w-.12,.24,d-.12,'#d8d1bc');

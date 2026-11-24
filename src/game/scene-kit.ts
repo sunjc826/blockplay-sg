@@ -109,14 +109,17 @@ export function createSceneKit(options: SceneKitOptions) {
     mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); mesh.castShadow = true; parent.add(mesh); return mesh;
   }
   function sign(text: string, x: number, y: number, z: number, w = 16, h = 2, color = '#235749', textColor = '#fff9e8') {
-    if (typeof document === 'undefined') return;
-    const canvas = document.createElement('canvas'); canvas.width = 768; canvas.height = 128;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.fillStyle = color; ctx.fillRect(0, 0, 768, 128);
-    ctx.fillStyle = textColor; ctx.font = 'bold 54px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, 384, 66, 740);
-    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.push(texture);
-    const material = new THREE.MeshBasicMaterial({ map: texture }); materials.push(material);
+    // The panel is built whether or not a canvas can be had: it stops a round and a line of sight, so a
+    // headless copy of the district (tests, the simulation worker) must hold it too. Only the lettering is optional.
+    const material = new THREE.MeshBasicMaterial(); materials.push(material);
+    const canvas = typeof document === 'undefined' ? null : document.createElement('canvas'), ctx = canvas?.getContext('2d');
+    if (canvas && ctx) {
+      canvas.width = 768; canvas.height = 128;
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 768, 128);
+      ctx.fillStyle = textColor; ctx.font = 'bold 54px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, 384, 66, 740);
+      const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.push(texture); material.map = texture;
+    } else material.color.set(color);
     const panel = new THREE.Mesh(geo(new THREE.PlaneGeometry(w, h)), material);
     panel.position.set(x, y, z); scene.add(panel); return panel;
   }

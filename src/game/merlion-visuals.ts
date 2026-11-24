@@ -4,7 +4,7 @@ import { MERLION, merlionMouth, merlionDirection, type MerlionState } from './me
 /** Pooled water geometry; every client draws the host's clipped stream. */
 export function createMerlionVisuals(scene: THREE.Scene) {
   if(!scene.getObjectByName('merlion-statue'))return {update(_s:MerlionState|undefined,_dt:number){},dispose(){}};
-  const root=new THREE.Group();root.name='merlion-gameplay';scene.add(root);
+  const root=new THREE.Group();root.name='merlion-gameplay';root.userData.coverApart=true;scene.add(root);
   const geometries: THREE.BufferGeometry[]=[],materials: THREE.Material[]=[];
   function mesh(g:THREE.BufferGeometry,m:THREE.Material){geometries.push(g);materials.push(m);const v=new THREE.Mesh(g,m);root.add(v);return v;}
   const water=new THREE.MeshBasicMaterial({color:0xe1fbff,transparent:true,opacity:.85,depthWrite:false});

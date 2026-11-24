@@ -92,14 +92,18 @@ export function buildQueenstownScene() {
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
     return mesh;
   }
+  // Each sign is its own draw (its own lettering); they sit together under one part of the scene.
+  const signs = new THREE.Group(); signs.name = 'Lettered signs'; scene.add(signs);
   function sign(text: string, x: number, y: number, z: number, w = 14, h = 2) {
-    if (typeof document === 'undefined') return;
-    const canvas = document.createElement('canvas'); canvas.width = 768; canvas.height = 128;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.fillStyle = '#245d4f'; ctx.fillRect(0, 0, 768, 128); ctx.fillStyle = '#fff9e8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 55px sans-serif'; ctx.fillText(text, 384, 66, 730);
-    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.push(texture);
-    const material = new THREE.MeshBasicMaterial({ map: texture }); materials.push(material);
-    const panel = new THREE.Mesh(geo(new THREE.PlaneGeometry(w, h)), material); panel.position.set(x, y, z); scene.add(panel); return panel;
+    // Built with or without a canvas, as scene-kit's sign is: the panel is cover, the lettering is optional.
+    const material = new THREE.MeshBasicMaterial(); materials.push(material);
+    const canvas = typeof document === 'undefined' ? null : document.createElement('canvas'), ctx = canvas?.getContext('2d');
+    if (canvas && ctx) {
+      canvas.width = 768; canvas.height = 128;
+      ctx.fillStyle = '#245d4f'; ctx.fillRect(0, 0, 768, 128); ctx.fillStyle = '#fff9e8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 55px sans-serif'; ctx.fillText(text, 384, 66, 730);
+      const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; textures.push(texture); material.map = texture;
+    } else material.color.set('#245d4f');
+    const panel = new THREE.Mesh(geo(new THREE.PlaneGeometry(w, h)), material); panel.position.set(x, y, z); signs.add(panel); return panel;
   }
   const terrain=buildQueenstownTerrain();scene.add(terrain.mesh);
   // Connected outer district circuit doubles explorable area, not just backdrop size.
