@@ -309,8 +309,8 @@ is short, so the height is not copied; the density and the curl are.
   turf the Gardens' own lawns carry was not checked.
 - **The sward.** A district that sets `scene.userData.lawnSward` gets a third
   grass mesh, `Lawn sward`, beside the two tuft meshes (`createGrass` in
-  `src/game/ground-cover.ts`). Each instance is a clump of five blades, 8 to
-  14 cm tall, arching outward; each blade has three joints (25 triangles a
+  `src/game/ground-cover.ts`). Each instance is a clump of five blades, 14 to
+  23 cm tall (raised from 8 to 14 cm, which the owner found short), arching outward; each blade has three joints (25 triangles a
   clump). The wind's lean grows with the square of height, so a jointed blade
   curls over where the tufts' straight blades tip.
 - **Budget** (`swardDetail` in `src/game/environment-quality.ts`): none on Low

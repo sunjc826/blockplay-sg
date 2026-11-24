@@ -140,7 +140,7 @@ it('a lawn that asks for a sward gets short jointed blades close by, and none wh
     const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), scale = new THREE.Vector3(), turn = new THREE.Quaternion(), shade = new THREE.Color();
     for (let i = 0; i < sward.count; i += 37) {
       sward.getMatrixAt(i, matrix); matrix.decompose(place, turn, scale);
-      expect(Math.hypot(place.x, place.z)).toBeLessThan(12); expect(scale.y).toBeLessThan(.15); expect(scale.y).toBeGreaterThan(.08);
+      expect(Math.hypot(place.x, place.z)).toBeLessThan(12); expect(scale.y).toBeLessThan(.24); expect(scale.y).toBeGreaterThan(.13);
       expect(scale.x).toBeCloseTo(scale.z); sward.getColorAt(i, shade); expect(shade.g).toBeCloseTo(lawn.g);
     }
     // It follows the viewer in 2 m steps and does not rebuild in between.

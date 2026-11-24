@@ -430,7 +430,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
           // Written straight into the buffers: a turn about the vertical, a scale and a place, thousands of times a step.
           const turn = hash(ix, iz, 8) * Math.PI * 2, c = Math.cos(turn) * wide, s = Math.sin(turn) * wide, m = count * 16, tint = swardTints.get(k) ?? plain;
           matrices[m] = c; matrices[m + 1] = 0; matrices[m + 2] = -s; matrices[m + 3] = 0;
-          matrices[m + 4] = 0; matrices[m + 5] = .085 + hash(ix, iz, 9) * .055; matrices[m + 6] = 0; matrices[m + 7] = 0;
+          matrices[m + 4] = 0; matrices[m + 5] = .14 + hash(ix, iz, 9) * .09; matrices[m + 6] = 0; matrices[m + 7] = 0;
           matrices[m + 8] = s; matrices[m + 9] = 0; matrices[m + 10] = c; matrices[m + 11] = 0;
           matrices[m + 12] = dx; matrices[m + 13] = y - .004; matrices[m + 14] = dz; matrices[m + 15] = 1;
           shades[count * 3] = tint.r; shades[count * 3 + 1] = tint.g; shades[count * 3 + 2] = tint.b; count++;
