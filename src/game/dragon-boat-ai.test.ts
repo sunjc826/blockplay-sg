@@ -1,6 +1,6 @@
 import {FPS_WEAPONS} from './fps-rules';
 import {shootAndLand} from './arena-test-shots';
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,vi,beforeEach,afterEach} from 'vitest';
 import {buildMarinaScene} from './marina-scene';
 import {createArena,type ArenaSimulation} from './arena-rules';
 import {MARINA_BOUNDS,moveInMarina} from './marina-collision';
@@ -23,6 +23,11 @@ const bot=(a:ArenaSimulation,id:string)=>a.snapshot().actors.find(m=>m.id===id)!
 const advance=(a:ArenaSimulation,s:number)=>{for(let t=0;t<s-.001;t+=.05)a.step(.05);};
 
 describe('host-owned dragon boat crews',()=>{
+  // Route planning gets 6 ms of real time a step (NAVIGATION_BUDGET in arena-rules.ts), so how far a crew has
+  // planned by a given step depended on the machine: a slow CI runner had several bots board in one step and
+  // leave the player no seat to switch to. A clock that advances half a millisecond each time it is read gives
+  // every machine the same twelve planning turns a step.
+  let clock=0;beforeEach(()=>{clock=0;vi.spyOn(performance,'now').mockImplementation(()=>clock+=.5);});afterEach(()=>{vi.restoreAllMocks();});
   it('keeps island infantry at the Merlion instead of reserving an unreachable mainland boat',()=>{
     const {world,arena:a}=setup(true,1,{x:0,z:-8.5});
     try{
