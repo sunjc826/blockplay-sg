@@ -344,3 +344,28 @@ Not changed: Marina Bay's, Queenstown's and Raffles Place's own planters;
 Geylang's rooftop and five-foot-way planting (the same shapes are also
 lanterns there); the boundary backdrop; tuft count and blade shape. Seen in
 captures of HarbourFront (shrubs), Punggol (reeds) and Bishan (grass) only.
+
+## Shine (seventh pass)
+
+A leaf's waxy upper face mirrors the sun without tinting it. Before this pass
+nothing was tuned for that: palms and the modelled trees had one fixed
+roughness, generic crowns took whatever their district gave them, and grass
+had none.
+
+- **Gloss by species** (`crown.gloss` in `src/game/plant-species.ts`, 0 matte
+  to 1 waxy): kapur .8, jelutong .75, tembusu .6, jelawai jaha .5, rain tree
+  .15. These are from general botanical knowledge of leathery against thin
+  leaves, not from an NParks statement, and the numbers are by eye. Generic
+  crowns and shrubs use .35, reeds .45. Gloss travels as the third component
+  of the `leafLever` attribute.
+- **Leaf by leaf** (`src/game/leaf-cards.ts`): every leaf in a spray gets its
+  own roughness about the species' value and its own small tilt of the
+  normal, and the tilt follows the leaf's flap. So the sun glints off single
+  leaves and the glints move in wind, instead of one sheen lying across a
+  whole card. The tilt fades out between 30 and 80 m. Twigs stay matte.
+- Glossy species also reflect more than the stock four percent (up to about
+  fifteen), chosen by eye so the highlight is visible; not a measured value.
+- **Grass**: tufts and the lawn sward went from roughness 1 to .72, which
+  gives a lawn a pale sheen when you look toward a low sun.
+- Not done: palms (still one fixed roughness), wet leaves in rain, the herbs.
+

@@ -227,16 +227,19 @@ export function leafAtlas() {
 export const LEAF_CARD_ATTRIBUTE = 'leafCard';
 /** Per vertex: across the card (-.5 to .5) and along it from its base (0 to 1). */
 export const LEAF_LEVER_ATTRIBUTE = 'leafLever';
+/** The gloss of a leaf whose species is not known: 0 matte, 1 waxy. Third component of the lever attribute. */
+export const LEAF_GLOSS = .35;
 
 export const leafCardVertexDeclarations = /* glsl */`
 attribute vec4 leafCard;
-attribute vec2 leafLever;
+attribute vec3 leafLever;
 varying vec4 vLeafCard;
 varying vec2 vLeafWind;
+varying float vLeafGloss;
 `;
 /** After the tree wind's bend, which defines TREE_WIND and the gust it rides on. */
 export const leafCardVertex = /* glsl */`
-vLeafCard = leafCard; vLeafWind = vec2(0.0);
+vLeafCard = leafCard; vLeafWind = vec2(0.0); vLeafGloss = leafLever.z;
 #ifdef TREE_WIND
 if (leafCard.z > 0.0) {
   float leafBlow = treeStrength * treeRustle * (.55 + .9 * treeWave);
@@ -254,6 +257,24 @@ uniform sampler2D leafAtlas;
 uniform sampler2D leafStalks;
 varying vec4 vLeafCard;
 varying vec2 vLeafWind;
+varying float vLeafGloss;
+// Set per leaf below and read after the material's own roughness and normal: negative means not a leaf.
+float leafRough = -1.0;
+vec3 leafTilt = vec3(0.0);
+`;
+/** After the material's roughness: each leaf has its own, about the species' gloss. */
+export const leafCardRoughness = /* glsl */`
+if (leafRough >= 0.0) roughnessFactor = leafRough;
+`;
+/** After the material's surface is set up: a waxy cuticle mirrors more of the sun than the engine's stock
+ * four percent, by eye rather than by measurement, so a glossy crown visibly glitters. */
+export const leafCardSpecular = /* glsl */`
+if (leafRough >= 0.0 && leafRough < .9) material.specularColor = vec3(.04 + .13 * vLeafGloss);
+`;
+/** After the material's normal: each leaf faces a little its own way, and turns as it flaps, so the sun
+ * glints off one leaf and then its neighbour instead of lying across the whole spray as one sheen. */
+export const leafCardNormal = /* glsl */`
+normal = normalize(normal + leafTilt);
 `;
 /** Before the alpha test: turn the lookup about the nearest leaf's stalk, shade by the leaf, cut away the rest. */
 export const leafCardFragment = /* glsl */`
@@ -278,10 +299,19 @@ if (vLeafCard.z > 0.0) {
   // A leaf that turns catches the light differently; a twig is bark.
   diffuseColor.rgb *= leafTexel.a >= leafTwig ? leafTexel.r * 1.55 * (1.0 + .45 * leafTurn) : .0;
   diffuseColor.rgb += leafTexel.a >= leafTwig ? vec3(0.0) : vec3(.16, .12, .09);
+#ifdef STANDARD
+  // The waxy upper face of a leaf mirrors the sun; bark does not. Beyond 80 m a leaf is too small to glint alone.
+  float leafSeed = fract(leafStalk.z * 7.31 + vLeafCard.z * 3.17), leafLone = 1.0 - smoothstep(30.0, 80.0, length(vViewPosition));
+  if (leafTexel.a >= leafTwig) {
+    leafRough = clamp(mix(.82, .32, vLeafGloss) * (.85 + .4 * fract(leafSeed * 5.3)), .2, 1.0);
+    leafTilt = (vec3(cos(leafSeed * 6.283), sin(leafSeed * 6.283), 0.0) * .38
+      + vec3(leafTurn * 1.4, vLeafWind.y * sin(leafClock * 1.3 + 2.0) * 1.1, 0.0)) * leafLone;
+  } else leafRough = .92;
+#endif
 }
 `;
 
-const KEY = 'leaf-cards-v1';
+const KEY = 'leaf-cards-v2';
 const carded = new WeakSet<THREE.Material>();
 export const hasLeafCards = (material: THREE.Material) => carded.has(material);
 /**
@@ -300,7 +330,10 @@ export function cutLeafCards<T extends THREE.Material>(material: T): T {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + leafCardVertexDeclarations)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + leafCardVertex);
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + leafCardFragmentDeclarations)
-      .replace('#include <alphatest_fragment>', leafCardFragment + '#include <alphatest_fragment>');
+      .replace('#include <alphatest_fragment>', leafCardFragment + '#include <alphatest_fragment>')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafCardRoughness)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + leafCardNormal)
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n' + leafCardSpecular);
   };
   material.customProgramCacheKey = function() { return `${key.call(this)}|${KEY}`; };
   material.needsUpdate = true;
@@ -331,7 +364,7 @@ export function leafMassGeometry(pattern: LeafPattern = 'opposite') {
     const face = b.p.clone().sub(a.p).cross(c.p.clone().sub(a.p)).normalize(), flipped = face.dot(out) < 0, n = face.multiplyScalar(flipped ? -1 : 1).addScaledVector(out, .8).normalize();
     for (const tri of flipped ? [[a, c, b], [b, c, d]] : [[a, b, c], [b, d, c]]) for (const q of tri) {
       position.push(q.p.x, q.p.y, q.p.z); normal.push(n.x, n.y, n.z); color.push(q.c * .96, q.c, q.c * .9);
-      card.push(q.k[0], q.k[1], q.k[2], q.k[3]); lever.push(q.k[4], q.k[5]);
+      card.push(q.k[0], q.k[1], q.k[2], q.k[3]); lever.push(q.k[4], q.k[5], LEAF_GLOSS);
     }
   };
   for (let i = 0; i < 4; i++) { const a = i * 1.571 + rand(), out = v(Math.cos(a) * .8, .35 + .4 * rand(), Math.sin(a) * .8).normalize(); spray(out.clone().multiplyScalar(.1), out, 1.2, 0, .5 + .1 * rand()); }
@@ -341,7 +374,7 @@ export function leafMassGeometry(pattern: LeafPattern = 'opposite') {
   }
   mass = new THREE.BufferGeometry();
   mass.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); mass.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); mass.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
-  mass.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); mass.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 2));
+  mass.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); mass.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 3));
   mass.computeBoundingBox(); mass.computeBoundingSphere();
   return mass;
 }
@@ -362,12 +395,12 @@ export function leafReedGeometry() {
     const q = [corner(-1, 0), corner(1, 0), corner(-1, 1), corner(1, 1)];
     for (const v of [q[0], q[1], q[2], q[1], q[3], q[2]]) {
       position.push(v.p[0], v.p[1], v.p[2]); normal.push(nx * .6, .8, nz * .6); color.push(v.c * .96, v.c, v.c * .88);
-      card.push(v.k[0], v.k[1], v.k[2], v.k[3]); lever.push(v.k[4], v.k[5]);
+      card.push(v.k[0], v.k[1], v.k[2], v.k[3]); lever.push(v.k[4], v.k[5], .45);
     }
   }
   reeds = new THREE.BufferGeometry();
   reeds.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); reeds.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); reeds.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
-  reeds.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); reeds.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 2));
+  reeds.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); reeds.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 3));
   reeds.computeBoundingBox(); reeds.computeBoundingSphere();
   return reeds;
 }

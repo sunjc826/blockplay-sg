@@ -328,7 +328,8 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   // A meadow's diffuse response is broad, rather than black/bright alternating
   // paper faces. Upward foliage normals retain the scene's light and shadows.
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(positions.map((_, i) => i % 3 === 1 ? 1 : 0),3));
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 1 });
+  // A blade's upper face is smooth enough to shine: with the sun low and ahead, a lawn takes a sheen.
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: .72 });
   const time = { value: 0 }, eye = { value: new THREE.Vector3() }, reach = { value: 23 };
   const farReach = { value: 23 }, nearReach = { value: 23 };
   const wind = { value: 0 }, foliage = foliageUniforms(scene);

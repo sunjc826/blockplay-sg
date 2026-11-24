@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LEAF_GLOSS } from './leaf-cards';
 import { treePart } from './tree-wind';
 import { shadeLeaves } from './leaf-shading';
 import { PALM_SPECS, type PalmSpec, type PalmSpecies } from './palm-species';
@@ -45,11 +46,11 @@ export function random(seed: number) {
 }
 
 /** Triangle soup with normals and vertex colours, shared by the palm and plant builders. */
-/** u, v, phase, size, across, along. */
-export type CardVertex = readonly [number, number, number, number, number, number];
+/** u, v, phase, size, across, along, and optionally how glossy the leaf is (0 matte to 1 waxy). */
+export type CardVertex = readonly [number, number, number, number, number, number, number?];
 export class Mesher {
   position: number[] = []; normal: number[] = []; color: number[] = [];
-  /** Leaf-card data per vertex (leaf-cards.ts), only where a caller gives it: u, v, phase, size, then across and along. */
+  /** Leaf-card data per vertex (leaf-cards.ts), only where a caller gives it: u, v, phase, size, then across, along and gloss. */
   card: number[] = []; lever: number[] = [];
   /** Wound to face the first normal, so double-sided materials light the right side. */
   tri(a: V3, b: V3, c: V3, na: V3, nb: V3, nc: V3, ca: V3, cb: V3, cc: V3, cards?: readonly [CardVertex, CardVertex, CardVertex]) {
@@ -57,11 +58,11 @@ export class Mesher {
     if (dot(cross(sub(b, a), sub(c, a)), na) < 0) { [b, c] = [c, b]; [nb, nc] = [nc, nb]; [cb, cc] = [cc, cb]; [kb, kc] = [kc, kb]; }
     if (ka && kb && kc) {
       this.padCards();
-      for (const k of [ka, kb, kc]) { this.card.push(k[0], k[1], k[2], k[3]); this.lever.push(k[4], k[5]); }
+      for (const k of [ka, kb, kc]) { this.card.push(k[0], k[1], k[2], k[3]); this.lever.push(k[4], k[5], k[6] ?? LEAF_GLOSS); }
     }
     this.position.push(...a, ...b, ...c); this.normal.push(...na, ...nb, ...nc); this.color.push(...ca, ...cb, ...cc);
   }
-  private padCards() { const n = this.position.length / 3; while (this.card.length < n * 4) this.card.push(0); while (this.lever.length < n * 2) this.lever.push(0); }
+  private padCards() { const n = this.position.length / 3; while (this.card.length < n * 4) this.card.push(0); while (this.lever.length < n * 3) this.lever.push(0); }
   /** One face, one normal: the face's own, turned toward `toward` and softened by it. */
   flat(a: V3, b: V3, c: V3, toward: V3, soften: number, ca: V3, cb: V3, cc: V3, cards?: readonly [CardVertex, CardVertex, CardVertex]) {
     let n = unit(cross(sub(b, a), sub(c, a)));
@@ -97,7 +98,7 @@ export class Mesher {
     const g = new THREE.BufferGeometry();
     if (cards) {
       this.padCards();
-      g.setAttribute('leafCard', new THREE.Float32BufferAttribute(this.card, 4)); g.setAttribute('leafLever', new THREE.Float32BufferAttribute(this.lever, 2));
+      g.setAttribute('leafCard', new THREE.Float32BufferAttribute(this.card, 4)); g.setAttribute('leafLever', new THREE.Float32BufferAttribute(this.lever, 3));
     }
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.position, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.normal, 3));

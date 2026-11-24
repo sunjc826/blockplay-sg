@@ -43,7 +43,7 @@ function cluster(leaf: Mesher, spec: TreeSpec, centre: V3, radius: number, rand:
     const across = unit(cross(out, along)), near = scaled(body, .85);
     const base = add(add(at, along, -size * .58), out, -size * .06), end = add(add(add(at, along, size * .62), [0, -1, 0], size * droop), out, size * .1);
     const tile = leafTile(c.foliage, Math.floor(rand() * LEAF_VARIANTS)), phase = .04 + .96 * rand(), flip = rand() < .5 ? 1 : -1;
-    const corner = (p: V3, x: number, y: number): [V3, CardVertex] => [add(p, across, x * size * 1.04), [tile.u + tile.side * (.5 + x * flip), tile.v + tile.side * y, phase, size, x, y]];
+    const corner = (p: V3, x: number, y: number): [V3, CardVertex] => [add(p, across, x * size * 1.04), [tile.u + tile.side * (.5 + x * flip), tile.v + tile.side * y, phase, size, x, y, c.gloss]];
     const [p00, k00] = corner(base, -.5, 0), [p10, k10] = corner(base, .5, 0), [p01, k01] = corner(end, -.5, 1), [p11, k11] = corner(end, .5, 1);
     leaf.flat(p00, p10, p01, out, .8, near, near, far, [k00, k10, k01]);
     leaf.flat(p10, p11, p01, out, .8, near, far, far, [k10, k11, k01]);

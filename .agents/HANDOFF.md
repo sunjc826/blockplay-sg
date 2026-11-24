@@ -17783,3 +17783,11 @@ On request ("Go on to LAN"). With Background simulation on, the host of a LAN or
 - **Smokes.** `arena-lan-smoke.mjs` takes `ARENA_LAN_WORKER=1` (host on the worker, asserted) and `ARENA_LAN_PACE` (multiplies waits). **That smoke is stale without the worker too**: "LAN map never shows opponents or practice markers" finds 12 `[data-minimap-marker]`, and the aimed host kill times out; both fail identically on `main`. With the marker assertion removed, baseline and worker runs both pass room, roster, deploy, start and guest movement replicated into the host's snapshot, then stop at the kill. `test:sim:parity` takes `free-for-all:district`.
 - **Checked**: `tsc -b`; vitest 465 files, 4,703 tests (new in `sim-host.test.ts`: a guest is admitted to a hosted simulation, their rounds land on the host and they are told, a refused vehicle request is the simulation's own refusal); `vite build`; parity on free-for-all:district and team-deathmatch:smith-street; the LAN smoke as above on the production build.
 - **Not checked**: a kill either way across two browsers with the worker on (unit test only); a public room; Team Deathmatch or Hardpoint hosted with guests in a browser; a hidden host tab (the worker keeps stepping, but the runtime's 50 ms broadcast timer is still throttled there); worker loss with guests connected; a real phone.
+
+## 2026-11-24: leaf and grass shine
+On request ("do plant leaves have specular properties?", then "yes, add it").
+- **`leafLever` is now three components**: across, along, gloss (0 matte to 1 waxy). `Mesher` fills it from an optional seventh `CardVertex` value, default `LEAF_GLOSS` (.35, exported from `leaf-cards.ts`); `TreeSpec.crown.gloss` sets it per species.
+- **`cutLeafCards`** adds three more fragment stages after the cut (`leafCardRoughness`, `leafCardNormal`, `leafCardSpecular`), fed by two fragment globals (`leafRough`, `leafTilt`) set in `leafCardFragment` under `STANDARD`. Cache key `leaf-cards-v2`. Depth materials lack those stages and are unaffected.
+- **Grass** material roughness 1 to .72 (`createGrass`).
+- **Not done:** palms, wet leaves, herbs. Gloss values and the raised reflectance are by eye. SwiftShader stills of the Botanic Gardens only; the flicker in wind was not watched in motion; no real-GPU frame rate.
+

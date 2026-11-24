@@ -23,7 +23,7 @@ export interface TreeSpec extends PlantNote {
     girth: number; clusters: number; scatter: number; /** The trunk carries on through the crown as a leader. */ leader: boolean };
   /** One long low limb: where it leaves (m), its length, its pitch along most of its run and at its upturned end (degrees). */
   lowLimb?: { at: number; length: number; sag: number; upturn: number; girth: number };
-  crown: { leaf: string; tip: string; young: string; /** How the leaves sit on a twig (leaf-cards.ts). */ foliage: LeafPattern; radius: number; sprays: number; spray: number; droop: number;
+  crown: { leaf: string; tip: string; young: string; /** How the leaves sit on a twig (leaf-cards.ts). */ foliage: LeafPattern; /** How much the leaf's upper face shines: 0 matte, 1 waxy and leathery. */ gloss: number; radius: number; sprays: number; spray: number; droop: number;
     /** Below 1 flattens each leaf mass into a layer. */ flatten: number; /** Share of sprays in young leaf. */ flush: number;
     accent?: { colour: string; share: number; size: number } };
 }
@@ -46,7 +46,7 @@ const tembusu: TreeSpec = {
   trunk: { colour: '#5a4636', dark: '#2c221a', fissure: .7, radius: .42, taper: .5, flare: .35, flareHeight: .8, sides: 8, lean: .03 },
   buttress: { count: 4, height: 1.1, spread: 1, thickness: .16 },
   limbs: { tiers: 3, perTier: 3, rise: [8, 50], turn: [48, 72], length: .3, topShare: .6, girth: .45, clusters: 3, scatter: .7, leader: false },
-  crown: { foliage: 'opposite', leaf: '#6a9648', tip: '#44743a', young: '#9bb65a', radius: 1.9, sprays: 11, spray: 1.6, droop: .22, flatten: .8, flush: .14,
+  crown: { foliage: 'opposite', gloss: .6, leaf: '#6a9648', tip: '#44743a', young: '#9bb65a', radius: 1.9, sprays: 11, spray: 1.6, droop: .22, flatten: .8, flush: .14,
     accent: { colour: '#d9622b', share: .1, size: .07 } },
 };
 // FFW 3106 (Samanea saman): native to northern tropical South America, widely cultivated in Singapore; usually to
@@ -58,7 +58,7 @@ const rainTree: TreeSpec = {
   source: 'https://www.nparks.gov.sg/florafaunaweb/flora/3/1/3106', seed: 107, height: 13, bole: .2,
   trunk: { colour: '#56432f', dark: '#2b2018', fissure: .6, radius: .55, taper: .6, flare: .3, flareHeight: .7, sides: 8, lean: .02 },
   limbs: { tiers: 2, perTier: 4, rise: [34, 58], turn: [6, 22], length: .56, topShare: .6, girth: .5, clusters: 3, scatter: .5, leader: false },
-  crown: { foliage: 'bipinnate', leaf: '#5f9a45', tip: '#467c3a', young: '#8fb858', radius: 2.7, sprays: 9, spray: 2.3, droop: .12, flatten: .45, flush: .1,
+  crown: { foliage: 'bipinnate', gloss: .15, leaf: '#5f9a45', tip: '#467c3a', young: '#8fb858', radius: 2.7, sprays: 9, spray: 2.3, droop: .12, flatten: .45, flush: .1,
     accent: { colour: '#e48aa8', share: .12, size: .09 } },
 };
 // FFW 2866 (Dyera costulata): large emergent tree to 80 m, bark dark grey, brown to black; crown distinctly tiered
@@ -70,7 +70,7 @@ const jelutong: TreeSpec = {
   source: 'https://heritagetrees.nparks.gov.sg/heritagetrees/ht-2015-239/', seed: 113, height: 29, bole: .5,
   trunk: { colour: '#4d4a45', dark: '#2a2826', fissure: .25, radius: .65, taper: .6, flare: .25, flareHeight: 1, sides: 8, lean: .01 },
   limbs: { tiers: 3, perTier: 5, rise: [30, 62], turn: [52, 76], length: .27, topShare: .5, girth: .34, clusters: 2, scatter: 1.6, leader: true },
-  crown: { foliage: 'whorl', leaf: '#3d7a3e', tip: '#2c5f33', young: '#b9707a', radius: 3, sprays: 8, spray: 2.6, droop: .2, flatten: 1.2, flush: .07 },
+  crown: { foliage: 'whorl', gloss: .75, leaf: '#3d7a3e', tip: '#2c5f33', young: '#b9707a', radius: 3, sprays: 8, spray: 2.6, droop: .2, flatten: 1.2, flush: .07 },
 };
 export const PLANT_SPECS: Readonly<Record<PlantSpecies, PlantSpec>> = {
   tembusu,
@@ -89,7 +89,7 @@ export const PLANT_SPECS: Readonly<Record<PlantSpecies, PlantSpec>> = {
     trunk: { colour: '#a48f70', dark: '#75624a', fissure: .3, radius: 1.27, taper: .45, flare: .22, flareHeight: 2.2, sides: 9, lean: .012 },
     buttress: { count: 6, height: 5, spread: 4.4, thickness: .32 },
     limbs: { tiers: 3, perTier: 5, rise: [4, 20], turn: [-4, 10], length: .32, topShare: .6, girth: .3, clusters: 3, scatter: .6, leader: true },
-    crown: { foliage: 'rosette', leaf: '#3f7a3c', tip: '#2d5e30', young: '#86a556', radius: 3.3, sprays: 10, spray: 2.6, droop: .14, flatten: .45, flush: .1 },
+    crown: { foliage: 'rosette', gloss: .5, leaf: '#3f7a3c', tip: '#2d5e30', young: '#86a556', radius: 3.3, sprays: 10, spray: 2.6, droop: .14, flatten: .45, flush: .1 },
   },
   'rain-tree': rainTree,
   // The Bandstand's ring. SBG's heritage-landscapes page: the Bandstand lawn is "planted with a ring of Yellow Rain
@@ -112,7 +112,7 @@ export const PLANT_SPECS: Readonly<Record<PlantSpecies, PlantSpec>> = {
     trunk: { colour: '#6b5544', dark: '#3d2f25', fissure: .5, radius: .52, taper: .5, flare: .25, flareHeight: .9, sides: 8, lean: .01 },
     buttress: { count: 4, height: 1.3, spread: 1.2, thickness: .14 },
     limbs: { tiers: 3, perTier: 4, rise: [18, 46], turn: [34, 58], length: .22, topShare: .55, girth: .32, clusters: 2, scatter: .9, leader: true },
-    crown: { foliage: 'alternate', leaf: '#4f8a44', tip: '#3a7038', young: '#93b060', radius: 2, sprays: 12, spray: 1.25, droop: .18, flatten: .8, flush: .12 },
+    crown: { foliage: 'alternate', gloss: .8, leaf: '#4f8a44', tip: '#3a7038', young: '#93b060', radius: 2, sprays: 12, spray: 1.25, droop: .18, flatten: .8, flush: .12 },
   },
   // FFW 1990: rhizomatous, upright and slightly arching at the tips, 2-6 m, forming large colonies; 14-34 leaves in
   // two ranks, lanceolate, 38-85 by 8-18 cm; an egg-shaped head of crimson-pink bracts on its own smooth green

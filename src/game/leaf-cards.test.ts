@@ -149,4 +149,30 @@ describe('leaf sprays', () => {
     expect([roots.getX(0), roots.getY(0), roots.getZ(0), roots.getW(0)].map(v => +v.toFixed(3))).toEqual([0, 1.1, 0, 1.6]);
     expect([roots.getY(1), roots.getW(1)]).toEqual([6, 6]);
   });
+
+  it('gives every leaf its species\' gloss, and its own roughness, tilt and highlight in the lit shader', () => {
+    for (const species of PLANT_SPECIES) {
+      const spec = PLANT_SPECS[species]; if (spec.kind !== 'tree') continue;
+      const leaf = buildPlant(species).leaf, card = leaf.getAttribute('leafCard'), lever = leaf.getAttribute('leafLever');
+      expect(lever.itemSize).toBe(3); expect(spec.crown.gloss).toBeGreaterThanOrEqual(0); expect(spec.crown.gloss).toBeLessThanOrEqual(1);
+      for (let i = 0; i < card.count; i += 7) if (card.getZ(i) > 0) expect(lever.getZ(i)).toBeCloseTo(spec.crown.gloss);
+    }
+    // A rain tree's small leaflets are dull beside a kapur's leathery leaf.
+    expect(PLANT_SPECS.kapur.kind === 'tree' && PLANT_SPECS['rain-tree'].kind === 'tree' && PLANT_SPECS.kapur.crown.gloss > PLANT_SPECS['rain-tree'].crown.gloss + .4).toBe(true);
+    for (const shape of [leafMassGeometry(), leafReedGeometry()]) { const lever = shape.getAttribute('leafLever'); expect(lever.itemSize).toBe(3); expect(lever.getZ(0)).toBeGreaterThan(.2); expect(lever.getZ(0)).toBeLessThan(.6); }
+    const material = cutLeafCards(new THREE.MeshStandardMaterial({ roughness: .9 }));
+    const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+    material.onBeforeCompile(shader as unknown as THREE.WebGLProgramParametersWithUniforms, undefined as unknown as THREE.WebGLRenderer);
+    const f = shader.fragmentShader;
+    // Set where the leaf is cut out, read after the material's own roughness, normal and surface.
+    expect(f.indexOf('leafRough = clamp(')).toBeGreaterThan(0);
+    expect(f.indexOf('roughnessFactor = leafRough')).toBeGreaterThan(f.indexOf('leafRough = clamp('));
+    expect(f.indexOf('normal = normalize(normal + leafTilt)')).toBeGreaterThan(f.indexOf('roughnessFactor = leafRough'));
+    expect(f.indexOf('material.specularColor = vec3(.04')).toBeGreaterThan(f.indexOf('normal = normalize(normal + leafTilt)'));
+    expect(shader.vertexShader).toContain('vLeafGloss = leafLever.z');
+    // A depth material has none of those stages and must still compile the cut.
+    const depth = cutLeafCards(new THREE.MeshDepthMaterial()), depthShader = { uniforms: {}, vertexShader: THREE.ShaderLib.depth.vertexShader, fragmentShader: THREE.ShaderLib.depth.fragmentShader };
+    depth.onBeforeCompile(depthShader as unknown as THREE.WebGLProgramParametersWithUniforms, undefined as unknown as THREE.WebGLRenderer);
+    expect(depthShader.fragmentShader).not.toContain('roughnessFactor = leafRough'); expect(depthShader.fragmentShader).toContain('float leafRough');
+  });
 });
