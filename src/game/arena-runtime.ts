@@ -22,6 +22,7 @@ import { validTransport } from './combat-transports';
 import { validRaiderBounty } from './combat-rewards';
 import { MAX_CONFIRMED_IMPACTS, IMPACT_LIFETIME } from './confirmed-impacts';
 import { createSceneCover } from './scene-cover';
+import type { SimClient } from './sim-client';
 import { validGrenadeConditions } from './grenade-effects';
 import { MAX_GRENADES, MAX_GRENADE_EVENTS, validLiveGrenade, validGrenadeEvent, validThrowGrenade, type ThrowGrenade } from './grenade-system';
 import { getWalkSurfaces, getTraversalObstacles } from './vertical-routes';
@@ -70,11 +71,15 @@ export interface ArenaRuntimeOptions {
   scene: THREE.Scene; obstacles: readonly Obstacle[]; session: LanSession;
   profile?: ArmoryProfile; botCount: number; composition?: string;
   environment?: ArenaEnvironment; vehicles?: ArenaVehicleOptions; initialVitals?: Partial<ArenaVitals>;
+  /** A simulation hosted on another thread (sim-client.ts), in place of one built here. Solo only. */
+  remote?: SimClient;
 }
 export const FIGURE_POSE = { none: 0, half: 1, full: 2 } as const;
 export type FigurePose = typeof FIGURE_POSE[keyof typeof FIGURE_POSE];
 /** After this long unposed, a figure is posed a few extra times on its first frame back, so it doesn't drift in from its old pose. */
 const FIGURE_SETTLE_AFTER = .25;
+/** Seconds a hosted simulation's figures trail its 20 Hz states by, to move smoothly between them. */
+const REMOTE_PRESENTATION_DELAY = .075;
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const RAIDER_STATES: readonly ArenaRaiderState[] = ['landing', 'landed', 'inbound', 'orbit', 'leaving', 'cruise', 'lock', 'dive', 'down', 'wreck', 'exploded'];
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -479,10 +484,12 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   let loadoutRequest = 0;
   const loadoutRequests = new Map<number, (accepted: boolean) => void>();
   const authority = session.role !== 'guest';
+  // A hosted simulation keeps its own time and answers a moment later; its figures are drawn as a guest's are.
+  const remote = session.role === 'solo' ? options.remote : undefined;
   // Every shot and every bot's line of sight is checked against the rendered
   // scene, not only the box footprints: mesh-only walls must stop bot fire.
   const sceneCover = createSceneCover(scene);
-  const simulation = authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene), lifts:getBuildingLifts(scene) },
+  const simulation = remote ? remote.arena : authority ? createArena(options.obstacles, options.botCount, options.composition, options.environment, options.vehicles, { bounds: options.environment?.bounds ?? MARINA_BOUNDS, obstacles: options.obstacles, surfaces: getWalkSurfaces(scene), traversalObstacles: getTraversalObstacles(scene), lifts:getBuildingLifts(scene) },
     (origin, direction, distance) => coverLimit(origin, direction, distance), (from, to) => {
       const distance = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z); if (distance < 1e-8) return null;
       const hit = sceneCover.trace(from, { x: (to.x - from.x) / distance, y: (to.y - from.y) / distance, z: (to.z - from.z) / distance }, distance);
@@ -521,12 +528,12 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (self && (!previousSelf || (!previousSelf.alive && self.alive) || (previousSelf.deaths !== self.deaths && self.alive) || !localAdopted)) spawnPending = true;
     if (spawnPending || self?.alive !== previousSelf?.alive || self?.vehicle !== previousSelf?.vehicle || self?.seat !== previousSelf?.seat) reconciliation.reset();
     previousSelf = self ? { ...self } : null;
-    if (!authority) {
+    if (!authority || remote) {
       const present = new Set<string>();
       for (const actor of next.actors) if (actor.id !== session.id) {
         present.add(actor.id);
         let presentation = presentations.get(actor.id);
-        if (!presentation) { presentation = createActorPresentation(); presentations.set(actor.id, presentation); }
+        if (!presentation) { presentation = createActorPresentation(remote ? REMOTE_PRESENTATION_DELAY : undefined); presentations.set(actor.id, presentation); }
         presentation.accept(actor, next.elapsed, performance.now() / 1000);
       }
       for (const id of presentations.keys()) if (!present.has(id)) presentations.delete(id);
@@ -536,7 +543,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const said of next.barks ?? []) if (!seenBarks.has(said.id)) { seenBarks.add(said.id); pendingBarks.push(said); }
     if (seenBarks.size > 300) { seenBarks.clear(); for (const said of next.barks ?? []) seenBarks.add(said.id); }
   }
-  const refresh = () => { if (simulation) accept(simulation.snapshot()); };
+  // A hosted simulation hands back the same state until its next one arrives; accepting it twice would stall the figures.
+  const refresh = () => { if (!simulation) return; const next = simulation.snapshot(); if (!remote || next !== snapshot) accept(next); };
   const publish = () => {
     refresh();
     if (session.role !== 'host' || !snapshot) return;
@@ -757,11 +765,13 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     const connected = (session.isConnected?.() ?? true) && (authority || !!hostId && session.getPeers().some(peer => peer.id === hostId));
     if (!connected) { for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear(); }
     inputTime += dt; helloTime += dt;
+    // A hosted simulation's states arrive between frames; take the newest now, not at the next 50 ms timer.
+    if (remote) { deliverHits(); refresh(); }
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:matchArea,mode:matchMode }); }
     self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (validArenaInput(input)) lastInput = { ...input };
-    if (simulation && input.playing && !started) { started = true; lastTime = performance.now(); publish(); }
+    if (simulation && input.playing && !started) { started = true; lastTime = performance.now(); remote?.setRunning(true); publish(); }
     // Never overwrite an authoritative spawn with the renderer's previous position.
     if (localAdopted && !spawnPending && validArenaInput(input)) {
       if (simulation) simulation.setInput(session.id, input);
@@ -812,7 +822,9 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   function vehicleAction(action: 'enter' | 'exit' | 'switch', kind?: VehicleKind) {
     if (disposed || !started || !localAdopted) return;
     if (simulation) {
-      if (!simulation.vehicleAction(session.id, action, kind)) vehicleNotice = 'Seat unavailable. Board stopped vehicles; exits need clear ground. Land helicopters first.';
+      const refused = () => { vehicleNotice = 'Seat unavailable. Board stopped vehicles; exits need clear ground. Land helicopters first.'; };
+      if (!simulation.vehicleAction(session.id, action, kind)) refused();
+      else if (remote) void remote.lastAnswer().then(accepted => { if (!accepted && !disposed) refused(); });
       publish();
     } else session.send({ type: 'arena-vehicle', action, kind });
   }
@@ -855,6 +867,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) {
       if (freshInput && validArenaInput(freshInput)) simulation.setInput(session.id, freshInput);
       const shot = simulation.shoot(session.id, origin, direction, weapon, maxDistance); if (shot.hitId) pendingHit = shot;
+      if (remote) void remote.lastAnswer().then(landed => { const hit = mergeHits([...(pendingHit ? [pendingHit] : []), landed as ArenaShot]); if (hit && !disposed) pendingHit = hit; });
       refresh();
     } else {
       if (freshInput && validArenaInput(freshInput)) sendInput(freshInput);
@@ -893,6 +906,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   function activateStreak(kind: StreakId, at?: ArenaPoint, result?: (accepted: boolean) => void) {
     if (disposed || !started || !localAdopted || !isStreakId(kind) || streakRequests.size >= 8) { result?.(false); return false; }
+    if (remote) { simulation!.activateStreak(session.id, kind, at); void remote.lastAnswer().then(ok => { if (!disposed) result?.(ok === true); }); return true; }
     if (simulation) { const ok = simulation.activateStreak(session.id, kind, at); if (ok) publish(); result?.(ok); return ok; }
     const request = ++streakRequest; if (result) streakRequests.set(request, result);
     session.send({ type: 'streak-use', kind, request, ...(at ? { at } : {}) }); return true;
@@ -902,7 +916,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
     else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
   }
-  function reset() { if (!simulation || disposed) return; simulation.reset(); for (const actor of simulation.snapshot().actors) simulation.preparePlayer(actor.id); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
+  function reset() { if (!simulation || disposed) return; simulation.reset(); for (const actor of simulation.snapshot().actors) simulation.preparePlayer(actor.id); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; remote?.setRunning(false); localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
   function queueRespawnLoadout(selection: RespawnLoadoutSelection, deployment = false): Promise<boolean> {
     const next = applyRespawnLoadout(spendRentalTime(inventory, snapshot?.actors.find(actor => actor.id === session.id)?.rentalTimeMs ?? 0), selection);
     if (disposed || !next) return Promise.resolve(false);
@@ -935,6 +949,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   function setGrenadeSupplies(held: Record<string, number>) { if (session.role === 'solo' && simulation) simulation.setPlayerGrenades(session.id, held); }
   function throwGrenade(grenade: ThrowGrenade, result?: (accepted: boolean) => void) {
     if (disposed || !started || !localAdopted || !validThrowGrenade(grenade) || grenadeRequests.size >= 24) { result?.(false); return false; }
+    if (remote) { simulation!.throwGrenade(session.id, grenade); void remote.lastAnswer().then(accepted => { if (!disposed) result?.(accepted === true); }); return true; }
     if (simulation) { const accepted = simulation.throwGrenade(session.id, grenade); if (accepted) publish(); result?.(accepted); return accepted; }
     const request = ++grenadeRequest; grenadeRequests.set(request, result);
     session.send({ type: 'throwGrenade', grenade, request }); return true;
@@ -967,6 +982,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     for (const callback of streakRequests.values()) callback(false); streakRequests.clear();
     for (const callback of grenadeRequests.values()) callback?.(false); grenadeRequests.clear();
     if (disposed) return; disposed = true; clearInterval(timer); unsubscribe(); unsubscribePeers();
+    remote?.setRunning(false); remote?.dispose?.();
     for (const avatar of avatars.values()) { scene.remove(avatar.root); avatar.resources.forEach(resource => resource.dispose()); }
     avatars.clear(); presentations.clear(); reconciliation.reset();
   }

@@ -5276,7 +5276,17 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
-      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, onFiguresAdded: patchMaterials, figureDetail, vehicles: boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition } });
+      const arenaVehicles = boundedMatch ? undefined : { spawns: fleetSpawns, flightObstacles: vehicles.flightObstacles(), openWorld: !!expedition };
+      // Development switch: `globalThis.blockplayWorkerSim = true` hosts an expedition's simulation in a worker
+      // (sim-remote.ts). Production builds drop this branch, and with it the worker.
+      let remote: import('./sim-client').SimClient | undefined;
+      if (import.meta.env.DEV && expedition && (globalThis as { blockplayWorkerSim?: boolean }).blockplayWorkerSim === true) {
+        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, self: options.arena.session.id, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
+          .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); return undefined; });
+        if (disposed) { remote?.dispose?.(); return; }
+      }
+      canvas.dataset.simulationThread = remote ? 'worker' : 'main';
+      arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, remote, onFiguresAdded: patchMaterials, figureDetail, vehicles: arenaVehicles });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
       if (expedition) arenaRuntime.setAutoRespawn(expedition.autoRespawn === true);
