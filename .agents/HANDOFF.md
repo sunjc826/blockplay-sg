@@ -17730,3 +17730,11 @@ On request ("Sure, all districts"). `batchTrees` (`tree-wind.ts`) now treats any
 - **`Wind-animated leaves`**: `leafMassGeometry()` from `leaf-cards.ts` (48 sprays in the unit sphere, 96 triangles) scaled by each crown's matrix and turned by a hash of its position. `coverApart`, and `raycast` is a no-op: without that, three's raycast in `firstVisibleHit` struck sprays outside the shape and `map-cover-audit` reported authority mismatches (Toa Payoh).
 - `marina-scene.test.ts` counts instanced meshes as a draw budget; it now counts only drawn ones.
 - **Not done:** shrubs and hedges that are rounded shapes but not `treePart`s; species for these trees; real-GPU frame rate; browser smokes. Captures: Pulau Ubin and Bishan only (SwiftShader).
+
+## 2026-11-24: shrubs, reeds and grass
+On request ("look into improving the shrubs and grass next").
+- **`leafShape(mesh)`** (`tree-wind.ts`) tags a rounded planting; `batchTrees` gives it a tree part rooted at its own foot (so it sways within itself) and draws it through the crown path: leaf mass, or `leafReedGeometry()` blades when `scale.y > 1.5 * max(scale.x, scale.z)`. Tagging is explicit because colour cannot tell a bush from Ubin's grey-green granite or a painted lantern. The same path now also picks up rounded shapes carrying `driftGround` (the crowns six districts register only for leaf drift), which the previous pass missed.
+- **Atlas tile 16** is `'blades'` (`BladePattern`), one spray.
+- **`sceneFlightObstacles` skips meshes marked `coverApart`**: leaf sprays were being boxed as cover masses alongside their shape, which moved Bukit Timah's rail corridor from open to broken in `zone-sectors.test.ts`.
+- **Grass** (`ground-cover.ts`): `soilMaterial(source, turf)` adds a blade pattern to green ground, faded out by 42 m; `createGrass` takes an optional `lawn(x, z)` colour and sets it per tuft through `instanceColor` (vertex colours are now multipliers); blade height follows `grassLush`. Cache keys bumped.
+- **Not done:** Marina Bay, Queenstown, Raffles Place and Geylang plantings; denser or reshaped tufts (no real-GPU frame rate to budget against); browser smokes. SwiftShader captures of three districts only.

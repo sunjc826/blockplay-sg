@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
@@ -130,7 +131,7 @@ export function buildYishunScene() {
   kit.obstacles.push({ minX: 49, maxX: 115, minZ: 77, maxZ: 141, maxY: .2 });
   for (const z of [65, 151]) box(82, .1, z, 104, .14, 6, pale);
   for (const x of [38, 126]) box(x, .1, 108, 6, .14, 86, pale);
-  for (const x of [54, 72, 90, 108]) for (const z of [80, 138]) blob(x, .6, z, 2.4, 1.2, 1.4, reed);
+  for (const x of [54, 72, 90, 108]) for (const z of [80, 138]) leafShape(blob(x, .6, z, 2.4, 1.2, 1.4, reed));
   for (const x of [45, 78, 112]) { tree(x, 158, 9, wood, leaf); tree(x, 55, 8, wood, leaf); }
   // An open pavilion and a separate east field keep the range clear.
   for (const x of [168, 214]) for (const z of [143, 157]) { cylinder(x, 3.2, z, .35, 6.4, steel); solid(x, z, .8, .8); }

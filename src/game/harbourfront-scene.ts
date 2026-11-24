@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
@@ -269,12 +270,12 @@ export function buildHarbourfrontScene() {
       } else if (i % 3 === 1) {
         // Visitor frontage: seats and low planting, not cargo cages by the mall.
         box(x, .55, 131.8, 8, 1.1, 1.3, stone); solid(x,131.8,8,1.3);
-        for(const dx of [-2.5,0,2.5]) blob(x+dx,1.5,131.8,1.5,.6,.65,fern);
+        for(const dx of [-2.5,0,2.5]) leafShape(blob(x+dx,1.5,131.8,1.5,.6,.65,fern));
         coastalBench(kit,x,129.8,.4);
       } else {
         // Planter wall, chest high, hedged along the top.
         box(x, 0.7, 131.2, 10, 1.4, 2.1, stone); solid(x, 131.2, 10.2, 2.3);
-        for (const dx of [-3, 0, 3]) blob(x + dx, 1.9, 131.2, 1.9, 0.8, 0.95, dx ? leaf : fern);
+        for (const dx of [-3, 0, 3]) leafShape(blob(x + dx, 1.9, 131.2, 1.9, 0.8, 0.95, dx ? leaf : fern));
       }
     }
   }
@@ -294,7 +295,7 @@ export function buildHarbourfrontScene() {
         box(x + (i % 2 ? -1.6 : 1.6), 2.7, z, 3.4, 0.22, 4.8, steel);
       } else {
         box(x, 0.75, z, 2.8, 1.4, 4.2, plank); solid(x, z, 3, 4.4);
-        blob(x, 1.8, z, 1.2, 0.7, 1.9, fern);
+        leafShape(blob(x, 1.8, z, 1.2, 0.7, 1.9, fern));
       }
     }
   }
@@ -323,7 +324,7 @@ export function buildHarbourfrontScene() {
           // Terraced planter: two courses stepping across the slope.
           box(x, 0.55, z, 9, 1.1, 2.4, stone); solid(x, z, 9.2, 2.6);
           box(x - 1.5, 1.35, z + 3.4, 6.4, 1.3, 2.2, stone); solid(x - 1.5, z + 3.4, 6.6, 2.4);
-          for (const dx of [-2.6, 0.4, 3]) blob(x + dx, 2.2, z + 0.4, 1.8, 1, 1.2, dx > 0 ? fern : leaf);
+          for (const dx of [-2.6, 0.4, 3]) leafShape(blob(x + dx, 2.2, z + 0.4, 1.8, 1, 1.2, dx > 0 ? fern : leaf));
         } else {
           // Boulder cluster left in the grass.
           for (const [dx, dz, r] of [[0, 0, 2.1], [3.4, 1.8, 1.6], [-3, 2.1, 1.4]] as const) {

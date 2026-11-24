@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import { batchRigidMeshes } from './rigid-batches';
 import { RAIL_ROUTES, railState } from './rail-routes';
@@ -194,7 +195,7 @@ export function buildSentosaScene() {
     for (const [px,pz] of [[-131,-42],[-124,-64],[-119,-76],[-62,-63],[-56,-37]]) {
       const base = sentosaGroundHeight(px,pz);
       cylinder(px,base+4.5,pz,.28,9,wood);
-      blob(px,base+9,pz,4,3.1,4.4,leaf);
+      leafShape(blob(px,base+9,pz,4,3.1,4.4,leaf));
       kit.obstacles.push({minX:px-.35,maxX:px+.35,minZ:pz-.35,maxZ:pz+.35,minY:base,maxY:base+9});
     }
   }
@@ -258,7 +259,7 @@ export function buildSentosaScene() {
     for (const dz of [-15, 15]) {
       const tx = x + width / 2 - 5, tz = z + dz;
       blob(tx, 0.7, tz, 10, 1.4, 7, sand);
-      blob(tx + 2, 2, tz, 7, 2.2, 5, leaf);
+      leafShape(blob(tx + 2, 2, tz, 7, 2.2, 5, leaf));
       for (const dx of [-2.8, 2.8]) for (const dd of [-2.8, 2.8]) cylinder(tx + dx, 7, tz + dd, 0.25, 14, wood);
       for (const y of [7, 13]) {
         box(tx, y, tz, 7.5, 0.5, 7.5, wood);

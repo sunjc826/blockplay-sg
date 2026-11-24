@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { TAMPINES_STAMPS } from '../data/region-stamps.ts';
@@ -138,7 +139,7 @@ export function buildTampinesScene() {
       box(x, 31.8, z + side * 40.5, 86, 3, 0.7, glass);
       box(x + side * 44.5, 31.8, z, 0.7, 3, 80, glass);
       box(x + side * 35, 33, z, 18, 0.8, 78, lawn);
-      for (let dz = -28; dz <= 28; dz += 14) blob(x + side * 35, 34.2, z + dz, 3, 1.2, 3, fern);
+      for (let dz = -28; dz <= 28; dz += 14) leafShape(blob(x + side * 35, 34.2, z + dz, 3, 1.2, 3, fern));
     }
     // A broad central arrival opening and lightweight entrance canopy.
     // The arrival portal remains physically open.
@@ -206,7 +207,7 @@ export function buildTampinesScene() {
     box(x, -0.06, z, width, 0.4, depth, water); solid(x, z, width, depth);
     // Former sand quarry: the repeated exposed-rock stair blocks are replaced
     // by connected vegetated banks and dirt approaches in tampines-ground.
-    for (let dx = -width / 2 + 6; dx < width / 2; dx += 9) for (let r = 0; r < 4; r++) blob(x + dx + r * 1.2, 1.4, z + depth / 2 + 3, 0.8, 2.2, 0.6, reed);
+    for (let dx = -width / 2 + 6; dx < width / 2; dx += 9) for (let r = 0; r < 4; r++) leafShape(blob(x + dx + r * 1.2, 1.4, z + depth / 2 + 3, 0.8, 2.2, 0.6, reed));
     sign('TAMPINES QUARRY', x, 5.4, z - depth / 2 - 14, 28, 2.3, '#2f6b78');
   }
 
@@ -239,7 +240,7 @@ export function buildTampinesScene() {
   box(-188, 0.18, 150, 80, 0.35, 56, lawn);
   for (let x = -228; x <= -212; x += 9) for (let z = 124; z <= 176; z += 9) {
     if ((Math.round(x) + Math.round(z)) % 4) continue;
-    for (let r = 0; r < 3; r++) blob(x + r * 0.9, 0.9, z, 0.7, 1.8, 0.6, reed);
+    for (let r = 0; r < 3; r++) leafShape(blob(x + r * 0.9, 0.9, z, 0.7, 1.8, 0.6, reed));
   }
   for (const z of [-160, -128]) { tree(-206, z, 9, wood, leaf); tree(-170, z + 14, 8, wood, fern); }
   for (const z of [130, 160]) { tree(-222, z, 9, wood, fern); tree(-154, z + 12, 8, wood, leaf); }

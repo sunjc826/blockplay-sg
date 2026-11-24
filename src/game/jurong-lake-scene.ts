@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
@@ -192,7 +193,7 @@ export function buildJurongLakeScene() {
       box(x, 14, front - 2, w + 2, 5, 7, facadeWhite, scene, true);
       box(x + 17, 23, front - 1, w * 0.46, 12, 3, facadeWhite, scene, true);
       box(x - 22, 21, front - 0.5, w * 0.38, 7, 0.6, glass);
-      for (let dx = -32; dx <= 32; dx += 8) blob(x + dx, 17.4, front - 2.4, 4, 0.8, 1.4, terraceLeaf);
+      for (let dx = -32; dx <= 32; dx += 8) leafShape(blob(x + dx, 17.4, front - 2.4, 4, 0.8, 1.4, terraceLeaf));
       box(x, 8.4, front - 5.5, w - 8, 0.3, 8, steel);
     }
     sign(label, x, 8.4, z - d / 2 - 5.4, w * 0.45, 2.4, '#2f4a56');

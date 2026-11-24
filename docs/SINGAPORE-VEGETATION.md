@@ -261,7 +261,46 @@ per-spray motion and leaf-cut shadows.
 - Cost: 96 drawn triangles a crown in place of 80 (20 in Marina Bay's
   low-detail crowns), and one more instanced draw per crown material.
 
-Not changed: shrubs, hedges and planters built from the same rounded shape
-but not as trees, the Botanic Gardens' boundary backdrop, and crowns under
-thermal vision. Seen in captures of Pulau Ubin and Bishan only; the other
+Not changed in this pass: shrubs, hedges and planters built from the same
+rounded shape (see the fifth pass below), the boundary backdrop, and crowns
+under thermal vision. This pass also missed the crowns six districts build
+without a wind tag; the fifth pass covers them. Seen in captures of Pulau Ubin and Bishan only; the other
 districts share the same code path and were not each looked at.
+
+### Shrubs, reeds and grass (24 November 2026, fifth pass)
+
+**Shrubs and hedges.** A planting built as a rounded green shape and tagged
+`leafShape(...)` (`src/game/tree-wind.ts`) is drawn as the same mass of leaf
+sprays a tree crown gets, at shrub size, so its leaves come out about 10 cm
+long. It sways about its own foot. Its shape stays, undrawn, as the cover.
+Tagged in Changi, Tampines, Jurong Lake, HarbourFront, Sentosa, Upper Thomson,
+Yishun and the Botanic Gardens' remaining ginger clumps.
+
+**Reeds and sedges.** A tagged shape half again taller than it is wide is
+drawn as a clump of long blades instead: six upright cards of a new atlas
+tile, a fan of 46 blades from one foot (`leafReedGeometry`, 12 triangles in
+place of 80). Punggol, Tampines, Bukit Timah, Bishan.
+
+**Tree crowns the fourth pass missed.** Orchard Road, HarbourFront, Bukit
+Timah, Woodlands, Jurong Lake and Upper Thomson build some crowns as plain
+rounded shapes known only to the falling-leaf effect (`registerFoliageDrift`).
+Those are now drawn as leaf masses too. They have no bending trunk, so each
+sways about its own base.
+
+**Grass.**
+- The lawn between the tufts is no longer a flat colour: within 16 to 42 m the
+  ground shader draws short blades lying two ways, with paler thatch where the
+  sward is thin (`soilMaterial` in `src/game/ground-cover.ts`).
+- A tuft takes the colour of the lawn it grows from, darker at its foot and
+  paler at its tip. Before, every tuft in every district was one olive green.
+- Grass is longer on lush ground and shorter on dry ground, in the same broad
+  patches the colour already followed, with an occasional ragged clump.
+- No triangles were added to the grass.
+
+No species is claimed for any of these: the districts do not say what their
+shrubs, reeds or lawns are, and no NParks page was read for this pass.
+
+Not changed: Marina Bay's, Queenstown's and Raffles Place's own planters;
+Geylang's rooftop and five-foot-way planting (the same shapes are also
+lanterns there); the boundary backdrop; tuft count and blade shape. Seen in
+captures of HarbourFront (shrubs), Punggol (reeds) and Bishan (grass) only.

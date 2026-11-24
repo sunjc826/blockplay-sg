@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { bumboat } from './bumboat';
@@ -108,7 +109,7 @@ export function buildChangiScene() {
     // Concentrate forest planting in the central garden, leaving four ground
     // approaches, two inhabited viewing circuits and stair corridors clear.
     for (const dx of [-26, 26]) for (const dz of [-12, 0, 12]) {
-      blob(DOME.x + dx, 1.5, DOME.z + dz, 3, 2, 3, fern);
+      leafShape(blob(DOME.x + dx, 1.5, DOME.z + dz, 3, 2, 3, fern));
     }
     for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
       const label = sign('JEWEL', DOME.x + Math.cos(angle) * 84, 18.4, DOME.z + Math.sin(angle) * 84, 20, 2.6, '#1f4f5e');

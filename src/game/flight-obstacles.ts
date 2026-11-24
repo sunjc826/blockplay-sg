@@ -17,7 +17,8 @@ export function sceneFlightObstacles(scene: THREE.Object3D, include: (mesh: THRE
     addBounds(mesh.geometry.boundingBox!, transform);
   };
   scene.traverseVisible(object => {
-    if (!(object instanceof THREE.Mesh) || object.userData.groundSurface === true || !include(object)) return;
+    // Leaf sprays (tree-wind.ts) are drawn in place of a crown shape that is itself still here: count the shape only.
+    if (!(object instanceof THREE.Mesh) || object.userData.groundSurface === true || object.userData.coverApart === true || !include(object)) return;
     // Merged static scenery retains its authored part bounds rather than one
     // district-wide box. Bounds are local to the mesh, like its geometry.
     if (Array.isArray(object.userData.flightBounds)) {

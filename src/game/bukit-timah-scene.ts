@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { registerFoliageDrift } from './ambient-drift';
@@ -145,7 +146,7 @@ export function buildBukitTimahScene() {
     for (const dx of [-3.4, 3.4]) box(x + dx, 0.68, 130, 0.5, 0.26, 70, steel);
     for (let z = -190; z <= 190; z += 7) for (const dx of [-10, 10]) {
       if (Math.abs(z - 40) < 22) continue;
-      for (let r = 0; r < 3; r++) blob(x + dx + r * 0.7, 1.1, z, 0.6, 2.2, 0.5, moss);
+      for (let r = 0; r < 3; r++) leafShape(blob(x + dx + r * 0.7, 1.1, z, 0.6, 2.2, 0.5, moss));
     }
     for (let z = -170; z <= 170; z += 34) { if (Math.abs(z - 40) < 26) continue; box(x + 13, 1.4, z, 1, 2.8, 0.6, rust); solid(x + 13, z, 1.2, 1.2); }
   }

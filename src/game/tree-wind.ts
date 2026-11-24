@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { foliageDeclarations, foliageTreeShake, foliageUniforms } from './foliage-disturbance';
 import { inheritLeafShade, shadeLeaves } from './leaf-shading';
-import { cutLeafCards, hasLeafCards, inheritLeafCards, leafMassGeometry } from './leaf-cards';
+import { cutLeafCards, hasLeafCards, inheritLeafCards, leafMassGeometry, leafReedGeometry } from './leaf-cards';
 
 interface TreePart { root: THREE.Vector3; height: number; flutter: number }
 interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number }; foliage: ReturnType<typeof foliageUniforms> }
@@ -93,8 +93,16 @@ function patch(material: THREE.Material, uniforms: WindState) {
   material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v4'; };
 }
 
+/**
+ * A shrub, hedge or reed bed built as a rounded shape. Like a tree's crown it is drawn as leaves (as upright
+ * blades where the shape is tall and narrow) and its shape stays as the cover; it sways about its own foot.
+ */
+export function leafShape<T extends THREE.Mesh>(mesh: T): T { mesh.userData.leafShape = true; return mesh; }
+const isRounded = (mesh: THREE.Mesh) => mesh.geometry.type === 'IcosahedronGeometry';
+/** Taller than it is wide by half again: a clump of reeds, not a bush. */
+const isReedShape = (part: THREE.Mesh) => part.scale.y > 1.5 * Math.max(part.scale.x, part.scale.z);
 /** A rounded crown shape: what a tree without a modelled species carries on its trunk. */
-const isCrownShape = (part: THREE.Mesh) => (part.userData.treePart as TreePart).flutter > 0 && part.geometry.type === 'IcosahedronGeometry';
+const isCrownShape = (part: THREE.Mesh) => (part.userData.treePart as TreePart).flutter > 0 && isRounded(part);
 /**
  * Keep trees instanced, with one root/height per part. The scene builder owns all returned resources.
  *
@@ -105,7 +113,12 @@ const isCrownShape = (part: THREE.Mesh) => (part.userData.treePart as TreePart).
 export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGeometry) => unknown, trackMaterial: (m: THREE.Material) => unknown) {
   const groups = new Map<string, THREE.Mesh[]>(), batches: THREE.InstancedMesh[] = [];
   scene.traverse(object => {
-    if (!(object instanceof THREE.Mesh) || !object.userData.treePart || Array.isArray(object.material)) return;
+    if (!(object instanceof THREE.Mesh) || object instanceof THREE.InstancedMesh || Array.isArray(object.material)) return;
+    // A shrub (leafShape) or a crown known only to the leaf drift (ambient-drift.ts) has no trunk to bend with:
+    // it is rooted at its own foot, so it sways within itself and stays on whatever carries it.
+    if (!object.userData.treePart && isRounded(object) && (object.userData.leafShape || object.userData.driftGround !== undefined))
+      treePart(object, object.position.x, object.position.y - object.scale.y, object.position.z, object.scale.y * 2, object.userData.leafShape ? .7 : 1);
+    if (!object.userData.treePart) return;
     const key = [object.parent!.id, object.geometry.id, object.material.id, object.castShadow, object.receiveShadow].join(':');
     const group = groups.get(key) ?? []; group.push(object); groups.set(key, group);
   });
@@ -155,11 +168,15 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
         cutLeafCards(material); patch(material, uniforms); shadeLeaves(material, { thin: true, transmit: .35 });
         leafy.set(source, material); trackMaterial(material);
       }
-      const mesh = instance(parts, leafMassGeometry(), material, true);
-      mesh.name = 'Wind-animated leaves'; mesh.castShadow = first.castShadow; mesh.userData.coverApart = true;
-      // Nothing strikes the sprays: a ray meets the shape they stand for, here and in the simulation's copy.
-      mesh.raycast = () => {};
-      parts.forEach(part => parent.remove(part)); parent.add(mesh); batches.push(mesh);
+      for (const [group, geometry] of [[parts.filter(part => !isReedShape(part)), leafMassGeometry()], [parts.filter(isReedShape), leafReedGeometry()]] as const) {
+        if (!group.length) continue;
+        const mesh = instance(group, geometry, material, true);
+        mesh.name = 'Wind-animated leaves'; mesh.castShadow = first.castShadow; mesh.userData.coverApart = true;
+        // Nothing strikes the sprays: a ray meets the shape they stand for, here and in the simulation's copy.
+        mesh.raycast = () => {};
+        parent.add(mesh); batches.push(mesh);
+      }
+      parts.forEach(part => parent.remove(part));
       continue;
     }
     let material = materials.get(source);

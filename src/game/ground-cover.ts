@@ -8,7 +8,7 @@ import { grassDetail, type WorldDetail } from './environment-quality';
 import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
-interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh }
+interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh; /** A lawn's own colour, which its tufts take. */ color?: THREE.Color }
 const green = (material: THREE.Material) => {
   const c = (material as THREE.MeshStandardMaterial).color;
   return !!c && c.g > c.r * 1.04 && c.g > c.b * 1.12;
@@ -28,7 +28,7 @@ function index<T extends { minX: number; maxX: number; minZ: number; maxZ: numbe
 }
 
 /** World-space soil detail uses no image downloads and stays continuous across terrain tiles. */
-function soilMaterial(source: THREE.Material) {
+function soilMaterial(source: THREE.Material, turf = false) {
   const material = source.clone();
   const previous = source.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
@@ -52,9 +52,17 @@ function soilMaterial(source: THREE.Material) {
         float soilPatch = soilNoise(vSoilWorld.xz * .38);
         float soilGrain = soilNoise(vSoilWorld.xz * 24.0);
         diffuseColor.rgb *= .81 + .26 * soilPatch + .15 * soilGrain;
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.18,.125,.065), smoothstep(.67,.9,soilPatch) * .32);`);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.18,.125,.065), smoothstep(.67,.9,soilPatch) * .32);
+        ${turf ? `// A lawn between its tufts is still grass: short blades lying two ways, lit and shadowed, and thatch
+        // showing through where the sward is thin. Faded out with distance, where it would only shimmer.
+        float turfNear = 1.0 - smoothstep(16.0, 42.0, length(vViewPosition));
+        float turfA = soilNoise(vec2(vSoilWorld.x * 58.0 + vSoilWorld.z * 9.0, vSoilWorld.z * 13.0 - vSoilWorld.x * 3.0));
+        float turfB = soilNoise(vec2(vSoilWorld.z * 63.0 - vSoilWorld.x * 11.0, vSoilWorld.x * 12.0 + vSoilWorld.z * 4.0));
+        float turfBlade = max(turfA, turfB), turfThin = smoothstep(.55, .2, soilNoise(vSoilWorld.xz * 3.1) * .6 + turfBlade * .4);
+        diffuseColor.rgb *= 1.0 + turfNear * ((turfBlade - .58) * .46 - turfThin * .1);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 1.02, .7), turfNear * turfThin * .35);` : ''}`);
   };
-  material.customProgramCacheKey = () => `${source.customProgramCacheKey()}-soil-v1`;
+  material.customProgramCacheKey = () => `${source.customProgramCacheKey()}-soil-v2${turf ? '-turf' : ''}`;
   return material;
 }
 
@@ -73,7 +81,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   const protectedSurface = (x: number, z: number, y: number) => surfaces.some(s => surfaceContains(s, x, z) && Math.abs(surfaceHeight(s, x, z) - y) < .035);
   const detail = (source: THREE.Material) => {
     let material = materials.get(source);
-    if (!material) { material = soilMaterial(source); materials.set(source, material); }
+    if (!material) { material = soilMaterial(source, green(source)); materials.set(source, material); }
     return material;
   };
   for (const object of [...world.scene.children]) {
@@ -109,7 +117,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     if (object.userData.terrain) {
       box.copy(local).applyMatrix4(object.matrixWorld);
       const grass = object.userData.terrainCover !== 'sand';
-      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass, wettable: !grass });
+      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass, wettable: !grass, color: grass ? (material as THREE.MeshStandardMaterial).color : undefined });
       if (grass) object.material = detail(material);
       object.userData.noShadowCast = true; object.castShadow = false;
       continue;
@@ -137,7 +145,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         else object.position.y += shift;
         corrected++;
       }
-      const patch: Patch = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: box.max.y + shift, grass, wettable: !grass && !water };
+      const patch: Patch = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: box.max.y + shift, grass, wettable: !grass && !water, color: grass ? color : undefined };
       if (object.geometry.type === 'BoxGeometry' && Math.abs(transform.elements[2]) < 1e-5 && Math.abs(transform.elements[8]) < 1e-5 && transform.elements[0] > 0 && transform.elements[5] > 0 && transform.elements[10] > 0) {
         caps.push({ ...patch, mesh: object, instance: object instanceof THREE.InstancedMesh ? i : undefined, authoredTop: box.max.y });
       }
@@ -159,7 +167,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   const patchesAt = index(patches), surfacesAt = index([...surfaces]), obstaclesAt = index<Obstacle>(world.obstacles);
   const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3);
   const sampleState = (x: number, z: number) => {
-    let y = ground(x, z), grass = false, wettable = false, owner = -Infinity;
+    let y = ground(x, z), grass = false, wettable = false, owner = -Infinity, color: THREE.Color | undefined;
     for (const patch of patchesAt(x, z)) {
       if (x < patch.minX || x > patch.maxX || z < patch.minZ || z > patch.maxZ) continue;
       const top = Number.isNaN(patch.y) ? y : patch.y;
@@ -169,21 +177,21 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         if (!ray.intersectObject(patch.mesh).length) continue;
       }
       // Paving wins over a coplanar soil plate at its edge.
-      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; }
+      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; color = patch.color; }
       y = Math.max(y, top);
     }
     for (const s of surfacesAt(x, z)) if (surfaceContains(s, x, z)) {
       const top = surfaceHeight(s, x, z);
-      if (top > y + .02) { y = top; grass = false; wettable = false; }
+      if (top > y + .02) { y = top; grass = false; wettable = false; color = undefined; }
     }
-    return { y, grass, wettable };
+    return { y, grass, wettable, color };
   };
   const sample = (x: number, z: number) => { const { y, grass } = sampleState(x, z); return { y, grass }; };
   const grass = createGrass(world.scene, bounds, (x, z) => {
     const p = sample(x, z);
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
-  });
+  }, (x, z) => sampleState(x, z).color);
   const wetGround = (x: number, z: number) => {
     const p = sampleState(x, z); return p.wettable && !p.grass ? p.y : null;
   };
@@ -199,9 +207,11 @@ export const grassWindLean = (wind: number) => .1 + Math.min(7, Math.max(0, wind
 
 /** Two bounded instanced LODs; solid tapered blades avoid alpha-card overdraw.
  * Rebuild only after crossing a 4 m cell, with deterministic world placement. */
-export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null) {
+export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null, lawn?: (x: number, z: number) => THREE.Color | undefined) {
   const positions: number[] = [], colors: number[] = [];
-  const base = new THREE.Color('#70834e'), tip = new THREE.Color('#a5b66a');
+  // A tuft is the colour of the lawn it grows from (the instance colour), darker at the foot and paler and
+  // a little yellower at the tip. Where no lawn colour is known it is the green the tufts always were.
+  const base = new THREE.Color().setRGB(.84, .84, .8), tip = new THREE.Color().setRGB(1.42, 1.3, 1.02), plain = new THREE.Color('#7f9257');
   const bloom: number[] = [];
   // Three blades of unequal length, the shorter ones splayed further out.
   for (let blade = 0; blade < 3; blade++) {
@@ -232,6 +242,10 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         float grassPick = fract(sin(dot(grassRoot.xz, vec2(12.9898, 78.233))) * 43758.5453);
         float grassPatch = sin(grassRoot.x * .11 + sin(grassRoot.z * .07) * 2.0) * sin(grassRoot.z * .13 + sin(grassRoot.x * .05) * 2.0);
         vColor.rgb *= mix(vec3(.86, .96, .88), vec3(1.16, 1.06, .78), .5 + .5 * grassPatch) * (.9 + .2 * grassPick);
+        // A blade's foot stands in the shade of its neighbours.
+        vColor.rgb *= .58 + .42 * smoothstep(0.0, .75, position.y);
+        // Lush ground grows longer than dry ground, in the same broad patches, with ragged clumps here and there.
+        float grassLush = (.72 + .7 * smoothstep(-.6, .7, -grassPatch)) * (1.0 + .55 * step(.93, fract(grassPick * 17.0)));
         #ifdef GRASS_BLOOM
         // Lawn flowers, in drifts: white coat buttons, yellow creeping daisy, pink mimosa.
         float grassDrift = sin(grassRoot.x * .09 + 1.3) * sin(grassRoot.z * .075 + .4) + .35 * sin(grassRoot.x * .31 + grassRoot.z * .27);
@@ -244,7 +258,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         transformed *= mix(1.0, grassFlower, step(.5, grassBloom));
         #endif
         float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));
-        transformed.y *= grassFade;
+        transformed.y *= grassFade * grassLush;
         // Wind crosses a lawn as fronts, in the direction and at the speed the trees' gusts
         // travel (tree-wind.ts): long swells that lay the grass over, and metre-scale waves
         // running through them. Lean is tip travel as a share of the blade's height.
@@ -269,7 +283,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   };
   type Defined = THREE.MeshStandardMaterial & { defines: Record<string, string> };
   (material as Defined).defines = { STANDARD: '', GRASS_BLOOM: '' };
-  material.customProgramCacheKey = () => 'ground-grass-v3';
+  material.customProgramCacheKey = () => 'ground-grass-v4';
   const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
@@ -291,16 +305,17 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
     material.onBeforeCompile(shader, renderer);
     shader.uniforms.grassReach = farReach; shader.uniforms.grassNear = nearReach;
     shader.vertexShader = 'uniform float grassNear;\n' + shader.vertexShader;
-    shader.vertexShader = shader.vertexShader.replace('transformed.y *= grassFade;', `
+    shader.vertexShader = shader.vertexShader.replace('transformed.y *= grassFade * grassLush;', `
       grassFade *= smoothstep(grassNear - 6.0, grassNear, distance(grassRoot.xz,grassEye.xz));
-      transformed.y *= grassFade;`);
+      transformed.y *= grassFade * grassLush;`);
   };
-  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v3';
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v4';
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
+  for (const tufts of [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); }
   scene.add(mesh, farMesh);
-  const heights = new Map<string, number | null>();
+  const heights = new Map<string, number | null>(), tints = new Map<string, THREE.Color>();
   const dummy = new THREE.Object3D(), cameraPosition = new THREE.Vector3();
   let cellX = Infinity, cellZ = Infinity, lastQuality = '', disposed = false;
   return {
@@ -316,7 +331,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       reach.value = nearReach.value = profile.near; farReach.value = profile.radius;
       const cx = Math.floor(cameraPosition.x/4)*4, cz = Math.floor(cameraPosition.z/4)*4;
       if (cx === cellX && cz === cellZ && quality === lastQuality) return;
-      if (quality !== lastQuality || heights.size > 100000) heights.clear();
+      if (quality !== lastQuality || heights.size > 100000) { heights.clear(); tints.clear(); }
       cellX = cx; cellZ = cz; lastQuality = quality;
       const fill = (target: THREE.InstancedMesh, radius: number, inner: number, spacing: number, limit: number) => {
         let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
@@ -325,14 +340,14 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
             const x = (ix+hash(ix,iz)) * spacing, z = (iz+hash(ix,iz,1)) * spacing, distance = Math.hypot(x-cx,z-cz);
             if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ || distance > radius+3 || distance < inner-9 || count >= limit) continue;
             const k = `${spacing}:${ix}:${iz}`;
-            if (!heights.has(k)) heights.set(k, floor(x,z));
+            if (!heights.has(k)) { const y = floor(x,z); heights.set(k, y); if (y !== null) tints.set(k, lawn?.(x, z) ?? plain); }
             const y = heights.get(k)!; if (y === null) continue;
             minY = Math.min(minY, y); maxY = Math.max(maxY, y);
             dummy.position.set(x-cx,y-.005,z-cz); dummy.rotation.set(0,hash(ix,iz,2)*Math.PI*2,0);
             const scale = .65 + hash(ix,iz,3)*.65;
-            dummy.scale.set(scale, (.12+hash(ix,iz,4)*.12)*(reduced?.7:1), scale); dummy.updateMatrix(); target.setMatrixAt(count++,dummy.matrix);
+            dummy.scale.set(scale, (.12+hash(ix,iz,4)*.12)*(reduced?.7:1), scale); dummy.updateMatrix(); target.setColorAt(count, tints.get(k) ?? plain); target.setMatrixAt(count++,dummy.matrix);
           }
-        target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true;
+        target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; if (target.instanceColor) target.instanceColor.needsUpdate = true;
         // Conservative cell bounds include blade height and sway. Avoid two
         // extra matrix scans over tens of thousands of instances when moving.
         target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
@@ -346,6 +361,6 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       fill(mesh, profile.near, 0, profile.spacing, profile.limit);
       fill(farMesh, profile.radius, profile.near, profile.farSpacing, profile.farLimit);
     },
-    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); },
+    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); tints.clear(); },
   };
 }

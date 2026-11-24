@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { LEAF_MASS_TRIANGLES, LEAF_PATTERNS, LEAF_VARIANTS, cutLeafCards, leafMassGeometry, drawLeafAtlas, hasLeafCards, inheritLeafCards, layoutSpray, leafCardFragment, leafCardVertex, leafTile } from './leaf-cards';
+import { LEAF_MASS_TRIANGLES, LEAF_REED_TRIANGLES, leafReedGeometry, LEAF_PATTERNS, LEAF_VARIANTS, cutLeafCards, leafMassGeometry, drawLeafAtlas, hasLeafCards, inheritLeafCards, layoutSpray, leafCardFragment, leafCardVertex, leafTile } from './leaf-cards';
 import { buildPlant } from './plant-models';
 import { PLANT_SPECIES, PLANT_SPECS } from './plant-species';
-import { batchTrees, treePart } from './tree-wind';
+import { batchTrees, leafShape, treePart } from './tree-wind';
 import { createSceneCover } from './scene-cover';
 import { isVisualCover } from './cover-kind';
 
@@ -40,11 +40,10 @@ describe('leaf sprays', () => {
   it('draws an atlas that is part leaf and part sky in every tile, with a stalk for every point', () => {
     const atlas = drawLeafAtlas();
     expect(atlas.map.length).toBe(atlas.size * atlas.size * 4); expect(atlas.ids.length).toBe(atlas.idSize * atlas.idSize * 4);
-    expect(atlas.cover).toHaveLength(LEAF_PATTERNS.length * LEAF_VARIANTS);
+    expect(atlas.cover).toHaveLength(LEAF_PATTERNS.length * LEAF_VARIANTS + 1);
     for (const cover of atlas.cover) { expect(cover).toBeGreaterThan(.25); expect(cover).toBeLessThan(.7); }
-    // The unused sixteenth tile is empty.
-    const last = (atlas.size - 8) * atlas.size * 4 + (atlas.size - 8) * 4;
-    expect(atlas.map[last + 3]).toBe(0);
+    // The sixteenth tile is the clump of blades, apart from every leaf tile.
+    expect(leafTile('blades', 0).index).toBe(15); expect(layoutSpray('blades', 0).leaves.every(leaf => leaf.shape === 'blade' && leaf.length > leaf.width * 8)).toBe(true);
     // Phases are never zero inside a used tile: zero marks a surface that is not a card.
     const tile = leafTile('opposite', 0), x = Math.round((tile.u + tile.side / 2) * atlas.idSize), y = Math.round((tile.v + tile.side / 2) * atlas.idSize);
     expect(atlas.ids[(y * atlas.idSize + x) * 4 + 2]).toBeGreaterThan(0);
@@ -128,5 +127,26 @@ describe('leaf sprays', () => {
     const sight = cover.sightDistance({ x: -20, y: 9, z: 0 }, { x: 1, y: 0, z: 0 }, 60);
     expect(sight).toBeGreaterThan(16); expect(sight).toBeLessThan(17.6);
     expect(cover.distance({ x: -20, y: 9, z: 0 }, { x: 1, y: 0, z: 0 }, 60)).toBe(60);
+  });
+
+  it('draws a tagged shrub as leaves and a tall narrow one as blades, each rooted at its own foot', () => {
+    const reed = leafReedGeometry();
+    expect(reed.getAttribute('position').count).toBe(LEAF_REED_TRIANGLES * 3);
+    const tile = leafTile('blades', 0), card = reed.getAttribute('leafCard');
+    for (let i = 0; i < card.count; i++) { expect(card.getX(i)).toBeGreaterThanOrEqual(tile.u - 1e-6); expect(card.getY(i)).toBeGreaterThanOrEqual(tile.v - 1e-6); expect(card.getZ(i)).toBeGreaterThan(0); }
+
+    const scene = new THREE.Scene(), shape = new THREE.IcosahedronGeometry(1, 1), leaf = new THREE.MeshStandardMaterial({ color: '#44703d' }), rock = new THREE.MeshStandardMaterial({ color: '#9c9f91' });
+    const blob = (x: number, y: number, sx: number, sy: number, material: THREE.Material) => { const mesh = new THREE.Mesh(shape, material); mesh.position.set(x, y, 0); mesh.scale.set(sx, sy, sx); scene.add(mesh); return mesh; };
+    leafShape(blob(0, 1.9, 1.9, .8, leaf)); leafShape(blob(6, 1.1, .6, 2.2, leaf)); blob(12, 2, 4, 3, rock);
+    const crown = blob(20, 9, 4, 3, leaf); crown.userData.driftGround = 0;
+    const batches = batchTrees(scene, () => {}, () => {});
+    const leaves = batches.filter(mesh => mesh.name === 'Wind-animated leaves'), cover = batches.find(mesh => mesh.name === 'Tree crown cover')!;
+    // The bush and the untagged-tree crown share one mass batch; the reed clump is its own; the rock is left alone.
+    expect(leaves.map(mesh => [mesh.count, mesh.geometry.getAttribute('position').count / 3])).toEqual([[2, LEAF_MASS_TRIANGLES], [1, LEAF_REED_TRIANGLES]]);
+    expect(cover.count).toBe(3); expect(scene.children.filter(child => !(child instanceof THREE.InstancedMesh))).toHaveLength(1);
+    // Rooted at its own foot and as tall as itself, so it sways within itself.
+    const roots = leaves[0].geometry.getAttribute('treeRootHeight');
+    expect([roots.getX(0), roots.getY(0), roots.getZ(0), roots.getW(0)].map(v => +v.toFixed(3))).toEqual([0, 1.1, 0, 1.6]);
+    expect([roots.getY(1), roots.getW(1)]).toEqual([6, 6]);
   });
 });

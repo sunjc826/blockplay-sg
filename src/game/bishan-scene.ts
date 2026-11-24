@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import * as THREE from 'three';
 import { BISHAN_STAMPS } from '../data/region-stamps.ts';
@@ -72,7 +73,7 @@ export function buildBishanScene() {
       box(x, 0.1, cz + side * (RIVER.halfWidth + 1.6), RIVER.step + 2, 0.5, 4.4, silt);
       box(x, 0.18, cz + side * (RIVER.halfWidth + 4.4), RIVER.step + 2, 0.32, 5, grass);
       box(x, 0.27, cz + side * (RIVER.halfWidth + 8), RIVER.step + 2, 0.24, 4.4, lawn);
-      if (Math.round(x) % 18 === 0) for (let r = 0; r < 3; r++) blob(x + r * 0.8, 1.9, cz + side * (RIVER.halfWidth + 2.6), 0.6, 1.9, 0.5, r % 2 ? reed : sedge);
+      if (Math.round(x) % 18 === 0) for (let r = 0; r < 3; r++) leafShape(blob(x + r * 0.8, 1.9, cz + side * (RIVER.halfWidth + 2.6), 0.6, 1.9, 0.5, r % 2 ? reed : sedge));
     }
     // Boulders left in the channel, the way a restored bed is roughened.
     if (Math.round(x) % 30 === 0) blob(x, 0.5, cz + (Math.round(x) % 60 ? 3 : -3), 1.8, 1.1, 1.6, cobble);

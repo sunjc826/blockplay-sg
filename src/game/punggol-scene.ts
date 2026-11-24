@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import { RAIL_ROUTES } from './rail-routes';
 import { addRailTerminals } from './rail-stations';
@@ -70,7 +71,7 @@ export function buildPunggolScene() {
       box(cx, 0.5, midZ + side * (depthZ / 2 + 3), width, 1, 6, lawn);
       box(cx, 1.1, midZ + side * (depthZ / 2 + 6.6), width, 0.5, 1.4, stone);
       for (let x = fromX + 4; x < toX; x += 7) {
-        for (let r = 0; r < 3; r++) blob(x + r * 1.6, 1.5 + r * 0.3, midZ + side * (depthZ / 2 - 1.5), 0.9, 1.7, 0.7, reed);
+        for (let r = 0; r < 3; r++) leafShape(blob(x + r * 1.6, 1.5 + r * 0.3, midZ + side * (depthZ / 2 - 1.5), 0.9, 1.7, 0.7, reed));
       }
     }
   }

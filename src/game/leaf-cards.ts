@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * and what a round strikes are unchanged.
  *
  * - The atlas is drawn here, from numbers, the first time a leaf material compiles: sixteen tiles, three
- *   sprays for each of five arrangements. No photographs.
+ *   sprays for each of five arrangements and one clump of blades. No photographs.
  * - A second small texture says, for every point of a tile, which leaf is nearest and where its stalk
  *   meets the twig. The fragment shader turns the lookup about that point by a few degrees on the
  *   leaf's own clock, so neighbouring leaves move apart and together instead of as one sheet.
@@ -17,6 +17,8 @@ import * as THREE from 'three';
  * Leaves are drawn about twice life size, as the sprays themselves are: each stands for several.
  */
 export type LeafPattern = 'opposite' | 'alternate' | 'whorl' | 'rosette' | 'bipinnate';
+/** Long blades rising from one foot, for reeds and sedges: the atlas's sixteenth tile, a single spray. */
+export type BladePattern = 'blades';
 export const LEAF_PATTERNS: readonly LeafPattern[] = ['opposite', 'alternate', 'whorl', 'rosette', 'bipinnate'];
 export const LEAF_VARIANTS = 3;
 const GRID = 4, TILE = 256, ID_TILE = 64, SIZE = GRID * TILE, ID_SIZE = GRID * ID_TILE;
@@ -24,12 +26,12 @@ const GRID = 4, TILE = 256, ID_TILE = 64, SIZE = GRID * TILE, ID_SIZE = GRID * I
 const CUT = .4;
 
 /** Where tile `variant` of a pattern sits in the atlas: its lower-left corner and its side, in UV. */
-export function leafTile(pattern: LeafPattern, variant: number) {
-  const index = LEAF_PATTERNS.indexOf(pattern) * LEAF_VARIANTS + ((variant % LEAF_VARIANTS) + LEAF_VARIANTS) % LEAF_VARIANTS;
+export function leafTile(pattern: LeafPattern | BladePattern, variant: number) {
+  const index = pattern === 'blades' ? GRID * GRID - 1 : LEAF_PATTERNS.indexOf(pattern) * LEAF_VARIANTS + ((variant % LEAF_VARIANTS) + LEAF_VARIANTS) % LEAF_VARIANTS;
   return { u: (index % GRID) / GRID, v: Math.floor(index / GRID) / GRID, side: 1 / GRID, index };
 }
 
-type Shape = 'elliptic' | 'ovate' | 'obovate' | 'oblong';
+type Shape = 'elliptic' | 'ovate' | 'obovate' | 'oblong' | 'blade';
 /** Half-width along a leaf from stalk (0) to tip (1), as a share of its greatest half-width. */
 const PROFILE: Record<Shape, (s: number) => number> = (() => {
   const raw: Record<Shape, (s: number) => number> = {
@@ -37,6 +39,7 @@ const PROFILE: Record<Shape, (s: number) => number> = (() => {
     ovate: s => Math.pow(s, .45) * Math.pow(1 - s, .85),
     obovate: s => Math.pow(s, 1.15) * Math.pow(1 - s, .4),
     oblong: s => Math.pow(Math.sin(Math.PI * s), .4),
+    blade: s => Math.pow(s, .3) * Math.pow(1 - s, 1.1),
   };
   const out = {} as Record<Shape, (s: number) => number>;
   for (const key of Object.keys(raw) as Shape[]) {
@@ -59,8 +62,8 @@ function random(seed: number) {
 const inside = (x: number, y: number) => x > .03 && x < .97 && y > .02 && y < .98;
 
 /** One spray in tile space: the twig enters at the middle of the bottom edge and grows up the tile. */
-export function layoutSpray(pattern: LeafPattern, variant: number): Spray {
-  const rand = random(LEAF_PATTERNS.indexOf(pattern) * 977 + variant * 131 + 7), spray: Spray = { leaves: [], groups: [], twigs: [] };
+export function layoutSpray(pattern: LeafPattern | BladePattern, variant: number): Spray {
+  const rand = random((pattern === 'blades' ? 5 : LEAF_PATTERNS.indexOf(pattern)) * 977 + variant * 131 + 7), spray: Spray = { leaves: [], groups: [], twigs: [] };
   const leaf = (x: number, y: number, angle: number, length: number, width: number, shape: Shape, group?: Group) => {
     const tx = x + Math.cos(angle) * length, ty = y + Math.sin(angle) * length;
     if (!inside(tx, ty) || !inside(x, y)) return;
@@ -80,6 +83,14 @@ export function layoutSpray(pattern: LeafPattern, variant: number): Spray {
     return { x, y, angle: a };
   };
   const UP = Math.PI / 2;
+  if (pattern === 'blades') {
+    // A clump seen from the side: blades fan from the foot, the outer ones leaning further and shorter.
+    for (let i = 0; i < 46; i++) {
+      const t = (i + .5) / 46 * 2 - 1, lean = t * .5 + (rand() - .5) * .16, length = (.9 - .34 * Math.abs(t)) * (.72 + .28 * rand());
+      leaf(.5 + t * .2 + (rand() - .5) * .04, .03, UP - lean, length, .034 + .014 * rand(), 'blade');
+    }
+    return spray;
+  }
   /** The branching every arrangement shares: a leader up the tile with side twigs to left and right. */
   const branch = (sides: number, reach: number, spacing: number, each: (x: number, y: number, angle: number, t: number) => void, tip: (x: number, y: number, angle: number) => void) => {
     let hand = rand() < .5 ? 1 : -1, count = 0;
@@ -149,7 +160,8 @@ export function drawLeafAtlas(): LeafAtlasData {
   const map = new Uint8Array(SIZE * SIZE * 4), ids = new Uint8Array(ID_SIZE * ID_SIZE * 4), cover: number[] = [];
   // Open texels carry a leaf's average shade, so the smaller mip levels do not darken toward the gaps.
   for (let i = 0; i < map.length; i += 4) map[i] = 168;
-  for (const pattern of LEAF_PATTERNS) for (let variant = 0; variant < LEAF_VARIANTS; variant++) {
+  const sprays: [LeafPattern | BladePattern, number][] = [...LEAF_PATTERNS.flatMap(pattern => Array.from({ length: LEAF_VARIANTS }, (_, variant): [LeafPattern, number] => [pattern, variant])), ['blades', 0]];
+  for (const [pattern, variant] of sprays) {
     const tile = leafTile(pattern, variant), ox = Math.round(tile.u * SIZE), oy = Math.round(tile.v * SIZE), spray = layoutSpray(pattern, variant);
     const put = (px: number, py: number, alpha: number, shade: number, wood: number) => {
       const i = ((oy + py) * SIZE + ox + px) * 4, a = Math.round(alpha * 255);
@@ -332,4 +344,30 @@ export function leafMassGeometry(pattern: LeafPattern = 'opposite') {
   mass.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); mass.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 2));
   mass.computeBoundingBox(); mass.computeBoundingSphere();
   return mass;
+}
+
+let reeds: THREE.BufferGeometry | undefined;
+/** Triangles in one clump of blades. */
+export const LEAF_REED_TRIANGLES = 12;
+/**
+ * A clump of long blades filling the unit sphere, for reeds and sedges built as tall rounded shapes: six
+ * upright cards through the middle, each a fan of blades from the foot, darker at the foot.
+ */
+export function leafReedGeometry() {
+  if (reeds) return reeds;
+  const rand = random(8111), position: number[] = [], normal: number[] = [], color: number[] = [], card: number[] = [], lever: number[] = [], tile = leafTile('blades', 0);
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 6 + (rand() - .5) * .3, ax = Math.cos(a), az = Math.sin(a), nx = -az, nz = ax, tilt = (rand() - .5) * .3, phase = .04 + .96 * rand(), flip = rand() < .5 ? 1 : -1, shade = .86 + .14 * rand();
+    const corner = (x: number, y: number) => ({ p: [ax * x * 1.05 + nx * tilt * y, -1 + y * 2.08, az * x * 1.05 + nz * tilt * y], k: [tile.u + tile.side * (.5 + x * flip * .5), tile.v + tile.side * y, phase, 1, x * .5, y], c: shade * (.6 + .4 * y) });
+    const q = [corner(-1, 0), corner(1, 0), corner(-1, 1), corner(1, 1)];
+    for (const v of [q[0], q[1], q[2], q[1], q[3], q[2]]) {
+      position.push(v.p[0], v.p[1], v.p[2]); normal.push(nx * .6, .8, nz * .6); color.push(v.c * .96, v.c, v.c * .88);
+      card.push(v.k[0], v.k[1], v.k[2], v.k[3]); lever.push(v.k[4], v.k[5]);
+    }
+  }
+  reeds = new THREE.BufferGeometry();
+  reeds.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); reeds.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3)); reeds.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  reeds.setAttribute(LEAF_CARD_ATTRIBUTE, new THREE.Float32BufferAttribute(card, 4)); reeds.setAttribute(LEAF_LEVER_ATTRIBUTE, new THREE.Float32BufferAttribute(lever, 2));
+  reeds.computeBoundingBox(); reeds.computeBoundingSphere();
+  return reeds;
 }

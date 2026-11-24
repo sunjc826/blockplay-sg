@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import { roundMetalBars } from './metal-bar';
 import { registerFoliageDrift } from './ambient-drift';
 import { UPPER_THOMSON_STAMPS } from '../data/region-stamps.ts';
@@ -117,7 +118,7 @@ export function buildUpperThomsonScene() {
     forestTree(x,z,13+i%3,upperThomsonGroundHeight(x,z));
   for (const [x,z] of [[-155,40],[-154,80],[-155,106],[-132,30],[-133,62],[-132,109]]) {
     const y=upperThomsonGroundHeight(x,z);
-    blob(x,y+.65,z,1.3,.65,2,fern);
+    leafShape(blob(x,y+.65,z,1.3,.65,2,fern));
   }
 
   // The TreeTop Walk is a separate forest excursion, several kilometres from
@@ -213,7 +214,7 @@ export function buildUpperThomsonScene() {
       for (const dx of [-width / 2 + 2, width / 2 - 2]) { cylinder(x + dx, 2.8, front + facing * 4.6, 0.26, 5.6, plaster); solid(x + dx, front + facing * 4.6, 0.7, 0.7); }
       for (let dx = -width / 2 + 1; dx < width / 2; dx += 1.6) box(x + dx, 1.1, front + facing * 7.4, 0.14, 2.2, 0.14, dark);
       box(x, 2.3, front + facing * 7.4, width - 0.6, 0.18, 0.18, dark);
-      blob(x, 0.9, front + facing * 8.6, width / 2 - 0.4, 0.9, 0.8, fern);
+      leafShape(blob(x, 0.9, front + facing * 8.6, width / 2 - 0.4, 0.9, 0.8, fern));
     }
   }
 

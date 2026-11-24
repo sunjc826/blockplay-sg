@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import * as THREE from 'three';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
@@ -273,7 +274,7 @@ export function buildBotanicGardensScene() {
     if (hash(x, z, 13) < .25 || distanceToPaths(px, pz) < 2 || !clear(px, pz, -2)) continue;
     // Torch ginger clumps, taller than a standing figure, with a few stand-in masses left between them.
     if (hash(x, z, 14) < .7) { plant('torch-ginger', px, pz, 2.6 + hash(x, z, 15) * 1.2, ground(px, pz)); continue; }
-    const m = ginger[Math.floor(hash(x, z, 14) * 2)]; blob(px, 1.1, pz, 1.7, 1.5, 1.7, m); blob(px + .5, 1.9, pz - .4, 1.2, 1.1, 1.2, m);
+    const m = ginger[Math.floor(hash(x, z, 14) * 2)]; leafShape(blob(px, 1.1, pz, 1.7, 1.5, 1.7, m)); leafShape(blob(px + .5, 1.9, pz - .4, 1.2, 1.1, 1.2, m));
   }
   // The Heliwalk: hanging heliconias in drifts along the east rim of Palm Valley.
   for (let z = -6; z >= -140; z -= 5.5) for (const row of [0, 1]) {

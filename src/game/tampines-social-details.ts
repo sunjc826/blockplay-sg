@@ -1,3 +1,4 @@
+import { leafShape } from './tree-wind';
 import type { SceneKit } from './scene-kit';
 import { tampinesGroundHeight } from './tampines-ground';
 
@@ -40,8 +41,8 @@ export function addTampinesSocialDetails(kit: SceneKit) {
   }
   for (const [x, z] of [[134.8, 57], [134, 73], [135, 97], [133.8, 108], [210, 58], [210.5, 79], [210, 98], [221.5, 111]]) {
     const y = tampinesGroundHeight(x, z);
-    kit.blob(x, y + .38, z, 1.0, .65, 1.3, leaf);
-    kit.blob(x + .8, tampinesGroundHeight(x + .8, z + .7) + .26, z + .7, .6, .48, .8, leaf);
+    leafShape(kit.blob(x, y + .38, z, 1.0, .65, 1.3, leaf));
+    leafShape(kit.blob(x + .8, tampinesGroundHeight(x + .8, z + .7) + .26, z + .7, .6, .48, .8, leaf));
   }
   kit.scene.userData.socialGroundDesign = { type: 'hub-waiting-and-study-pockets', waitingBenches: 2, studyTables: 2, gameBoards: 0,
     sources: ['docs/TOA-PAYOH-TAMPINES-GROUND-DESIGN.md'], surveyed: false };
