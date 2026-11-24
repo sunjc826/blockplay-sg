@@ -45,19 +45,29 @@ export function random(seed: number) {
 }
 
 /** Triangle soup with normals and vertex colours, shared by the palm and plant builders. */
+/** u, v, phase, size, across, along. */
+export type CardVertex = readonly [number, number, number, number, number, number];
 export class Mesher {
   position: number[] = []; normal: number[] = []; color: number[] = [];
+  /** Leaf-card data per vertex (leaf-cards.ts), only where a caller gives it: u, v, phase, size, then across and along. */
+  card: number[] = []; lever: number[] = [];
   /** Wound to face the first normal, so double-sided materials light the right side. */
-  tri(a: V3, b: V3, c: V3, na: V3, nb: V3, nc: V3, ca: V3, cb: V3, cc: V3) {
-    if (dot(cross(sub(b, a), sub(c, a)), na) < 0) { [b, c] = [c, b]; [nb, nc] = [nc, nb]; [cb, cc] = [cc, cb]; }
+  tri(a: V3, b: V3, c: V3, na: V3, nb: V3, nc: V3, ca: V3, cb: V3, cc: V3, cards?: readonly [CardVertex, CardVertex, CardVertex]) {
+    let [ka, kb, kc] = cards ?? [];
+    if (dot(cross(sub(b, a), sub(c, a)), na) < 0) { [b, c] = [c, b]; [nb, nc] = [nc, nb]; [cb, cc] = [cc, cb]; [kb, kc] = [kc, kb]; }
+    if (ka && kb && kc) {
+      this.padCards();
+      for (const k of [ka, kb, kc]) { this.card.push(k[0], k[1], k[2], k[3]); this.lever.push(k[4], k[5]); }
+    }
     this.position.push(...a, ...b, ...c); this.normal.push(...na, ...nb, ...nc); this.color.push(...ca, ...cb, ...cc);
   }
+  private padCards() { const n = this.position.length / 3; while (this.card.length < n * 4) this.card.push(0); while (this.lever.length < n * 2) this.lever.push(0); }
   /** One face, one normal: the face's own, turned toward `toward` and softened by it. */
-  flat(a: V3, b: V3, c: V3, toward: V3, soften: number, ca: V3, cb: V3, cc: V3) {
+  flat(a: V3, b: V3, c: V3, toward: V3, soften: number, ca: V3, cb: V3, cc: V3, cards?: readonly [CardVertex, CardVertex, CardVertex]) {
     let n = unit(cross(sub(b, a), sub(c, a)));
     if (dot(n, toward) < 0) n = [-n[0], -n[1], -n[2]];
     n = unit(add(n, toward, soften));
-    this.tri(a, b, c, n, n, n, ca, cb, cc);
+    this.tri(a, b, c, n, n, n, ca, cb, cc, cards);
   }
   /** A tube of rings: each ring is centre, two perpendicular axes, radius and colour. */
   tube(rings: { at: V3; u: V3; v: V3; radius: number; colour: V3 }[], sides: number) {
@@ -82,8 +92,13 @@ export class Mesher {
       this.tri(p[0], p[1], p[2], tips[i], tips[j], tips[k], c[0], c[1], c[2]);
     }
   }
-  geometry() {
+  /** `cards` adds the leaf-card attributes even when no face is a card, for a material that reads them. */
+  geometry(cards = this.card.length > 0) {
     const g = new THREE.BufferGeometry();
+    if (cards) {
+      this.padCards();
+      g.setAttribute('leafCard', new THREE.Float32BufferAttribute(this.card, 4)); g.setAttribute('leafLever', new THREE.Float32BufferAttribute(this.lever, 2));
+    }
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.position, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.normal, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.color, 3));

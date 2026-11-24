@@ -199,3 +199,43 @@ one under 700, a Kapur 1,400, a cycad 1,270 and a tree fern 770.
 The Botanic Gardens now holds about 651,000 triangles in all, up from 463,000
 with stand-in trees and above Marina Bay's 583,000. No frame-rate measurement
 was taken on a real GPU.
+
+## Leaves on the sprays (24 November 2026, third pass)
+
+A broadleaf tree's crown is built from flat sprays one to two and a half
+metres across. Until this pass each was a plain green sheet, and read as one.
+`src/game/leaf-cards.ts` now draws each spray as a twig carrying separate
+leaves and cuts the rest of the sheet away. The geometry, cover and what a
+round strikes are unchanged; this is presentation only.
+
+| Tree | Arrangement drawn | NParks statement it follows |
+| --- | --- | --- |
+| Tembusu | pairs of elliptic leaves opposite each other | FFW 2895: opposite, elliptic, 5-13 by 2-5.5 cm |
+| Kapur | small ovate leaves alternating on fine twigs | FFW 2862: broadly ovate, 4-6 by 2-4 cm |
+| Jelutong | whorls of five to seven long leaves | FFW 2866: whorls of 4-8, 5.5-42 cm long |
+| Jelawai Jaha | rosettes of spoon-shaped leaves at twig ends | FFW 3302: spoon-shaped, spiralled at twig ends |
+| Rain tree | twice-divided leaves, rows of small leaflets on each pinna | FFW 3106: bipinnate, small leaflets |
+
+- The leaves are drawn from numbers into one 1024-pixel atlas (three sprays
+  per arrangement) the first time a leaf material compiles. No photographs.
+- Each leaf swings about the point its stalk meets the twig, on its own clock,
+  and brightens and darkens a little as it turns. A rain tree's leaflets turn
+  with their pinna. Each spray also flaps and twists about its base. Both
+  follow the tree wind's strength and gust fronts and stop under reduced
+  effects.
+- A crown's shadow is cut the same way.
+- The dark solid that used to fill the middle of each leaf mass is gone; three
+  sprays crossing through the centre stand in for it, two triangles fewer per
+  mass.
+
+Authored, not stated by NParks: leaves are about twice life size (each stands
+for several); the number of leaves on a spray; the twig's branching; the
+angle a leaf leaves its twig at; the count of pinnae and leaflets on a rain
+tree leaf; how far and how fast a leaf swings.
+
+Limits: palms, the cycad, the tree fern, the gingers and heliconias already
+model each leaf or leaflet as geometry and are unchanged. The stand-in trees
+of the other eighteen districts and the Gardens' boundary backdrop are still
+closed crown shapes. Under thermal vision a spray is still a whole sheet. A
+spray seen edge-on is hidden rather than drawn as a streak. Checked in
+software-rendered captures only; no frame-rate measurement on a real GPU.

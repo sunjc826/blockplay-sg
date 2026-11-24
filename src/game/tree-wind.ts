@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { foliageDeclarations, foliageTreeShake, foliageUniforms } from './foliage-disturbance';
 import { inheritLeafShade, shadeLeaves } from './leaf-shading';
+import { cutLeafCards, hasLeafCards, inheritLeafCards } from './leaf-cards';
 
 interface TreePart { root: THREE.Vector3; height: number; flutter: number }
 interface WindState { time: { value: number }; strength: { value: number }; flutter: { value: number }; foliage: ReturnType<typeof foliageUniforms> }
@@ -27,6 +28,7 @@ export function setTreeWeather(scene: THREE.Scene, wind: number, reduced: boolea
 }
 
 const declarations = /* glsl */`
+#define TREE_WIND
 uniform float treeTime, treeStrength, treeRustle;
 attribute vec4 treeRootHeight;
 attribute float treeFlutter;
@@ -88,7 +90,7 @@ function patch(material: THREE.Material, uniforms: WindState) {
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n' + declarations)
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + deformation);
   };
-  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v3'; };
+  material.customProgramCacheKey = function() { return key.call(this) + '|tree-wind-v4'; };
 }
 
 /** Keep trees instanced, with one root/height per part. The scene builder owns all returned resources. */
@@ -105,7 +107,7 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     let material = materials.get(source);
     if (!material) {
       material = source.clone(); material.onBeforeCompile = source.onBeforeCompile; material.customProgramCacheKey = source.customProgramCacheKey;
-      inheritLeafShade(source, material); patch(material, uniforms);
+      inheritLeafShade(source, material); inheritLeafCards(source, material); patch(material, uniforms);
       // Crowns and fronds pass light through (leaf-shading.ts); trunks and branches do not.
       if (parts.some(part => (part.userData.treePart as TreePart).flutter > 0)) shadeLeaves(material);
       materials.set(source, material); trackMaterial(material);
@@ -127,7 +129,8 @@ export function batchTrees(scene: THREE.Scene, trackGeometry: (g: THREE.BufferGe
     // Match both sun shadows and point-light shadows to the visible canopy.
     mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: material.side });
     mesh.customDistanceMaterial = new THREE.MeshDistanceMaterial({ side: material.side });
-    for (const shadow of [mesh.customDepthMaterial, mesh.customDistanceMaterial]) { patch(shadow, uniforms); trackMaterial(shadow); }
+    // A crown cut into leaves (leaf-cards.ts) casts a shadow of leaves.
+    for (const shadow of [mesh.customDepthMaterial, mesh.customDistanceMaterial]) { if (hasLeafCards(material)) cutLeafCards(shadow); patch(shadow, uniforms); trackMaterial(shadow); }
     mesh.computeBoundingBox(); mesh.computeBoundingSphere();
     mesh.boundingBox!.expandByScalar(padding); mesh.boundingSphere!.radius += padding;
     parent.add(mesh); batches.push(mesh);

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { treePart } from './tree-wind';
 import { shadeLeaves } from './leaf-shading';
-import { DEG, Mesher, add, clamp01, cross, frame, mix, mix3, random, rgb, smooth, sub, unit, type V3 } from './palm-models';
+import { LEAF_VARIANTS, cutLeafCards, leafTile } from './leaf-cards';
+import { DEG, Mesher, add, clamp01, cross, frame, mix, mix3, random, rgb, smooth, sub, unit, type CardVertex, type V3 } from './palm-models';
 import { PLANT_SPECS, type HerbSpec, type PlantSpecies, type TreeSpec } from './plant-species';
 
 /**
@@ -31,23 +32,36 @@ export interface PlantModel {
 const scaled = (c: V3, k: number): V3 => [clamp01(c[0] * k), clamp01(c[1] * k), clamp01(c[2] * k)];
 const polar = (azimuth: number, rise: number): V3 => [Math.cos(azimuth) * Math.cos(rise), Math.sin(rise), Math.sin(azimuth) * Math.cos(rise)];
 
-/** A leaf spray mass: flat sprays turned outward round a centre, over a dark core that closes the silhouette. */
+/**
+ * A leaf mass: sprays turned outward round a centre, over a few that cross through the middle so the
+ * mass is not hollow. Every spray is a flat card that leaf-cards.ts cuts into the species' leaves.
+ */
 function cluster(leaf: Mesher, spec: TreeSpec, centre: V3, radius: number, rand: () => number) {
   const c = spec.crown, green = rgb(c.leaf), tip = rgb(c.tip), young = rgb(c.young), accent = c.accent ? rgb(c.accent.colour) : green;
-  leaf.lump(centre, [radius * .55, radius * .42, radius * .55], scaled(green, .55), scaled(green, .4));
+  /** One card centred near `at`, facing `out`, its twig running along `along`. */
+  const spray = (at: V3, out: V3, along: V3, size: number, droop: number, body: V3, far: V3) => {
+    const across = unit(cross(out, along)), near = scaled(body, .85);
+    const base = add(add(at, along, -size * .58), out, -size * .06), end = add(add(add(at, along, size * .62), [0, -1, 0], size * droop), out, size * .1);
+    const tile = leafTile(c.foliage, Math.floor(rand() * LEAF_VARIANTS)), phase = .04 + .96 * rand(), flip = rand() < .5 ? 1 : -1;
+    const corner = (p: V3, x: number, y: number): [V3, CardVertex] => [add(p, across, x * size * 1.04), [tile.u + tile.side * (.5 + x * flip), tile.v + tile.side * y, phase, size, x, y]];
+    const [p00, k00] = corner(base, -.5, 0), [p10, k10] = corner(base, .5, 0), [p01, k01] = corner(end, -.5, 1), [p11, k11] = corner(end, .5, 1);
+    leaf.flat(p00, p10, p01, out, .8, near, near, far, [k00, k10, k01]);
+    leaf.flat(p10, p11, p01, out, .8, near, far, far, [k10, k11, k01]);
+  };
+  // The inside of the mass, in its own shade: three cards on different planes through the centre.
+  const turn = rand() * Math.PI * 2;
+  for (let i = 0; i < 3; i++) {
+    const a = turn + i * 2.094, out = unit([Math.cos(a) * .8, .45 + .3 * rand(), Math.sin(a) * .8]), { u } = frame(out), inner = scaled(green, .5 + .12 * rand());
+    spray(add(centre, out, radius * .12), out, u, radius * 1.15, 0, inner, scaled(inner, 1.15));
+  }
   for (let i = 0; i < c.sprays; i++) {
     const y = mix(-.3, 1, (i + .5) / c.sprays), ring = Math.sqrt(Math.max(0, 1 - y * y)), a = i * 2.39996 + rand() * .5;
     const out = unit([Math.cos(a) * ring, y * c.flatten, Math.sin(a) * ring]);
     const at = add(centre, [out[0] * radius, out[1] * radius * c.flatten, out[2] * radius], .6 + .4 * rand());
     // The spray lies across the outward direction, sagging at its tip.
     const { u, v } = frame(out), roll = rand() * Math.PI, along = unit(add([u[0] * Math.cos(roll), u[1] * Math.cos(roll), u[2] * Math.cos(roll)], v, Math.sin(roll)));
-    const across = unit(cross(out, along)), size = c.spray * (.75 + .5 * rand());
-    const base = add(at, along, -size * .5), end = add(add(at, along, size * .55), [0, -1, 0], size * c.droop);
-    const left = add(add(at, across, size * .36), out, size * .08), right = add(add(at, across, -size * .36), out, size * .08);
-    const light = .62 + .38 * clamp01(.5 + out[1] * .7), flush = rand() < c.flush;
-    const body = scaled(flush ? young : green, light), far = scaled(mix3(flush ? young : green, tip, .6), light);
-    leaf.flat(base, left, right, out, .8, scaled(body, .85), body, body);
-    leaf.flat(left, end, right, out, .8, body, far, body);
+    const size = c.spray * (.75 + .5 * rand()), light = .62 + .38 * clamp01(.5 + out[1] * .7), flush = rand() < c.flush;
+    spray(at, out, along, size, c.droop, scaled(flush ? young : green, light), scaled(mix3(flush ? young : green, tip, .6), light));
     if (c.accent && rand() < c.accent.share) leaf.lump(add(at, out, size * .12), [c.accent.size, c.accent.size, c.accent.size], accent, scaled(accent, .7));
   }
 }
@@ -213,7 +227,7 @@ export const PLANT_VARIANTS = 3;
 export function buildPlant(species: PlantSpecies, variant = 0): PlantModel {
   const spec = PLANT_SPECS[species], rand = random(spec.seed * 37 + (variant % PLANT_VARIANTS) * 613 + 11);
   const built = spec.kind === 'tree' ? buildTree(spec, rand) : buildHerb(spec, rand);
-  return { species, wood: built.wood.geometry(), leaf: built.leaf.geometry(), height: built.height, radius: built.radius, footing: built.footing, lowLimb: built.lowLimb,
+  return { species, wood: built.wood.geometry(), leaf: built.leaf.geometry(true), height: built.height, radius: built.radius, footing: built.footing, lowLimb: built.lowLimb,
     triangles: { wood: built.wood.position.length / 9, leaf: built.leaf.position.length / 9 } };
 }
 
@@ -227,7 +241,7 @@ export interface PlantPlacement { wood?: THREE.Mesh; leaf: THREE.Mesh; model: Pl
 export function createPlantKit(track: { geometry: (g: THREE.BufferGeometry) => unknown; material: (m: THREE.Material) => unknown }) {
   const models = new Map<string, PlantModel>();
   const wood = new THREE.MeshStandardMaterial({ name: 'tree bark wood', color: '#ffffff', vertexColors: true, roughness: .92 });
-  const leaf = shadeLeaves(new THREE.MeshStandardMaterial({ name: 'broadleaf foliage', color: '#ffffff', vertexColors: true, roughness: .55, side: THREE.DoubleSide }), { thin: true, transmit: .35 });
+  const leaf = cutLeafCards(shadeLeaves(new THREE.MeshStandardMaterial({ name: 'broadleaf foliage', color: '#ffffff', vertexColors: true, roughness: .55, side: THREE.DoubleSide }), { thin: true, transmit: .35 }));
   wood.userData.impactSurface = 'wood'; leaf.userData.impactSurface = 'foliage';
   track.material(wood); track.material(leaf);
   function model(species: PlantSpecies, variant: number) {
