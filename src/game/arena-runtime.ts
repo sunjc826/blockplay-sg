@@ -673,6 +673,8 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
   }
   let ownCorpse = false, ownCorpseShown = false, selfWasAlive = false;
   let lastTime = performance.now(), broadcastTime = 0;
+  /** The tick a hosted simulation stood at when it was asked to reset, until its fresh state arrives. */
+  let resetFrom: number | null = null;
   const timer = simulation ? setInterval(() => {
     const now = performance.now(); const dt = Math.min(3, (now - lastTime) / 1000); lastTime = now;
     if (disposed || !started) return;
@@ -781,7 +783,15 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (!connected) { for (const done of loadoutRequests.values()) done(false); loadoutRequests.clear(); }
     inputTime += dt; helloTime += dt;
     // A hosted simulation's states arrive between frames; take the newest now, not at the next 50 ms timer.
-    if (remote) { deliverHits(); refresh(); }
+    if (remote) {
+      deliverHits(); const had = snapshot; refresh();
+      // A hosted simulation's state after a reset arrives a moment after the call. Only then does the new match
+      // get its id: a guest drops any state of a match that is older than one it has seen, so the last state of
+      // the old match must not go out under the new one's name.
+      if (resetFrom !== null && snapshot && snapshot.tick < resetFrom) { resetFrom = null; matchId = newMatchId(); publish(); }
+      // Before a match starts nothing broadcasts on a timer: guests are sent a roster change when its state arrives.
+      else if (!started && snapshot !== had) publish();
+    }
     let self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
     if (!authority && !self && connected && helloTime >= 1) { helloTime = 0; session.send({ type: 'arena-hello', profile, area:matchArea,mode:matchMode }); }
     self = snapshot?.actors.find(actor => actor.id === session.id) ?? null;
@@ -937,7 +947,7 @@ export function createArenaRuntime(options: ArenaRuntimeOptions) {
     if (simulation) { if (simulation.callout(session.id, id, at)) publish(); }
     else session.send({ type: 'arena-callout', callout: id, ...(at ? { at } : {}) });
   }
-  function reset() { if (!simulation || disposed) return; simulation.reset(); for (const actor of simulation.snapshot().actors) simulation.preparePlayer(actor.id); matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; remote?.setRunning(false); localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
+  function reset() { if (!simulation || disposed) return; const from = snapshot?.tick ?? 0; simulation.reset(); for (const actor of simulation.snapshot().actors) simulation.preparePlayer(actor.id); if (remote && from > 0) resetFrom = from; else matchId = newMatchId(); acknowledgements.clear(); reconciliation.reset(); broadcastTime = 0; started = false; remote?.setRunning(false); localAdopted = false; previousSelf = null; seenFeed.clear(); seenBarks.clear(); publish(); }
   function queueRespawnLoadout(selection: RespawnLoadoutSelection, deployment = false): Promise<boolean> {
     const next = applyRespawnLoadout(spendRentalTime(inventory, snapshot?.actors.find(actor => actor.id === session.id)?.rentalTimeMs ?? 0), selection);
     if (disposed || !next) return Promise.resolve(false);

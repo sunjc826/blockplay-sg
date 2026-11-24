@@ -37,6 +37,10 @@ const button=name=>`[...document.querySelectorAll('button')].find(b=>b.textConte
 const phase=value=>`document.querySelector('.fps-game')?.dataset.phase===${JSON.stringify(value)}`;
 const game=`document.querySelector('.fps-game')`;
 const position=`({x:Number(${game}.dataset.playerX),z:Number(${game}.dataset.playerZ)})`;
+/** Marina Bay: from either spawn, straight ahead to here is open ground with a clear line to the other player (z 52 to 60 holds for both). */
+const DUEL_Z=57;
+/** Walks forward with the keyboard, in short holds, until the player stands at about `z`. */
+async function walkTo(p,z){for(let n=0;n<60;n++){const at=await p.evaluate(position);if(at.z<=z+.6)return;await p.key('w','KeyW',Math.min(400,Math.max(80,(at.z-z)*90)));await delay(120*pace);}throw Error('Could not walk to z='+z);}
 async function field(p,selector,value){await p.evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()`);}
 try{
   const host=await page(9226),guest=await page(9227);
@@ -54,9 +58,11 @@ try{
   await guest.click(button('Enter match'));await guest.wait(phase('playing'));
   await host.wait(`window.lastArenaSnapshot?.actors.length===2`);
   assert(await guest.evaluate(`${game}.dataset.arenaConnected==='true'`));
-  for(const p of [host,guest]){assert(await p.evaluate(`!!document.querySelector('[data-minimap-player]')`));assert.equal(await p.evaluate(`document.querySelectorAll('[data-minimap-marker]').length`),0,'LAN map never shows opponents or practice markers');}
+  // The map has its own markers (landmarks, vehicles, ways out of the water); none may be a person or a practice target.
+  for(const p of [host,guest]){assert(await p.evaluate(`!!document.querySelector('[data-minimap-player]')`));assert.deepEqual(await p.evaluate(`[...document.querySelectorAll('[data-minimap-marker]')].map(m=>m.dataset.markerKind).filter(kind=>['enemy','ally','scent','target','npc','hunter'].includes(kind))`),[],'LAN map never shows opponents or practice markers');}
   // The guest's keyboard movement must appear in a host-owned outgoing snapshot.
-  const before=await guest.evaluate(position);await guest.key('w','KeyW',1400);await delay(350);const after=await guest.evaluate(position);
+  // Both walk forward into the open court: walls stand between the two spawns, and the host's shot later needs a clear line.
+  const before=await guest.evaluate(position);await walkTo(guest,DUEL_Z);await delay(350*pace);const after=await guest.evaluate(position);
   assert(after.z<before.z-.3,'Guest moved using keyboard');
   const remote=await host.evaluate(`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo')`);
   assert(Math.abs(remote.z-after.z)<.25,'Movement replicated to authoritative host');
@@ -65,23 +71,36 @@ try{
   await guest.key('Escape','Escape');await guest.wait(phase('paused'));await guest.wait('!document.pointerLockElement');
   await host.key('Escape','Escape');await host.wait(phase('paused'));await host.wait('!document.pointerLockElement');
   await host.click(button('Resume match'));await host.wait(phase('playing'));
+  await walkTo(host,DUEL_Z);await delay(350*pace);
   // Record DOM transitions as they happen; slow VM/CDP polling can miss a 3s respawn.
   await guest.evaluate(`(()=>{window.arenaLifeEvents=[];const game=document.querySelector('.fps-game');const record=()=>{const alive=game.dataset.arenaAlive;if(window.arenaLifeEvents.at(-1)?.alive!==alive)window.arenaLifeEvents.push({alive,health:Number(game.dataset.health)});};record();window.arenaLifeObserver=new MutationObserver(record);window.arenaLifeObserver.observe(game,{attributes:true,attributeFilter:['data-arena-alive','data-health']});})()`);
   // Aim through normal mouse movement and fire at the actual guest position.
   const shooter=await host.evaluate(position),victim=await guest.evaluate(position);
   const yaw=Math.atan2(-(victim.x-shooter.x),-(victim.z-shooter.z));const pitch=Math.atan2(-.65,Math.hypot(victim.x-shooter.x,victim.z-shooter.z));
-  await host.evaluate(`document.dispatchEvent(new MouseEvent('mousemove',{movementX:${-yaw/.0023},movementY:${-pitch/.0023}}))`);await delay(300);
-  await host.send('Page.bringToFront');await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});
-  await host.wait(`${game}.dataset.arenaKills==='1'`,10000);await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});
+  // Short bursts, aimed again before each from where the simulation says the host is looking: held fire climbs off the target.
+  await host.send('Page.bringToFront');
+  const health=`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo').health`;
+  for(let burst=0;burst<30&&await host.evaluate(`${game}.dataset.arenaKills!=='1'`);burst++){
+    const look=await host.evaluate(`(()=>{const a=window.lastArenaSnapshot.actors.find(a=>a.name==='Alpha');return{yaw:a.yaw,pitch:a.pitch}})()`);
+    await host.evaluate(`document.dispatchEvent(new MouseEvent('mousemove',{movementX:${-(yaw-look.yaw)/.0023},movementY:${-(pitch-look.pitch)/.0023}}))`);await delay(300*pace);
+    await host.send('Input.dispatchMouseEvent',{type:'mousePressed',x:700,y:550,button:'left',clickCount:1});await delay(120);await host.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:700,y:550,button:'left',clickCount:1});await delay(400*pace);
+    if(burst===9)assert(await host.evaluate(health)<100,'Ten aimed bursts landed nothing: is there still a clear line between the two players at z='+DUEL_Z+'?');
+    if(burst%8===7){await host.key('r','KeyR');await delay(2500);}
+  }
+  await host.wait(`${game}.dataset.arenaKills==='1'`,10000);
   await guest.wait(`window.arenaLifeEvents.some(event=>event.alive==='false')`);
   await guest.wait(`window.arenaLifeEvents.some((event,index)=>event.alive==='true' && window.arenaLifeEvents[index-1]?.alive==='false')`,7000);assert.equal(await guest.evaluate(`Number(${game}.dataset.health)`),100);await guest.screenshot('guest-respawned');await guest.evaluate('window.arenaLifeObserver.disconnect()');
   console.log('Kill and respawn verified');await host.key('Escape','Escape');await host.wait(phase('paused'));await host.wait('!document.pointerLockElement');await host.screenshot('host-scoreboard');
   assert(await host.evaluate(`document.querySelector('.arena-scoreboard').textContent.includes('Bravo')`));
   assert(await host.evaluate(`window.lastArenaSnapshot.actors.find(a=>a.name==='Bravo').deaths===1`));
   // Host reset is shared and returns a living guest to its ready screen.
-  await host.click(`document.querySelector('[aria-label="Reset arena match"]')`);await host.wait(phase('ready'));await guest.wait(phase('ready'));
+  await host.click(`document.querySelector('[aria-label="Reset arena match"]')`);
+  // From the match menu a restart asks first, since it resets everyone's scores.
+  await host.wait(`!!document.querySelector('.navigation-confirm .confirm-leave')`);await host.click(`document.querySelector('.navigation-confirm .confirm-leave')`);await host.wait(phase('ready'));await guest.wait(phase('ready'));
   console.log('Starting match');await host.click(button('Start match'));await host.wait(phase('playing'));await guest.click(button('Enter match'));await guest.wait(phase('playing'));
-  await host.key('Escape','Escape');await host.click(button('Leave match · return to lobby →'));
+  await host.key('Escape','Escape');await host.wait(phase('paused'));await host.click(`document.querySelector('.arena-leave')`);
+  // Where leaving a match in progress asks first, say yes.
+  if(await host.wait(`!!document.querySelector('.navigation-confirm .confirm-leave')`,750).then(()=>true,()=>false))await host.click(`document.querySelector('.navigation-confirm .confirm-leave')`);
   await guest.wait(`${game}.dataset.arenaConnected==='false'`,10000);await guest.screenshot('host-disconnected');
   assert(await guest.evaluate(`document.querySelector('.arena-start-card h2').textContent==='Host disconnected.'`));
   for(const p of pages)assert.deepEqual(p.errors,[],'No browser errors');

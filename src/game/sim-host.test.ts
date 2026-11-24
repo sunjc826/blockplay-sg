@@ -28,15 +28,16 @@ function seeded() {
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 /** Host and client joined as a worker would join them: every message is copied, none shared. */
-function hosted(arena: Arena, self = 'me', campaigns?: { host: ProxyCampaign; client: ProxyCampaign }) {
+/** `late` holds what the host posts until the next `tick`, as a worker's messages arrive after the call that caused them returns. */
+function hosted(arena: Arena, self = 'me', campaigns?: { host: ProxyCampaign; client: ProxyCampaign }, late = false) {
   let time = 0, wake = () => {};
   const clock: SimHostClock = { now: () => time, every: (_ms, next) => { wake = next; return () => {}; } };
   let toHost: (message: SimToHost) => void = () => {}, toClient: (message: SimFromHost) => void = () => {};
-  const sent: SimFromHost[] = [];
-  const host = createSimHost(arena, self, { post: message => { sent.push(message); toClient(structuredClone(message)); }, listen: handler => { toHost = handler; } }, clock, campaigns?.host);
+  const sent: SimFromHost[] = [], held: SimFromHost[] = [];
+  const host = createSimHost(arena, self, { post: message => { sent.push(message); if (late) held.push(structuredClone(message)); else toClient(structuredClone(message)); }, listen: handler => { toHost = handler; } }, clock, campaigns?.host);
   const raw = (message: unknown) => toHost(structuredClone(message) as SimToHost);
   const client = createSimClient({ post: raw, listen: handler => { toClient = handler; } }, self, structuredClone(host.first()) as Extract<SimFromHost, { type: 'state' }>, arena.navigationGraphStatus(), campaigns?.client);
-  return { client, sent, raw, tick(ms = SIM_TICK * 1000) { time += ms; wake(); } };
+  return { client, sent, raw, tick(ms = SIM_TICK * 1000) { time += ms; wake(); for (const message of held.splice(0)) toClient(message); } };
 }
 /** A short fight's worth of calls, written once and played against either kind of simulation. */
 function play(arena: Arena, step: () => void) {
@@ -320,7 +321,7 @@ describe('a match host whose simulation is hosted on another thread', () => {
       getPeers: () => [{ id: index ? 'host' : 'guest', name: index ? 'Host' : 'Guest' }], onPeers: () => () => {}, close() {},
     })) as unknown as import('./lan-peer').LanSession[];
     const rules = { bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 }, move: createRegionMovement({ minX: -400, maxX: 400, minZ: -400, maxZ: 400 }).move, spawns: [{ x: 0, z: 0 }, { x: 0, z: 30 }], endless: true } as ArenaEnvironment;
-    const link = hosted(createArena([], 0, 'mixed', rules), 'host');
+    const link = hosted(createArena([], 0, 'mixed', rules), 'host', undefined, true);
     const host = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: sessions[0], environment: rules, remote: link.client });
     const guest = createArenaRuntime({ scene: new THREE.Scene(), obstacles: [], botCount: 0, session: sessions[1], environment: rules });
     const at = { host: { x: 0, y: 1.75, z: 0, yaw: 0, pitch: 0, weapon: 0, playing: true }, guest: { x: 0, y: 1.75, z: 30, yaw: 0, pitch: 0, weapon: 0, playing: true } };
@@ -358,6 +359,10 @@ describe('a match host whose simulation is hosted on another thread', () => {
       await m.turn(4);
       expect(m.received[0].some(p => p.type === 'arena-vehicle')).toBe(true);
       expect(m.received[1].filter(p => p.type === 'arena-vehicle-result')).toEqual([{ type: 'arena-vehicle-result', accepted: false }]);
+      // A restart: the simulation's fresh state reaches the guest though nothing is broadcasting until the host starts again.
+      const played = m.guest.update(0, m.at.guest).snapshot!.elapsed; expect(played).toBeGreaterThan(2);
+      m.at.host.playing = false; m.host.reset(); await m.turn(4);
+      expect(m.guest.update(0, m.at.guest).snapshot!.elapsed).toBeLessThan(.5);
       expect(m.link.client.stats.errors).toEqual([]);
     } finally { m.dispose(); }
   }, 30000);
