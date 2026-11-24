@@ -4,7 +4,7 @@ import type { RegionWorld } from './regions';
 import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-routes';
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
-import { grassDetail, swardDensity, swardDetail, type WorldDetail } from './environment-quality';
+import { grassDetail, grassFadeBand, swardDensity, swardDetail, type WorldDetail } from './environment-quality';
 import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
 import { leafWetDeclarations, leafWetRoughness, leafWetSky, leafWetness } from './leaf-shading';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
@@ -332,11 +332,11 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   // A blade's upper face is smooth enough to shine: with the sun low and ahead, a lawn takes a sheen.
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: .72 });
   const time = { value: 0 }, eye = { value: new THREE.Vector3() }, reach = { value: 23 };
-  const farReach = { value: 23 }, nearReach = { value: 23 };
+  const farReach = { value: 23 }, nearReach = { value: 23 }, band = { value: 6 }, farBand = { value: 6 };
   const wind = { value: 0 }, foliage = foliageUniforms(scene);
   material.onBeforeCompile = shader => {
-    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassWind: wind, leafWet: leafWetness }, foliage);
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n#ifdef GRASS_BLOOM\nattribute float grassBloom;\n#endif\nuniform float grassTime, grassWind;\nuniform vec3 grassEye;\nuniform float grassReach;' + foliageDeclarations)
+    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassBand: band, grassWind: wind, leafWet: leafWetness }, foliage);
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n#ifdef GRASS_BLOOM\nattribute float grassBloom;\n#endif\nuniform float grassTime, grassWind;\nuniform vec3 grassEye;\nuniform float grassReach, grassBand;' + foliageDeclarations)
       // A lawn is not one green: broad drier and lusher patches, and every tuft a little its own.
       .replace('#include <color_vertex>', `#include <color_vertex>
         vec3 grassRoot = (modelMatrix * instanceMatrix * vec4(0,0,0,1)).xyz;
@@ -358,7 +358,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         #ifdef GRASS_BLOOM
         transformed *= mix(1.0, grassFlower, step(.5, grassBloom));
         #endif
-        float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));
+        float grassFade = 1.0-smoothstep(grassReach-grassBand,grassReach,distance(grassRoot.xz,grassEye.xz));
         transformed.y *= grassFade * grassLush;
         // Wind crosses a lawn as fronts, in the direction and at the speed the trees' gusts
         // travel (tree-wind.ts): long swells that lay the grass over, and metre-scale waves
@@ -386,7 +386,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   };
   type Defined = THREE.MeshStandardMaterial & { defines: Record<string, string> };
   (material as Defined).defines = { STANDARD: '', GRASS_BLOOM: '' };
-  material.customProgramCacheKey = () => 'ground-grass-v6';
+  material.customProgramCacheKey = () => 'ground-grass-v7';
   const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
@@ -406,13 +406,16 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const farMaterial = material.clone(); (farMaterial as Defined).defines = { STANDARD: '' };
   farMaterial.onBeforeCompile = (shader, renderer) => {
     material.onBeforeCompile(shader, renderer);
-    shader.uniforms.grassReach = farReach; shader.uniforms.grassNear = nearReach;
+    shader.uniforms.grassReach = farReach; shader.uniforms.grassBand = farBand; shader.uniforms.grassNear = nearReach;
     shader.vertexShader = 'uniform float grassNear;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('transformed.y *= grassFade * grassLush;', `
-      grassFade *= smoothstep(grassNear - 6.0, grassNear, distance(grassRoot.xz,grassEye.xz));
+      float grassAway = distance(grassRoot.xz,grassEye.xz);
+      grassFade *= smoothstep(grassNear - 6.0, grassNear, grassAway);
+      // Far tufts are few; each spreads a little the further off it is, so the ground between them does not show bare.
+      transformed.xz *= 1.0 + grassAway * .012;
       transformed.y *= grassFade * grassLush;`);
   };
-  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v6';
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v7';
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
@@ -429,13 +432,13 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       // the density at its distance (swardDensity in environment-quality.ts) is above that. A clump grows from
       // nothing over a tenth of the range instead of appearing whole, and the ones left spread wider to cover
       // for those gone, so walking forward the lawn fills in rather than popping in.
-      shader.vertexShader = 'attribute float swardPick;\nuniform float swardInner;\n' + shader.vertexShader.replace('float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));', `
+      shader.vertexShader = 'attribute float swardPick;\nuniform float swardInner;\n' + shader.vertexShader.replace('float grassFade = 1.0-smoothstep(grassReach-grassBand,grassReach,distance(grassRoot.xz,grassEye.xz));', `
         float swardT = clamp((distance(grassRoot.xz, grassEye.xz) - swardInner) / max(.01, grassReach - swardInner), 0.0, 1.0);
         float swardThin = (1.0 - swardT) * (1.0 - swardT);
         float grassFade = clamp((swardThin * 1.1 - swardPick) * 10.0, 0.0, 1.0);`)
         .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= smoothstep(0.0, .5, grassFade) * min(2.2, inversesqrt(max(swardThin, .2))); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
     };
-    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v4';
+    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v5';
     sward = new THREE.InstancedMesh(swardGeometry(new THREE.Color().setRGB(.7, .74, .7), new THREE.Color().setRGB(1.3, 1.24, .98)), swardMaterial, SWARD_CAPACITY);
     sward.geometry.setAttribute('swardPick', new THREE.InstancedBufferAttribute(new Float32Array(SWARD_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage));
     sward.name = 'Lawn sward'; sward.count = 0; sward.visible = false;
@@ -504,8 +507,11 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       camera.getWorldPosition(cameraPosition); eye.value.copy(cameraPosition); time.value = reduced ? 0 : seconds;
       const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile);
       reach.value = nearReach.value = profile.near; farReach.value = profile.radius;
+      band.value = grassFadeBand(profile.near, !profile.farLimit); farBand.value = grassFadeBand(profile.radius, true);
       if (sward) fillSward(sward, quality, swardDetail(detail, reduced, mobile));
-      const cx = Math.floor(cameraPosition.x/4)*4, cz = Math.floor(cameraPosition.z/4)*4;
+      // The middle of the viewer's 4 m cell, so the viewer is never more than 2.83 m from where the tufts were
+      // laid out round: measured from the cell's corner, the far side came up short and filled in at a step.
+      const cx = Math.floor(cameraPosition.x/4)*4+2, cz = Math.floor(cameraPosition.z/4)*4+2;
       if (cx === cellX && cz === cellZ && quality === lastQuality) return;
       if (quality !== lastQuality || heights.size > 100000) { heights.clear(); tints.clear(); }
       cellX = cx; cellZ = cz; lastQuality = quality;

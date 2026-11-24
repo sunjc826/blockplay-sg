@@ -335,6 +335,13 @@ is short, so the height is not copied; the density and the curl are.
   and grows from nothing over a tenth of the range, so nothing appears
   whole. About 12,000 clumps on High, up from 7,600; a rebuild took 2 to 8 ms
   in the test VM.
+- **The tufts' reach, same day**: the sparse tufts run to 85 m on High
+  (was 60 m) and 120 m on Ultra (was 100 m), spaced a little wider in the
+  far layer, and the outermost layer shrinks over the last 40% of its reach
+  (`grassFadeBand`) instead of the last 6 m, so it dwindles away. Far tufts
+  spread slightly with distance. A fault found on the way: tufts were laid
+  out round the corner of the viewer's 4 m cell, not its middle, so the far
+  side came up short and filled in at a step when a cell was crossed.
 - It uses the tufts' shader, so it leans to the same gust fronts, lies down
   under bodies and shakes from shots and blasts. No blade is simulated.
 - It follows the viewer in 2 m steps. A rebuild took 1 to 6 ms in the test

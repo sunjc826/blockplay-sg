@@ -70,7 +70,7 @@ describe('shared soil and grass',()=>{
       const matrix=new THREE.Matrix4();for(let i=0;i<grass.mesh.count;i++){grass.mesh.getMatrixAt(i,matrix);expect(matrix.elements[12]+grass.mesh.position.x).toBeLessThan(0);expect(matrix.elements[13]).toBeCloseTo(1.995);}
       grass.update(camera,3,false,true);expect(grass.mesh.count).toBeLessThanOrEqual(1536);
       grass.update(camera,4,true);expect(grass.mesh.count).toBeLessThanOrEqual(384);
-      camera.position.x=-28;grass.update(camera,5,true);expect(grass.mesh.position.x).toBe(-28);
+      camera.position.x=-28;grass.update(camera,5,true);expect(grass.mesh.position.x).toBe(-26);
       const renderer={getContext:()=>({getExtension:()=>null,getParameter:()=> 'hardware GPU',RENDERER:0}),shadowMap:{},capabilities:{maxTextureSize:4096}} as unknown as THREE.WebGLRenderer;
       const shadows=createSunShadows(renderer,scene);shadows.update(true,camera,{x:1,y:1,z:1},1);
       expect(grass.mesh.castShadow).toBe(false);expect(grass.mesh.receiveShadow).toBe(true);shadows.dispose();
@@ -113,9 +113,9 @@ it('High/Ultra grass extends in two LODs, increases close density, and reuses sa
   try{
     grass.update(camera,0,false);const low=grass.mesh.count;
     grass.update(camera,0,false,false,'high');const high=grass.mesh.count;
-    expect(high).toBeGreaterThan(low*2);expect(grass.radius).toBe(60);expect(grass.farMesh.count).toBeGreaterThan(4000);
+    expect(high).toBeGreaterThan(low*2);expect(grass.radius).toBe(85);expect(grass.farMesh.count).toBeGreaterThan(4000);
     expect(grass.farMesh.geometry.attributes.position.count).toBeLessThan(grass.mesh.geometry.attributes.position.count);
-    grass.update(camera,0,false,false,'ultra');expect(grass.radius).toBe(100);expect(grass.mesh.count).toBeGreaterThan(high*1.8);
+    grass.update(camera,0,false,false,'ultra');expect(grass.radius).toBe(120);expect(grass.mesh.count).toBeGreaterThan(high*1.8);
     const calls=floor.mock.calls.length;camera.position.x=4;grass.update(camera,1,false,false,'ultra');
     expect(floor.mock.calls.length-calls).toBeLessThan(4000);
     grass.update(camera,2,true,false,'ultra');expect(grass.radius).toBe(11);expect(grass.farMesh.count).toBe(0);
