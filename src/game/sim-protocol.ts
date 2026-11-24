@@ -1,6 +1,7 @@
 import type { createArena, ArenaSnapshot, ArenaShot } from './arena-rules';
 import type { PlayerRespawnView } from './player-respawn';
 import type { DeploymentPoint } from './expedition-deployment';
+import type { ProxyCampaign } from './proxy-operations';
 
 /** The simulation as the runtime drives it, whichever thread it runs on. */
 export type Arena = ReturnType<typeof createArena>;
@@ -45,7 +46,9 @@ export type SimToHost =
   | { type: 'call'; method: SimMethod; args: unknown[]; id?: number }
   | { type: 'run'; running: boolean };
 export type SimFromHost =
-  | { type: 'state'; snapshot: ArenaSnapshot; hits: ArenaShot[]; respawn: PlayerRespawnView | null; deployments: DeploymentPoint[]; clock?: SimClockReport }
+  | { type: 'state'; snapshot: ArenaSnapshot; hits: ArenaShot[]; respawn: PlayerRespawnView | null; deployments: DeploymentPoint[]; clock?: SimClockReport;
+      /** The expedition's proxy campaign as the host now holds it; it outlives the district, so the caller keeps a copy. */
+      campaign?: ProxyCampaign }
   | { type: 'answer'; id: number; method: SimMethod; value: unknown }
   | { type: 'error'; method: string; error: string };
 /** Either end of the channel; a worker, or a pair of functions in a test. */

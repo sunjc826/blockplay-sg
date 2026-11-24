@@ -1,3 +1,4 @@
+import type { ProxyCampaign } from './proxy-operations';
 import { isPosted, QUIET_METHODS, SIM_MAX_CATCH_UP, SIM_METHODS, SIM_TICK, type Arena, type SimFromHost, type SimPort, type SimToHost } from './sim-protocol';
 
 export interface SimHostClock { now(): number; every(ms: number, wake: () => void): () => void }
@@ -6,12 +7,13 @@ export const realClock: SimHostClock = { now: () => performance.now(), every: (m
 /**
  * Runs a simulation for a runtime on another thread: applies its calls in the
  * order sent, keeps time itself, and pushes the state after every wake that
- * stepped. `self` is the one local player whose hits and spawn views travel.
+ * stepped. `self` is the one local player whose hits and spawn views travel;
+ * `campaign` is the object the simulation was given as `environment.proxies`.
  */
-export function createSimHost(arena: Arena, self: string, port: SimPort<SimFromHost, SimToHost>, clock: SimHostClock = realClock) {
+export function createSimHost(arena: Arena, self: string, port: SimPort<SimFromHost, SimToHost>, clock: SimHostClock = realClock, campaign?: ProxyCampaign) {
   let running = false, last = 0, owed = 0;
   const state = (report?: { steps: number; stepMs: number; droppedMs: number }): SimFromHost =>
-    ({ type: 'state', snapshot: arena.snapshot(), hits: arena.takeHits(self), respawn: arena.playerRespawn(self), deployments: arena.playerDeployments(self), ...(report ? { clock: report } : {}) });
+    ({ type: 'state', snapshot: arena.snapshot(), hits: arena.takeHits(self), respawn: arena.playerRespawn(self), deployments: arena.playerDeployments(self), ...(report ? { clock: report } : {}), ...(campaign ? { campaign } : {}) });
   function wake() {
     if (!running) return;
     const now = clock.now(); owed += (now - last) / 1000; last = now;

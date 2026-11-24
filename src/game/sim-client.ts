@@ -1,6 +1,7 @@
 import type { ArenaShot, ArenaSnapshot } from './arena-rules';
 import type { PlayerRespawnView } from './player-respawn';
 import type { DeploymentPoint } from './expedition-deployment';
+import type { ProxyCampaign } from './proxy-operations';
 import { SIM_METHODS, type Arena, type SimClockReport, type SimFromHost, type SimMethod, type SimPort, type SimToHost } from './sim-protocol';
 
 export interface SimClientStats { states: number; steps: number; stepMs: number; maxStepMs: number; droppedMs: number; calls: number; errors: string[] }
@@ -26,8 +27,9 @@ function plain(value: unknown): unknown {
 /**
  * `first` is the host's state before anything was asked of it, so the runtime
  * can be built synchronously as it is around a simulation of its own.
+ * `campaign` is the caller's own campaign object, kept equal to the host's.
  */
-export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: string, first: Extract<SimFromHost, { type: 'state' }>, navigation: ReturnType<Arena['navigationGraphStatus']>): SimClient {
+export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: string, first: Extract<SimFromHost, { type: 'state' }>, navigation: ReturnType<Arena['navigationGraphStatus']>, campaign?: ProxyCampaign): SimClient {
   let snapshot: ArenaSnapshot = first.snapshot, respawn: PlayerRespawnView | null = first.respawn, deployments: DeploymentPoint[] = first.deployments;
   const hits: ArenaShot[] = [...first.hits];
   const stats: SimClientStats = { states: 0, steps: 0, stepMs: 0, maxStepMs: 0, droppedMs: 0, calls: 0, errors: [] };
@@ -37,6 +39,7 @@ export function createSimClient(port: SimPort<SimToHost, SimFromHost>, self: str
   port.listen(message => {
     if (message.type === 'state') {
       snapshot = message.snapshot; respawn = message.respawn; deployments = message.deployments; hits.push(...message.hits);
+      if (campaign && message.campaign) Object.assign(campaign, message.campaign);
       stats.states++; if (message.clock) count(message.clock);
     } else if (message.type === 'answer') { waiting.get(message.id)?.(message.value); waiting.delete(message.id); }
     else if (message.type === 'error') { if (stats.errors.length < 20) stats.errors.push(`${message.method}: ${message.error}`); console.error('Simulation host:', message.method, message.error); }

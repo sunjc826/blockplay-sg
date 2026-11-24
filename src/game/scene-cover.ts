@@ -48,7 +48,19 @@ export function createSceneCover(scene: THREE.Scene, ignore?: (node: THREE.Objec
     ray.set(origin.set(from.x, from.y, from.z), direction.normalize()); ray.near = 0; ray.far = range;
     return index.nearestHit(ray, hit => isVisibleHit(hit, includeFoliage, includeGlass), attachedAndVisible);
   }
-  return { trace,
+  /** Development aid: sight and bullet distances for each ray, and what the sight ray struck. */
+  function probe(rays: readonly { origin: { x: number; y: number; z: number }; direction: { x: number; y: number; z: number }; range: number }[]) {
+    const struck = (node: THREE.Object3D | undefined) => {
+      if (!node) return '';
+      const parts: string[] = [];
+      for (let n: THREE.Object3D | null = node; n && n !== scene && parts.length < 5; n = n.parent) parts.push([n.name || n.type, ...Object.keys(n.userData).slice(0, 4)].join(':'));
+      const at = node.getWorldPosition(new THREE.Vector3());
+      return `${parts.join(' < ')} [${(node as THREE.Mesh).geometry?.type ?? ''}] @${Math.round(at.x)},${Math.round(at.z)}`;
+    };
+    return { sight: rays.map(ray => trace(ray.origin, ray.direction, ray.range, true, false)?.distance ?? ray.range), bullet: rays.map(ray => trace(ray.origin, ray.direction, ray.range, false, false)?.distance ?? ray.range),
+      struck: rays.map(ray => struck(trace(ray.origin, ray.direction, ray.range, true, false)?.object)) };
+  }
+  return { trace, probe,
     distance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, false, false)?.distance ?? range,
     sightDistance: (from: { x: number; y: number; z: number }, heading: { x: number; y: number; z: number }, range: number) => trace(from, heading, range, true, false)?.distance ?? range,
   };

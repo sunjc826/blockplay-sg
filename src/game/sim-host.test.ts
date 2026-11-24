@@ -5,6 +5,9 @@ import { createSoloSession } from './lan-peer';
 import { createArena, type ArenaEnvironment, type ArenaShot } from './arena-rules';
 import { createSimClient } from './sim-client';
 import { createSimHost, type SimHostClock } from './sim-host';
+import { createProxyCampaign, type ProxyCampaign } from './proxy-operations';
+import { createSceneCover } from './scene-cover';
+import { buildExpeditionDistrict } from './expedition-district';
 import { SIM_MAX_CATCH_UP, SIM_METHODS, SIM_TICK, type Arena, type SimFromHost, type SimToHost } from './sim-protocol';
 
 const weapon = { damage: 36, interval: 0.12, capacity: 30, reload: 1.8 };
@@ -23,14 +26,14 @@ function seeded() {
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 /** Host and client joined as a worker would join them: every message is copied, none shared. */
-function hosted(arena: Arena, self = 'me') {
+function hosted(arena: Arena, self = 'me', campaigns?: { host: ProxyCampaign; client: ProxyCampaign }) {
   let time = 0, wake = () => {};
   const clock: SimHostClock = { now: () => time, every: (_ms, next) => { wake = next; return () => {}; } };
   let toHost: (message: SimToHost) => void = () => {}, toClient: (message: SimFromHost) => void = () => {};
   const sent: SimFromHost[] = [];
-  const host = createSimHost(arena, self, { post: message => { sent.push(message); toClient(structuredClone(message)); }, listen: handler => { toHost = handler; } }, clock);
+  const host = createSimHost(arena, self, { post: message => { sent.push(message); toClient(structuredClone(message)); }, listen: handler => { toHost = handler; } }, clock, campaigns?.host);
   const raw = (message: unknown) => toHost(structuredClone(message) as SimToHost);
-  const client = createSimClient({ post: raw, listen: handler => { toClient = handler; } }, self, structuredClone(host.first()) as Extract<SimFromHost, { type: 'state' }>, arena.navigationGraphStatus());
+  const client = createSimClient({ post: raw, listen: handler => { toClient = handler; } }, self, structuredClone(host.first()) as Extract<SimFromHost, { type: 'state' }>, arena.navigationGraphStatus(), campaigns?.client);
   return { client, sent, raw, tick(ms = SIM_TICK * 1000) { time += ms; wake(); } };
 }
 /** A short fight's worth of calls, written once and played against either kind of simulation. */
@@ -143,6 +146,18 @@ describe('a hosted simulation', () => {
     expect(link.client.stats.errors).toEqual([]);
   });
 
+  it('keeps the caller\'s proxy campaign equal to the one the host simulates with', () => {
+    seeded();
+    const campaigns = { host: createProxyCampaign(), client: createProxyCampaign() };
+    const link = hosted(createArena([], 0, 'mixed', { ...environment(), proxies: campaigns.host }), 'me', campaigns);
+    link.client.setRunning(true);
+    campaigns.host.favor['freedom-force'] = 3; campaigns.host.serial = 2;
+    link.tick();
+    expect(campaigns.client).toEqual(campaigns.host);
+    expect(campaigns.client).not.toBe(campaigns.host);
+    expect(campaigns.client.nextIn).toBeLessThan(createProxyCampaign().nextIn);
+  });
+
   it('places every simulation method', () => {
     const arena = createArena([], 0, 'mixed', environment());
     expect(Object.keys(SIM_METHODS).sort()).toEqual(Object.keys(arena).sort());
@@ -178,5 +193,28 @@ describe('a runtime around a hosted simulation', () => {
       expect(runtime.update(1 / 60, { ...playing, playing: false }).snapshot?.elapsed).toBe(0);
     } finally { runtime.dispose(); }
     expect(link.client.stats.errors).toEqual([]);
+  });
+});
+
+describe('the district an expedition simulates in', () => {
+  it('has any stamps hidden and its camps standing as cover, wherever it is built', () => {
+    const { world, infrastructure, structureVisuals } = buildExpeditionDistrict('toa-payoh');
+    try {
+      expect(world.stamps.every(stamp => !stamp.visible)).toBe(true);
+      const camps: THREE.Object3D[] = [];
+      world.scene.traverse(node => { if (node.userData.commandCamp) camps.push(node); });
+      expect(camps.length).toBeGreaterThan(0);
+      expect(infrastructure.facilitySites.length).toBeGreaterThan(0);
+      // A level ray across a camp stops at its wall: the simulation's sight and the drawn district agree on that.
+      world.scene.updateMatrixWorld(true);
+      const cover = createSceneCover(world.scene), box = new THREE.Box3().setFromObject(camps[0]), centre = box.getCenter(new THREE.Vector3());
+      const reach = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2 + 3, y = box.min.y + 1;
+      const blocked = [0, 1, 2, 3, 4, 5, 6, 7].some(i => {
+        const angle = i * Math.PI / 4, origin = { x: centre.x - Math.cos(angle) * reach, y, z: centre.z - Math.sin(angle) * reach };
+        const hit = cover.probe([{ origin, direction: { x: Math.cos(angle), y: 0, z: Math.sin(angle) }, range: reach * 2 }]);
+        return hit.bullet[0] < reach * 2 - .01 && hit.struck[0].includes('commandCamp');
+      });
+      expect(blocked).toBe(true);
+    } finally { structureVisuals.dispose(); world.dispose(); }
   });
 });

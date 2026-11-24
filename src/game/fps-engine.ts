@@ -66,7 +66,6 @@ import { validatedNavalSites } from './naval-route-validation';
 import { SENTOSA_LANDING_SITES } from './naval-landing-sites';
 import { createObjectiveBeacons, objectiveHint, type ObjectiveHint } from './objective-beacons';
 import { captureObjectives } from './expedition-objectives';
-import { createExpeditionStructureVisuals } from './expedition-structure-visuals';
 import { installStructureLayout } from './structure-layout';
 import { facilityPrompt, facilityStatus, facilityActionFor, type FacilityState } from './facilities';
 import { buildTutorialWorld } from './tutorial-world';
@@ -154,7 +153,7 @@ import { ORDER_TUNING } from './squad-orders';
 import type { BattlefieldSize } from './battlefield';
 import { createSoloSession, type LanSession } from './lan-peer';
 import { buildDistrictWorld } from './district-world';
-import { districtInfrastructure } from './district-infrastructure';
+import { prepareExpeditionDistrict } from './expedition-district';
 import { loadNavigationBake } from './navigation-bake-loader';
 import { gpuCaughtUp, yieldToPaint, type PlayLoadScreen } from './play-load-stages';
 import { getFpsDistrict } from './fps-districts';
@@ -165,7 +164,7 @@ import { createFpsSurface, fpsPixelRatio, type FpsSurface } from './fps-surface'
 import { beginProfiledFrame, endProfiledFrame } from './perf-overlay';
 import { createFrameLimiter, getGraphicsSettings, SHADOW_MAP_SIZE, subscribeGraphics } from './graphics-settings';
 import type { ExpeditionLoot, FieldLoot } from './expedition-loot';
-import { expeditionNpcs, nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
+import { nearestNpc, npcInteractionPrompt, type ExpeditionNpc } from './expedition-npcs';
 import { itemById } from './armory-catalog';
 import { DEFAULT_FPS_DEBUG, FPS_REGEN_DELAY, normalizeFpsDebug, readFpsDebug, regenerateHealth, saveFpsDebug, type FpsDebugSettings } from './fps-debug';
 import { pouchWeaponOffset } from './fps-pouch-reload';
@@ -462,12 +461,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
   const expeditionSession = expedition ? createSoloSession('Explorer') : null;
   if (expedition && zoneWorld && expeditionSession) options = { ...options, arena: { session: expeditionSession, profile: fieldProfile, botCount: zoneWorld.zone.botCount, composition: zoneWorld.zone.composition, environment: zoneWorld.environment, initialVitals: expedition.checkpoint } };
-  const npcs = expedition ? expeditionNpcs(expedition.zone, zoneSectors(expedition.zone)) : [];
-  const infrastructure = expedition ? districtInfrastructure(world, npcs) : undefined;
+  // Shared with the simulation worker, which prepares its own copy of the district the same way.
+  const expeditionDistrict = expedition ? prepareExpeditionDistrict(world, expedition.zone) : undefined;
+  const npcs = expeditionDistrict?.npcs ?? [];
+  const infrastructure = expeditionDistrict?.infrastructure;
   const fleetSpawns: VehicleSpawns = infrastructure?.fleetSpawns ?? { ...district.vehicles, ...(region === 'marina-bay' && !options.tutorial ? DRAGON_BOAT_SPAWNS : {}) };
   const facilitySites = infrastructure?.facilitySites ?? [];
   const structureLayout = infrastructure?.structures ?? { id: 'empty', structures: [] };
-  const installedStructures = installStructureLayout(world, structureLayout);
+  const installedStructures = expeditionDistrict?.installedStructures ?? installStructureLayout(world, structureLayout);
   const navigationBake = expedition ? loadNavigationBake(region) : Promise.resolve(undefined);
   if (expedition && options.arena?.environment) {
     if(expedition.battlefieldSize)options.arena.environment.battlefield={size:expedition.battlefieldSize};
@@ -512,7 +513,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let focusedRack: RangeArmoryEntry | null = null, rackCardKey = '', rackCard: LootCard | null = null;
   const rackLook = new THREE.Vector3();
   const proxyVisuals = createProxyOperationVisuals(world.scene);
-  const facilityVisuals = expedition ? createExpeditionStructureVisuals(world.scene, structureLayout) : null;
+  const facilityVisuals = expeditionDistrict?.structureVisuals ?? null;
   const objectiveBeacons = expedition ? createObjectiveBeacons(world.scene, facilitySites) : null;
   const facilityCover = createSceneCover(world.scene);
   if (options.arena?.environment && (options.arena.environment.paratroopers || options.arena.environment.proxies)) options.arena.environment.dropColumnClear = createDropColumnCheck(facilityCover);
@@ -5281,11 +5282,13 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // (sim-remote.ts). Production builds drop this branch, and with it the worker.
       let remote: import('./sim-client').SimClient | undefined;
       if (import.meta.env.DEV && expedition && (globalThis as { blockplayWorkerSim?: boolean }).blockplayWorkerSim === true) {
-        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, self: options.arena.session.id, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
+        remote = await (await import('./sim-remote')).createWorkerSimulation({ zone: expedition.zone, spawn: expedition.spawn, self: options.arena.session.id, environment: options.arena.environment, vehicles: arenaVehicles, botCount: options.arena.botCount, composition: options.arena.composition })
           .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
       }
       canvas.dataset.simulationThread = remote ? 'worker' : 'main';
+      // Development probe: the drawn scene's answer to cover rays, to compare with the worker's (`blockplaySimCover`).
+      if (import.meta.env.DEV) (globalThis as { blockplayMainCover?: unknown }).blockplayMainCover = facilityCover.probe;
       arenaRuntime = createArenaRuntime({ scene: world.scene, obstacles: world.obstacles, ...options.arena, remote, onFiguresAdded: patchMaterials, figureDetail, vehicles: arenaVehicles });
       canvas.dataset.navigationGraph = JSON.stringify(arenaRuntime.navigationGraphStatus());
       if (checkpoint?.vehicleTravel?.crew && !arenaRuntime.restoreVehicleTravel(checkpoint.vehicleTravel.crew)) throw new Error('Vehicle crew could not enter the destination district');
