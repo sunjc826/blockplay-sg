@@ -4,11 +4,11 @@ import type { RegionWorld } from './regions';
 import { getWalkSurfaces, surfaceContains, surfaceHeight } from './vertical-routes';
 import { isWaterObject } from './water';
 import { accelerateMeshRaycast } from './mesh-raycast';
-import { grassDetail, type WorldDetail } from './environment-quality';
+import { grassDetail, swardDetail, type WorldDetail } from './environment-quality';
 import { foliageDeclarations, foliageGrassPress, foliageUniforms } from './foliage-disturbance';
 import { partitionGroundCaps, type GroundCap } from './ground-surface-ownership';
 
-interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh; /** A lawn's own colour, which its tufts take. */ color?: THREE.Color }
+interface Patch { minX: number; maxX: number; minZ: number; maxZ: number; y: number; grass: boolean; wettable?: boolean; mesh?: THREE.Mesh; /** A lawn's own colour, which its tufts take. */ color?: THREE.Color; /** The same for ground painted vertex by vertex. */ tint?: (x: number, z: number) => THREE.Color }
 const green = (material: THREE.Material) => {
   const c = (material as THREE.MeshStandardMaterial).color;
   return !!c && c.g > c.r * 1.04 && c.g > c.b * 1.12;
@@ -25,6 +25,32 @@ function index<T extends { minX: number; maxX: number; minZ: number; maxZ: numbe
       const k = `${x},${z}`, row = bins.get(k) ?? []; row.push(item); bins.set(k, row);
     }
   return (x: number, z: number) => bins.get(key(x, z)) ?? [];
+}
+
+/** A vertex-painted terrain's colour at any point: its vertices' colours gathered into bins a vertex spacing and a
+ * half wide, and blended between bin centres. Undefined for a terrain of one material colour. */
+function terrainTint(mesh: THREE.Mesh, box: THREE.Box3) {
+  const material = mesh.material as THREE.MeshStandardMaterial, colors = mesh.geometry.getAttribute('color'), positions = mesh.geometry.getAttribute('position');
+  if (!material.vertexColors || !colors) return undefined;
+  const wide = box.max.x - box.min.x, deep = box.max.z - box.min.z, cell = Math.max(1, Math.sqrt(wide * deep / positions.count) * 1.5);
+  const columns = Math.max(1, Math.ceil(wide / cell)), rows = Math.max(1, Math.ceil(deep / cell));
+  const sums = new Float32Array(columns * rows * 4), mean = [0, 0, 0], point = new THREE.Vector3();
+  const paint = material.color.toArray();
+  for (let i = 0; i < positions.count; i++) {
+    point.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld);
+    const n = (Math.min(rows - 1, Math.max(0, Math.floor((point.z - box.min.z) / cell))) * columns + Math.min(columns - 1, Math.max(0, Math.floor((point.x - box.min.x) / cell)))) * 4;
+    for (let c = 0; c < 3; c++) { const v = colors.getComponent(i, c) * paint[c]; sums[n + c] += v; mean[c] += v / positions.count; }
+    sums[n + 3]++;
+  }
+  return (x: number, z: number) => {
+    const u = (x - box.min.x) / cell - .5, v = (z - box.min.z) / cell - .5, i = Math.floor(u), j = Math.floor(v), fu = u - i, fv = v - j, out = [0, 0, 0];
+    for (let b = 0; b < 4; b++) {
+      const n = (Math.min(rows - 1, Math.max(0, j + (b >> 1))) * columns + Math.min(columns - 1, Math.max(0, i + (b & 1)))) * 4;
+      const weight = (b & 1 ? fu : 1 - fu) * (b >> 1 ? fv : 1 - fv), count = sums[n + 3];
+      for (let c = 0; c < 3; c++) out[c] += weight * (count ? sums[n + c] / count : mean[c]);
+    }
+    return new THREE.Color().setRGB(out[0], out[1], out[2]);
+  };
 }
 
 /** World-space soil detail uses no image downloads and stays continuous across terrain tiles. */
@@ -56,13 +82,15 @@ function soilMaterial(source: THREE.Material, turf = false) {
         ${turf ? `// A lawn between its tufts is still grass: short blades lying two ways, lit and shadowed, and thatch
         // showing through where the sward is thin. Faded out with distance, where it would only shimmer.
         float turfNear = 1.0 - smoothstep(16.0, 42.0, length(vViewPosition));
+        // Ground painted vertex by vertex is turf only where it is painted green.
+        turfNear *= step(diffuseColor.r * 1.04, diffuseColor.g) * step(diffuseColor.b * 1.12, diffuseColor.g);
         float turfA = soilNoise(vec2(vSoilWorld.x * 58.0 + vSoilWorld.z * 9.0, vSoilWorld.z * 13.0 - vSoilWorld.x * 3.0));
         float turfB = soilNoise(vec2(vSoilWorld.z * 63.0 - vSoilWorld.x * 11.0, vSoilWorld.x * 12.0 + vSoilWorld.z * 4.0));
         float turfBlade = max(turfA, turfB), turfThin = smoothstep(.55, .2, soilNoise(vSoilWorld.xz * 3.1) * .6 + turfBlade * .4);
         diffuseColor.rgb *= 1.0 + turfNear * ((turfBlade - .58) * .46 - turfThin * .1);
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.12, 1.02, .7), turfNear * turfThin * .35);` : ''}`);
   };
-  material.customProgramCacheKey = () => `${source.customProgramCacheKey()}-soil-v2${turf ? '-turf' : ''}`;
+  material.customProgramCacheKey = () => `${source.customProgramCacheKey()}-soil-v3${turf ? '-turf' : ''}`;
   return material;
 }
 
@@ -79,9 +107,9 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   let corrected = 0;
   world.scene.updateMatrixWorld(true);
   const protectedSurface = (x: number, z: number, y: number) => surfaces.some(s => surfaceContains(s, x, z) && Math.abs(surfaceHeight(s, x, z) - y) < .035);
-  const detail = (source: THREE.Material) => {
+  const detail = (source: THREE.Material, turf = green(source)) => {
     let material = materials.get(source);
-    if (!material) { material = soilMaterial(source, green(source)); materials.set(source, material); }
+    if (!material) { material = soilMaterial(source, turf); materials.set(source, material); }
     return material;
   };
   for (const object of [...world.scene.children]) {
@@ -117,8 +145,9 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     if (object.userData.terrain) {
       box.copy(local).applyMatrix4(object.matrixWorld);
       const grass = object.userData.terrainCover !== 'sand';
-      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass, wettable: !grass, color: grass ? (material as THREE.MeshStandardMaterial).color : undefined });
-      if (grass) object.material = detail(material);
+      const tint = grass ? terrainTint(object, box) : undefined;
+      patches.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, y: NaN, grass, wettable: !grass, color: grass && !tint ? (material as THREE.MeshStandardMaterial).color : undefined, tint });
+      if (grass) object.material = detail(material, !!tint || green(material));
       object.userData.noShadowCast = true; object.castShadow = false;
       continue;
     }
@@ -167,7 +196,7 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
   const patchesAt = index(patches), surfacesAt = index([...surfaces]), obstaclesAt = index<Obstacle>(world.obstacles);
   const ray = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 3);
   const sampleState = (x: number, z: number) => {
-    let y = ground(x, z), grass = false, wettable = false, owner = -Infinity, color: THREE.Color | undefined;
+    let y = ground(x, z), grass = false, wettable = false, owner = -Infinity, color: THREE.Color | undefined, tint: Patch['tint'];
     for (const patch of patchesAt(x, z)) {
       if (x < patch.minX || x > patch.maxX || z < patch.minZ || z > patch.maxZ) continue;
       const top = Number.isNaN(patch.y) ? y : patch.y;
@@ -177,21 +206,21 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
         if (!ray.intersectObject(patch.mesh).length) continue;
       }
       // Paving wins over a coplanar soil plate at its edge.
-      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; color = patch.color; }
+      if (top > owner + 1e-5 || !patch.grass) { owner = top; grass = patch.grass; wettable = patch.wettable === true; color = patch.color; tint = patch.tint; }
       y = Math.max(y, top);
     }
     for (const s of surfacesAt(x, z)) if (surfaceContains(s, x, z)) {
       const top = surfaceHeight(s, x, z);
-      if (top > y + .02) { y = top; grass = false; wettable = false; color = undefined; }
+      if (top > y + .02) { y = top; grass = false; wettable = false; color = tint = undefined; }
     }
-    return { y, grass, wettable, color };
+    return { y, grass, wettable, color: tint && grass ? tint(x, z) : color };
   };
   const sample = (x: number, z: number) => { const { y, grass } = sampleState(x, z); return { y, grass }; };
   const grass = createGrass(world.scene, bounds, (x, z) => {
     const p = sample(x, z);
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
-  }, (x, z) => sampleState(x, z).color);
+  }, (x, z) => sampleState(x, z).color, { sward: world.scene.userData.lawnSward === true });
   const wetGround = (x: number, z: number) => {
     const p = sampleState(x, z); return p.wettable && !p.grass ? p.y : null;
   };
@@ -205,9 +234,44 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
 /** How far the weather's wind (0 still to 7 squall) lays grass over: mean tip travel as a share of blade height. */
 export const grassWindLean = (wind: number) => .1 + Math.min(7, Math.max(0, wind)) * .1;
 
+export const SWARD_BLADES = 5, SWARD_CAPACITY = 26000;
+/** One clump of a mown lawn: broad, blunt blades (cow grass, Axonopus compressus) that arch outward from the
+ * crown. Each blade has three joints along its length, so the wind's lean (which grows with the square of
+ * height) curls it over instead of tipping it as a straight piece. Height is 0 to 1; the instance sets it. */
+function swardGeometry(base: THREE.Color, tip: THREE.Color) {
+  const positions: number[] = [], colors: number[] = [], normals: number[] = [];
+  const rows = [0, .4, .75, 1], color = new THREE.Color();
+  for (let blade = 0; blade < SWARD_BLADES; blade++) {
+    const a = blade * 2.399963, c = Math.cos(a), s = Math.sin(a);
+    const tall = [1, .78, .9, .66, .84][blade], droop = [.03, .075, .05, .09, .06][blade], out = [.015, .07, .045, .095, .06][blade], half = [.014, .012, .015, .011, .013][blade];
+    const point = (row: number, side: number) => {
+      const t = rows[row], reach = out + droop * t * t, wide = row === 3 ? 0 : half * (1 - .3 * t) * side;
+      return [c * reach - s * wide, tall * t * (1 - .22 * t), s * reach + c * wide];
+    };
+    const push = (...corners: number[][]) => {
+      for (const p of corners) {
+        positions.push(p[0], p[1], p[2]); color.copy(base).lerp(tip, p[1]); colors.push(color.r, color.g, color.b);
+        // Mostly upward, as the tufts are, but turned a little the way the blade arches so clumps catch the light unevenly.
+        const n = new THREE.Vector3(c * .5, 1, s * .5).normalize(); normals.push(n.x, n.y, n.z);
+      }
+    };
+    for (let row = 0; row < 2; row++) {
+      push(point(row, -1), point(row, 1), point(row + 1, -1));
+      push(point(row, 1), point(row + 1, 1), point(row + 1, -1));
+    }
+    push(point(2, -1), point(2, 1), point(3, 0));
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  return geometry;
+}
+
 /** Two bounded instanced LODs; solid tapered blades avoid alpha-card overdraw.
- * Rebuild only after crossing a 4 m cell, with deterministic world placement. */
-export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null, lawn?: (x: number, z: number) => THREE.Color | undefined) {
+ * Rebuild only after crossing a 4 m cell, with deterministic world placement.
+ * `sward` adds a third, much denser layer of short curved blades close to the viewer, for a mown lawn. */
+export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x: number, z: number) => number | null, lawn?: (x: number, z: number) => THREE.Color | undefined, options: { sward?: boolean } = {}) {
   const positions: number[] = [], colors: number[] = [];
   // A tuft is the colour of the lawn it grows from (the instance colour), darker at the foot and paler and
   // a little yellower at the tip. Where no lawn colour is known it is the green the tufts always were.
@@ -313,15 +377,78 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
-  for (const tufts of [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); }
-  scene.add(mesh, farMesh);
+  // The sward: the same shader, so it leans to the same wind fronts, bodies and shots, on its own short reach.
+  const swardReach = { value: 0 };
+  let sward: THREE.InstancedMesh | undefined;
+  if (options.sward) {
+    const swardMaterial = material.clone(); (swardMaterial as Defined).defines = { STANDARD: '' };
+    swardMaterial.onBeforeCompile = (shader, renderer) => {
+      material.onBeforeCompile(shader, renderer);
+      shader.uniforms.grassReach = swardReach;
+      // Mown to one height, near enough: only a little of the lush-and-dry difference the tufts show. It thins
+      // out over its last four metres by losing clumps, then height, so there is no ring where it stops.
+      shader.vertexShader = shader.vertexShader.replace('float grassFade = 1.0-smoothstep(grassReach-6.0,grassReach,distance(grassRoot.xz,grassEye.xz));', `
+        float swardFar = distance(grassRoot.xz, grassEye.xz);
+        float grassFade = (1.0 - smoothstep(grassReach - 1.5, grassReach, swardFar)) * step(smoothstep(grassReach - 5.0, grassReach - .5, swardFar), fract(grassPick * 7.0) + .001);`)
+        .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= step(.001, grassFade); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
+    };
+    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v1';
+    sward = new THREE.InstancedMesh(swardGeometry(new THREE.Color().setRGB(.7, .74, .7), new THREE.Color().setRGB(1.3, 1.24, .98)), swardMaterial, SWARD_CAPACITY);
+    sward.name = 'Lawn sward'; sward.count = 0; sward.visible = false;
+    sward.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sward.receiveShadow = true;
+    sward.userData.noShadowCast = true; sward.userData.fpsEffect = true; sward.raycast = () => {};
+  }
+  for (const tufts of sward ? [mesh, farMesh, sward] : [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); }
+  scene.add(mesh, farMesh); if (sward) scene.add(sward);
   const heights = new Map<string, number | null>(), tints = new Map<string, THREE.Color>();
+  const swardHeights = new Map<number, number | null>(), swardTints = new Map<number, THREE.Color>();
   const dummy = new THREE.Object3D(), cameraPosition = new THREE.Vector3();
   let cellX = Infinity, cellZ = Infinity, lastQuality = '', disposed = false;
+  let swardX = Infinity, swardZ = Infinity, swardQuality = '';
+  /** The sward follows the viewer in 2 m steps, finer than the tufts, since its reach is only a few strides. */
+  const fillSward = (target: THREE.InstancedMesh, quality: string, profile: { radius: number; spacing: number } | null) => {
+    const step = 2, cx = Math.floor(cameraPosition.x / step) * step + step / 2, cz = Math.floor(cameraPosition.z / step) * step + step / 2;
+    swardReach.value = profile?.radius ?? 0;
+    if (cx === swardX && cz === swardZ && quality === swardQuality) return;
+    if (quality !== swardQuality || swardHeights.size > 160000) { swardHeights.clear(); swardTints.clear(); }
+    swardX = cx; swardZ = cz; swardQuality = quality;
+    let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
+    const matrices = target.instanceMatrix.array, shades = target.instanceColor!.array;
+    if (profile) {
+      const { radius, spacing } = profile, edge = radius + step * .71, edge2 = edge * edge;
+      for (let ix = Math.floor((cx - edge) / spacing); ix <= Math.ceil((cx + edge) / spacing); ix++)
+        for (let iz = Math.floor((cz - edge) / spacing); iz <= Math.ceil((cz + edge) / spacing); iz++) {
+          if (count >= SWARD_CAPACITY) break;
+          const x = (ix + hash(ix, iz, 5)) * spacing, z = (iz + hash(ix, iz, 6)) * spacing, dx = x - cx, dz = z - cz;
+          if (dx * dx + dz * dz > edge2 || x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) continue;
+          const k = (ix + 32768) * 65536 + iz + 32768;
+          let y = swardHeights.get(k);
+          if (y === undefined) { y = floor(x, z); swardHeights.set(k, y); if (y !== null) swardTints.set(k, lawn?.(x, z) ?? plain); }
+          if (y === null) continue;
+          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+          const wide = (.85 + hash(ix, iz, 7) * .5) * Math.max(1, spacing / .22);
+          // Written straight into the buffers: a turn about the vertical, a scale and a place, thousands of times a step.
+          const turn = hash(ix, iz, 8) * Math.PI * 2, c = Math.cos(turn) * wide, s = Math.sin(turn) * wide, m = count * 16, tint = swardTints.get(k) ?? plain;
+          matrices[m] = c; matrices[m + 1] = 0; matrices[m + 2] = -s; matrices[m + 3] = 0;
+          matrices[m + 4] = 0; matrices[m + 5] = .085 + hash(ix, iz, 9) * .055; matrices[m + 6] = 0; matrices[m + 7] = 0;
+          matrices[m + 8] = s; matrices[m + 9] = 0; matrices[m + 10] = c; matrices[m + 11] = 0;
+          matrices[m + 12] = dx; matrices[m + 13] = y - .004; matrices[m + 14] = dz; matrices[m + 15] = 1;
+          shades[count * 3] = tint.r; shades[count * 3 + 1] = tint.g; shades[count * 3 + 2] = tint.b; count++;
+        }
+    }
+    target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; target.instanceColor!.needsUpdate = true;
+    target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
+    if (count) {
+      const reach = (profile?.radius ?? 0) + 3;
+      target.boundingBox.min.set(-reach, minY - .01, -reach); target.boundingBox.max.set(reach, maxY + .3, reach);
+      target.boundingBox.getBoundingSphere(target.boundingSphere);
+    } else { target.boundingBox.makeEmpty(); target.boundingSphere.set(new THREE.Vector3(), 0); }
+    target.updateMatrixWorld(true);
+  };
   return {
-    mesh, farMesh,
+    mesh, farMesh, sward,
     get radius() { return farReach.value; },
-    get count() { return mesh.count + farMesh.count; },
+    get count() { return mesh.count + farMesh.count + (sward?.count ?? 0); },
     /** `windSpeed` is the weather's wind, 0 (still) to 7 (squall); reduced effects hold the grass still. */
     update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low', windSpeed = 0) {
       if (disposed) return;
@@ -329,6 +456,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       camera.getWorldPosition(cameraPosition); eye.value.copy(cameraPosition); time.value = reduced ? 0 : seconds;
       const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile);
       reach.value = nearReach.value = profile.near; farReach.value = profile.radius;
+      if (sward) fillSward(sward, quality, swardDetail(detail, reduced, mobile));
       const cx = Math.floor(cameraPosition.x/4)*4, cz = Math.floor(cameraPosition.z/4)*4;
       if (cx === cellX && cz === cellZ && quality === lastQuality) return;
       if (quality !== lastQuality || heights.size > 100000) { heights.clear(); tints.clear(); }
@@ -361,6 +489,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       fill(mesh, profile.near, 0, profile.spacing, profile.limit);
       fill(farMesh, profile.radius, profile.near, profile.farSpacing, profile.farLimit);
     },
-    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); tints.clear(); },
+    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); tints.clear();
+      if (sward) { sward.removeFromParent(); sward.dispose(); sward.geometry.dispose(); (sward.material as THREE.Material).dispose(); swardHeights.clear(); swardTints.clear(); } },
   };
 }

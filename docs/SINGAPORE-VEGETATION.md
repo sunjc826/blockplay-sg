@@ -297,6 +297,38 @@ sways about its own base.
   patches the colour already followed, with an occasional ragged clump.
 - No triangles were added to the grass.
 
+## A mown lawn, blade by blade (sixth pass, Botanic Gardens only)
+
+A trial after looking at how Crysis 3 drew grass (Crytek's GDC 2013 talk):
+dense fields of separate blades that bend along their length. Singapore lawn
+is short, so the height is not copied; the density and the curl are.
+
+- **Species.** NParks names cowgrass, *Axonopus compressus*, as the most common
+  turfgrass in Singapore and rates it coarse in texture, low in density and
+  medium green. The blades are drawn broad and blunt for that reason. Which
+  turf the Gardens' own lawns carry was not checked.
+- **The sward.** A district that sets `scene.userData.lawnSward` gets a third
+  grass mesh, `Lawn sward`, beside the two tuft meshes (`createGrass` in
+  `src/game/ground-cover.ts`). Each instance is a clump of five blades, 8 to
+  14 cm tall, arching outward; each blade has three joints (25 triangles a
+  clump). The wind's lean grows with the square of height, so a jointed blade
+  curls over where the tufts' straight blades tip.
+- **Budget** (`swardDetail` in `src/game/environment-quality.ts`): none on Low
+  or with reduced effects. High: 10 m reach, a clump every 22 cm (about 7,600
+  clumps, 190,000 triangles). Ultra: 13 m, every 19 cm. Phones get 7 m and 9 m
+  at wider spacing. The last four metres thin out clump by clump.
+- It uses the tufts' shader, so it leans to the same gust fronts, lies down
+  under bodies and shakes from shots and blasts. No blade is simulated.
+- It follows the viewer in 2 m steps. A rebuild took 1 to 6 ms in the test
+  VM; frame rate on a real GPU has not been measured.
+
+**A fault this pass found and fixed.** The fifth pass coloured each tuft from
+its lawn's material colour. Ground painted vertex by vertex (Botanic Gardens,
+Upper Thomson, HarbourFront and Sentosa, Queenstown) has a white material, so
+its tufts came out white and its lawn had no blade pattern. Tufts there now
+take the painted colour (`terrainTint`), and the blade pattern is drawn
+wherever the paint is green.
+
 No species is claimed for any of these: the districts do not say what their
 shrubs, reeds or lawns are, and no NParks page was read for this pass.
 

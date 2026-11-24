@@ -6,6 +6,13 @@ export const RAIN_DETAIL = {
   high: { radius: 80, drops: 6000, height: 36, spray: 240 },
   ultra: { radius: 130, drops: 12000, height: 46, spray: 440 },
 } as const;
+/** The mown sward close to the viewer, on lawns that ask for it: clumps of short blades `spacing` apart out to
+ * `radius`. Null where the budget has no room for it. */
+export function swardDetail(detail: WorldDetail, reduced: boolean, mobile: boolean) {
+  if (reduced || detail === 'low') return null;
+  if (detail === 'high') return mobile ? { radius: 7, spacing: .28 } : { radius: 10, spacing: .22 };
+  return mobile ? { radius: 9, spacing: .24 } : { radius: 13, spacing: .19 };
+}
 export function grassDetail(detail: WorldDetail, reduced: boolean, mobile: boolean) {
   if (reduced) return { near: 11, radius: 11, spacing: 1.35, farSpacing: 2, limit: 384, farLimit: 0 };
   if (detail === 'low') return mobile

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { createGrass, withGroundCover } from './ground-cover';
+import { createGrass, SWARD_BLADES, SWARD_CAPACITY, withGroundCover } from './ground-cover';
 import { getRegion, REGION_IDS } from './regions';
 import { getFpsDistrict } from './fps-districts';
 import { createRainSurface } from './rain-effects';
@@ -120,4 +120,53 @@ it('High/Ultra grass extends in two LODs, increases close density, and reuses sa
     grass.update(camera,2,true,false,'ultra');expect(grass.radius).toBe(11);expect(grass.farMesh.count).toBe(0);
     expect(grass.count).toBeLessThanOrEqual(384);
   }finally{grass.dispose();}
+});
+
+it('a lawn that asks for a sward gets short jointed blades close by, and none where the budget is low', () => {
+  const scene = new THREE.Scene(), lawn = new THREE.Color('#5f8f3f');
+  const grass = createGrass(scene, { minX: -200, maxX: 200, minZ: -200, maxZ: 200 }, x => x > 30 ? null : 0, () => lawn, { sward: true }), camera = new THREE.PerspectiveCamera();
+  camera.position.set(1, 1.7, 1);
+  try {
+    const sward = grass.sward!;
+    grass.update(camera, 0, false); expect(sward.count).toBe(0); expect(sward.visible).toBe(false);
+    grass.update(camera, 0, false, false, 'high');
+    // Far denser than the tufts over the same ground: about twenty clumps to the square metre.
+    expect(sward.count).toBeGreaterThan(6000); expect(sward.count).toBeLessThanOrEqual(SWARD_CAPACITY);
+    expect(sward.count / (Math.PI * 12 ** 2)).toBeGreaterThan(grass.mesh.count / (Math.PI * 28 ** 2) * 4);
+    // Three joints to a blade, so it can curl; the tufts' blades have one.
+    const y = sward.geometry.getAttribute('position'), levels = new Set<number>();
+    for (let i = 0; i < y.count / SWARD_BLADES; i++) levels.add(+y.getY(i).toFixed(4));
+    expect(levels.size).toBe(4); expect(y.count).toBe(SWARD_BLADES * 15);
+    const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), scale = new THREE.Vector3(), turn = new THREE.Quaternion(), shade = new THREE.Color();
+    for (let i = 0; i < sward.count; i += 37) {
+      sward.getMatrixAt(i, matrix); matrix.decompose(place, turn, scale);
+      expect(Math.hypot(place.x, place.z)).toBeLessThan(12); expect(scale.y).toBeLessThan(.15); expect(scale.y).toBeGreaterThan(.08);
+      expect(scale.x).toBeCloseTo(scale.z); sward.getColorAt(i, shade); expect(shade.g).toBeCloseTo(lawn.g);
+    }
+    // It follows the viewer in 2 m steps and does not rebuild in between.
+    const version = sward.instanceMatrix.version; camera.position.x = 1.6; grass.update(camera, 1, false, false, 'high'); expect(sward.instanceMatrix.version).toBe(version);
+    camera.position.x = 3.2; grass.update(camera, 2, false, false, 'high'); expect(sward.instanceMatrix.version).toBeGreaterThan(version); expect(sward.position.x).toBe(3);
+    // No lawn, no sward.
+    camera.position.x = 60; grass.update(camera, 3, false, false, 'high'); expect(sward.count).toBe(0);
+    camera.position.x = 1; grass.update(camera, 4, true, false, 'ultra'); expect(sward.count).toBe(0);
+    expect(new THREE.Raycaster(new THREE.Vector3(1, 5, 1), new THREE.Vector3(0, -1, 0)).intersectObject(sward)).toEqual([]);
+  } finally { grass.dispose(); }
+  expect(createGrass(new THREE.Scene(), bounds, () => 0).sward).toBeUndefined();
+});
+
+it('tufts on ground painted vertex by vertex take the paint, not the white material under it', () => {
+  const scene = new THREE.Scene(), geometry = new THREE.PlaneGeometry(200, 200, 20, 20).rotateX(-Math.PI / 2), colors: number[] = [];
+  const west = new THREE.Color('#7f9c5c'), east = new THREE.Color('#5d7446'), position = geometry.getAttribute('position');
+  for (let i = 0; i < position.count; i++) { const c = position.getX(i) < 0 ? west : east; colors.push(c.r, c.g, c.b); }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true })); ground.userData.terrain = true; scene.add(ground);
+  const world = withGroundCover({ scene, obstacles: [], stamps: [], animate() {}, dispose() {} } as unknown as RegionWorld, bounds);
+  try {
+    const cover = world.scene.userData.groundCover, camera = new THREE.PerspectiveCamera(), shade = new THREE.Color();
+    camera.position.set(-50, 1.7, 0); cover.grass.update(camera, 0, false);
+    expect(cover.grass.mesh.count).toBeGreaterThan(100);
+    cover.grass.mesh.getColorAt(5, shade); expect(shade.r).toBeCloseTo(west.r, 3); expect(shade.g).toBeCloseTo(west.g, 3);
+    camera.position.set(50, 1.7, 0); cover.grass.update(camera, 1, false);
+    cover.grass.mesh.getColorAt(5, shade); expect(shade.g).toBeCloseTo(east.g, 3); expect(shade.g).toBeLessThan(.5);
+  } finally { world.dispose(); }
 });
