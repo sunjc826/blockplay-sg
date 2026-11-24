@@ -5,7 +5,7 @@
  * Heights are game-scale younger palms, well under each species' maximum. Leaflets are far fewer
  * and wider than life (a coconut frond has 80 to 100 pairs): each drawn leaflet stands for several.
  */
-export type PalmSpecies = 'coconut' | 'royal' | 'sealing-wax' | 'footstool' | 'nibong';
+export type PalmSpecies = 'coconut' | 'royal' | 'sealing-wax' | 'footstool' | 'nibong' | 'cycad' | 'tree-fern';
 export interface PalmSpec {
   name: string; scientific: string;
   /** As NParks states it. */
@@ -120,6 +120,31 @@ export const PALM_SPECS: Readonly<Record<PalmSpecies, PalmSpec>> = {
     frond: { leaf: '#3f8038', tip: '#2f6630', old: '#8a9a4c', dead: '#8a6a41', rib: '#7f9a52', count: 8, rise: [72, -18], spread: 1.1, bend: [34, 78], curve: 1.3,
       length: 2.6, segments: 5, hub: .04, spreadHeight: .2, ribWidth: .03, petiole: .12, pairs: 8, planes: [-34], sweep: 18, droop: 1.5,
       leaflet: .72, leafletWidth: .1, yellowing: .25, deadFronds: 0, spear: .5 },
+  },
+  // Not palms, but palm-shaped, so the palm builder draws them. FFW 5651 (Cycas edentata): palm-like non-flowering
+  // plant with an emergent, usually unbranched trunk to about 10 m; spiny feather-like fronds to 2.3 m of 100-200
+  // glossy, stiff, leathery, narrowly boat-shaped leaflets set neatly either side of the axis; coastal.
+  // FFW gives no trunk colour or girth. Each drawn leaflet stands for about eight.
+  cycad: {
+    name: 'Paku Raja (cycad)', scientific: 'Cycas edentata', status: 'Native to Singapore (Critically Endangered)',
+    source: 'https://www.nparks.gov.sg/florafaunaweb/flora/5/6/5651', seed: 79, height: 1.7,
+    trunk: { colour: '#5e5346', scar: '#3a332b', young: '#6a5c44', boss: '#8a6a3c', base: .2, top: .18, taper: 1, flare: .04, flareHeight: .3,
+      bulge: 0, bulgeAt: .5, bulgeWidth: .3, ringSpacing: .22, maxRings: 8, ridge: .1, scarDepth: .6, sides: 7, lean: [0, .05] },
+    frond: { leaf: '#3f7f3a', tip: '#2f6a33', old: '#7f9648', dead: '#8a6a41', rib: '#8aa456', count: 16, rise: [76, -8], spread: 1, bend: [8, 26], curve: 1.4,
+      length: 2.1, segments: 4, hub: .1, spreadHeight: .2, ribWidth: .03, petiole: .14, pairs: 14, planes: [18], sweep: 12, droop: .06,
+      leaflet: .26, leafletWidth: .07, yellowing: .2, deadFronds: 0, spear: 0 },
+  },
+  // FFW 1544 (Alsophila latebrosa): tree-like fern of a single trunk bearing several large fronds, to 4 m; plant
+  // shape "Fountain (Palm-like)"; fronds bipinnate, middle pinnae up to 75 by 25 cm; forest fringes and open areas.
+  // FFW gives no trunk girth or colour and no frond length. The pinnae are drawn whole, not divided again.
+  'tree-fern': {
+    name: 'Tree fern', scientific: 'Alsophila latebrosa', status: 'Native to Singapore (Least Concern)',
+    source: 'https://www.nparks.gov.sg/florafaunaweb/flora/1/5/1544', seed: 89, height: 3,
+    trunk: { colour: '#3d3128', scar: '#241c17', young: '#4f4030', boss: '#6a4f30', base: .09, top: .075, taper: 1, flare: .05, flareHeight: .3,
+      bulge: 0, bulgeAt: .5, bulgeWidth: .3, ringSpacing: .4, maxRings: 8, ridge: .12, scarDepth: .5, sides: 6, lean: [.01, .07] },
+    frond: { leaf: '#5d9a48', tip: '#49843c', old: '#8f9a4a', dead: '#7a5a3a', rib: '#6a5a3a', count: 11, rise: [62, -12], spread: 1, bend: [36, 74], curve: 1.3,
+      length: 2.5, segments: 6, hub: .05, spreadHeight: .15, ribWidth: .028, petiole: .14, pairs: 9, planes: [-4], sweep: 8, droop: .5,
+      leaflet: .68, leafletWidth: .24, yellowing: .25, deadFronds: 1, spear: .22 },
   },
 };
 export const PALM_SPECIES = Object.keys(PALM_SPECS) as PalmSpecies[];

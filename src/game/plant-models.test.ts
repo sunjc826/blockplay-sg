@@ -49,6 +49,18 @@ it('keeps the features that tell the species apart', () => {
   expect(Math.hypot(heritage.lowLimb!.to[0] - heritage.lowLimb!.from[0], heritage.lowLimb!.to[2] - heritage.lowLimb!.from[2])).toBeGreaterThan(5);
   expect(heritage.lowLimb!.to[1]).toBeLessThan(3.2);
   expect(reach(heritage.wood, 1.5, 3)).toBeGreaterThan(reach(plain.wood, 1.5, 3) + 4);
+  // Rain tree: an umbrella wider than it is tall, branching low; the Bandstand's form is the same tree in yellow leaf.
+  const width = (g: THREE.BufferGeometry) => { const b = g.boundingBox!; return Math.max(b.max.x - b.min.x, b.max.z - b.min.z); };
+  const rain = buildPlant('rain-tree'), gold = buildPlant('yellow-rain-tree');
+  expect(width(rain.leaf)).toBeGreaterThan(rain.height * 1.1); expect(rain.leaf.boundingBox!.min.y).toBeLessThan(rain.height * .45);
+  const mean = (g: THREE.BufferGeometry) => { const c = numbers(g, 'color'); let r = 0, gr = 0; for (let i = 0; i < c.length; i += 3) { r += c[i]; gr += c[i + 1]; } return r / gr; };
+  expect(mean(gold.leaf)).toBeGreaterThan(mean(rain.leaf) + .25);
+  // Jelutong: no buttresses on either page, a crown held above half its height when grown and level tiers when young.
+  const grown = buildPlant('jelutong'), young = buildPlant('jelutong-young');
+  expect(grown.footing).toBe(0); expect(grown.leaf.boundingBox!.min.y).toBeGreaterThan(grown.height * .4);
+  expect(young.triangles.wood + young.triangles.leaf).toBeLessThan(700);
+  // Kapur: buttressed, with a narrower crown than the rain tree's.
+  const kapur = buildPlant('kapur'); expect(kapur.footing).toBeGreaterThan(kapur.radius); expect(width(kapur.leaf)).toBeLessThan(kapur.height);
   // Torch ginger and heliconia: red flower heads on a clump with no woody parts.
   for (const herb of ['torch-ginger', 'heliconia'] as const) { const clump = buildPlant(herb); expect(clump.triangles.wood).toBe(0); expect(reddest(clump.leaf)).toBeGreaterThan(.4); }
   // The ginger's heads stand on their own stalks well below its leaves; the heliconia's hang from its stems.

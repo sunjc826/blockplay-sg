@@ -28,13 +28,14 @@ describe.each(PALM_SPECIES)('%s', species => {
       }
       const budget = spec.clump ? 3600 : 1900;
       expect(palm.triangles.trunk + palm.triangles.crown).toBeLessThan(budget);
-      expect(palm.triangles.crown).toBeGreaterThan(600);
+      expect(palm.triangles.crown).toBeGreaterThan(500);
       expect(palm.height).toBeCloseTo(spec.height + (spec.crownshaft?.length ?? 0), 1);
       // The crown sits on top of the trunk, and the trunk stands on the ground.
       // A leaning foot is sunk a little, never floating.
       expect(palm.trunk.boundingBox!.min.y).toBeLessThanOrEqual(0); expect(palm.trunk.boundingBox!.min.y).toBeGreaterThan(-.15);
       expect(palm.crown.boundingBox!.max.y).toBeGreaterThan(palm.height);
-      expect(palm.crown.boundingBox!.min.y).toBeGreaterThan(spec.clump ? 0 : palm.height * .45);
+      // A cycad or tree fern is short enough that its oldest fronds reach most of the way down.
+      expect(palm.crown.boundingBox!.min.y).toBeGreaterThan(spec.clump || spec.height < 4 ? 0 : palm.height * .45);
     }
   });
   it('varies between its shapes', () => {

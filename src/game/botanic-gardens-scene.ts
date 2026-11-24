@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { treePart } from './tree-wind';
 import { createSceneKit } from './scene-kit';
 import { withVerticalPlaces, type VerticalPlace } from './vertical-places';
 import { stageTree } from './stage-props';
@@ -61,19 +60,19 @@ const hash = (x: number, z: number, salt = 0) => { const n = Math.sin(x * 127.1 
 /**
  * The Tanglin and Central cores of the Singapore Botanic Gardens, compressed to 430 m by 530 m and
  * built from the level plan as a first pass: the ground, water, buildings, paths and planting masses
- * are in place to be walked and judged, and most trees are stand-in shapes. Palms are the modelled
- * species (palm-species.ts). Named places are stylised counterparts, not surveys.
+ * are in place to be walked and judged, and its trees, palms and herbs are the modelled
+ * species (plant-species.ts, palm-species.ts). Named places are stylised counterparts, not surveys.
  */
 export function buildBotanicGardensScene() {
   const k = createSceneKit({ look: 'nature', background: '#cfe0d6', fogNear: 300, fogFar: 1050, shadow: { extent: 290, far: 760 }, module: true });
   const { scene, box, cylinder, blob, solid, mat, sign, plant } = k;
   const grass = mat('#7f9c5c'), asphalt = mat('#5b5d5c', .9), paint = mat('#e9e4cf'), white = mat('#efe9da'), cream = mat('#e3d8bd');
-  const roof = mat('#7d4f3f'), slate = mat('#59625f'), timber = mat('#7b5d45'), bark = mat('#6a5744'), rock = mat('#8f9186'), iron = mat('#3f4a47', .6, .3);
+  const roof = mat('#7d4f3f'), slate = mat('#59625f'), timber = mat('#7b5d45'), rock = mat('#8f9186'), iron = mat('#3f4a47', .6, .3);
   const glass = mat('#a9cfc9', .15, .1); glass.transparent = true; glass.opacity = .38;
-  const leaves = [mat('#3f6a3c'), mat('#557d43'), mat('#2f5a36'), mat('#6d8f45')], yellow = mat('#b9b54a'), ginger = [mat('#4d8040'), mat('#679647')], hedge = mat('#3c6b3b');
+  const ginger = [mat('#4d8040'), mat('#679647')], hedge = mat('#3c6b3b');
   const pane = mat('#5d7b78', .3, .1); pane.userData.nightWindow = true;
   const blooms = [mat('#b65aa6'), mat('#e6c64f'), mat('#d9d2e6')];
-  for (const m of [...leaves, yellow, ...ginger, hedge, ...blooms]) m.userData.visualCover = true;
+  for (const m of [...ginger, hedge, ...blooms]) m.userData.visualCover = true;
   const lake = k.water('#5d8f86', { choppiness: .2 }), falls = k.water('#9fc6c2', { falls: true });
 
   box(0, -.12, 0, 900, .2, 1000, grass);
@@ -212,12 +211,12 @@ export function buildBotanicGardensScene() {
     if (Math.abs(x - plaza.x) < plaza.w / 2 + 2 && Math.abs(z - plaza.z) < plaza.d / 2 + 2 || x > -10 && x < 122 && z > 234) return false;
     return !BOTANIC_GARDENS_STAMPS.some(stamp => Math.hypot(x - stamp.x, z - stamp.z) < 7 + margin);
   }
-  /** A stand-in tree: a trunk that stops rounds and a crown that only hides. */
-  function tree(x: number, z: number, height: number, trunk: THREE.Material, leaf: THREE.Material, spread = 1, girth = .6) {
-    const base = ground(x, z);
-    treePart(box(x, base + height / 2, z, girth, height, girth, trunk, scene, true), x, base, z, height); solid(x, z, girth + .2, girth + .2);
-    for (let i = 0; i < 3; i++) treePart(blob(x + (i - 1) * 1.7 * spread, base + height + i % 2, z + (i - 1) * .6 * spread, 3.6 * spread, 2.5 * spread, 3.5 * spread, leaf), x, base, z, height, 1);
-  }
+  /** A broadleaf tree with a trunk that stops rounds; its crown only hides. */
+  const tree = (species: Parameters<typeof plant>[0], x: number, z: number, height: number) => {
+    const placed = plant(species, x, z, height, ground(x, z)), girth = Math.max(.7, placed.model.radius * placed.scale * 2.2);
+    solid(x, z, girth, girth);
+    return placed;
+  };
   // Rain Forest: a closed canopy on the ridge, with emergents on buttress roots and two clearings.
   const clearings = [{ x: 150, z: 62 }, { x: 132, z: -52 }];
   for (let x = 90; x <= 194; x += 11) for (let z = -104; z <= 104; z += 11) {
@@ -225,17 +224,19 @@ export function buildBotanicGardensScene() {
     if (!clear(px, pz, 1) || clearings.some(c => Math.hypot(px - c.x, pz - c.z) < 11)) continue;
     // One tree in six is an emergent Jelawai Jaha on plank buttresses; the buttresses are part of what stops a round.
     if (hash(x, z, 2) > .83) { const giant = plant('jelawai-jaha', px, pz, 25 + hash(x, z, 3) * 6); solid(px, pz, giant.model.footing * giant.scale * 1.1, giant.model.footing * giant.scale * 1.1); continue; }
-    tree(px, pz, 11 + hash(x, z, 3) * 7, bark, leaves[Math.floor(hash(x, z, 4) * 3)], 1.35, .7);
+    // Jelutong for the rest: a few grown ones with the lofty domed crown, most in the tiered young form.
+    if (hash(x, z, 2) > .68) tree('jelutong', px, pz, 20 + hash(x, z, 3) * 7); else tree('jelutong-young', px, pz, 11 + hash(x, z, 3) * 7);
   }
   // Lawn and garden trees everywhere else, off the valley floor, which stays open between the palm plots.
   for (let x = -190; x <= 190; x += 21) for (let z = -236; z <= 236; z += 21) {
     const px = x + (hash(x, z, 5) - .5) * 12, pz = z + (hash(x, z, 6) - .5) * 12;
     if (hash(x, z, 7) < .42 || inForest(px, pz) || valleyFloor(px, pz) || !clear(px, pz, 2) || Math.hypot(px + 1, pz - 89) < 24 || Math.hypot(px + 8, pz - 168) < 22) continue;
-    // Half the lawn trees are Tembusu; the rest are still stand-ins.
-    if (hash(x, z, 9) < .5) { const t = plant('tembusu', px, pz, 11 + hash(x, z, 8) * 6); solid(px, pz, t.model.radius * t.scale * 2.2, t.model.radius * t.scale * 2.2); continue; }
-    tree(px, pz, 8 + hash(x, z, 8) * 6, bark, leaves[Math.floor(hash(x, z, 9) * 4)], 1.2 + hash(x, z, 10) * .5);
+    // Half the lawn trees are Tembusu, half rain trees under their wide umbrella crowns.
+    if (hash(x, z, 9) < .5) tree('tembusu', px, pz, 11 + hash(x, z, 8) * 6); else tree('rain-tree', px, pz, 9 + hash(x, z, 8) * 5);
   }
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + .2, x = -1 + Math.cos(a) * 16, z = 89 + Math.sin(a) * 15; if (clear(x, z)) tree(x, z, 8.5, bark, yellow, 1.5); }
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + .2, x = -1 + Math.cos(a) * 16, z = 89 + Math.sin(a) * 15; if (clear(x, z)) tree('yellow-rain-tree', x, z, 9 + hash(x, z, 20) * 1.5); }
+  // Kapur: the Gardens list heritage trees near the Bandstand (18 m) and near Swan Lake.
+  tree('kapur', 20, 103, 18); tree('kapur', -40, 196, 16);
   // The heritage Tembusu on Lawn E: 20 m tall, 5 m in girth, with its long low limb (Heritage Tree register HT 2001-26).
   const tembusu = { x: -8, z: 168 }, lawn = ground(tembusu.x, tembusu.z), heritage = plant('tembusu-heritage', tembusu.x, tembusu.z, 20, lawn);
   solid(tembusu.x, tembusu.z, 2.2, 2.2);
@@ -307,9 +308,10 @@ export function buildBotanicGardensScene() {
     if (!clear(x, z)) continue;
     k.freeform(() => {
       if (i % 3 === 0) { cylinder(x, 1.6, z, .45, 3.2, rock); solid(x, z, .9, .9); }
-      else if (i % 3 === 1) { cylinder(x, .6, z, .32, 1.2, bark); blob(x, 1.5, z, 1.9, .5, 1.9, leaves[2]); solid(x, z, .7, .7); }
-      else { cylinder(x, 1.7, z, .16, 3.4, bark); blob(x, 3.5, z, 2.4, .45, 2.4, leaves[1]); solid(x, z, .4, .4); }
     });
+    // Between the stone trunks: the native cycad, squat and stiff, and the native tree fern.
+    if (i % 3 === 1) { k.palm('cycad', x, z, 1.1 + hash(x, z, 21) * .9, ground(x, z)); k.palm('cycad', x + 4.5, z + 3, 1 + hash(x, z, 22) * .6, ground(x + 4.5, z + 3)); solid(x, z, .7, .7); solid(x + 4.5, z + 3, .7, .7); }
+    if (i % 3 === 2) { k.palm('tree-fern', x, z, 2.4 + hash(x, z, 21) * 1.2, ground(x, z)); k.palm('tree-fern', x - 4, z + 3.5, 2 + hash(x, z, 22), ground(x - 4, z + 3.5)); solid(x, z, .4, .4); solid(x - 4, z + 3.5, .4, .4); }
   }
   sign('RAIN FOREST', 96, ground(96, 44) + 3.6, 47, 12, 1.6, '#2f5a45');
 

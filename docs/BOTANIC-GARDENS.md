@@ -67,16 +67,18 @@ upper verandah reached by one outside stair.
 
 - Modelled species (docs/SINGAPORE-VEGETATION.md): coconut, royal, sealing wax,
   footstool and nibong palms; Tembusu, with the Lawn E heritage tree as its own
-  shape; Jelawai Jaha on plank buttresses in the Rain Forest; torch ginger; and
-  hanging heliconia along the valley's east rim. The other half of the lawn
-  trees, five forest trees in six, the yellow ring round the Bandstand and the
-  cycads and tree ferns are still stand-in shapes.
+  shape; rain trees on the lawns and yellow-leaved ones ringing the Bandstand;
+  Kapur by the Bandstand and Swan Lake; Jelawai Jaha and Jelutong in the Rain
+  Forest; the native cycad and tree fern in the Evolution Garden; torch ginger;
+  and hanging heliconia along the valley's east rim. No tree is a stand-in
+  shape any more. A real forest holds hundreds of species; this one holds two.
+  About three Ginger Garden clumps in ten are still plain masses.
 - No reviewed photograph informed the geometry, so `referenceFeatures` is empty.
   Positions follow the official visitor map (August 2026) and NParks pages
   listed in the plan file; every height is authored.
-- Every sector but the Rain Forest measures `open` on the cover test. The
-  forest measured open too (median 67 m to cover) until the species trees went
-  in; it is now `broken` (median 9 m).
+- The Rain Forest, Ginger Garden and Nassim Gate measure `broken` on the cover
+  test; every other sector measures `open`. The forest measured open (median
+  67 m to cover) while its trees were stand-ins.
 - Visibility targets in the plan are unmeasured. `pnpm analyse:layout` counts
   colliders only, so it does not see ground folds or foliage.
 - The Cool House has no fog, Holttum Hall has no stair, and the waterfall has no

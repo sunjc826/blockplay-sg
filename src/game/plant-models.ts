@@ -146,6 +146,8 @@ function buildTree(spec: TreeSpec, rand: () => number) {
     cluster(leaf, spec, add(points[5], [0, spec.crown.radius * .5, 0]), spec.crown.radius * .9, rand);
     cluster(leaf, spec, add(points[4], [0, spec.crown.radius * .9, 0]), spec.crown.radius * .7, rand);
   }
+  // The height a district scales to is the drawn crown's own top.
+  for (let i = 1; i < leaf.position.length; i += 3) crownTop = i === 1 ? leaf.position[i] : Math.max(crownTop, leaf.position[i]);
   return { wood, leaf, height: crownTop, radius: radiusAt(1.3), footing, lowLimb: lowRun };
 }
 

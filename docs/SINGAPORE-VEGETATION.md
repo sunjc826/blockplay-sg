@@ -158,3 +158,44 @@ Cost: a Tembusu is about 1,500 triangles, a Jelawai Jaha 2,200, a nibong clump
 3,500, a ginger clump 700 and a heliconia 300. The Botanic Gardens draws about
 463,000 triangles in all, 157,000 of them these trees and herbs and 120,000 its
 palms. No frame-rate measurement was taken on a real GPU.
+
+## More Botanic Gardens species (24 November 2026, second pass)
+
+Seven more shapes, replacing every stand-in tree in the Botanic Gardens. Pages
+read on 24 November 2026. Trees are in `plant-species.ts`; the cycad and tree
+fern are palm-shaped, so they are in `palm-species.ts` and drawn by the palm
+builder.
+
+| Species and status (as NParks states it) | Evidence | Geometry and placement |
+| --- | --- | --- |
+| Rain tree, *Samanea saman* — non-native (northern tropical South America), widely cultivated | [FFW 3106](https://www.nparks.gov.sg/florafaunaweb/flora/3/1/3106): usually to 30 m in cultivation; crown symmetrically umbrella-shaped, 20–30 m across, branching low; bark dark brown, fissured; bipinnate leaves of small leaflets; powderpuff flowers pink above, white below | A short dark bole forking low into limbs that level out under a flat crown wider than the tree is tall; pink flecks. Half the lawn trees, 9–14 m |
+| Yellow rain tree — the same species | [SBG heritage landscapes](https://sbg.nparks.gov.sg/attractions/heritage-trees-and-landscapes/): the Bandstand's lawn is "planted with a ring of Yellow Rain Trees (Samanea saman), some of which were reproduced by cloning" | The rain tree in yellow-green leaf. Eight in a ring round the Bandstand |
+| Jelutong, *Dyera costulata* — native, Vulnerable | [HT 2015-239](https://heritagetrees.nparks.gov.sg/heritagetrees/ht-2015-239/), at the Rain Forest entrance: 29.2 m tall, girth 4.10 m; crown lofty, dense and dome-like, of many ascending limbs each ending in a conical head of foliage; leaves in whorls, emerging reddish-pink. [FFW 2866](https://www.nparks.gov.sg/florafaunaweb/flora/2/8/2866): to 80 m; bark dark grey, brown to black; crown distinctly tiered when young, irregular when mature | Grown form: a clear dark bole under a dome of ascending limbs, 20–27 m, about one forest tree in seven. Young form: level whorls of limbs up a leader, 11–18 m, about two in three |
+| Kapur, *Dryobalanops aromatica* — non-native (Sumatra, Borneo, Peninsular Malaysia) | [HT 2012-193](https://heritagetrees.nparks.gov.sg/heritagetrees/ht-2012-193/), near the Bandstand: 18 m tall, girth 3.25 m, planted July 1942. [FFW 2862](https://www.nparks.gov.sg/florafaunaweb/flora/2/8/2862): to about 45 m, trunk fissured, buttresses, ovate leaves 4–6 cm. The SBG page lists Kapur near Swan Lake, the Bandstand and the Heritage Garden | A straight fissured bole on small buttresses, an open crown of small sprays up a leader. One by the Bandstand (18 m), one by Swan Lake |
+| Paku Raja, *Cycas edentata* — native, Critically Endangered | [FFW 5651](https://www.nparks.gov.sg/florafaunaweb/flora/5/6/5651): palm-like, usually unbranched trunk to about 10 m; spiny fronds to 2.3 m of 100–200 glossy, stiff, narrowly boat-shaped leaflets set neatly either side | A squat scarred trunk and a stiff shuttlecock of flat fronds. Evolution Garden, 1–2 m of trunk |
+| Tree fern, *Alsophila latebrosa* — native, Least Concern | [FFW 1544](https://www.nparks.gov.sg/florafaunaweb/flora/1/5/1544): a single trunk to 4 m bearing several large fronds, "Fountain (Palm-like)"; fronds bipinnate, middle pinnae up to 75 by 25 cm | A slender dark trunk and arching fronds of broad pinnae. Evolution Garden, 2–3.6 m |
+
+What NParks does not state, and so is authored:
+
+- Rain tree: that the Gardens' lawn trees are rain trees. NParks lists heritage
+  rain trees at the Nassim drop-off, not on these lawns. The yellow form's leaf
+  colour and the ring's count of eight are authored; the Bandstand's own NParks
+  page returned 404, so "yellow from a mutation" rests on a search summary.
+- Jelutong: buttresses (neither page mentions any, so none are drawn), the
+  height of clear bole, and the share of the forest it makes up. The two NParks
+  pages place the heritage tree differently (Rain Forest entrance; "between
+  Maranta Avenue and the Ginger Garden").
+- Kapur: bark colour, crown shape beyond Corner's "open, fine-leafed", and
+  buttress size. NParks' older figures for the Bandstand tree differ from the
+  register's; the register's are used.
+- Cycad and tree fern: the Evolution Garden's own page returned 404. That it
+  shows cycads and tree ferns rests on a search summary of NParks' guide, and
+  no species is named, so both species are an authored choice of the natives.
+  Trunk girth and colour for both, and the tree fern's frond length, are not
+  on FFW. The tree fern's pinnae are drawn whole, not divided a second time.
+
+Cost: a rain tree is about 1,170 triangles, a grown Jelutong 1,300, a young
+one under 700, a Kapur 1,400, a cycad 1,270 and a tree fern 770.
+The Botanic Gardens now holds about 651,000 triangles in all, up from 463,000
+with stand-in trees and above Marina Bay's 583,000. No frame-rate measurement
+was taken on a real GPU.

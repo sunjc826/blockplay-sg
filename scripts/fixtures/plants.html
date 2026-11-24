@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Nibong and the broadleaf trees and herbs in a row (plant-models.ts), three shapes each, with a 1.75 m figure. Same controls as vegetation.html.
+<!-- Nibong, cycad, tree fern and the broadleaf trees and herbs in a row (plant-models.ts), three shapes each, with a 1.75 m figure. Same controls as vegetation.html.
      Any district's plants, for judging trees, grass, wind and how they react to shots and blasts.
      ?region=pulau-ubin  &cam=x,y,z  &look=x,y,z  &fov=65  &time=noon (or night, afternoon...)  &weather=sunny (showers, thunderstorm, squall...)  &reduced=1  &shadows=1 (sun shadows; leave off at night)
      window.veg.step(seconds, frames) advances the world and renders; window.veg.hit(x,y,z,radius,strength) shakes the plants there;
@@ -23,13 +23,14 @@ const {createPlantKit}=await import('/src/game/plant-models.ts');
 const {PLANT_SPECIES,PLANT_SPECS}=await import('/src/game/plant-species.ts');
 const kit=createSceneKit({background:'#a9cfe8',fogNear:180,fogFar:620,look:'nature'});
 const lawn=kit.mat('#6f9a52'),path=kit.mat('#b9b3a4'),figure=kit.mat('#c8553d');
-kit.box(0,-.25,0,200,.5,110,lawn);kit.box(0,.01,9,200,.04,4,path);
+kit.box(55,-.25,0,460,.5,110,lawn);kit.box(55,.01,9,460,.04,4,path);
 const palms=createPalmKit({geometry:kit.geo,material:()=>{}}),plants=createPlantKit({geometry:kit.geo,material:()=>{}});
 const report=[];
 // Left to right: nibong, the species in plant-species.ts, three shapes each.
-const row=['nibong',...PLANT_SPECIES],gap={nibong:7,'torch-ginger':3.2,heliconia:2.4,'jelawai-jaha':13};
-let x=-70;
-for(const species of row){for(let j=0;j<3;j++){const z=-j*4;const model=species==='nibong'?palms.place(species,kit.scene,x,0,z):plants.place(species,kit.scene,x,0,z,PLANT_SPECS[species].height*(species==='jelawai-jaha'?.7:1));report.push({species,x,z,tri:model.model.triangles});x+=gap[species]??10;}x+=6;}
+const PALMS=new Set(['nibong','cycad','tree-fern']);
+const row=[...PALMS,...PLANT_SPECIES],gap={nibong:7,cycad:4.5,'tree-fern':5,'torch-ginger':3.2,heliconia:2.4,'jelawai-jaha':13,'rain-tree':16,'yellow-rain-tree':16,'jelutong-young':8};
+let x=-150;
+for(const species of row){for(let j=0;j<3;j++){const z=-j*4;const model=PALMS.has(species)?palms.place(species,kit.scene,x,0,z):plants.place(species,kit.scene,x,0,z,PLANT_SPECS[species].height*(species==='jelawai-jaha'?.7:1));report.push({species,x,z,tri:model.model.triangles});x+=gap[species]??10;}x+=6;}
 // A 1.75 m figure for scale.
 kit.box(-3,.875,6,.5,1.75,.3,figure);
 const world=kit.finish({car:new THREE.Group(),stamps:[],animate(){}});separateInstancedMaterials(world.scene);

@@ -17680,3 +17680,17 @@ On request, after the prototype above. Plan agreed with the owner: (1) protocol 
 - **`sim-worker.ts` / `sim-remote.ts`**: the worker entry and its spawner, still with the prototype's provisional district build. Reached only from `import.meta.env.DEV` with `globalThis.blockplayWorkerSim = true` on an expedition; a failed start falls back to the main thread. `canvas.dataset.simulationThread` says which ran; `globalThis.blockplaySimStats` has step times.
 - **Checked**: tsc; vitest 4,672 passed in the full run, plus the 9 new `sim-host` tests (a seeded match played direct and hosted gives equal snapshots; clock, catch-up cap, answers, refusal of unlisted methods, a runtime around a hosted simulation). `vite build` emits no worker chunk and no trace of the switch. Metal headless Chrome, Toa Payoh and Marina Bay, 32 bots, switch on at 1x and 4x: 20 steps a second exactly, nothing dropped, no errors; switch off unchanged.
 - **Known gaps with the switch on**: `vehicleTravel` answers null, so a vehicle does not carry its crew to the next district; `triggerLevolution`/`triggerEvent` report nothing back; deployment, respawn-choice, proxy and loadout calls are not corrected if the host refuses after a provisional yes; the worker has its own proxy campaign and Normal difficulty; main-thread scene changes are not mirrored. Not checked: a real phone, figure motion by eye, a throttled worker (CDP cannot throttle one).
+
+## 2026-11-24: Botanic Gardens, the remaining stand-in trees replaced
+Owner said yes to more species after the first five plants.
+- New in `plant-species.ts`: `rain-tree`, `yellow-rain-tree` (Bandstand ring), `jelutong`, `jelutong-young`, `kapur`.
+  New in `palm-species.ts` (palm-shaped, so the palm builder draws them): `cycad` (Cycas edentata), `tree-fern` (Alsophila latebrosa).
+- `botanic-gardens-scene.ts`: the stand-in `tree()` is gone; lawn trees are half Tembusu, half rain tree; forest is Jelawai Jaha,
+  grown Jelutong and young Jelutong; two Kapur; cycads and tree ferns in the Evolution Garden. About 30% of Ginger Garden clumps are still plain masses.
+- `buildTree` now takes a tree's height from the drawn crown's top, so existing trees scale a few percent differently.
+- Ginger Garden and Nassim Gate sectors now measure `broken` (labels updated to the measured band).
+- Sources and what is authored: docs/SINGAPORE-VEGETATION.md, "More Botanic Gardens species". Three NParks pages returned 404
+  (Bandstand, Evolution Garden, rain-tree activity page); what rests on search summaries is marked there.
+- District is about 651,000 triangles (was 463,000). Checked: tests, typecheck, SwiftShader captures of the lineup and district.
+  Not checked: real-GPU frame rate, browser smokes. `sim-host.test.ts` (another session's uncommitted work) failed once in the full run and passed alone.
+
