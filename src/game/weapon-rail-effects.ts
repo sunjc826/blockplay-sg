@@ -41,17 +41,20 @@ export function railDeviceAim(emitter: THREE.Object3D, camera: THREE.Object3D, i
  * is a lamp: it reddens the surface around it and whatever stands close by.
  * By day it is lost in sunlight, so it follows `dark` (0 by day, 1 at night)
  * and is nothing until dusk; an intensifier makes much more of the same light.
+ * Sized against the game's night, whose sky and moon still put about half a
+ * unit of light on a wall: a few candela is what it takes to redden one from a
+ * metre off, and a tenth of that is lost in the ambient.
  */
 export function laserSpill(dark: number, nightVision = false) {
   const night = Math.max(0, Math.min(1, dark));
-  return night * night * (nightVision ? .7 : .35);
+  return night * night * (nightVision ? 6 : 3);
 }
 
 /** How far a laser's spot lifts off the surface to light it, and how far that light carries, in metres. */
-const SPILL_STANDOFF = .7, SPILL_REACH = 7;
+const SPILL_STANDOFF = .7, SPILL_REACH = 10;
 
 /**
- * A laser spot as it looks on a real surface: a hot centre in a ragged red
+ * A laser spot as it looks on a real surface: a clean hot point in a ragged red
  * patch broken into speckle, the grain coherent light makes on anything rough,
  * with a few faint spikes and a wide dim glow around it. Returns alpha-weighted
  * RGBA for a `size` × `size` sprite. Seeded, so it is the same spot every run.
@@ -75,7 +78,9 @@ export function laserSpotPixels(size: number, nightVision: boolean) {
     const dx = (x + .5 - half) / half, dy = (y + .5 - half) / half, angle = Math.atan2(dy, dx);
     let wobble = 1; lobes.forEach((lobe, k) => { wobble += lobe.gain * Math.sin(angle * (k + 2) + lobe.phase); });
     const r = Math.hypot(dx, dy) / wobble;
-    const core = Math.exp(-(r * r) / .01), patch = Math.exp(-(r * r) / .045), glow = Math.exp(-(r * r) / .2);
+    // The centre is a clean, hard-edged point, untouched by the wander and the grain: that is the part you aim with.
+    const centre = Math.hypot(dx, dy), core = Math.max(Math.exp(-(r * r) / .01) * .6, 1 - Math.max(0, Math.min(1, (centre - .075) / .03)));
+    const patch = Math.exp(-(r * r) / .045), glow = Math.exp(-(r * r) / .2);
     let spike = 0;
     for (const s of spikes) { const off = Math.abs(Math.sin(angle - s.angle)) * r; spike = Math.max(spike, s.gain * Math.exp(-(off * off) / .0006) * Math.exp(-r / .28)); }
     const grainHere = speckle(x, y);
@@ -94,6 +99,16 @@ export function laserSpotPixels(size: number, nightVision: boolean) {
 
 /** Texels across the spot's sprite, and how much wider the sprite is than the old plain disc for the same hot centre. */
 const DOT_TEXELS = 96, DOT_SPREAD = 2.2;
+
+/**
+ * Where a round leaves for, given the crosshair's line and a lit laser's. From
+ * the hip the laser is the only honest mark of where the muzzle points, so the
+ * round follows it; brought up to the eye the sights take over (`aim` 0 to 1).
+ * Turns `crosshair` in place and returns it.
+ */
+export function laserShotLine(crosshair: THREE.Vector3, laser: THREE.Vector3, aim: number) {
+  return crosshair.lerp(laser, 1 - Math.max(0, Math.min(1, aim))).normalize();
+}
 
 export function createRailEffects(world: THREE.Scene, withLight: boolean, withLaser = false) {
   const root = new THREE.Group(); root.name = 'fps-rail-effects'; root.userData.fpsEffect = true; world.add(root);
@@ -142,9 +157,11 @@ export function createRailEffects(world: THREE.Scene, withLight: boolean, withLa
         }
       }
       if (spill) {
-        spill.intensity = laser?.hit ? laserSpill(dark, frame.nightVision) : 0;
         // Stood off the surface towards the gun, so it lights the wall around the spot rather than one point of it.
-        if (laser?.hit) spill.position.copy(laser.to).add(toward.copy(laser.from).sub(laser.to).setLength(Math.min(SPILL_STANDOFF, laser.from.distanceTo(laser.to) * .5)));
+        // Closer than that the light has to come in with the gun, and dims so the wall under it stays no brighter.
+        const standoff = laser?.hit ? Math.min(SPILL_STANDOFF, laser.from.distanceTo(laser.to) * .5) : 0;
+        spill.intensity = laser?.hit ? laserSpill(dark, frame.nightVision) * (standoff / SPILL_STANDOFF) ** 2 : 0;
+        if (laser?.hit) spill.position.copy(laser.to).add(toward.copy(laser.from).sub(laser.to).setLength(standoff));
       }
       if (!torch) return;
       torch.intensity = frame.light ? 90 * (.1 + .9 * dark * dark) : 0;

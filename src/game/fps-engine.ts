@@ -178,7 +178,7 @@ import { createScopeRenderer, getWeaponSight, scopeScreenScale, setSightNightVis
 import { DEFLECT_LINE, sightRangeAgainst } from './armor-inserts';
 import { muzzleSocket, railEmitters } from './weapon-accessory-models';
 import { accessorySpreadScale, hasLaser, hasLight, type MuzzleDevice, type RailDevice } from './weapon-accessories';
-import { createRailEffects, railDeviceAim } from './weapon-rail-effects';
+import { createRailEffects, laserShotLine, railDeviceAim } from './weapon-rail-effects';
 import { accelerateInstancedRaycasts } from './instanced-raycast';
 import { separateInstancedMaterials } from './instanced-materials';
 import { createOpticReflectionRenderer } from './weapon-reflections';
@@ -655,7 +655,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   effects.setStyles(weaponStyles, 0);
   // A laser's beam and dot, and a torch only when the loadout carries one (see weapon-rail-effects).
   const railEffects = createRailEffects(world.scene, specs.some(spec => hasLight(spec.accessories)), specs.some(spec => hasLaser(spec.accessories)));
-  const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3(), railLightForward = new THREE.Vector3();
+  const laserRay = new THREE.Raycaster(), railFrom = new THREE.Vector3(), railTo = new THREE.Vector3(), railLight = new THREE.Vector3(), railForward = new THREE.Vector3(), railLightForward = new THREE.Vector3(), shotLaser = new THREE.Vector3();
+  /** Whether the laser on the weapon in hand was lit and drawn last frame: only then do hip shots follow it. */
+  let laserLive = false;
   /** B/L: independent laser/light switches, shared across weapons. X: canted onto the offset dot, and how far over the weapon is. */
   const weaponDevices = createWeaponDevices();
   const scopeZoom = createScopeZoom(), scopeWheel = createScopeZoomWheel(), weaponWheel = createScopeZoomWheel();
@@ -1979,6 +1981,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (emitters.lens) emitters.lens.material.emissiveIntensity = devices.light && emitters.light ? 2.4 : 0;
     canvas.dataset.rail = spec?.accessories?.rail ? `${spec.accessories.rail}:${laserOn || lightOn ? 'on' : 'off'}` : '';
     canvas.dataset.railLaser = String(laserOn); canvas.dataset.railLight = String(lightOn);
+    laserLive = false;
     if ((!laserOn && !lightOn) || (!emitters.laser && !emitters.light)) { railEffects.update({ camera }); return; }
     let laser: Parameters<typeof railEffects.update>[0]['laser'];
     if (emitters.laser && laserOn) {
@@ -1987,7 +1990,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       laserRay.set(camera.position, railDeviceAim(emitters.laser, camera, railForward)); laserRay.near = .05; laserRay.far = 150;
       const hit = stopAtWater(visibleHits(laserRay, gameplayCandidates(), 1))[0];
       railTo.copy(hit?.point ?? laserRay.ray.at(150, railTo));
-      laser = { from: railFrom, to: railTo, hit: !!hit };
+      laser = { from: railFrom, to: railTo, hit: !!hit }; laserLive = true;
     }
     let light: Parameters<typeof railEffects.update>[0]['light'];
     if (emitters.light && lightOn) {
@@ -3826,6 +3829,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     world.scene.updateMatrixWorld(true); ray.setFromCamera(center, camera);
+    // A lit laser marks where the muzzle points, which sway, recoil and a turn can carry off the crosshair.
+    // From the hip the round goes to the dot; the spread below is still thrown around it.
+    const beam = laserLive && !vehicles.active ? railEmitters(weapons[hud.weapon], weapon).laser : undefined;
+    if (beam) laserShotLine(ray.ray.direction, railDeviceAim(beam, camera, shotLaser), smoothStep(aimProgress));
     const rangeLimit = weaponRange(specs[hud.weapon]);
     ray.near = 0; ray.far = rangeLimit;
     if (vehicles.mounted && vehicles.canUseFirearm) {
