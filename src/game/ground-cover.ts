@@ -18,14 +18,14 @@ const hash = (x: number, z: number, salt = 0) => {
   const n = Math.sin(x * 127.1 + z * 311.7 + salt * 73.3) * 43758.5453;
   return n - Math.floor(n);
 };
-const size = 16, key = (x: number, z: number) => `${Math.floor(x / size)},${Math.floor(z / size)}`;
+const size = 16, key = (x: number, z: number) => (x + 32768) * 65536 + z + 32768;
 function index<T extends { minX: number; maxX: number; minZ: number; maxZ: number }>(items: T[]) {
-  const bins = new Map<string, T[]>();
+  const bins = new Map<number, T[]>(), none: T[] = [];
   for (const item of items) for (let x = Math.floor(item.minX / size); x <= Math.floor(item.maxX / size); x++)
     for (let z = Math.floor(item.minZ / size); z <= Math.floor(item.maxZ / size); z++) {
-      const k = `${x},${z}`, row = bins.get(k) ?? []; row.push(item); bins.set(k, row);
+      const k = key(x, z), row = bins.get(k) ?? []; row.push(item); bins.set(k, row);
     }
-  return (x: number, z: number) => bins.get(key(x, z)) ?? [];
+  return (x: number, z: number) => bins.get(key(Math.floor(x / size), Math.floor(z / size))) ?? none;
 }
 
 /** Whether a draped mesh (paving, a shore outline) lies over a point, within `above` and `below` of height `y`:
@@ -252,11 +252,13 @@ export function withGroundCover<T extends RegionWorld>(world: T, bounds: RegionB
     return { y, grass, wettable, color: tint && grass ? tint(x, z) : color };
   };
   const sample = (x: number, z: number) => { const { y, grass } = sampleState(x, z); return { y, grass }; };
+  // A tuft asks for its ground and then its colour at the same point: one sample answers both.
+  let rooted: ReturnType<typeof sampleState> | undefined;
   const grass = createGrass(world.scene, bounds, (x, z) => {
-    const p = sample(x, z);
+    const p = rooted = sampleState(x, z);
     if (!p.grass || obstaclesAt(x, z).some(o => x > o.minX - .25 && x < o.maxX + .25 && z > o.minZ - .25 && z < o.maxZ + .25)) return null;
     return p.y;
-  }, (x, z) => sampleState(x, z).color, { sward: world.scene.userData.lawnSward !== false });
+  }, (x, z) => { const p = rooted ?? sampleState(x, z); rooted = undefined; return p.color; }, { sward: world.scene.userData.lawnSward !== false });
   const wetGround = (x: number, z: number) => {
     const p = sampleState(x, z); return p.wettable && !p.grass ? p.y : null;
   };
@@ -447,103 +449,142 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   }
   for (const tufts of sward ? [mesh, farMesh, sward] : [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); }
   scene.add(mesh, farMesh); if (sward) scene.add(sward);
-  const heights = new Map<string, number | null>(), tints = new Map<string, THREE.Color>();
-  const swardHeights = new Map<number, number | null>(), swardTints = new Map<number, THREE.Color>();
-  const dummy = new THREE.Object3D(), cameraPosition = new THREE.Vector3();
-  let cellX = Infinity, cellZ = Infinity, lastQuality = '', disposed = false;
-  let swardX = Infinity, swardZ = Infinity, swardQuality = '';
-  /** The sward follows the viewer in 2 m steps, finer than the tufts. It keeps every clump that could stand
-   * anywhere in the step; the shader decides, from the viewer's exact place, which do and how tall. */
-  const fillSward = (target: THREE.InstancedMesh, quality: string, profile: { radius: number; inner: number; spacing: number } | null) => {
-    const step = 2, cx = Math.floor(cameraPosition.x / step) * step + step / 2, cz = Math.floor(cameraPosition.z / step) * step + step / 2;
-    swardReach.value = profile?.radius ?? 0; swardInner.value = profile?.inner ?? 0;
-    if (cx === swardX && cz === swardZ && quality === swardQuality) return;
-    if (quality !== swardQuality || swardHeights.size > 160000) { swardHeights.clear(); swardTints.clear(); }
-    swardX = cx; swardZ = cz; swardQuality = quality;
-    let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
-    const matrices = target.instanceMatrix.array, shades = target.instanceColor!.array, picks = target.geometry.getAttribute('swardPick') as THREE.InstancedBufferAttribute;
-    if (profile) {
-      const { radius, inner, spacing } = profile, slack = step * .71 + spacing, edge = radius + step * .71, edge2 = edge * edge;
-      for (let ix = Math.floor((cx - edge) / spacing); ix <= Math.ceil((cx + edge) / spacing); ix++)
-        for (let iz = Math.floor((cz - edge) / spacing); iz <= Math.ceil((cz + edge) / spacing); iz++) {
-          if (count >= SWARD_CAPACITY) break;
-          // Its place in the queue first: most of the outer ground is turned away here, cheaply.
-          const pick = hash(ix, iz, 10), ax = (ix + .5) * spacing - cx, az = (iz + .5) * spacing - cz;
-          if (pick > swardDensity(Math.sqrt(ax * ax + az * az) - slack, inner, radius) * 1.1) continue;
-          const x = (ix + hash(ix, iz, 5)) * spacing, z = (iz + hash(ix, iz, 6)) * spacing, dx = x - cx, dz = z - cz;
-          if (dx * dx + dz * dz > edge2 || x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) continue;
-          const k = (ix + 32768) * 65536 + iz + 32768;
-          let y = swardHeights.get(k);
-          if (y === undefined) { y = floor(x, z); swardHeights.set(k, y); if (y !== null) swardTints.set(k, lawn?.(x, z) ?? plain); }
-          if (y === null) continue;
-          minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-          const wide = (.85 + hash(ix, iz, 7) * .5) * Math.max(1, spacing / .22);
-          // Written straight into the buffers: a turn about the vertical, a scale and a place, thousands of times a step.
-          const turn = hash(ix, iz, 8) * Math.PI * 2, c = Math.cos(turn) * wide, s = Math.sin(turn) * wide, m = count * 16, tint = swardTints.get(k) ?? plain;
-          matrices[m] = c; matrices[m + 1] = 0; matrices[m + 2] = -s; matrices[m + 3] = 0;
-          matrices[m + 4] = 0; matrices[m + 5] = .14 + hash(ix, iz, 9) * .09; matrices[m + 6] = 0; matrices[m + 7] = 0;
-          matrices[m + 8] = s; matrices[m + 9] = 0; matrices[m + 10] = c; matrices[m + 11] = 0;
-          matrices[m + 12] = dx; matrices[m + 13] = y - .004; matrices[m + 14] = dz; matrices[m + 15] = 1;
-          shades[count * 3] = tint.r; shades[count * 3 + 1] = tint.g; shades[count * 3 + 2] = tint.b; picks.array[count] = pick; count++;
-        }
-    }
-    target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; target.instanceColor!.needsUpdate = true; picks.needsUpdate = true;
-    target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
-    if (count) {
-      const reach = (profile?.radius ?? 0) + 3;
-      target.boundingBox.min.set(-reach, minY - .01, -reach); target.boundingBox.max.set(reach, maxY + .3, reach);
-      target.boundingBox.getBoundingSphere(target.boundingSphere);
-    } else { target.boundingBox.makeEmpty(); target.boundingSphere.set(new THREE.Vector3(), 0); }
-    target.updateMatrixWorld(true);
+  const cameraPosition = new THREE.Vector3();
+  let disposed = false;
+  /** One of the three meshes, and where and at what quality it was last laid out. Ground heights and lawn colours
+   * are kept per grid square, so only the ground newly come into reach is sampled as the viewer moves. */
+  interface Layer { target: THREE.InstancedMesh; grid: number; x: number; z: number; quality: string; heights: Map<number, number | null>; tints: Map<number, THREE.Color>; cache: number }
+  const layer = (target: THREE.InstancedMesh, grid: number, cache: number): Layer => ({ target, grid, x: Infinity, z: Infinity, quality: '', heights: new Map(), tints: new Map(), cache });
+  // The tufts follow the viewer in 4 m steps and the sward in 2 m steps. The sward keeps every clump that could
+  // stand anywhere in its step; the shader decides, from the viewer's exact place, which do and how tall.
+  const nearLayer = layer(mesh, 4, 100000), farLayer = layer(farMesh, 4, 100000), swardLayer = sward && layer(sward, 2, 160000);
+  // A layout is written here and copied to the mesh when it is whole, so it can be spread over several frames
+  // while the mesh goes on drawing the last one.
+  const capacity = Math.max(26000, sward ? SWARD_CAPACITY : 0);
+  const draft = { matrices: new Float32Array(capacity * 16), shades: new Float32Array(capacity * 3), picks: new Float32Array(sward ? SWARD_CAPACITY : 0) };
+  const send = (attribute: THREE.BufferAttribute, values: Float32Array, length: number) => {
+    (attribute.array as Float32Array).set(length < values.length ? values.subarray(0, length) : values);
+    // Only what is drawn goes to the GPU, not the whole of a buffer sized for the densest setting.
+    attribute.clearUpdateRanges(); if (length) attribute.addUpdateRange(0, length); attribute.needsUpdate = true;
   };
+  /** Starts laying `on` out round (cx, cz). The function returned does as many rows as fit before `deadline`
+   * (a `performance.now()` time), at least one, and returns true once the layout is on the mesh. */
+  const lay = (on: Layer, cx: number, cz: number, quality: string, extent: number, spacing: number, limit: number, top: number,
+    place: (ix: number, iz: number, at: number, on: Layer) => number) => {
+    if (quality !== on.quality || on.heights.size > on.cache) { on.heights.clear(); on.tints.clear(); }
+    const first = Math.floor((cx - extent) / spacing), last = Math.ceil((cx + extent) / spacing), firstZ = Math.floor((cz - extent) / spacing), lastZ = Math.ceil((cz + extent) / spacing);
+    let ix = first, count = 0, minY = Infinity, maxY = -Infinity;
+    return (deadline: number) => {
+      for (; ix <= last && count < limit; ) {
+        for (let iz = firstZ; iz <= lastZ && count < limit; iz++) {
+          const y = place(ix, iz, count, on);
+          if (y === y) { count++; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        }
+        ix++;
+        if (ix <= last && performance.now() >= deadline) return false;
+      }
+      const target = on.target; target.position.set(cx, 0, cz);
+      send(target.instanceMatrix, draft.matrices, count * 16); send(target.instanceColor!, draft.shades, count * 3);
+      if (target === sward) send(target.geometry.getAttribute('swardPick') as THREE.BufferAttribute, draft.picks, count);
+      target.count = count; target.visible = count > 0;
+      // Conservative bounds include blade height and sway. Avoid two
+      // extra matrix scans over tens of thousands of instances when moving.
+      target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
+      if (count) {
+        target.boundingBox.min.set(-extent, minY - .01, -extent); target.boundingBox.max.set(extent, maxY + top, extent);
+        target.boundingBox.getBoundingSphere(target.boundingSphere);
+      } else { target.boundingBox.makeEmpty(); target.boundingSphere.set(new THREE.Vector3(), 0); }
+      target.updateMatrixWorld(true);
+      on.x = cx; on.z = cz; on.quality = quality;
+      return true;
+    };
+  };
+  let rootTint = plain;
+  /** The ground under a grid square's tuft (NaN where none grows), asked of the district once a square; its
+   * lawn colour is left in `rootTint`. */
+  const rooted = (on: Layer, ix: number, iz: number, x: number, z: number) => {
+    const k = (ix + 32768) * 65536 + iz + 32768;
+    let y = on.heights.get(k);
+    if (y === undefined) { y = floor(x, z); on.heights.set(k, y); if (y !== null) on.tints.set(k, lawn?.(x, z) ?? plain); }
+    if (y === null) return NaN;
+    rootTint = on.tints.get(k) ?? plain;
+    return y;
+  };
+  // Written straight into the buffers: a turn about the vertical, a scale and a place, thousands of times a step.
+  const write = (at: number, turn: number, wide: number, tall: number, dx: number, y: number, dz: number) => {
+    const matrices = draft.matrices, shades = draft.shades, c = Math.cos(turn) * wide, s = Math.sin(turn) * wide, m = at * 16;
+    matrices[m] = c; matrices[m + 1] = 0; matrices[m + 2] = -s; matrices[m + 3] = 0;
+    matrices[m + 4] = 0; matrices[m + 5] = tall; matrices[m + 6] = 0; matrices[m + 7] = 0;
+    matrices[m + 8] = s; matrices[m + 9] = 0; matrices[m + 10] = c; matrices[m + 11] = 0;
+    matrices[m + 12] = dx; matrices[m + 13] = y; matrices[m + 14] = dz; matrices[m + 15] = 1;
+    shades[at * 3] = rootTint.r; shades[at * 3 + 1] = rootTint.g; shades[at * 3 + 2] = rootTint.b;
+  };
+  const layTufts = (on: Layer, cx: number, cz: number, quality: string, radius: number, inner: number, spacing: number, limit: number, squat: number) => {
+    const outer2 = (radius + 3) * (radius + 3), hole = Math.max(0, inner - 9), hole2 = hole * hole;
+    return lay(on, cx, cz, quality, radius + 4, spacing, limit, .4, (ix, iz, at, on) => {
+      const x = (ix + hash(ix, iz)) * spacing, z = (iz + hash(ix, iz, 1)) * spacing, dx = x - cx, dz = z - cz, d2 = dx * dx + dz * dz;
+      if (d2 > outer2 || d2 < hole2 || x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) return NaN;
+      const y = rooted(on, ix, iz, x, z); if (y !== y) return NaN;
+      write(at, hash(ix, iz, 2) * Math.PI * 2, .65 + hash(ix, iz, 3) * .65, (.12 + hash(ix, iz, 4) * .12) * squat, dx, y - .005, dz);
+      return y;
+    });
+  };
+  const laySward = (on: Layer, cx: number, cz: number, quality: string, radius: number, inner: number, spacing: number, limit: number) => {
+    const slack = on.grid * .71 + spacing, edge = radius + on.grid * .71, edge2 = edge * edge;
+    return lay(on, cx, cz, quality, edge, spacing, limit, .3, (ix, iz, at, on) => {
+      // Its place in the queue first: most of the outer ground is turned away here, cheaply.
+      const pick = hash(ix, iz, 10), ax = (ix + .5) * spacing - cx, az = (iz + .5) * spacing - cz;
+      if (pick > swardDensity(Math.sqrt(ax * ax + az * az) - slack, inner, radius) * 1.1) return NaN;
+      const x = (ix + hash(ix, iz, 5)) * spacing, z = (iz + hash(ix, iz, 6)) * spacing, dx = x - cx, dz = z - cz;
+      if (dx * dx + dz * dz > edge2 || x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ) return NaN;
+      const y = rooted(on, ix, iz, x, z); if (y !== y) return NaN;
+      write(at, hash(ix, iz, 8) * Math.PI * 2, (.85 + hash(ix, iz, 7) * .5) * Math.max(1, spacing / .22), .14 + hash(ix, iz, 9) * .09, dx, y - .004, dz);
+      draft.picks[at] = pick;
+      return y;
+    });
+  };
+  const centre = (on: Layer, value: number) => Math.floor(value / on.grid) * on.grid + on.grid / 2;
+  let job: ((deadline: number) => boolean) | undefined;
   return {
     mesh, farMesh, sward,
     get radius() { return farReach.value; },
     get count() { return mesh.count + farMesh.count + (sward?.count ?? 0); },
-    /** `windSpeed` is the weather's wind, 0 (still) to 7 (squall); reduced effects hold the grass still. */
-    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low', windSpeed = 0) {
+    /** `windSpeed` is the weather's wind, 0 (still) to 7 (squall); reduced effects hold the grass still.
+     * `budget` is how many milliseconds of laying out a call may do. Each layer is laid out again when the viewer
+     * crosses into another of its squares, which takes tens of milliseconds at the dense settings: with a budget
+     * that is spread over the following frames (the layers reach a few metres past what the shader shows, so the
+     * old layout serves meanwhile). Without one, and after a jump or a change of quality, it is done at once. */
+    update(camera: THREE.Camera, seconds: number, reduced: boolean, mobile = false, detail: WorldDetail = 'low', windSpeed = 0, budget?: number) {
       if (disposed) return;
       wind.value = reduced ? 0 : grassWindLean(windSpeed);
       camera.getWorldPosition(cameraPosition); eye.value.copy(cameraPosition); time.value = reduced ? 0 : seconds;
-      const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile);
+      const quality = `${detail}:${reduced}:${mobile}`, profile = grassDetail(detail, reduced, mobile), lawnProfile = swardDetail(detail, reduced, mobile);
       reach.value = nearReach.value = profile.near; farReach.value = profile.radius;
       band.value = grassFadeBand(profile.near, !profile.farLimit); farBand.value = grassFadeBand(profile.radius, true);
-      if (sward) fillSward(sward, quality, swardDetail(detail, reduced, mobile));
-      // The middle of the viewer's 4 m cell, so the viewer is never more than 2.83 m from where the tufts were
-      // laid out round: measured from the cell's corner, the far side came up short and filled in at a step.
-      const cx = Math.floor(cameraPosition.x/4)*4+2, cz = Math.floor(cameraPosition.z/4)*4+2;
-      if (cx === cellX && cz === cellZ && quality === lastQuality) return;
-      if (quality !== lastQuality || heights.size > 100000) { heights.clear(); tints.clear(); }
-      cellX = cx; cellZ = cz; lastQuality = quality;
-      const fill = (target: THREE.InstancedMesh, radius: number, inner: number, spacing: number, limit: number) => {
-        let count = 0, minY = Infinity, maxY = -Infinity; target.position.set(cx, 0, cz);
-        if (limit) for (let ix = Math.floor((cx-radius-4)/spacing); ix <= Math.ceil((cx+radius+4)/spacing); ix++)
-          for (let iz = Math.floor((cz-radius-4)/spacing); iz <= Math.ceil((cz+radius+4)/spacing); iz++) {
-            const x = (ix+hash(ix,iz)) * spacing, z = (iz+hash(ix,iz,1)) * spacing, distance = Math.hypot(x-cx,z-cz);
-            if (x < bounds.minX || x > bounds.maxX || z < bounds.minZ || z > bounds.maxZ || distance > radius+3 || distance < inner-9 || count >= limit) continue;
-            const k = `${spacing}:${ix}:${iz}`;
-            if (!heights.has(k)) { const y = floor(x,z); heights.set(k, y); if (y !== null) tints.set(k, lawn?.(x, z) ?? plain); }
-            const y = heights.get(k)!; if (y === null) continue;
-            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-            dummy.position.set(x-cx,y-.005,z-cz); dummy.rotation.set(0,hash(ix,iz,2)*Math.PI*2,0);
-            const scale = .65 + hash(ix,iz,3)*.65;
-            dummy.scale.set(scale, (.12+hash(ix,iz,4)*.12)*(reduced?.7:1), scale); dummy.updateMatrix(); target.setColorAt(count, tints.get(k) ?? plain); target.setMatrixAt(count++,dummy.matrix);
-          }
-        target.count = count; target.visible = count > 0; target.instanceMatrix.needsUpdate = true; if (target.instanceColor) target.instanceColor.needsUpdate = true;
-        // Conservative cell bounds include blade height and sway. Avoid two
-        // extra matrix scans over tens of thousands of instances when moving.
-        target.boundingBox ??= new THREE.Box3(); target.boundingSphere ??= new THREE.Sphere();
-        if (count) {
-          target.boundingBox.min.set(-radius-4, minY-.01, -radius-4);
-          target.boundingBox.max.set(radius+4, maxY+.4, radius+4);
-          target.boundingBox.getBoundingSphere(target.boundingSphere);
-        } else { target.boundingBox.makeEmpty(); target.boundingSphere.set(new THREE.Vector3(), 0); }
-        target.updateMatrixWorld(true);
+      swardReach.value = lawnProfile?.radius ?? 0; swardInner.value = lawnProfile?.inner ?? 0;
+      // The middle of the viewer's square, so the viewer is never more than 2.83 m (tufts) from where the layer was
+      // laid out round: measured from the square's corner, the far side came up short and filled in at a step.
+      const stale = (on: Layer) => on.quality !== quality || on.x !== centre(on, cameraPosition.x) || on.z !== centre(on, cameraPosition.z);
+      const far = (on: Layer) => on.quality !== quality || Math.abs(on.x - cameraPosition.x) > on.grid * 6 || Math.abs(on.z - cameraPosition.z) > on.grid * 6;
+      const start = (on: Layer) => {
+        const cx = centre(on, cameraPosition.x), cz = centre(on, cameraPosition.z);
+        if (on === swardLayer) return laySward(on, cx, cz, quality, lawnProfile?.radius ?? 0, lawnProfile?.inner ?? 0, lawnProfile?.spacing ?? 1, lawnProfile ? SWARD_CAPACITY : 0);
+        return on === nearLayer ? layTufts(on, cx, cz, quality, profile.near, 0, profile.spacing, profile.limit, reduced ? .7 : 1)
+          : layTufts(on, cx, cz, quality, profile.radius, profile.near, profile.farSpacing, profile.farLimit, reduced ? .7 : 1);
       };
-      fill(mesh, profile.near, 0, profile.spacing, profile.limit);
-      fill(farMesh, profile.radius, profile.near, profile.farSpacing, profile.farLimit);
+      // Nearest first: a gap in the sward at the viewer's feet shows sooner than one in the far tufts.
+      const layers = swardLayer ? [swardLayer, nearLayer, farLayer] : [nearLayer, farLayer];
+      // Further behind than one square (a vehicle at speed), the layout may take a larger share of the frame.
+      const behind = Math.max(...layers.map(on => Math.max(Math.abs(on.x - cameraPosition.x), Math.abs(on.z - cameraPosition.z)) / on.grid));
+      let deadline = budget === undefined ? Infinity : performance.now() + budget * Math.min(4, Math.max(1, behind));
+      if (layers.some(far)) { deadline = Infinity; job = undefined; }
+      for (;;) {
+        if (!job) { const next = layers.find(stale); if (!next) break; job = start(next); }
+        if (!job(deadline)) break;
+        job = undefined;
+      }
     },
-    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); heights.clear(); tints.clear();
-      if (sward) { sward.removeFromParent(); sward.dispose(); sward.geometry.dispose(); (sward.material as THREE.Material).dispose(); swardHeights.clear(); swardTints.clear(); } },
+    dispose() { if (disposed) return; disposed = true; mesh.removeFromParent(); mesh.dispose(); geometry.dispose(); material.dispose(); farMesh.removeFromParent(); farMesh.dispose(); farGeometry.dispose(); farMaterial.dispose(); for (const on of [nearLayer, farLayer, swardLayer]) { on?.heights.clear(); on?.tints.clear(); }
+      if (sward) { sward.removeFromParent(); sward.dispose(); sward.geometry.dispose(); (sward.material as THREE.Material).dispose(); } },
   };
 }

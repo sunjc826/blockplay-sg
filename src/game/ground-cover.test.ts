@@ -165,6 +165,33 @@ it('a lawn that asks for a sward gets short jointed blades close by, and none wh
   expect(createGrass(new THREE.Scene(), bounds, () => 0).sward).toBeUndefined();
 });
 
+it('with a frame budget, a step into the next square is laid out over several frames and ends as it would at once', () => {
+  const make = () => createGrass(new THREE.Scene(), { minX: -200, maxX: 200, minZ: -200, maxZ: 200 }, x => x > 30 ? null : 0, undefined, { sward: true });
+  const whole = make(), spread = make(), camera = new THREE.PerspectiveCamera(); camera.position.y = 1.7;
+  try {
+    // The first layout is not spread: there is nothing to show meanwhile.
+    whole.update(camera, 0, false, false, 'high'); spread.update(camera, 0, false, false, 'high', 0, 0);
+    expect(spread.mesh.count).toBe(whole.mesh.count); expect(spread.sward!.count).toBe(whole.sward!.count);
+    camera.position.x = 5; whole.update(camera, 1, false, false, 'high');
+    const versions = [spread.sward!, spread.mesh, spread.farMesh].map(m => m.instanceMatrix.version);
+    spread.update(camera, 1, false, false, 'high', 0, 0);
+    // One row of the nearest layer and no more: every mesh still stands where it was.
+    expect([spread.sward!, spread.mesh, spread.farMesh].map(m => m.instanceMatrix.version)).toEqual(versions);
+    expect(spread.sward!.position.x).toBe(1); expect(spread.mesh.position.x).toBe(2);
+    let frames = 1; while (spread.farMesh.position.x !== whole.farMesh.position.x && frames < 5000) { spread.update(camera, 1, false, false, 'high', 0, 0); frames++; }
+    expect(frames).toBeGreaterThan(100); expect(frames).toBeLessThan(5000);
+    for (const [a, b] of [[spread.sward!, whole.sward!], [spread.mesh, whole.mesh], [spread.farMesh, whole.farMesh]]) {
+      expect(a.count).toBe(b.count); expect(a.position.x).toBe(b.position.x);
+      expect(Array.from(a.instanceMatrix.array.subarray(0, a.count * 16))).toEqual(Array.from(b.instanceMatrix.array.subarray(0, b.count * 16)));
+      expect(Array.from(a.instanceColor!.array.subarray(0, a.count * 3))).toEqual(Array.from(b.instanceColor!.array.subarray(0, b.count * 3)));
+      // Only the instances drawn are sent to the GPU.
+      expect(a.instanceMatrix.updateRanges).toEqual([{ start: 0, count: a.count * 16 }]);
+    }
+    // A jump (a respawn across the map) is laid out at once.
+    camera.position.x = -120; spread.update(camera, 2, false, false, 'high', 0, 0);
+    expect(spread.farMesh.position.x).toBe(-118); expect(spread.sward!.position.x).toBe(-119);
+  } finally { whole.dispose(); spread.dispose(); }
+});
 it('tufts on ground painted vertex by vertex take the paint, not the white material under it', () => {
   const scene = new THREE.Scene(), geometry = new THREE.PlaneGeometry(200, 200, 20, 20).rotateX(-Math.PI / 2), colors: number[] = [];
   const west = new THREE.Color('#7f9c5c'), east = new THREE.Color('#5d7446'), position = geometry.getAttribute('position');

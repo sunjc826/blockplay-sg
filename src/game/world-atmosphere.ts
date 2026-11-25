@@ -22,6 +22,9 @@ import { createVehicleRain } from './vehicle-rain';
 import { blendGrade, createDistrictLook, type ColorGrade, type DistrictLook } from './district-look';
 import { softwareRenderer } from './fps-sun-shadows';
 
+/** Milliseconds a frame may spend laying grass out again as the viewer moves (see `createGrass`'s `update`). */
+const GRASS_LAYOUT_BUDGET = 1.2;
+
 /**
  * One bounded effect pool per scene. No textures, network traffic or shadow passes.
  * Given the renderer, the district's hemisphere light hands over to a sky light (`world-sky-light`).
@@ -183,7 +186,7 @@ export function createWorldAtmosphere(scene: THREE.Scene, anchors: readonly { x:
       sunRays.sunlight = sunlight; sunRays.reduced = reduced; sunRays.moon = moonRayAmount(lighting.elevation);
       const time = (now % 3600_000) / 1000, trees = treeWindTime(scene);
       if (trees !== treeClock) gustClock = treeClock = trees; else gustClock += step;
-      scene.userData.groundCover?.grass.update(camera, gustClock, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail, wind);
+      scene.userData.groundCover?.grass.update(camera, gustClock, reduced, coarsePointer?.matches ?? false, getGraphicsSettings().grassDetail, wind, GRASS_LAYOUT_BUDGET);
       driftWeather.wind = wind; driftWeather.rain = wetness; driftWeather.sun = sunlight; driftWeather.night = night;
       driftWeather.reduced = reduced; driftWeather.detail = getGraphicsSettings().grassDetail; driftWeather.mobile = coarsePointer?.matches ?? false;
       drift?.update(time, driftWeather, exposurePoint);
