@@ -10,17 +10,19 @@ it('lazily captures shared surface normals, restores renderer state on failure, 
   let bound: THREE.WebGLRenderTarget | null = target;
   const viewport = new THREE.Vector4(2, 3, 600, 400), color = new THREE.Color('#123456');
   let alpha = .7, scissor = true, fail = false;
-  const draws: THREE.ShaderMaterial[] = [];
+  const draws: THREE.ShaderMaterial[] = [], areas: number[][] = [];
+  const setViewport = vi.fn((value: THREE.Vector4 | number, y?: number, w?: number, h?: number) => typeof value === 'number' ? viewport.set(value, y!, w!, h!) : viewport.copy(value));
   const renderer = {
     autoClear: true, xr: { enabled: true },
     getRenderTarget: () => bound, setRenderTarget: (value: THREE.WebGLRenderTarget) => { bound = value; },
     getViewport: (value: THREE.Vector4) => value.copy(viewport),
-    setViewport: (value: THREE.Vector4 | number, y?: number, w?: number, h?: number) => typeof value === 'number' ? viewport.set(value, y!, w!, h!) : viewport.copy(value),
+    setViewport,
     getClearColor: (value: THREE.Color) => value.copy(color), getClearAlpha: () => alpha,
     setClearColor: (value: THREE.ColorRepresentation, opacity: number) => { color.set(value); alpha = opacity; },
     getScissorTest: () => scissor, setScissorTest: (value: boolean) => { scissor = value; }, clear: vi.fn(),
     render: (object: THREE.Scene | THREE.Mesh) => {
       if (fail) throw new Error('GPU failure');
+      areas.push(bound!.viewport.toArray());
       draws.push((object instanceof THREE.Scene ? (object.children[0] as THREE.Mesh).material : object.material) as THREE.ShaderMaterial);
     },
   } as unknown as THREE.WebGLRenderer;
@@ -34,6 +36,10 @@ it('lazily captures shared surface normals, restores renderer state on failure, 
     expect(draws[0].uniforms.uWaveOrigin).toBe(water.uniforms.uWaveOrigin);
     expect(draws.at(-1)!.uniforms.sceneDepth.value).toBe(snapshot.depthTexture);
     const atlas = pass.target!; expect(atlas.width).toBe(1024); expect(atlas.height).toBe(1536);
+    // Each height has its own 512-pixel tile, and the receiver the whole picture, in the targets' own pixels:
+    // the renderer's viewport is in canvas units and would scale both by the device's pixel ratio.
+    expect(areas).toEqual([...CAUSTIC_HEIGHTS.map((_, i) => [i % 2 * 512, Math.floor(i / 2) * 512, 512, 512]), [0, 0, 600, 400]]);
+    expect(atlas.viewport.toArray()).toEqual([0, 0, 1024, 1536]); expect(setViewport).not.toHaveBeenCalled();
     water.uniforms.uCausticLight.value = 0;
     expect(pass.render(snapshot, target)).toBe(false); expect(pass.enabled).toBe(false);
     water.uniforms.uCausticLight.value = 1; fail = true;

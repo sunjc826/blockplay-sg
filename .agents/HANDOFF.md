@@ -17848,3 +17848,11 @@ build were a dead wait with the bar still.
 - `performance.mark('blockplay-load:<models|props|navigation|simulation|shaders|ready>')` now marks each load step.
 - Not measured on a phone, which is where the owner saw it. The shader stage is 6-8 s of every load here whatever
   the setting; if the stall is there with the setting off, that is the next place to look.
+
+## 2026-11-25: Ultra water smeared the frame on high-density screens
+The owner's phone and a Surface showed the top of the screen as a magnified view and the ground below washed white with ghost railings (Marina Bay range, Ultra, sun out, bay in view).
+- **Cause:** `water-caustics.ts` placed its atlas tiles and its full-screen receiver with `renderer.setViewport`, which is in canvas units and is multiplied by the pixel ratio. At ratio 1 that is right by accident. At 2 each caustic tile was drawn twice the size over its neighbours (blown-out light on everything within 3 m above the water), and the receiver stretched the lower-left quarter of the opaque picture over the whole scene target. Not a weak-GPU fault: any device pixel ratio other than 1.
+- **Fix:** set `atlas.viewport` per tile and rebind the target; the receiver uses the scene target's own viewport. No other render-target pass in `src` calls `renderer.setViewport`.
+- **To reproduce such reports here:** CDP `Emulation.setDeviceMetricsOverride` with `deviceScaleFactor: 2`. Every capture in this repo's smokes and fixtures runs at 1, which is why this went unseen.
+- **Checked:** the real game in headless Chrome on Metal at ratio 2, before (matches the owner's screenshot) and after (clean); `tsc --noEmit`; the full vitest suite; `water-caustics.test.ts` now asserts the tile and receiver viewports.
+- **Not checked:** the owner's phone or the Surface; ratios 1.5 and 3; Sentosa's beach, the other district with caustics; `pnpm build` (no entrypoint or config change). The 8 fps on the phone is Ultra's cost and is not addressed.

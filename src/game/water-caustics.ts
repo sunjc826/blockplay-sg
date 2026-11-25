@@ -132,7 +132,7 @@ export function createWaterCaustics(renderer: THREE.WebGLRenderer, camera: THREE
   let atlas: THREE.WebGLRenderTarget | undefined, grid: THREE.Mesh | undefined;
   let projector: THREE.ShaderMaterial | undefined, receiver: THREE.ShaderMaterial | undefined, quad: FullScreenQuad | undefined;
   const projectionScene=new THREE.Scene(), projectionCamera=new THREE.Camera();
-  const clear=new THREE.Color(), viewport=new THREE.Vector4();
+  const clear=new THREE.Color();
   let enabled=false;
   function release() {
     atlas?.dispose();atlas=undefined;grid?.geometry.dispose();grid?.removeFromParent();grid=undefined;
@@ -161,24 +161,29 @@ export function createWaterCaustics(renderer: THREE.WebGLRenderer, camera: THREE
       if(!u || u.uWaveReady.value<.5 || u.uCausticLight.value<.001 || u.uShallowDetail.value<.5)return false;
       if(!atlas)build();
       const previous=renderer.getRenderTarget(),autoClear=renderer.autoClear,alpha=renderer.getClearAlpha(),scissor=renderer.getScissorTest(),xr=renderer.xr.enabled;
-      renderer.getClearColor(clear);renderer.getViewport(viewport);
+      renderer.getClearColor(clear);
       try {
         renderer.autoClear=false;renderer.xr.enabled=false;renderer.setScissorTest(false);
         renderer.setRenderTarget(atlas!);renderer.setClearColor(0,0);renderer.clear();
         for(let i=0;i<CAUSTIC_HEIGHTS.length;i++) {
           projector!.uniforms.receiverHeight.value=CAUSTIC_HEIGHTS[i];
-          renderer.setViewport(i%2*TILE,Math.floor(i/2)*TILE,TILE,TILE);renderer.render(projectionScene,projectionCamera);
+          // A target's own viewport is in its pixels. renderer.setViewport is in canvas units, scaled by the
+          // pixel ratio: at 2x it drew each tile twice the size, over its neighbours, and the receiver below
+          // stretched the lower-left quarter of the picture across the frame.
+          atlas!.viewport.set(i%2*TILE,Math.floor(i/2)*TILE,TILE,TILE);renderer.setRenderTarget(atlas!);
+          renderer.render(projectionScene,projectionCamera);
         }
+        atlas!.viewport.set(0,0,atlas!.width,atlas!.height);
         const r=receiver!.uniforms;
         r.sceneColor.value=snapshot.texture;r.sceneDepth.value=snapshot.depthTexture;
         r.inverseViewProjection.value.multiplyMatrices(camera.matrixWorld,camera.projectionMatrixInverse);
         r.viewProjection.value.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);r.view.value.copy(camera.matrixWorldInverse);
         camera.getWorldPosition(r.eye.value);r.origin.value.copy(u.uWaveOrigin.value);r.cameraRange.value.set(camera.near,camera.far);
         r.surface.value=u.uWaveHeight.value;r.light.value=u.uCausticLight.value;
-        renderer.setRenderTarget(target);renderer.setViewport(0,0,target.width,target.height);quad!.render(renderer);enabled=true;
+        renderer.setRenderTarget(target);quad!.render(renderer);enabled=true;
         return true;
       }finally{
-        renderer.setRenderTarget(previous);renderer.setViewport(viewport);renderer.setClearColor(clear,alpha);renderer.setScissorTest(scissor);renderer.xr.enabled=xr;renderer.autoClear=autoClear;
+        renderer.setRenderTarget(previous);renderer.setClearColor(clear,alpha);renderer.setScissorTest(scissor);renderer.xr.enabled=xr;renderer.autoClear=autoClear;
       }
     },
     dispose:release,
