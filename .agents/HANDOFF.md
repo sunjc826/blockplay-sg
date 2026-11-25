@@ -17866,3 +17866,27 @@ Owner asked for a shoutcaster-style AI commentator, with streamer mode (an AI pe
 - **Not checked:** the panel, usage bar and caption in a browser; the Durable Object on Cloudflare; calls with a screenshot attached. Walk/drive exploration and the standalone store are not covered.
 - **To switch on in production:** `wrangler secret put ANTHROPIC_API_KEY` and `AI_ADMIN_TOKEN`. Without the key the panel reports the cast unavailable.
 - **Next:** streamer mode (`STREAMER_FRAME` and the streamer personas are already in the personas file).
+
+## 2026-11-25: One renderer for every game, and a shader wait that always ends
+
+- **Hang fixed (9c7e2d4 "Wait for shaders in a way that always ends").** three's `compileAsync` throws inside its own
+  timer when a waiting material is disposed, and then never settles: the loading screen stayed up for good. Seen
+  with Background simulation on. `compileSettled` (warm-render-objects.ts) replaces it everywhere.
+- **Shared renderer.** `createFpsSurface` (fps-surface.ts) now hands out one kept `WebGLRenderer`, one game at a
+  time; `dispose` returns it instead of destroying the context. A second game while one is up, a changed
+  antialiasing setting or a lost context gets a new renderer. So a match, an expedition and the range all find the
+  last game's programs still linked.
+- **Why programs were not found again, and the two fixes.** (1) night-exposure.ts put its texture's id in every lit
+  material's `customProgramCacheKey`, so each game's ~70 lit programs had new keys; the key now counts how often
+  that one material has been patched, which is 1 for a district's own materials. (2) three names a
+  `ShaderMaterial`'s program by ids it gives the shader texts and renews once the last material with a text is
+  disposed, so those ~40 programs can never be found by a later game; `releaseShadersOfThisGame` (fps-engine.ts)
+  lets go of them at dispose so they do not pile up. They are relinked each game.
+- **Measured** (headless Chrome on Metal, no shader disk cache, one page, games in turn): Smith Street Hardpoint
+  8.6 s first, 2.2 s again; Marina Bay 9-14 s first, 3.4 s again; Toa Payoh 3.0 s as a third district. Programs
+  after each game's dispose: 206, 206, 256, 256, 258, 258, 258. Geometries left behind grow by about 4 a game
+  (9 -> 13 over seven games), textures stay at 8: a small leak somewhere in the engine's dispose, not chased.
+  Through the real menus, Open World a second time loads in about a second where the first took about eighteen.
+- `globalThis.blockplayRenderer` (development only) is the renderer, for scripts that count programs and uploads.
+- Not checked: a real phone; a context lost while the renderer is idle in the menus (the code makes a new one, but
+  nothing exercised it); LAN host and guest in one page do not share (each page has its own renderer).

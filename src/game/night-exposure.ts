@@ -350,6 +350,8 @@ export const DAY_BAKE_BUDGET_MS = 4;
  * Patches natural light only. Emissive windows, lamp pools, torches and flashes keep their illumination.
  * With an extension (a district look), daytime sky visibility is baked into B after load and fades in.
  */
+/** How many controllers have patched each material so far. */
+const patchTurns = new WeakMap<THREE.Material, number>();
 export function createNightExposure(scene: THREE.Scene, extension?: ExposureExtension, ground?: (x: number, z: number) => number) {
   const blockers = collectNightBlockers(scene), bounds = new THREE.Box3();
   for (const b of blockers) bounds.union(b.box);
@@ -412,8 +414,12 @@ export function createNightExposure(scene: THREE.Scene, extension?: ExposureExte
               .replace('#include <tonemapping_fragment>', `${extension.fog}\n#include <tonemapping_fragment>`);
           }
         };
-        // A recreated controller must bind its own uniforms even if this material already cached an older program.
-        m.customProgramCacheKey = function() { return key.call(this) + '|natural-night-exposure:' + texture.id; }; m.needsUpdate = true;
+        // A recreated controller must bind its own uniforms even if this material already cached an older program:
+        // three only asks a material for its uniforms when the material meets a key it has not had before. So the
+        // key counts how often this material has been patched. A district's materials are new with the district,
+        // which leaves their key the same from one game to the next, and the program they link is found again.
+        const turn = (patchTurns.get(m) ?? 0) + 1; patchTurns.set(m, turn);
+        m.customProgramCacheKey = function() { return key.call(this) + '|natural-night-exposure:' + turn; }; m.needsUpdate = true;
       }
       object.children.forEach(visit);
     }

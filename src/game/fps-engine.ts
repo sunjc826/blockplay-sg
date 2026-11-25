@@ -5275,9 +5275,23 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
    * dress disposes of every one of its materials. Its next dress wants the same
    * programs back, on the frame a respawn lands. The context owns them either way.
    */
-  const heldPrograms = new WeakSet<object>();
+  const heldPrograms = new WeakSet<object>(), heldForThisGame: { usedTimes: number; destroy(): void }[] = [];
   function keepShadersLinked() {
-    for (const program of renderer.info.programs ?? []) if (!heldPrograms.has(program)) { heldPrograms.add(program); program.usedTimes++; }
+    for (const program of renderer.info.programs ?? []) if (!heldPrograms.has(program)) {
+      heldPrograms.add(program); program.usedTimes++;
+      // Three names a ShaderMaterial's program by numbers it gives the two shader texts, and gives new numbers once
+      // the last material with a text is disposed. The next game can never ask for such a program again, so it is
+      // kept for this game only. A built-in material's program is named by what it is, and the next game finds it.
+      if (/^\d+,\d+,/.test(program.cacheKey)) heldForThisGame.push(program as unknown as { usedTimes: number; destroy(): void });
+    }
+  }
+  /** Before this game's materials are disposed, so three deletes each program with its last material. */
+  function releaseShadersOfThisGame() {
+    const programs = (renderer.info.programs ?? []) as unknown[];
+    for (const program of heldForThisGame.splice(0)) if (--program.usedTimes <= 0) {
+      // Its materials have gone already, and three only deletes a program as a material lets go of it.
+      const at = programs.indexOf(program); if (at >= 0) { programs[at] = programs[programs.length - 1]; programs.pop(); program.destroy(); }
+    }
   }
   const assetIds = expedition ? ['sar21-inspired', 'ultimax-inspired'] : ['sar21-inspired', 'ultimax-inspired', 'range-target', 'supply-crate', 'sandbag-wall', 'traffic-cone'];
   // The world above was built in one blocking task, so this is the first the loading screen hears of it.
@@ -5498,7 +5512,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals?.dispose(); installedStructures.dispose(); objectiveBeacons?.dispose();
-      disposed = true; pendingCapture?.(); simStarting?.dispose(); rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
+      disposed = true; releaseShadersOfThisGame(); pendingCapture?.(); simStarting?.dispose(); rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);
