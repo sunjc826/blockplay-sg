@@ -1,3 +1,4 @@
+import { CastSession, CastCaption } from './FpsCast';
 import { confirmAction, useNavigationGuard } from '../lib/navigation-guard';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Play, RotateCcw } from 'lucide-react';
@@ -49,10 +50,11 @@ export default function TutorialGame({ suspended, onStore, onLoaded, loadScreen 
   const restart = () => setEpoch(n => n + 1);
   const begin = () => { if (touch) fullscreen.enter(); engine.current?.start(); };
   const toStore = () => { engine.current?.pause(); if (fullscreen.immersive) void fullscreen.toggle(); onStore(); };
-  return <div className={`fps-game tutorial-game${fullscreen.immersive ? ' is-immersive' : ''}`} ref={stage} data-phase={hud.phase} data-step={lesson?.id ?? 'complete'} data-touch={touch ? 'on' : undefined} data-player-x={hud.x} data-player-z={hud.z} data-player-yaw={hud.yaw} data-player-pitch={hud.pitch}>
+  return <CastSession mode="tutorial" session={epoch} hud={hud} engine={engine}><div className={`fps-game tutorial-game${fullscreen.immersive ? ' is-immersive' : ''}`} ref={stage} data-phase={hud.phase} data-step={lesson?.id ?? 'complete'} data-touch={touch ? 'on' : undefined} data-player-x={hud.x} data-player-z={hud.z} data-player-yaw={hud.yaw} data-player-pitch={hud.pitch}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       {fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}
+      <div className="fps-hud-layout"><div className="fps-subtitles"><CastCaption /></div></div>
       {playing && !complete && <>
         {!touch && <PlayMenuButton onMenu={() => engine.current?.pause()} />}
         <aside className="tutorial-lesson" aria-label="Current lesson">
@@ -90,5 +92,5 @@ export default function TutorialGame({ suspended, onStore, onLoaded, loadScreen 
         {!complete && hud.phase === 'ready' && <p className="fps-armor-note">Issued practice gear · No incoming fire · Your credits and supplies stay intact</p>}
       </PlayPanel>}
     </div>
-  </div>;
+  </div></CastSession>;
 }

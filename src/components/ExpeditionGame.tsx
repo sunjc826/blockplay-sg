@@ -1,3 +1,4 @@
+import { CastSession } from './FpsCast';
 import FpsDamageFeedback from './FpsDamageFeedback';
 import { useNavigationGuard } from '../lib/navigation-guard';
 import MerlionHud from './MerlionHud';
@@ -177,7 +178,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
     onPointerCancel: () => engine.current?.setInput(key, false),
     onLostPointerCapture: () => engine.current?.setInput(key, false),
   });
-  return <div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
+  return <CastSession mode="expedition" session={0} hud={hud} engine={engine}><div className={`fps-game expedition-game ${fullscreen.immersive ? 'is-immersive' : ''}`} ref={stage} data-touch={touch ? 'on' : undefined} data-hud-hints={hudHints ? 'on' : 'off'}
     data-deployment-planning={planning || playing && !alive} data-arena-started={hud.arenaStarted} data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
@@ -293,5 +294,5 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
     </div>
     <div className="expedition-footer"><span>Field gear is temporary · Armory purchases stay saved</span><button onClick={onExit}>Leave expedition <ArrowRight size={14} /></button></div>
     </>}
-  </div>;
+  </div></CastSession>;
 }

@@ -1,3 +1,4 @@
+import { CastCaption } from './FpsCast';
 import type { ReactNode } from 'react';
 import type { FpsHud } from '../game/fps-engine';
 import { FpsChatter } from './FpsCalloutWheel';
@@ -15,6 +16,7 @@ export default function FpsHudLayout({ hud, history = false, children }: { hud: 
       {history && hud.phase === 'playing' && <FpsCommsLog entries={hud.comms} />}
     </div>
     <div className="fps-subtitles">
+      <CastCaption />
       <FpsChatter hud={hud} />
       <FpsRadio hud={hud} />
     </div>

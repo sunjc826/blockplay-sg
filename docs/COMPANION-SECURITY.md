@@ -32,3 +32,5 @@ Keep `OPENAI_API_KEY` on the server. Never add secrets to `VITE_*`, model instru
 `pnpm test` covers forged destinations, injected fields, obvious overrides, oversized/control-character input, malformed model output, per-client/global limits, spoofed forwarding headers, voice-session settings and emergency switches. Client tests check unchanged objectives/stamps after rejection. Tests use mocked model responses and do not prove that every real-model jailbreak is caught.
 
 Design follows [OpenAI's agent safety guidance](https://developers.openai.com/api/docs/guides/agent-builder-safety): keep untrusted inputs separate from instructions, constrain outputs and validate actions outside the model.
+
+Commentary and pilot planning share separate daily, burst and in-flight limits. The Worker uses the routed CF-Connecting-IP and a single durable SQLite counter store. Local development uses the socket address and process memory. Admin sign-in raises the daily allowance with a signed HttpOnly cookie. The cast endpoint validates the public HUD fields, recent events, line memory and bounded JPEG before reserving a model call. [AI commentary and limits](AI-CAST.md)

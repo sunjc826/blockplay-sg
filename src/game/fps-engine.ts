@@ -4744,6 +4744,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   const observer = new ResizeObserver(resize); observer.observe(host); resize();
   // A frame skipped under the cap runs nothing; the next one takes the whole time step.
   const frameLimiter = createFrameLimiter();
+  let captureCanvas: HTMLCanvasElement | undefined, pendingCapture: (() => void) | undefined;
+  function captureFrame(maxWidth = 640): Promise<string | null> {
+    if (disposed || pendingCapture) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { pendingCapture = undefined; resolve(null); }, 800);
+      pendingCapture = () => {
+        clearTimeout(timer); pendingCapture = undefined;
+        if (disposed) { resolve(null); return; }
+        try {
+          captureCanvas ??= document.createElement('canvas');
+          captureCanvas.width = Math.min(canvas.width, Math.max(1, Math.min(640,maxWidth)));
+          captureCanvas.height = Math.max(1, Math.round(canvas.height * captureCanvas.width / canvas.width));
+          const ctx = captureCanvas.getContext('2d');
+          if (!ctx) { resolve(null); return; }
+          ctx.drawImage(canvas,0,0,captureCanvas.width,captureCanvas.height);
+          const data = captureCanvas.toDataURL('image/jpeg',0.6).split(',')[1];
+          resolve(data && data.length <= 273064 ? data : null);
+        } catch { resolve(null); }
+      };
+    });
+  }
   const animate = (now: number) => {
     if (disposed) return;
     if (!frameLimiter(now, getGraphicsSettings().frameCap)) { frame = requestAnimationFrame(animate); return; }
@@ -5166,6 +5187,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const visionTag = visionState.on && visionSpec ? `${visionSpec.kind}:${visionSpec.generation}:${activePalette(visionState, visionSpec) || (iffOnly(visionSpec, visionState) ? 'iff-only' : 'tube')}:${vision.swapped}` : '';
       if (visionTag !== (canvas.dataset.vision ?? '')) canvas.dataset.vision = visionTag;
     }));
+    if (drawWorld && pendingCapture) pendingCapture();
     if (aerialFog) { aerialFog.near = fogNear; aerialFog.far = fogFar; }
     if (roundsAfterDraw) { advanceRounds(realDt, true); resolveVehicleDestruction(); }
     if (now - lastReport > 100) { publish(); lastReport = now; }
@@ -5419,6 +5441,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
       updateCameras(0, false, false); publish();
     },
+    castRegion: region, captureFrame, addCastLine: (name: string, line: string) => { comms.add('cast',name,line); publish(); },
     getLoadout: () => equipment,
     configureMatchBots(count: number, composition: string) {
       return hud.phase === 'ready' && !!arenaRuntime?.configureBots(count, composition);
@@ -5475,7 +5498,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals?.dispose(); installedStructures.dispose(); objectiveBeacons?.dispose();
-      disposed = true; simStarting?.dispose(); rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
+      disposed = true; pendingCapture?.(); simStarting?.dispose(); rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);

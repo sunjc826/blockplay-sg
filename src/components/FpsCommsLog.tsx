@@ -9,7 +9,7 @@ export default function FpsCommsLog({ entries }: { entries: readonly CommsEntry[
   useEffect(() => { if (following.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; }, [last, channel, expanded]);
   return <section className={`fps-comms ${expanded ? 'is-expanded' : ''}`} aria-label="Combat and speech history">
     <header><strong>COMMS LOG</strong><div role="group" aria-label="Log channels">
-      {(['all', 'radio', 'chatter', 'kills', 'system'] as const).map(value => <button key={value} aria-pressed={channel === value} onClick={() => { following.current = true; setChannel(value); }}>{value === 'radio' ? 'Speech' : value[0].toUpperCase() + value.slice(1)}</button>)}
+      {(['all', 'radio', 'chatter', 'kills', 'system', 'cast'] as const).map(value => <button key={value} aria-pressed={channel === value} onClick={() => { following.current = true; setChannel(value); }}>{value === 'radio' ? 'Speech' : value[0].toUpperCase() + value.slice(1)}</button>)}
     </div><button aria-label={expanded ? 'Collapse comms history' : 'Expand comms history'} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '−' : '+'}</button></header>
     <div className="fps-comms-entries" ref={scroll} role="log" aria-label={`${channel} comms entries`} aria-live="off" tabIndex={0}
       onScroll={event => { const node = event.currentTarget; following.current = node.scrollHeight - node.scrollTop - node.clientHeight < 20; }}>

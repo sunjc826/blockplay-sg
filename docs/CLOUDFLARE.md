@@ -175,3 +175,7 @@ and the `workers.dev` origin keeps working alongside it.
 - [Node HTTP bridge](https://developers.cloudflare.com/workers/runtime-apis/nodejs/http/)
 - [Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
 - [Git build configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) and [build versions](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)
+
+## AI commentary
+
+Set the private Worker secret `ANTHROPIC_API_KEY` for the default commentator and optionally `AI_ADMIN_TOKEN` for admin sign-in. Use Wrangler's interactive `secret put` command for each. Configure provider, model and daily limits as server vars. The `AI_USAGE` binding and `ai-usage-v1` migration create the SQLite-backed `AiUsage` Durable Object. A single named instance admits calls atomically across isolates, using Cloudflare's client IP. A storage failure makes commentary and pilot planning unavailable. [AI commentary setup](AI-CAST.md)
