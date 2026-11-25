@@ -1,0 +1,71 @@
+<!doctype html>
+<!-- A flat lawn under the game's grass (createGrass in ground-cover.ts), for measuring how much it shimmers at each
+     distance. ?detail=high|ultra  &aa=0 (no multisampling)  &mobile=1.
+     grassTest.measure({ wind, frames }) returns, for bands of distance, how much a pixel's brightness changes
+     (0 to 255) between frames when only the wind moves ("wind"), when the camera slides 3 mm a frame with the air
+     still ("slide": a steady picture barely changes, an aliased one twinkles), and between neighbouring pixels in
+     one frame ("speckle"). grassTest.render(seconds, wind, x) draws one frame. Driven by scripts/grass-shimmer-smoke.mjs. -->
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><style>body{margin:0;background:#000}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import { createGrass } from '/src/game/ground-cover.ts';
+const params = new URLSearchParams(location.search), detail = params.get('detail') ?? 'high', mobile = params.has('mobile');
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: params.get('aa') !== '0', preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .9; document.body.append(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#9fc4e8');
+const lawn = new THREE.Color('#5f7f3c');
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: lawn, roughness: 1 }));
+scene.add(ground, new THREE.HemisphereLight('#cfe2ff', '#5a5a48', 1.1));
+const sun = new THREE.DirectionalLight('#fff3dc', 3); sun.position.set(-40, 45, -70); scene.add(sun);
+const bounds = { minX: -300, maxX: 300, minZ: -300, maxZ: 300 };
+const grass = createGrass(scene, bounds, () => 0, () => lawn, { sward: true });
+const camera = new THREE.PerspectiveCamera(Number(params.get('fov') ?? 70), W / H, .08, 800);
+function render(seconds = 0, wind = 2, x = 0) {
+  camera.position.set(x, 1.7, 0); camera.lookAt(x, .2, -30); camera.updateMatrixWorld(true);
+  grass.update(camera, seconds, false, mobile, detail, wind);
+  renderer.render(scene, camera);
+}
+// The ground distance each row of the picture looks at, down the middle of the screen.
+const rowDistance = new Float32Array(H), ray = new THREE.Vector3();
+function rows() {
+  for (let j = 0; j < H; j++) {
+    ray.set(0, 1 - (j + .5) / H * 2, .5).unproject(camera).sub(camera.position);
+    rowDistance[j] = ray.y < 0 ? Math.hypot(ray.x, ray.z) * camera.position.y / -ray.y : Infinity;
+  }
+}
+const gl = renderer.getContext(), raw = new Uint8Array(W * H * 4);
+function luma() {
+  gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+  const out = new Float32Array(W * H);
+  // readPixels starts at the bottom row.
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const n = ((H - 1 - j) * W + i) * 4; out[j * W + i] = raw[n] * .2126 + raw[n + 1] * .7152 + raw[n + 2] * .0722; }
+  return out;
+}
+const BANDS = [[4, 8], [8, 15], [15, 28], [28, 50], [50, 85], [85, 130]];
+function banded(frames, speckle) {
+  return BANDS.map(([from, to]) => {
+    let change = 0, rough = 0, pairs = 0, pixels = 0;
+    for (let j = 0; j < H; j++) {
+      if (rowDistance[j] < from || rowDistance[j] >= to) continue;
+      for (let i = 0; i < W - 1; i++) {
+        const n = j * W + i;
+        for (let f = 1; f < frames.length; f++) { change += Math.abs(frames[f][n] - frames[f - 1][n]); pairs++; }
+        if (speckle) { rough += Math.abs(frames[0][n] - frames[0][n + 1]); pixels++; }
+      }
+    }
+    return { band: `${from}-${to} m`, change: +(change / Math.max(1, pairs)).toFixed(3), ...(speckle ? { speckle: +(rough / Math.max(1, pixels)).toFixed(3) } : {}) };
+  });
+}
+function measure({ wind = 2, frames = 12 } = {}) {
+  render(0, wind); rows();
+  const blown = [], slid = [];
+  for (let f = 0; f < frames; f++) { render(20 + f / 60, wind); blown.push(luma()); }
+  // Air held still by the same clock value every frame; only the camera moves.
+  for (let f = 0; f < frames; f++) { render(20, 0, f * .003); slid.push(luma()); }
+  const a = banded(blown, true), b = banded(slid, false);
+  return a.map((row, n) => ({ band: row.band, wind: row.change, slide: b[n].change, speckle: row.speckle }));
+}
+render();
+window.grassTest = { render, measure, grass, renderer, camera, scene, ready: true };
+</script></body></html>

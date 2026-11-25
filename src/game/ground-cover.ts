@@ -336,9 +336,13 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const time = { value: 0 }, eye = { value: new THREE.Vector3() }, reach = { value: 23 };
   const farReach = { value: 23 }, nearReach = { value: 23 }, band = { value: 6 }, farBand = { value: 6 };
   const wind = { value: 0 }, foliage = foliageUniforms(scene);
+  // The height in pixels of the picture being drawn, which with the camera's projection gives the width of a
+  // pixel at any distance. Set as each mesh is drawn, so a half-size reflection is judged by its own pixels.
+  const viewHeight = { value: 1080 }, viewSize = new THREE.Vector2();
+  const fitView: THREE.Object3D['onBeforeRender'] = renderer => { viewHeight.value = renderer.getRenderTarget()?.height ?? renderer.getDrawingBufferSize(viewSize).y; };
   material.onBeforeCompile = shader => {
-    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassBand: band, grassWind: wind, leafWet: leafWetness }, foliage);
-    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n#ifdef GRASS_BLOOM\nattribute float grassBloom;\n#endif\nuniform float grassTime, grassWind;\nuniform vec3 grassEye;\nuniform float grassReach, grassBand;' + foliageDeclarations)
+    Object.assign(shader.uniforms, { grassTime: time, grassEye: eye, grassReach: reach, grassBand: band, grassWind: wind, grassView: viewHeight, leafWet: leafWetness }, foliage);
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\n#ifdef GRASS_BLOOM\nattribute float grassBloom;\n#endif\nuniform float grassTime, grassWind, grassView;\nuniform vec3 grassEye;\nuniform float grassReach, grassBand;\nvarying float vGrassSharp;' + foliageDeclarations)
       // A lawn is not one green: broad drier and lusher patches, and every tuft a little its own.
       .replace('#include <color_vertex>', `#include <color_vertex>
         vec3 grassRoot = (modelMatrix * instanceMatrix * vec4(0,0,0,1)).xyz;
@@ -360,8 +364,19 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         #ifdef GRASS_BLOOM
         transformed *= mix(1.0, grassFlower, step(.5, grassBloom));
         #endif
+        float grassSpread = 1.0;
         float grassFade = 1.0-smoothstep(grassReach-grassBand,grassReach,distance(grassRoot.xz,grassEye.xz));
         transformed.y *= grassFade * grassLush;
+        // A blade narrower than a pixel is drawn or missed by the luck of where the pixel's samples fall, and
+        // twinkles as it sways or the viewer moves. Such a blade is drawn GRASS_PIXELS wide instead and given as
+        // much less of its own colour (the rest is the lawn's, which is what lay beside it in that pixel): the
+        // same light reaches the eye, steadily. The width of a pixel there comes from the projection.
+        float grassPixel = 2.0 * distance(grassRoot, grassEye) / (projectionMatrix[1][1] * grassView);
+        float grassFill = max(1.0, GRASS_PIXELS * grassPixel / (GRASS_WIDTH * length(instanceMatrix[0].xyz) * grassSpread));
+        transformed.xz *= grassFill; vGrassSharp = 1.0 / grassFill;
+        #ifdef USE_INSTANCING_COLOR
+        vColor.rgb = mix(instanceColor.rgb, vColor.rgb, vGrassSharp);
+        #endif
         // Wind crosses a lawn as fronts, in the direction and at the speed the trees' gusts
         // travel (tree-wind.ts): long swells that lay the grass over, and metre-scale waves
         // running through them. Lean is tip travel as a share of the blade's height.
@@ -382,13 +397,15 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         vec3 grassOffset = vec3(grassLean.x, 0.0, grassLean.y) * length(instanceMatrix[1].xyz) * position.y * position.y * grassFade;
         transformed += vec3(dot(grassOffset, instanceMatrix[0].xyz) / dot(instanceMatrix[0].xyz, instanceMatrix[0].xyz), 0.0,
                             dot(grassOffset, instanceMatrix[2].xyz) / dot(instanceMatrix[2].xyz, instanceMatrix[2].xyz));`);
+    // A blade's sheen goes the same way: a glint on a blade too thin to resolve is a spark that comes and goes.
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\nnormal *= faceDirection;')
-      .replace('#include <common>', '#include <common>\n' + leafWetDeclarations).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafWetRoughness)
+      .replace('#include <common>', '#include <common>\nvarying float vGrassSharp;\n' + leafWetDeclarations).replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + leafWetRoughness + '\nroughnessFactor = mix(1.0, roughnessFactor, vGrassSharp);')
       .replace('#include <lights_fragment_end>', leafWetSky + '#include <lights_fragment_end>');
   };
   type Defined = THREE.MeshStandardMaterial & { defines: Record<string, string> };
-  (material as Defined).defines = { STANDARD: '', GRASS_BLOOM: '' };
-  material.customProgramCacheKey = () => 'ground-grass-v7';
+  // GRASS_WIDTH is a blade's mean width in metres before the instance scales it; GRASS_PIXELS the least it is drawn at.
+  (material as Defined).defines = { STANDARD: '', GRASS_BLOOM: '', GRASS_WIDTH: '.03', GRASS_PIXELS: '2.0' };
+  material.customProgramCacheKey = () => 'ground-grass-v8';
   const mesh = new THREE.InstancedMesh(geometry,material,26000); mesh.name = 'Nearby grass tufts'; mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.castShadow = false; mesh.receiveShadow = true;
   mesh.userData.noShadowCast = true; mesh.userData.fpsEffect = true; mesh.raycast = () => {};
@@ -405,7 +422,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   farGeometry.setAttribute('position', new THREE.Float32BufferAttribute(farPositions, 3));
   farGeometry.setAttribute('color', new THREE.Float32BufferAttribute(farColors, 3));
   farGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(farPositions.map((_, i) => i % 3 === 1 ? 1 : 0), 3));
-  const farMaterial = material.clone(); (farMaterial as Defined).defines = { STANDARD: '' };
+  const farMaterial = material.clone(); (farMaterial as Defined).defines = { STANDARD: '', GRASS_WIDTH: '.04', GRASS_PIXELS: '2.0' };
   farMaterial.onBeforeCompile = (shader, renderer) => {
     material.onBeforeCompile(shader, renderer);
     shader.uniforms.grassReach = farReach; shader.uniforms.grassBand = farBand; shader.uniforms.grassNear = nearReach;
@@ -414,10 +431,11 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
       float grassAway = distance(grassRoot.xz,grassEye.xz);
       grassFade *= smoothstep(grassNear - 6.0, grassNear, grassAway);
       // Far tufts are few; each spreads a little the further off it is, so the ground between them does not show bare.
-      transformed.xz *= 1.0 + grassAway * .012;
+      grassSpread = 1.0 + grassAway * .012;
+      transformed.xz *= grassSpread;
       transformed.y *= grassFade * grassLush;`);
   };
-  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v7';
+  farMaterial.customProgramCacheKey = () => 'ground-grass-far-v8';
   const farMesh = new THREE.InstancedMesh(farGeometry, farMaterial, 26000); farMesh.name = 'Distant grass tufts'; farMesh.count = 0;
   farMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); farMesh.receiveShadow = true;
   farMesh.userData.noShadowCast = true; farMesh.userData.fpsEffect = true; farMesh.raycast = () => {};
@@ -425,7 +443,7 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
   const swardReach = { value: 0 }, swardInner = { value: 0 };
   let sward: THREE.InstancedMesh | undefined;
   if (options.sward) {
-    const swardMaterial = material.clone(); (swardMaterial as Defined).defines = { STANDARD: '' };
+    const swardMaterial = material.clone(); (swardMaterial as Defined).defines = { STANDARD: '', GRASS_WIDTH: '.022', GRASS_PIXELS: '2.0' };
     swardMaterial.onBeforeCompile = (shader, renderer) => {
       material.onBeforeCompile(shader, renderer);
       shader.uniforms.grassReach = swardReach; shader.uniforms.swardInner = swardInner;
@@ -438,16 +456,16 @@ export function createGrass(scene: THREE.Scene, bounds: RegionBounds, floor: (x:
         float swardT = clamp((distance(grassRoot.xz, grassEye.xz) - swardInner) / max(.01, grassReach - swardInner), 0.0, 1.0);
         float swardThin = (1.0 - swardT) * (1.0 - swardT);
         float grassFade = clamp((swardThin * 1.1 - swardPick) * 10.0, 0.0, 1.0);`)
-        .replace('transformed.y *= grassFade * grassLush;', 'transformed.xz *= smoothstep(0.0, .5, grassFade) * min(2.2, inversesqrt(max(swardThin, .2))); transformed.y *= grassFade * mix(1.0, grassLush, .3);');
+        .replace('transformed.y *= grassFade * grassLush;', 'grassSpread = min(2.2, inversesqrt(max(swardThin, .2))); transformed.xz *= smoothstep(0.0, .5, grassFade) * grassSpread; transformed.y *= grassFade * mix(1.0, grassLush, .3);');
     };
-    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v5';
+    swardMaterial.customProgramCacheKey = () => 'ground-grass-sward-v6';
     sward = new THREE.InstancedMesh(swardGeometry(new THREE.Color().setRGB(.7, .74, .7), new THREE.Color().setRGB(1.3, 1.24, .98)), swardMaterial, SWARD_CAPACITY);
     sward.geometry.setAttribute('swardPick', new THREE.InstancedBufferAttribute(new Float32Array(SWARD_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage));
     sward.name = 'Lawn sward'; sward.count = 0; sward.visible = false;
     sward.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sward.receiveShadow = true;
     sward.userData.noShadowCast = true; sward.userData.fpsEffect = true; sward.raycast = () => {};
   }
-  for (const tufts of sward ? [mesh, farMesh, sward] : [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); }
+  for (const tufts of sward ? [mesh, farMesh, sward] : [mesh, farMesh]) { tufts.setColorAt(0, plain); tufts.instanceColor!.setUsage(THREE.DynamicDrawUsage); tufts.onBeforeRender = fitView; }
   scene.add(mesh, farMesh); if (sward) scene.add(sward);
   const cameraPosition = new THREE.Vector3();
   let disposed = false;
