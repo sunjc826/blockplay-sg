@@ -4,13 +4,23 @@ import { commentary } from './commentary.ts';
 import { planPilot } from './pilot-strategy.ts';
 import type { Provider } from './llm/types.ts';
 
+import { parseStreamerTurn } from '../src/game/streamer-contract.ts';
+import { streamTurn } from './streamer.ts';
+
 interface ModelEndpoint {
-  feature: 'PILOT' | 'CAST';
+  feature: 'PILOT' | 'CAST' | 'STREAMER';
   bodyLimit: number;
   // Parsing creates a bounded model call. The handler executes it only after admission.
   prepare(body: unknown): ((complete: Provider, model: string, pilotBudget: number) => Promise<object>) | null;
 }
 export const modelEndpoints = new Map<string,ModelEndpoint>([
+  ['/api/ai/streamer', {
+    feature: 'STREAMER', bodyLimit: 310000,
+    prepare(body) {
+      const turn = parseStreamerTurn(body);
+      return turn && ((complete, model) => streamTurn(turn, complete, model));
+    },
+  }],
   ['/api/ai/commentary',{
     feature: 'CAST', bodyLimit: 290000,
     prepare(body) {

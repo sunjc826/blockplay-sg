@@ -11,6 +11,8 @@ export { PublicRooms } from '../server/public-rooms.js';
 // One handler per isolate preserves the existing concurrency/request guards.
 // Only these server bindings can reach the companion; no frontend environment dump.
 const companion = createCloudflareAdventureHandler({
+  STREAMER_PROVIDER: env.STREAMER_PROVIDER,
+  STREAMER_MODEL: env.STREAMER_MODEL,
   CAST_PROVIDER: env.CAST_PROVIDER,
   CAST_MODEL: env.CAST_MODEL,
   PILOT_PROVIDER: env.PILOT_PROVIDER,

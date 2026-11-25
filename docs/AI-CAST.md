@@ -9,6 +9,7 @@ Put the selected provider key in the private server environment. Start `pnpm ser
 | Private server setting | Default or purpose |
 | --- | --- |
 | CAST_PROVIDER / CAST_MODEL | anthropic / claude-sonnet-5-5 |
+| STREAMER_PROVIDER / STREAMER_MODEL | anthropic / claude-sonnet-5-5 |
 | PILOT_PROVIDER / PILOT_MODEL | openai / gpt-5.6-luna |
 | ANTHROPIC_API_KEY / OPENAI_API_KEY | Credential for the selected provider |
 | OPENAI_BASE_URL | OpenAI-compatible Responses API base |
@@ -31,4 +32,34 @@ The commentary request includes the selected voice, clean-language setting, mode
 
 `src/game/ai-cast.ts` schedules captions using an injected clock and request function. It batches minor events for 1.5 seconds, gives major events priority, and asks after 15 quiet seconds. One call can run at a time. The director drops replies older than six seconds and invalidates pending replies when play resets. District travel retains line memory. `castSnapshot` selects public HUD fields and `captureFrame` copies the next rendered view on demand.
 
-Register a streamer route in `server/ai-endpoints.ts`. Its prepare function validates the observation and returns a function for the model call. The shared handler handles identity, atomic admission, quota reporting and lease release. The existing pilot-plan endpoint uses that budget too and keeps its original response body with quota in the `X-AI-Quota` header. Use `requestCast` in `src/lib/cast-client.ts` for the shared quota, cost and retry handling. A streamer loop can reuse the snapshot, frame capture and the authored streamer voices while sending control decisions through the pilot contract. Commentary has no engine action channel.
+## Streamer mode
+
+Open **Streamer mode** on the main menu or in a solo FPS briefing or pause menu. Choose Pro gamer, Rager or Stand-up comedian, set clean language and decide whether to share game screenshots. Check the daily allowance and press **Start streamer**. Starting from an existing run opens a fresh sandbox session. The commentator's saved setting takes effect again when streaming ends.
+
+The persona chooses solo activities, shops, picks a district and configures deployment before playing. Its latest line appears on the menu or in the game's subtitle area. Game lines also enter the Cast comms channel with the speaker's name. The last 30 lines follow the session through store visits, matches and district crossings. Stopping or starting a new persona clears them.
+
+**Stop** and Escape end the session immediately. Human pointer or keyboard input pauses it. **Resume** continues the sandbox run. **Take control** ends the sandbox and returns the player's own profile to the current route. Changing tabs also pauses the streamer.
+
+### Two tiers of play
+
+The infantry controller acts at 10 Hz through the usual game controls. The streamer strategy asks `POST /api/ai/streamer` for a goal, an optional known waypoint and a caption about every ten seconds. Death, respawn, a sharp health loss, an elimination streak, exhausting ammunition, arriving in a district and round completion feed the shared HUD event detector or the menu hand-off. Major events can bring the next decision forward. Play requests are single-flight and spaced by at least three seconds. Ordinary strategy failures use the local planner. The pilot follows known waypoints and plays on foot. A round ending or a respawn choice returns control to the menu director.
+
+The shared endpoint checks origin, validates public observations, admits calls against the same daily and rolling limits as commentary, and reports quota and usage. Menu turns send the declared choices, a short objective, sandbox balances and line history. Play turns send the whitelisted pilot observation, events and an optional game-canvas JPEG. The server builds the authored frame, voice, language and place-card blocks and constrains the decision schema to the current choices. Silence can accompany a valid decision. A refusal without a decision fails the turn.
+
+### Declaring a control
+
+Put `data-ai-screen` and `data-ai-title` on the solo screen. Give each eligible HTML button, internal link or disclosure summary a unique, stable `data-ai-action` and one of the kinds `navigate`, `select`, `buy`, `equip` or `start` in `data-ai-kind`. Supply an accessible name. Native disabled and ARIA selected/pressed states are read automatically. `data-ai-detail` can carry a short price, ownership or location note. For example:
+
+```tsx
+<button data-ai-action="enter-range" data-ai-kind="start" disabled={loading} onClick={enterRange}>
+  Enter range
+</button>
+```
+
+Controls must be inside the active solo route and visible foreground screen. A modal declares its own screen. Hidden panels, covered buttons, external links and undeclared controls cannot be activated. Keep profile administration, resets, multiplayer, debug tools and global settings outside the declared action set. A control's ordinary click handler remains responsible for purchases, route transitions and navigation guards.
+
+Each menu turn exposes up to 40 choices. The cursor moves for half a second, or jumps with reduced motion. The actor rechecks the control and its price or state before clicking. The loop pauses between choices, stops on the third consecutive identical choice and caps each trip at 25 actions. Invalid decisions, service errors, exhausted quota and stalled menus end the menu session with a visible reason.
+
+### Profile isolation
+
+The game keeps the player's armory mounted while the sandbox has its own armory and game instance. A fresh sandbox starts with 1,600 credits, 300 tokens and issued gear. Purchases, rentals and play time, equipped items, consumables, XP and rewards persist under `blockplay.armory.v1.streamer`. Later streamer sessions reuse that balance. Every save callback retains its original storage key, including cleanup and page-exit callbacks. The active-session flag lives only in memory. Reopening the tab starts with the player's profile even if the previous tab closed during a sandbox purchase or match.

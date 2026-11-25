@@ -1,3 +1,4 @@
+import { useStreamerActive } from './StreamerMode';
 import ProfileBanner from './ProfileBanner';
 import MenuHeader from './MenuHeader';
 import { MenuButton, MenuSelect, MenuTabs } from './MenuControls';
@@ -57,9 +58,10 @@ const priceLabel = (item: ShopItem, amount: number) => <StoreMoney amount={amoun
 export default function LoadoutStore({ store: sourceStore, nav, headerAction, onHelp, onPlay, tutorial, mode = 'store', onModeChange }: { mode?: EquipmentMode; onModeChange?: (mode: EquipmentMode) => void; store: ArmoryStore; nav: ReactNode; headerAction?: ReactNode; onHelp?: () => void; onPlay: (route: Route) => void; tutorial?: Tour }) {
   const store = storeWithAudio(sourceStore), { profile } = store;
   const carry = restoreCarrySlots(profile.carry, profile.owned, profile.rentals);
-  const [savedUi, setUi] = useScreenState<Selection>('loadout-store.selection', initialSelection(carry.main));
+  const scope = useStreamerActive() ? 'streamer.' : '';
+  const [savedUi, setUi] = useScreenState<Selection>(scope+'loadout-store.selection', initialSelection(carry.main));
   const ui = knownEquipmentView(savedUi);
-  const [ownedOnly, setOwnedOnly] = useScreenState('loadout-store.owned', false);
+  const [ownedOnly, setOwnedOnly] = useScreenState(scope+'loadout-store.owned', false);
   const [term, setTerm] = useState<WeaponTerm>('1h'), [equipAfter, setEquipAfter] = useState(true), [renew, setRenew] = useState(false);
   const [quantity, setQuantity] = useState(1), [tourStep, setTourStep] = useState(0);
   const modeMemory = useRef<Partial<Record<EquipmentMode, EquipmentSnapshot>>>({}), previousMode = useRef(mode), switchingMode = useRef(false);
@@ -185,14 +187,14 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
   }, [ui.view, ui.item, tutorial, rentalBack]);
 
   const backLabel = (back: View) => back === 'home' ? inventory ? 'Locker' : 'Store' : back === 'browse' ? ui.fromCatalog && !inventory ? 'Browse store' : ui.fromLocker && inventory ? 'Locker' : slotLabel(ui.slot) : back === 'extra' ? 'Extra slot' : 'Item details';
-  const backButton = (back: View) => <MenuButton data-loadout-back type="button" onClick={() => go(back)}><ArrowLeft size={16} /> {backLabel(back)}</MenuButton>;
+  const backButton = (back: View) => <MenuButton data-ai-action="back" data-ai-kind="navigate" data-loadout-back type="button" onClick={() => go(back)}><ArrowLeft size={16} /> {backLabel(back)}</MenuButton>;
   const title = (text: ReactNode, back: View = 'home') => <div className="loadout-section-heading">{backButton(back)}<h2 ref={heading} tabIndex={-1}>{text}</h2></div>;
   const slotButton = (id: LoadoutSlot) => {
     const target = { ...ui, slot: id }, worn = slotItem(profile, target), Icon = icons[id];
     const slotLocked = id === 'extra' && !hasItemAccess(profile, EXTRA_SLOT_ID);
     const selected = ui.slot === id && ui.view !== 'home';
     const timer = worn && !slotLocked ? profile.rentals[worn.id] ?? 0 : 0;
-    return <MenuButton type="button" key={id} data-loadout-slot={id} aria-current={selected ? 'true' : undefined} className={selected ? 'selected' : ''} onClick={() => openSlot(id)}><Icon size={19} aria-hidden="true" /><span><small>{slotLabel(id)}</small><strong>{id === 'supplies' ? `${packed} packed` : slotLocked ? 'Not rented' : worn ? <TierLabel tier={worn.tier}>{worn.name}</TierLabel> : 'Empty'}</strong>{timer > 0 && <small>{rentalTimeLeft(timer)}</small>}</span><ChevronRight size={15} aria-hidden="true" /></MenuButton>;
+    return <MenuButton type="button" key={id} data-ai-action={"slot-"+id} data-ai-kind="select" data-loadout-slot={id} aria-current={selected ? 'true' : undefined} className={selected ? 'selected' : ''} onClick={() => openSlot(id)}><Icon size={19} aria-hidden="true" /><span><small>{slotLabel(id)}</small><strong>{id === 'supplies' ? `${packed} packed` : slotLocked ? 'Not rented' : worn ? <TierLabel tier={worn.tier}>{worn.name}</TierLabel> : 'Empty'}</strong>{timer > 0 && <small>{rentalTimeLeft(timer)}</small>}</span><ChevronRight size={15} aria-hidden="true" /></MenuButton>;
   };
   const confirmEquip = () => { if (item) transact(() => store.equipLoadout(item.id, ui), 'home'); };
   const confirmRental = () => {
@@ -200,14 +202,21 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     transact(() => store.buyLoadout(item.id, term, !renew && equipAfter && item.id !== EXTRA_SLOT_ID ? ui : undefined), item.id === EXTRA_SLOT_ID ? 'browse' : equipAfter && !renew ? 'home' : 'detail');
   };
   const confirmSupply = () => { if (item) transact(() => { const changed = store.buyLoadout(item.id, undefined, ui, quantity); if (changed) setQuantity(1); return changed; }); };
-  const actionButton = (action: ItemAction, footer = false) => <MenuButton type="button" variant="primary" className="loadout-primary" data-store-outcome {...(footer ? { 'data-footer-action': true } : action.attrs)} aria-pressed={action.pressed} disabled={action.disabled} onClick={action.run}>{action.label}</MenuButton>;
+  const actionButton = (action: ItemAction, footer = false) => {
+    const buying = action.attrs['data-confirm-rental'] || action.attrs['data-buy-supply'];
+    const equipping = action.attrs['data-equip-item'] || action.attrs['data-pack-supply'];
+    return <MenuButton type="button" variant="primary" className="loadout-primary" data-store-outcome
+      data-ai-action={footer ? 'item-'+(item?.id ?? ui.slot) : undefined} data-ai-kind={buying ? 'buy' : equipping ? 'equip' : 'navigate'}
+      data-ai-detail={footer ? item?.name : undefined} {...(footer ? { 'data-footer-action': true } : action.attrs)}
+      aria-pressed={action.pressed} disabled={action.disabled} onClick={action.run}>{action.label}</MenuButton>;
+  };
 
   let content: ReactNode, action: ItemAction | null = null;
   if (ui.view === 'catalog' && !tutorial && !inventory) content = <section className="loadout-stack">{title('Browse store')}<div className="loadout-embedded-catalog"><ArmoryShop store={sourceStore} nav={<></>} ownedOnly={ownedOnly} onOwnedOnlyChange={setOwnedOnly} onInspectItem={(i, family, vehicle) => catalogContext(i, family, vehicle, true)} onBrowseContext={catalogContext} /></div></section>;
   else if (ui.view === 'home' || !item && (ui.view === 'detail' || ui.view === 'rental')) content = inventory ? <Locker profile={profile} heading={heading} onOpen={openLockerItem} />
     : <section className="loadout-stack">
       <h2 ref={heading} tabIndex={-1}>Choose a slot to change</h2>
-      <MenuButton type="button" data-browse-store className="loadout-catalog-link" onClick={() => go('catalog')}><ShoppingBag size={20} /><span><strong>Browse store</strong><small>Every weapon, armor, supply and cosmetic</small></span><ChevronRight size={17} /></MenuButton>
+      <MenuButton type="button" data-ai-action="browse-catalog" data-ai-kind="navigate" data-browse-store className="loadout-catalog-link" onClick={() => go('catalog')}><ShoppingBag size={20} /><span><strong>Browse store</strong><small>Every weapon, armor, supply and cosmetic</small></span><ChevronRight size={17} /></MenuButton>
     </section>;
   else if (ui.view === 'extra') {
     action = { label: <>Choose slot rental <ArrowRight size={16} /></>, run: () => rental(false, true), attrs: { 'data-choose-slot-rental': true } };
@@ -275,7 +284,7 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     const extra = item.id === EXTRA_SLOT_ID, cost = weaponTermPrice(item, term), short = Math.max(0, cost - profile[item.currency]);
     const blocked = !renew && equipAfter && !extra ? equipError : null;
     action = { label: <>{renew ? 'Extend' : extra ? 'Rent slot' : equipAfter ? 'Rent & equip' : 'Rent to locker'} · {priceLabel(item, cost)}</>, run: confirmRental, disabled: short > 0 || !!blocked || level.level < (item.requiredLevel ?? 1), attrs: { 'data-confirm-rental': true } };
-    content = <section className="loadout-stack">{title(<>{renew ? 'Extend' : 'Rent'} <TierLabel tier={item.tier}>{item.name}</TierLabel></>, rentalBack)}<div className="loadout-panel loadout-stack"><h3>Play time</h3><div className="loadout-terms">{WEAPON_TERMS.map(option => <MenuButton type="button" key={option.id} data-rental-term={option.id} aria-pressed={term === option.id} onClick={() => setTerm(option.id)}><strong>{option.label}</strong><span>{priceLabel(item, weaponTermPrice(item, option.id))}</span>{weaponTermSavings(item, option.id) > 0 && <small>Save {priceLabel(item, weaponTermSavings(item, option.id))}</small>}</MenuButton>)}</div><p>The timer runs only during active play, never in menus, while paused or offline. No automatic charges.</p><div><div className="loadout-line"><span>Cost</span><strong>{priceLabel(item, cost)}</strong></div><div className="loadout-line"><span>Balance after</span><strong>{short ? 'Not enough funds' : priceLabel(item, profile[item.currency] - cost)}</strong></div></div>
+    content = <section className="loadout-stack">{title(<>{renew ? 'Extend' : 'Rent'} <TierLabel tier={item.tier}>{item.name}</TierLabel></>, rentalBack)}<div className="loadout-panel loadout-stack"><h3>Play time</h3><div className="loadout-terms">{WEAPON_TERMS.map(option => <MenuButton type="button" key={option.id} data-ai-action={"term-"+option.id} data-ai-kind="select" data-rental-term={option.id} aria-pressed={term === option.id} onClick={() => setTerm(option.id)}><strong>{option.label}</strong><span>{priceLabel(item, weaponTermPrice(item, option.id))}</span>{weaponTermSavings(item, option.id) > 0 && <small>Save {priceLabel(item, weaponTermSavings(item, option.id))}</small>}</MenuButton>)}</div><p>The timer runs only during active play, never in menus, while paused or offline. No automatic charges.</p><div><div className="loadout-line"><span>Cost</span><strong>{priceLabel(item, cost)}</strong></div><div className="loadout-line"><span>Balance after</span><strong>{short ? 'Not enough funds' : priceLabel(item, profile[item.currency] - cost)}</strong></div></div>
       {renew ? <p>Adds {WEAPON_TERMS.find(t => t.id === term)!.label} to {rentalTimeLeft(profile.rentals[item.id] ?? 0)}. Equipped gear stays unchanged.</p> : extra ? <div className="loadout-notice">The slot does not include a weapon. Choose a different main weapon next.</div> : <label className="loadout-checkbox"><input type="checkbox" checked={equipAfter} onChange={e => setEquipAfter(e.target.checked)} />Equip in {slotLabel(ui.slot).toLowerCase()} after renting{equipAfter ? ` (replaces ${current?.name ?? 'the empty slot'})` : ''}</label>}
       {(short > 0 || blocked) && <p role="alert" className="loadout-warning">{blocked || <>You need {priceLabel(item, short)} more. Choose a shorter rental or use <TierLabel tier="Issued">issued</TierLabel> equipment.</>}</p>}
       <div className="loadout-actions"><MenuButton onClick={() => go(rentalBack)}>Cancel</MenuButton>{actionButton(action)}</div>
@@ -289,9 +298,9 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
     ['Pack and play', 'Pack supplies, check your carried weight in the footer, then press Play.'],
   ];
   const carriedKg = equipmentMovement(loadout, carry.main).totalKg;
-  return <section ref={root} className="armory loadout-store" data-equipment-mode={mode} data-loadout-view={ui.view} aria-label="Loadout equipment" {...storeSoundEvents}>
+  return <section data-ai-screen={[mode,ui.view,ui.slot,ui.item].filter(Boolean).join(".")} data-ai-title={mode+" · "+ui.view} ref={root} className="armory loadout-store" data-equipment-mode={mode} data-loadout-view={ui.view} aria-label="Loadout equipment" {...storeSoundEvents}>
     <div className="equipment-shell-nav"><MenuHeader className="loadout-header" action={headerAction} profile={<ProfileBanner store={sourceStore} />}>{nav}</MenuHeader>
-    {onModeChange && <div className="equipment-view-bar"><MenuTabs aria-label="Equipment views" onKeyDown={event => tabNavigation(event, index => changeMode(index === 0 ? 'store' : 'inventory'))}>{(['store', 'inventory'] as const).map(view => <a key={view} id={`equipment-tab-${view}`} role="tab" aria-selected={mode === view} aria-controls="equipment-view-content" tabIndex={mode === view ? 0 : -1} href={`/${view}`} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (view !== mode) changeMode(view); else if (ui.view !== 'home') go('home'); }}>{view === 'store' ? <ShoppingBag size={17} /> : <Backpack size={17} />}{view === 'store' ? 'Store' : 'Inventory'}</a>)}</MenuTabs>{onHelp && <MenuButton className="store-tour-trigger" aria-label="Help: tour the store" title="Help: tour the store" aria-expanded={!!tutorial} aria-controls="equipment-help" onClick={onHelp}><CircleHelp size={20} aria-hidden="true" /><span className="equipment-help-label">Help</span></MenuButton>}</div>}</div>
+    {onModeChange && <div className="equipment-view-bar"><MenuTabs aria-label="Equipment views" onKeyDown={event => tabNavigation(event, index => changeMode(index === 0 ? 'store' : 'inventory'))}>{(['store', 'inventory'] as const).map(view => <a data-ai-action={"open-"+view} data-ai-kind="navigate" key={view} id={`equipment-tab-${view}`} role="tab" aria-selected={mode === view} aria-controls="equipment-view-content" tabIndex={mode === view ? 0 : -1} href={`/${view}`} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (view !== mode) changeMode(view); else if (ui.view !== 'home') go('home'); }}>{view === 'store' ? <ShoppingBag size={17} /> : <Backpack size={17} />}{view === 'store' ? 'Store' : 'Inventory'}</a>)}</MenuTabs>{onHelp && <MenuButton className="store-tour-trigger" aria-label="Help: tour the store" title="Help: tour the store" aria-expanded={!!tutorial} aria-controls="equipment-help" onClick={onHelp}><CircleHelp size={20} aria-hidden="true" /><span className="equipment-help-label">Help</span></MenuButton>}</div>}</div>
     {tutorial && <section id="equipment-help" className="loadout-guide loadout-panel" aria-label="Store tour"><div><span className="loadout-eyebrow">Store tour · {tourStep + 1} / {tourStops.length}</span><h2>{tourStops[tourStep][0]}</h2><p>{tourStops[tourStep][1]}</p></div><div className="loadout-actions"><MenuButton onClick={tutorial.onExit}>Close tour</MenuButton><MenuButton disabled={tourStep === 0} onClick={() => setTourStep(n => n - 1)}>Back</MenuButton><MenuButton variant="primary" className="loadout-primary" onClick={() => tourStep === tourStops.length - 1 ? tutorial.onComplete() : setTourStep(n => n + 1)}>{tourStep === tourStops.length - 1 ? 'Finish tour' : 'Next'}</MenuButton></div></section>}
     {store.saveError && <div className="loadout-feedback loadout-warning" role="alert">Browser storage is unavailable. Purchases and equipment changes last for this session only.</div>}
     <div className={`loadout-feedback${store.message ? '' : ' is-empty'}`} role="status" aria-live="polite"><StoreMessage text={store.message} /></div>
@@ -301,7 +310,7 @@ export default function LoadoutStore({ store: sourceStore, nav, headerAction, on
       <div className="loadout-readiness" role="group" aria-label="Readiness"><span className="loadout-weight"><Backpack size={16} aria-hidden="true" />{carriedKg.toFixed(1)} kg carried</span>
         {shortRentals.map(i => <MenuButton key={i.id} className="loadout-expiry" data-extend-short={i.id} aria-label={`${i.name} has ${rentalTimeLeft(profile.rentals[i.id])} of play time. Extend rental`} onClick={() => extendRental(i)}><AlertTriangle size={15} aria-hidden="true" /><span>{i.name}</span><strong>{rentalTimeLeft(profile.rentals[i.id])}</strong></MenuButton>)}</div>
       {action && actionButton(action, true)}
-      <MenuButton variant={action ? 'secondary' : 'primary'} className={`loadout-play${action ? '' : ' loadout-primary'}`} data-loadout-play onClick={() => { go('home'); onPlay('play'); }}><Play size={16} aria-hidden="true" /> Play</MenuButton>
+      <MenuButton variant={action ? 'secondary' : 'primary'} className={`loadout-play${action ? '' : ' loadout-primary'}`} data-ai-action="play" data-ai-kind="navigate" data-loadout-play onClick={() => { go('home'); onPlay('play'); }}><Play size={16} aria-hidden="true" /> Play</MenuButton>
     </footer>
   </section>;
 }

@@ -506,7 +506,7 @@ In the ready/pause menu, open **Debug survival** for 1×, 5× or 10× maximum he
 
 The **Comms log** retains the latest 100 speech, kill and supply/travel entries. Filter All / Speech / Kills / System, expand to browse history, or scroll up without incoming messages pulling you back down. Expedition travel carries the log into the next district; restarting a round clears it. It is a local session log, not player text chat.
 
-Optional AI commentary adds live captions and a Cast channel in FPS modes. Open the cast panel on the start or pause card to choose a voice, toggle screenshots and check usage. See [AI commentary](AI-CAST.md).
+Optional AI commentary adds live captions and a Cast channel in FPS modes. Open the cast panel on the start or pause card to choose a voice, toggle screenshots and check usage. Streamer mode adds persona-led solo menu choices and pilot goals, a private sandbox wallet, and captions throughout. See [AI commentary and streamer mode](AI-CAST.md).
 
 Use the **Fullscreen** button (or the browser's own shortcut) for immersive play; F is the recovery key. A denied fullscreen request falls back to an expanded viewport.
 

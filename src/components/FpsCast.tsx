@@ -1,3 +1,4 @@
+import { StreamerGame, StreamerCaption, useStreamerActive } from './StreamerMode';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { castDirector, castSnapshot, hudEvents } from '../game/ai-cast';
 import { castPersona, CAST_PERSONAS } from '../game/ai-cast-personas';
@@ -20,7 +21,9 @@ function saved(): Settings {
 interface Status { available:boolean; admin:boolean; model:string; provider:string; quota:CastQuota }
 type Props = { hud:FpsHud; engine:RefObject<FpsEngine|null>; mode:CastMode; session:number };
 function useCast({hud,engine,mode,session}:Props) {
-  const [settings,setSettings] = useState(saved), [status,setStatus] = useState<Status|null>(null);
+  const streaming = useStreamerActive();
+  const [stored,setSettings] = useState(saved), [status,setStatus] = useState<Status|null>(null);
+  const settings = streaming ? {...stored,enabled:false} : stored;
   const [reason,report] = useState(''), [panelError,panelReport] = useState(''), [caption,setCaption] = useState<{name:string;text:string}|null>(null);
   const [cost,setCost] = useState<number|null>(null), [tokens,setTokens] = useState(0);
   const latest = useRef(settings); latest.current = settings;
@@ -85,11 +88,13 @@ function useCast({hud,engine,mode,session}:Props) {
 }
 const Cast = createContext<ReturnType<typeof useCast>|null>(null);
 export function CastSession({children,...props}:Props & {children:ReactNode}) {
-  return <Cast.Provider value={useCast(props)}>{children}</Cast.Provider>;
+  const streaming = useStreamerActive();
+  return <Cast.Provider value={useCast(props)}>{streaming && <StreamerGame {...props}/>}{children}</Cast.Provider>;
 }
 export function CastPanel() {
   const cast = useContext(Cast), [pass,setPass] = useState('');
-  if (!cast) return null;
+  const streaming = useStreamerActive();
+  if (!cast || streaming) return null;
   const {settings:s,update,status,reason,refresh,cost,tokens} = cast, q = status?.quota;
   return <details className="cast-panel" onToggle={e => { if (e.target === e.currentTarget && e.currentTarget.open) void refresh(); }}>
     <summary>AI commentary{s.enabled && status?.available ? ' · On' : ''}</summary>
@@ -112,6 +117,8 @@ export function CastPanel() {
 }
 export function CastCaption() {
   const cast = useContext(Cast);
+  const streaming = useStreamerActive();
+  if (streaming) return <StreamerCaption />;
   if (!cast?.settings.enabled) return null;
   return <div className="cast-caption" aria-live="polite">{cast.caption && <><b>{cast.caption.name}</b> {cast.caption.text}</>}</div>;
 }

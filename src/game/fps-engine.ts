@@ -309,7 +309,7 @@ export interface FpsHud {
   orderStatus: { allies: number; reinforce: 'ready' | 'none' | number } | null;
   /** Barks and callouts heard lately, newest last. */
   chatter: readonly ChatterLine[];
-  pilotStrategy: 'local' | 'llm'; pilotPlan: string;
+  pilotStrategy: 'local' | 'llm' | 'streamer'; pilotPlan: string;
   pilotEnabled: boolean; pilotStatus: string; pilotGoal: PilotGoal | null; pilotContacts: number;
   debug: FpsDebugSettings; debugAvailable: boolean; maxHealth: number; maxArmor: number;
   aimProgress: number; reloadEmpty: boolean; inspecting: boolean;
@@ -932,7 +932,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   /** Other people's rounds are drawn only when they start this close. */
   const REMOTE_TRACER_RANGE = MAX_WEAPON_RANGE;
   const roundRay = new THREE.Raycaster(), roundOrigin = new THREE.Vector3(), roundDirection = new THREE.Vector3(), splashPoint = new THREE.Vector3();
-  let strategyMode: 'local' | 'llm' = expedition?.checkpoint?.pilotStrategy ?? 'local';
+  let strategyMode: FpsHud['pilotStrategy'] = expedition?.checkpoint?.pilotStrategy ?? 'local';
   let strategicPlanner = strategyMode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
   let pilot = options.playerPilot ?? createPlayerPilot(strategicPlanner ?? undefined);
   hud.pilotStrategy = strategyMode;
@@ -1375,7 +1375,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     hud.phase = 'deploying';
     arenaRuntime?.holdSpawnShield(DEPLOYMENT_SECONDS + SPAWN_SHIELD_SECONDS);
     // The death handler released the mouse itself, so browsers let it back without a click. A refusal falls back to Resume on landing.
-    if (inputMode === 'mouse' && document.pointerLockElement !== canvas) void requestFpsPointerLock(canvas, () => !disposed).catch(() => {});
+    if (!pilotEnabled && strategyMode !== 'streamer' && inputMode === 'mouse' && document.pointerLockElement !== canvas) void requestFpsPointerLock(canvas, () => !disposed).catch(() => {});
   }
   function enterPlay() {
     if (disposed || !['ready', 'paused'].includes(hud.phase)) return;
@@ -1838,7 +1838,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     else comms.add('system', 'Travel', ferry ? `Taking the bumboat to ${getWorldZone(transition.to).name}.` : `Moving to ${getWorldZone(transition.to).name}.`);
     if (!recovery && hud.arena?.proxies?.operation?.cargo==='carried') comms.add('system','Proxy cargo','Cargo forfeited on leaving the district. Personal favor is retained.');
     stopReload();
-    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
+    const checkpoint: FpsCheckpoint = { comms: comms.snapshot(), pilot: pilotEnabled, pilotStrategy: strategyMode === 'streamer' ? 'local' : strategyMode, encikVoice: hud.encikVoice, vision: visionState.on, fieldSupplies: { ...looted }, health: hud.health, armor: hud.armor, weapon: hud.weapon, magazineInventory: loadout[equipment.carriedFamilies[0]]?.magazineInventory, ammunition: loadout.map(state => ({ ...state, magazineInventory: undefined, reserveMagazine: undefined, cooldown: 0, reloadRemaining: 0 })) };
     checkpoint.maidTravelSeconds = maid?.travelSeconds(playerFeet()) ?? maidArrivalSeconds;
     checkpoint.vehicleDepartures = structuredClone((expedition?.checkpoint ?? rangeTravel?.checkpoint)?.vehicleDepartures ?? {});
     if (physical && vehicles.mounted && !recovery) {
@@ -2437,10 +2437,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing') enterPlay();
     publish();
   }
-  function setPilotStrategy(mode: 'local' | 'llm') {
-    if (disposed || !['local', 'llm'].includes(mode) || mode === strategyMode) return;
+  function setPilotStrategy(mode: FpsHud['pilotStrategy'], streamer?: import('./pilot-strategy-contract').PilotStrategy) {
+    if (disposed || (mode === 'streamer' && !streamer) || mode === strategyMode) return;
     pilot.reset(); strategicPlanner?.reset(); clearInput();
-    strategyMode = mode; strategicPlanner = mode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
+    strategyMode = mode; strategicPlanner = mode === 'streamer' && streamer ? createStrategyPlanner(streamer) : mode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
     pilot = createPlayerPilot(strategicPlanner ?? undefined);
     hud.pilotStrategy = mode; hud.pilotPlan = mode === 'llm' ? 'Waiting for the strategist' : 'Local utility planner';
     nextPilotAt = 0; publish();
@@ -5489,7 +5489,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
     triggerLevolution,
-    adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, replanPilot: () => strategicPlanner?.replan(), takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant, toggleWeaponMode,

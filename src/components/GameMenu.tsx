@@ -1,3 +1,4 @@
+import { StreamerEntry, useStreamer, useStreamerActive } from './StreamerMode';
 import { requestLeave } from '../lib/navigation-guard';
 import TutorialGame from './TutorialGame';
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
@@ -114,14 +115,14 @@ function ActivityMenu({ screen, profile }: { screen: ActivityScreen; profile: Re
   const parent = parentRoute(screen);
   // A selector opened directly still has the next one's pictures to fetch.
   useEffect(() => { if (nextGen) preloadModeArtwork(); }, [nextGen]);
-  return <div className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
+  return <div data-ai-screen={screen === "multiplayer-menu" ? undefined : screen} data-ai-title={title} className={`game-screen activity-screen${nextGen ? ' next-gen-activity' : ''}`} {...plainScreenSounds}>
     <MenuHeader className="activity-navigation" profile={profile} action={nextGen && <a className="menu-header-settings next-gen-mode-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}>
       <BackLink to={parent} />{nextGen && <span className="next-gen-mode-title" aria-hidden="true">{title}</span>}
     </MenuHeader>
     <main className="activity-main">
       <header><span className="starting-eyebrow">{nextGen ? 'SINGAPORE / OPERATIONS' : 'PLAY'}</span><h1>{title}</h1>{screen === 'multiplayer-menu' && <p>Join a room, or choose a game mode to host.</p>}{nextGen && screen === 'play' && <p>Your city. Your rules. Choose your next move.</p>}</header>
       <nav className={`activity-grid${nextGen ? ' next-gen-panels' : ''}`} aria-label={title} onKeyDown={nextGen ? panelKeys : undefined}>
-        {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
+        {activities.map(({ route, title, detail, icon: Icon, ...info }, index) => <a data-ai-action={['single-player','training-menu','world','team-deathmatch','hardpoint','free-for-all','training'].includes(route) ? route : undefined} data-ai-kind="navigate" aria-label={title} key={route} className={`activity-card${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(route)} {...link(route)}>
           {nextGen && <PanelArtwork route={route} index={index} />}
           <Icon size={21} aria-hidden="true" />
           <span className="activity-copy"><strong>{title}</strong><small>{detail}</small>{'format' in info && <small className="activity-format">{info.format}</small>}{nextGen && <span className="next-gen-enter" aria-hidden="true">{screen === 'play' ? 'SELECT MODE' : 'CONTINUE'} <ChevronRight size={16} /></span>}</span>
@@ -164,16 +165,17 @@ function PanelArtwork({ route, index, shared = false }: { route: Route; index: n
 }
 
 function MatchDistrictPicker({ online, mode }: { online: boolean; mode:ArenaMatch['mode'] }) {
-  const [preferred] = useState(readMatchPreference);
+  const sandbox = useStreamerActive();
+  const [preferred] = useState(() => sandbox ? null : readMatchPreference());
   const areas = mode === 'hardpoint' ? HARDPOINT_ARENAS.map(config=>config.area) : mode === 'free-for-all' ? FFA_AREAS : TDM_AREAS;
   const districts = locations.filter(place=>areas.some(area=>area.region===place.id));
-  const initial = preferred.mode === mode ? areas.find(area => area.id === preferred.area)?.region : undefined;
+  const initial = preferred?.mode === mode ? areas.find(area => area.id === preferred.area)?.region : undefined;
   return <StartingPointPicker mode={mode} initial={initial ?? (mode==='free-for-all' ? TDM_AREAS.find(a=>a.id===DEFAULT_FFA_AREA)!.region : areas[0].region)} options={districts} back={<BackLink to={online ? 'multiplayer-menu' : 'single-player'} />}
     onDeploy={id => {
       const area = areas.find(area => area.region === id);
       if (!area) return;
       const match: ArenaMatch = mode === 'hardpoint' ? {mode,area:area.id as import('../game/arena-match').HardpointAreaId} : mode === 'free-for-all' ? {mode,area:area.id} : {mode,area:area.id};
-      saveMatchPreference(match);
+      if (!sandbox) saveMatchPreference(match);
       navigate(`${online ? 'host-' : ''}${mode === 'team-deathmatch' ? '' : `${mode}-`}${area.id}` as Route);
     }} />;
 }
@@ -194,7 +196,7 @@ const HOST_MATCH_BY_SCREEN: Partial<Record<Screen, ArenaMatch>> = Object.fromEnt
  */
 function PlayNav({ value, onChoose }: { value: WorldZoneId; onChoose: () => void }) {
   return <nav className="play-nav" aria-label="Game">
-    <button type="button" className="play-nav-back" onClick={() => transitionTo('menu')}><LogOut size={15} /><span>Quit to main menu</span></button>
+    <button data-ai-action="main-menu" data-ai-kind="navigate" type="button" className="play-nav-back" onClick={() => transitionTo('menu')}><LogOut size={15} /><span>Quit to main menu</span></button>
     <button type="button" className="play-nav-district" onClick={() => requestLeave(onChoose)} aria-label={`Back to districts. Current district: ${locationName(value)}`}><MapPin size={14} aria-hidden="true" /><span>Districts</span><MapIcon size={14} aria-hidden="true" /></button>
   </nav>;
 }
@@ -205,8 +207,10 @@ function ReturnLink() {
 
 /** A fresh route visit always starts at the map, including direct URLs. */
 function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'training' | 'world'; initial: WorldZoneId; armory: ReturnType<typeof useArmory>; suspended: boolean; onChoose: (id: WorldZoneId) => void }) {
-  const [start, setStart] = useState<WorldZoneId | null>(null);
-  const [zone, setZone] = useState(initial);
+  const streamer = useStreamer(), sandbox = useStreamerActive();
+  const [start, setStart] = useState<WorldZoneId | null>(() => sandbox ? streamer?.startRegion ?? null : null);
+  useEffect(() => { if (sandbox && streamer) streamer.startRegion = undefined; },[sandbox,streamer]);
+  const [zone, setZone] = useState(start ?? initial);
   useBackAction(start ? () => setStart(null) : null);
   // The map's track runs on through loading, until the game takes over the music.
   useEffect(() => { if (!start) setMusicCue('map'); }, [start]);
@@ -225,8 +229,19 @@ function PlaySession({ mode, initial, armory, suspended, onChoose }: { mode: 'tr
   </div>;
 }
 
-export default function GameMenu({ screen }: { screen: Screen }) {
-  const armory = useArmory();
+export default function GameMenu({ screen, sandbox = false }: { screen: Screen; sandbox?:boolean }) {
+  const player = useArmory();
+  return sandbox ? <SandboxMenu screen={screen}/> : <MenuScreens screen={screen} armory={player} sandbox={false}/>;
+}
+function SandboxMenu({screen}:{screen:Screen}) {
+  const sandbox = useArmory(true);
+  return <MenuScreens screen={screen} armory={sandbox} sandbox/>;
+}
+function MenuScreens({screen,armory,sandbox}:{screen:Screen;armory:ReturnType<typeof useArmory>;sandbox:boolean}) {
+  const streamer = useStreamer();
+  useLayoutEffect(() => {
+    if (streamer && sandbox) streamer.wallet = {credits:armory.profile.credits,tokens:armory.profile.tokens};
+  },[streamer,sandbox,armory.profile]);
   const [storeTour, setStoreTour] = useState(false);
   const install = usePwa();
   useEffect(() => {
@@ -241,8 +256,8 @@ export default function GameMenu({ screen }: { screen: Screen }) {
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
   }, [screen]);
-  const [training, setTraining] = useDistrict('blockplay.menu.training', TRAINING_DISTRICTS.map(place => place.id));
-  const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world', locations.map(place => place.id));
+  const [training, setTraining] = useDistrict('blockplay.menu.training'+(sandbox ? '.streamer' : ''), TRAINING_DISTRICTS.map(place => place.id));
+  const [worldStart, setWorldStart] = useDistrict('blockplay.menu.world'+(sandbox ? '.streamer' : ''), locations.map(place => place.id));
   // Play screens set their own cues below; their effects run first, so this only speaks for the rest.
   useEffect(() => {
     if (hasMenuTheme(screen)) setMusicCue('menu');
@@ -291,7 +306,7 @@ export default function GameMenu({ screen }: { screen: Screen }) {
         <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
           onHelp={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}
           headerAction={<a className="menu-header-settings store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}
-          nav={<nav className="store-nav" aria-label="Equipment navigation"><a className="game-back" {...link('menu')} aria-label="Back to Main menu" title="Back to Main menu"><ArrowLeft size={15} /><span>Main menu</span></a></nav>} />
+          nav={<nav className="store-nav" aria-label="Equipment navigation"><a data-ai-action="main-menu" data-ai-kind="navigate" className="game-back" {...link('menu')} aria-label="Back to Main menu" title="Back to Main menu"><ArrowLeft size={15} /><span>Main menu</span></a></nav>} />
       </DebugMode.Provider></main>
     </div>;
   }
@@ -509,7 +524,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
 
   const item = (index: number) => {
     const entry = entries[index];
-    return <a key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
+    return <a data-ai-action={['play','single-player','store','inventory'].includes(entry.route) ? entry.route : undefined} data-ai-kind="navigate" aria-label={entry.title} key={entry.route} ref={node => { items.current[index] = node; }} href={ROUTE_PATHS[entry.route]}
       className={`game-menu-item${entry.mode ? '' : ' is-tile'}${chosen === index ? ' is-chosen' : ''}${nextGen ? ' next-gen-panel' : ''}`} data-scene={panelScene(entry.route)} style={{ '--i': index } as React.CSSProperties}
       onPointerEnter={hover} onFocus={focus}
       onPointerDown={event => press(index, event)} onClick={event => choose(index, event)}>
@@ -521,7 +536,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
     </a>;
   };
 
-  return <div className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}${nextGen ? ' next-gen-main' : ''}`}>
+  return <div data-ai-screen={title === "gone" ? "main-menu" : undefined} data-ai-title="Main menu" className={`game-menu${arriving ? ' is-arriving' : ''}${title === 'gone' ? '' : ` is-title-${title}`}${nextGen ? ' next-gen-main' : ''}`}>
     {nextGen && <div className="next-gen-panorama" aria-hidden="true" />}
     <Skyline />
     {title !== 'gone' && <button type="button" className="game-title" autoFocus aria-label={titleTap ? 'Tap to start' : 'Press any key to start'} onClick={leaveTitle}>
@@ -552,7 +567,7 @@ function MainMenu({ profile, install }: { profile: React.ReactNode; install: Pwa
       </>}
     </main>
 
-    <footer className="game-menu-foot">
+    <footer className="game-menu-foot">{title === "gone" && <StreamerEntry />}
       <a className="game-debug-link" {...link('debug', true)} onPointerEnter={hover} onFocus={focus} onClick={event => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         playMenuSound('click'); link('debug', true).onClick(event);

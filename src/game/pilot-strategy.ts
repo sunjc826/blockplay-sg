@@ -17,21 +17,22 @@ export function llmPilotStrategy(fetcher: typeof fetch = (...args) => fetch(...a
 /** Async strategy plugins never block the action loop. Plans expire and late replies are discarded. */
 export function createStrategyPlanner(strategy: PilotStrategy, now: () => number = () => performance.now()) {
   let current: PilotPlan | null = null, nextAt = 0, generation = 0, acceptedAt = 0;
+  let earliest = 0;
   let request: AbortController | null = null, description = 'Local fallback · awaiting strategy';
   let latest: PilotObservation | null = null;
-  const planner: PilotPlanner & { status(): string; reset(): void } = {
+  const planner: PilotPlanner & { status(): string; reset(): void; replan(): void } = {
     chooseGoal(observation) {
       latest = observation;
       if (current && (now() - acceptedAt > 20000 || current.waypointId && !observation.waypoints.some(w => w.id === current!.waypointId))) {
         current = null; description = 'Plan finished or expired · local fallback';
       }
       if (!request && now() >= nextAt && observation.alive) {
-        const ticket = generation, controller = new AbortController(); request = controller; nextAt = now() + 10000;
+        const ticket = generation, controller = new AbortController(); request = controller; earliest = now()+3000; nextAt = now() + 10000;
         description = current ? 'Replanning · ' + current.summary : 'Planning · local fallback active';
         void strategy.plan(structuredClone(observation), controller.signal).then(plan => {
           if (ticket !== generation || controller.signal.aborted) return;
           if (!latest || !validPilotPlan(plan, latest)) throw new Error('Strategy waypoint no longer available');
-          current = plan; acceptedAt = now(); description = plan.summary;
+          current = plan; acceptedAt = now(); description = plan.summary; strategy.accepted?.(plan);
         }).catch(error => {
           if (ticket !== generation) return;
           current = null; description = `${error instanceof Error ? error.message : 'Strategy unavailable'} · local fallback`;
@@ -41,7 +42,8 @@ export function createStrategyPlanner(strategy: PilotStrategy, now: () => number
     },
     preferredWaypoint: () => current?.waypointId ?? null,
     status: () => description,
-    reset() { generation++; request?.abort(); request = null; current = null; latest = null; nextAt = 0; description = 'Local fallback · awaiting strategy'; },
+    replan() { nextAt = Math.min(nextAt, earliest); },
+    reset() { generation++; request?.abort(); request = null; current = null; latest = null; nextAt = strategy.id === 'streamer' ? earliest : 0; description = 'Local fallback · awaiting strategy'; },
   };
   return planner;
 }

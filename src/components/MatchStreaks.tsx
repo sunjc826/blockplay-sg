@@ -48,7 +48,7 @@ export function StreakLoadoutSection({ mode, draft, locked, busy = false, field 
     <p>{hardpoint ? '100 points per kill · +25 on the hill · +10 per uncontested second, up to 200 per life.' : 'Rewards cost points scored in one life: 100 per kill, plus headshots, assists, multikills and the other awards.'} Earned rewards survive death. Streak kills do not earn more streaks.</p>
     <div className="loadout-variants streak-cards" role="group" aria-label={`${streakTitle(mode)}: choose three`}>{options.map(id => {
       const Icon = icons[id], spec = STREAKS[id], slot = draft.indexOf(id), full = slot < 0 && draft.length === 3, seconds = id === 'recon' && mode === 'free-for-all' ? 10 : spec.seconds;
-      return <button type="button" key={id} data-streak-card={id} aria-pressed={slot >= 0} aria-disabled={locked || busy || full || undefined} onClick={() => { if (!locked && !busy) toggle(id); }}>
+      return <button type="button" key={id} data-ai-action={"streak-"+id} data-ai-kind="select" data-streak-card={id} aria-pressed={slot >= 0} aria-disabled={locked || busy || full || undefined} onClick={() => { if (!locked && !busy) toggle(id); }}>
         <i><Icon size={24} aria-hidden /></i>
         <strong>{spec.name}</strong>
         <span>{price(id)} · {ROLES[id]} · {id === 'strike' || id === 'barrage' ? `${BARRAGE.warning}s warning` : `${seconds}s`}{spec.health ? ` · ${spec.health} HP` : ''}</span>

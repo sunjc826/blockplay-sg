@@ -29,7 +29,7 @@ export function PlayPanel({ label, paused, primary, navigation, children, detail
     });
     return () => cancelAnimationFrame(frame);
   }, [paused, debug]);
-  if (aerial && !debug) return <section className="expedition-deployment match-deployment" aria-label={`${label} aerial setup`}>
+  if (aerial && !debug) return <section data-ai-screen="deployment" data-ai-title={label} className="expedition-deployment match-deployment" aria-label={`${label} aerial setup`}>
     <div className="match-deployment-navigation">{navigation}</div>
     <header>{children}</header>
     <DeploymentCameraControls zoom={aerial.zoom} onZoom={aerial.onZoom} onResetView={aerial.onResetView} />
@@ -38,9 +38,9 @@ export function PlayPanel({ label, paused, primary, navigation, children, detail
       <div className="deployment-actions">
         {primary}{aerial.loadout}
         <details className="deployment-settings" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
-          <summary>Briefing &amp; settings</summary>
-          <div className="deployment-settings-panel" role="dialog" aria-label="Briefing and settings">
-            <header className="deployment-settings-head"><strong>Briefing &amp; settings</strong><button className="deployment-settings-close" aria-label="Close briefing and settings" onClick={event => { const details = event.currentTarget.closest('details')!; details.open = false; details.querySelector('summary')?.focus(); }}><X size={16} /></button></header>
+          <summary data-ai-action="briefing" data-ai-kind="navigate" >Briefing &amp; settings</summary>
+          <div data-ai-screen="briefing" data-ai-title="Briefing and setup" className="deployment-settings-panel" role="dialog" aria-label="Briefing and settings">
+            <header className="deployment-settings-head"><strong>Briefing &amp; settings</strong><button data-ai-action="close-briefing" data-ai-kind="navigate" className="deployment-settings-close" aria-label="Close briefing and settings" onClick={event => { const details = event.currentTarget.closest('details')!; details.open = false; details.querySelector('summary')?.focus(); }}><X size={16} /></button></header>
             {details}
           </div>
         </details>
@@ -48,7 +48,7 @@ export function PlayPanel({ label, paused, primary, navigation, children, detail
     </footer>
   </section>;
   return <div className={`fps-overlay ${debug ? '' : 'play-panel-overlay'} ${overlayClassName}`}>
-    <section ref={panel} aria-label={label} className={`fps-start-card ${debug ? '' : 'play-panel'} ${className}${paused ? ' is-paused-menu' : ''}`}
+    <section data-ai-screen="game-menu" data-ai-title={label} ref={panel} aria-label={label} className={`fps-start-card ${debug ? '' : 'play-panel'} ${className}${paused ? ' is-paused-menu' : ''}`}
       onPointerDownCapture={event => {
         touchedButton.current = isDirectPointer(event.pointerType) ? (event.target as Element).closest('button') : null;
       }}

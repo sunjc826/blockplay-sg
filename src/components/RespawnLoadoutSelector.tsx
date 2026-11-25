@@ -1,3 +1,4 @@
+import { useStreamerActive } from './StreamerMode';
 import { useEffect, useRef, useState } from 'react';
 import { ARMORY_CATALOG, isShopFamily } from '../game/armory-catalog';
 import { expireRentals, fittedVariantSpec, type ArmoryProfile } from '../game/armory-state';
@@ -17,6 +18,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
   deployment?: boolean; streaks?: LockerStreaks; inventory: ArmoryProfile; selected: ArmoryProfile;
   onSave: (selection: RespawnLoadoutSelection) => Promise<boolean>; onClose: () => void;
 }) {
+  const streaming = useStreamerActive();
   const [draft, setDraft] = useState(() => selectedRespawnLoadout(selected));
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [rewards, setRewards] = useState(() => orderStreaks(streaks?.loadout ?? []));
@@ -37,13 +39,16 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
   };
   const slot = (title: string, family: number | null, kind?: 'main' | 'extra') => <section className="loadout-choice" key={title}>
     <h3>{title}</h3>
-    {kind && <label>Platform<select disabled={busy} aria-label={`${title} platform`} value={family ?? ''} onChange={event => chooseFamily(kind, event.target.value)}>
+    {kind && streaming && <div aria-label={title+' platform'}>{platforms.map(p => <button type="button" key={p.family}
+      data-ai-action={'platform-'+kind+'-'+p.family} data-ai-kind="select" aria-pressed={family === p.family}
+      disabled={busy || kind === 'extra' && p.family === draft.carry.main} onClick={()=>chooseFamily(kind,String(p.family))}>{p.name}</button>)}</div>}
+    {kind && !streaming && <label>Platform<select disabled={busy} aria-label={`${title} platform`} value={family ?? ''} onChange={event => chooseFamily(kind, event.target.value)}>
       {kind === 'extra' && <option value="">Empty · travel lighter</option>}
       {platforms.map(platform => <option key={platform.family} value={platform.family} disabled={kind === 'extra' && platform.family === draft.carry.main}>{platform.name}</option>)}
     </select></label>}
     {family !== null && <div className="loadout-variants" role="group" aria-label={`${title} variant`}>{ARMORY_CATALOG.filter(item => item.category === 'weapon' && item.family === family && hasItemAccess(ready, item.id)).map(item => {
       const spec = fittedVariantSpec(item)!;
-      return <button type="button" disabled={busy} key={item.id} data-loadout-variant={item.id} aria-pressed={draft.variants[family] === item.id} onClick={() => { setDraft(current => { const variants = [...current.variants]; variants[family] = item.id; return { ...current, variants }; }); setError(''); }}>
+      return <button type="button" disabled={busy} key={item.id} data-ai-action={"variant-"+item.id} data-ai-kind="equip" data-loadout-variant={item.id} aria-pressed={draft.variants[family] === item.id} onClick={() => { setDraft(current => { const variants = [...current.variants]; variants[family] = item.id; return { ...current, variants }; }); setError(''); }}>
         <img src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(item, family)}`} alt="" width={480} height={240} />
         <strong>{item.name}</strong><span>{spec.damage} DMG · {spec.capacity} rounds</span>
         <small>{ready.owned.includes(item.id) ? 'Issued' : rentalTimeLeft(ready.rentals[item.id])}</small>
@@ -51,7 +56,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
     })}</div>}
     {family !== null && !hasItemAccess(ready, draft.variants[family]) && <p role="alert">Rental expired. Choose an available weapon.</p>}
   </section>;
-  return <div ref={root} className="respawn-loadout-screen" role="dialog" aria-modal="true" aria-labelledby="loadout-screen-title" onKeyDown={event => {
+  return <div data-ai-screen="loadout" data-ai-title="Deployment locker" ref={root} className="respawn-loadout-screen" role="dialog" aria-modal="true" aria-labelledby="loadout-screen-title" onKeyDown={event => {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
     if (event.key !== 'Tab') return;
     const controls = [...root.current!.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary')];
@@ -61,7 +66,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
   }}>
     <div className="respawn-loadout-panel"><header><span>DEPLOYMENT LOCKER</span><h2 ref={heading} tabIndex={-1} id="loadout-screen-title">{deployment?'Choose your starting loadout':'Choose your next loadout'}</h2>
       <p>{deployment?(streaks?`These weapons and ${streakTitle(streaks.mode).toLowerCase()} are what you enter the match with.`:'These weapons are equipped when you enter the match.'):'Queued weapons arrive on your next respawn. Your current life keeps its gear. The fight and respawn timer continue.'}</p>
-      <button type="button" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
+      <button type="button" data-ai-action="close-loadout" data-ai-kind="navigate" aria-label="Close loadout selector" onClick={onClose}>Close</button></header>
       <div className="respawn-loadout-columns">
         {slot('Main weapon', draft.carry.main, 'main')}
         {hasItemAccess(ready, EXTRA_SLOT_ID) ? slot('Extra main', draft.carry.extra, 'extra') : <section className="loadout-choice loadout-slot-locked"><h3>Extra main</h3><p>Rent the extra main slot in the Store to carry a second main weapon.</p></section>}
@@ -69,7 +74,7 @@ export default function RespawnLoadoutSelector({ inventory, selected, onSave, on
         {streaks && <StreakLoadoutSection mode={streaks.mode} draft={rewards} locked={streaks.locked} busy={busy} field={streaks.field} onDraft={ids => { setRewards(ids); setError(''); }} />}
       </div>
       <footer><div><p>{error || (!valid ? 'Select available weapons in each carried slot.' : short > 0 ? `${streakTitle(streaks!.mode)}: choose ${short} more.` : 'Only issued weapons and active rentals from your locker are shown.')}</p><small>Your Store loadout stays saved. These choices last for this session.{streaks && ` ${streakTitle(streaks.mode)} are remembered for this mode.`}</small></div>
-        <button type="button" onClick={onClose}>Cancel</button><button type="button" data-testid="queue-loadout" disabled={busy || !valid || short > 0} onClick={async () => {
+        <button type="button" onClick={onClose}>Cancel</button><button type="button" data-ai-action="save-loadout" data-ai-kind="equip" data-testid="queue-loadout" disabled={busy || !valid || short > 0} onClick={async () => {
           setBusy(true); setError('');
           try { if (await onSave(draft)) { if (choosing) streaks.onSave(rewards); onClose(); } else setError(deployment ? 'Loadout could not be saved. Check your rental time and try again.' : 'Loadout could not be queued. Check your connection and rental time, then try again.'); }
           catch { setError('Loadout could not be queued. Try again.'); }

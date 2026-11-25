@@ -14,7 +14,7 @@ export function DeploymentPins({ points, markers, choice, onChoose, disabled = f
       const marker = markers?.find(m => m.id === point.id);
       if (!marker?.visible) return null;
       const available = point.available !== false;
-      return <button key={point.id} className="deployment-pin" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+      return <button data-ai-action={"land-"+point.id} data-ai-kind="select" key={point.id} className="deployment-pin" style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
         data-deployment-id={point.id} data-world-x={point.x} data-world-y={point.y ?? 0} data-world-z={point.z}
         aria-label={`Deploy at ${point.name}${!available ? ` · ${point.reason}` : ''}`} aria-pressed={choice === point.id}
         title={available ? point.name : `${point.name} · ${point.reason}`} disabled={disabled || !available}
@@ -42,13 +42,13 @@ export default function ExpeditionDeployment({ zone, deployment, onChoose, onZoo
 }) {
   if (!deployment?.canChoose) return null;
   const selected = deployment.points.find(point => point.id === deployment.choice);
-  return <section className="expedition-deployment" aria-label="Aerial deployment">
+  return <section data-ai-screen="landing" data-ai-title="Choose a landing zone" className="expedition-deployment" aria-label="Aerial deployment">
     <header><span>DEPLOYMENT / {getWorldZone(zone).name.toUpperCase()}</span><h2>Choose your landing zone</h2><p>Allied zones + entry · Drag to pan</p></header>
     <DeploymentPins points={deployment.points} markers={deployment.markers} choice={deployment.choice} onChoose={onChoose} disabled={disabled} />
     <DeploymentCameraControls zoom={deployment.zoom} onZoom={onZoom} onResetView={onResetView} disabled={disabled} />
     <footer className="deployment-dock">
       <div className="deployment-choice" role="status"><span>LANDING ZONE</span><strong>{selected?.name ?? 'Random allied entry'}</strong><small>{selected ? 'Landing zone selected. Enter the district when ready.' : 'Grey beams are unavailable. Choose an allied zone or your district entry.'}</small></div>
-      <div className="deployment-actions"><button className="deployment-random" aria-pressed={deployment.choice === 'random'} disabled={disabled || !deployment.points.some(p => p.available !== false)} onClick={() => onChoose('random')}>Random allied entry</button>{children}</div>
+      <div className="deployment-actions"><button data-ai-action="random-allied-entry" data-ai-kind="select" className="deployment-random" aria-pressed={deployment.choice === 'random'} disabled={disabled || !deployment.points.some(p => p.available !== false)} onClick={() => onChoose('random')}>Random allied entry</button>{children}</div>
     </footer>
   </section>;
 }

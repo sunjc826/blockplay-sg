@@ -4,7 +4,7 @@ export interface Completion {
 }
 // inputTokens includes cached reads and cache writes. Only cache reads get the discounted rate.
 export interface Usage { inputTokens: number; cachedInputTokens: number; outputTokens: number }
-export type Provider = (request: Completion) => Promise<{ json: unknown; usage: Usage; model: string }>;
+export type Provider = (request: Completion) => Promise<{ refused?:boolean; json: unknown; usage: Usage; model: string }>;
 export class ProviderError extends Error {
   status: number;
   constructor(status: number) { super('Model request failed'); this.status = status; }

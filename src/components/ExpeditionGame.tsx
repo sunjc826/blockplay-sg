@@ -1,3 +1,4 @@
+import { StreamerDock, useStreamerActive } from './StreamerMode';
 import { CastSession } from './FpsCast';
 import FpsDamageFeedback from './FpsDamageFeedback';
 import { useNavigationGuard } from '../lib/navigation-guard';
@@ -65,6 +66,8 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
   const [startingProfile] = useState(() => structuredClone(fieldProfile));
   const [nextProfile, setNextProfile] = useState(startingProfile), nextProfileRef = useRef(nextProfile);
   const [loadoutOpen, setLoadoutOpen] = useState(false);
+  const streaming = useStreamerActive();
+  const enter = () => { if (streaming) engine.current?.startPilot(); else { if (touch) fullscreen.enter(); engine.current?.start(); } };
   const openLoadout = () => { engine.current?.pause(); setLoadoutOpen(true); };
   const queueLoadout = async (selection: RespawnLoadoutSelection) => {
     const next = applyRespawnLoadout(profile, selection);
@@ -182,6 +185,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
     data-deployment-planning={planning || playing && !alive} data-arena-started={hud.arenaStarted} data-deployment-choice={hud.deployment?.choice} data-deployment-point={hud.deployment?.resolved ?? undefined}
     data-vehicle-view={hud.vehicleView} data-vehicle-personal-weapon={hud.vehiclePersonalWeapon} data-vehicle={hud.vehicle} data-vehicle-health={hud.vehicleHealth} data-vehicle-ammo={hud.vehicleAmmo} data-speed={hud.vehicleSpeed.toFixed(2)} data-altitude={hud.altitude.toFixed(2)} data-phase={hud.phase} data-pilot={hud.pilotEnabled || undefined} data-pointer-locked={hud.locked} data-zone={scene.zone} data-player-x={hud.x.toFixed(3)} data-player-z={hud.z.toFixed(3)}
     data-objective-hints={hud.objectiveHints} data-facility-count={hud.arena?.facilities?.sites.length ?? 0} data-health={hud.health.toFixed(1)} data-armor={hud.armor.toFixed(1)} data-alive={alive} data-loot-count={hud.fieldLoot?.length ?? 0} data-npc-count={hud.npcs?.length ?? 0} data-bot-count={hud.arena?.actors.filter(actor => actor.bot).length ?? 0} data-friendly-count={hud.arena?.actors.filter(actor => actor.bot && actor.faction === PLAYER_FACTION).length ?? 0}>
+    {streaming && <StreamerDock />}
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       <FpsDamageFeedback hud={hud} />
@@ -202,7 +206,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
       </FpsHudLayout>
       <FpsCalloutWheel hud={hud} engine={engine.current} />
       <FpsUtilityPicker hud={hud} engine={engine.current} />
-      {hud.pilotEnabled && playing && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
+      {hud.pilotEnabled && playing && !streaming && <div className="fps-pilot-indicator">AI PILOT · {hud.pilotStatus}<span className="fps-hud-hint"> · ESC TO STOP</span></div>}
       {playing && alive && <>
         {alive && <button type="button" className="expedition-objective-toggle" aria-pressed={hud.objectiveHints} onClick={() => engine.current?.toggleObjectiveHints()}>{!touch && <kbd>H</kbd>} {hud.objectiveHints ? 'Hide objectives' : 'Show objectives'}</button>}
         {alive && hud.objectiveHints && !hud.mapExpanded && <div className="expedition-objective-markers" aria-label="Enemy facility directions">{hud.objectiveMarkers.map(marker => <div key={marker.id} className="expedition-objective-marker" data-objective-id={marker.id} data-edge={marker.edge} style={{ left: `${marker.x}%`, top: `${marker.y}%` }}>
@@ -241,7 +245,7 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
         {deploying && <div className="expedition-intro-actions"><button onClick={() => engine.current?.pause()}>Menu</button><button onClick={() => engine.current?.skipDeployment()}>Skip intro{!touch && <kbd>SPACE</kbd>}</button></div>}
       </DeploymentOverlay>}
       {planning && <ExpeditionDeployment zone={scene.zone} deployment={hud.deployment} disabled={suspended} onChoose={id => engine.current?.chooseDeployment(id)} onZoom={factor => engine.current?.zoomDeployment(factor)} onResetView={() => engine.current?.resetDeploymentView()}>
-        <button className="primary-button" disabled={suspended} onClick={() => { if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />Enter district<ArrowRight size={16} /></button>
+        <button data-ai-action="enter-district" data-ai-kind="start" className="primary-button" disabled={suspended} onClick={() => { enter(); }}><Play size={16} />Enter district<ArrowRight size={16} /></button>
         <details className="deployment-settings" open={briefingOpen} onToggle={event => setBriefingOpen(event.currentTarget.open)}><summary>Briefing &amp; settings</summary><div className="deployment-settings-panel" role="dialog" aria-label="Briefing and settings">
           <header className="deployment-settings-head"><strong>Briefing &amp; settings</strong><button type="button" className="deployment-settings-close" aria-label="Close briefing and settings" title="Close (Esc)" onClick={() => setBriefingOpen(false)}><X size={16} /></button></header>
           <p>{zone.description}</p><p>Capture enemy equipment intact, destroy it, or rebuild ruined sites. Command posts reinforce infantry; garages and helipads replace vehicles.</p><EnvironmentControls />
@@ -253,14 +257,14 @@ export default function ExpeditionGame({ profile, nav, onExit, onBackToDistricts
       {physicalCrossing && <FpsDistrictCrossing key={scene.revision} name={zone.name} phase={hud.phase} />}
       {!playing && !deploying && !planning && !(physicalCrossing && hud.phase === 'loading') && <PlayPanel label={hud.phase === 'paused' ? 'Open World menu' : 'Open World'}
         paused={hud.phase === 'paused'} navigation={nav} debug={debug}
-        primary={<button className={`primary-button${hud.phase === 'paused' ? ' pause-resume' : ''}`} disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } if (touch) fullscreen.enter(); engine.current?.start(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>}
+        primary={<button data-ai-action="enter-game" data-ai-kind="start" className={`primary-button${hud.phase === 'paused' ? ' pause-resume' : ''}`} disabled={hud.phase === 'loading' || suspended} onClick={() => { if (hud.phase === 'error') { setScene(current => ({ ...current, revision: current.revision + 1 })); return; } enter(); }}><Play size={16} />{hud.phase === 'loading' ? 'Loading…' : hud.phase === 'error' ? 'Retry district' : hud.phase === 'paused' ? 'Resume expedition' : 'Enter district'}<ArrowRight size={17} /></button>}
         details={<>
         {debug ? <>
           <FpsDebugPanel hud={hud} engine={engine.current} /><div className="fps-player-tools"><ReloadStyleToggle /></div>
           <FpsRadioVoice hud={hud} engine={engine.current} />
           <FpsPilotPanel hud={hud} engine={engine.current} suspended={suspended} />
         </> : <FpsPlayerTools hud={hud} engine={engine.current} immersive={fullscreen.immersive} onFullscreen={() => { void fullscreen.toggle(); }} />}
-        <button type="button" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
+        <button type="button" data-ai-action="choose-loadout" data-ai-kind="navigate" className="respawn-loadout-trigger" onClick={openLoadout}>Choose next respawn loadout</button>
         <EnvironmentControls />
         {!nav && <button className="fps-shop-link" onClick={onExit}>{debug ? 'Leave expedition →' : 'Leave to menu →'}</button>}
         <FpsControlGuide debug={debug}><span><kbd>WASD</kbd> Move</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Ctrl / C</kbd> Hold / toggle crouch</span><span><kbd>Sprint + C</kbd> Slide</span><span><kbd>Sprint + Z</kbd> Dive</span><span><kbd>Space</kbd> at cover: climb / vault</span><span><kbd>Z</kbd> Prone / mount</span><span><kbd>LMB</kbd> Fire</span><span><kbd>Q / RMB</kbd> Toggle / hold aim</span><span><kbd>R</kbd> Reload</span><span><kbd>K</kbd> Inspect weapon</span><span><kbd>E</kbd> Collect / talk / enter / exit vehicle</span><span><kbd>I</kbd> Swap armor inserts</span><span><kbd>V</kbd> Switch seat</span><span><kbd>C</kbd> Vehicle view</span><span><kbd>Space / Ctrl</kbd> Fly up / down</span><span><kbd>F / G</kbd> Recovery / combat · tap to use, hold to choose</span><span><kbd>H</kbd> Objective hints</span><span><kbd>M</kbd> Control map</span><span><kbd>Y</kbd> Callouts</span>{equipment.vision && <span><kbd>N</kbd> {visionKeyLabel(equipment.vision.spec)}</span>}{equipment.weapons.some(weapon => hasLaser(weapon.accessories)) && <span><kbd>B</kbd> Laser</span>}{equipment.weapons.some(weapon => hasLight(weapon.accessories)) && <span><kbd>L</kbd> Weapon light</span>}{equipment.weapons.some(weapon => weapon.accessories?.offsetDot) && <span><kbd>X</kbd> Offset dot</span>}<span><kbd>T</kbd> Travel</span></FpsControlGuide>

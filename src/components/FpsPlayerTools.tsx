@@ -1,3 +1,4 @@
+import { StreamerEntry } from './StreamerMode';
 import { CastPanel } from './FpsCast';
 import type { ReactNode } from 'react';
 import { Maximize, Minimize, Volume2, VolumeX } from 'lucide-react';
@@ -16,7 +17,7 @@ export function FpsPlayerTools({ hud, engine, immersive, onFullscreen, showCast 
     <button className="session-button" aria-pressed={!hud.muted} onClick={() => engine?.toggleSound()}>{hud.muted ? <VolumeX size={14} /> : <Volume2 size={14} />} Sound {hud.muted ? 'off' : 'on'}</button>
     <FpsRadioVoice hud={hud} engine={engine} />
     <button className="session-button" onClick={onFullscreen}>{immersive ? <Minimize size={14} /> : <Maximize size={14} />} {immersive ? 'Windowed' : 'Fullscreen'}</button>
-  </div>{showCast && <CastPanel />}</>;
+  </div>{showCast && <><CastPanel /><StreamerEntry region={engine?.castRegion}/></>}</>;
 }
 
 /** The key list, open in the debug shell and folded away for players. */

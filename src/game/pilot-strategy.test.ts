@@ -85,3 +85,26 @@ it('whitelists grenade warnings and rejects invented or non-finite fields', () =
  expect(parsePilotObservation({ ...observation, grenades: [{ ...grenade, remaining: NaN }] })).toBeNull();
  expect(parsePilotObservation({ ...observation, grenades: Array(25).fill(grenade) })).toBeNull();
 });
+
+it('maps streamer replies and coalesces major events until the three-second minimum', async () => {
+  const { streamerPilotStrategy } = await import('./streamer-strategy');
+  const { hudEvents } = await import('./ai-cast');
+  const speak = vi.fn(), request = vi.fn().mockResolvedValue({goal:'resupply',waypointId:null,line:'Looking for supplies.'});
+  let now = 0;
+  const strategy = streamerPilotStrategy(request,speak), planner = createStrategyPlanner(strategy,()=>now);
+  const hud = {health:100,maxHealth:100,phase:'playing',magazine:1,reserve:0,comms:[],chain:0} as unknown as import('./fps-engine').FpsHud;
+  const diff = hudEvents((_text,major) => {if (major) planner.replan();});
+  planner.chooseGoal(observation); diff(hud,0);
+  await vi.waitFor(()=>expect(planner.status()).toBe('resupply'));
+  expect(speak).toHaveBeenCalledWith('Looking for supplies.');
+  now=500; diff({...hud,health:60,magazine:0},now);
+  now=2999; expect(planner.chooseGoal(observation)).toBe('resupply'); expect(request).toHaveBeenCalledOnce();
+  let finish!: (v:unknown) => void;
+  request.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+  now=3000; planner.chooseGoal(observation); expect(request).toHaveBeenCalledTimes(2);
+  planner.replan(); now=6500; planner.chooseGoal(observation); expect(request).toHaveBeenCalledTimes(2);
+  finish({goal:'resupply',waypointId:'gone',line:'stale'});
+  await vi.waitFor(()=>expect(planner.status()).toContain('local fallback'));
+  expect(planner.chooseGoal(observation)).toBe('explore'); expect(speak).not.toHaveBeenCalledWith('stale');
+  planner.reset();
+});

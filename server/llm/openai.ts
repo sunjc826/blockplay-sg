@@ -13,7 +13,8 @@ export function openai(key: string, fetcher: typeof fetch, base: string): Provid
     const data = await response.json();
     if (data.status === 'incomplete') throw new ProviderError(502);
     const parts: {type: string; text?: string}[] = data.output.flatMap((item: {content?: unknown[]}) => item.content ?? []);
-    return { json: parts.some(p => p.type === 'refusal') ? null : JSON.parse(parts.find(p => p.type === 'output_text')?.text ?? ''),
+    const refused = parts.some(p => p.type === 'refusal'), text = parts.find(p => p.type === 'output_text')?.text;
+    return { refused, json: refused && (!r.schemaName.startsWith('streamer_') || !text) ? null : JSON.parse(text ?? ''),
       model: data.model ?? r.model, usage: { inputTokens: data.usage?.input_tokens ?? 0, cachedInputTokens: data.usage?.input_tokens_details?.cached_tokens ?? 0, outputTokens: data.usage?.output_tokens ?? 0 } };
   };
 }

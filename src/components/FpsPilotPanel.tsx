@@ -1,3 +1,4 @@
+import { StreamerEntry } from './StreamerMode';
 import { CastPanel } from './FpsCast';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import './fps-pilot.css';
@@ -9,5 +10,5 @@ export default function FpsPilotPanel({ hud, engine, suspended = false }: { hud:
     <label>Strategy<select aria-label="AI strategy" value={hud.pilotStrategy} disabled={suspended} onChange={event => engine?.setPilotStrategy(event.target.value as 'local' | 'llm')}><option value="local">Local planner</option><option value="llm">LLM strategist</option></select></label>
     {hud.pilotEnabled ? <><button onClick={() => engine?.takeControl()} disabled={suspended}>Take control</button><button onClick={() => engine?.pause()}>Stop AI</button></> : <button disabled={unavailable} onClick={() => engine?.startPilot()}>Watch AI play</button>}
     <small>{hud.pilotStrategy === 'llm' ? 'LLM receives visible contacts and HUD via your companion server. ' : 'Local AI · '}{hud.pilotEnabled ? `Goal: ${hud.pilotGoal ?? 'observe'} · ${hud.pilotPlan}` : 'Same player rules · Esc stops AI'}</small>
-  </div><CastPanel /></>;
+  </div><CastPanel /><StreamerEntry region={engine?.castRegion}/></>;
 }

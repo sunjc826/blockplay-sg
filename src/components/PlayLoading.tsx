@@ -77,7 +77,7 @@ export default function PlayLoading({ mode, district, heading = HEADINGS[mode], 
   const onLoaded = useCallback((ready: boolean) => { tracker.finish(ready); setStage(current => current === 'leaving' || current === 'done' ? current : 'leaving'); }, [tracker]);
 
   return <>
-    {stage !== 'done' && <div className={`play-loading${stage === 'leaving' ? ' is-leaving' : ''}`} role="status" aria-live="polite" aria-busy={stage !== 'leaving'}>
+    {stage !== 'done' && <div data-ai-loading="" className={`play-loading${stage === 'leaving' ? ' is-leaving' : ''}`} role="status" aria-live="polite" aria-busy={stage !== 'leaving'}>
       <Skyline />
       <div className="play-loading-back">{back}</div>
       <div className="play-loading-body">

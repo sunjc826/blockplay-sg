@@ -71,7 +71,7 @@ type CardProps = Omit<ComponentProps<'button'>, 'children'> & {
   note?: ReactNode;
 };
 export function EquipmentCard({ item, status, family = 0, vehicle = 'car', selected = false, note, className = '', ...props }: CardProps) {
-  return <MenuItemCard {...props} className={`equipment-card${selected ? ' selected' : ''} ${className}`.trim()} data-tier={item.tier.toLowerCase()}>
+  return <MenuItemCard data-ai-action={"inspect-"+item.id} data-ai-kind="select" data-ai-detail={status.label+" · "+(canRentEquipment(item) ? weaponTermPrice(item,"1h")+" "+item.currency+" per play hour" : item.price+" "+item.currency)} {...props} className={`equipment-card${selected ? ' selected' : ''} ${className}`.trim()} data-tier={item.tier.toLowerCase()}>
     {item.category === 'loadout'
       ? <span className="equipment-card-art" aria-hidden="true"><Layers2 size={40} /></span>
       : <img className="equipment-card-art" src={`${import.meta.env.BASE_URL}images/armory/${armoryThumbnailFile(item, family, vehicle)}`} alt="" width={480} height={240} loading="lazy" decoding="async" />}
@@ -98,7 +98,7 @@ export function PlatformTabs<T extends string | number>({ label, options, value,
 }) {
   const keys = (event: KeyboardEvent<HTMLElement>) => tabNavigation(event, index => onChange(options[index].id));
   return <MenuTabs className="equipment-picker" aria-label={label} onKeyDown={keys}>{options.map(option =>
-    <button type="button" role="tab" key={option.id} id={`${idPrefix}-${option.id}`} data-platform={option.id} aria-controls={controls} aria-selected={value === option.id}
+    <button data-ai-action={idPrefix+"-"+option.id} data-ai-kind="select" type="button" role="tab" key={option.id} id={`${idPrefix}-${option.id}`} data-platform={option.id} aria-controls={controls} aria-selected={value === option.id}
       aria-describedby={value === option.id ? describedBy?.(option) : undefined} tabIndex={value === option.id ? 0 : -1} onClick={() => onChange(option.id)}>
       <span>{option.name}</span>{option.note && <small className="equipment-picker-note">{option.note}</small>}
     </button>)}

@@ -7,7 +7,7 @@ import { adminCookie, caller, matches } from './ai-admin.ts';
 import { memoryLimits, type LimitStore, type Action } from './ai-limits.ts';
 
 export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = memoryLimits(env), cloud = false) {
-  const models = { CAST:selectModel(env,'CAST',fetcher), PILOT:selectModel(env,'PILOT',fetcher) };
+  const models = { STREAMER:selectModel(env,'STREAMER',fetcher), CAST:selectModel(env,'CAST',fetcher), PILOT:selectModel(env,'PILOT',fetcher) };
   return async (req: IncomingMessage, res: ServerResponse, originAllowed: (req: IncomingMessage) => boolean) => {
     const endpoint = modelEndpoints.get(req.url ?? ''), planning = endpoint?.feature === 'PILOT';
     const model = models[endpoint?.feature ?? 'CAST'];
@@ -25,7 +25,7 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       let { quota } = await check('status');
       const reply = (code: number,data: object,headers = {}) => send(code,{...data,quota},headers);
       const status = { available: !!model.complete, provider:model.provider, model:model.model, admin:id.admin };
-      if (req.method === 'GET' && req.url === '/api/ai/status') return reply(200,status);
+      if (req.method === 'GET' && req.url === '/api/ai/status') return reply(200,{...status, streamer:{available:!!models.STREAMER.complete, provider:models.STREAMER.provider, model:models.STREAMER.model}});
       if (req.method !== 'POST') return reply(405,{error:'POST required'});
       const localHosts = ['localhost','127.0.0.1','[::1]'];
       const origin = new URL(req.headers.origin!);

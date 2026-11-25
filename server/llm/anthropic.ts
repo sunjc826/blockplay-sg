@@ -15,7 +15,8 @@ export function anthropic(key: string, fetcher: typeof fetch): Provider {
       }, { signal: r.signal ?? AbortSignal.timeout(45000) });
       if (reply.stop_reason === 'max_tokens') throw new ProviderError(502);
       const u = reply.usage, cached = u.cache_read_input_tokens ?? 0;
-      return { model: reply.model, json: reply.stop_reason === 'refusal' ? null : JSON.parse(reply.content.find(p => p.type === 'text')?.text ?? ''),
+      const refused = reply.stop_reason === 'refusal', text = reply.content.find(p => p.type === 'text')?.text;
+      return { model: reply.model, refused, json: refused && (!r.schemaName.startsWith('streamer_') || !text) ? null : JSON.parse(text ?? ''),
         usage: { inputTokens: u.input_tokens + cached + (u.cache_creation_input_tokens ?? 0), cachedInputTokens: cached, outputTokens: u.output_tokens } };
     } catch (error) {
       if (error instanceof Anthropic.RateLimitError) throw new ProviderError(429);

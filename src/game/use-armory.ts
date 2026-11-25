@@ -1,17 +1,19 @@
+import { profileScope } from './profile-scope';
 import { equipLoadoutItem, purchaseLoadoutItem, type LoadoutTarget } from './loadout-store';
 import type { WeaponTerm } from './weapon-rentals';
 import type { RaiderBounty } from './combat-rewards';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { setSupplyCarried, discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, createProfile, equip, purchase, purchaseFromVendor, purchaseLevel, restoreProfile, STORAGE_KEY, type ArmoryProfile, type ExerciseReward } from './armory-state';
+import { setSupplyCarried, discardRental, spendRentalTime, expireRentals, selectCarryWeapon, chooseEncikTone, chooseRankSet, claimReward, claimElimination, consumeItem, equip, purchase, purchaseFromVendor, purchaseLevel, type ArmoryProfile, type ExerciseReward } from './armory-state';
 import type { MotorVehicleKind } from './vehicle-rules';
 import { getRankSet } from './rank-insignia';
 import type { EncikTone } from './encik-registers';
 
-export function useArmory() {
-  const [profile, setProfile] = useState<ArmoryProfile>(() => { try { return restoreProfile(localStorage.getItem(STORAGE_KEY)); } catch { return createProfile(); } });
+export function useArmory(sandbox = false) {
+  const [scope] = useState(() => profileScope(sandbox));
+  const [profile, setProfile] = useState(scope.load);
   const current = useRef(profile); current.current = profile;
   const [message, setMessage] = useState(''), [saveError, setSaveError] = useState(false);
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); setSaveError(false); } catch { setSaveError(true); } }, [profile]);
+  useEffect(() => { try { scope.save(profile); setSaveError(false); } catch { setSaveError(true); } }, [profile]);
   const update = useCallback((next: ArmoryProfile) => { current.current = next; setProfile(next); }, []);
   useEffect(() => {
     const check = () => {
@@ -36,7 +38,7 @@ export function useArmory() {
     const saveOnExit = () => {
       if (pendingRentalMs.current < 1) return;
       advanceRentalTime(0);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current.current)); } catch { /* Existing save error UI handles unavailable storage. */ }
+      try { scope.save(current.current); } catch { /* Existing save error UI handles unavailable storage. */ }
     };
     window.addEventListener('pagehide', saveOnExit);
     return () => { saveOnExit(); window.removeEventListener('pagehide', saveOnExit); };

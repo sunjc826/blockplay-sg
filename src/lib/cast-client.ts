@@ -21,7 +21,7 @@ export async function requestCast<T extends CastReply>(endpoint: string, observa
   if (!response.ok) {
     const limited = response.status === 429 && Number.isFinite(body.resetsAt);
     const reason = (body.error || 'Cast unavailable')+(limited ? ' · resets at '+castResetTime(body.resetsAt) : '');
-    throw new CastFailure(reason,limited ? body.resetsAt : Date.now()+30000);
+    throw new CastFailure(reason,limited ? body.resetsAt : Date.now()+30000,response.status);
   }
   return body;
 }

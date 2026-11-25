@@ -4,12 +4,12 @@ export const modes = ['range','arena','expedition','tutorial'] as const;
 export type CastMode = typeof modes[number];
 export interface CastSnapshot { health: number; armor: number; weapon: string; magazine: number; reserve: number; stance: string; vehicle: string; score: number; streak: number; seconds: number; contacts?: number }
 export interface Observation { personaId: string; clean: boolean; mode: CastMode; regionId: RegionId; events: string[]; memory: string[]; snapshot: CastSnapshot; frame?: string }
-const record = (v: unknown): v is Record<string,unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const only = (v: Record<string,unknown>, keys: string[]) => Object.keys(v).every(k => keys.includes(k));
-const short = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max && !/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/u.test(v);
-const lines = (v: unknown,max: number) => Array.isArray(v) && v.length <= max && v.every(s => short(s,240));
+export const record = (v: unknown): v is Record<string,unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+export const only = (v: Record<string,unknown>, keys: string[]) => Object.keys(v).every(k => keys.includes(k));
+export const short = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max && !/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/u.test(v);
+export const lines = (v: unknown,max: number) => Array.isArray(v) && v.length <= max && v.every(s => short(s,240));
 // Check JPEG segment lengths and a real frame header before accepting scan data.
-function jpeg(value: unknown) {
+export function jpeg(value: unknown) {
   if (typeof value !== 'string' || value.length > 273068 || value.length % 4 || !value.startsWith('/9j/') || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return false;
   const bytes = atob(value), word = (i: number) => bytes.charCodeAt(i)*256 + bytes.charCodeAt(i+1);
   if (bytes.length > 204800 || word(bytes.length-2) !== 0xffd9) return false;

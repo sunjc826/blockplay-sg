@@ -1,0 +1,13 @@
+.streamer-chip,.streamer-settings,.streamer-menu-caption,.streamer-cursor{position:fixed;z-index:2147483000}
+.streamer-chip,.streamer-settings{color:#f4f6f5;background:#172228;border:1px solid #637575;border-radius:8px}
+.streamer-chip{top:max(5px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.5em;padding:3px 6px;font:600 12px/1.25 system-ui;max-width:94vw}
+.streamer-chip button,.streamer-settings button{color:#fff;background:#314648;border:1px solid #809997;border-radius:5px;min-height:30px;cursor:pointer}
+.streamer-settings{top:50%;left:50%;transform:translate(-50%,-50%);width:min(380px,90vw);max-height:88dvh;overflow:auto;padding:16px;box-shadow:0 0 0 100vmax #081214b8}
+.streamer-settings h2{margin:0}.streamer-settings select{max-width:100%}
+.streamer-menu-caption{top:calc(max(5px,env(safe-area-inset-top)) + 40px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(88vw,560px);pointer-events:none}
+.streamer-cursor{pointer-events:none;top:0;left:0;transform:translate(50vw,50vh);width:15px;height:19px;background:#afffe9;filter:drop-shadow(0 1px 2px black);clip-path:polygon(0 0,100% 59%,53% 64%,31% 100%);transition:transform .48s ease-in-out}
+@media(prefers-reduced-motion:reduce){.streamer-cursor{transition:none}}
+.streamer-dock{display:flex;flex:0 0 auto;justify-content:center;align-items:center;background:#131f24;z-index:100}
+.streamer-dock>.streamer-chip{position:relative;inset:auto;transform:none}
+.streamer-usage summary{cursor:pointer}.streamer-usage>div{position:absolute;top:100%;right:0;width:max-content;max-width:80vw;padding:8px;border-radius:5px;color:white;background:#172228}
+.streamer-usage progress,.streamer-usage span{display:block;margin:3px 0}

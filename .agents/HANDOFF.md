@@ -17890,3 +17890,14 @@ Owner asked for a shoutcaster-style AI commentator, with streamer mode (an AI pe
 - `globalThis.blockplayRenderer` (development only) is the renderer, for scripts that count programs and uploads.
 - Not checked: a real phone; a context lost while the renderer is idle in the menus (the code makes a new one, but
   nothing exercised it); LAN host and guest in one page do not share (each page has its own renderer).
+
+## 2026-11-25: Streamer mode: an AI persona works the menus, plays, and talks
+Second half of the AI cast work; implemented by Codex (GPT-6.2-Astra) from a brief, checked and adjusted by Claude.
+- **Play:** a third pilot strategy, `streamer` (`src/game/streamer-strategy.ts`), on the existing two tiers. `POST /api/ai/streamer` returns goal, waypoint and the persona's line in one call; big events (heavy damage, death, streak, new district) ask for a replan early through `engine.replanPilot()`.
+- **Menus:** the model sees only controls marked `data-ai-action` on a `data-ai-screen` (`src/lib/streamer-screen.ts`) and picks one by id; a visible cursor glides to it and clicks. Loop and guard rails in `src/game/streamer-menu.ts`, the menu/play hand-off in `src/game/streamer-session.ts`, UI in `src/components/StreamerMode.tsx`. Solo routes only (`isStreamerRoute`); multiplayer, resets, settings, debug and admin controls are not declared. The tutorial stays human-operated.
+- **Profile:** streamer mode runs on a sandbox armory profile under `blockplay.armory.v1.streamer` (1,600 credits, 300 tokens) through `profileScope`; the player's profile key is never written while it runs.
+- **Settings:** `STREAMER_PROVIDER` / `STREAMER_MODEL`, default anthropic / `claude-sonnet-5-5`. Shares the daily quota with commentary.
+- **Checked:** vitest, `tsc --noEmit`, `pnpm build`; live calls for all three streamers in both phases; and one real run in the Browser pane against `pnpm server`: Pro gamer opened the store, bought a bandage, chose Open World and Botanic Gardens, deployed, the pilot ran with captions, Stop returned to the menu, and the player's wallet stayed at 1,600 while the sandbox went to 1,450.
+- **Fixed while checking:** captions often came back with a stray trailing `}` or `)` (`tidyLine` in `server/commentary.ts` strips unbalanced ones); the menu caption sat over the store's buy bar and now sits under the chip.
+- **Not checked:** a full match through to the summary and back into the menus; respawn loadout choices; immersive fullscreen and a landscape phone; a screenshot attached to a call. The four `streamer-screen` tests skip where no DOM library is installed (jsdom is not a dependency), here and in CI.
+- **Known:** the streamer can still change small saved preferences that are not part of the armory profile (last district, match choice, streak picks).

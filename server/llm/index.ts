@@ -3,8 +3,8 @@ import { openai } from './openai.ts';
 import type { Usage } from './types.ts';
 export type Env = Record<string, string | undefined>;
 const registry = { anthropic: { key: 'ANTHROPIC_API_KEY', defaultModel:'claude-sonnet-5-5', pilotBudget:2000, create: anthropic }, openai: { key: 'OPENAI_API_KEY', defaultModel:'gpt-5.6-luna', pilotBudget:500, create: openai } };
-export function selectModel(env: Env, feature: 'CAST' | 'PILOT', fetcher = fetch) {
-  const provider = env[feature + '_PROVIDER']?.trim() || (feature === 'CAST' ? 'anthropic' : 'openai');
+export function selectModel(env: Env, feature: 'CAST' | 'PILOT' | 'STREAMER', fetcher = fetch) {
+  const provider = env[feature + '_PROVIDER']?.trim() || (feature === 'PILOT' ? 'openai' : 'anthropic');
   const entry = Object.hasOwn(registry, provider) ? registry[provider as keyof typeof registry] : undefined;
   const model = env[feature + '_MODEL']?.trim() || entry?.defaultModel || 'unconfigured';
   const key = entry && env[entry.key]?.trim();

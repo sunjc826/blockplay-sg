@@ -33,7 +33,7 @@ export default function DeathRecap({ recap, respawnIn, touch, onSkip, onMenu, on
   ];
   const total = attackers.reduce((most, entry) => Math.max(most, entry.damage), 1);
   const headline = recap.selfInflicted ? 'Self-inflicted' : killer?.friendly ? 'Friendly fire' : 'Killed by';
-  return <section className="death-recap" role="status" aria-label={`${headline} ${killer?.name ?? recap.cause}`} data-recap-serial={recap.serial} data-has-killer={!!killer}>
+  return <section data-ai-screen="death-recap" data-ai-title="Defeated · respawn options" className="death-recap" role="status" aria-label={`${headline} ${killer?.name ?? recap.cause}`} data-recap-serial={recap.serial} data-has-killer={!!killer}>
     <div className="death-recap-flash" key={recap.serial} />
     <header className="death-recap-head">
       <span>{headline}</span>
@@ -67,8 +67,8 @@ export default function DeathRecap({ recap, respawnIn, touch, onSkip, onMenu, on
         ? <strong>Back in {Math.ceil(respawnIn)}s</strong>
         : <div className="death-recap-progress" aria-hidden="true"><i style={{ transform: `scaleX(${recap.windowLeft / DEATH_WINDOW_SECONDS})` }} /></div>}
       <div className="death-recap-actions">
-        {onSkip && <button type="button" className="death-recap-skip" onClick={onSkip}>{!touch && <kbd>Space</kbd>} Choose respawn</button>}
-        {onLoadout && <button type="button" className="respawn-loadout-trigger" onClick={onLoadout}>Respawn loadout</button>}
+        {onSkip && <button type="button" data-ai-action="respawn-map" data-ai-kind="navigate" className="death-recap-skip" onClick={onSkip}>{!touch && <kbd>Space</kbd>} Choose respawn</button>}
+        {onLoadout && <button type="button" data-ai-action="choose-loadout" data-ai-kind="navigate" className="respawn-loadout-trigger" onClick={onLoadout}>Respawn loadout</button>}
       </div>
     </div>
   </section>;

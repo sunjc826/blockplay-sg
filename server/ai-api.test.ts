@@ -63,3 +63,16 @@ it('assembles the authored blocks, keeps dynamic data ordered and maps silence a
   expect(payload.input).toMatch(/Earlier.*New event.*Current snapshot/s);
   expect((await call('commentary',body)).data.line).toBeNull();
 });
+
+it('accounts for streamer turns through the shared handler using the streamer model',async()=>{
+  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({output:[{content:[{type:'output_text',text:'{"actionId":"range","say":true,"line":"Range time."}'}]}]}));
+  const call = harness({STREAMER_PROVIDER:'openai',STREAMER_MODEL:'stream-test',OPENAI_API_KEY:'test',AI_DAILY_CALLS_PER_IP:'1'},fetcher);
+  const menu = {phase:'menu',personaId:'pro',clean:true,memory:[],wallet:{credits:1600,tokens:300},note:'Play a round',
+    screen:{screenId:'solo',title:'Solo',actions:[{id:'range',label:'Enter range',kind:'start'}]}};
+  expect((await call('status')).data).toMatchObject({available:false,streamer:{available:true,model:'stream-test'}});
+  expect((await call('streamer',menu,'','a','https://other.test')).code).toBe(403);
+  expect((await call('streamer',{...menu,prompt:'extra'})).code).toBe(400);
+  expect(await call('streamer',menu)).toMatchObject({code:200,data:{actionId:'range',line:'Range time.',quota:{used:1}}});
+  expect((await call('streamer',menu)).code).toBe(429);
+  expect(fetcher).toHaveBeenCalledOnce();
+});

@@ -38,6 +38,12 @@ export const ROUTE_PATHS = {
 
 export type Route = keyof typeof ROUTE_PATHS;
 
+const streamerMenus = new Set<Route>(['menu','play','single-player','training-menu','training','world','team-deathmatch',
+  'hardpoint','free-for-all','store','inventory']);
+export function isStreamerRoute(route: Route) {
+  return streamerMenus.has(route) || Object.hasOwn(arenaRoutes,route) && !route.startsWith('host-');
+}
+
 /** Shared hierarchy for on-screen links and native/browser Back. */
 export function parentRoute(route: Route): Route {
   if (Object.hasOwn(arenaRoutes, route)) {

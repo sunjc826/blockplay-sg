@@ -5,11 +5,21 @@ type Scene = Pick<Observation,'mode'|'regionId'|'snapshot'>;
 export interface CastReply { line: string | null }
 export class CastFailure extends Error {
   until: number;
-  constructor(reason: string, until: number) { super(reason); this.until = until; }
+  status?: number;
+  constructor(reason: string, until: number, status?:number) { super(reason); this.until = until; this.status = status; }
+}
+export function castMemory() {
+  let memory: string[] = [];
+  return {
+    read: () => [...memory],
+    remember(line: string) { memory = [...memory.slice(-29), line]; },
+    clear() { memory = []; },
+  };
 }
 export function castDirector(now: () => number, request: (scene: Scene, events: string[], memory: string[], signal: AbortSignal) => Promise<CastReply>,
   speak: (line: string) => void, report: (reason: string) => void) {
-  let memory: string[] = [], events: {text:string;major:boolean}[] = [], due = Infinity, last = now(), next = 0, blocked = 0;
+  const memory = castMemory();
+  let events: {text:string;major:boolean}[] = [], due = Infinity, last = now(), next = 0, blocked = 0;
   let pending: AbortController | null = null;
   return {
     event(line: string, major = false) {
@@ -22,7 +32,7 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
     },
     reset(keepMemory = false) {
       pending?.abort(); events = []; due = Infinity; last = now();
-      if (!keepMemory) memory = [];
+      if (!keepMemory) memory.clear();
     },
     resume() { blocked = 0; },
     async tick(scene: Scene, ended = false) {
@@ -31,16 +41,16 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
       const controller = new AbortController(); pending = controller;
       const batch = events.map(e => e.text); events = []; due = Infinity; last = at; next = at+4000;
       try {
-        const {line} = await request(scene,batch,[...memory],controller.signal);
+        const {line} = await request(scene,batch,memory.read(),controller.signal);
         if (controller.signal.aborted || now()-at > 6000) return;
         report('');
-        if (line) { memory = [...memory.slice(-29),line]; next = now()+4000; speak(line); }
+        if (line) { memory.remember(line); next = now()+4000; speak(line); }
       } catch (err) {
         if (!controller.signal.aborted) {
           blocked = err instanceof CastFailure ? err.until : now()+30000;
           report(err instanceof CastFailure ? err.message : 'Cast connection interrupted');
         }
-      } finally { if (ended && !controller.signal.aborted) memory = []; pending = null; }
+      } finally { if (ended && !controller.signal.aborted) memory.clear(); pending = null; }
     },
   };
 }
@@ -74,6 +84,7 @@ export function hudEvents(event: (text:string,major?:boolean)=>void) {
     health = health.filter(s => now-s.time <= 2000);
     if (health.some(s => s.hp-h.health >= h.maxHealth/3)) { event('Health fell sharply to '+Math.round(h.health),true); health = []; }
     health.push({time:now,hp:h.health});
+    if (!h.magazine && !h.reserve && (p.magazine > 0 || p.reserve > 0)) event('Weapon empty with no reserve',true);
     if (h.reloading && h.reloadEmpty && !p.reloading) event('Reloading an empty magazine');
     if (h.vehicle !== 'on-foot' && p.vehicle !== h.vehicle) event('Entered '+h.vehicle);
     const last = p.comms.at(-1)?.id ?? 0;

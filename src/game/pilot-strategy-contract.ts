@@ -1,7 +1,7 @@
 import type { PilotGoal, PilotObservation } from './fps-pilot';
 export const PILOT_GOALS: readonly PilotGoal[] = ['engage', 'resupply', 'travel', 'explore'];
 export interface PilotPlan { goal: PilotGoal; waypointId: string | null; summary: string }
-export interface PilotStrategy { id: string; plan(observation: Readonly<PilotObservation>, signal: AbortSignal): Promise<PilotPlan> }
+export interface PilotStrategy { id: string; accepted?(plan: PilotPlan): void; plan(observation: Readonly<PilotObservation>, signal: AbortSignal): Promise<PilotPlan> }
 export function validPilotPlan(value: unknown, observation: PilotObservation): value is PilotPlan {
   if (!value || typeof value !== 'object') return false;
   const p = value as PilotPlan;
