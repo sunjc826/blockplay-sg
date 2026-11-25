@@ -6,6 +6,7 @@ import { createMaidFollower } from './maid-companion';
 import { createMaidModel } from './carrier-models';
 import { PRECISION_STRIKE, precisionStrikePlacement } from './precision-strike';
 import { markSimWorkerFailed, simThreadForMatch } from './sim-thread-setting';
+import { prepareWorkerSimulation } from './sim-remote';
 import { addPropCover } from './prop-cover';
 import type { Obstacle } from './region-collision';
 import { matchArmorLoot, matchArmorCard, type MatchArmorPickup } from './match-recovery';
@@ -451,6 +452,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   renderer.shadowMap.enabled = false; renderer.autoClear = false;
   const canvas = renderer.domElement; canvas.tabIndex = 0;
   canvas.setAttribute('aria-label', `${expedition ? getWorldZone(expedition.zone).name + ' expedition' : district.label + (hardpoint?' Hardpoint':tdm ? ' Team Deathmatch' : freeForAll ? ' Free for All' : ' range')}. WASD to move, mouse to look, click to fire.`);
+  // Settings › Advanced › Background simulation: the worker starts building its own copy of the map here, before
+  // the engine builds the drawn one, so the two builds run side by side and loading waits for neither twice.
+  const simWorld: import('./sim-worker').SimWorldSpec | undefined = expedition ? { kind: 'expedition', zone: expedition.zone, spawn: expedition.spawn } : !options.arena ? undefined
+    : hardpoint ? { kind: 'hardpoint', area: hardpoint.area.id } : tdm ? { kind: 'team-deathmatch', area: tdm.area } : ffa ? { kind: 'free-for-all', area: ffa.id }
+    // The whole-district free-for-all (the LAN and public default), when nothing but the district itself shapes its rules.
+    : freeForAll && !options.tutorial && !options.arena.environment ? { kind: 'district', zone: region } : undefined;
+  // An expedition is given its solo session below.
+  const simStarting = simWorld && options.arena?.session.role !== 'guest' && simThreadForMatch() === 'worker' ? prepareWorkerSimulation(simWorld) : undefined;
   const zoneWorld = options.tutorial ? buildTutorialWorld() : hardpoint ? buildHardpointWorld(hardpoint.area.id) : tdm ? buildTeamDeathmatchWorld(tdm.area)
     : ffa ? buildFreeForAllWorld(ffa.id) : buildDistrictWorld(region, expedition?.spawn, { barricades: freeForAll });
   if (boundedMatch && options.arena) options = {...options,arena:{...options.arena,environment:zoneWorld.environment}};
@@ -5260,6 +5269,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     return model;
   })).then(async loaded => {
     if (disposed) return;
+    performance.mark('blockplay-load:models');
     // Before the hands dress these two: the rack copies them undressed.
     rangeArmory?.fill([loaded[0], loaded[1]]);
     rangeArmory?.setCarried(carriedVariants(equipment));
@@ -5319,7 +5329,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     // Range props are appended after asynchronous model loading; refresh the static broadphase.
     footMovement = createVerticalMovement({ bounds: world.bounds, obstacles: world.obstacles, surfaces: getPhysicalWalkSurfaces(world.scene), traversalObstacles: getTraversalObstacles(world.scene) });
     playerMovement = createSwimmingMovement({ bounds:world.bounds,obstacles:world.obstacles,surfaces:getPhysicalWalkSurfaces(world.scene),traversalObstacles:getTraversalObstacles(world.scene) });
+    performance.mark('blockplay-load:props');
     const bakedNavigation = await navigationBake;
+    performance.mark('blockplay-load:navigation');
     if (disposed) return;
     if (options.arena) {
       if (options.arena.environment) options.arena.environment.bakedNavigation = bakedNavigation;
@@ -5328,13 +5340,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       // (an Open World district, or a match in an arena) and for the host of a LAN or public match. One that cannot start leaves this game, and the rest
       // of this visit, on the main thread.
       let remote: import('./sim-client').SimClient | undefined;
-      const simWorld: import('./sim-worker').SimWorldSpec | undefined = expedition ? { kind: 'expedition', zone: expedition.zone, spawn: expedition.spawn }
-        : hardpoint ? { kind: 'hardpoint', area: hardpoint.area.id } : tdm ? { kind: 'team-deathmatch', area: tdm.area } : ffa ? { kind: 'free-for-all', area: ffa.id }
-        // The whole-district free-for-all (the LAN and public default), when nothing but the district itself shapes its rules.
-        : freeForAll && !options.tutorial && !options.arena.environment ? { kind: 'district', zone: region } : undefined;
-      if (simWorld && options.arena.session.role !== 'guest' && simThreadForMatch() === 'worker') {
+      if (simStarting) {
         const arena = options.arena;
-        remote = await import('./sim-remote').then(module => module.createWorkerSimulation({ world: simWorld, props: propBoxes, fixedDifficulty: arena.session.role === 'solo' ? undefined : 'normal', self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition }))
+        remote = await simStarting.start({ props: propBoxes, fixedDifficulty: arena.session.role === 'solo' ? undefined : 'normal', self: arena.session.id, vehicleTravel: checkpoint?.vehicleTravel?.crew, environment: arena.environment, vehicles: arenaVehicles, botCount: arena.botCount, composition: arena.composition })
           .catch(error => { console.warn('Simulation worker unavailable; simulating on the main thread.', error); markSimWorkerFailed(String((error as Error)?.message ?? error)); return undefined; });
         if (disposed) { remote?.dispose?.(); return; }
         remote?.onLost?.(reason => { console.warn('Simulation worker lost; reloading the district on the main thread.', reason); markSimWorkerFailed(reason); simulationLost = true; });
@@ -5358,12 +5366,14 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       }
     }
     // Bullets, bots' sight lines and event landings all cast through the district's instanced scenery.
+    performance.mark('blockplay-load:simulation');
     canvas.dataset.raycastTrees = String(accelerateInstancedRaycasts(world.scene));
     // Painted first, so the bar is already on the compositor when compiling blocks the page.
     options.loadScreen?.report('shaders');
     await yieldToPaint();
     if (disposed) return;
     await warmShaders();
+    performance.mark('blockplay-load:shaders');
     if (disposed) return;
     // A real frame before calling it ready: it uploads the world, and the GPU may need a second
     // or more to get through it, which belongs behind the bar and not on a frozen game.
@@ -5371,6 +5381,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     await yieldToPaint();
     await gpuCaughtUp(renderer.getContext() as WebGL2RenderingContext);
     if (disposed) return;
+    performance.mark('blockplay-load:ready');
     hud.phase = 'ready'; if (options.notice) hud.message = options.notice; updateCameras(0, false, false); publish();
     if (resumeCrossing) {
       resumeCrossing = false;
@@ -5464,7 +5475,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);
       facilityVisuals?.dispose(); installedStructures.dispose(); objectiveBeacons?.dispose();
-      disposed = true; rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
+      disposed = true; simStarting?.dispose(); rangeFigures?.dispose(); pilot.reset(); strategicPlanner?.reset(); encikAudio.dispose(); cancelAnimationFrame(frame); observer.disconnect(); unsubscribeGraphics(); clearInput();
       if (!options.surface && document.pointerLockElement === canvas) document.exitPointerLock();
       window.removeEventListener('keydown', pilotEscape, true);
       canvas.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup);

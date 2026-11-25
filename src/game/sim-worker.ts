@@ -64,8 +64,12 @@ function stand(spec: SimWorldSpec) {
   } };
 }
 
+/** The map built ahead of `init`, while the engine was still building its own (sim-remote.ts). */
+let prepared: { spec: string; stood: ReturnType<typeof stand> } | null = null;
+
 function build(init: SimWorkerInit) {
-  const { world, rules, follow: followMap } = stand(init.world);
+  const { world, rules, follow: followMap } = prepared?.spec === JSON.stringify(init.world) ? prepared.stood : stand(init.world);
+  prepared = null;
   if (init.props?.length) { world.obstacles.push(...init.props); addPropCover(world.scene, init.props); }
   accelerateInstancedRaycasts(world.scene); world.scene.updateMatrixWorld(true);
   const cover = createSceneCover(world.scene);
@@ -93,14 +97,19 @@ function build(init: SimWorkerInit) {
   return { campaign, arena: { ...seatArrivingCrew(arena, init.self, init.vehicleTravel), step(dt: number) { arena.step(dt); follow(); }, reset() { steps = 0; arena.reset(); follow(); } } };
 }
 
-let deliver: ((message: SimToHost) => void) | null = null;
+let deliver: ((message: SimToHost) => void) | null = null, standMs = 0;
 scope.addEventListener('message', event => {
-  const message = event.data as SimWorkerInit | SimToHost | { type: 'probe'; id: number; rays: SimCoverRay[] } | { type: 'difficulty'; value: BotDifficulty };
+  const message = event.data as SimWorkerInit | SimToHost | { type: 'prepare'; world: SimWorldSpec } | { type: 'probe'; id: number; rays: SimCoverRay[] } | { type: 'difficulty'; value: BotDifficulty };
   if (message.type === 'difficulty') { setBotDifficulty(message.value); return; }
   if (message.type === 'probe') { scope.postMessage({ type: 'probed', id: message.id, elapsed: sceneClock, ...probe?.(message.rays) }); return; }
+  if (message.type === 'prepare') {
+    try { const start = performance.now(), stood = stand(message.world); prepared = { spec: JSON.stringify(message.world), stood }; standMs = performance.now() - start; }
+    catch (error) { scope.postMessage({ type: 'failed', error: String((error as Error)?.stack ?? error) }); }
+    return;
+  }
   if (message.type !== 'init') { deliver?.(message); return; }
   try {
-    const start = performance.now(), { arena, campaign } = build(message);
+    const start = performance.now() - standMs, { arena, campaign } = build(message);
     const host = createSimHost(arena, message.self, { post: out => scope.postMessage(out), listen: handler => { deliver = handler; } }, undefined, campaign);
     scope.postMessage({ type: 'ready', first: host.first(), navigation: arena.navigationGraphStatus(), buildMs: performance.now() - start });
   } catch (error) { scope.postMessage({ type: 'failed', error: String((error as Error)?.stack ?? error) }); }

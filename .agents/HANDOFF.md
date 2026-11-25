@@ -17830,3 +17830,21 @@ On request ("reduce the edge aliasing / flickering of grass at medium distance")
 - **`scripts/grass-shimmer-smoke.mjs`** with `scripts/fixtures/grass-shimmer.html` (new): a flat lawn, and per band of distance the mean change in a pixel's brightness (0 to 255) between frames as the camera slides 3 mm a frame in still air. High, 1280×720, before to after: 8-15 m 2.24 to 1.62, 15-28 m .89 to .40, 28-50 m .32 to .10, 50-85 m .21 to .05. Ultra 15-28 m 2.14 to .83. Much the same with multisampling off.
 - **Checked**: `tsc --noEmit`; vitest 465 files, 4,706 tests; the fixture on SwiftShader, High, Ultra and High without multisampling; one still of a Botanic Gardens lawn through `createWorldOcclusion` (no shader errors).
 - **Not checked**: in motion on a real GPU, or by eye in play (stills and the measure only); a phone; `pnpm build` (no entrypoint or config change). The 4-15 m band is helped least: blades there are one to three pixels wide and it is ordinary edge aliasing, which SMAA or a higher pixel density treats.
+
+## 2026-11-25: Background simulation no longer loads after the engine
+
+The owner reported loading "almost doubled", stalling near the end of the bar. With Background simulation off,
+load time is unchanged between 2d0e7b5 (before the leaf and grass work) and HEAD on this VM (Marina Bay 13.0 s vs
+13.2 s, Botanic Gardens 9.0 s vs 9.1 s, headless Chrome on Metal, no shader disk cache). With it on, the worker was
+made only after the engine had built its district and loaded its models, so its chunk download and its own district
+build were a dead wait with the bar still.
+
+- `prepareWorkerSimulation(world)` (sim-remote.ts) is now called at the top of `createFpsEngine`, before the drawn
+  district is built: the worker gets `{type:'prepare', world}` and builds its copy beside the engine's. `start(init)`
+  later sends props, vehicles, environment and so on, and resolves on `ready` as before. A failure before `start`
+  is held and rejects it. Engine `dispose` stops a worker that was prepared but never started.
+- Added wait on this VM: Marina Bay 1.1 s -> 0.5 s, Botanic Gardens 0.7 s -> 0.2 s. What is left is the worker's
+  `createArena`, which the main thread would otherwise spend itself.
+- `performance.mark('blockplay-load:<models|props|navigation|simulation|shaders|ready>')` now marks each load step.
+- Not measured on a phone, which is where the owner saw it. The shader stage is 6-8 s of every load here whatever
+  the setting; if the stall is there with the setting off, that is the next place to look.
