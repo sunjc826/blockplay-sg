@@ -76,8 +76,10 @@ jobs:
           node-version: "24.21.0"
           cache: pnpm
 
-      # minimumReleaseAge in pnpm-workspace.yaml only governs resolution; a
-      # frozen install takes exactly what the lockfile already pinned.
+      # A frozen install takes exactly what the lockfile pinned, but pnpm 11
+      # still checks every lockfile entry against the supply-chain policy in
+      # pnpm-workspace.yaml (minimumReleaseAge) and fails the install on one
+      # that is too new. A changed lockfile also misses the store cache.
       - run: pnpm install --frozen-lockfile
         if: steps.order.outputs.skip != 'true'
 
