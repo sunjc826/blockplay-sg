@@ -14,8 +14,9 @@ export function cloudflareOriginAllowed(req: IncomingMessage, configured?: strin
   } catch { return false; }
 }
 
-export function createCloudflareAdventureHandler(env: Record<string, string | undefined>, fetcher = fetch) {
+export function createCloudflareAdventureHandler(env: Record<string, string | undefined>, fetcher = fetch, aiStore?: import('./ai-limits.ts').LimitStore) {
   return createAdventureHandler(env, fetcher, {
+    aiStore, cloud: true,
     isOriginAllowed: req => cloudflareOriginAllowed(req, env.ADVENTURE_ALLOWED_ORIGINS),
   });
 }

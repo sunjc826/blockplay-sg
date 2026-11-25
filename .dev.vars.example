@@ -1,3 +1,13 @@
 # Optional local Worker-only secrets. Copy to .dev.vars, which is gitignored.
 # Production secrets are set with pnpm exec wrangler secret put OPENAI_API_KEY.
 OPENAI_API_KEY=
+
+ANTHROPIC_API_KEY=
+AI_ADMIN_TOKEN=
+CAST_PROVIDER=
+CAST_MODEL=
+PILOT_PROVIDER=
+PILOT_MODEL=
+AI_DAILY_CALLS_PER_IP=
+AI_DAILY_CALLS_ANON_TOTAL=
+AI_DAILY_CALLS_ADMIN=

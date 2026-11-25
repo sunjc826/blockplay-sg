@@ -4,18 +4,31 @@ import { env } from 'cloudflare:workers';
 import { createCloudflareAdventureHandler } from '../server/cloudflare-api.ts';
 import { readRoomBody, roomOriginAllowed } from '../server/public-rooms.js';
 import { handleLevelReviews } from '../server/level-reviews.ts';
+export { AiUsage } from './ai-usage.js';
 export { LevelReviews } from '../server/level-reviews.ts';
 export { PublicRooms } from '../server/public-rooms.js';
 
 // One handler per isolate preserves the existing concurrency/request guards.
 // Only these server bindings can reach the companion; no frontend environment dump.
 const companion = createCloudflareAdventureHandler({
+  CAST_PROVIDER: env.CAST_PROVIDER,
+  CAST_MODEL: env.CAST_MODEL,
+  PILOT_PROVIDER: env.PILOT_PROVIDER,
+  ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+  AI_ADMIN_TOKEN: env.AI_ADMIN_TOKEN,
+  AI_DAILY_CALLS_PER_IP: env.AI_DAILY_CALLS_PER_IP,
+  AI_DAILY_CALLS_ANON_TOTAL: env.AI_DAILY_CALLS_ANON_TOTAL,
+  AI_DAILY_CALLS_ADMIN: env.AI_DAILY_CALLS_ADMIN,
   OPENAI_API_KEY: env.OPENAI_API_KEY,
   OPENAI_BASE_URL: env.OPENAI_BASE_URL,
   PILOT_MODEL: env.PILOT_MODEL,
   ADVENTURE_ALLOWED_ORIGINS: env.ADVENTURE_ALLOWED_ORIGINS,
   ADVENTURE_ENABLED: env.ADVENTURE_ENABLED,
   ADVENTURE_VOICE_ENABLED: env.ADVENTURE_VOICE_ENABLED,
+}, fetch, async op => {
+  const response = await env.AI_USAGE.getByName('global').fetch('https://usage/check', { method: 'POST', body: JSON.stringify(op) });
+  if (!response.ok) throw new Error('Usage unavailable');
+  return response.json();
 });
 createServer(companion).listen(3001);
 
@@ -42,7 +55,7 @@ export default {
       return Response.json({ service: 'blockplay-cloudflare', companion: !!env.OPENAI_API_KEY && env.ADVENTURE_ENABLED !== 'false' },
         { headers: { 'Cache-Control': 'no-store' } });
     }
-    if (path.startsWith('/api/adventure/')) return handleAsNodeRequest(3001, request);
+    if (path.startsWith('/api/adventure/') || path.startsWith('/api/ai/')) return handleAsNodeRequest(3001, request);
     return Response.json({ error: path.startsWith('/api/lan/')
       ? 'LAN rooms require the local pnpm lan server. Solo bots are available here.' : 'Not found' },
     { status: 404, headers: { 'Cache-Control': 'no-store' } });

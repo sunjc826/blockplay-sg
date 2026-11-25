@@ -17,7 +17,7 @@ import { withGroundCover } from './ground-cover';
 import { withSurfaceOwnership } from './surface-ownership';
 import { withRoofDetail } from './roof-detail';
 import type * as THREE from 'three';
-import { REGION_IDS, isRegionId, type RegionId } from './region-ids';
+import { REGION_NAMES, REGION_IDS, isRegionId, type RegionId } from './region-ids';
 import { createRegionMovement, type Obstacle, type Position2D, type RegionBounds } from './region-collision';
 import { MARINA_BOUNDS, moveInMarina, canOccupy as canOccupyMarina } from './marina-collision';
 import { RAFFLES_BOUNDS, moveInRaffles, canOccupy as canOccupyRaffles } from './raffles-collision';
@@ -129,7 +129,7 @@ const pulauUbinMovement = createRegionMovement(PULAU_UBIN_BOUNDS);
 const botanicGardensMovement = createRegionMovement(BOTANIC_GARDENS_BOUNDS);
 const definitions: Record<RegionId, RegionDefinition> = {
   'botanic-gardens': {
-    id: 'botanic-gardens', name: 'Botanic Gardens', shortName: 'Gardens', modeName: 'Botanic Gardens 3D', modeSubtitle: 'Hills, a valley and two lakes',
+    id: 'botanic-gardens', name: REGION_NAMES['botanic-gardens'], shortName: 'Gardens', modeName: 'Botanic Gardens 3D', modeSubtitle: 'Hills, a valley and two lakes',
     className: 'botanic-gardens-game', badge: 'BOTANIC GARDENS · GAME WORLD', title: 'Botanic Gardens · hills, valley & lakes',
     subtitle: 'Authored garden · graded ground from the Tanglin Gate to Symphony Lake', mapTitle: 'TANGLIN & CENTRAL CORES',
     stampNoun: 'garden stamps', exploreNoun: 'the Gardens', cameraFar: 1500,
@@ -144,7 +144,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildBotanicGardensScene, move: botanicGardensMovement.move, canOccupy: botanicGardensMovement.canOccupy,
   },
   'pulau-ubin': {
-    id: 'pulau-ubin', name: 'Pulau Ubin', shortName: 'Ubin', modeName: 'Pulau Ubin 3D', modeSubtitle: 'A bumboat away',
+    id: 'pulau-ubin', name: REGION_NAMES['pulau-ubin'], shortName: 'Ubin', modeName: 'Pulau Ubin 3D', modeSubtitle: 'A bumboat away',
     className: 'pulau-ubin-game', badge: 'PULAU UBIN · GAME WORLD', title: 'Pulau Ubin · village, quarry & wetlands',
     subtitle: 'Authored island · forest loop and a Changi bumboat crossing', mapTitle: 'VILLAGE, QUARRY & WETLANDS',
     stampNoun: 'island stamps', exploreNoun: 'Pulau Ubin', cameraFar: 1500,
@@ -160,7 +160,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildPulauUbinScene, move: pulauUbinMovement.move, canOccupy: pulauUbinMovement.canOccupy,
   },
   'katong-joo-chiat': {
-    id: 'katong-joo-chiat', name: 'Katong / Joo Chiat', shortName: 'Katong', modeName: 'Katong 3D', modeSubtitle: 'Pastel streets and five-foot ways',
+    id: 'katong-joo-chiat', name: REGION_NAMES['katong-joo-chiat'], shortName: 'Katong', modeName: 'Katong 3D', modeSubtitle: 'Pastel streets and five-foot ways',
     className: 'katong-joo-chiat-game', badge: 'KATONG · GAME WORLD', title: 'Katong / Joo Chiat · heritage streets',
     subtitle: 'Authored, compressed neighbourhood · schematic landmarks', mapTitle: 'PASTEL STREETS & PORCHES',
     stampNoun: 'heritage stamps', exploreNoun: 'Katong / Joo Chiat', cameraFar: 1400,
@@ -177,7 +177,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildKatongJooChiatScene, move: katong_joo_chiatMovement.move, canOccupy: katong_joo_chiatMovement.canOccupy,
   },
   'little-india': {
-    id: 'little-india', name: 'Little India', shortName: 'Little India', modeName: 'Little India 3D', modeSubtitle: 'Market mornings and painted lanes',
+    id: 'little-india', name: REGION_NAMES['little-india'], shortName: 'Little India', modeName: 'Little India 3D', modeSubtitle: 'Market mornings and painted lanes',
     className: 'little-india-game', badge: 'LITTLE INDIA · GAME WORLD', title: 'Little India · heritage streets',
     subtitle: 'Authored, compressed neighbourhood · schematic landmarks', mapTitle: 'MARKET & LANES',
     stampNoun: 'heritage stamps', exploreNoun: 'Little India', cameraFar: 1400,
@@ -194,7 +194,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildLittleIndiaScene, move: little_indiaMovement.move, canOccupy: little_indiaMovement.canOccupy,
   },
   yishun: {
-    id: 'yishun', name: 'Yishun', shortName: 'Yishun', modeName: 'Yishun 3D', modeSubtitle: 'Final boss of the heartlands',
+    id: 'yishun', name: REGION_NAMES['yishun'], shortName: 'Yishun', modeName: 'Yishun 3D', modeSubtitle: 'Final boss of the heartlands',
     className: 'yishun-game', badge: 'YISHUN · GOOD LUCK', title: 'Yishun · final boss of the heartlands',
     subtitle: 'Authored heartland · fictional high-threat combat preset', mapTitle: 'MARKET, MRT & POND',
     stampNoun: 'heartland stamps', exploreNoun: 'Yishun', cameraFar: 1400,
@@ -210,7 +210,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildYishunScene, move: yishunMovement.move, canOccupy: yishunMovement.canOccupy,
   },
   'marina-bay': {
-    id: 'marina-bay', name: 'Marina Bay', shortName: 'Marina', modeName: 'Marina 3D', modeSubtitle: 'Explore the waterfront circuit',
+    id: 'marina-bay', name: REGION_NAMES['marina-bay'], shortName: 'Marina', modeName: 'Marina 3D', modeSubtitle: 'Explore the waterfront circuit',
     className: 'marina-game', badge: 'MARINA BAY · GAME WORLD', title: 'Marina Bay · waterfront & gardens',
     subtitle: 'Compact landmark district · waterfront and garden routes', mapTitle: 'THE BAY & GARDENS',
     stampNoun: 'stamps collected', exploreNoun: 'the bay', cameraFar: 1400,
@@ -224,7 +224,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: () => buildMarinaScene(), move: moveInMarina, canOccupy: canOccupyMarina,
   },
   'raffles-place': {
-    id: 'raffles-place', name: 'Raffles Place', shortName: 'Raffles', modeName: 'Raffles 3D', modeSubtitle: 'Explore the city core',
+    id: 'raffles-place', name: REGION_NAMES['raffles-place'], shortName: 'Raffles', modeName: 'Raffles 3D', modeSubtitle: 'Explore the city core',
     className: 'raffles-game', badge: 'RAFFLES · PLACE · GAME WORLD', title: 'Raffles · the financial district',
     subtitle: 'Low-poly game map · authored skyline, square and riverfront', mapTitle: 'THE CITY & QUAYS',
     stampNoun: 'district stamps', exploreNoun: 'the square and quays', cameraFar: 800,
@@ -237,7 +237,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: true, build: buildRafflesScene, move: moveInRaffles, canOccupy: canOccupyRaffles,
   },
   queenstown: {
-    id: 'queenstown', name: 'Queenstown', shortName: 'Queenstown', modeName: 'Queenstown 3D', modeSubtitle: 'Walk and drive the estate',
+    id: 'queenstown', name: REGION_NAMES['queenstown'], shortName: 'Queenstown', modeName: 'Queenstown 3D', modeSubtitle: 'Walk and drive the estate',
     className: 'queenstown-game', badge: 'QUEENSTOWN · GAME WORLD', title: 'Queenstown · the neighborhood loop',
     subtitle: 'Low-poly game map · authored heritage-inspired neighborhood', mapTitle: 'ESTATE & DISTRICTS',
     stampNoun: 'estate stamps', exploreNoun: 'the estate', cameraFar: 1400,
@@ -253,7 +253,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: true, build: buildQueenstownScene, move: moveInQueenstown, canOccupy: canOccupyQueenstown,
   },
   chinatown: {
-    id: 'chinatown', name: 'Chinatown', shortName: 'Chinatown', modeName: 'Chinatown 3D', modeSubtitle: 'Shophouse streets and temples',
+    id: 'chinatown', name: REGION_NAMES['chinatown'], shortName: 'Chinatown', modeName: 'Chinatown 3D', modeSubtitle: 'Shophouse streets and temples',
     className: 'chinatown-game', badge: 'CHINATOWN · GAME WORLD', title: 'Chinatown · shophouses & temples',
     subtitle: 'Low-poly game map · authored market lanes, terraces and temple halls', mapTitle: 'LANES & TEMPLES',
     stampNoun: 'lane stamps', exploreNoun: 'the market lanes', cameraFar: 1100,
@@ -269,7 +269,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildChinatownScene, move: chinatownMovement.move, canOccupy: chinatownMovement.canOccupy,
   },
   'kampong-glam': {
-    id: 'kampong-glam', name: 'Kampong Glam', shortName: 'Kampong Glam', modeName: 'Kampong Glam 3D', modeSubtitle: 'Mosque, malls and painted lanes',
+    id: 'kampong-glam', name: REGION_NAMES['kampong-glam'], shortName: 'Kampong Glam', modeName: 'Kampong Glam 3D', modeSubtitle: 'Mosque, malls and painted lanes',
     className: 'kampong-glam-game', badge: 'KAMPONG GLAM · GAME WORLD', title: 'Kampong Glam · mosque & lanes',
     subtitle: 'Low-poly game map · authored dome, palm mall and textile streets', mapTitle: 'MOSQUE & LANES',
     stampNoun: 'quarter stamps', exploreNoun: 'the quarter', cameraFar: 1100,
@@ -287,7 +287,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildKampongGlamScene, move: kampongGlamMovement.move, canOccupy: kampongGlamMovement.canOccupy,
   },
   'jurong-lake': {
-    id: 'jurong-lake', name: 'Jurong Lake', shortName: 'Jurong', modeName: 'Jurong 3D', modeSubtitle: 'Garden lake and mall cluster',
+    id: 'jurong-lake', name: REGION_NAMES['jurong-lake'], shortName: 'Jurong', modeName: 'Jurong 3D', modeSubtitle: 'Garden lake and mall cluster',
     className: 'jurong-lake-game', badge: 'JURONG LAKE · GAME WORLD', title: 'Jurong · lake, pagoda & malls',
     subtitle: 'Low-poly game map · authored garden island, causeway and eastern shore', mapTitle: 'LAKE & GARDENS',
     stampNoun: 'lakeside stamps', exploreNoun: 'the lake and its shore', cameraFar: 1500,
@@ -304,7 +304,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildJurongLakeScene, move: jurongLakeMovement.move, canOccupy: jurongLakeMovement.canOccupy,
   },
   changi: {
-    id: 'changi', name: 'Changi', shortName: 'Changi', modeName: 'Changi 3D', modeSubtitle: 'Glazed dome and the apron',
+    id: 'changi', name: REGION_NAMES['changi'], shortName: 'Changi', modeName: 'Changi 3D', modeSubtitle: 'Glazed dome and the apron',
     className: 'changi-game', badge: 'CHANGI · GAME WORLD', title: 'Changi · the dome & the apron',
     subtitle: 'Low-poly game map · authored glazed roof, terminal frontage and stands', mapTitle: 'DOME & APRON',
     stampNoun: 'landside stamps', exploreNoun: 'the dome and the apron', cameraFar: 1600,
@@ -321,7 +321,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildChangiScene, move: changiMovement.move, canOccupy: changiMovement.canOccupy,
   },
   'upper-thomson': {
-    id: 'upper-thomson', name: 'Upper Thomson', shortName: 'Thomson', modeName: 'Thomson 3D', modeSubtitle: 'Eating strip and reservoir',
+    id: 'upper-thomson', name: REGION_NAMES['upper-thomson'], shortName: 'Thomson', modeName: 'Thomson 3D', modeSubtitle: 'Eating strip and reservoir',
     className: 'upper-thomson-game', badge: 'UPPER THOMSON · GAME WORLD', title: 'Upper Thomson · strip & reservoir',
     subtitle: 'Low-poly game map · shop row, Thomson Plaza and compressed forest edge', mapTitle: 'STRIP & RESERVOIR',
     stampNoun: 'Thomson stamps', exploreNoun: 'the strip and the reservoir', cameraFar: 1500,
@@ -338,7 +338,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildUpperThomsonScene, move: upperThomsonMovement.move, canOccupy: upperThomsonMovement.canOccupy,
   },
   punggol: {
-    id: 'punggol', name: 'Punggol', shortName: 'Punggol', modeName: 'Punggol 3D', modeSubtitle: 'Waterway, precincts and the point',
+    id: 'punggol', name: REGION_NAMES['punggol'], shortName: 'Punggol', modeName: 'Punggol 3D', modeSubtitle: 'Waterway, precincts and the point',
     className: 'punggol-game', badge: 'PUNGGOL · GAME WORLD', title: 'Punggol · waterway & waterfront',
     subtitle: 'Low-poly game map · authored channel, arch crossing, precincts and jetty', mapTitle: 'WATERWAY & POINT',
     stampNoun: 'waterway stamps', exploreNoun: 'the waterway and the point', cameraFar: 1600,
@@ -356,7 +356,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildPunggolScene, move: punggolMovement.move, canOccupy: punggolMovement.canOccupy,
   },
   harbourfront: {
-    id: 'harbourfront', name: 'HarbourFront', shortName: 'HarbourFront', modeName: 'HarbourFront 3D', modeSubtitle: 'Quay, wharf and the ridge',
+    id: 'harbourfront', name: REGION_NAMES['harbourfront'], shortName: 'HarbourFront', modeName: 'HarbourFront 3D', modeSubtitle: 'Quay, wharf and the ridge',
     className: 'harbourfront-game', badge: 'HARBOURFRONT · GAME WORLD', title: 'HarbourFront · quay & cable line',
     subtitle: 'Low-poly game map · authored stepped mall, cruise berth, gantries and ridge', mapTitle: 'QUAY & WHARF',
     stampNoun: 'harbour stamps', exploreNoun: 'the quay and the ridge', cameraFar: 1600,
@@ -374,7 +374,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildHarbourfrontScene, move: harbourfrontMovement.move, canOccupy: harbourfrontMovement.canOccupy,
   },
   sentosa: {
-    id: 'sentosa', name: 'Sentosa', shortName: 'Sentosa', modeName: 'Sentosa 3D', modeSubtitle: 'Across the strait to the beaches',
+    id: 'sentosa', name: REGION_NAMES['sentosa'], shortName: 'Sentosa', modeName: 'Sentosa 3D', modeSubtitle: 'Across the strait to the beaches',
     className: 'sentosa-game', badge: 'SENTOSA · GAME WORLD', title: 'Sentosa · the resort island',
     subtitle: 'Low-poly game map · authored landing, monorail, battery and beach strip', mapTitle: 'ISLAND & BEACHES',
     stampNoun: 'island stamps', exploreNoun: 'the island and its beaches', cameraFar: 1600,
@@ -396,7 +396,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildSentosaScene, move: sentosaMovement.move, canOccupy: sentosaMovement.canOccupy,
   },
   geylang: {
-    id: 'geylang', name: 'Geylang', shortName: 'Geylang', modeName: 'Geylang 3D', modeSubtitle: 'Lorongs, terraces and the market',
+    id: 'geylang', name: REGION_NAMES['geylang'], shortName: 'Geylang', modeName: 'Geylang 3D', modeSubtitle: 'Lorongs, terraces and the market',
     className: 'geylang-game', badge: 'GEYLANG · GAME WORLD', title: 'Geylang · the lorongs',
     subtitle: 'Low-poly game map · authored lane grid, terraces, market hall and canal', mapTitle: 'LORONGS & CANAL',
     stampNoun: 'lorong stamps', exploreNoun: 'the lorongs', cameraFar: 1400,
@@ -415,7 +415,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildGeylangScene, move: geylangMovement.move, canOccupy: geylangMovement.canOccupy,
   },
   tuas: {
-    id: 'tuas', name: 'Tuas', shortName: 'Tuas', modeName: 'Tuas 3D', modeSubtitle: 'Tanks, gantries and the dry dock',
+    id: 'tuas', name: REGION_NAMES['tuas'], shortName: 'Tuas', modeName: 'Tuas 3D', modeSubtitle: 'Tanks, gantries and the dry dock',
     className: 'tuas-game', badge: 'TUAS · GAME WORLD', title: 'Tuas · the industrial west',
     subtitle: 'Low-poly game map · authored tank farm, process plant, dock and container yard', mapTitle: 'PLANT & WHARF',
     stampNoun: 'works stamps', exploreNoun: 'the plants and the wharf', cameraFar: 1700,
@@ -435,7 +435,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildTuasScene, move: tuasMovement.move, canOccupy: tuasMovement.canOccupy,
   },
   woodlands: {
-    id: 'woodlands', name: 'Woodlands', shortName: 'Woodlands', modeName: 'Woodlands 3D', modeSubtitle: 'The causeway and the north shore',
+    id: 'woodlands', name: REGION_NAMES['woodlands'], shortName: 'Woodlands', modeName: 'Woodlands 3D', modeSubtitle: 'The causeway and the north shore',
     className: 'woodlands-game', badge: 'WOODLANDS · GAME WORLD', title: 'Woodlands · the causeway',
     subtitle: 'Low-poly game map · authored causeway, checkpoint, waterfront and precincts', mapTitle: 'CAUSEWAY & SHORE',
     stampNoun: 'northern stamps', exploreNoun: 'the causeway and the shore', cameraFar: 1700,
@@ -455,7 +455,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildWoodlandsScene, move: woodlandsMovement.move, canOccupy: woodlandsMovement.canOccupy,
   },
   tampines: {
-    id: 'tampines', name: 'Tampines', shortName: 'Tampines', modeName: 'Tampines 3D', modeSubtitle: 'Round market, community hub and malls',
+    id: 'tampines', name: REGION_NAMES['tampines'], shortName: 'Tampines', modeName: 'Tampines 3D', modeSubtitle: 'Round market, community hub and malls',
     className: 'tampines-game', badge: 'TAMPINES · GAME WORLD', title: 'Tampines · the eastern town',
     subtitle: 'Low-poly game map · authored round market, integrated hub, malls and quarry', mapTitle: 'TOWN & QUARRY',
     stampNoun: 'town stamps', exploreNoun: 'the town centre and the quarry', cameraFar: 1600,
@@ -473,7 +473,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildTampinesScene, move: tampinesMovement.move, canOccupy: tampinesMovement.canOccupy,
   },
   'toa-payoh': {
-    id: 'toa-payoh', name: 'Toa Payoh', shortName: 'Toa Payoh', modeName: 'Toa Payoh 3D', modeSubtitle: 'The dragon and the town park',
+    id: 'toa-payoh', name: REGION_NAMES['toa-payoh'], shortName: 'Toa Payoh', modeName: 'Toa Payoh 3D', modeSubtitle: 'The dragon and the town park',
     className: 'toa-payoh-game', badge: 'TOA PAYOH · GAME WORLD', title: 'Toa Payoh · the first new town',
     subtitle: 'Low-poly game map · authored balcony slabs, mosaic dragon, park lookout and hub', mapTitle: 'TOWN & PARK',
     stampNoun: 'estate stamps', exploreNoun: 'the estate and its park', cameraFar: 1500,
@@ -491,7 +491,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildToaPayohScene, move: toaPayohMovement.move, canOccupy: toaPayohMovement.canOccupy,
   },
   'bukit-timah': {
-    id: 'bukit-timah', name: 'Bukit Timah', shortName: 'Bukit Timah', modeName: 'Bukit Timah 3D', modeSubtitle: 'The ridge and the rail corridor',
+    id: 'bukit-timah', name: REGION_NAMES['bukit-timah'], shortName: 'Bukit Timah', modeName: 'Bukit Timah 3D', modeSubtitle: 'The ridge and the rail corridor',
     className: 'bukit-timah-game', badge: 'BUKIT TIMAH · GAME WORLD', title: 'Bukit Timah · ridge & corridor',
     subtitle: 'Low-poly game map · compressed forest ridge, railway heritage node and canal', mapTitle: 'RIDGE & CORRIDOR',
     stampNoun: 'ridge stamps', exploreNoun: 'the ridge and the corridor', cameraFar: 1500,
@@ -510,7 +510,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildBukitTimahScene, move: bukitTimahMovement.move, canOccupy: bukitTimahMovement.canOccupy,
   },
   bishan: {
-    id: 'bishan', name: 'Bishan', shortName: 'Bishan', modeName: 'Bishan 3D', modeSubtitle: 'The river park and the town',
+    id: 'bishan', name: REGION_NAMES['bishan'], shortName: 'Bishan', modeName: 'Bishan 3D', modeSubtitle: 'The river park and the town',
     className: 'bishan-game', badge: 'BISHAN · GAME WORLD', title: 'Bishan · the river park',
     subtitle: 'Low-poly game map · grassy river banks, Junction 8 and ground-level station', mapTitle: 'RIVER & TOWN',
     stampNoun: 'park stamps', exploreNoun: 'the river park and the town', cameraFar: 1500,
@@ -528,7 +528,7 @@ const definitions: Record<RegionId, RegionDefinition> = {
     hasGuide: false, build: buildBishanScene, move: bishanMovement.move, canOccupy: bishanMovement.canOccupy,
   },
   orchard: {
-    id: 'orchard', name: 'Orchard Road', shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',
+    id: 'orchard', name: REGION_NAMES['orchard'], shortName: 'Orchard', modeName: 'Orchard 3D', modeSubtitle: 'Walk the shopping belt',
     className: 'orchard-game', badge: 'ORCHARD ROAD · GAME WORLD', title: 'Orchard · the shopping belt',
     subtitle: 'Low-poly game map · authored boulevard, malls and a peranakan lane', mapTitle: 'BOULEVARD & MALLS',
     stampNoun: 'boulevard stamps', exploreNoun: 'the shopping belt', cameraFar: 1400,

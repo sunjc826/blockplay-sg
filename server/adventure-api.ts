@@ -1,5 +1,5 @@
-import { parsePilotObservation } from '../src/game/pilot-strategy-contract.ts';
-import { planPilot } from './pilot-strategy.ts';
+import { createAiHandler } from './ai-api.ts';
+import type { LimitStore } from './ai-limits.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { alternatives, validateDecision, type AdventureSnapshot } from '../src/game/adventure.ts';
 import { learningTopics, learningTopic } from '../src/data/singapore-guide.ts';
@@ -60,12 +60,14 @@ export async function interpret(text: string, state: AdventureSnapshot, key: str
 }
 
 export function createAdventureHandler(env: Record<string, string | undefined>, fetcher = fetch,
-  options: { isOriginAllowed?: (req: IncomingMessage) => boolean } = {}) {
+  options: { aiStore?: LimitStore; cloud?: boolean; isOriginAllowed?: (req: IncomingMessage) => boolean } = {}) {
   const allowed = new Set((env.ADVENTURE_ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001').split(',').map(origin => origin.trim()));
+  const ai = createAiHandler(env, fetcher, options.aiStore, options.cloud);
   const reserve = createRequestGuard();
   return async (req: IncomingMessage, res: ServerResponse) => {
+    if (req.url?.startsWith('/api/ai/') || req.url === '/api/adventure/pilot-plan') return ai(req,res,options.isOriginAllowed ?? (req => allowed.has(req.headers.origin ?? '')));
     const reply = (status: number, data: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...(status === 429 ? { 'Retry-After': '60' } : {}) }); res.end(JSON.stringify(data)); };
-    if (req.method !== 'POST' || !['/api/adventure/change', '/api/adventure/voice-session', '/api/adventure/pilot-plan'].includes(req.url ?? '')) return reply(404, { error: 'Not found' });
+    if (req.method !== 'POST' || !['/api/adventure/change', '/api/adventure/voice-session'].includes(req.url ?? '')) return reply(404, { error: 'Not found' });
     if (!(options.isOriginAllowed ? options.isOriginAllowed(req) : allowed.has(req.headers.origin ?? ''))) return reply(403, { error: 'Unexpected origin' });
     if (env.ADVENTURE_ENABLED === 'false' || (req.url === '/api/adventure/voice-session' && env.ADVENTURE_VOICE_ENABLED === 'false')) return reply(503, { error: 'The companion service is temporarily disabled. You can keep exploring.' });
     if (req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/json') return reply(415, { error: 'JSON required' });
@@ -83,14 +85,8 @@ export function createAdventureHandler(env: Record<string, string | undefined>, 
       let body;
       try { body = JSON.parse(raw); } catch { return reply(400, { error: 'Invalid JSON' }); }
       const key = env.OPENAI_API_KEY?.trim();
-      if (!key) return reply(503, { error: 'Set OPENAI_API_KEY on the server to enable Luna and GPT-Live-1. You can keep exploring.' });
       const base = (env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-      if (req.url === '/api/adventure/pilot-plan') {
-        const observation = parsePilotObservation(body?.observation);
-        if (!observation) return reply(400, { error: 'Invalid pilot observation' });
-        const plan = await planPilot(observation, key, base, env.PILOT_MODEL?.trim() || 'gpt-5.6-luna', fetcher);
-        return reply(200, { plan });
-      }
+      if (!key) return reply(503, { error: 'Set OPENAI_API_KEY on the server to enable Luna and GPT-Live-1. You can keep exploring.' });
       if (req.url === '/api/adventure/change') {
         if (!validRequestText(body?.text) || !validSnapshot(body.state) || Object.keys(body).some(key => !['text', 'state'].includes(key))) return reply(400, { error: 'Invalid adventure request' });
         if (obviousInstructionOverride(body.text)) return reply(422, { error: 'Ask about Singapore or your game objective. Instruction overrides and secret requests are not supported.' });
