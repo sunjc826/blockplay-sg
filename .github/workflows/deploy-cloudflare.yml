@@ -80,8 +80,15 @@ jobs:
       # still checks every lockfile entry against the supply-chain policy in
       # pnpm-workspace.yaml (minimumReleaseAge) and fails the install on one
       # that is too new. A changed lockfile also misses the store cache.
+      #
+      # onnxruntime-node (under the dev-only depth prototype's transformers) has
+      # a postinstall that fetches CUDA binaries on Linux x64. Its 1.21.0 GPU
+      # archive is gone from the release page (404), which failed every install
+      # that missed the store cache. Nothing built or tested here uses a GPU.
       - run: pnpm install --frozen-lockfile
         if: steps.order.outputs.skip != 'true'
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
 
       - run: pnpm typecheck
         if: steps.order.outputs.skip != 'true'
