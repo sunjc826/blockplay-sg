@@ -32,3 +32,24 @@ export function withWarmRenderObjects(roots: readonly THREE.Object3D[], draw: ()
     for (let i = restore.length - 1; i >= 0; i--) restore[i]();
   }
 }
+
+/**
+ * `renderer.compileAsync`, but one that always ends. Three's own reads each waiting material's program inside a
+ * timer, and a material disposed in the meantime has none: the timer throws, nothing checks again, and the promise
+ * never settles, which leaves the loading screen up for good. A material without a program has nothing left to
+ * wait for. The limit is for a driver that never reports a program ready.
+ */
+export function compileSettled(renderer: THREE.WebGLRenderer, scene: THREE.Object3D, camera: THREE.Camera, limitMs = 60_000): Promise<void> {
+  const materials = renderer.compile(scene, camera) as unknown as Set<THREE.Material>, started = performance.now();
+  return new Promise(resolve => {
+    const check = () => {
+      for (const material of materials) {
+        const program = (renderer.properties.get(material) as { currentProgram?: { isReady(): boolean } }).currentProgram;
+        if (!program || program.isReady()) materials.delete(material);
+      }
+      if (materials.size && performance.now() - started < limitMs) setTimeout(check, 10); else resolve();
+    };
+    // Asking is only free where the driver compiles in parallel; elsewhere give it a moment first.
+    if (renderer.extensions.get('KHR_parallel_shader_compile') !== null) check(); else setTimeout(check, 10);
+  });
+}

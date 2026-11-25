@@ -1,4 +1,4 @@
-import { withWarmRenderObjects } from './warm-render-objects';
+import { compileSettled, withWarmRenderObjects } from './warm-render-objects';
 import { createAmmoPlacementQueue, type AmmoPlacement, type AmmoPlacementSource } from './ammo-placement';
 import { createAmmoPlacementViewmodel } from './fps-ammo-placement';
 import { CARRIER_CAPACITY, CARRIER_NAME, carrierUsed, stepCarrierTransfer, transferCandidate, type ReserveCarrierKind } from './reserve-carrier';
@@ -5197,7 +5197,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     const previous = renderer.getRenderTarget(), offscreen = new THREE.WebGLRenderTarget(1, 1), compiling: Promise<unknown>[] = [];
     for (const target of [null, offscreen]) {
       renderer.setRenderTarget(target);
-      compiling.push(renderer.compileAsync(world.scene, camera), renderer.compileAsync(viewScene, viewCamera));
+      compiling.push(compileSettled(renderer, world.scene, camera), compileSettled(renderer, viewScene, viewCamera));
     }
     renderer.setRenderTarget(previous);
     compiling.push(vision.warm(), deploymentBlur.warm());

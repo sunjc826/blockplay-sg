@@ -1,3 +1,4 @@
+import { compileSettled } from './warm-render-objects';
 import * as THREE from 'three';
 
 /** Short exposure along the zoom direction; the viewmodel is drawn afterwards. */
@@ -26,7 +27,7 @@ export function createDeploymentBlur(renderer: THREE.WebGLRenderer) {
   let frame: THREE.FramebufferTexture | null = null;
   const release = () => { frame?.dispose(); frame = null; material.uniforms.tFrame.value = null; };
   return {
-    warm: () => renderer.compileAsync(scene, camera),
+    warm: () => compileSettled(renderer, scene, camera),
     /** Zero bypasses every GPU pass and releases the temporary full-screen copy. */
     present(amount: number) {
       const strength = Number.isFinite(amount) ? THREE.MathUtils.clamp(amount, 0, .085) : 0;

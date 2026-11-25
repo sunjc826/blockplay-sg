@@ -1,3 +1,4 @@
+import { compileSettled } from './warm-render-objects';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { visionModelKey, type VisionKind, type VisionSpec, type VisionState } from './vision-devices';
@@ -168,7 +169,7 @@ export function createVisionMount() {
     async warm(renderer: THREE.WebGLRenderer) {
       root.visible = true;
       for (const model of models.values()) model.visible = true;
-      await renderer.compileAsync(scene, camera);
+      await compileSettled(renderer, scene, camera);
       for (const model of models.values()) model.visible = false;
       root.visible = false;
     },

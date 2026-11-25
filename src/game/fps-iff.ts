@@ -1,3 +1,4 @@
+import { compileSettled } from './warm-render-objects';
 import * as THREE from 'three';
 import { visiblePilotContacts, type PilotSubject } from './fps-pilot-perception';
 
@@ -242,7 +243,7 @@ export function createIffOverlay() {
       renderer.render(scene, camera);
       renderer.autoClear = autoClear; renderer.setRenderTarget(previous);
     },
-    warm(renderer: THREE.WebGLRenderer) { return renderer.compileAsync(scene, camera); },
+    warm(renderer: THREE.WebGLRenderer) { return compileSettled(renderer, scene, camera); },
     dispose() { geometry.dispose(); material.dispose(); },
   };
 }

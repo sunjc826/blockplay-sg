@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { expect, it } from 'vitest';
-import { withWarmRenderObjects } from './warm-render-objects';
+import { describe, expect, it, vi } from 'vitest';
+import { compileSettled, withWarmRenderObjects } from './warm-render-objects';
 
 it.each([false, true])('submits dormant renderables and restores state, including on error: %s', fail => {
   const root = new THREE.Group(); root.visible = false;
@@ -24,4 +24,31 @@ it.each([false, true])('submits dormant renderables and restores state, includin
   expect(pool.count).toBe(0); expect(pool.frustumCulled).toBe(true);
   expect(geometry.drawRange).toEqual({ start: 4, count: 0 });
   expect(Array.from(pool.instanceMatrix.array)).toEqual(before);
+});
+
+describe('compileSettled', () => {
+  const fake = (programs: Map<object, { isReady(): boolean } | undefined>) => ({
+    compile: () => new Set(programs.keys()), extensions: { get: () => ({}) },
+    properties: { get: (material: object) => ({ currentProgram: programs.get(material) }) },
+  }) as unknown as THREE.WebGLRenderer;
+  it('waits for each program, and no longer for a material disposed meanwhile', async () => {
+    vi.useFakeTimers();
+    try {
+      let ready = false; const kept = {}, disposed = {};
+      const programs = new Map<object, { isReady(): boolean } | undefined>([[kept, { isReady: () => ready }], [disposed, { isReady: () => false }]]);
+      let settled = false; void compileSettled(fake(programs), new THREE.Scene(), new THREE.PerspectiveCamera()).then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(50); expect(settled).toBe(false);
+      // Three drops a disposed material's properties; its own compileAsync throws here and never settles.
+      programs.set(disposed, undefined); await vi.advanceTimersByTimeAsync(50); expect(settled).toBe(false);
+      ready = true; await vi.advanceTimersByTimeAsync(50); expect(settled).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+  it('gives up on a program that never reports ready', async () => {
+    vi.useFakeTimers();
+    try {
+      let settled = false; void compileSettled(fake(new Map([[{}, { isReady: () => false }]])), new THREE.Scene(), new THREE.PerspectiveCamera(), 500).then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(400); expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(200); expect(settled).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
 });
