@@ -1,3 +1,6 @@
+import { destinationLabel } from '../src/game/streamer-variety.ts';
+import { MODE_NAMES } from '../src/game/streamer-history.ts';
+import arenaCatalog from '../src/game/arena-catalog.json' with {type:'json'};
 import { learnedMap } from './learned-map.ts';
 import { mapBrief } from './cast-map-brief.ts';
 import { zoneSectors } from '../src/game/zone-sectors.ts';
@@ -10,6 +13,30 @@ import type { MenuTurn, PlayTurn } from '../src/game/streamer-contract.ts';
 import { estimate } from './llm/index.ts';
 import { tidyLine } from './commentary.ts';
 import type { Provider } from './llm/types.ts';
+
+export function menuAdvice(turn:MenuTurn) {
+  const {history,poll,screen} = turn;
+  const label = (id:string) => destinationLabel(screen.screenId,id);
+  const lines:string[] = [];
+  if (history) {
+    const [last,prior] = history.recent;
+    const repeated = last && prior && last.mode === prior.mode && last.region === prior.region && last.arena === prior.arena && last.result === prior.result;
+    const recent = (repeated ? [last] : history.recent).map(g => {
+      const place = g.arena ? arenaCatalog[g.arena].name : REGION_NAMES[g.region];
+      const result = repeated && g.result ? (g.result === 'draw' ? 'drew' : g.result)+' both' : g.result;
+      const detail = [repeated ? 'twice' : undefined,result,
+        g.kills !== undefined ? (repeated ? 'latest ' : '')+g.kills+' K'+(g.deaths === undefined ? '' : '/'+g.deaths+' D') : undefined,
+        g.reached ? 'reached '+REGION_NAMES[g.reached] : undefined].filter(Boolean).join(', ');
+      return MODE_NAMES[g.mode]+' at '+place+(detail ? ' ('+detail+')' : '');
+    });
+    lines.push(recent.length ? 'Recently: '+recent.join('; ')+'.' : 'No games played yet.');
+    if (history.most) lines.push('Most played here: '+label(history.most.id)+' ('+history.most.count+').');
+    lines.push(history.unseen.length ? 'Unplayed here: '+history.unseen.map(label).join(', ')+
+      (history.more ? ' and '+history.more+' more.' : '.') : 'Played every option here.');
+  }
+  if (poll) lines.push('Chat poll: '+poll.map(row => label(row.id)+' '+row.share+'%').join(', ')+'.');
+  return lines.length ? '\n'+lines.join(' ') : '';
+}
 
 export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, model: string) {
   const persona = castPersona(turn.personaId)!;
@@ -39,7 +66,7 @@ export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, 
       play ? renderPlaceCard(region,REGION_NAMES[turn.regionId]) : 'Where you are: in the game\'s menus, not yet in a district.',...(play && turn.mode !== 'tutorial' ? [mapBrief(turn.regionId)] : [])].filter(Boolean),
     user:'Lines already said (oldest first)\n'+JSON.stringify(turn.memory)+'\nWhat happened\n'+JSON.stringify(play ? turn.events : turn.note)+
       (play ? '\nSession notes (oldest first)\n'+JSON.stringify(turn.notes)+(learned?.text ? '\nLearned places\n'+learned.text : '')+'\nHUD readout\n'+JSON.stringify(turn.hud)+'\nPilot observation\n'+JSON.stringify({mode:turn.mode,regionId:region,...turn.observation})
-        : '\nCurrent screen and budget\n'+JSON.stringify({screen:turn.screen,wallet:turn.wallet})),
+        : '\nCurrent screen and budget\n'+JSON.stringify({screen:turn.screen,wallet:turn.wallet})+menuAdvice(turn)),
     image:play && turn.frame ? {mediaType:'image/jpeg',base64:turn.frame} : undefined,
   });
   const reply = result.json;

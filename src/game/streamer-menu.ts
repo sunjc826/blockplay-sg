@@ -1,3 +1,4 @@
+import { pollVisit, shuffledScreen } from './streamer-variety';
 import type { MenuScreen } from './streamer-contract';
 
 export function waitFor(ms: number, signal: AbortSignal): Promise<void> {
@@ -15,12 +16,13 @@ interface MenuIO {
   act(screen: MenuScreen, id: string, signal: AbortSignal, onClick: () => void): Promise<void>;
   speak(line: string, ticket?: string): void;
   wait(ms: number, signal: AbortSignal): Promise<void>;
+  random?: () => number;
   now(): number;
 }
 /** How long to wait for a screen with choices. A district load is a screen without any, and on a
  * phone or a busy machine it runs well past a minute; the Stop chip is there the whole time. */
 export const MENU_WAIT_MS = 180000;
-export function menuTrip() { return { count:0, previous:'', repeats:0, note:'Visit the store, choose solo equipment, then start a game.' }; }
+export function menuTrip() { return { visit:pollVisit(), count:0, previous:'', repeats:0, note:'Visit the store, choose solo equipment, then start a game.' }; }
 
 /** Cancellation belongs to the session. Keep the trip counters across a human pause. */
 export async function runMenu(io: MenuIO, trip: ReturnType<typeof menuTrip>, signal: AbortSignal) {
@@ -35,7 +37,7 @@ export async function runMenu(io: MenuIO, trip: ReturnType<typeof menuTrip>, sig
     }
     if (trip.count >= 25) throw new Error('Reached 25 menu actions without entering play.');
     if (!screen.actions.some(a => a.state !== 'disabled')) throw new Error('This screen has no available streamer actions.');
-    const reply = await io.request(screen,trip.note,signal);
+    const reply = await io.request(shuffledScreen(screen,io.random ?? Math.random),trip.note,signal);
     signal.throwIfAborted();
     const choice = screen.actions.find(a => a.id === reply.actionId && a.state !== 'disabled');
     if (!choice) throw new Error('The streamer chose an unavailable control.');

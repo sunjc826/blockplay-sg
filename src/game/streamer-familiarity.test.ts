@@ -64,14 +64,14 @@ it('keeps only counters per opted-in persona and forgets active, saved and pendi
   s.speak('Private line'); s.notes.add('Private receipt',1000); s.stop();
   const stored=JSON.parse(disk.get(learningKey('pro'))!);
   expect(stored).toEqual({version:1,districts:{queenstown:{[court.id]:{seconds:150,incidents:0,visits:1}}}});
-  expect(s.savedSummary('pro')).toBe('Knows 1 district, 1 sector well');
+  expect(s.savedSummary('pro')).toBe('Knows 1 district, 1 sector well · 0 games played');
   play('rager',true); expect(s.levels(region)).toEqual({}); walk();
   play('pro',false); expect(s.levels(region)).toEqual({});
   play('pro',true); expect(s.levels(region)[court.id]).toBe('knows well');
   s.game={pause:vi.fn(),resume:vi.fn(),line:vi.fn(),forgetPlan:vi.fn()};
   s.forget('rager'); expect(s.levels(region)[court.id]).toBe('knows well');
   s.forget('pro'); expect(s.game.forgetPlan).toHaveBeenCalledOnce(); expect(s.levels(region)).toEqual({});
-  expect(s.savedSummary('pro')).toBe('Nothing learned yet'); s.stop();
+  expect(s.savedSummary('pro')).toBe('Nothing learned yet · 0 games played'); s.stop();
   expect([...disk.values()]).toEqual(['real profile','sandbox profile']);
 });
 

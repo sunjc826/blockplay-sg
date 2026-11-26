@@ -1,3 +1,4 @@
+import { playHistory, readHistory, type GameLocation, type GameStats } from './streamer-history';
 import { familiarity, learningSummary, readLearning } from './streamer-familiarity';
 import type { RegionId } from './region-ids';
 import type { ZoneSector } from './zone-sectors';
@@ -15,6 +16,10 @@ export function phaseForHud(hud: Pick<FpsHud,'phase'|'deathRecap'|'arenaSelf'>):
 }
 
 export const learningKey = (persona:string) => 'blockplay.streamer.learning.v1.'+persona;
+export const historyKey = (persona:string) => 'blockplay.streamer.history.v1.'+persona;
+function savedHistory(persona:string) {
+  try { return readHistory(localStorage.getItem(historyKey(persona))); } catch { return []; }
+}
 function savedLearning(persona:string) {
   try { return readLearning(localStorage.getItem(learningKey(persona))); } catch { return {}; }
 }
@@ -23,11 +28,13 @@ export function streamerSession() {
   const notes = sessionNotes(), memory = castMemory(), listeners = new Set<() => void>();
   let state = {phase:'off' as StreamPhase, reason:'', caption:'', serial:0};
   let learning = familiarity(), dirty = false, lastSave = 0;
+  let history = playHistory(), historyDirty = false, historySavedAt = 0;
+  let currentRun:object|null = null, forgottenRun:object|null = null;
   let abort = new AbortController();
   let events: string[] = [];
   const set = (phase: StreamPhase, reason = '') => {
     learning.suspend();
-    saveLearning();
+    saveLearning(); saveHistory();
     session.interrupt();
     abort.abort(); abort = new AbortController();
     state = {...state,phase,reason};
@@ -42,10 +49,28 @@ export function streamerSession() {
     }
     catch { /* Storage may be unavailable. Keep playing with in-memory learning. */ }
   }
+  function saveHistory() {
+    if (!historyDirty || !session.settings.keepLearning) return;
+    try {
+      localStorage.setItem(historyKey(session.settings.personaId),history.serialize());
+      historyDirty = false; historySavedAt = Date.now();
+    } catch { /* Keep session history if storage is unavailable. */ }
+  }
   const session = {
     settings: {personaId:'pro',clean:false,screenshots:true,voice:false} as StreamSettings, trip:menuTrip(), memory, notes, started:0,
     levels:(region:RegionId) => learning.levels(region),
-    savedSummary:(persona:string) => learningSummary(savedLearning(persona)),
+    games:() => history.games(),
+    recordGame(run:object,location:GameLocation,seconds:number,stats:GameStats) {
+      if (state.phase === 'off' || state.phase === 'paused' || run === forgottenRun) return;
+      currentRun = run;
+      const checkpoint = history.sample(run,location,seconds,stats,Date.now());
+      historyDirty = true;
+      if (checkpoint || Date.now()-historySavedAt >= 10000) saveHistory();
+    },
+    savedSummary(persona:string) {
+      const games = state.phase !== 'off' && session.settings.personaId === persona ? history.games() : savedHistory(persona);
+      return learningSummary(savedLearning(persona))+' · '+games.length+(games.length === 1 ? ' game played' : ' games played');
+    },
     leaveSector:() => learning.leave(),
     observe(region:RegionId,sector:ZoneSector|null,time:number,alive:boolean,kind?:'fight'|'death'|'supply') {
       if (state.phase !== 'play') return;
@@ -59,11 +84,12 @@ export function streamerSession() {
     },
     keepLearning(value:boolean) {
       session.settings = {...session.settings,keepLearning:value};
-      if (value) saveLearning();
+      if (value) { saveLearning(); saveHistory(); }
     },
     forget(persona:string) {
-      try { localStorage.removeItem(learningKey(persona)); } catch { /* Session reset still applies. */ }
+      try { localStorage.removeItem(learningKey(persona)); localStorage.removeItem(historyKey(persona)); } catch { /* Session reset still applies. */ }
       if (state.phase !== 'off' && session.settings.personaId === persona) {
+        history = playHistory(); historyDirty = false; forgottenRun = currentRun;
         learning = familiarity(); dirty = false;
         events = events.filter(text => !text.startsWith('Map familiarity ·'));
         session.game?.forgetPlan?.();
@@ -77,12 +103,15 @@ export function streamerSession() {
     snapshot: () => state, signal: () => abort.signal,
     subscribe(fn:()=>void) { listeners.add(fn); return () => {listeners.delete(fn);}; },
     start(settings:StreamSettings) {
+      saveHistory(); history = playHistory(settings.keepLearning ? savedHistory(settings.personaId) : []); historyDirty = false;
+      currentRun = forgottenRun = null;
       saveLearning(); learning = familiarity(settings.keepLearning ? savedLearning(settings.personaId) : {}); dirty = false;
       session.started = Date.now(); session.settings = {...settings}; notes.clear(); memory.clear(); events = []; session.trip = menuTrip();
       state = {...state,caption:'',serial:state.serial+1}; set('menu');
     },
     stop(reason = '') {
       if (state.phase !== 'off') session.game?.pause();
+      saveHistory(); history = playHistory(); historyDirty = false; currentRun = forgottenRun = null;
       saveLearning(); learning = familiarity(); dirty = false;
       session.game = null; notes.clear(); memory.clear(); events = []; state = {...state,caption:''}; set('off',reason);
     },

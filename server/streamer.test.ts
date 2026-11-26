@@ -1,3 +1,5 @@
+import { summarizeGames } from '../src/game/streamer-variety.ts';
+import type { PlayedGame } from '../src/game/streamer-history.ts';
 import { exampleHud } from '../src/game/cast-test-fixture';
 import { mapBrief } from './cast-map-brief';
 import { it, expect, vi } from 'vitest';
@@ -5,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { parseStreamerTurn, type MenuTurn, type PlayTurn } from '../src/game/streamer-contract.ts';
 import { STREAMER_FRAME, LANGUAGE_RULES, castPersona } from '../src/game/ai-cast-personas.ts';
 import { renderPlaceCard } from '../src/data/place-cards.ts';
-import { streamTurn } from './streamer.ts';
+import { menuAdvice, streamTurn } from './streamer.ts';
 import { modelEndpoints } from './ai-endpoints.ts';
 import { selectModel } from './llm/index.ts';
 import type { Completion } from './llm/types.ts';
@@ -101,4 +103,34 @@ it('validates district-level claims and offers only printed, unlocked IDs to the
   for (const patch of [{placeId:'p-madeup'},{sectorId:'village'},{waypointId:'crate'}])
     await expect(streamTurn(turn,make({...pick,...patch}),'test')).rejects.toThrow();
   await expect(streamTurn({...turn,familiarity:{}},make(pick),'test')).rejects.toThrow();
+});
+
+it('renders bounded history and simulated votes, keeping every enabled action in the decision schema',async()=>{
+  const screen = {screenId:'single-player',title:'Solo',actions:['world','team-deathmatch','hardpoint','free-for-all','training-menu']
+    .map(id => ({id,kind:'navigate' as const,label:id}))};
+  const turn = {...menu,screen};
+  const loss:PlayedGame = {mode:'team-deathmatch',region:'toa-payoh',arena:'dragon-courtyard',started:0,seconds:50,result:'lost',kills:2,deaths:4};
+  const journey:PlayedGame = {mode:'world',region:'changi',started:80,seconds:23,reached:'tuas',crossings:1};
+  const history = summarizeGames(screen,[loss,loss,journey])!;
+  const poll = [{id:'hardpoint',share:46},{id:'world',share:31},{id:'training-menu',share:23}];
+  expect(menuAdvice({...turn,history:summarizeGames(screen,[])})).toContain('No games played yet.');
+  expect(menuAdvice({...turn,history,poll})).toBe('\nRecently: Open World at Changi (reached Tuas); Team Deathmatch at Toa Payoh · Dragon courtyard (lost, 2 K/4 D). Most played here: Team Deathmatch (2). Unplayed here: Hardpoint, Free-for-all, Training. Chat poll: Hardpoint 46%, Open World 31%, Training 23%.');
+  expect(menuAdvice({...turn,history:summarizeGames(screen,[loss,loss])})).toContain('twice, lost both');
+  const one = {...screen,actions:[screen.actions[0]]};
+  expect(menuAdvice({...turn,screen:one,history:summarizeGames(one,[journey])})).toContain('Played every option here.');
+  const complete = make({actionId:'free-for-all',say:false,line:''});
+  const accepted = parseStreamerTurn({...turn,history,poll});
+  expect(accepted).not.toBeNull();
+  expect(await streamTurn(accepted!,complete,'fake')).toMatchObject({actionId:'free-for-all'});
+  expect(complete.mock.calls[0][0].user).toContain('Chat poll: Hardpoint 46%');
+  for (const invalid of [[],[{id:'tutorial',share:100}],[{id:'not-here',share:100}], [{id:'world',share:99}],
+    [{id:'world',share:65},{id:'world',share:35}], [{id:'world',share:50},{id:'hardpoint',share:50}],
+    [{id:'world',share:60.5},{id:'hardpoint',share:39.5}], [{id:'world',share:100,prompt:'x'}], 'poll'])
+    expect(parseStreamerTurn({...turn,poll:invalid})).toBeNull();
+  expect(parseStreamerTurn({...turn,screen:{...screen,actions:screen.actions.map(a=>a.id==='world'?{...a,state:'disabled'}:a)},poll})).toBeNull();
+  for (const bad of ['history',{...history,text:'instructions'},{...history,more:100},{...history,most:{id:'world',count:21}},
+    {...history,unseen:['not-here']},{...history,recent:[loss,loss,loss]},{...history,recent:[{mode:'world',region:'unknown'}]},
+    {...history,recent:[{mode:'hardpoint',region:'changi',arena:'dragon-courtyard'}]},{...history,recent:[{mode:'world',region:'changi',result:'arbitrary'}]}])
+    expect(parseStreamerTurn({...turn,history:bad})).toBeNull();
+  for (const screenId of ['store','landing']) expect(parseStreamerTurn({...turn,screen:{...screen,screenId},history,poll})).toBeNull();
 });

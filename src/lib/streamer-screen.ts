@@ -55,7 +55,7 @@ function declared(doc: Document) {
 export function readStreamerScreen(doc: Document) { return declared(doc)?.screen ?? null; }
 
 export async function clickStreamerAction(doc: Document, screen: MenuScreen, id: string, signal: AbortSignal,
-  point: (x:number,y:number) => void, onClick: () => void) {
+  point: (x:number,y:number,control:HTMLElement) => void, onClick: () => void) {
   const resolve = () => {
     signal.throwIfAborted();
     const view = declared(doc), control = view?.controls.get(id);
@@ -67,7 +67,7 @@ export async function clickStreamerAction(doc: Document, screen: MenuScreen, id:
   const control = resolve();
   control.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
   const box = control.getBoundingClientRect(), x = box.left+box.width/2, y = box.top+box.height/2;
-  point(x,y);
+  point(x,y,control);
   if (!reducedMotion()) await waitFor(500,signal);
   if (resolve() !== control) throw new Error('The menu changed while the cursor was moving.');
   const hit = doc.elementFromPoint(x,y);

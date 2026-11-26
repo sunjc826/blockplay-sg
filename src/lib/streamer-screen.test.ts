@@ -61,7 +61,7 @@ it.skipIf(!documentFor)('clicks only the revalidated visible control after the c
   control.addEventListener('click',click);
   try {
     await clickStreamerAction(doc,screen,'rent',new AbortController().signal,point,caption);
-    expect(point).toHaveBeenCalledWith(40,20);expect(click).toHaveBeenCalledOnce();expect(caption).toHaveBeenCalledOnce();
+    expect(point).toHaveBeenCalledWith(40,20,control);expect(click).toHaveBeenCalledOnce();expect(caption).toHaveBeenCalledOnce();
     Object.defineProperty(doc,'elementFromPoint',{value:()=>doc.body});
     await expect(clickStreamerAction(doc,screen,'rent',new AbortController().signal,point,caption)).rejects.toThrow('covered');
     expect(click).toHaveBeenCalledOnce();expect(caption).toHaveBeenCalledOnce();

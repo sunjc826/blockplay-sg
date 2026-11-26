@@ -1,3 +1,4 @@
+import { validAdvice, type PlaySummary, type PollRow } from './streamer-variety.ts';
 import arenaCatalog from './arena-catalog.json' with {type:'json'};
 import { validLevels, type SectorLevels } from './streamer-familiarity.ts';
 import { zoneSectors } from './zone-sectors.ts';
@@ -16,7 +17,7 @@ export interface MenuAction {
 export interface MenuScreen { screenId: string; title: string; actions: MenuAction[] }
 export interface Wallet { credits: number; tokens: number }
 interface Turn { personaId: string; clean: boolean; memory: string[] }
-export interface MenuTurn extends Turn { phase: 'menu'; screen: MenuScreen; wallet: Wallet; note: string }
+export interface MenuTurn extends Turn { phase: 'menu'; history?:PlaySummary; poll?:PollRow[]; screen: MenuScreen; wallet: Wallet; note: string }
 export interface PlayTurn extends Turn {
   phase: 'play'; familiarity?:SectorLevels; destinationSector?:string; destinationPlace?:string; arenaArea?:string; hud: HudReadout; notes:string[]; regionId: RegionId; mode: CastMode; events: string[]; observation: PilotObservation; frame?: string;
 }
@@ -35,7 +36,7 @@ export function parseStreamerTurn(v: unknown): PlayTurn | MenuTurn | null {
     return observation && { ...(v as unknown as PlayTurn), observation };
   }
   const s = v.screen, w = v.wallet;
-  if (v.phase !== 'menu' || !only(v,[...shared,'note','screen','wallet']) || !short(v.note,240) ||
+  if (v.phase !== 'menu' || !only(v,[...shared,'note','screen','wallet','history','poll']) || !short(v.note,240) ||
     !record(w) || !only(w,['credits','tokens']) || ![w.credits,w.tokens].every(n => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 1000000) ||
     !record(s) || !only(s,['screenId','title','actions']) || !id(s.screenId) || !short(s.title,120) ||
     !Array.isArray(s.actions) || !s.actions.length || s.actions.length > 40) return null;
@@ -46,5 +47,6 @@ export function parseStreamerTurn(v: unknown): PlayTurn | MenuTurn | null {
       ('state' in a && a.state !== 'disabled' && a.state !== 'selected') || ('detail' in a && !short(a.detail,160))) return null;
     ids.add(String(a.id));
   }
+  if (!validAdvice(s as unknown as MenuScreen,v.history,v.poll)) return null;
   return s.actions.some(a => a.state !== 'disabled') ? v as unknown as MenuTurn : null;
 }

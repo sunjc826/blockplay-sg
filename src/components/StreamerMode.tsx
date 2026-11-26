@@ -1,3 +1,6 @@
+import { chosenDestination, summarizeGames } from '../game/streamer-variety';
+import { StreamerPoll, type PollCard } from './StreamerPoll';
+import { gameRecorder } from '../game/streamer-game-record';
 import { zoneSectors, sectorAt } from '../game/zone-sectors';
 import { hudReadout, type HudPresentation } from '../game/cast-hud';
 import { noteHudEvents } from '../game/streamer-notes';
@@ -90,6 +93,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
   const latest = useRef({hud,presentation});
   useLayoutEffect(() => { latest.current = {hud,presentation}; },[hud,presentation]);
   const [track] = useState(() => ({engine:null as FpsEngine|null, notes:null as ReturnType<typeof noteHudEvents>|null, diff:hudEvents((text,major) => { s.event(text); if (major) engine.current?.replanPilot(); })}));
+  const [recordGame] = useState(() => gameRecorder(s.recordGame));
   const resumePlay = useRef(false), lastPhase = useRef<'menu'|'play'>('menu');
   useLayoutEffect(() => {
     if (!e) return;
@@ -145,6 +149,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
       });
       track.diff = hudEvents((text,major) => { s.event(text); if (major) e.replanPilot(); }); s.event('Arrived in '+e.castRegion); e.replanPilot();
     }
+    recordGame(mode,e.castRegion,hud);
     track.notes?.(hud,Date.now());
     track.diff(hud,Date.now());
     if (hud.phase === 'loading') return;
@@ -153,7 +158,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
     if (phase === "play" && s.snapshot().phase !== phase) e.replanPilot();
     s.handoff(phase);
     if (phase === 'play' && hud.phase === 'playing' && !hud.pilotEnabled) e.startPilot();
-  },[hud,e,s,track,mode]);
+  },[hud,e,s,track,mode,recordGame]);
   return null;
 }
 
@@ -170,6 +175,14 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   const [dock,setDock] = useState<HTMLDivElement|null>(null);
   s.dock = setDock;
   const [host,setHost] = useState<Element|null>(null), cursor = useRef<HTMLDivElement>(null);
+  const [target,setTarget] = useState<HTMLElement|null>(null);
+  const currentPoll = useRef<PollCard|null>(null);
+  const [card,setCard] = useState<PollCard|null>(null);
+  useEffect(() => {
+    if (!card?.until) return;
+    const timer = window.setTimeout(() => setCard(null),Math.max(0,card.until-Date.now()));
+    return () => window.clearTimeout(timer);
+  },[card]);
   const panelRef = useRef<HTMLElement>(null), resumeButton = useRef<HTMLButtonElement>(null);
   useModalFocus(panelRef, panel && !!host, () => setPanel(false));
   useEffect(() => { if (state.phase === "paused") resumeButton.current?.focus(); },[state.phase]);
@@ -217,20 +230,49 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     return () => { for (const event of events) window.removeEventListener(event,input,true); window.removeEventListener('blur',blur); window.removeEventListener('pagehide',blur); document.removeEventListener('visibilitychange',visibility); };
   },[active,s]);
   useEffect(() => {
+    if (state.phase === 'off') {
+      currentPoll.current = null; setTarget(null); setCard(null);
+    }
     if (state.phase !== 'menu') return;
     const abort = new AbortController(), signal = AbortSignal.any([s.signal(),abort.signal]);
     void runMenu({
-      read:() => readStreamerScreen(document), now:Date.now, wait:waitFor,
+      read:() => {
+        const screen = readStreamerScreen(document);
+        if (!screen) s.trip.visit.clear();
+        return screen;
+      }, now:Date.now, wait:waitFor,
       request:async (screen,note,signal) => {
         if (s.settings.voice) await s.player.idle();
         signal.throwIfAborted();
+        const history = summarizeGames(screen,s.games());
+        const rows = s.trip.visit.read(screen,s.games());
+        const previous = currentPoll.current;
+        if (rows.length && rows !== previous?.rows) {
+          if (previous?.until && previous.until > Date.now()) await waitFor(previous.until-Date.now(),signal);
+          signal.throwIfAborted();
+          setTarget(null);
+          currentPoll.current = {rows,screenId:screen.screenId}; setCard(currentPoll.current);
+        } else if (!rows.length && previous && !previous.chosen) {
+          currentPoll.current = null; setCard(null);
+        }
         return requestCast<{actionId:string;line:string|null;ticket?:string}>('streamer',{
-          phase:'menu',screen,note,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
+          phase:'menu',screen,note,history,poll:rows.length ? rows : undefined,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
         },signal,s.account);
       },
-      act:(screen,id,signal,onClick) => clickStreamerAction(document,screen,id,signal,(x,y) => {
+      act:(screen,id,signal,onClick) => clickStreamerAction(document,screen,id,signal,(x,y,control) => {
+        setTarget(control);
         if (cursor.current) cursor.current.style.transform = 'translate('+x+'px,'+y+'px)';
-      },onClick),
+      },() => {
+        const poll = currentPoll.current;
+        if (poll?.screenId === screen.screenId) {
+          const chosen = chosenDestination(screen,id);
+          if (poll.chosen !== chosen) {
+            currentPoll.current = {...poll,chosen,until:Date.now()+3000};
+            setCard(currentPoll.current);
+          }
+        }
+        onClick();
+      }),
       speak:s.speak,
     },s.trip,signal).catch(err => { if (!signal.aborted) s.stop(err instanceof Error ? err.message : 'Menu connection interrupted.'); });
     return () => abort.abort();
@@ -239,6 +281,11 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     if (!state.caption) return;
     return holdCaption(state.caption,() => s.player.idle(),() => { if (s.snapshot().serial === state.serial) s.dismissCaption(); });
   },[state.caption,state.serial,s]);
+  const setVoice = (voice: boolean) => {
+    s.settings = {...s.settings,voice}; setSettings(s.settings); s.save();
+    if (voice) s.unlock(); else s.closeAudio();
+  };
+  const voiceReady = !!status?.voice?.available, voiceOn = !!s.settings.voice && voiceReady;
   if (!host || !active && !panel && !state.reason) return null;
   const q = status?.quota, name = castPersona(s.settings.personaId)?.name;
   const limit = q && q.used >= q.limit;
@@ -268,17 +315,19 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     {active && createPortal(<div className="streamer-chip" data-streamer-controls><strong>{name}</strong>
       {state.phase === 'paused' && <><span>Paused</span><button onClick={()=>s.stop()}>Take control</button><button ref={resumeButton} onClick={()=>{ s.unlock(); s.resume(); }}>Resume</button></>}
       <button onClick={()=>s.stop()}>Stop</button>
+      {/* One click, mid-match: off cuts the line being spoken, and captions carry on. */}
+      <button className="streamer-voice" aria-pressed={voiceOn} disabled={!voiceReady}
+        title={voiceReady ? (voiceOn ? 'Turn the streamer\u2019s voice off' : 'Turn the streamer\u2019s voice on') : (status?.voice?.reason ?? 'Voice unavailable') + ' \u00b7 captions only'}
+        onClick={()=>setVoice(!voiceOn)}>{voiceOn ? 'Voice on' : 'Voice off'}</button>
       {q && <details className="streamer-usage"><summary aria-label="Streamer AI usage">Usage</summary><div>
         <progress aria-label="Daily AI calls" value={q.used} max={Math.max(q.limit,1)}/>
         <span>{q.used} / {q.limit} calls · Resets at {castResetTime(q.resetsAt)}</span>
-        <CastVoiceSwitch enabled={!!s.settings.voice} voice={status?.voice} change={voice=>{
-          s.settings = {...s.settings,voice}; setSettings(s.settings); s.save();
-          if (voice) s.unlock(); else s.closeAudio();
-        }}/>
+        <CastVoiceSwitch enabled={!!s.settings.voice} voice={status?.voice} change={setVoice}/>
         {learningControls}
         <span>{usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</span>
       </div></details>}
     </div>,dock ?? host)}
+    {active && card && <StreamerPoll card={card} target={target}/>}
     {state.phase === 'menu' && <div ref={cursor} className="streamer-cursor" aria-hidden="true"/>}
     {active && state.phase !== 'play' && state.caption && <div className="streamer-menu-caption cast-caption" aria-live="polite"><b>{name}</b> {state.caption}</div>}
     {!active && state.reason && <div className="streamer-chip" role="status">{state.reason}<button onClick={()=>s.stop()}>Dismiss</button></div>}
