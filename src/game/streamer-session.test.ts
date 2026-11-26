@@ -9,7 +9,7 @@ const screen:MenuScreen = {screenId:'solo',title:'Solo',actions:[{id:'play',kind
 function menuFixture() {
   let now = 0;
   const abort = new AbortController(), trip = menuTrip();
-  const io = {read:vi.fn<()=>MenuScreen|null>(()=>screen), request:vi.fn(async()=>({actionId:'play',line:'Lets go.'})),
+  const io = {games:()=>[], showPoll:vi.fn(), read:vi.fn<()=>MenuScreen|null>(()=>screen), request:vi.fn(async()=>({actionId:'play',line:'Lets go.'})),
     act:vi.fn(async (_:MenuScreen,_id:string,_s:AbortSignal,commit:()=>void)=>commit()),speak:vi.fn(),
     wait:vi.fn(async (ms:number)=>{now+=ms;}), now:()=>now};
   return {abort,io,trip,run:()=>runMenu(io,trip,abort.signal)};

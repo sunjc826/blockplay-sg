@@ -11,6 +11,8 @@ export const BASE_WEIGHT = 1;
 export const NOVELTY_BONUS = 4;
 // Multiply the last game's destination weight by this fraction to discourage immediate repeats.
 export const LAST_GAME_FACTOR = 0.35;
+export const POLL_VOTE_SECONDS = 5;
+export const VIEWER_VOTE_POINTS = 25;
 
 const arenaRegions = new Map(Object.values(arenaCatalog).map(area => [area.region,area]));
 function pickerMode(screenId:string):SoloMode|undefined {
@@ -85,22 +87,44 @@ export function rollPoll(screen:MenuScreen,games:readonly PlayedGame[],random:()
   return ids.map((id,i) => ({id,share:[leader,second,rest-second][i]}));
 }
 
-export function pollVerdict(poll:readonly PollRow[],chosen:string) {
+export function applyViewerVote(rows:readonly PollRow[],id:string):PollRow[] {
+  const chosen = rows.find(row => row.id === id)!;
+  const otherTotal = 100 - chosen.share;
+  const remaining = Math.max(0,otherTotal - VIEWER_VOTE_POINTS);
+  // Round cumulative shares so adjacent allocations always add up to the exact remainder.
+  let cumulative = 0, allocated = 0;
+  return rows.map(row => {
+    if (row.id === id) return {id,share:100 - remaining};
+    cumulative += row.share;
+    const next = otherTotal ? Math.round(cumulative * remaining / otherTotal) : 0;
+    const share = next - allocated;
+    allocated = next;
+    return {id:row.id,share};
+  }).sort((a,b) => b.share - a.share);
+}
+
+export function pollVerdict(poll:readonly PollRow[],chosen:string,viewerVote?:string) {
+  if (viewerVote) return viewerVote === chosen ? 'Went with your vote' : 'Overruled your vote';
   if (poll[0]?.id === chosen) return 'Went with chat';
   return poll.some(r => r.id === chosen) ? 'Overruled chat' : 'Ignored the poll';
 }
 
+interface VisitPoll { rows:PollRow[]; opened:boolean; viewerVote?:string }
+
 /** A selection changes the preview on a picker. It does not start a new visit. */
 export function pollVisit(random = Math.random) {
-  let key = '', poll:PollRow[] = [];
+  let key = '', poll:VisitPoll | undefined;
   return {
     read(screen:MenuScreen,games:readonly PlayedGame[]) {
-      if (key !== screen.screenId) { key = screen.screenId; poll = []; }
-      if (!poll.length) poll = rollPoll(screen,games,random);
+      if (key !== screen.screenId) { key = screen.screenId; poll = undefined; }
+      if (!poll) {
+        const rows = rollPoll(screen,games,random);
+        if (!rows.length) return;
+        poll = {rows,opened:false};
+      }
       // A temporarily unavailable candidate cannot ride on the request. Keep the original roll for this visit.
-      return poll.every(row => screen.actions.some(a => a.id === row.id && a.state !== 'disabled')) ? poll : [];
+      return poll.rows.every(row => screen.actions.some(a => a.id === row.id && a.state !== 'disabled')) ? poll : undefined;
     },
-    clear() { key = ''; },
   };
 }
 
@@ -118,7 +142,7 @@ export function shuffledScreen(screen:MenuScreen,random:()=>number) {
   return {...screen,actions:actions.concat(screen.actions.filter(a => a.id === 'back'))};
 }
 
-export function validAdvice(screen:MenuScreen,summary:unknown,poll:unknown) {
+export function validAdvice(screen:MenuScreen,summary:unknown,poll:unknown,viewerVote:unknown) {
   const ids = destinations(screen).map(a => a.id);
   const allowed = (id:unknown) => typeof id === 'string' && ids.includes(id);
   if (summary !== undefined) {
@@ -131,14 +155,15 @@ export function validAdvice(screen:MenuScreen,summary:unknown,poll:unknown) {
     if ('most' in summary && (!record(most) || !only(most,['id','count']) || !allowed(most.id) ||
       summary.unseen.includes(most.id) || !count(most.count,GAME_LIMIT) || most.count === 0)) return false;
   }
-  if (poll === undefined) return true;
+  if (poll === undefined) return viewerVote === undefined;
   if (!Array.isArray(poll) || !poll.length || poll.length > 3) return false;
   const seen = new Set<string>();
   let total = 0, prev = 101;
   for (const [i,row] of poll.entries()) {
     if (!record(row) || !only(row,['id','share']) || typeof row.id !== 'string' || !allowed(row.id) || seen.has(row.id) ||
-      !count(row.share,100) || !row.share || row.share > prev || i === 1 && row.share === prev) return false;
+      !count(row.share,100) || row.share > prev ||
+      viewerVote === undefined && (!row.share || i === 1 && row.share === prev)) return false;
     seen.add(row.id); total += row.share; prev = row.share;
   }
-  return total === 100;
+  return total === 100 && (viewerVote === undefined || typeof viewerVote === 'string' && seen.has(viewerVote));
 }

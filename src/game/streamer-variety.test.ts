@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { REGION_IDS, type RegionId } from './region-ids';
 import { playHistory, readHistory, type PlayedGame } from './streamer-history';
-import { chosenDestination, pollVerdict, pollVisit, rollPoll, shuffledScreen, summarizeGames } from './streamer-variety';
+import { applyViewerVote, chosenDestination, pollVerdict, pollVisit, rollPoll, shuffledScreen, summarizeGames } from './streamer-variety';
 import { runMenu, menuTrip } from './streamer-menu';
 import { streamerSession, historyKey } from './streamer-session';
 import type { ArenaActor, ArenaSnapshot } from './arena-rules';
@@ -26,10 +26,12 @@ it('shuffles only the request order, deterministically with a seed, leaving ever
   expect(first.actions).toHaveLength(inputs.length);
 });
 it('sends the shuffled options to the model and resolves its id on the original screen',async() => {
+  let now = 0;
   const abort = new AbortController(), target = vi.fn(), choice = districts.actions.at(-1)!;
   const controls = new Map([[choice.id,target]]);
   await expect(runMenu({
-    read:() => districts, random:seeded(77), now:() => 0, wait:async() => {}, speak:vi.fn(),
+    read:() => districts, random:seeded(77), games:()=>[], showPoll:vi.fn(),
+    now:() => now, wait:async ms => { now += ms; }, speak:vi.fn(),
     request:async sent => {
       expect(sent).toEqual(shuffledScreen(districts,seeded(77)));
       return {actionId:choice.id,line:null};
@@ -65,17 +67,17 @@ it('rolls only real enabled destinations on the solo mode, range, district and a
   }
 });
 it('keeps a poll through rereads, shuffled options and preview selection, then rolls on returning',() => {
-  const visit = pollVisit(seeded(7)), rows = visit.read(districts,[]);
+  const visit = pollVisit(seeded(7)), poll = visit.read(districts,[])!, rows = poll.rows;
   const reread = shuffledScreen(districts,seeded(9));
-  expect(visit.read(reread,[])).toBe(rows);
+  expect(visit.read(reread,[])).toBe(poll);
   const chosen = {...reread,actions:reread.actions.map(a => a.id === rows[1].id ? {...a,state:'selected' as const} : a)};
-  expect(visit.read(chosen,[])).toBe(rows);
+  expect(visit.read(chosen,[])).toBe(poll);
   const disabled = {...chosen,actions:chosen.actions.map(a => a.id === rows[0].id ? {...a,state:'disabled' as const} : a)};
-  expect(visit.read(disabled,[])).toEqual([]); expect(visit.read(chosen,[])).toBe(rows);
+  expect(visit.read(disabled,[])).toBeUndefined(); expect(visit.read(chosen,[])).toBe(poll);
   expect(pollVerdict(rows,chosenDestination(chosen,'load-district'))).toBe('Overruled chat');
   expect(pollVerdict(rows,rows[0].id)).toBe('Went with chat');
   expect(pollVerdict(rows,'district-elsewhere')).toBe('Ignored the poll');
-  visit.read(screen('loadout',['back']),[]); expect(visit.read(districts,[])).not.toEqual(rows);
+  visit.read(screen('loadout',['back']),[]); expect(visit.read(districts,[])).not.toEqual(poll);
 });
 it('favours novelty and discounts the last game while every option can still lead',() => {
   const picker = screen('world-districts',['district-tuas','district-changi','district-punggol','district-orchard']);
@@ -138,4 +140,22 @@ it('updates arena scores through a respawn and records the outcome from the stre
   record('arena','toa-payoh',{...hud,phase:'complete',arena:{...arena,finished:true,winner:'Alpha'},arenaSelf:{...self,deaths:3},elapsed:30});
   expect(history.games()).toEqual([{mode:'team-deathmatch',region:'toa-payoh',arena:'dragon-courtyard',
     kills:3,deaths:3,seconds:30,started:123,result:'lost'}]);
+});
+
+it('transfers up to 25 points proportionally and keeps every percentage integral and in rank order',() => {
+  const rows = (a:number,b:number) => [a,b,100-a-b].map((share,i) => ({id:String(i),share}));
+  expect(applyViewerVote(rows(46,31),'1')).toEqual([{id:'1',share:56},{id:'0',share:29},{id:'2',share:15}]);
+  expect(applyViewerVote(rows(61,30),'2')).toEqual([{id:'0',share:44},{id:'2',share:34},{id:'1',share:22}]);
+  expect(applyViewerVote(rows(61,30),'0')).toEqual([{id:'0',share:86},{id:'1',share:11},{id:'2',share:3}]);
+  expect(applyViewerVote([{id:'only',share:100}],'only')).toEqual([{id:'only',share:100}]);
+  for (let a=0;a<=100;a++) for (let b=0;b<=100-a;b++) {
+    const before = rows(a,b);
+    for (const row of before) {
+      const after = applyViewerVote(before,row.id);
+      if (after.reduce((sum,r) => sum+r.share,0) !== 100 || after.some((r,i) =>
+        !Number.isInteger(r.share) || r.share < 0 || i > 0 && r.share > after[i-1].share) ||
+        after.find(r=>r.id===row.id)?.share !== Math.min(100,row.share+25))
+        throw new Error('Invalid transfer from '+JSON.stringify(before)+' to '+row.id);
+    }
+  }
 });

@@ -1,4 +1,4 @@
-import { chosenDestination, summarizeGames } from '../game/streamer-variety';
+import { chosenDestination, destinationLabel, POLL_VOTE_SECONDS } from '../game/streamer-variety';
 import { StreamerPoll, type PollCard } from './StreamerPoll';
 import { gameRecorder } from '../game/streamer-game-record';
 import { zoneSectors, sectorAt } from '../game/zone-sectors';
@@ -18,6 +18,7 @@ import { streamerPilotStrategy, type StreamerDecision } from '../game/streamer-s
 import { phaseForHud, streamerSession } from '../game/streamer-session';
 import { runMenu, waitFor } from '../game/streamer-menu';
 import { castResetTime, requestCast, type CastAccounting, type CastQuota, type CastVoiceStatus } from '../lib/cast-client';
+import { handleStreamerInput } from '../lib/streamer-input';
 import { clickStreamerAction, readStreamerScreen } from '../lib/streamer-screen';
 import { useModalFocus } from '../lib/use-modal-focus';
 import { requestLeave } from '../lib/navigation-guard';
@@ -180,7 +181,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   const [card,setCard] = useState<PollCard|null>(null);
   useEffect(() => {
     if (!card?.until) return;
-    const timer = window.setTimeout(() => setCard(null),Math.max(0,card.until-Date.now()));
+    const timer = window.setTimeout(() => setCard(shown => shown === card ? null : shown),Math.max(0,card.until-Date.now()));
     return () => window.clearTimeout(timer);
   },[card]);
   const panelRef = useRef<HTMLElement>(null), resumeButton = useRef<HTMLButtonElement>(null);
@@ -214,13 +215,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   },[active,panel,state.reason]);
   useEffect(() => {
     if (!active) return;
-    const input = (ev:Event) => {
-      if (!ev.isTrusted) return;
-      const escape = ev instanceof KeyboardEvent && ev.key === 'Escape';
-      if (!escape && (ev.target as Element)?.closest?.('[data-streamer-controls]')) return;
-      ev.preventDefault(); ev.stopImmediatePropagation();
-      if (escape) s.stop(); else s.pause();
-    };
+    const input = (ev:Event) => handleStreamerInput(ev,currentPoll.current,s);
     const events = ['keydown','pointerdown','pointermove','pointerup','click','wheel'];
     for (const event of events) window.addEventListener(event,input,{capture:true,passive:false});
     const blur = () => s.pause();
@@ -236,28 +231,25 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     if (state.phase !== 'menu') return;
     const abort = new AbortController(), signal = AbortSignal.any([s.signal(),abort.signal]);
     void runMenu({
-      read:() => {
-        const screen = readStreamerScreen(document);
-        if (!screen) s.trip.visit.clear();
-        return screen;
-      }, now:Date.now, wait:waitFor,
-      request:async (screen,note,signal) => {
-        if (s.settings.voice) await s.player.idle();
-        signal.throwIfAborted();
-        const history = summarizeGames(screen,s.games());
-        const rows = s.trip.visit.read(screen,s.games());
+      read:() => readStreamerScreen(document), now:Date.now, wait:waitFor, games:s.games,
+      showPoll:poll => {
         const previous = currentPoll.current;
-        if (rows.length && rows !== previous?.rows) {
-          if (previous?.until && previous.until > Date.now()) await waitFor(previous.until-Date.now(),signal);
-          signal.throwIfAborted();
-          setTarget(null);
-          currentPoll.current = {rows,screenId:screen.screenId}; setCard(currentPoll.current);
-        } else if (!rows.length && previous && !previous.chosen) {
-          currentPoll.current = null; setCard(null);
-        }
-        return requestCast<{actionId:string;line:string|null;ticket?:string}>('streamer',{
-          phase:'menu',screen,note,history,poll:rows.length ? rows : undefined,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
+        if (!poll && previous?.chosen) return; // Keep the verdict through navigation.
+        if (poll?.rows === previous?.rows && !poll?.voting && !previous?.voting) return;
+        if (poll?.voting && !previous?.voting) setTarget(null);
+        currentPoll.current = poll;
+        setCard(poll);
+      },
+      request:async (screen,note,signal,advice) => {
+        if (!advice.poll && s.settings.voice) await s.player.idle();
+        signal.throwIfAborted();
+        const reply = await requestCast<{actionId:string;line:string|null;ticket?:string}>('streamer',{
+          phase:'menu',screen,note,...advice,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
         },signal,s.account);
+        // The viewer can send the request during the last line. Let that caption and its voice
+        // finish their normal lifetime before clicking into the next screen or speaking again.
+        while (advice.poll && s.snapshot().caption) await waitFor(100,signal);
+        return reply;
       },
       act:(screen,id,signal,onClick) => clickStreamerAction(document,screen,id,signal,(x,y,control) => {
         setTarget(control);
@@ -327,6 +319,10 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         <span>{usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</span>
       </div></details>}
     </div>,dock ?? host)}
+    {active && <span className="streamer-poll-announcement" role="status" aria-live="polite">
+      {card?.voting ? `Chat poll open for ${POLL_VOTE_SECONDS} seconds. Choose an option or press its number to vote.`
+        : card?.viewerVote ? 'Your vote: '+destinationLabel(card.screenId,card.viewerVote) : ''}
+    </span>}
     {active && card && <StreamerPoll card={card} target={target}/>}
     {state.phase === 'menu' && <div ref={cursor} className="streamer-cursor" aria-hidden="true"/>}
     {active && state.phase !== 'play' && state.caption && <div className="streamer-menu-caption cast-caption" aria-live="polite"><b>{name}</b> {state.caption}</div>}

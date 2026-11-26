@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef } from 'react';
-import { destinationLabel, pollVerdict, type PollRow } from '../game/streamer-variety';
+import { destinationLabel, pollVerdict, POLL_VOTE_SECONDS } from '../game/streamer-variety';
+import type { MenuPoll } from '../game/streamer-menu';
 
-export interface PollCard {screenId:string; rows:PollRow[]; chosen?:string; until?:number}
+export interface PollCard extends MenuPoll { chosen?:string; until?:number }
 interface Box {left:number;right:number;top:number;bottom:number}
 
 /** Prefer the space beside the chip. On short screens also try below the caption or along the bottom edge. */
@@ -43,11 +44,18 @@ export function StreamerPoll({card,target}:{card:PollCard;target:HTMLElement|nul
       window.removeEventListener('resize',position);
     };
   });
-  return <aside ref={ref} className="streamer-poll" aria-label="Chat poll · simulated" aria-live="polite" aria-atomic="true">
-    <strong>Chat poll <small>· simulated</small></strong>
-    {card.rows.map(({id,share}) => <div key={id} className="streamer-poll-row" data-chosen={card.chosen === id || undefined}>
-      <i aria-hidden="true" style={{width:share+'%'}}/><span>{destinationLabel(card.screenId,id)}</span><b>{share}%</b>
-    </div>)}
-    {card.chosen && <strong className="streamer-poll-result">{pollVerdict(card.rows,card.chosen)}</strong>}
+  const {voting,viewerVote,chosen} = card;
+  return <aside ref={ref} className="streamer-poll" aria-label="Chat poll · simulated" data-streamer-controls={voting ? true : undefined}>
+    <header><strong>Chat poll <small>· simulated</small></strong>
+      {voting && <b aria-hidden="true">Vote · {voting.seconds}s</b>}
+    </header>
+    {voting && <div className="streamer-poll-clock" aria-hidden="true"><i style={{width:100*voting.seconds/POLL_VOTE_SECONDS+'%'}}/></div>}
+    {card.rows.map(({id,share},index) => <button key={id} type="button" disabled={!voting}
+      className="streamer-poll-row" data-chosen={chosen === id || undefined} onClick={() => voting?.vote(id)}>
+      <i aria-hidden="true" style={{width:share+'%'}}/>
+      {voting && <kbd aria-hidden="true">{index+1}</kbd>}
+      <span>{destinationLabel(card.screenId,id)}{viewerVote === id && <small>Your vote</small>}</span><b>{share}%</b>
+    </button>)}
+    <strong aria-live="polite" className="streamer-poll-result">{chosen && pollVerdict(card.rows,chosen,viewerVote)}</strong>
   </aside>;
 }

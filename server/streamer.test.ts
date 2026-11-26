@@ -123,6 +123,14 @@ it('renders bounded history and simulated votes, keeping every enabled action in
   expect(accepted).not.toBeNull();
   expect(await streamTurn(accepted!,complete,'fake')).toMatchObject({actionId:'free-for-all'});
   expect(complete.mock.calls[0][0].user).toContain('Chat poll: Hardpoint 46%');
+  const voted = {...turn,poll,viewerVote:'training-menu'};
+  expect(parseStreamerTurn(voted)).toEqual(voted);
+  expect(await streamTurn(voted,complete,'fake')).toMatchObject({actionId:'free-for-all'});
+  expect(complete.mock.lastCall![0].user).toContain('Chat poll: Hardpoint 46%, Open World 31%, Training 23%. The viewer watching you right now voted Training.');
+  for (const viewerVote of ['free-for-all','invented','',null,{}]) expect(parseStreamerTurn({...voted,viewerVote})).toBeNull();
+  expect(parseStreamerTurn({...turn,viewerVote:'world'})).toBeNull();
+  expect(parseStreamerTurn({...voted,poll:[{id:'world',share:50},{id:'training-menu',share:50}]})).toBeTruthy();
+  expect(parseStreamerTurn({...voted,poll:[{id:'training-menu',share:100},{id:'world',share:0}]})).toBeTruthy();
   for (const invalid of [[],[{id:'tutorial',share:100}],[{id:'not-here',share:100}], [{id:'world',share:99}],
     [{id:'world',share:65},{id:'world',share:35}], [{id:'world',share:50},{id:'hardpoint',share:50}],
     [{id:'world',share:60.5},{id:'hardpoint',share:39.5}], [{id:'world',share:100,prompt:'x'}], 'poll'])

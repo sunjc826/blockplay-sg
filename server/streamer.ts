@@ -35,6 +35,7 @@ export function menuAdvice(turn:MenuTurn) {
       (history.more ? ' and '+history.more+' more.' : '.') : 'Played every option here.');
   }
   if (poll) lines.push('Chat poll: '+poll.map(row => label(row.id)+' '+row.share+'%').join(', ')+'.');
+  if (turn.viewerVote) lines.push('The viewer watching you right now voted '+label(turn.viewerVote)+'.');
   return lines.length ? '\n'+lines.join(' ') : '';
 }
 
