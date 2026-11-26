@@ -17948,3 +17948,11 @@ Implemented by Codex (GPT-6.2-Astra) from a brief; two sentences appended to a `
 - **Checked:** vitest (4854 pass), `tsc --noEmit`, `pnpm build`; live: pressing 2 moved Hardpoint from 34% to 59% with "Your vote", the streamer was not paused, and it said "Chat and our one real viewer both voted for it".
 - **Not checked:** tapping on a phone, immersive fullscreen (Codex's geometry tests only). At 1024 px the card sits over the profile and wallet header.
 - **For testing:** a window blur pauses the streamer by design, so driving the Browser pane with synthetic `click()` alone leaves it paused; use real clicks and key presses.
+
+## 2026-11-26: Cast voice had never worked on the live site
+Owner turned Voice on and heard nothing in the menus.
+- **Cause 1:** `server/tts/elevenlabs.ts` called fetch with `redirect: 'error'`. Node accepts it; the Workers runtime throws "Invalid redirect value" before sending. Every `/api/ai/voice` on Cloudflare answered 502 "Voice provider unavailable". Now `redirect: 'manual'` with a redirect refused in code; a test forbids the old option.
+- **Cause 2:** from the live site speech takes 2.0 to 3.3 s to come back (three measurements), and the client dropped any line not ready in 2.5 s. `CAST_MIX.readyMs` is now 6000.
+- **Why it was missed:** voice was only ever exercised against `pnpm server` under Node. Anything that touches fetch in `server/` needs one request through the deployed Worker (or `wrangler dev`, though workerd here cannot reach outside hosts through the VM proxy).
+- **Checked on blockplaysg.fun after the first fix:** three ticketed lines returned `audio/mpeg`, 55 to 57 KB each.
+- **Not checked:** hearing it in a browser on the live site after the deadline change.

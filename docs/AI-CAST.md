@@ -121,7 +121,7 @@ The game keeps the player's armory mounted while the sandbox has its own armory 
 
 ## Optional live voice
 
-**Voice** starts off. Each cast panel saves its own preference. Turning it on sends only the server-generated line to the voice provider. Captions appear immediately. If audio takes more than 2.5 seconds to prepare, the player keeps the caption and drops the audio. The director waits for playback and a 350 ms breath before requesting another line. Pause, mute, taking control, hiding the tab and leaving play cancel pending or playing speech.
+**Voice** starts off. Each cast panel saves its own preference. Turning it on sends only the server-generated line to the voice provider. Captions appear immediately. If audio takes more than 6 seconds to prepare, the player keeps the caption and drops the audio. The director waits for playback and a 350 ms breath before requesting another line. Pause, mute, taking control, hiding the tab and leaving play cancel pending or playing speech.
 
 The private server adapter lives in `server/tts/`. Its injected fetch makes a single streaming MP3 request and buffers the short reply for both Node and the Worker. A provider implements `Speak` and registers its factory, credential name and default model in `index.ts`.
 

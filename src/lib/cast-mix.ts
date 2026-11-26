@@ -3,7 +3,9 @@ export const CAST_MIX = {
   music: 1 / 3, effects: 10 ** (-4 / 20), attack: .12, release: .4,
   encikFade: .15, lead: .16, level: .9,
   threshold: -16, knee: 12, ratio: 2, compressorAttack: .012, compressorRelease: .18,
-  readyMs: 2500, breathMs: 350,
+  // How long a line's audio may take to arrive before it stays caption-only. Measured from the live
+  // site, speech takes 2 to 3.5 s to come back, so 2.5 s dropped most lines unheard.
+  readyMs: 6000, breathMs: 350,
 } as const;
 
 let speakers = 0;
