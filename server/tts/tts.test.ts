@@ -31,7 +31,8 @@ it('uses only valid overrides for existing personas and requires a configured pr
   const speech = selectSpeech({ELEVENLABS_API_KEY:'test',CAST_VOICE_IDS:JSON.stringify({coach:'x',parent:request.voiceId,other:request.voiceId})})!;
   expect(speech.ids.size).toBe(7);
   expect(speech.model).toBe(request.model);
-  expect(speech.ids.get('coach')).toBe(request.voiceId); expect(speech.ids.get('parent')).toBe(request.voiceId);
+  // An invalid override leaves the persona on its designed default.
+  expect(speech.ids.get('coach')).toBe('6ddcdervgn4Jgwb7r7pA'); expect(speech.ids.get('parent')).toBe(request.voiceId);
   expect(speech.ids.has('other')).toBe(false);
 });
 it('authenticates exact lines, personas and expiry and issues distinct tickets for identical captions',() => {
