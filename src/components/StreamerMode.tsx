@@ -9,7 +9,7 @@ import { createCastVoice } from '../lib/cast-voice';
 import { CastVoiceSwitch } from './CastVoiceSwitch';
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { CAST_PERSONAS, castPersona } from '../game/ai-cast-personas';
+import { castPersona } from '../game/ai-cast-personas';
 import { CastFailure, hudEvents } from '../game/ai-cast';
 import type { CastMode } from '../game/cast-contract';
 import type { RegionId } from '../game/region-ids';
@@ -18,14 +18,14 @@ import { streamerPilotStrategy, type StreamerDecision } from '../game/streamer-s
 import { phaseForHud, streamerSession } from '../game/streamer-session';
 import { runMenu, waitFor } from '../game/streamer-menu';
 import type { CastReply } from '../game/ai-cast';
-import { castResetTime, requestCast, type CastAccounting, type CastQuota, type CastVoiceStatus } from '../lib/cast-client';
+import { castResetTime, requestCast, type CastAccounting } from '../lib/cast-client';
 import { handleStreamerInput } from '../lib/streamer-input';
 import { clickStreamerAction, readStreamerScreen } from '../lib/streamer-screen';
-import { useModalFocus } from '../lib/use-modal-focus';
+import { Radio } from 'lucide-react';
+import { StreamerSetup, type StreamerStatus } from './StreamerSetup';
 import { requestLeave } from '../lib/navigation-guard';
 import './streamer-mode.css';
 
-const voices = CAST_PERSONAS.filter(p => p.role === 'streamer');
 function controller() {
   const session = streamerSession();
   const key = 'blockplay-sg-streamer-v1';
@@ -84,7 +84,7 @@ export function StreamerDock() {
 
 export function StreamerEntry({region}:{region?:RegionId}) {
   const s = useStreamer(), active = useStreamerActive(), solo = useContext(SoloStreamer);
-  return s && solo && !active ? <button type="button" className="session-button streamer-entry" onClick={()=>s.open(region)}>Streamer mode</button> : null;
+  return s && solo && !active ? <button type="button" className="session-button streamer-entry" onClick={()=>s.open(region)}><Radio size={16} aria-hidden="true"/> Streamer mode</button> : null;
 }
 
 function learnFromHud(session:ReturnType<typeof streamerSession>,region:RegionId,hud:FpsHud,kind?:'fight'|'death'|'supply') {
@@ -176,8 +176,8 @@ export function StreamerHost({children}:{children:ReactNode}) {
 function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   const state = useSyncExternalStore(s.subscribe,s.snapshot,s.snapshot);
   const [panel,setPanel] = useState(false), [settings,setSettings] = useState(s.settings);
-  const [status,setStatus] = useState<{available:boolean;model:string;provider:string;quota:CastQuota;voice?:CastVoiceStatus}|null>(null);
-  const [problem,setProblem] = useState(''), [usage,setUsage] = useState({cost:0,tokens:0,priced:false});
+  const [status,setStatus] = useState<StreamerStatus|null>(null);
+  const [usage,setUsage] = useState({cost:0,tokens:0,priced:false});
   const [dock,setDock] = useState<HTMLDivElement|null>(null);
   s.dock = setDock;
   const [host,setHost] = useState<Element|null>(null), cursor = useRef<HTMLDivElement>(null);
@@ -189,27 +189,14 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     const timer = window.setTimeout(() => setCard(shown => shown === card ? null : shown),Math.max(0,card.until-Date.now()));
     return () => window.clearTimeout(timer);
   },[card]);
-  const panelRef = useRef<HTMLElement>(null), resumeButton = useRef<HTMLButtonElement>(null);
-  useModalFocus(panelRef, panel && !!host, () => setPanel(false));
+  const resumeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (state.phase === "paused") resumeButton.current?.focus(); },[state.phase]);
   const active = state.phase !== 'off';
-  s.open = region => {s.startRegion = ['/world','/training'].includes(window.location.pathname) ? region : undefined;setProblem('');setStatus(null);setPanel(true);};
+  s.open = region => {s.startRegion = ['/world','/training'].includes(window.location.pathname) ? region : undefined;setStatus(null);setPanel(true);};
   s.account = ({quota,voice,usage,costUsd}) => {
     setStatus(old => old && {...old,quota,voice});
     if (usage) setUsage(old => ({cost:old.cost+(costUsd ?? 0),priced:old.priced || typeof costUsd === 'number',tokens:old.tokens+usage.inputTokens+usage.outputTokens}));
   };
-  useEffect(() => {
-    if (!panel) return;
-    const abort = new AbortController();
-    void (async () => {
-      try {
-        const res = await fetch('/api/ai/status',{cache:'no-store',signal:abort.signal}), data = await res.json();
-        if (!res.ok || typeof data.streamer?.available !== 'boolean' || !data.quota) throw new Error();
-        if (!abort.signal.aborted) setStatus({...data.streamer,quota:data.quota,voice:data.voice});
-      } catch { if (!abort.signal.aborted) setProblem('Streamer service unavailable.'); }
-    })();
-    return () => abort.abort();
-  },[panel]);
   useEffect(() => { if (active) return s.closeAudio; },[active,s]);
   useEffect(() => {
     if (!active && !panel && !state.reason) return;
@@ -284,30 +271,17 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   const voiceReady = !!status?.voice?.available, voiceOn = !!s.settings.voice && voiceReady;
   if (!host || !active && !panel && !state.reason) return null;
   const q = status?.quota, name = castPersona(s.settings.personaId)?.name;
-  const limit = q && q.used >= q.limit;
-  const learningControls = <div className="streamer-learning">
-    <label><input type="checkbox" checked={!!settings.keepLearning} onChange={e=>{
-      const keepLearning = e.target.checked;
-      setSettings({...settings,keepLearning});
-      s.keepLearning(keepLearning); s.save();
-    }}/> Keep what it learns</label>
-    <small>{s.savedSummary(settings.personaId)}</small> <button type="button" onClick={()=>s.forget(settings.personaId)}>Forget</button>
-  </div>;
+  const keepLearning = (value:boolean) => {
+    setSettings({...settings,keepLearning:value});
+    s.keepLearning(value); s.save();
+  };
+  const usageLabel = usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens';
   return createPortal(<>
-    {panel && <section ref={panelRef} className="streamer-settings cast-panel" role="dialog" aria-modal="true" aria-label="Streamer mode">
-      <h2>Streamer mode</h2><p>Your streamer plays solo using its own wallet and loadout. Menu choices, game state, past lines and optional game screenshots go to the AI provider. With Voice on, the streamer’s lines go to the voice provider.</p>
-      <CastVoiceSwitch enabled={!!settings.voice} voice={status?.voice} change={voice=>setSettings({...settings,voice})}/>
-      <label>Streamer <select value={settings.personaId} onChange={e=>setSettings({...settings,personaId:e.target.value})}>{voices.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
-      <small>{castPersona(settings.personaId)?.blurb}</small>
-      <label><input type="checkbox" checked={settings.clean} onChange={e=>setSettings({...settings,clean:e.target.checked})}/> Clean language</label>
-      <label><input type="checkbox" checked={settings.screenshots} onChange={e=>setSettings({...settings,screenshots:e.target.checked})}/> Send gameplay screenshots</label>
-      {learningControls}
-      <small>{problem || (status ? status.available ? status.provider+' · '+status.model : 'Streamer provider unavailable' : 'Checking availability…')}</small>
-      {q && <><progress aria-label="Daily AI calls" value={q.used} max={Math.max(1,q.limit)}/><small>{q.used} / {q.limit} calls · {limit ? 'Limit reached, resets at ' : 'Resets at '}{castResetTime(q.resetsAt)} · {usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</small></>}
-      <button onClick={()=>setPanel(false)}>Close</button> <button disabled={!status?.available || !!limit} onClick={()=>{
+    {panel && <StreamerSetup status={status} onStatus={setStatus} settings={settings} onSettings={setSettings}
+      memorySummary={s.savedSummary(settings.personaId)} onForget={()=>s.forget(settings.personaId)} onKeepLearning={keepLearning}
+      usage={usageLabel} onClose={()=>setPanel(false)} onStart={()=>{
         setPanel(false); requestLeave(() => {setUsage({cost:0,tokens:0,priced:false}); s.nextPlan=0; s.start(settings); s.save(); s.unlock();});
-      }}>Start streamer</button>
-    </section>}
+      }}/>}
     {active && createPortal(<div className="streamer-chip" data-streamer-controls><strong>{name}</strong>
       {state.phase === 'paused' && <><span>Paused</span><button onClick={()=>s.stop()}>Take control</button><button ref={resumeButton} onClick={()=>{ s.unlock(); s.resume(); }}>Resume</button></>}
       <button onClick={()=>s.stop()}>Stop</button>
@@ -319,8 +293,11 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         <progress aria-label="Daily AI calls" value={q.used} max={Math.max(q.limit,1)}/>
         <span>{q.used} / {q.limit} calls · Resets at {castResetTime(q.resetsAt)}</span>
         <CastVoiceSwitch enabled={!!s.settings.voice} voice={status?.voice} change={setVoice}/>
-        {learningControls}
-        <span>{usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</span>
+        <div className="streamer-learning">
+          <label><input type="checkbox" checked={!!settings.keepLearning} onChange={e=>keepLearning(e.target.checked)}/> Keep what it learns</label>
+          <small>{s.savedSummary(settings.personaId)}</small> <button type="button" onClick={()=>s.forget(settings.personaId)}>Forget</button>
+        </div>
+        <span>{usageLabel}</span>
       </div></details>}
     </div>,dock ?? host)}
     {active && <span className="streamer-poll-announcement" role="status" aria-live="polite">

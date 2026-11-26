@@ -17974,3 +17974,9 @@ Owner: "It doesn't make sense to do two requests." Implemented by Codex (GPT-6.2
 - **Measured with real providers through `pnpm server`:** first audio 0.11 and 0.18 s after the caption (the two-request path took about 1 s on the live site). Two spoken lines of 135 and 122 characters left the voice budget at 257.
 - **Checked:** vitest (4893 pass), `tsc --noEmit`, `pnpm build:cloudflare`; `pnpm test:cloudflare:voice` through `wrangler dev` (caption before speech, PCM intact, one real-length charge, silent and slow turns caption-only); in the Browser pane with Voice on, two lines fed 185 audio chunks to two worklets on a running 48 kHz context with no errors. Nobody has listened to it.
 - **Still true:** under `wrangler dev` a client hang-up is not seen by the Node response within 2 s.
+
+## 2026-11-26 — Streamer setup, admin access and spectator input
+
+Streamer mode now uses the player-menu controls, artwork, persona cards, switches and a visible account bar. Admin sign-in and sign-out return the streamer's provider status and the caller's current AI and voice allowances. The existing production credential is named `AI_ADMIN_KEY`. The server accepts it when `AI_ADMIN_TOKEN` is unset. Moving the pointer without pressing a button leaves the streamer running.
+
+Checked the isolated release with TypeScript and the API and input suites. Chrome covered wrong and correct passphrases, quota changes, closing and reopening with an admin cookie, sign-out, desktop and phone layouts, pointer movement, click-to-pause, Resume and Escape.

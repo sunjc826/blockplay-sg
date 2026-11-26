@@ -48,6 +48,13 @@ it('authenticates cookies, rejects tampering, caps attempts by socket, and logs 
   expect((await call('admin/login',{passphrase:'pass'},'','b')).code).toBe(200);
   expect((await harness({})('admin/login',{})).code).toBe(503);
 });
+it('uses the deployed admin key and returns streamer availability and account quotas when switching access', async () => {
+  const call = harness({ AI_ADMIN_KEY:'local-test', AI_DAILY_CALLS_ADMIN:'9100', STREAMER_PROVIDER:'openai', OPENAI_API_KEY:'test' });
+  const signedIn = await call('admin/login', {passphrase:'local-test'});
+  expect(signedIn.data).toMatchObject({admin:true, streamer:{available:true,provider:'openai'}, quota:{limit:9100}, voice:{quota:{limit:20000}}});
+  const signedOut = await call('admin/logout', {}, signedIn.headers['Set-Cookie'].split(';')[0]);
+  expect(signedOut.data).toMatchObject({admin:false, streamer:{available:true}, quota:{limit:1000}, voice:{quota:{limit:4000}}});
+});
 it('checks origin and observation before charging and charges failed upstream calls',async()=>{
   const f = vi.fn().mockResolvedValueOnce(Response.json({output:[{content:[{type:'output_text',text:'{"say":true,"line":"   Nice   one " }'}]}]})).mockRejectedValueOnce(Error());
   const call = harness({CAST_PROVIDER:'openai',OPENAI_API_KEY:'test'},f);

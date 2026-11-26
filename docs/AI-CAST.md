@@ -13,14 +13,14 @@ Put the selected provider key in the private server environment. Start `pnpm ser
 | PILOT_PROVIDER / PILOT_MODEL | openai / gpt-5.6-luna |
 | ANTHROPIC_API_KEY / OPENAI_API_KEY | Credential for the selected provider |
 | OPENAI_BASE_URL | OpenAI-compatible Responses API base |
-| AI_ADMIN_TOKEN | Optional admin passphrase and cookie signing secret |
+| AI_ADMIN_TOKEN | Optional admin passphrase and cookie signing secret. Falls back to the existing AI_ADMIN_KEY binding |
 | AI_DAILY_CALLS_PER_IP | 1000 |
 | AI_DAILY_CALLS_ANON_TOTAL | 10000 across all anonymous callers |
 | AI_DAILY_CALLS_ADMIN | 5000 across signed-in admins |
 
 The status panel shows the caller's daily allowance and reset time in the player's local clock. The day ends at midnight in Singapore. The server checks the IP and global anonymous budgets together. A signed-in admin uses the shared admin allowance. Each identity can start 20 calls per rolling minute and hold four active requests. Admission happens after input and credential checks. An accepted call consumes one slot even if the provider fails or the caption arrives too late to display. The cost display estimates USD from token usage for known Claude models. Other models display tokens.
 
-Open **Admin sign-in** in the panel and enter the private passphrase. The server compares fixed-length digests, limits failed sign-ins to five per IP per rolling hour and issues a signed HttpOnly cookie for 30 days. The cookie is SameSite=Strict and Secure except on loopback. Sign out to clear it in this browser. Changing the secret invalidates all sessions.
+Open **Admin sign-in** in Streamer mode or the AI commentary panel and enter the private passphrase. The server compares fixed-length digests, limits failed sign-ins to five per IP per rolling hour and issues a signed HttpOnly cookie for 30 days. The cookie is SameSite=Strict and Secure except on loopback. Sign out to clear it in this browser. Changing the secret invalidates all sessions.
 
 ## Data sent
 
@@ -53,7 +53,7 @@ Open **Streamer mode** on the main menu or in a solo FPS briefing or pause menu.
 
 The persona chooses solo activities, shops, picks a district and configures deployment before playing. Its latest line appears on the menu or in the game's subtitle area. Game lines also enter the Cast comms channel with the speaker's name. The last 30 lines follow the session through store visits, matches and district crossings. Stopping or starting a new persona clears them.
 
-**Stop** and Escape end the session immediately. Human pointer or keyboard input pauses it. **Resume** continues the sandbox run. **Take control** ends the sandbox and returns the player's own profile to the current route. Changing tabs also pauses the streamer.
+**Stop** and Escape end the session immediately. You can move the pointer freely while watching. Clicking, dragging, scrolling or pressing a key outside the streamer controls pauses the session, except when casting a numbered poll vote. **Resume** continues the sandbox run. **Take control** ends the sandbox and returns the player's own profile to the current route. Changing tabs also pauses the streamer.
 
 ### Two tiers of play
 

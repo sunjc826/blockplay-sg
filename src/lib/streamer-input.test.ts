@@ -36,6 +36,13 @@ it('lets a pointer reach and click a vote button but preserves takeover for othe
   for (const card of [poll,{...poll,voting:undefined},null]) {
     handleStreamerInput(input('click') as unknown as Event,card,session);
   }
-  handleStreamerInput(input('pointermove') as unknown as Event,null,session);
+  for (const card of [poll,{...poll,voting:undefined},null]) {
+    const move = {...input('pointermove'),buttons:0};
+    handleStreamerInput(move as unknown as Event,card,session);
+    expect(move.preventDefault).not.toHaveBeenCalled();
+    expect(move.stopImmediatePropagation).not.toHaveBeenCalled();
+  }
+  expect(session.pause).toHaveBeenCalledTimes(3);
+  handleStreamerInput({...input('pointermove'),buttons:1} as unknown as Event,null,session);
   expect(session.pause).toHaveBeenCalledTimes(4);
 });

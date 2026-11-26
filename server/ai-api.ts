@@ -11,6 +11,7 @@ import { adminCookie, caller, matches } from './ai-admin.ts';
 import { memoryLimits, TRANSIENT_REASONS, type LimitStore, type Action, type Decision } from './ai-limits.ts';
 
 export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = memoryLimits(env), cloud = false) {
+  const adminToken = env.AI_ADMIN_TOKEN || env.AI_ADMIN_KEY;
   const speech = selectSpeech(env,fetcher);
   const models = { STREAMER:selectModel(env,'STREAMER',fetcher), CAST:selectModel(env,'CAST',fetcher), PILOT:selectModel(env,'PILOT',fetcher) };
   return async (req: IncomingMessage, res: ServerResponse, originAllowed: (req: IncomingMessage) => boolean, clientSignal?: AbortSignal) => {
@@ -24,7 +25,7 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       try { req.headers.origin = new URL(req.headers.referer).origin; } catch { /* denied below */ }
     }
     if (!originAllowed(req)) return send(403,{error:'Unexpected origin'});
-    const id = caller(req,cloud,env.AI_ADMIN_TOKEN), lease = randomUUID();
+    const id = caller(req,cloud,adminToken), lease = randomUUID();
     const check = (action: Action) => store({...id,action,lease});
     try {
       let decision: Decision;
@@ -38,14 +39,15 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
         decision ??= await check('status');
         send(code,{...data,quota:decision.quota,voice:voiceStatus()},headers);
       };
-      const status = { available: !!model.complete, provider:model.provider, model:model.model, admin:id.admin };
-      if (req.method === 'GET' && req.url === '/api/ai/status') return await reply(200,{...status, streamer:{available:!!models.STREAMER.complete, provider:models.STREAMER.provider, model:models.STREAMER.model}});
+      const status = { available: !!model.complete, provider:model.provider, model:model.model, admin:id.admin,
+        streamer:{available:!!models.STREAMER.complete, provider:models.STREAMER.provider, model:models.STREAMER.model} };
+      if (req.method === 'GET' && req.url === '/api/ai/status') return await reply(200,status);
       if (req.method !== 'POST') return await reply(405,{error:'POST required'});
       const localHosts = ['localhost','127.0.0.1','[::1]'];
       const origin = new URL(req.headers.origin!);
       const host = req.headers.host ? new URL('http://'+req.headers.host).hostname : origin.hostname;
       const local = localHosts.includes(host) && localHosts.includes(origin.hostname);
-      const cookie = (logout = false) => ({'Set-Cookie':adminCookie(env.AI_ADMIN_TOKEN ?? '',local,logout)});
+      const cookie = (logout = false) => ({'Set-Cookie':adminCookie(adminToken ?? '',local,logout)});
       if (req.url === '/api/ai/admin/logout') {
         decision = await store({...id,admin:false,action:'status'});
         return await reply(200,{...status,admin:false},cookie(true));
@@ -53,7 +55,7 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       const login = req.url === '/api/ai/admin/login';
       if (!login && !endpoint) return await reply(404,{error:'Unknown AI endpoint'});
       if (planning && env.ADVENTURE_ENABLED === 'false') return await reply(503,{error:'Pilot is disabled.'});
-      if (login ? !env.AI_ADMIN_TOKEN : !model.complete) return await reply(503,{error:login ? 'Admin sign-in is unavailable.' : 'Model provider is unavailable.'});
+      if (login ? !adminToken : !model.complete) return await reply(503,{error:login ? 'Admin sign-in is unavailable.' : 'Model provider is unavailable.'});
       if (req.headers['content-type']?.split(';')[0] !== 'application/json' || (req.headers['content-encoding'] ?? 'identity') !== 'identity') return await reply(415,{error:'JSON required'});
       const cap = endpoint?.bodyLimit ?? 4096;
       if (Number(req.headers['content-length']) > cap) return await reply(413,{error:'Request too large'});
@@ -68,7 +70,7 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       } finally { clearTimeout(timer); }
       let body;
       try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { return await reply(400,{error:'Invalid JSON'}); }
-      const valid = login && typeof body?.passphrase === 'string' && Object.keys(body).length === 1 && matches(body.passphrase,env.AI_ADMIN_TOKEN!);
+      const valid = login && typeof body?.passphrase === 'string' && Object.keys(body).length === 1 && matches(body.passphrase,adminToken!);
       // Speech is transport metadata. The model sees only the validated observation.
       const wantsVoice = !planning && !login && body?.spoken === true;
       if (endpoint && !planning && body && typeof body === 'object' && 'spoken' in body) {

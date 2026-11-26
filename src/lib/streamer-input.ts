@@ -1,7 +1,7 @@
 import type { MenuPoll } from '../game/streamer-menu';
 
 export function handleStreamerInput(event:Event,poll:MenuPoll|null,session:{pause():void; stop():void}) {
-  if (!event.isTrusted) return;
+  if (!event.isTrusted || (event.type === 'pointermove' && !(event as PointerEvent).buttons)) return;
   const key = event.type === 'keydown' ? (event as KeyboardEvent).key : undefined;
   if (key !== 'Escape') {
     if (poll?.voting) {
@@ -11,8 +11,6 @@ export function handleStreamerInput(event:Event,poll:MenuPoll|null,session:{paus
         event.stopImmediatePropagation();
         return;
       }
-      // Let the viewer move the pointer from anywhere on the screen to a vote button.
-      if (event.type === 'pointermove' && !(event as PointerEvent).buttons) return;
     }
     if ((event.target as Element)?.closest?.('[data-streamer-controls]')) return;
   }
