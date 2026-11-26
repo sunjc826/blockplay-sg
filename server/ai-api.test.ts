@@ -137,7 +137,9 @@ it.each(['old client','voice off','no provider','over budget','silent','refused'
   const clock=vi.spyOn(Date,'now'), now=Date.now();
   try {
     const f=vi.fn(async()=>{
-      if (reason==='slow') clock.mockReturnValue(now+CAST_STALE_MS+1);
+      // Well past the cutoff: `now` was read before the handler took its own start time, so a 1 ms margin
+      // was eaten by any slow machine (it failed the deploy's test run on 2026-11-26).
+      if (reason==='slow') clock.mockReturnValue(now+CAST_STALE_MS+5000);
       if (reason==='refused') return Response.json({output:[{content:[{type:'refusal'}]}]});
       if (reason==='silent') return Response.json({output:[{content:[{type:'output_text',text:'{"say":false,"line":"unused"}'}]}]});
       return generated();
