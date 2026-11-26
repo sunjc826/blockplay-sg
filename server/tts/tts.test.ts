@@ -1,7 +1,6 @@
 import { it, expect, vi } from 'vitest';
 import { elevenlabs } from './elevenlabs.ts';
 import { selectSpeech } from './index.ts';
-import { voiceTickets } from './tickets.ts';
 
 const request = {voiceId:'nPczCjzI2devNBz1zQrb',model:'eleven_flash_v2_5',text:'Nice one.'};
 it('sends only the line and model with one authenticated streaming PCM request',async () => {
@@ -21,7 +20,7 @@ it.each([[401,'invalid_api_key','forbidden'],[401,'quota_exceeded','credits'],[4
   await expect(elevenlabs('test',fetcher)(request)).rejects.toMatchObject({kind});
   expect(fetcher).toHaveBeenCalledOnce();
 });
-it('leaves an ambiguous network failure charged once',async () => {
+it('never retries an ambiguous network failure',async () => {
   const fetcher = vi.fn().mockRejectedValue(new Error('connection interrupted'));
   await expect(elevenlabs('test',fetcher)(request)).rejects.toMatchObject({kind:'upstream'});
   expect(fetcher).toHaveBeenCalledOnce();
@@ -36,19 +35,6 @@ it('uses only valid overrides for existing personas and requires a configured pr
   expect(speech.ids.get('coach')).toBe('6ddcdervgn4Jgwb7r7pA'); expect(speech.ids.get('parent')).toBe(request.voiceId);
   expect(speech.ids.has('other')).toBe(false);
 });
-it('authenticates exact lines, personas and expiry and issues distinct tickets for identical captions',() => {
-  let now = 1000;
-  const tickets = voiceTickets('test',()=>now), ticket = tickets.issue('duo','A line.');
-  expect(tickets.issue('duo','A line.')).not.toBe(ticket);
-  expect(tickets.verify('duo','A line.',ticket)).toBe(121000);
-  expect(tickets.verify('pro','A line.',ticket)).toBeNull();
-  expect(tickets.verify('duo','A line. ',ticket)).toBeNull();
-  expect(tickets.verify('duo','A line.',ticket.replace('121000','131000'))).toBeNull();
-  expect(tickets.verify('duo','A line.',ticket.slice(0,-1))).toBeNull();
-  expect(voiceTickets('other',()=>now).verify('duo','A line.',ticket)).toBeNull();
-  now = 121000; expect(tickets.verify('duo','A line.',ticket)).toBeNull();
-});
-
 it('refuses a redirect instead of following it with the key, and never asks for redirect "error"',async () => {
   // The Workers runtime throws a TypeError for redirect 'error', which made every live voice request fail.
   const { readFileSync } = await import('node:fs');

@@ -43,7 +43,7 @@ const companion = createCloudflareAdventureHandler({
 createServer((req, res) => {
   // The Node bridge emits 'close' when it publishes the response headers.
   // The original Request signal tracks the actual client throughout the body.
-  if (req.url === '/api/ai/voice') {
+  if (req.url === '/api/ai/commentary' || req.url === '/api/ai/streamer') {
     const { env: lifecycle, ctx } = req.cloudflare;
     ctx.waitUntil(companion(req, res, lifecycle.signal));
   } else {
@@ -74,7 +74,7 @@ export default {
       return Response.json({ service: 'blockplay-cloudflare', companion: !!env.OPENAI_API_KEY && env.ADVENTURE_ENABLED !== 'false' },
         { headers: { 'Cache-Control': 'no-store' } });
     }
-    if (path === '/api/ai/voice') return handleAsNodeRequest(3001, request, { signal: request.signal }, ctx);
+    if (path === '/api/ai/commentary' || path === '/api/ai/streamer') return handleAsNodeRequest(3001, request, { signal: request.signal }, ctx);
     if (path.startsWith('/api/adventure/') || path.startsWith('/api/ai/')) return handleAsNodeRequest(3001, request);
     return Response.json({ error: path.startsWith('/api/lan/')
       ? 'LAN rooms require the local pnpm lan server. Solo bots are available here.' : 'Not found' },

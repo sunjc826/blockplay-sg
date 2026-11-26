@@ -1,8 +1,10 @@
+import type { CastAudio } from '../lib/cast-stream';
+import { CAST_STALE_MS } from './cast-wire';
 import type { FpsHud } from './fps-engine';
 import type { Observation } from './cast-contract';
 
 type Scene = Pick<Observation,'mode'|'regionId'|'snapshot'>;
-export interface CastReply { line: string | null; ticket?: string }
+export interface CastReply { line: string | null; audio?: CastAudio }
 export class CastFailure extends Error {
   until: number;
   status?: number;
@@ -19,7 +21,7 @@ export function castMemory() {
   };
 }
 export function castDirector(now: () => number, request: (scene: Scene, events: string[], memory: string[], signal: AbortSignal) => Promise<CastReply>,
-  speak: (line: string, ticket?: string) => unknown, report: (reason: string) => void) {
+  speak: (line: string, audio?: CastAudio) => unknown, report: (reason: string) => void) {
   const memory = castMemory();
   let events: {text:string;major:boolean}[] = [], due = Infinity, last = now(), next = 0, blocked = 0;
   let pending: AbortController | null = null;
@@ -43,10 +45,10 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
       const controller = new AbortController(); pending = controller;
       const batch = events.map(e => e.text); events = []; due = Infinity; last = at; next = at+4000;
       try {
-        const {line,ticket} = await request(scene(),batch,memory.read(),controller.signal);
-        if (controller.signal.aborted || now()-at > 6000) return;
+        const {line,audio} = await request(scene(),batch,memory.read(),controller.signal);
+        if (controller.signal.aborted || now()-at > CAST_STALE_MS) { audio?.cancel(); return; }
         report('');
-        if (line) { memory.remember(line); next = now()+4000; await speak(line,ticket); }
+        if (line) { memory.remember(line); next = now()+4000; await speak(line,audio); }
       } catch (err) {
         if (!controller.signal.aborted) {
           blocked = err instanceof CastFailure ? err.until : now()+30000;

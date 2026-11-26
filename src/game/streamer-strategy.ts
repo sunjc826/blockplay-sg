@@ -15,12 +15,12 @@ export function streamerObservation(o: Readonly<PilotObservation>): PilotObserva
 
 export type StreamerDecision = Pick<PilotPlan,'goal'|'waypointId'|'sectorId'|'placeId'> & CastReply & {place?:RememberedPlace};
 export function streamerPilotStrategy(request: (observation: Readonly<PilotObservation>, signal: AbortSignal, current?:PilotPlan|null, target?:RememberedPlace) =>
-  Promise<StreamerDecision>, speak: (line:string,ticket?:string) => void, sectorIds:readonly string[] = []): PilotStrategy {
+  Promise<StreamerDecision>, speak: (line:string,audio?:CastReply['audio']) => void, sectorIds:readonly string[] = []): PilotStrategy {
   const captions = new WeakMap<PilotPlan,CastReply>();
   const places = new WeakMap<PilotPlan,RememberedPlace>();
   return { rememberedPlace:plan => places.get(plan), id:'streamer', accepted(plan) {
     const line = captions.get(plan);
-    if (line?.line) { if (line.ticket) speak(line.line,line.ticket); else speak(line.line); }
+    if (line?.line) { if (line.audio) speak(line.line,line.audio); else speak(line.line); }
   }, async plan(observation,signal,current) {
     const visible = streamerObservation(observation);
     const reply = await request(visible,signal,current,current ? places.get(current) : undefined);

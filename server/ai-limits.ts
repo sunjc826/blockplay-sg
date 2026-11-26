@@ -1,3 +1,4 @@
+import { CAST_LINE_MAX } from '../src/game/cast-wire.ts';
 import type { Env } from './llm/index.ts';
 const minute = 60_000, hour = 60 * minute, day = 24 * hour;
 /** Calls one caller may have running at once. An IP is often several tabs or devices, and a
@@ -7,10 +8,10 @@ export const MAX_IN_FLIGHT = 4;
 const LEASE_MS = minute;
 /** Refusals that clear on their own within a minute; clients wait and retry instead of stopping. */
 export const TRANSIENT_REASONS: readonly string[] = ['Concurrent calls', 'Minute limit'];
-export type Action = 'status' | 'accept' | 'release' | 'login-good' | 'login-bad' | 'voice-accept' | 'voice-release' | 'voice-unavailable';
-export interface Operation { action: Action; ip: string; admin: boolean; lease?: string; ticket?: string; expiresAt?: number; characters?: number }
+export type Action = 'status' | 'accept' | 'release' | 'login-good' | 'login-bad';
+export interface Operation { action: Action; ip: string; admin: boolean; lease?: string; reserveVoice?: boolean; pauseVoice?: boolean; characters?: number }
 export interface Quota { used: number; limit: number; resetsAt: number }
-export interface Decision { quota: Quota; voiceQuota: Quota; voiceRemaining: number; voiceBlockedUntil: number; reason?: string; resetsAt?: number }
+export interface Decision { quota: Quota; voiceQuota: Quota; voiceRemaining: number; voiceBlockedUntil: number; voiceReserved?: boolean; reason?: string; resetsAt?: number }
 export type LimitStore = (op: Operation) => Promise<Decision>;
 export interface Counters { read(key: string): number[]; write(key: string, values: number[], expiry: number): void }
 function limit(value: string | undefined, fallback: number) {
@@ -22,55 +23,66 @@ export function decide(db: Counters, env: Env, op: Operation, now: number): Deci
   const id = op.admin ? 'admin' : 'ip/' + op.ip, key = resetsAt + '/' + id, total = resetsAt + '/total';
   const quota = { used: db.read(key)[0] ?? 0, limit: op.admin ? limit(env.AI_DAILY_CALLS_ADMIN,5000) : limit(env.AI_DAILY_CALLS_PER_IP,1000), resetsAt };
   const voiceKey = 'voice/'+key, voiceTotalKey = 'voice/'+total;
-  const voiceQuota = { used: db.read(voiceKey)[0] ?? 0, limit: op.admin ? limit(env.VOICE_DAILY_CHARS_ADMIN,20000) : limit(env.VOICE_DAILY_CHARS_PER_IP,4000), resetsAt };
-  const voiceTotal = op.admin ? 0 : db.read(voiceTotalKey)[0] ?? 0;
-  const sharedRemaining = op.admin ? Infinity : limit(env.VOICE_DAILY_CHARS_ANON_TOTAL,8000) - voiceTotal;
-  const result = { quota, voiceQuota, voiceRemaining: Math.max(0,Math.min(voiceQuota.limit-voiceQuota.used,sharedRemaining)), voiceBlockedUntil: db.read('voice/unavailable')[0] ?? 0 };
-  const denied = (reason: string, until: number) => ({ ...result, reason, resetsAt: until });
-  if (op.action === 'voice-unavailable') {
-    result.voiceBlockedUntil = now + 10 * minute;
-    db.write('voice/unavailable',[result.voiceBlockedUntil],result.voiceBlockedUntil);
-    return result;
+  // Holds are lease expiries, kept separately from settled daily totals. Even if an
+  // isolate dies, filtering by time makes its characters available to every caller.
+  const expiry = now + LEASE_MS;
+  const leaseKey = 'lease/'+op.lease;
+  const flightKey = 'flight/'+id;
+  const active = (bucket: string) => db.read(bucket).filter(t => t > now);
+  const remove = (bucket: string, until: number) => {
+    const values = active(bucket), index = values.indexOf(until);
+    if (index >= 0) values.splice(index,1);
+    db.write(bucket,values,Math.max(now,...values));
+  };
+  if (op.action === 'release') {
+    const [until, dayEnd, reserved] = db.read(leaseKey);
+    if (until > now) {
+      remove(flightKey,until);
+      if (reserved && dayEnd === resetsAt) {
+        const length = op.characters ?? 0;
+        if (!Number.isInteger(length) || length < 0 || length > CAST_LINE_MAX) throw new Error('Invalid voice settlement');
+        for (const bucket of op.admin ? [voiceKey] : [voiceKey,voiceTotalKey]) {
+          remove('hold/'+bucket,until);
+          if (length) db.write(bucket,[(db.read(bucket)[0] ?? 0)+length],resetsAt);
+        }
+      }
+      db.write(leaseKey,[],now);
+    }
+    if (op.pauseVoice) db.write('voice/unavailable',[now+10*minute],now+10*minute);
   }
-  if (op.action === 'status') return result;
-  if (op.action.startsWith('login-')) {
+  const usage = (bucket: string) => (db.read(bucket)[0] ?? 0) + active('hold/'+bucket).length * CAST_LINE_MAX;
+  const voiceQuota = { used: usage(voiceKey), limit: op.admin ? limit(env.VOICE_DAILY_CHARS_ADMIN,20000) : limit(env.VOICE_DAILY_CHARS_PER_IP,4000), resetsAt };
+  const sharedRemaining = op.admin ? Infinity : limit(env.VOICE_DAILY_CHARS_ANON_TOTAL,8000) - usage(voiceTotalKey);
+  const result: Decision = { quota, voiceQuota, voiceRemaining: Math.max(0,Math.min(voiceQuota.limit-voiceQuota.used,sharedRemaining)), voiceBlockedUntil: db.read('voice/unavailable')[0] ?? 0 };
+  const denied = (reason: string, until: number) => ({ ...result, reason, resetsAt: until });
+  if (op.action === 'status' || op.action === 'release') return result;
+  if (op.action === 'login-good' || op.action === 'login-bad') {
     const bucket = 'login/' + op.ip, times = db.read(bucket).filter(t => t > now-hour);
     if (times.length >= 5) return denied('Sign-in attempts', times[0]+hour);
     if (op.action === 'login-bad') db.write(bucket,[...times,now],now+hour);
     return result;
   }
-  // Unique expiring leases recover from isolate termination without releasing another call's slot.
-  const voice = op.action.startsWith('voice-'), lane = voice ? 'voice/'+id : id;
-  const leases = db.read('flight/'+lane).filter(t => t > now);
-  const leaseKey = 'lease/'+op.lease;
-  if (op.action === 'release' || op.action === 'voice-release') {
-    const expiry = db.read(leaseKey)[0], index = leases.indexOf(expiry);
-    if (index >= 0) leases.splice(index,1);
-    db.write('flight/'+lane,leases,Math.max(now,...leases)); db.write(leaseKey,[],now);
-    return result;
-  }
-  const characters = op.characters ?? 0;
-  if (voice) {
-    if (result.voiceBlockedUntil > now) return denied('Voice provider unavailable', result.voiceBlockedUntil);
-    if (!op.ticket || !op.expiresAt || op.expiresAt <= now || db.read('spoken/'+op.ticket).length) return denied('Voice ticket expired or used', now);
-    if (!Number.isSafeInteger(characters) || characters < 1 || characters > result.voiceRemaining) return denied('Voice character limit', resetsAt);
-  }
-  if (!voice && quota.used >= quota.limit) return denied(op.admin ? 'Admin daily limit' : 'IP daily limit', resetsAt);
+  if (op.action !== 'accept') throw new Error('Unknown AI usage operation');
+  if (quota.used >= quota.limit) return denied(op.admin ? 'Admin daily limit' : 'IP daily limit', resetsAt);
   const anonymous = db.read(total)[0] ?? 0;
-  if (!voice && !op.admin && anonymous >= limit(env.AI_DAILY_CALLS_ANON_TOTAL,10000)) return denied('Anonymous daily limit', resetsAt);
-  const times = db.read('burst/'+lane).filter(t => t > now-minute);
+  if (!op.admin && anonymous >= limit(env.AI_DAILY_CALLS_ANON_TOTAL,10000)) return denied('Anonymous daily limit', resetsAt);
+  const times = db.read('burst/'+id).filter(t => t > now-minute);
   if (times.length >= 20) return denied('Minute limit', times[0]+minute);
+  const leases = active(flightKey);
   if (leases.length >= MAX_IN_FLIGHT) return denied('Concurrent calls', Math.min(...leases));
-  db.write(leaseKey,[now+LEASE_MS],now+LEASE_MS); db.write('flight/'+lane,[...leases,now+LEASE_MS],now+LEASE_MS);
-  db.write('burst/'+lane,[...times,now],now+minute);
-  if (voice) {
-    voiceQuota.used += characters;
-    result.voiceRemaining -= characters;
-    db.write(voiceKey,[voiceQuota.used],resetsAt);
-    if (!op.admin) db.write(voiceTotalKey,[voiceTotal+characters],resetsAt);
-    db.write('spoken/'+op.ticket,[1],op.expiresAt!);
-    return result;
+  // Every speech call occupies its parent model slot through the last byte, so
+  // the same concurrency and burst guards bound both providers.
+  if (op.reserveVoice && result.voiceBlockedUntil <= now && result.voiceRemaining >= CAST_LINE_MAX) {
+    result.voiceReserved = true;
+    for (const bucket of op.admin ? [voiceKey] : [voiceKey,voiceTotalKey]) {
+      db.write('hold/'+bucket,[...active('hold/'+bucket),expiry],expiry);
+    }
+    voiceQuota.used += CAST_LINE_MAX;
+    result.voiceRemaining -= CAST_LINE_MAX;
   }
+  db.write(leaseKey,[expiry,resetsAt,Number(!!result.voiceReserved)],expiry);
+  db.write(flightKey,[...leases,expiry],expiry);
+  db.write('burst/'+id,[...times,now],now+minute);
   db.write(key,[++quota.used],resetsAt);
   if (!op.admin) db.write(total,[anonymous+1],resetsAt);
   return result;

@@ -17,6 +17,7 @@ import type { FpsEngine, FpsHud } from '../game/fps-engine';
 import { streamerPilotStrategy, type StreamerDecision } from '../game/streamer-strategy';
 import { phaseForHud, streamerSession } from '../game/streamer-session';
 import { runMenu, waitFor } from '../game/streamer-menu';
+import type { CastReply } from '../game/ai-cast';
 import { castResetTime, requestCast, type CastAccounting, type CastQuota, type CastVoiceStatus } from '../lib/cast-client';
 import { handleStreamerInput } from '../lib/streamer-input';
 import { clickStreamerAction, readStreamerScreen } from '../lib/streamer-screen';
@@ -36,8 +37,13 @@ function controller() {
   const s = Object.assign(session, {
     engine:null as FpsEngine|null, menuAudio:null as AudioContext|null,
     save() { try { localStorage.setItem(key,JSON.stringify(s.settings)); } catch { /* session only */ } },
-    voiceAccount: (_voice:CastVoiceStatus) => {},
-    player:createCastVoice(voice => s.voiceAccount(voice)),
+    player:createCastVoice(),
+    audioContext(): AudioContext | null {
+      return s.engine?.castMuted ? null : s.engine?.getCastAudio() ?? s.menuAudio;
+    },
+    speechPermission(): AbortSignal | undefined {
+      return s.settings.voice ? s.player.permission(s.audioContext()) : undefined;
+    },
     unlock() {
       if (!s.settings.voice) return;
       try {
@@ -55,10 +61,9 @@ function controller() {
     open: (_region?:RegionId) => {},
   });
   session.interrupt = s.player.stop;
-  session.voiceLine = (line,ticket) => {
+  session.voiceLine = (_line,audio) => {
     const serial = s.snapshot().serial;
-    const context = s.engine?.castMuted ? null : s.engine?.getCastAudio() ?? s.menuAudio;
-    s.player.play({line,personaId:s.settings.personaId,ticket},context,() =>
+    s.player.play(audio,s.audioContext(),() =>
       s.snapshot().serial === serial && !!s.snapshot().caption && !s.signal().aborted && !!s.settings.voice);
   };
   return s;
@@ -126,7 +131,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
         familiarity:s.levels(e.castRegion),destinationSector,destinationPlace:target?.id,
         arenaArea:mode === 'arena' ? arena?.hardpoint?.area ?? arena?.teamDeathmatch?.area ?? arena?.freeForAll?.area : undefined,
         notes:s.notes.read(Date.now(),e.castRegion),events:s.takeEvents(),observation,frame:frame || undefined,
-      },signal,s.account).catch(error => {
+      },signal,s.account,fetch,s.speechPermission).catch(error => {
         if (!signal.aborted && error instanceof CastFailure && !error.transient && (error.status === 429 || error.status === 503)) s.stop(error.message);
         throw error;
       });
@@ -189,7 +194,6 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   useEffect(() => { if (state.phase === "paused") resumeButton.current?.focus(); },[state.phase]);
   const active = state.phase !== 'off';
   s.open = region => {s.startRegion = ['/world','/training'].includes(window.location.pathname) ? region : undefined;setProblem('');setStatus(null);setPanel(true);};
-  s.voiceAccount = voice => setStatus(old => old && {...old,voice});
   s.account = ({quota,voice,usage,costUsd}) => {
     setStatus(old => old && {...old,quota,voice});
     if (usage) setUsage(old => ({cost:old.cost+(costUsd ?? 0),priced:old.priced || typeof costUsd === 'number',tokens:old.tokens+usage.inputTokens+usage.outputTokens}));
@@ -243,9 +247,9 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
       request:async (screen,note,signal,advice) => {
         if (!advice.poll && s.settings.voice) await s.player.idle();
         signal.throwIfAborted();
-        const reply = await requestCast<{actionId:string;line:string|null;ticket?:string}>('streamer',{
+        const reply = await requestCast<CastReply & {actionId:string}>('streamer',{
           phase:'menu',screen,note,...advice,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
-        },signal,s.account);
+        },signal,s.account,fetch,s.speechPermission);
         // The viewer can send the request during the last line. Let that caption and its voice
         // finish their normal lifetime before clicking into the next screen or speaking again.
         while (advice.poll && s.snapshot().caption) await waitFor(100,signal);

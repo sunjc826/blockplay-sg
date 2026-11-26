@@ -1,3 +1,4 @@
+import { CAST_LINE_MAX } from '../src/game/cast-wire.ts';
 import { mapBrief } from './cast-map-brief.ts';
 import { COMMENTATOR_FRAME, LANGUAGE_RULES, castPersona } from '../src/game/ai-cast-personas.ts';
 import { renderPlaceCard } from '../src/data/place-cards.ts';
@@ -8,7 +9,7 @@ import type { Provider } from './llm/types.ts';
 
 /** A caption as shown: one line, capped, without the stray closing bracket or quote a model sometimes leaves after structured output. */
 export function tidyLine(raw: string) {
-  let line = raw.trim().replace(/\s+/g,' ').slice(0,240).trim();
+  let line = raw.trim().replace(/\s+/g,' ').slice(0,CAST_LINE_MAX).trim();
   for (const [open,close] of [['{','}'],['(',')'],['[',']']]) while (line.endsWith(close) && line.split(open).length <= line.split(close).length - 1) line = line.slice(0,-1).trim();
   if (line.endsWith('"') && (line.split('"').length - 1) % 2) line = line.slice(0,-1).trim();
   return line;

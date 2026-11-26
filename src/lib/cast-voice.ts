@@ -1,6 +1,6 @@
-import type { CastVoiceStatus } from './cast-client';
+import type { CastAudio } from './cast-stream';
 import { beginCastSpeech, CAST_MIX } from './cast-mix';
-import { voiceOutput } from './voice-volume';
+import { getVoiceVolume, voiceOutput } from './voice-volume';
 import processorUrl from './cast-pcm-worklet.ts?worker&url';
 
 const modules = new WeakMap<AudioContext, Promise<boolean>>();
@@ -17,25 +17,30 @@ function loadProcessor(context: AudioContext) {
   return loaded;
 }
 
-interface Line { personaId: string; line: string; ticket: string }
-interface Turn { line: Line; context: AudioContext; deadline: number; current: () => boolean }
+interface Turn { audio: CastAudio; context: AudioContext; deadline: number; current: () => boolean }
 
-export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetcher = fetch) {
+function playable(context: AudioContext | null | undefined) {
+  return context?.state === 'running' && !globalThis.document?.hidden && getVoiceVolume() > 0;
+}
+
+export function createCastVoice() {
+  let permission = new AbortController();
+  let waitTimer: ReturnType<typeof setTimeout> | undefined;
   let waiting: Turn | undefined;
   let cancel: (() => void) | undefined;
   let idle = Promise.resolve(), resolveIdle: (() => void) | undefined;
 
   function next() {
+    clearTimeout(waitTimer);
     cancel = undefined;
     const queued = waiting;
     waiting = undefined;
-    if (queued && queued.context.state === 'running' && queued.deadline > Date.now() && queued.current() && !globalThis.document?.hidden) start(queued);
-    else { resolveIdle?.(); resolveIdle = undefined; }
+    if (queued && !queued.audio.signal.aborted && playable(queued.context) && queued.deadline > Date.now() && queued.current()) start(queued);
+    else { queued?.audio.cancel(); resolveIdle?.(); resolveIdle = undefined; }
   }
 
   function start(turn: Turn) {
-    const {context, line} = turn;
-    const abort = new AbortController();
+    const {context, audio} = turn;
     let source: AudioBufferSourceNode | undefined, gain: GainNode | undefined, compressor: DynamicsCompressorNode | undefined;
     let worklet: AudioWorkletNode | undefined;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -48,7 +53,7 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
     function finish(breathe: boolean) {
       if (done) return;
       done = true;
-      abort.abort();
+      audio.cancel();
       clearTimeout(timer);
       clearTimeout(mixTimer);
       void reader?.cancel().catch(() => {});
@@ -72,8 +77,8 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
         timer = setTimeout(advance, CAST_MIX.breathMs);
       } else advance();
     }
-    const current = () => !done && turn.current() && Date.now() < turn.deadline
-      && context.state === 'running' && !globalThis.document?.hidden;
+    const current = () => !done && !audio.signal.aborted && turn.current() && Date.now() < turn.deadline
+      && playable(context);
 
     function cue(node: AudioNode, play: () => void) {
       if (release || done) return;
@@ -96,23 +101,8 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
     globalThis.document?.addEventListener('visibilitychange',visibility);
     void (async () => {
       try {
-        const processorReady = loadProcessor(context);
-        const response = await fetcher('/api/ai/voice', {
-          method:'POST', headers:{'Content-Type':'application/json'}, cache:'no-store',
-          signal:abort.signal, body:JSON.stringify(line),
-        });
-        if (done) return;
-        if (!response.ok) {
-          const error = await response.json();
-          if (!done && error.voice) account(error.voice);
-          finish(false); return;
-        }
-        const status = response.headers.get('X-Cast-Voice');
-        if (status) account(JSON.parse(status));
-        const format = /^s16le;rate=(24000|22050);channels=1$/.exec(response.headers.get('X-Cast-PCM') ?? '');
-        if (!format) { finish(false); return; }
-        const rate = Number(format[1]);
-        const streaming = response.body?.getReader && await processorReady;
+        const rate = 24000;
+        const streaming = await loadProcessor(context);
         if (done) return;
         if (streaming) {
           try {
@@ -122,11 +112,11 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
             });
           } catch { /* Module or constructor unavailable in this context. Play one buffer below. */ }
         }
+        reader = audio.stream.getReader();
         if (worklet) {
           const node = worklet;
           node.onprocessorerror = () => finish(started);
           node.port.onmessage = ({data}) => { if (data === 'ended') finish(true); };
-          reader = response.body!.getReader();
           const play = () => node.port.postMessage('play');
           let bytes = 0;
           try {
@@ -143,8 +133,19 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
           if (bytes >= 2) cue(node, play);
           else finish(false);
         } else {
-          const pcm = new DataView(await response.arrayBuffer());
-          if (!current() || pcm.byteLength < 2) { finish(false); return; }
+          const chunks: Uint8Array[] = [];
+          let length = 0;
+          while (!done) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            chunks.push(chunk.value);
+            length += chunk.value.length;
+          }
+          if (!current() || length < 2) { finish(false); return; }
+          const bytes = new Uint8Array(length);
+          let offset = 0;
+          for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length; }
+          const pcm = new DataView(bytes.buffer);
           const buffer = context.createBuffer(1, Math.floor(pcm.byteLength / 2), rate);
           const channel = buffer.getChannelData(0);
           for (let i = 0; i < channel.length; i++) channel[i] = pcm.getInt16(2 * i, true) / 32768;
@@ -155,15 +156,30 @@ export function createCastVoice(account: (voice: CastVoiceStatus) => void, fetch
       } catch { finish(false); }
     })();
   }
-  function stop() { waiting = undefined; cancel?.(); }
+  function dropWaiting() {
+    clearTimeout(waitTimer);
+    waiting?.audio.cancel();
+    waiting = undefined;
+  }
+  function stop() {
+    permission.abort();
+    permission = new AbortController();
+    dropWaiting();
+    cancel?.();
+  }
   return {
     stop,
     idle: () => idle,
-    play(line: Line, context: AudioContext | null, current: () => boolean) {
-      if (!context || context.state !== 'running' || !current() || globalThis.document?.hidden) return;
-      const turn = {line,context,current,deadline:Date.now()+CAST_MIX.readyMs};
-      if (cancel) waiting = turn;
-      else {
+    permission: (context: AudioContext | null | undefined) =>
+      playable(context) ? permission.signal : undefined,
+    play(audio: CastAudio, context: AudioContext | null, current: () => boolean) {
+      if (audio.signal.aborted || !context || !playable(context) || !current()) { audio.cancel(); return; }
+      const turn = {audio,context,current,deadline:Date.now()+CAST_MIX.readyMs};
+      if (cancel) {
+        dropWaiting();
+        waiting = turn;
+        waitTimer = setTimeout(dropWaiting,CAST_MIX.readyMs);
+      } else {
         idle = new Promise<void>(resolve => { resolveIdle = resolve; });
         start(turn);
       }

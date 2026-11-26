@@ -1,6 +1,5 @@
 import type { Env } from '../llm/index.ts';
 import { elevenlabs } from './elevenlabs.ts';
-import { voiceTickets } from './tickets.ts';
 
 const registry = new Map([['elevenlabs', { key: 'ELEVENLABS_API_KEY', model: 'eleven_flash_v2_5', create: elevenlabs }]]);
 // Singaporean voices designed for each persona (scripts/cast-voice-audition.mjs, saved with
@@ -24,5 +23,5 @@ export function selectSpeech(env: Env, fetcher = fetch) {
       if (ids.has(persona) && typeof id === 'string' && /^[A-Za-z0-9]{20}$/.test(id)) ids.set(persona, id);
     }
   } catch { /* Use the built-in cast when the optional override is malformed. */ }
-  return { ids, model: env.CAST_VOICE_MODEL?.trim() || provider.model, speak: provider.create(key, fetcher, env.ELEVENLABS_BASE_URL?.trim() || undefined), tickets: voiceTickets(key) };
+  return { ids, model: env.CAST_VOICE_MODEL?.trim() || provider.model, speak: provider.create(key, fetcher, env.ELEVENLABS_BASE_URL?.trim() || undefined) };
 }

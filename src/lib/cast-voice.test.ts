@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { requestCast } from './cast-client';
+import { CAST_CONTENT_TYPE, CAST_PCM } from '../game/cast-wire';
+import { getVoiceVolume, setVoiceVolume } from './voice-volume';
 import { createCastVoice } from './cast-voice';
 import { castSpeaking, CAST_MIX } from './cast-mix';
 import { createVolumeSetting } from './volume-setting';
@@ -7,8 +10,7 @@ import { createEncikAudio } from '../game/encik-audio';
 const param = () => ({value:1,cancelScheduledValues:vi.fn(),setValueAtTime:vi.fn(),linearRampToValueAtTime:vi.fn(),setTargetAtTime:vi.fn()});
 const node = () => ({connect:vi.fn((next:AudioNode)=>next),disconnect:vi.fn()});
 const source = () => ({...node(),buffer:null,start:vi.fn(),stop:vi.fn(),onended:null as (()=>void)|null});
-const pcmHeaders = {'X-Cast-PCM':'s16le;rate=24000;channels=1'};
-const audio = () => new Response(new Uint8Array([1,128,19]),{headers:pcmHeaders});
+const audio = () => new Response(new Uint8Array([1,128,19]));
 function fixture() {
   const sources:ReturnType<typeof source>[] = [];
   const makeGain = () => ({...node(),context:{currentTime:1},gain:param()});
@@ -23,10 +25,16 @@ function fixture() {
     createDynamicsCompressor:()=>({...node(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param()}),
   });
   const ctx = context as unknown as AudioContext;
-  const fetcher = vi.fn(async (_url:RequestInfo | URL,_init?:RequestInit) => audio());
-  const player = createCastVoice(vi.fn(),fetcher);
-  const play = (line:string,current=()=>true) => player.play({line,personaId:'coach',ticket:line},ctx,current);
-  return {sources,gains,context,ctx,fetcher,player,play};
+  const player = createCastVoice();
+  const nextStream = vi.fn(() => audio().body!);
+  const play = (_line:string,current=()=>true) => {
+    const abort = new AbortController();
+    const stream = nextStream();
+    const cancel = vi.fn(() => { abort.abort(); if (!stream.locked) void stream.cancel(); });
+    player.play({stream,cancel,signal:abort.signal},ctx,current);
+    return cancel;
+  };
+  return {sources,gains,context,ctx,nextStream,player,play};
 }
 beforeEach(()=>vi.useFakeTimers());
 afterEach(()=>{ vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -38,13 +46,13 @@ it('paces speech, replaces a single waiting line and releases the mix through th
   expect(h.context.createBuffer).toHaveBeenCalledWith(1,1,24000);
   expect(h.context.createBuffer.mock.results[0].value.getChannelData()[0]).toBe(-32767/32768);
   expect(castSpeaking()).toBe(true);
-  h.play('older'); h.play('latest'); expect(h.fetcher).toHaveBeenCalledOnce();
+  const older=h.play('older'), latest=h.play('latest'); expect(older).toHaveBeenCalledOnce();
   h.sources[0].onended!(); expect(castSpeaking()).toBe(false);
   await vi.advanceTimersByTimeAsync(CAST_MIX.breathMs-1);
-  expect(h.fetcher).toHaveBeenCalledOnce();
+  expect(h.sources).toHaveLength(1);
   await vi.advanceTimersByTimeAsync(1);
   expect(h.sources).toHaveLength(2);
-  expect(JSON.parse(String(h.fetcher.mock.calls[1][1]?.body))).toMatchObject({line:'latest'});
+  expect(latest).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(CAST_MIX.lead*1000);
   h.player.stop();
   expect(h.sources[1].stop).toHaveBeenCalledOnce(); expect(castSpeaking()).toBe(false);
@@ -52,22 +60,19 @@ it('paces speech, replaces a single waiting line and releases the mix through th
 });
 it('aborts on timeout and stop, discards stale decodes and never retries',async()=>{
   const h = fixture();
-  let finish!: (r:Response)=>void;
-  h.fetcher.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
-  h.play('late');
+  h.nextStream.mockReturnValueOnce(new ReadableStream());
+  const late=h.play('late');
   await vi.advanceTimersByTimeAsync(CAST_MIX.readyMs);
-  expect(h.fetcher.mock.calls[0][1]?.signal?.aborted).toBe(true);
-  finish(audio()); await h.player.idle();
+  expect(late).toHaveBeenCalledOnce();
+  await h.player.idle();
   let visible = true;
-  h.play('stale',()=>visible); visible=false; await vi.advanceTimersByTimeAsync(0);
-  let complete!: () => void;
-  const response = audio();
-  vi.spyOn(response,'arrayBuffer').mockImplementationOnce(()=>new Promise(resolve=>{complete=()=>resolve(new ArrayBuffer(2));}));
-  h.fetcher.mockResolvedValueOnce(response);
-  h.play('interrupted'); await vi.advanceTimersByTimeAsync(0);
-  h.play('waiting'); h.player.stop(); complete(); await vi.advanceTimersByTimeAsync(0);
-  expect(h.fetcher.mock.calls[2][1]?.signal?.aborted).toBe(true);
-  expect(h.sources).toHaveLength(0); expect(h.fetcher).toHaveBeenCalledTimes(3);
+  const stale=h.play('stale',()=>visible); visible=false; await vi.advanceTimersByTimeAsync(0);
+  expect(stale).toHaveBeenCalledOnce();
+  h.nextStream.mockReturnValueOnce(new ReadableStream());
+  const interrupted=h.play('interrupted');
+  const waiting=h.play('waiting'); h.player.stop(); await vi.advanceTimersByTimeAsync(0);
+  expect(interrupted).toHaveBeenCalledOnce(); expect(waiting).toHaveBeenCalledOnce();
+  expect(h.sources).toHaveLength(0);
   expect(castSpeaking()).toBe(false);
 });
 it('keeps the original effects graph, ducks from the slider, and restores the revised volume on hide',async()=>{
@@ -106,14 +111,14 @@ function streamingFixture() {
   vi.stubGlobal('AudioWorkletNode',class { constructor() { return processor; } });
   Object.assign(h.context,{audioWorklet:{addModule:vi.fn(async()=>{})}});
   let stream!: ReadableStreamDefaultController<Uint8Array>;
-  h.fetcher.mockResolvedValueOnce(new Response(new ReadableStream({start(c){stream=c;}}),{headers:pcmHeaders}));
+  h.nextStream.mockReturnValueOnce(new ReadableStream({start(c){stream=c;}}));
   return {...h,processor,port,stream};
 }
 const leadBytes = 2 * 24000 * CAST_MIX.bufferLeadMs / 1000;
 
 it.each(['end','network error','stop','processor error'])('streams the lead and releases speech and idle on %s',async ending => {
   const h = streamingFixture(), idle = vi.fn();
-  h.play('long'); void h.player.idle().then(idle);
+  const cancelled=h.play('long'); void h.player.idle().then(idle);
   h.stream.enqueue(new Uint8Array(leadBytes-1));
   await vi.advanceTimersByTimeAsync(100);
   expect(castSpeaking()).toBe(false);
@@ -136,7 +141,7 @@ it.each(['end','network error','stop','processor error'])('streams the lead and 
     h.port.onmessage!({data:'ended'});
   }
   expect(castSpeaking()).toBe(false);
-  expect(h.fetcher.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  expect(cancelled).toHaveBeenCalledOnce();
   expect(h.port.close).toHaveBeenCalledOnce();
   if (ending !== 'stop') {
     await vi.advanceTimersByTimeAsync(CAST_MIX.breathMs-1);
@@ -162,17 +167,6 @@ it('rechecks caption and deadline during ducking before the first sample',async 
   }
 });
 
-it('uses the whole PCM fallback when the browser exposes no streaming body',async () => {
-  const h = fixture();
-  const response = audio(), pcm = await response.arrayBuffer();
-  Object.defineProperty(response,'body',{value:null});
-  vi.spyOn(response,'arrayBuffer').mockResolvedValue(pcm);
-  h.fetcher.mockResolvedValueOnce(response);
-  h.play('short'); await vi.advanceTimersByTimeAsync(CAST_MIX.lead*1000);
-  expect(h.sources[0].start).toHaveBeenCalledOnce();
-  h.player.stop();
-});
-
 it('releases the player at the worklet’s last render for a short line and a timed-out stall',async () => {
   const h = streamingFixture();
   type Processor = {port:MessagePort;process(inputs:Float32Array[][],outputs:Float32Array[][]):boolean};
@@ -193,7 +187,7 @@ it('releases the player at the worklet’s last render for a short line and a ti
   });
   for (const ending of ['short','stall']) {
     let stream = h.stream;
-    if (ending === 'stall') h.fetcher.mockResolvedValueOnce(new Response(new ReadableStream({start(c){stream=c;}}),{headers:pcmHeaders}));
+    if (ending === 'stall') h.nextStream.mockReturnValueOnce(new ReadableStream({start(c){stream=c;}}));
     h.play(ending);
     stream.enqueue(new Uint8Array(ending === 'short' ? 121 : leadBytes));
     if (ending === 'short') stream.close();
@@ -207,4 +201,35 @@ it('releases the player at the worklet’s last render for a short line and a ti
     await vi.advanceTimersByTimeAsync(CAST_MIX.breathMs);
     await h.player.idle();
   }
+});
+it('offers speech only with a running audible context on a visible page',()=>{
+  const h=fixture(), page={hidden:false};
+  vi.stubGlobal('document',page);
+  expect(h.player.permission(h.ctx)?.aborted).toBe(false);
+  page.hidden=true; expect(h.player.permission(h.ctx)).toBeUndefined();
+  page.hidden=false; h.context.state='suspended'; expect(h.player.permission(h.ctx)).toBeUndefined();
+  expect(h.player.permission(null)).toBeUndefined();
+  h.context.state='running';
+  const volume=getVoiceVolume();
+  try { setVoiceVolume(0); expect(h.player.permission(h.ctx)).toBeUndefined(); }
+  finally { setVoiceVolume(volume); }
+});
+it('plays the audio handle returned with a caption using a single fetch',async()=>{
+  const h=fixture(), signal=new AbortController().signal;
+  let network!:ReadableStreamDefaultController<Uint8Array>;
+  const source=new ReadableStream<Uint8Array>({start(c){network=c;}});
+  const ask=vi.fn<typeof fetch>(async()=>new Response(source,{headers:{'Content-Type':CAST_CONTENT_TYPE}}));
+  const pending=requestCast('commentary',{},signal,vi.fn(),ask,()=>h.player.permission(h.ctx));
+  const header=Buffer.from(JSON.stringify({line:'Ready?',pcm:CAST_PCM}));
+  const prefix=Buffer.alloc(4); prefix.writeUInt32BE(header.length);
+  network.enqueue(Buffer.concat([prefix,header]));
+  const reply=await pending;
+  expect(reply.line).toBe('Ready?');
+  h.player.play(reply.audio!,h.ctx,()=>true);
+  expect(h.sources).toHaveLength(0);
+  network.enqueue(Uint8Array.of(1,2)); network.close();
+  await vi.advanceTimersByTimeAsync(CAST_MIX.lead*1000);
+  expect(h.sources[0].start).toHaveBeenCalledOnce();
+  expect(ask).toHaveBeenCalledOnce();
+  h.player.stop(); await h.player.idle();
 });

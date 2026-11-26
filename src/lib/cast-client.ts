@@ -1,3 +1,5 @@
+import { readCastStream } from './cast-stream';
+import { CAST_CONTENT_TYPE } from '../game/cast-wire';
 import { CastFailure } from '../game/ai-cast';
 import type { CastReply } from '../game/ai-cast';
 
@@ -22,14 +24,33 @@ function pause(ms: number, signal: AbortSignal) {
 }
 // Report accounting even for a failed call or a caption the director will discard as late.
 export async function requestCast<T extends CastReply>(endpoint: string, observation: object, signal: AbortSignal,
-  account: (result: CastAccounting) => void, fetcher = fetch): Promise<T> {
+  account: (result: CastAccounting) => void, fetcher = fetch, speech?: () => AbortSignal | undefined): Promise<T> {
   let response: Response, body;
+  let legacy = false;
   for (let attempt = 0; ; attempt++) {
+    const permission = !legacy ? speech?.() : undefined;
+    const spoken = permission && !permission.aborted;
+    const audioAbort = new AbortController();
     response = await fetcher('/api/ai/'+endpoint, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(observation),
-      signal:AbortSignal.any([signal,AbortSignal.timeout(35000)]),
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(spoken ? {...observation,spoken:true} : observation),
+      signal:AbortSignal.any([signal,audioAbort.signal,AbortSignal.timeout(35000)]),
     });
-    body = await response.json();
+    if (response.headers.get('content-type')?.split(';')[0] === CAST_CONTENT_TYPE) {
+      const reply = await readCastStream(response,audioAbort);
+      body = reply.body;
+      if (!spoken || permission.aborted || signal.aborted || !speech?.()) reply.audio.cancel();
+      else {
+        // Losing playback permission cancels only the audio portion, even if
+        // the menu is still waiting to show the caption.
+        AbortSignal.any([permission,signal]).addEventListener('abort',reply.audio.cancel,{once:true,signal:audioAbort.signal});
+        body.audio = reply.audio;
+      }
+    } else body = await response.json();
+    // A previous server rejects the optional field before admission.
+    if (spoken && response.status === 400 && body.error === 'Invalid game observation') {
+      legacy = true;
+      continue;
+    }
     if (body.quota) account(body);
     // "Too many at once" clears as soon as an earlier call returns: wait a moment and ask again.
     if (response.status !== 429 || body.transient !== true || attempt >= TRANSIENT_RETRIES) break;

@@ -36,6 +36,3 @@ export const modelEndpoints = new Map<string,ModelEndpoint>([
     },
   }],
 ]);
-
-export const aiEndpoints = new Map<string, ModelEndpoint | { feature: 'VOICE'; bodyLimit: number }>(modelEndpoints);
-aiEndpoints.set('/api/ai/voice', { feature: 'VOICE', bodyLimit: 4096 });

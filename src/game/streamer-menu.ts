@@ -1,3 +1,4 @@
+import type { CastReply } from './ai-cast';
 import { POLL_VOTE_SECONDS, applyViewerVote, pollVisit, shuffledScreen, summarizeGames, type PollRow } from './streamer-variety';
 import type { PlayedGame } from './streamer-history';
 import type { MenuScreen, MenuTurn } from './streamer-contract';
@@ -23,9 +24,9 @@ interface MenuIO {
   games(): readonly PlayedGame[];
   showPoll(card:MenuPoll|null): void;
   read(): MenuScreen | null;
-  request(screen: MenuScreen, note: string, signal: AbortSignal, advice:MenuAdvice): Promise<{actionId:string;line:string|null;ticket?:string}>;
+  request(screen: MenuScreen, note: string, signal: AbortSignal, advice:MenuAdvice): Promise<CastReply & {actionId:string}>;
   act(screen: MenuScreen, id: string, signal: AbortSignal, onClick: () => void): Promise<void>;
-  speak(line: string, ticket?: string): void;
+  speak(line: string, audio?: CastReply['audio']): void;
   wait(ms: number, signal: AbortSignal): Promise<void>;
   random?: () => number;
   now(): number;
@@ -92,14 +93,19 @@ export async function runMenu(io: MenuIO, trip: ReturnType<typeof menuTrip>, sig
     const advice = await pollAdvice(io,shuffled,trip,signal);
     signal.throwIfAborted();
     const reply = await io.request(shuffled,trip.note,signal,advice);
-    signal.throwIfAborted();
     const choice = screen.actions.find(a => a.id === reply.actionId && a.state !== 'disabled');
-    if (!choice) throw new Error('The streamer chose an unavailable control.');
-    const key = screen.screenId+'/'+choice.id;
-    trip.repeats = trip.previous === key ? trip.repeats+1 : 1;
-    trip.previous = key;
-    if (trip.repeats >= 3) throw new Error('The streamer repeated the same menu choice three times.');
-    await io.act(screen,choice.id,signal,() => { if (reply.line) io.speak(reply.line,reply.ticket); });
+    let audio = reply.audio;
+    try {
+      signal.throwIfAborted();
+      if (!choice) throw new Error('The streamer chose an unavailable control.');
+      const key = screen.screenId+'/'+choice.id;
+      trip.repeats = trip.previous === key ? trip.repeats+1 : 1;
+      trip.previous = key;
+      if (trip.repeats >= 3) throw new Error('The streamer repeated the same menu choice three times.');
+      await io.act(screen,choice.id,signal,() => {
+        if (reply.line) { io.speak(reply.line,audio); audio = undefined; }
+      });
+    } finally { audio?.cancel(); }
     signal.throwIfAborted();
     trip.count++;
     trip.note = 'Last choice: '+choice.label+'. Finish shopping and setup, then play. Menu choices so far: '+trip.count+'.';

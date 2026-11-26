@@ -4,7 +4,7 @@ import { expect,it,vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
 import { memoryLimits, type LimitStore } from './ai-limits';
-import { voiceTickets } from './tts/tickets';
+import { CAST_CONTENT_TYPE, CAST_PCM, CAST_STALE_MS } from '../src/game/cast-wire';
 import { Readable } from 'node:stream';
 import type { IncomingMessage,ServerResponse } from 'node:http';
 import { createAdventureHandler } from './adventure-api';
@@ -29,10 +29,11 @@ function harness(env:Record<string,string>,fetcher=vi.fn(), aiStore?:LimitStore)
   const handler = createAdventureHandler(env,fetcher,{aiStore});
   return async (path:string,body:unknown={},cookie='',ip='a',origin='http://localhost:5173')=>{
     const req = Object.assign(Readable.from([JSON.stringify(body)]),{url:'/api/ai/'+path,method:path==='status'?'GET':'POST',socket:{remoteAddress:ip},headers:{origin,cookie,'content-type':'application/json','cf-connecting-ip':Math.random().toString()}});
+    const chunks: Buffer[] = [];
     let code=0,headers:Record<string,string>={},data;
-    const res = {once:vi.fn(),off:vi.fn(),write(s:Uint8Array){data=s;return true;},writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string | Uint8Array){if (s !== undefined) data=typeof s === 'string' ? JSON.parse(s) : s;}};
+    const res = {once:vi.fn(),off:vi.fn(),write(s:Uint8Array){chunks.push(Buffer.from(s));return true;},writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string | Uint8Array){if (s !== undefined) data=typeof s === 'string' ? JSON.parse(s) : s;}};
     await handler(req as unknown as IncomingMessage,res as unknown as ServerResponse);
-    return {code,headers,data:data as unknown as {admin:boolean;quota:{used:number;limit:number};line:string;ticket:string}};
+    return {code,headers,wire:Buffer.concat(chunks),data:data as unknown as {admin:boolean;quota:{used:number;limit:number};line:string}};
   };
 }
 it('authenticates cookies, rejects tampering, caps attempts by socket, and logs out',async()=>{
@@ -84,81 +85,6 @@ it('accounts for streamer turns through the shared handler using the streamer mo
 
 const generated = () => Response.json({output:[{content:[{type:'output_text',text:'{"say":true,"line":"Nice one."}'}]}]});
 const speechEnv = {CAST_PROVIDER:'openai',OPENAI_API_KEY:'test',ELEVENLABS_API_KEY:'speech-test'};
-it('redeems only genuine lines once, returns private audio and preserves model quota',async()=>{
-  const f = vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(new Response(new Uint8Array([7])));
-  const call = harness({...speechEnv,AI_DAILY_CALLS_PER_IP:'1'},f);
-  const {line,ticket} = (await call('commentary',body)).data, payload = {line,ticket,personaId};
-  expect((await call('voice',{...payload,line:'Changed'})).code).toBe(403);
-  expect((await call('voice',payload,'','a','https://elsewhere.test')).code).toBe(403);
-  const [a,b] = await Promise.all([call('voice',payload),call('voice',payload)]);
-  expect([a.code,b.code].sort()).toEqual([200,429]);
-  const audio = a.code === 200 ? a : b;
-  expect(audio.headers).toMatchObject({'Content-Type':'audio/pcm','Cache-Control':'no-store, no-transform','X-Cast-PCM':'s16le;rate=24000;channels=1'});
-  expect(JSON.parse(audio.headers['X-Cast-Voice'])).toMatchObject({available:true,quota:{used:9}});
-  expect(audio.data).toEqual(new Uint8Array([7]));
-  expect((await call('status')).data).toMatchObject({quota:{used:1},voice:{quota:{used:9}}});
-  expect(f).toHaveBeenCalledTimes(2);
-});
-it('remembers exhausted provider credits across callers while returning caption-only turns',async()=>{
-  const clock = vi.spyOn(Date,'now'), now = Date.now(); clock.mockReturnValue(now);
-  try {
-    const f = vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(Response.json({detail:{status:'quota_exceeded'}},{status:401})).mockResolvedValueOnce(generated());
-    const call = harness(speechEnv,f);
-    const {line,ticket} = (await call('commentary',body)).data;
-    expect(await call('voice',{line,ticket,personaId})).toMatchObject({code:503,data:{voice:{available:false,quota:{used:9}}}});
-    expect((await call('voice',{line,ticket,personaId},'','b')).code).toBe(503);
-    const caption = await call('commentary',body,'','b');
-    expect(caption.data).toMatchObject({line,voice:{available:false}});
-    expect(caption.data.ticket).toBeUndefined(); expect(f).toHaveBeenCalledTimes(3);
-    clock.mockReturnValue(now+600000);
-    expect((await call('status')).data).toMatchObject({voice:{available:true}});
-  } finally { clock.mockRestore(); }
-});
-
-it.each(['end','early-error','late-error','hang-up'])('pipes voice with one admission and releases on %s',async ending => {
-  const store = vi.fn(memoryLimits({}));
-  let controller!: ReadableStreamDefaultController<Uint8Array>;
-  let signal!: AbortSignal;
-  let accepted!: () => void, wrote!: () => void;
-  const fetching = new Promise<void>(resolve => { accepted = resolve; });
-  const firstWrite = new Promise<void>(resolve => { wrote = resolve; });
-  const handler = createAdventureHandler(speechEnv, async (_url,init) => {
-    expect(store.mock.calls.map(([op]) => op.action)).toEqual(['voice-accept']);
-    signal = init!.signal!;
-    accepted();
-    return new Response(new ReadableStream({start(c) {
-      controller = c;
-      signal.addEventListener('abort', () => c.error(new Error('disconnected')), {once:true});
-    }}));
-  },{aiStore:store});
-  const line = 'Timed chunks.', ticket = voiceTickets(speechEnv.ELEVENLABS_API_KEY).issue(personaId,line);
-  const req = Object.assign(Readable.from([JSON.stringify({personaId,line,ticket})]), {
-    url:'/api/ai/voice', method:'POST', headers:{origin:'http://localhost:5173','content-type':'application/json'},
-  });
-  const res = Object.assign(new EventEmitter(),{writeHead:vi.fn(),write:vi.fn(() => { wrote();return true; }),end:vi.fn()});
-  const handled = handler(req as unknown as IncomingMessage,res as unknown as ServerResponse);
-  await fetching;
-  if (ending === 'early-error') controller.error(new Error('broken before PCM'));
-  else {
-    controller.enqueue(Uint8Array.of(1,2)); await firstWrite;
-    expect(res.end).not.toHaveBeenCalled();
-    if (ending === 'hang-up') res.emit('close');
-    else if (ending === 'late-error') controller.error(new Error('broken after PCM'));
-    else { controller.enqueue(Uint8Array.of(3,4)); controller.close(); }
-  }
-  await handled;
-  expect(store.mock.calls.map(([op]) => op.action)).toEqual(['voice-accept','voice-release']);
-  if (ending === 'early-error') {
-    expect(res.writeHead).toHaveBeenCalledWith(502,expect.objectContaining({'Content-Type':'application/json'}));
-    expect(JSON.parse(res.end.mock.calls[0][0])).toMatchObject({error:'Voice provider unavailable',voice:{quota:{used:line.length}}});
-  } else {
-    expect(res.writeHead).toHaveBeenCalledTimes(1);
-    expect(res.write).toHaveBeenCalledTimes(ending === 'end' ? 2 : 1);
-    if (ending === 'hang-up') expect(signal.aborted).toBe(true);
-    else expect(res.end).toHaveBeenCalledWith();
-  }
-});
-
 it('admits each valid commentary and streamer turn on the first usage call',async () => {
   for (const path of ['commentary','streamer']) {
     const store = vi.fn(memoryLimits({}));
@@ -173,4 +99,114 @@ it('admits each valid commentary and streamer turn on the first usage call',asyn
     expect(fetcher).toHaveBeenCalledOnce();
     expect(store.mock.calls.map(([op]) => op.action)).toEqual(['accept','release']);
   }
+});
+
+const menuTurn = {phase:'menu',personaId:'pro',clean:true,memory:[],wallet:{credits:10,tokens:10},note:'Choose',
+  screen:{screenId:'solo',title:'Solo',actions:[{id:'range',label:'Range',kind:'start'}]}};
+const playTurn = {...body,personaId:'pro',phase:'play',snapshot:undefined,hud:exampleHud,notes:[],
+  observation:{time:1,health:80,maxHealth:100,armor:0,magazine:20,reserve:60,weapon:0,yaw:0,pitch:0,position:{x:1,z:2},
+    alive:true,reloading:false,aiming:false,contacts:[],waypoints:[],ballistics:{velocity:300,drop:0},lootPrompt:'',travelPrompt:''}};
+it.each([
+  ['commentary',body,{},{}],
+  ['streamer',menuTurn,{actionId:'range'},{actionId:'range'}],
+  ['streamer',playTurn,{goal:'explore',destination:{waypointId:null,sectorId:null,placeId:null}},{goal:'explore'}],
+] as const)('frames a complete %s reply and speaks the exact returned caption',async(path,turn,modelDecision,expected)=>{
+  const model = {...modelDecision,say:true,line:'   Nice   one 你好!'};
+  const f = vi.fn().mockResolvedValueOnce(Response.json({output:[{content:[{type:'output_text',text:JSON.stringify(model)}]}]}))
+    .mockResolvedValueOnce(new Response(Uint8Array.of(0xff,0,10,32)));
+  const store = vi.fn(memoryLimits({}));
+  const result = await harness({...speechEnv,STREAMER_PROVIDER:'openai'},f,store)(path,{...turn,spoken:true});
+  expect(result.headers['Content-Type']).toBe(CAST_CONTENT_TYPE);
+  const end = 4+result.wire.readUInt32BE();
+  const header = JSON.parse(result.wire.subarray(4,end).toString());
+  expect(header).toMatchObject({...expected,line:'Nice one 你好!',pcm:CAST_PCM,quota:{used:1},usage:{inputTokens:0}});
+  expect(result.wire.subarray(end)).toEqual(Buffer.from([255,0,10,32]));
+  expect(JSON.parse(f.mock.calls[1][1].body).text).toBe(header.line);
+  expect(store.mock.calls.map(([op])=>op.action)).toEqual(['accept','release']);
+  expect(store.mock.calls[1][0].characters).toBe(header.line.length);
+});
+
+it.each(['old client','voice off','no provider','over budget','silent','refused','slow','invalid field'])('returns plain JSON for %s',async reason=>{
+  const clock=vi.spyOn(Date,'now'), now=Date.now();
+  try {
+    const f=vi.fn(async()=>{
+      if (reason==='slow') clock.mockReturnValue(now+CAST_STALE_MS+1);
+      if (reason==='refused') return Response.json({output:[{content:[{type:'refusal'}]}]});
+      if (reason==='silent') return Response.json({output:[{content:[{type:'output_text',text:'{"say":false,"line":"unused"}'}]}]});
+      return generated();
+    });
+    const call=harness({...speechEnv,...(reason==='no provider' && {ELEVENLABS_API_KEY:''}),
+      ...(reason==='over budget' && {VOICE_DAILY_CHARS_PER_IP:'239'})},f);
+    const value=reason==='old client' ? undefined : reason==='invalid field' ? 1 : reason!=='voice off';
+    const res=await call('commentary',{...body,spoken:value});
+    expect(res.code).toBe(reason==='invalid field' ? 400 : 200);
+    expect(res.headers['Content-Type']).toBe('application/json');
+    expect(res.data).toMatchObject({voice:{quota:{used:0}}});
+    if (reason==='over budget') expect(res.data).toMatchObject({voice:{available:false,reason:'Voice character limit reached'}});
+    expect(f).toHaveBeenCalledTimes(reason==='invalid field' ? 0 : 1);
+  } finally { clock.mockRestore(); }
+});
+it('ends after the header on a credit refusal and pauses the provider for ten minutes',async()=>{
+  const now=Date.now(), clock=vi.spyOn(Date,'now').mockReturnValue(now);
+  try {
+    const f=vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(new Response(null,{status:402})).mockResolvedValueOnce(generated());
+    const call=harness(speechEnv,f);
+    const first=await call('commentary',{...body,spoken:true});
+    expect(first.wire.length).toBe(4+first.wire.readUInt32BE());
+    expect(await call('commentary',{...body,spoken:true},'','b')).toMatchObject({data:{line:'Nice one.',voice:{available:false,quota:{used:0}}}});
+    clock.mockReturnValue(now+600000);
+    expect((await call('status')).data).toMatchObject({voice:{available:true}});
+    expect(f).toHaveBeenCalledTimes(3);
+  } finally { clock.mockRestore(); }
+});
+it.each([
+  ['Node','model'],['Node','speech'],['Worker signal','model'],['Worker signal','speech'],
+])('releases on %s disconnect during %s',async(runtime,phase)=>{
+  const client = runtime === 'Worker signal' ? new AbortController() : undefined;
+  let ready!:()=>void, resume!:()=>void, signal!:AbortSignal;
+  const started=new Promise<void>(r=>{ready=r;});
+  const gate=new Promise<void>(r=>{resume=r;});
+  const cancel=vi.fn(), store=vi.fn(memoryLimits({}));
+  const f=vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+    signal=init!.signal!;
+    if (String(url).endsWith('/responses')) {
+      if (phase==='model') { ready(); await gate; }
+      return generated();
+    }
+    // The complete JSON was handed to HTTP before this provider was called.
+    const header = Buffer.from(res.write.mock.calls[0][0]);
+    expect(header.readUInt32BE()).toBe(header.length-4);
+    expect(JSON.parse(header.subarray(4).toString()).line).toBe('Nice one.');
+    if (client) res.emit('close'); // Bridge header publication is not a hang-up.
+    return new Response(new ReadableStream({start(c){c.enqueue(Uint8Array.of(1,2));},cancel}));
+  });
+  const res=Object.assign(new EventEmitter(),{writeHead:vi.fn(),end:vi.fn(),write:vi.fn((bytes:Uint8Array)=>{
+    if (bytes.length===2) ready(); return true;
+  })});
+  const req=Object.assign(Readable.from([JSON.stringify({...body,spoken:true})]),{
+    url:'/api/ai/commentary',method:'POST',headers:{origin:'http://localhost:5173','content-type':'application/json'}});
+  const handling=createAdventureHandler(speechEnv,f,{aiStore:store})(req as unknown as IncomingMessage,res as unknown as ServerResponse,client?.signal);
+  await started;
+  if (client) client.abort(); else res.emit('close');
+  resume();
+  await handling;
+  expect(signal.aborted).toBe(true);
+  expect(f).toHaveBeenCalledTimes(phase==='model' ? 1 : 2);
+  if (phase==='speech') expect(cancel).toHaveBeenCalledOnce();
+  expect(store.mock.calls.at(-1)?.[0]).toMatchObject({action:'release',characters:phase==='model' ? 0 : 9});
+});
+it.each(['empty','before PCM','after PCM'])('keeps the caption and settles a speech body ending %s',async ending=>{
+  let reads=0;
+  const source=new ReadableStream<Uint8Array>({pull(c){
+    if (ending==='empty') c.close();
+    else if (ending==='after PCM' && reads++===0) c.enqueue(Uint8Array.of(77,88));
+    else c.error(new Error('interrupted'));
+  }},{highWaterMark:0});
+  const f=vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(new Response(source));
+  const call=harness(speechEnv,f);
+  const res=await call('commentary',{...body,spoken:true});
+  const end=4+res.wire.readUInt32BE();
+  expect(JSON.parse(res.wire.subarray(4,end).toString()).line).toBe('Nice one.');
+  expect(res.wire.subarray(end)).toEqual(Buffer.from(ending==='after PCM' ? [77,88] : []));
+  expect((await call('status')).data).toMatchObject({voice:{quota:{used:ending==='after PCM' ? 9 : 0}},quota:{used:1}});
 });

@@ -68,6 +68,7 @@ export function createStrategyPlanner(strategy: PilotStrategy, now: () => number
           description = destination ? 'Heading to '+destination.name : plan.summary;
           strategy.accepted?.(plan);
         }).catch(error => {
+          controller.abort(); // Discard any audio attached to a rejected decision.
           if (ticket !== generation) return;
           if (destination) { description = 'Continuing to '+destination.name; return; }
           current = null; description = `${error instanceof Error ? error.message : 'Strategy unavailable'} · local fallback`;

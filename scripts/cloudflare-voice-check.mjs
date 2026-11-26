@@ -8,31 +8,40 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { voiceTickets } from '../server/tts/tickets.ts';
+import { CAST_CONTENT_TYPE, CAST_PCM, CAST_STALE_MS } from '../src/game/cast-wire.ts';
+import { exampleHud } from '../src/game/cast-test-fixture.ts';
 
 const root = resolve(import.meta.dirname,'..');
 const temp = await mkdtemp(join(tmpdir(),'blockplay-voice-'));
 const key = 'local-voice-check', line = 'Testing the cast stream.', personaId = 'coach';
-let upstreamCalls = 0, lastSent = 0;
-const disconnected = Promise.withResolvers();
+let upstreamCalls = 0, modelCalls = 0, mode = 'line';
+const disconnected = Promise.withResolvers(), sendAudio = Promise.withResolvers(), sendTail = Promise.withResolvers();
 const provider = createServer(async (req,res) => {
-  upstreamCalls++;
-  if (req.method !== 'POST' || !req.url.endsWith('/stream?output_format=pcm_24000') || req.headers['xi-api-key'] !== key) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const body = JSON.parse(Buffer.concat(chunks));
+  if (req.url === '/v1/responses' && req.headers.authorization === 'Bearer local-model') {
+    modelCalls++;
+    if (mode === 'slow') await delay(CAST_STALE_MS + 100);
+    res.setHeader('content-type','application/json');
+    res.end(JSON.stringify({output:[{content:[{type:'output_text',text:JSON.stringify({say:mode !== 'silent',line})}]}]}));
+    return;
+  }
+  if (req.method !== 'POST' || !req.url.endsWith('/stream?output_format=pcm_24000') ||
+      req.headers['xi-api-key'] !== key || body.text !== line) {
     res.writeHead(400).end(); return;
   }
-  for await (const _ of req) { /* Drain the request before trickling the line. */ }
+  upstreamCalls++;
   res.writeHead(200,{'Content-Type':'application/octet-stream'});
-  if (upstreamCalls === 2) {
+  if (mode === 'disconnect') {
     res.once('close',disconnected.resolve);
     res.write(Buffer.alloc(4800,1));
     return;
   }
-  for (let i=1;i<=3;i++) {
-    if (i>1) await delay(300);
-    if (i===3) lastSent = performance.now();
-    res.write(Buffer.alloc(4800,i));
-  }
-  res.end();
+  await sendAudio.promise;
+  res.write(Buffer.alloc(4800,1));
+  await sendTail.promise;
+  res.end(Buffer.alloc(4800,2));
 });
 async function listen(server) {
   server.listen(0,'127.0.0.1');
@@ -54,7 +63,8 @@ try {
   // dotfiles, remote bindings and existing preview/development usage counters.
   config.main = resolve(root,config.main);
   config.assets.directory = assets;
-  config.vars = {ELEVENLABS_API_KEY:key,ELEVENLABS_BASE_URL:'http://127.0.0.1:'+providerPort};
+  const base = 'http://127.0.0.1:'+providerPort;
+  config.vars = {ELEVENLABS_API_KEY:key,ELEVENLABS_BASE_URL:base,CAST_PROVIDER:'openai',OPENAI_API_KEY:'local-model',OPENAI_BASE_URL:base+'/v1'};
   delete config.account_id;
   await writeFile(join(temp,'wrangler.json'),JSON.stringify(config));
   child = spawn(process.execPath,[join(root,'node_modules/wrangler/bin/wrangler.js'),'dev','--local','--ip','127.0.0.1',
@@ -79,40 +89,56 @@ try {
   assert.match(asset.headers.get('Content-Type'),/javascript/);
   assert.match(await asset.text(),/registerProcessor\(/);
 
-  const ticket = voiceTickets(key).issue(personaId,line);
-  const post = (redemption=ticket,signal=AbortSignal.timeout(10000)) => get('/api/ai/voice',{
+  const post = (signal=AbortSignal.timeout(12000)) => get('/api/ai/commentary',{
     method:'POST',signal,headers:{Origin:origin,'Content-Type':'application/json'},
-    body:JSON.stringify({line,personaId,ticket:redemption}),
+    body:JSON.stringify({spoken:true,personaId,clean:true,mode:'range',regionId:'changi',memory:[],events:[],snapshot:exampleHud}),
   });
-  const start = performance.now(), res = await post();
-  assert.equal(res.status,200); assert.equal(res.headers.get('content-type'),'audio/pcm');
-  assert.equal(res.headers.get('x-cast-pcm'),'s16le;rate=24000;channels=1');
-  assert.equal(JSON.parse(res.headers.get('x-cast-voice')).quota.used,line.length);
-  const reader = res.body.getReader(), first = await reader.read(), firstAt = performance.now();
-  assert(first.value?.length && !lastSent,'The Worker buffered the response.');
-  const chunks = [first.value];
-  for (;;) {
-    const chunk = await reader.read();
-    if (chunk.done) break;
-    chunks.push(chunk.value);
+  const status = async () => (await get('/api/ai/status',{headers:{Origin:origin}})).json();
+  async function header(response) {
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('content-type'),CAST_CONTENT_TYPE);
+    const reader = response.body.getReader();
+    let prefix = Buffer.alloc(0);
+    while (prefix.length < 4 || prefix.length < 4+prefix.readUInt32BE()) {
+      const chunk = await reader.read();
+      assert(!chunk.done,'Incomplete cast header');
+      prefix = Buffer.concat([prefix,chunk.value]);
+    }
+    const end = 4+prefix.readUInt32BE();
+    const reply = JSON.parse(prefix.subarray(4,end));
+    assert.equal(reply.line,line);
+    assert.equal(reply.pcm,CAST_PCM);
+    return {reader,tail:prefix.subarray(end)};
   }
-  assert(lastSent-firstAt>=200,'First bytes should precede the final send by at least 200 ms.');
-  assert.deepEqual(Buffer.concat(chunks),Buffer.concat([1,2,3].map(i=>Buffer.alloc(4800,i))));
-  const replay = await post(), denial = await replay.json();
-  assert.equal(replay.status,429); assert.equal(denial.error,'Voice ticket expired or used');
-  assert.equal(denial.voice.quota.used,line.length); assert.equal(upstreamCalls,1);
-  // A fresh accepted stream remains open until the HTTP client hangs up.
+  const first = await header(await post());
+  assert.equal(first.tail.length,0);
+  sendAudio.resolve();
+  const chunk = await first.reader.read();
+  assert(chunk.value?.length);
+  sendTail.resolve();
+  const pcm = [chunk.value];
+  for (;;) {
+    const next = await first.reader.read();
+    if (next.done) break;
+    pcm.push(next.value);
+  }
+  assert.deepEqual(Buffer.concat(pcm),Buffer.concat([1,2].map(i=>Buffer.alloc(4800,i))));
+  for (mode of ['silent','slow']) {
+    const response = await post();
+    assert.equal(response.headers.get('content-type'),'application/json');
+    assert.equal((await response.json()).line,mode === 'silent' ? null : line);
+    const usage = await status();
+    assert.equal(usage.voice.quota.used,line.length);
+    assert.equal(usage.quota.used,modelCalls);
+    assert.equal(upstreamCalls,1);
+  }
+  mode = 'disconnect';
   const abort = new AbortController();
-  const pending = await post(voiceTickets(key).issue(personaId,line),AbortSignal.any([abort.signal,AbortSignal.timeout(10000)]));
-  assert.equal(pending.status,200);
-  assert((await pending.body.getReader().read()).value?.length);
+  const hanging = await header(await post(AbortSignal.any([abort.signal,AbortSignal.timeout(10000)])));
+  if (!hanging.tail.length) assert((await hanging.reader.read()).value?.length);
   abort.abort();
-  // Reported, not required. Under `wrangler dev` a client hang-up does not reach the Node
-  // response's 'close' event through handleAsNodeRequest (seen 2026-11-26: not within 12 s), so the
-  // provider call runs on until it ends or the adapter's own timeout. A real line is delivered in
-  // under a second, so the cost is small; whether the deployed runtime behaves the same is unknown.
-  const hangUp = await Promise.race([disconnected.promise.then(()=>'propagated'), delay(2000).then(()=>'NOT propagated within 2 s')]);
-  console.log(`PASS Worker PCM. First bytes at ${Math.round(firstAt-start)} ms, last sent at ${Math.round(lastSent-start)} ms, one charge for the replayed line, replay refused, worklet served. Client hang-up: ${hangUp}.`);
+  const hangUp = await Promise.race([disconnected.promise.then(()=>'propagated'), delay(2000).then(()=>'not propagated within 2 s')]);
+  console.log(`PASS Worker: caption before speech, incremental PCM intact, one real-length charge, silent and slow turns caption-only, worklet served. Client hang-up ${hangUp}.`);
 } finally {
   if (child && child.exitCode===null && child.signalCode===null) {
     const exit = once(child,'exit');

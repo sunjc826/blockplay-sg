@@ -1,3 +1,4 @@
+import type { CastAudio } from '../lib/cast-stream';
 import { playHistory, readHistory, type GameLocation, type GameStats } from './streamer-history';
 import { familiarity, learningSummary, readLearning } from './streamer-familiarity';
 import type { RegionId } from './region-ids';
@@ -98,7 +99,7 @@ export function streamerSession() {
     },
     wallet:{credits:1600,tokens:300} as Wallet,
     interrupt: () => {},
-    voiceLine: (_text:string,_ticket:string) => {},
+    voiceLine: (_text:string,_audio:CastAudio) => {},
     game:null as {pause():void; resume():void; line(text:string):void; forgetPlan?():void} | null,
     snapshot: () => state, signal: () => abort.signal,
     subscribe(fn:()=>void) { listeners.add(fn); return () => {listeners.delete(fn);}; },
@@ -124,10 +125,11 @@ export function streamerSession() {
     },
     event(text:string) { events = [...events.slice(-19),text.replace(/\s+/g,' ').slice(0,240)]; },
     takeEvents() { const batch = events; events = []; return batch; },
-    speak(text:string,ticket?:string) {
-      if (state.phase === 'off' || state.phase === 'paused') return;
+    speak(text:string,audio?:CastAudio) {
+      if (state.phase === 'off' || state.phase === 'paused') { audio?.cancel(); return; }
       memory.remember(text); state = {...state,caption:text,serial:state.serial+1}; session.game?.line(text); listeners.forEach(fn => fn());
-      if (ticket && session.settings.voice) session.voiceLine(text,ticket);
+      if (audio && session.settings.voice) session.voiceLine(text,audio);
+      else audio?.cancel();
     },
     dismissCaption() { state = {...state,caption:''}; listeners.forEach(fn => fn()); },
   };

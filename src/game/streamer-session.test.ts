@@ -67,18 +67,19 @@ it('isolates wallet, purchases, equipment and earned XP across stop, late saves 
   expect(streamerSession().snapshot().phase).toBe('off');
 });
 
-it('voices only ticketed captions in an opted-in session and interrupts every phase hand-off',()=>{
+it('plays supplied audio in an opted-in session and interrupts every phase hand-off',()=>{
   const session = streamerSession();
   const settings = {personaId:'pro',clean:true,screenshots:false};
   session.voiceLine = vi.fn(); session.interrupt = vi.fn();
-  session.start(settings); session.speak('Caption','signed'); expect(session.voiceLine).not.toHaveBeenCalled();
-  session.start({...settings,voice:true}); session.speak('No ticket'); expect(session.voiceLine).not.toHaveBeenCalled();
-  session.speak('Store line','store-ticket');
+  const audio={stream:new ReadableStream<Uint8Array>(),signal:new AbortController().signal,cancel:vi.fn()};
+  session.start(settings); session.speak('Caption',audio); expect(audio.cancel).toHaveBeenCalledOnce(); expect(session.voiceLine).not.toHaveBeenCalled();
+  session.start({...settings,voice:true}); session.speak('Silent caption'); expect(session.voiceLine).not.toHaveBeenCalled();
+  session.speak('Store line',audio);
   expect(session.snapshot().caption).toBe('Store line');
-  expect(session.voiceLine).toHaveBeenLastCalledWith('Store line','store-ticket');
+  expect(session.voiceLine).toHaveBeenLastCalledWith('Store line',audio);
   vi.mocked(session.interrupt).mockClear();
-  session.handoff('play'); session.handoff('play'); session.speak('Game line','game-ticket');
-  expect(session.voiceLine).toHaveBeenLastCalledWith('Game line','game-ticket');
-  session.pause(); session.speak('Late','stale'); session.resume(); session.stop();
+  session.handoff('play'); session.handoff('play'); session.speak('Game line',audio);
+  expect(session.voiceLine).toHaveBeenLastCalledWith('Game line',audio);
+  session.pause(); session.speak('Late',audio); session.resume(); session.stop();
   expect(session.voiceLine).toHaveBeenCalledTimes(2); expect(session.interrupt).toHaveBeenCalledTimes(4);
 });

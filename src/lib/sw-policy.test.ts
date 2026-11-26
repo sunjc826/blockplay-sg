@@ -41,7 +41,7 @@ describe('service worker routing', () => {
 
   it('never caches the companion API, so an offline backend reads as offline', () => {
     expect(request(`${ORIGIN}/api/ai/status`)).toBe('bypass');
-    expect(request(`${ORIGIN}/api/ai/voice`,{method:'POST'})).toBe('bypass');
+    expect(request(`${ORIGIN}/api/ai/commentary`,{method:'POST'})).toBe('bypass');
     expect(request(`${ORIGIN}/api/health`)).toBe('bypass');
     expect(request(`${ORIGIN}/api/adventure/pilot-plan`)).toBe('bypass');
     expect(request(`${ORIGIN}/api/adventure/voice`, { navigate: true })).toBe('bypass');

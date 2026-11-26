@@ -29,9 +29,11 @@ function useCast({hud,engine,mode,session,presentation}:Props) {
   const [stored,setSettings] = useState(saved), [status,setStatus] = useState<Status|null>(null);
   const settings = streaming ? {...stored,enabled:false} : stored;
   const [reason,report] = useState(''), [panelError,panelReport] = useState(''), [caption,setCaption] = useState<{name:string;text:string}|null>(null);
+  const visibleCaption = useRef(caption);
+  visibleCaption.current = caption;
   const [cost,setCost] = useState<number|null>(null), [tokens,setTokens] = useState(0);
   const latest = useRef(settings); latest.current = settings;
-  const [player] = useState(() => createCastVoice(voice => setStatus(prev => prev && {...prev,voice})));
+  const [player] = useState(() => createCastVoice());
   const audioEngine = engine.current;
   useEffect(() => {
     if (!settings.enabled || !settings.voice || !audioEngine) return;
@@ -52,14 +54,16 @@ function useCast({hud,engine,mode,session,presentation}:Props) {
       setStatus(prev => prev && {...prev,quota,voice});
       if (typeof costUsd === 'number') setCost(c => (c ?? 0)+costUsd);
       if (usage) setTokens(n => n+usage.inputTokens+usage.outputTokens);
-    });
-  },(text,ticket) => {
+    },fetch,() => latest.current.voice ? player.permission(engine.current?.getCastAudio()) : undefined);
+  },(text,audio) => {
     const name = castPersona(latest.current.personaId)!.name;
-    setCaption({name,text}); engine.current?.addCastLine(name,text);
+    const shown = {name,text};
+    visibleCaption.current = shown; setCaption(shown);
+    engine.current?.addCastLine(name,text);
     const personaId = latest.current.personaId;
-    if (ticket && latest.current.voice) {
-      player.play({line:text,personaId,ticket}, engine.current?.getCastAudio() ?? null,
-        () => latest.current.enabled && latest.current.voice && latest.current.personaId === personaId);
+    if (audio) {
+      player.play(audio, engine.current?.getCastAudio() ?? null,
+        () => visibleCaption.current === shown && latest.current.enabled && latest.current.voice && latest.current.personaId === personaId);
       return player.idle();
     }
   },report));
