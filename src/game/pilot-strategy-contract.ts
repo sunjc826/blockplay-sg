@@ -1,11 +1,13 @@
-import type { PilotGoal, PilotObservation } from './fps-pilot';
+import type { PilotGoal, PilotObservation } from './fps-pilot.ts';
 export const PILOT_GOALS: readonly PilotGoal[] = ['engage', 'resupply', 'travel', 'explore'];
-export interface PilotPlan { goal: PilotGoal; waypointId: string | null; sectorId?: string | null; summary: string }
-export interface PilotStrategy { id: string; accepted?(plan: PilotPlan): void; plan(observation: Readonly<PilotObservation>, signal: AbortSignal): Promise<PilotPlan> }
-export function validPilotPlan(value: unknown, observation: PilotObservation, sectorIds: readonly string[] = []): value is PilotPlan {
+export interface RememberedPlace { id:string; sectorId:string; name:string; x:number; z:number; y?:number }
+export interface PilotPlan { goal: PilotGoal; waypointId: string | null; sectorId?: string | null; placeId?:string|null; summary: string }
+export interface PilotStrategy { id: string; rememberedPlace?(plan:PilotPlan):RememberedPlace|undefined; accepted?(plan: PilotPlan): void; plan(observation: Readonly<PilotObservation>, signal: AbortSignal, current?:PilotPlan|null): Promise<PilotPlan> }
+export function validPilotPlan(value: unknown, observation: PilotObservation, sectorIds: readonly string[] = [], placeIds:readonly string[] = []): value is PilotPlan {
   if (!value || typeof value !== 'object') return false;
   const p = value as PilotPlan;
   return PILOT_GOALS.includes(p.goal) && typeof p.summary === 'string' && p.summary.length > 0 && p.summary.length <= 180 &&
+    (p.placeId == null || p.waypointId === null && p.sectorId == null && placeIds.includes(p.placeId)) &&
     (p.sectorId == null || p.waypointId === null && sectorIds.includes(p.sectorId)) &&
     (p.waypointId === null || observation.waypoints.some(w => w.id === p.waypointId));
 }

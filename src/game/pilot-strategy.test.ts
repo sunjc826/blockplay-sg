@@ -181,3 +181,36 @@ it('preserves the local and LLM waypoint contracts even when sector geometry is 
   await expect(llm.plan(loot,new AbortController().signal)).rejects.toThrow('Invalid strategy response');
   planner.reset(); local.reset();
 });
+
+it('walks to remembered off-HUD footing inside its current sector and checks arrival height',async () => {
+  const {createPlayerPilot}=await import('./fps-pilot');
+  const {streamerPilotStrategy}=await import('./streamer-strategy');
+  const {placeTravelPoint}=await import('./pilot-sector');
+  const sector={id:'court',name:'Court',bounds:{minX:-20,maxX:20,minZ:-20,maxZ:20},anchors:[],cover:'broken' as const,lootWeight:1};
+  const place={id:'p-spot',sectorId:'court',name:'Lookout',x:0,z:-12,y:4};
+  const reply={goal:'travel',waypointId:null,sectorId:null,placeId:place.id,place,line:null};
+  const request=vi.fn().mockResolvedValueOnce(reply).mockRejectedValue(Error('offline'));
+  const strategy=streamerPilotStrategy(request,vi.fn(),[sector.id]);
+  const candidate={...reply,summary:'Walk'};
+  expect(validPilotPlan(candidate,observation,[sector.id])).toBe(false);
+  expect(validPilotPlan(candidate,observation,[sector.id],[place.id])).toBe(true);
+  for (const mixed of [{sectorId:sector.id},{waypointId:'ammo'}])
+    expect(validPilotPlan({...candidate,...mixed},{...observation,waypoints:[{id:'ammo',kind:'ammo',x:0,z:0}]},[sector.id],[place.id])).toBe(false);
+  let clock=0,height=0;
+  const planner=createStrategyPlanner(strategy,()=>clock,{sectors:[sector],point:()=>null,
+    height:()=>height,placePoint:p=>placeTravelPoint(p,sector.bounds,()=>4)});
+  const pilot=createPlayerPilot(planner), o={...observation,position:{x:0,z:0}};
+  pilot.decide(o); await flush();
+  expect(pilot.decide(o).status).toBe('Heading to Lookout');
+  clock=21000; pilot.decide(o); await flush(); expect(planner.status()).toBe('Continuing to Lookout');
+  expect(request.mock.calls[1][3]).toEqual(place);
+  expect(pilot.decide({...o,contacts:[{id:'seen',distance:2,yawError:0,pitchError:0,angularRadius:.1}]}).status).toBe('Engaging visible target');
+  for(let n=0;n<12;n++) {
+    clock+=100; o.time=clock/1000;
+    if (pilot.decide(o).action.forward) o.position.z--;
+  }
+  expect(o.position.z).toBe(-12);
+  expect(planner.preferredSector?.()).toBeTruthy();
+  height=4; pilot.decide(o);
+  expect(planner.preferredSector?.()).toBeNull();
+});

@@ -19,8 +19,8 @@ const play:PlayTurn = {...base,phase:'play',hud:exampleHud,notes:['Visited Chang
     ballistics:{velocity:300,drop:0},lootPrompt:'',travelPrompt:''}};
 function providerReply(value:unknown) {
   if (!value || typeof value !== 'object' || !('waypointId' in value) || !('sectorId' in value)) return value;
-  const {waypointId,sectorId,...reply} = value;
-  return {...reply,destination:{waypointId,sectorId}};
+  const {waypointId,sectorId,placeId = null,...reply} = value as Record<string,unknown>;
+  return {...reply,destination:{waypointId,sectorId,placeId}};
 }
 const make = (value:unknown,refused = false) => vi.fn(async (_r:Completion)=>({json:providerReply(value),refused,model:'fake',usage:{inputTokens:3,cachedInputTokens:0,outputTokens:1}}));
 it('registers an independently configured streamer provider and validates both envelopes before admission',()=>{
@@ -50,7 +50,7 @@ it('uses the authored blocks and public IDs, and validates a play decision even 
   const [request] = provider.mock.calls[0];
   expect(request.system).toEqual([STREAMER_FRAME,castPersona('rager')!.voice,LANGUAGE_RULES.clean,renderPlaceCard('changi','Changi'),mapBrief('changi')]);
   expect(request.user).toMatch(/Earlier line.*Arrived in changi.*Pilot observation/s);
-  expect(request.schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'string',enum:['crate']},sectorId:{type:'null'}}})])}}});
+  expect(request.schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'string',enum:['crate']},sectorId:{type:'null'},placeId:{type:'null'}}})])}}});
   for (const patch of [{goal:'invented'},{waypointId:'hidden'},{say:1},{line:4},{extra:2}])
     await expect(streamTurn(play,make({...decision,...patch}),'test')).rejects.toThrow();
   expect(await streamTurn(play,make({...decision,say:false}),'test')).toMatchObject({goal:'resupply',line:null});
@@ -73,9 +73,32 @@ it('restricts sector destinations to the district, including silent decisions, a
   const pick = {goal:'travel',waypointId:null,sectorId:ids[0],say:false,line:''};
   const model = make(pick);
   expect(await streamTurn(play,model,'test')).toMatchObject({sectorId:ids[0],line:null});
-  expect(model.mock.calls[0][0].schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'null'},sectorId:{type:'string',enum:ids}}})])}}});
+  expect(model.mock.calls[0][0].schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'null'},sectorId:{type:'string',enum:ids},placeId:{type:'null'}}})])}}});
   for (const invalid of [{...pick,sectorId:'tanglin-gate'},{...pick,waypointId:'crate'}])
     await expect(streamTurn(play,make(invalid),'test')).rejects.toThrow();
   for (const patch of [{hud:{...play.hud,x:7}},{notes:Array(21).fill('too many')},{notes:[{}]},{mapBrief:'untrusted'}])
     expect(parseStreamerTurn({...play,...patch})).toBeNull();
+});
+
+it('validates district-level claims and offers only printed, unlocked IDs to the model',async()=>{
+  const {learnedMap}=await import('./learned-map');
+  const {zoneSectors}=await import('../src/game/zone-sectors');
+  const regionId='pulau-ubin', village=zoneSectors(regionId).find(s => s.id==='village')!;
+  const turn:PlayTurn={...play,regionId,mode:'expedition',hud:{...play.hud,district:regionId},familiarity:{village:'been through'},
+    observation:{...play.observation,position:village.anchors[0],waypoints:[]}};
+  expect(parseStreamerTurn(turn)).toBeTruthy();
+  for (const patch of [{familiarity:[]},{familiarity:{village:2}},{familiarity:{missing:'knows well'}},
+    {familiarity:{village:{level:'knows well',text:'supplies'}}},{destinationSector:'missing'},{learnedDetail:'fake'}])
+    expect(parseStreamerTurn({...turn,...patch})).toBeNull();
+  const detail=learnedMap(turn), [id,place]=[...detail.choices][0];
+  const pick={goal:'travel',waypointId:null,sectorId:null,placeId:id,say:false,line:''};
+  const model=make(pick);
+  expect(await streamTurn(turn,model,'test')).toMatchObject({placeId:id,place,line:null});
+  expect(model.mock.calls[0][0].user).toContain(detail.text);
+  expect(model.mock.calls[0][0].schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([
+    {type:'object',additionalProperties:false,properties:{sectorId:{type:'null'},waypointId:{type:'null'},placeId:{type:'string',enum:[...detail.choices.keys()]}},required:expect.any(Array)}
+  ])}}});
+  for (const patch of [{placeId:'p-madeup'},{sectorId:'village'},{waypointId:'crate'}])
+    await expect(streamTurn(turn,make({...pick,...patch}),'test')).rejects.toThrow();
+  await expect(streamTurn({...turn,familiarity:{}},make(pick),'test')).rejects.toThrow();
 });

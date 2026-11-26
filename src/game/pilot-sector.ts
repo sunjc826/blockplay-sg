@@ -48,3 +48,19 @@ export function sectorApproach(target:Position2D, feet:()=>Feet, search:()=>Gene
     },
   };
 }
+
+/** Cabinets and cover are solid. Aim at the closest usable footing alongside
+ * the remembered object, inside the active arena and at the remembered floor. */
+export function placeTravelPoint(place:Position2D & {y?:number},area:RegionBounds,
+  support:(p:Position2D,y?:number)=>number|null) {
+  if (!containsPoint(area,place)) return null;
+  for (const radius of [0,1,1.8,2.6,3.6]) {
+    for (let i=0;i<(radius ? 12 : 1);i++) {
+      const p = {x:place.x+radius*Math.cos(i*Math.PI/6),z:place.z+radius*Math.sin(i*Math.PI/6)};
+      if (!containsPoint(area,p)) continue;
+      const y = support(p,place.y);
+      if (y !== null && (place.y === undefined || Math.abs(y-place.y)<.6)) return {...p,y};
+    }
+  }
+  return null;
+}

@@ -83,3 +83,11 @@ export function sectorAt(id: WorldZoneId, x: number, z: number): ZoneSector | nu
     .filter(s => x >= s.bounds.minX && x <= s.bounds.maxX && z >= s.bounds.minZ && z <= s.bounds.maxZ)
     .sort((a, b) => area(a) - area(b))[0] ?? null;
 }
+
+export function borderingSectors(a:ZoneSector,b:ZoneSector) {
+  return a.bounds.minX <= b.bounds.maxX && a.bounds.maxX >= b.bounds.minX &&
+    a.bounds.minZ <= b.bounds.maxZ && a.bounds.maxZ >= b.bounds.minZ;
+}
+
+/** Stable within a district. These are possible counter pickups, never a promise of stock. */
+export const foodCounterId = (sectorId:string,index:number) => 'food-'+sectorId+'-'+(index+1);

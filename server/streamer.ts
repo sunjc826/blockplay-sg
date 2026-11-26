@@ -1,3 +1,4 @@
+import { learnedMap } from './learned-map.ts';
 import { mapBrief } from './cast-map-brief.ts';
 import { zoneSectors } from '../src/game/zone-sectors.ts';
 import { STREAMER_FRAME, LANGUAGE_RULES, castPersona } from '../src/game/ai-cast-personas.ts';
@@ -15,14 +16,17 @@ export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, 
   const play = turn.phase === 'play';
   const choices = play ? turn.observation.waypoints.map(w => w.id) : turn.screen.actions.filter(a => a.state !== 'disabled').map(a => a.id);
   const sectorIds = play && turn.mode !== 'tutorial' ? zoneSectors(turn.regionId).map(s => s.id) : [];
+  const learned = play ? learnedMap(turn) : null;
+  const placeIds = [...(learned?.choices.keys() ?? [])];
   // A nested union works with providers that require a single root object.
-  // Its three disjoint cases make a double destination impossible to generate.
-  const destination = (waypointId:object,sectorId:object) => ({type:'object',additionalProperties:false,
-    properties:{waypointId,sectorId},required:['waypointId','sectorId']});
+  // Its disjoint cases make a double destination impossible to generate.
   const nil = {type:'null'};
+  const destination = (waypointId:object,sectorId:object,placeId:object = nil) => ({type:'object',additionalProperties:false,
+    properties:{waypointId,sectorId,placeId},required:['waypointId','sectorId','placeId']});
   const destinations = [destination(nil,nil)];
   if (choices.length && play) destinations.push(destination({type:'string',enum:choices},nil));
   if (sectorIds.length) destinations.push(destination(nil,{type:'string',enum:sectorIds}));
+  if (placeIds.length) destinations.push(destination(nil,nil,{type:'string',enum:placeIds}));
   const properties = {
     ...(play ? { goal: {type:'string',enum:PILOT_GOALS}, destination:{anyOf:destinations} }
       : {actionId:{type:'string',enum:choices}}),
@@ -34,7 +38,7 @@ export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, 
     system:[STREAMER_FRAME,persona.voice,LANGUAGE_RULES[turn.clean ? 'clean' : persona.language],
       play ? renderPlaceCard(region,REGION_NAMES[turn.regionId]) : 'Where you are: in the game\'s menus, not yet in a district.',...(play && turn.mode !== 'tutorial' ? [mapBrief(turn.regionId)] : [])].filter(Boolean),
     user:'Lines already said (oldest first)\n'+JSON.stringify(turn.memory)+'\nWhat happened\n'+JSON.stringify(play ? turn.events : turn.note)+
-      (play ? '\nSession notes (oldest first)\n'+JSON.stringify(turn.notes)+'\nHUD readout\n'+JSON.stringify(turn.hud)+'\nPilot observation\n'+JSON.stringify({mode:turn.mode,regionId:region,...turn.observation})
+      (play ? '\nSession notes (oldest first)\n'+JSON.stringify(turn.notes)+(learned?.text ? '\nLearned places\n'+learned.text : '')+'\nHUD readout\n'+JSON.stringify(turn.hud)+'\nPilot observation\n'+JSON.stringify({mode:turn.mode,regionId:region,...turn.observation})
         : '\nCurrent screen and budget\n'+JSON.stringify({screen:turn.screen,wallet:turn.wallet})),
     image:play && turn.frame ? {mediaType:'image/jpeg',base64:turn.frame} : undefined,
   });
@@ -43,9 +47,11 @@ export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, 
   let decision;
   if (play) {
     const d = reply.destination;
-    if (!record(d) || !only(d,['waypointId','sectorId']) || !('sectorId' in d)) throw new Error('Invalid streamer destination');
-    decision = {goal:reply.goal,waypointId:d.waypointId,sectorId:d.sectorId};
-    if (!validPilotPlan({...decision,summary:String(reply.goal)},turn.observation,sectorIds)) throw new Error('Invalid streamer decision');
+    if (!record(d) || !only(d,['waypointId','sectorId','placeId']) || !('sectorId' in d) || !('placeId' in d)) throw new Error('Invalid streamer destination');
+    decision = {goal:reply.goal,waypointId:d.waypointId,sectorId:d.sectorId,placeId:d.placeId ?? null};
+    if (!validPilotPlan({...decision,summary:String(reply.goal)},turn.observation,sectorIds,placeIds)) throw new Error('Invalid streamer decision');
+    const place = learned?.choices.get(d.placeId as string);
+    if (place) Object.assign(decision,{place});
   } else {
     if (!choices.includes(reply.actionId as string)) throw new Error('Invalid streamer action');
     decision = {actionId:reply.actionId};

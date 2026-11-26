@@ -17922,3 +17922,14 @@ Owner's rule for this work: the cast may see anything a player can see on the HU
 - **Not checked:** a sector destination chosen by the live model (the arena run had one sector; expeditions have several); commentary with the new readout in a browser.
 - **Seen:** the sandbox profile keeps its wallet between streamer sessions (it started this run at 1,450). Menu choice has no randomness and follows list order; a shuffle, a rolled "chat poll" and a play history are proposed and awaiting the owner.
 - **Next, approved:** familiarity-gated fine detail per sector with remembered places as destinations, per session by default, optional per-persona persistence with a Forget button.
+
+## 2026-11-26: The streamer learns places by being in them
+Implemented by Codex (GPT-6.2-Astra) from a brief; one paragraph added to `STREAMER_FRAME` by Claude.
+- **Familiarity** (`src/game/streamer-familiarity.ts`): per district and sector, three levels. "Been through" after two seconds of active presence or one fight, death or supply use; "knows well" after 150 accumulated seconds or three visits. Menus, pauses and time dead do not count. A promotion is a cast event.
+- **Learned detail** (`server/learned-map.ts`): rendered on the server from game data for the current sector, its neighbours and the destination; the client sends only a level per sector id. Capped at 360 characters a sector, 1,100 in all. Sparse where the data is sparse (Jurong Lake's causeway, two Tampines sectors).
+- **Remembered places are destinations:** each has an id, and a plan may name a waypoint, a sector or a place.
+- **Persistence:** per session by default. "Keep what it learns" saves counters per persona under `blockplay.streamer.learning.v1.<persona>`; Forget clears it and resets a running session.
+- **Menu wait:** the menu loop now waits 180 s (was 45 s) for a screen with choices, because a district load has none and overran it on a busy machine (`MENU_WAIT_MS`).
+- **Checked:** vitest (4833 pass), `tsc --noEmit`, `pnpm build`; a live open-world run in the Browser pane (menu steered into Open World by a test hook): the model named the Ginger Garden sector as its destination, walked Tanglin Gate, Bandstand lawn and Swan Lake, said "I've been through here already", familiarity saved for four sectors, and Forget cleared it while the player's profile stayed at 1,600.
+- **Not checked:** a remembered place chosen as a destination by the live model, or a sector reaching "knows well" (the run was two minutes); voice together with this.
+- **Still open:** menu choices have no randomness. Two unsteered runs both chose Team Deathmatch.

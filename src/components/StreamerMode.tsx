@@ -1,4 +1,4 @@
-import { zoneSectors } from '../game/zone-sectors';
+import { zoneSectors, sectorAt } from '../game/zone-sectors';
 import { hudReadout, type HudPresentation } from '../game/cast-hud';
 import { noteHudEvents } from '../game/streamer-notes';
 import { holdCaption } from '../game/caption-time';
@@ -11,8 +11,7 @@ import { CastFailure, hudEvents } from '../game/ai-cast';
 import type { CastMode } from '../game/cast-contract';
 import type { RegionId } from '../game/region-ids';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
-import type { PilotPlan } from '../game/pilot-strategy-contract';
-import { streamerPilotStrategy } from '../game/streamer-strategy';
+import { streamerPilotStrategy, type StreamerDecision } from '../game/streamer-strategy';
 import { phaseForHud, streamerSession } from '../game/streamer-session';
 import { runMenu, waitFor } from '../game/streamer-menu';
 import { castResetTime, requestCast, type CastAccounting, type CastQuota, type CastVoiceStatus } from '../lib/cast-client';
@@ -28,7 +27,7 @@ function controller() {
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '{}');
     session.settings = {personaId:castPersona(saved.personaId)?.role === 'streamer' ? saved.personaId : 'pro',
-      clean:saved.clean === true, screenshots:saved.screenshots !== false, voice:saved.voice === true};
+      clean:saved.clean === true, screenshots:saved.screenshots !== false, voice:saved.voice === true, keepLearning:saved.keepLearning === true};
   } catch { /* Use the session defaults. */ }
   const s = Object.assign(session, {
     engine:null as FpsEngine|null, menuAudio:null as AudioContext|null,
@@ -79,6 +78,12 @@ export function StreamerEntry({region}:{region?:RegionId}) {
   return s && solo && !active ? <button type="button" className="session-button streamer-entry" onClick={()=>s.open(region)}>Streamer mode</button> : null;
 }
 
+function learnFromHud(session:ReturnType<typeof streamerSession>,region:RegionId,hud:FpsHud,kind?:'fight'|'death'|'supply') {
+  if (session.snapshot().phase !== 'play') return;
+  const alive = hud.phase === 'playing' && hud.health > 0 && !hud.deathRecap && hud.arenaSelf?.alive !== false;
+  session.observe(region,sectorAt(region,hud.x,hud.z),hud.elapsed,alive,kind);
+}
+
 /** Mounted only during a sandbox game. Engine changes across districts replace the binding. */
 export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>HudPresentation;hud:FpsHud;engine:RefObject<FpsEngine|null>;mode:CastMode}) {
   const s = useStreamer()!, e = engine.current;
@@ -92,11 +97,12 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
     const game = {
       pause() { resumePlay.current = s.snapshot().phase === 'paused' && lastPhase.current === 'play'; e.pause(); },
       resume() { if (resumePlay.current) e.startPilot(); resumePlay.current = false; },
+      forgetPlan() { e.forgetPilotPlan(); },
       line(text:string) { e.addCastLine(name,text); },
     };
     s.game = game; s.engine = e;
     const off = e.onCastAudioStop(s.player.stop);
-    const strategy = streamerPilotStrategy(async (observation,planSignal) => {
+    const strategy = streamerPilotStrategy(async (observation,planSignal,current,target) => {
       // The first pilot tick can precede React's deployment hand-off.
       if (s.snapshot().phase !== 'play') throw new Error('Waiting for deployment');
       const signal = AbortSignal.any([planSignal,s.signal()]);
@@ -106,10 +112,15 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
       s.nextPlan = Date.now()+3000;
       const frame = s.settings.screenshots ? await e.captureFrame() : null;
       signal.throwIfAborted();
-      const decision = await requestCast<Pick<PilotPlan,'goal'|'waypointId'|'sectorId'> & {line:string|null}>('streamer',{
+      const waypoint = current?.waypointId && observation.waypoints.find(w => w.id === current.waypointId);
+      const destinationSector = target?.sectorId ?? current?.sectorId ?? (waypoint ? sectorAt(e.castRegion,waypoint.x,waypoint.z)?.id : undefined);
+      const arena = latest.current.hud.arena;
+      const decision = await requestCast<StreamerDecision>('streamer',{
         phase:'play',personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),regionId:e.castRegion,
         mode,hud:hudReadout(latest.current.hud,{...latest.current.presentation(),mode,region:e.castRegion,weapons:e.getLoadout().weapons,seconds:(Date.now()-s.started)/1000}),
-        notes:s.notes.read(Date.now()),events:s.takeEvents(),observation,frame:frame || undefined,
+        familiarity:s.levels(e.castRegion),destinationSector,destinationPlace:target?.id,
+        arenaArea:mode === 'arena' ? arena?.hardpoint?.area ?? arena?.teamDeathmatch?.area ?? arena?.freeForAll?.area : undefined,
+        notes:s.notes.read(Date.now(),e.castRegion),events:s.takeEvents(),observation,frame:frame || undefined,
       },signal,s.account).catch(error => {
         if (!signal.aborted && error instanceof CastFailure && !error.transient && (error.status === 429 || error.status === 503)) s.stop(error.message);
         throw error;
@@ -118,7 +129,9 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
       return decision;
     },s.speak,mode === 'tutorial' ? [] : zoneSectors(e.castRegion).map(s => s.id));
     e.setPilotStrategy('streamer',strategy);
+    const timer = mode !== 'tutorial' ? window.setInterval(() => learnFromHud(s,e.castRegion,latest.current.hud),1000) : undefined;
     return () => {
+      window.clearInterval(timer); s.leaveSector();
       off(); s.player.stop();
       if (s.game === game) { s.game = null; s.engine = null; s.handoff('menu'); }
     };
@@ -127,7 +140,9 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
     if (!e || s.snapshot().phase === 'paused' || s.snapshot().phase === 'off') return;
     if (hud.phase === 'error') { s.stop(hud.message || 'The game could not load.'); return; }
     if (track.engine !== e) {
-      track.engine = e; track.notes = noteHudEvents(s.notes,e.castRegion,mode,latest.current.presentation().bounds);
+      track.engine = e; track.notes = noteHudEvents(s.notes,e.castRegion,mode,latest.current.presentation().bounds,(h,kind) => {
+        if (mode !== 'tutorial') learnFromHud(s,e.castRegion,h,kind);
+      });
       track.diff = hudEvents((text,major) => { s.event(text); if (major) e.replanPilot(); }); s.event('Arrived in '+e.castRegion); e.replanPilot();
     }
     track.notes?.(hud,Date.now());
@@ -198,8 +213,8 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     const blur = () => s.pause();
     const visibility = () => { if (document.hidden) s.pause(); };
     document.addEventListener('visibilitychange',visibility);
-    window.addEventListener('blur',blur);
-    return () => { for (const event of events) window.removeEventListener(event,input,true); window.removeEventListener('blur',blur); document.removeEventListener('visibilitychange',visibility); };
+    window.addEventListener('blur',blur); window.addEventListener('pagehide',blur);
+    return () => { for (const event of events) window.removeEventListener(event,input,true); window.removeEventListener('blur',blur); window.removeEventListener('pagehide',blur); document.removeEventListener('visibilitychange',visibility); };
   },[active,s]);
   useEffect(() => {
     if (state.phase !== 'menu') return;
@@ -227,6 +242,14 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   if (!host || !active && !panel && !state.reason) return null;
   const q = status?.quota, name = castPersona(s.settings.personaId)?.name;
   const limit = q && q.used >= q.limit;
+  const learningControls = <div className="streamer-learning">
+    <label><input type="checkbox" checked={!!settings.keepLearning} onChange={e=>{
+      const keepLearning = e.target.checked;
+      setSettings({...settings,keepLearning});
+      s.keepLearning(keepLearning); s.save();
+    }}/> Keep what it learns</label>
+    <small>{s.savedSummary(settings.personaId)}</small> <button type="button" onClick={()=>s.forget(settings.personaId)}>Forget</button>
+  </div>;
   return createPortal(<>
     {panel && <section ref={panelRef} className="streamer-settings cast-panel" role="dialog" aria-modal="true" aria-label="Streamer mode">
       <h2>Streamer mode</h2><p>Your streamer plays solo using its own wallet and loadout. Menu choices, game state, past lines and optional game screenshots go to the AI provider. With Voice on, the streamer’s lines go to the voice provider.</p>
@@ -235,6 +258,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
       <small>{castPersona(settings.personaId)?.blurb}</small>
       <label><input type="checkbox" checked={settings.clean} onChange={e=>setSettings({...settings,clean:e.target.checked})}/> Clean language</label>
       <label><input type="checkbox" checked={settings.screenshots} onChange={e=>setSettings({...settings,screenshots:e.target.checked})}/> Send gameplay screenshots</label>
+      {learningControls}
       <small>{problem || (status ? status.available ? status.provider+' · '+status.model : 'Streamer provider unavailable' : 'Checking availability…')}</small>
       {q && <><progress aria-label="Daily AI calls" value={q.used} max={Math.max(1,q.limit)}/><small>{q.used} / {q.limit} calls · {limit ? 'Limit reached, resets at ' : 'Resets at '}{castResetTime(q.resetsAt)} · {usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</small></>}
       <button onClick={()=>setPanel(false)}>Close</button> <button disabled={!status?.available || !!limit} onClick={()=>{
@@ -251,6 +275,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
           s.settings = {...s.settings,voice}; setSettings(s.settings); s.save();
           if (voice) s.unlock(); else s.closeAudio();
         }}/>
+        {learningControls}
         <span>{usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens'}</span>
       </div></details>}
     </div>,dock ?? host)}

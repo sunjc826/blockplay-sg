@@ -17,6 +17,9 @@ interface MenuIO {
   wait(ms: number, signal: AbortSignal): Promise<void>;
   now(): number;
 }
+/** How long to wait for a screen with choices. A district load is a screen without any, and on a
+ * phone or a busy machine it runs well past a minute; the Stop chip is there the whole time. */
+export const MENU_WAIT_MS = 180000;
 export function menuTrip() { return { count:0, previous:'', repeats:0, note:'Visit the store, choose solo equipment, then start a game.' }; }
 
 /** Cancellation belongs to the session. Keep the trip counters across a human pause. */
@@ -27,7 +30,7 @@ export async function runMenu(io: MenuIO, trip: ReturnType<typeof menuTrip>, sig
     signal.throwIfAborted();
     const screen = io.read();
     if (!screen) {
-      if (io.now()-waitingSince >= 45000) throw new Error('The next menu did not become ready.');
+      if (io.now()-waitingSince >= MENU_WAIT_MS) throw new Error('The next menu did not become ready.');
       continue;
     }
     if (trip.count >= 25) throw new Error('Reached 25 menu actions without entering play.');

@@ -1,4 +1,4 @@
-import { sectorTravelPoint, sectorApproach } from './pilot-sector';
+import { sectorTravelPoint, sectorApproach, placeTravelPoint } from './pilot-sector';
 import { compileSettled, withWarmRenderObjects } from './warm-render-objects';
 import { createAmmoPlacementQueue, type AmmoPlacement, type AmmoPlacementSource } from './ammo-placement';
 import { createAmmoPlacementViewmodel } from './fps-ammo-placement';
@@ -2447,13 +2447,19 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     pilot.reset(); strategicPlanner?.reset(); clearInput();
     strategyMode = mode; strategicPlanner = mode === 'streamer' && streamer ? createStrategyPlanner(streamer,undefined,{
       sectors:options.tutorial ? [] : zoneSectors(region),
+      height:() => playerFeet().y,
+      placePoint:place => placeTravelPoint(place,world.bounds,(p,y) => {
+        const at = y ?? world.bounds.groundHeight?.(p.x,p.z) ?? 0;
+        const floor = footMovement.supportHeight(p.x,p.z,at+.4,.38,1.8);
+        return floor !== null && footMovement.canOccupy(p.x,floor,p.z,.38,1.8,vehicles.footObstacles().slice(world.obstacles.length)) ? floor : null;
+      }),
       approach:target => sectorApproach(target,playerFeet,function* () {
         const env = options.arena?.environment ?? zoneWorld.environment;
         sectorNavigator ??= createVerticalNavigator({bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),
           traversalObstacles:getTraversalObstacles(world.scene),lifts:getBuildingLifts(world.scene)},
           arenaNavigationAnchors(world.obstacles,env,boundedMatch ? undefined : {spawns:fleetSpawns,openWorld:!!expedition}),env.bakedNavigation);
         const ground = world.bounds.groundHeight?.(target.x,target.z) ?? 0;
-        const y = footMovement.supportHeight(target.x,target.z,ground+.4,.38,1.8) ?? ground;
+        const y = target.y ?? footMovement.supportHeight(target.x,target.z,ground+.4,.38,1.8) ?? ground;
         return yield* sectorNavigator.plan(playerFeet(),{...target,y},undefined,vehicles.footObstacles().slice(world.obstacles.length));
       }),
       point:(sector,from) => sectorTravelPoint(sector,world.bounds,from,options.arena?.environment?.navigationAnchors ?? zoneWorld.environment.navigationAnchors ?? [],p => {
@@ -5520,7 +5526,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseRespawn: (zone: string) => { const accepted = arenaRuntime?.chooseRespawn(zone) ?? false; publish(); return accepted; },
     setAutoRespawn: (automatic: boolean) => { arenaRuntime?.setAutoRespawn(automatic); publish(); },
     triggerLevolution,
-    adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, replanPilot: () => strategicPlanner?.replan(), takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
+    adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, replanPilot: () => strategicPlanner?.replan(), forgetPilotPlan: () => strategicPlanner?.reset(), takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant, toggleWeaponMode,

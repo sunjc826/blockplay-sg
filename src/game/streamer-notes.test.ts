@@ -42,3 +42,21 @@ it('records supply receipts, ignores denied pickups and retains the public secto
   expect(notes.read(4000)).toContainEqual(expect.stringContaining('Used Field dressing in '+court.name));
   expect(notes.read(4000)).toContainEqual(expect.stringContaining('Enemy marked in '+lawn.name));
 });
+
+it('remembers the exact emptied stall after its receipt ages out, and scores only observed gameplay incidents',()=>{
+  const notes=sessionNotes(), incidents:string[]=[];
+  const observe=noteHudEvents(notes,'pulau-ubin','expedition',undefined,(_h,kind)=>incidents.push(kind));
+  const village=zoneSectors('pulau-ubin').find(s=>s.id==='village')!;
+  const p=village.foodAnchors![0], h={...initialFpsHud,...p,phase:'playing'} as FpsHud;
+  const food={...p,id:'food',name:'Kaya toast',placement:'food-stall'};
+  observe({...h,fieldLoot:[food]} as FpsHud,0);
+  observe({...h,shots:1,pilotContacts:1,lootNotice:'Collected toast',comms:[{id:1,at:1,channel:'system',source:'Supplies',text:'Collected toast'}]} as FpsHud,1000);
+  const dead={...h,deathRecap:{serial:1,cause:'Opponent'}} as FpsHud;
+  observe(dead,2000); observe(dead,3000);
+  expect(incidents).toEqual(['fight','supply','death']);
+  for (let i=0;i<25;i++) notes.add('Visit '+i,i);
+  expect(notes.read(4000,'pulau-ubin')).toHaveLength(20);
+  expect(notes.read(4000,'pulau-ubin')).toContain('Emptied this session [food-village-1]');
+  expect(notes.read(4000,'queenstown').join(' ')).not.toContain('Emptied');
+  notes.clear(); expect(notes.read(5000,'pulau-ubin')).toEqual([]);
+});

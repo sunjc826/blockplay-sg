@@ -1,5 +1,5 @@
 import type { CastReply } from './ai-cast';
-import { validPilotPlan, type PilotPlan, type PilotStrategy } from './pilot-strategy-contract';
+import { validPilotPlan, type PilotPlan, type PilotStrategy, type RememberedPlace } from './pilot-strategy-contract';
 import type { PilotObservation } from './fps-pilot';
 
 /** Preserve selectable exits when a crowded district exceeds the wire contract. */
@@ -13,18 +13,24 @@ export function streamerObservation(o: Readonly<PilotObservation>): PilotObserva
   };
 }
 
-export function streamerPilotStrategy(request: (observation: Readonly<PilotObservation>, signal: AbortSignal) =>
-  Promise<Pick<PilotPlan,'goal'|'waypointId'|'sectorId'> & CastReply>, speak: (line:string,ticket?:string) => void, sectorIds:readonly string[] = []): PilotStrategy {
+export type StreamerDecision = Pick<PilotPlan,'goal'|'waypointId'|'sectorId'|'placeId'> & CastReply & {place?:RememberedPlace};
+export function streamerPilotStrategy(request: (observation: Readonly<PilotObservation>, signal: AbortSignal, current?:PilotPlan|null, target?:RememberedPlace) =>
+  Promise<StreamerDecision>, speak: (line:string,ticket?:string) => void, sectorIds:readonly string[] = []): PilotStrategy {
   const captions = new WeakMap<PilotPlan,CastReply>();
-  return { id:'streamer', accepted(plan) {
+  const places = new WeakMap<PilotPlan,RememberedPlace>();
+  return { rememberedPlace:plan => places.get(plan), id:'streamer', accepted(plan) {
     const line = captions.get(plan);
     if (line?.line) { if (line.ticket) speak(line.line,line.ticket); else speak(line.line); }
-  }, async plan(observation,signal) {
+  }, async plan(observation,signal,current) {
     const visible = streamerObservation(observation);
-    const reply = await request(visible,signal);
+    const reply = await request(visible,signal,current,current ? places.get(current) : undefined);
     signal.throwIfAborted();
-    const plan = {goal:reply.goal, waypointId:reply.waypointId, sectorId:reply.sectorId, summary:[reply.goal,reply.waypointId,reply.sectorId].filter(Boolean).join(' · ')};
-    if (!validPilotPlan(plan,visible,sectorIds)) throw new Error('Invalid streamer plan');
+    const point = reply.place;
+    if (point && (!reply.placeId || point.id !== reply.placeId || !sectorIds.includes(point.sectorId) ||
+      !point.name || ![point.x,point.z,point.y ?? 0].every(Number.isFinite))) throw new Error('Invalid remembered place');
+    const plan = {goal:reply.goal, waypointId:reply.waypointId, sectorId:reply.sectorId, placeId:reply.placeId, summary:[reply.goal,reply.waypointId,reply.sectorId,reply.placeId].filter(Boolean).join(' · ')};
+    if (!validPilotPlan(plan,visible,sectorIds,point ? [point.id] : [])) throw new Error('Invalid streamer plan');
+    if (point) places.set(plan,point);
     if (reply.line) captions.set(plan,reply);
     return plan;
   }};
