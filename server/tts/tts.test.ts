@@ -10,7 +10,7 @@ it('sends only the line and model with one authenticated MP3 request',async () =
   expect(fetcher).toHaveBeenCalledOnce();
   const [url,init] = fetcher.mock.calls[0];
   expect(url).toBe('https://api.elevenlabs.io/v1/text-to-speech/'+request.voiceId+'/stream?output_format=mp3_44100_64');
-  expect(init).toMatchObject({method:'POST',redirect:'error',headers:{'xi-api-key':'test','Content-Type':'application/json'},signal:expect.any(AbortSignal)});
+  expect(init).toMatchObject({method:'POST',redirect:'manual',headers:{'xi-api-key':'test','Content-Type':'application/json'},signal:expect.any(AbortSignal)});
   expect(JSON.parse(String(init?.body))).toEqual({text:request.text,model_id:request.model});
   expect(result).toEqual({audio:new Uint8Array([11,22]),contentType:'audio/mpeg',characters:9});
 });
@@ -46,4 +46,12 @@ it('authenticates exact lines, personas and expiry and issues distinct tickets f
   expect(tickets.verify('duo','A line.',ticket.slice(0,-1))).toBeNull();
   expect(voiceTickets('other',()=>now).verify('duo','A line.',ticket)).toBeNull();
   now = 121000; expect(tickets.verify('duo','A line.',ticket)).toBeNull();
+});
+
+it('refuses a redirect instead of following it with the key, and never asks for redirect "error"',async () => {
+  // The Workers runtime throws a TypeError for redirect 'error', which made every live voice request fail.
+  const { readFileSync } = await import('node:fs');
+  expect(readFileSync(new URL('./elevenlabs.ts',import.meta.url),'utf8')).not.toMatch(/redirect:\s*'error'/);
+  const moved = elevenlabs('test',async () => new Response(null,{status:302,headers:{Location:'https://elsewhere.example/'}}));
+  await expect(moved(request)).rejects.toMatchObject({kind:'upstream'});
 });

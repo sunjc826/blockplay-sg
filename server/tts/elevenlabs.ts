@@ -5,10 +5,13 @@ export function elevenlabs(key: string, fetcher = fetch): Speak {
     const timeout = AbortSignal.timeout(15000);
     try {
       const res = await fetcher('https://api.elevenlabs.io/v1/text-to-speech/' + encodeURIComponent(voiceId) + '/stream?output_format=mp3_44100_64', {
-        method: 'POST', redirect: 'error', signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
+        // 'manual', not 'error': the Workers runtime throws on redirect 'error'. A redirect is refused below,
+        // so the key is never sent on to another host.
+        method: 'POST', redirect: 'manual', signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
         headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, model_id: model }),
       });
+      if (res.status >= 300 && res.status < 400 || res.type === 'opaqueredirect') throw new SpeechError('upstream');
       if (!res.ok) {
         const error = await res.json().catch(() => null);
         const detail = error?.detail;
