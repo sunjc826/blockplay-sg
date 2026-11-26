@@ -50,7 +50,7 @@ export default function TutorialGame({ suspended, onStore, onLoaded, loadScreen 
   const restart = () => setEpoch(n => n + 1);
   const begin = () => { if (touch) fullscreen.enter(); engine.current?.start(); };
   const toStore = () => { engine.current?.pause(); if (fullscreen.immersive) void fullscreen.toggle(); onStore(); };
-  return <CastSession mode="tutorial" session={epoch} hud={hud} engine={engine}><div className={`fps-game tutorial-game${fullscreen.immersive ? ' is-immersive' : ''}`} ref={stage} data-phase={hud.phase} data-step={lesson?.id ?? 'complete'} data-touch={touch ? 'on' : undefined} data-player-x={hud.x} data-player-z={hud.z} data-player-yaw={hud.yaw} data-player-pitch={hud.pitch}>
+  return <CastSession presentation={() => ({objective:lesson ? lesson.title+' · '+lesson.detail : 'Course complete',canFight:playing})} mode="tutorial" session={epoch} hud={hud} engine={engine}><div className={`fps-game tutorial-game${fullscreen.immersive ? ' is-immersive' : ''}`} ref={stage} data-phase={hud.phase} data-step={lesson?.id ?? 'complete'} data-touch={touch ? 'on' : undefined} data-player-x={hud.x} data-player-z={hud.z} data-player-yaw={hud.yaw} data-player-pitch={hud.pitch}>
     <div className="viewport fps-viewport">
       <div className="world" ref={host} />
       {fullscreen.notice && <div className="fps-screen-notice" role="status">{fullscreen.notice}</div>}

@@ -1,7 +1,7 @@
 import type { RegionBounds } from '../game/region-collision';
 import { useEffect, useId, useRef, useState } from 'react';
 import { getRegion, type RegionMapShape } from '../game/regions';
-import { localMinimapBounds, minimapHeading, minimapProjection, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '../game/minimap';
+import { markerAtMapEdge, outsideMapBounds, localMinimapBounds, minimapHeading, minimapProjection, MINIMAP_CONTACT_RANGE, type MinimapMarker } from '../game/minimap';
 import { minimapColor, minimapLabels, minimapMarkerCategory, type MapLabel } from '../game/minimap-presentation';
 import { getWorldZone, type WorldZoneId } from '../game/world-zones';
 import { sectorAt, zoneSectors } from '../game/zone-sectors';
@@ -20,7 +20,6 @@ function FpsMapShapes({ shapes }: { shapes: readonly RegionMapShape[] }) {
 
 const SECTOR_FILL = { dense: '#31473b', broken: '#2c3f3a', open: '#354036' } as const;
 const VIEW = { compact: { width: 200, height: 160 }, expanded: { width: 600, height: 440 } } as const;
-const EDGE_KINDS = new Set<MinimapMarker['kind']>(['control','checkpoint', 'parachute', 'boat', 'facility']);
 const SYMBOLS: { label: string; marker: MinimapMarker }[] = [
   { label: 'Friendly Hunter', marker: { id: 'hunter', kind: 'hunter', side: 'ally', label: 'Friendly Hunter Drone', x: 0, z: 0 } },
   ...(['command', 'garage', 'helipad', 'supply'] as const).map(facilityType => ({ label: { command: 'Command', garage: 'Garage', helipad: 'Helipad', supply: 'Depot' }[facilityType], marker: { id: facilityType, kind: 'facility' as const, facilityType, label: '', x: 0, z: 0 } })),
@@ -65,9 +64,9 @@ export default function FpsMinimap({ zone, player, markers = [], mode, expanded:
   const visible = [...landmarks, ...(!jammed ? markers : [])].flatMap(marker => {
     const x = map.x(marker.x), y = map.y(marker.z);
     const outside = expanded
-      ? marker.x < bounds.minX || marker.x > bounds.maxX || marker.z < bounds.minZ || marker.z > bounds.maxZ
+      ? outsideMapBounds(marker, bounds)
       : x < edge || x > width - edge || y < edge || y > height - edge;
-    if (outside && !EDGE_KINDS.has(marker.kind) && !(marker.kind === 'hunter' && marker.side === 'ally')) return [];
+    if (outside && !markerAtMapEdge(marker)) return [];
     return [{ marker, outside, x: Math.max(edge, Math.min(width - edge, x)), y: Math.max(edge, Math.min(height - edge, y)) }];
   });
   const ordered = [...visible].sort((a, b) => Number(!!b.marker.active) - Number(!!a.marker.active)

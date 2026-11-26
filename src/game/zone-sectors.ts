@@ -1,7 +1,7 @@
 import type { SectorCover } from './cover-metrics';
 import type { RegionBounds } from './region-collision';
 import type { WorldZoneId, ZonePosition } from './world-zones';
-import { REGION_SECTORS } from '../data/region-sectors';
+import { REGION_SECTORS } from '../data/region-sectors.ts';
 import type { FactionHeatBands } from './faction-heat';
 
 export type { SectorCover };

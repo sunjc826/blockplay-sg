@@ -1,3 +1,5 @@
+import { DEFAULT_VARIANTS } from './weapon-family-ids.ts';
+import { validHudReadout, type HudReadout } from './cast-hud-contract.ts';
 import { castPersona } from './ai-cast-personas.ts';
 import { jpeg, lines, modes, only, record, short, type CastMode } from './cast-contract.ts';
 import { isRegionId, type RegionId } from './region-ids.ts';
@@ -13,16 +15,16 @@ export interface Wallet { credits: number; tokens: number }
 interface Turn { personaId: string; clean: boolean; memory: string[] }
 export interface MenuTurn extends Turn { phase: 'menu'; screen: MenuScreen; wallet: Wallet; note: string }
 export interface PlayTurn extends Turn {
-  phase: 'play'; regionId: RegionId; mode: CastMode; events: string[]; observation: PilotObservation; frame?: string;
+  phase: 'play'; hud: HudReadout; notes:string[]; regionId: RegionId; mode: CastMode; events: string[]; observation: PilotObservation; frame?: string;
 }
 const id = (v: unknown) => typeof v === 'string' && short(v,100) && !!v.trim();
 export function parseStreamerTurn(v: unknown): PlayTurn | MenuTurn | null {
   const shared = ['phase', 'personaId', 'clean', 'memory'];
   if (!record(v) || castPersona(v.personaId)?.role !== 'streamer' || typeof v.clean !== 'boolean' || !lines(v.memory,30)) return null;
   if (v.phase === 'play') {
-    if (!only(v,[...shared,'regionId','mode','events','observation','frame']) || !isRegionId(v.regionId) ||
-      !modes.includes(v.mode as CastMode) || !lines(v.events,20) || ('frame' in v && !jpeg(v.frame))) return null;
-    const observation = parsePilotObservation(v.observation);
+    if (!only(v,[...shared,'regionId','mode','events','observation','hud','notes','frame']) || !isRegionId(v.regionId) ||
+      !modes.includes(v.mode as CastMode) || !lines(v.events,20) || !lines(v.notes,20) || !validHudReadout(v.hud) || v.hud.district !== v.regionId || ('frame' in v && !jpeg(v.frame))) return null;
+    const observation = parsePilotObservation(v.observation,DEFAULT_VARIANTS.length);
     return observation && { ...(v as unknown as PlayTurn), observation };
   }
   const s = v.screen, w = v.wallet;

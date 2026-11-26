@@ -1,0 +1,2 @@
+/** Each family's baseline. The enemy-issue baselines are never owned until found. */
+export const DEFAULT_VARIANTS = ['sar-issued', 'ult-issued', 'p30-issued', 'mag-issued', 'cis50-issued', 'xm8-carbine', 'g36-rifle', 'mg4-standard', 'ff-scar-l', 'ff-scar-h', 'ff-longwatch', 'ff-oicw', 'ff-intervention', 'ff-oicw-launcher', 'cc-gatekeeper', 'cc-network', 'cc-qts11', 'cc-qts11-launcher'] as const;

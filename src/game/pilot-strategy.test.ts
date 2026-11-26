@@ -108,3 +108,76 @@ it('maps streamer replies and coalesces major events until the three-second mini
   expect(planner.chooseGoal(observation)).toBe('explore'); expect(speak).not.toHaveBeenCalledWith('stale');
   planner.reset();
 });
+
+it('walks to a named sector, keeps walking past expiry and a failed re-ask, yields to threats and finishes at the boundary',async () => {
+  const { createPlayerPilot } = await import('./fps-pilot');
+  const { sectorTravelPoint } = await import('./pilot-sector');
+  const sector = {id:'court',name:'Gate court',bounds:{minX:-5,maxX:5,minZ:-48,maxZ:-40},anchors:[],cover:'broken' as const,lootWeight:1};
+  const travel = {sectors:[sector],point:() => sectorTravelPoint(sector,sector.bounds,observation.position,[{x:0,z:-44}],() => true)};
+  const plan = {goal:'travel' as const,waypointId:null,sectorId:'court',summary:'Take the court'};
+  expect(validPilotPlan(plan,observation,['court'])).toBe(true);
+  expect(validPilotPlan(plan,observation)).toBe(false);
+  expect(validPilotPlan({...plan,sectorId:'fake'},observation,['court'])).toBe(false);
+  expect(validPilotPlan({...plan,waypointId:'known'},{...observation,waypoints:[{id:'known',kind:'ammo',x:0,z:0}]},['court'])).toBe(false);
+  let now = 0;
+  const request = vi.fn().mockResolvedValueOnce(plan).mockRejectedValue(Error('offline'));
+  const planner = createStrategyPlanner({id:'streamer',plan:request},()=>now,travel), pilot = createPlayerPilot(planner);
+  const o = {...observation,position:{x:0,z:0}};
+  pilot.decide(o); await flush();
+  for (let step=0;step<400;step++) {
+    now += 100; o.time=now/1000;
+    if (step === 220) {
+      expect(pilot.decide({...o,contacts:[{id:'seen',yawError:0,pitchError:0,angularRadius:.02,distance:10}]}).status).toBe('Engaging visible target');
+      continue;
+    }
+    const d = pilot.decide(o); await flush();
+    expect(d.status).toBe('Heading to Gate court');
+    if (d.action.forward) o.position.z -= .12;
+    if (o.position.z <= -40) break;
+  }
+  expect(o.position.z).toBeLessThanOrEqual(-40); expect(request.mock.calls.length).toBeGreaterThan(2);
+  pilot.decide(o); expect(planner.preferredSector?.()).toBeNull();
+  expect(planner.status()).toMatch(/Arrived|Planning/);
+});
+
+it('clips sector approaches to the arena, prefers walkable navigation anchors and searches out from a blocked centre',async () => {
+  const {sectorTravelPoint} = await import('./pilot-sector');
+  const bounds = {minX:0,maxX:10,minZ:0,maxZ:10};
+  const sector = {id:'post',name:'Post',bounds,anchors:[{x:5,z:4}],cover:'open' as const,lootWeight:1};
+  const from = {x:0,z:0}, walkable = (p:{x:number}) => p.x >= 3;
+  expect(sectorTravelPoint(sector,bounds,from,[{x:-1,z:2},{x:3,z:2}],walkable)).toEqual({x:3,z:2});
+  expect(sectorTravelPoint(sector,bounds,from,[],walkable)).toEqual(sector.anchors[0]);
+  const small = {minX:8,maxX:10,minZ:8,maxZ:10};
+  expect(sectorTravelPoint(sector,small,from,[],p => p.x > 9)).toMatchObject({x:9.25,z:9});
+  expect(sectorTravelPoint(sector,small,from,[],()=>false)).toBeNull();
+});
+it('keeps exits selectable in a crowded streamer turn without modifying local observations',async () => {
+  const {streamerObservation} = await import('./streamer-strategy');
+  const waypoints:PilotObservation['waypoints'][number][] = Array.from({length:50},(_,i) => ({id:String(i),x:i,z:0,kind:'ammo'}));
+  waypoints.push({id:'district-exit',kind:'checkpoint',x:100,z:10});
+  const wire = streamerObservation({...observation,waypoints});
+  expect(wire.waypoints).toHaveLength(40);
+  expect(wire.waypoints[0].id).toBe('district-exit');
+  expect(waypoints).toHaveLength(51);
+  expect(parsePilotObservation(wire)).toBeTruthy();
+});
+
+it('preserves the local and LLM waypoint contracts even when sector geometry is available',async () => {
+  const {localPilotStrategy} = await import('./pilot-strategy');
+  const area = {id:'square',name:'Square',bounds:{minX:0,maxX:5,minZ:0,maxZ:5},cover:'open' as const,anchors:[],lootWeight:1};
+  const geometry = {sectors:[area],point:vi.fn(()=>({x:3,z:3}))};
+  const loot = {...observation,waypoints:[{kind:'ammo' as const,id:'crate',x:4,z:1}]};
+  const local = createStrategyPlanner(localPilotStrategy,()=>0,geometry);
+  local.chooseGoal(loot); await flush();
+  expect(local.preferredSector?.()).toBeNull();
+  expect(local.preferredWaypoint?.()).toBeNull();
+  const reply = {goal:'resupply',waypointId:'crate',summary:'Collect crate'};
+  const fetcher = vi.fn().mockImplementation(async()=>new Response(JSON.stringify({plan:reply})));
+  const llm=llmPilotStrategy(fetcher), planner=createStrategyPlanner(llm,()=>0,geometry);
+  planner.chooseGoal(loot); await vi.waitFor(()=>expect(planner.preferredWaypoint?.()).toBe('crate'));
+  expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({observation:JSON.parse(JSON.stringify(loot))});
+  expect(planner.preferredSector?.()).toBeNull(); expect(geometry.point).not.toHaveBeenCalled();
+  fetcher.mockResolvedValueOnce(new Response(JSON.stringify({plan:{...reply,waypointId:null,sectorId:'square'}})));
+  await expect(llm.plan(loot,new AbortController().signal)).rejects.toThrow('Invalid strategy response');
+  planner.reset(); local.reset();
+});

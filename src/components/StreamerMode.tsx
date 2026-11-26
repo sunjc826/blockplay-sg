@@ -1,3 +1,6 @@
+import { zoneSectors } from '../game/zone-sectors';
+import { hudReadout, type HudPresentation } from '../game/cast-hud';
+import { noteHudEvents } from '../game/streamer-notes';
 import { holdCaption } from '../game/caption-time';
 import { createCastVoice } from '../lib/cast-voice';
 import { CastVoiceSwitch } from './CastVoiceSwitch';
@@ -77,9 +80,11 @@ export function StreamerEntry({region}:{region?:RegionId}) {
 }
 
 /** Mounted only during a sandbox game. Engine changes across districts replace the binding. */
-export function StreamerGame({hud,engine,mode}:{hud:FpsHud;engine:RefObject<FpsEngine|null>;mode:CastMode}) {
+export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>HudPresentation;hud:FpsHud;engine:RefObject<FpsEngine|null>;mode:CastMode}) {
   const s = useStreamer()!, e = engine.current;
-  const [track] = useState(() => ({region:'', diff:hudEvents((text,major) => { s.event(text); if (major) engine.current?.replanPilot(); })}));
+  const latest = useRef({hud,presentation});
+  useLayoutEffect(() => { latest.current = {hud,presentation}; },[hud,presentation]);
+  const [track] = useState(() => ({engine:null as FpsEngine|null, notes:null as ReturnType<typeof noteHudEvents>|null, diff:hudEvents((text,major) => { s.event(text); if (major) engine.current?.replanPilot(); })}));
   const resumePlay = useRef(false), lastPhase = useRef<'menu'|'play'>('menu');
   useLayoutEffect(() => {
     if (!e) return;
@@ -101,16 +106,17 @@ export function StreamerGame({hud,engine,mode}:{hud:FpsHud;engine:RefObject<FpsE
       s.nextPlan = Date.now()+3000;
       const frame = s.settings.screenshots ? await e.captureFrame() : null;
       signal.throwIfAborted();
-      const decision = await requestCast<Pick<PilotPlan,'goal'|'waypointId'> & {line:string|null}>('streamer',{
+      const decision = await requestCast<Pick<PilotPlan,'goal'|'waypointId'|'sectorId'> & {line:string|null}>('streamer',{
         phase:'play',personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),regionId:e.castRegion,
-        mode,events:s.takeEvents(),observation,frame:frame || undefined,
+        mode,hud:hudReadout(latest.current.hud,{...latest.current.presentation(),mode,region:e.castRegion,weapons:e.getLoadout().weapons,seconds:(Date.now()-s.started)/1000}),
+        notes:s.notes.read(Date.now()),events:s.takeEvents(),observation,frame:frame || undefined,
       },signal,s.account).catch(error => {
         if (!signal.aborted && error instanceof CastFailure && !error.transient && (error.status === 429 || error.status === 503)) s.stop(error.message);
         throw error;
       });
       signal.throwIfAborted();
       return decision;
-    },s.speak);
+    },s.speak,mode === 'tutorial' ? [] : zoneSectors(e.castRegion).map(s => s.id));
     e.setPilotStrategy('streamer',strategy);
     return () => {
       off(); s.player.stop();
@@ -120,9 +126,11 @@ export function StreamerGame({hud,engine,mode}:{hud:FpsHud;engine:RefObject<FpsE
   useEffect(() => {
     if (!e || s.snapshot().phase === 'paused' || s.snapshot().phase === 'off') return;
     if (hud.phase === 'error') { s.stop(hud.message || 'The game could not load.'); return; }
-    if (track.region !== e.castRegion) {
-      track.region = e.castRegion; s.event('Arrived in '+e.castRegion); e.replanPilot();
+    if (track.engine !== e) {
+      track.engine = e; track.notes = noteHudEvents(s.notes,e.castRegion,mode,latest.current.presentation().bounds);
+      track.diff = hudEvents((text,major) => { s.event(text); if (major) e.replanPilot(); }); s.event('Arrived in '+e.castRegion); e.replanPilot();
     }
+    track.notes?.(hud,Date.now());
     track.diff(hud,Date.now());
     if (hud.phase === 'loading') return;
     const phase = phaseForHud(hud);
@@ -130,7 +138,7 @@ export function StreamerGame({hud,engine,mode}:{hud:FpsHud;engine:RefObject<FpsE
     if (phase === "play" && s.snapshot().phase !== phase) e.replanPilot();
     s.handoff(phase);
     if (phase === 'play' && hud.phase === 'playing' && !hud.pilotEnabled) e.startPilot();
-  },[hud,e,s,track]);
+  },[hud,e,s,track,mode]);
   return null;
 }
 

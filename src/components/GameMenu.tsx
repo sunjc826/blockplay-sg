@@ -1,3 +1,4 @@
+import { itemById } from '../game/armory-catalog';
 import { StreamerEntry, useStreamer, useStreamerActive } from './StreamerMode';
 import { requestLeave } from '../lib/navigation-guard';
 import TutorialGame from './TutorialGame';
@@ -303,7 +304,11 @@ function MenuScreens({screen,armory,sandbox}:{screen:Screen;armory:ReturnType<ty
     // Both equipment routes keep one mounted shell, selection and wallet.
     return <div className="game-screen game-screen-store">
       <main className="game-screen-body"><DebugMode.Provider value={false}>
-        <LoadoutStore store={armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
+        <LoadoutStore store={sandbox && streamer ? {...armory,buyLoadout:(id,term,target,quantity) => {
+          const bought = armory.buyLoadout(id,term,target,quantity);
+          if (bought) streamer.notes.add('Bought '+(quantity ?? 1)+' × '+(itemById(id)?.name ?? id)+(term ? ' · '+term+' rental' : ''),Date.now());
+          return bought;
+        }} : armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
           onHelp={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}
           headerAction={<a className="menu-header-settings store-settings" {...link('settings')} aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" /></a>}
           nav={<nav className="store-nav" aria-label="Equipment navigation"><a data-ai-action="main-menu" data-ai-kind="navigate" className="game-back" {...link('menu')} aria-label="Back to Main menu" title="Back to Main menu"><ArrowLeft size={15} /><span>Main menu</span></a></nav>} />

@@ -45,3 +45,12 @@ export function minimapProjection(bounds: MapBounds, width = 200, height = 160, 
   const offsetY = (height - worldDepth * scale) / 2 - bounds.minZ * scale;
   return { scale, offsetX, offsetY, x: (x: number) => offsetX + x * scale, y: (z: number) => offsetY + z * scale, transform: `translate(${offsetX} ${offsetY}) scale(${scale})` };
 }
+
+const EDGE_KINDS = new Set<MinimapMarker['kind']>(['control','checkpoint', 'parachute', 'boat', 'facility']);
+
+export function markerAtMapEdge(marker:MinimapMarker) {
+  return EDGE_KINDS.has(marker.kind) || marker.kind === 'hunter' && marker.side === 'ally';
+}
+export function outsideMapBounds(p:{x:number;z:number}, bounds:MapBounds) {
+  return p.x < bounds.minX || p.x > bounds.maxX || p.z < bounds.minZ || p.z > bounds.maxZ;
+}

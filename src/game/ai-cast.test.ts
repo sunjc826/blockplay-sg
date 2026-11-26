@@ -1,14 +1,15 @@
+import { exampleHud } from './cast-test-fixture';
 import {expect,it,vi} from 'vitest';
 import {castDirector,CastFailure,hudEvents} from './ai-cast';
 import type { FpsHud } from './fps-engine';
-const scene = {mode:'range',regionId:'changi',snapshot:{health:100,armor:0,weapon:'test',magazine:2,reserve:3,stance:'standing',vehicle:'on-foot',score:0,seconds:30,streak:0}} as const;
+const scene = () => ({mode:'range',regionId:'changi',snapshot:exampleHud} as const);
 it('batches, holds events in flight and enforces caption spacing',async()=>{
   let t=0, finish!: (v:{line:string})=>void;
   const req=vi.fn(()=>new Promise<{line:string}>(r=>{finish=r;})), speak=vi.fn(), d=castDirector(()=>t,req,speak,vi.fn());
   d.event('supplies'); await d.tick(scene);expect(req).not.toHaveBeenCalled();
   t=1500;const flight=d.tick(scene);d.event('death',true);await d.tick(scene);expect(req).toHaveBeenCalledTimes(1);
   finish({line:'One'});await flight;t=5499;await d.tick(scene);expect(req).toHaveBeenCalledTimes(1);
-  t++;const next=d.tick(scene);expect(req.mock.lastCall).toEqual([scene,['death'],['One'],expect.anything()]);finish({line:'Two'});await next;
+  t++;const next=d.tick(scene);expect(req.mock.lastCall).toEqual([scene(),['death'],['One'],expect.anything()]);finish({line:'Two'});await next;
 });
 it('drops stale and invalidated replies and backs off until reset',async()=>{
   let t=0, resolve!: (v:{line:string})=>void;
@@ -47,4 +48,13 @@ it('holds incoming events until the spoken caption and breath have finished',asy
   now=10000; director.event('second',true); await director.tick(scene); expect(req).toHaveBeenCalledOnce();
   ended(); await active; speak.mockResolvedValueOnce();
   await director.tick(scene); expect(req).toHaveBeenCalledTimes(2);
+});
+
+it('only projects the HUD after the request is admitted',async () => {
+  let time=0;
+  const project=vi.fn(scene), director=castDirector(()=>time,async()=>({line:null}),vi.fn(),vi.fn());
+  director.event('Footsteps');
+  await director.tick(project); expect(project).not.toHaveBeenCalled();
+  time=1500; await director.tick(project); expect(project).toHaveBeenCalledOnce();
+  director.event('Contact',true); time=2500; await director.tick(project); expect(project).toHaveBeenCalledOnce();
 });

@@ -1,6 +1,6 @@
-import { marinaPoint, MARINA_LAYOUT_SCALE } from './marina-layout';
+import { marinaPoint, MARINA_LAYOUT_SCALE } from './marina-layout.ts';
 import type { VehicleKind } from './vehicle-rules';
-import { isRegionId, type RegionId } from './region-ids';
+import { isRegionId, type RegionId } from './region-ids.ts';
 
 /** Connected authored districts. Coordinates are local game metres, not GPS. */
 export type WorldZoneId = RegionId;

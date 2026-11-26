@@ -31,7 +31,7 @@ export interface PilotAction {
 }
 export interface PilotDecision { goal: PilotGoal; status: string; action: PilotAction }
 /** A future strategic planner chooses intentions; only this action path drives the player. */
-export interface PilotPlanner { chooseGoal(observation: Readonly<PilotObservation>): PilotGoal; preferredWaypoint?(): string | null }
+export interface PilotPlanner { chooseGoal(observation: Readonly<PilotObservation>): PilotGoal; preferredWaypoint?(): string | null; blocked?(): void; preferredSector?(): {name:string;x:number;z:number} | null }
 export interface PlayerPilot { decide(observation: Readonly<PilotObservation>): PilotDecision; reset(): void }
 export const PILOT_INTERVAL = .1;
 export const MAX_PILOT_MOUSE_DELTA = 100;
@@ -91,7 +91,7 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
     }
     if (moving && lastPosition && Math.hypot(o.position.x - lastPosition.x, o.position.z - lastPosition.z) < .04) stuck += dt;
     else stuck = 0;
-    if (stuck > .8) { evadeUntil = o.time + 1.2; stuck = 0; }
+    if (stuck > .8) { planner.blocked?.(); evadeUntil = o.time + 1.2; stuck = 0; }
     if (!o.magazine && o.reserve) return result('Reloading', { reload: !o.reloading });
     const backup = (o.availableWeapons ?? [0, 1]).find(index => index !== o.weapon);
     if (!o.magazine && !o.reserve && backup !== undefined) return result('Trying carried backup', { weapon: backup });
@@ -136,21 +136,25 @@ export function createPlayerPilot(planner: PilotPlanner = localPilotPlanner): Pl
     if (o.reloading) return result('Reloading', {});
     if (o.magazine < 5 && o.reserve) return result('Reloading before moving', { reload: true });
     if (o.time < evadeUntil) return result('Finding a way around cover', { callout: 'stuck', backward: true, right: true, lookX: 50 });
-    const preferred = planner.preferredWaypoint?.();
+    const preferred = planner.preferredWaypoint?.(), sector = planner.preferredSector?.();
     const priority = (p: PilotWaypoint) => {
       if (p.id === preferred) return -1;
-      if (goal === 'resupply' && p.kind === 'medical' && o.health < o.maxHealth * .65) return 0;
-      if (goal === 'resupply' && p.kind === 'ammo' && o.reserve < 20) return 0;
-      if (goal === 'travel' && p.kind === 'checkpoint') return 0;
+      if ((sector || goal === 'resupply') && p.kind === 'medical' && o.health < o.maxHealth * .65) return 0;
+      if ((sector || goal === 'resupply') && p.kind === 'ammo' && o.reserve < 20) return 0;
+      if (!sector && goal === 'travel' && p.kind === 'checkpoint') return 0;
       return 1;
     };
     const waypoint = [...o.waypoints].filter(p => !(p.kind === 'medical' && o.health >= o.maxHealth) && !(p.kind === 'ammo' && o.reserve >= 999))
       .sort((a, b) => priority(a) - priority(b) || Math.hypot(a.x - o.position.x, a.z - o.position.z) - Math.hypot(b.x - o.position.x, b.z - o.position.z))[0];
-    if (waypoint) {
-      if (waypoint.kind === 'checkpoint' && o.travelPrompt) return result('Crossing checkpoint', { travel: true });
-      const dx = waypoint.x - o.position.x, dz = waypoint.z - o.position.z;
+    const urgentSupply = sector && waypoint && (waypoint.kind === 'medical' && o.health < o.maxHealth * .65 || waypoint.kind === 'ammo' && o.reserve < 20);
+    const destination = sector && !urgentSupply ? sector : waypoint;
+    if (destination) {
+      const checkpoint = destination === waypoint && waypoint?.kind === 'checkpoint';
+      if (checkpoint && o.travelPrompt) return result('Crossing checkpoint', { travel: true });
+      const dx = destination.x - o.position.x, dz = destination.z - o.position.z;
       const turn = wrapAngle(Math.atan2(-dx, -dz) - o.yaw);
-      return result(waypoint.kind === 'checkpoint' ? 'Following planned route' : 'Searching for supplies and targets', {
+      const status = destination === sector ? 'Heading to '+sector.name : checkpoint ? 'Following planned route' : 'Searching for supplies and targets';
+      return result(status, {
         callout: 'moving', lookX: -turn / .0023 * .65, lookY: o.pitch / .0023 * .5,
         forward: Math.abs(turn) < .5, sprint: goal === 'travel' && Math.abs(turn) < .15,
       });

@@ -1,5 +1,5 @@
 import type { FpsHud } from './fps-engine';
-import type { CastSnapshot, Observation } from './cast-contract';
+import type { Observation } from './cast-contract';
 
 type Scene = Pick<Observation,'mode'|'regionId'|'snapshot'>;
 export interface CastReply { line: string | null; ticket?: string }
@@ -37,13 +37,13 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
       if (!keepMemory) memory.clear();
     },
     resume() { blocked = 0; },
-    async tick(scene: Scene, ended = false) {
+    async tick(scene: () => Scene, ended = false) {
       const at = now();
       if (pending || at < Math.max(next,blocked) || (at < due && (ended || at-last < 15000))) return;
       const controller = new AbortController(); pending = controller;
       const batch = events.map(e => e.text); events = []; due = Infinity; last = at; next = at+4000;
       try {
-        const {line,ticket} = await request(scene,batch,memory.read(),controller.signal);
+        const {line,ticket} = await request(scene(),batch,memory.read(),controller.signal);
         if (controller.signal.aborted || now()-at > 6000) return;
         report('');
         if (line) { memory.remember(line); next = now()+4000; await speak(line,ticket); }
@@ -55,15 +55,6 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
       } finally { if (ended && !controller.signal.aborted) memory.clear(); pending = null; }
     },
   };
-}
-
-export function castSnapshot(h: FpsHud, weapon: string, seconds: number): CastSnapshot {
-  const mounted = h.vehicle !== 'on-foot' && !h.vehiclePersonalWeapon;
-  return { health: Math.round(h.health), armor: Math.round(h.armor), weapon: mounted ? h.vehicleWeapon || h.vehicle : weapon,
-    magazine: mounted ? h.vehicleAmmo : h.magazine, reserve: mounted ? 0 : h.reserve,
-    stance: h.swimming ? 'swimming' : h.prone ? 'prone' : h.crouchLatched ? 'crouched' : 'standing', vehicle: h.vehicle,
-    score: (h.arenaSelf && h.arena?.score?.players[h.arenaSelf.id]?.score) ?? h.arenaSelf?.kills ?? h.hits,
-    streak:h.chain, seconds, ...(h.pilotEnabled && {contacts:h.pilotContacts}) };
 }
 
 export function hudEvents(event: (text:string,major?:boolean)=>void) {

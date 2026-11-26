@@ -1,9 +1,9 @@
+import { validHudReadout, type HudReadout } from './cast-hud-contract.ts';
 import { castPersona } from './ai-cast-personas.ts';
 import { isRegionId, type RegionId } from './region-ids.ts';
 export const modes = ['range','arena','expedition','tutorial'] as const;
 export type CastMode = typeof modes[number];
-export interface CastSnapshot { health: number; armor: number; weapon: string; magazine: number; reserve: number; stance: string; vehicle: string; score: number; streak: number; seconds: number; contacts?: number }
-export interface Observation { personaId: string; clean: boolean; mode: CastMode; regionId: RegionId; events: string[]; memory: string[]; snapshot: CastSnapshot; frame?: string }
+export interface Observation { personaId: string; clean: boolean; mode: CastMode; regionId: RegionId; events: string[]; memory: string[]; snapshot: HudReadout; frame?: string }
 export const record = (v: unknown): v is Record<string,unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 export const only = (v: Record<string,unknown>, keys: string[]) => Object.keys(v).every(k => keys.includes(k));
 export const short = (v: unknown, max: number) => typeof v === 'string' && v.length > 0 && v.length <= max && !/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/u.test(v);
@@ -29,11 +29,7 @@ export function jpeg(value: unknown) {
 export function observation(v: unknown): Observation | null {
   if (!record(v) || !only(v,['personaId','clean','mode','regionId','events','memory','snapshot','frame']) || castPersona(v.personaId)?.role !== 'commentator'
     || typeof v.clean !== 'boolean' || !isRegionId(v.regionId) || !modes.includes(v.mode as CastMode) || !lines(v.events,20) || !lines(v.memory,30)) return null;
-  const s = v.snapshot, numbers = ['health','armor','magazine','reserve','score','streak','seconds'], strings = ['weapon','stance','vehicle'];
-  if (!record(s) || !only(s,[...numbers,...strings,'contacts']) || !strings.every(k => short(s[k],80))
-    || ![...numbers,...('contacts' in s ? ['contacts'] : [])].every(k => typeof s[k] === 'number' && Number.isFinite(s[k]) && Number(s[k]) >= 0 && Number(s[k]) <= 1000000)) return null;
-  if (!['standing','crouched','prone','swimming'].includes(String(s.stance)) ||
-    !['on-foot','car','helicopter','dragon-boat-red','dragon-boat-gold'].includes(String(s.vehicle))) return null;
+  if (!validHudReadout(v.snapshot) || v.snapshot.district !== v.regionId) return null;
   if ('frame' in v && !jpeg(v.frame)) return null;
   return v as unknown as Observation;
 }

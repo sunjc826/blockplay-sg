@@ -1,3 +1,4 @@
+import { sectorTravelPoint, sectorApproach } from './pilot-sector';
 import { compileSettled, withWarmRenderObjects } from './warm-render-objects';
 import { createAmmoPlacementQueue, type AmmoPlacement, type AmmoPlacementSource } from './ammo-placement';
 import { createAmmoPlacementViewmodel } from './fps-ammo-placement';
@@ -57,7 +58,7 @@ import { createDeploymentBlur } from './deployment-blur';
 import { aerialNearPlane, createDeploymentOverview, deploymentMarkers, overviewFrame, overviewPanDelta, WORLD_CAMERA_NEAR } from './deployment-overview';
 import { createDeploymentIntro, DEPLOYMENT_SECONDS } from './deployment-intro';
 import { createBriefingClock, type BriefingInfo } from './deployment-briefing';
-import { SPAWN_SHIELD_SECONDS, actorRayDistance } from './arena-rules';
+import { SPAWN_SHIELD_SECONDS, actorRayDistance, arenaNavigationAnchors } from './arena-rules';
 import { visionMountPose } from './fps-vision-mount';
 import type { PlayerRespawnView } from './player-respawn';
 import { DEATH_CAM_LEAVES_BODY, DEATH_WINDOW_SECONDS, createDeathCam, createDeathRecapTracker, type DeathRecap, type DeathRecapView } from './death-recap';
@@ -102,7 +103,7 @@ import { DISTRICT_INTERIORS } from './district-interiors';
 import { getRegion } from './regions';
 import { INFANTRY_SPEED, movementFrameSteps, createMovementMotion, resetMovementMotion, advanceGroundMotion, advanceBodyMotion, bufferJump, consumeJump, landMovement, INFANTRY_GRAVITY, INFANTRY_JUMP_SPEED } from './fps-movement';
 import { createVerticalMovement, MAX_STEP_HEIGHT } from './vertical-movement';
-import { elevatedLootAnchors } from './vertical-navigation';
+import { createVerticalNavigator, elevatedLootAnchors } from './vertical-navigation';
 import { getWalkSurfaces, getPhysicalWalkSurfaces, getTraversalObstacles } from './vertical-routes';
 import { seatPoint, seatFacing, vehicleRayDistance, type VehicleControls } from './vehicle-seats';
 import { placeVehicleFirstPersonCamera } from './vehicle-first-person';
@@ -2440,10 +2441,27 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (hud.phase !== 'playing') enterPlay();
     publish();
   }
+  let sectorNavigator:ReturnType<typeof createVerticalNavigator> | undefined;
   function setPilotStrategy(mode: FpsHud['pilotStrategy'], streamer?: import('./pilot-strategy-contract').PilotStrategy) {
     if (disposed || (mode === 'streamer' && !streamer) || mode === strategyMode) return;
     pilot.reset(); strategicPlanner?.reset(); clearInput();
-    strategyMode = mode; strategicPlanner = mode === 'streamer' && streamer ? createStrategyPlanner(streamer) : mode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
+    strategyMode = mode; strategicPlanner = mode === 'streamer' && streamer ? createStrategyPlanner(streamer,undefined,{
+      sectors:options.tutorial ? [] : zoneSectors(region),
+      approach:target => sectorApproach(target,playerFeet,function* () {
+        const env = options.arena?.environment ?? zoneWorld.environment;
+        sectorNavigator ??= createVerticalNavigator({bounds:world.bounds,obstacles:world.obstacles,surfaces:getWalkSurfaces(world.scene),
+          traversalObstacles:getTraversalObstacles(world.scene),lifts:getBuildingLifts(world.scene)},
+          arenaNavigationAnchors(world.obstacles,env,boundedMatch ? undefined : {spawns:fleetSpawns,openWorld:!!expedition}),env.bakedNavigation);
+        const ground = world.bounds.groundHeight?.(target.x,target.z) ?? 0;
+        const y = footMovement.supportHeight(target.x,target.z,ground+.4,.38,1.8) ?? ground;
+        return yield* sectorNavigator.plan(playerFeet(),{...target,y},undefined,vehicles.footObstacles().slice(world.obstacles.length));
+      }),
+      point:(sector,from) => sectorTravelPoint(sector,world.bounds,from,options.arena?.environment?.navigationAnchors ?? zoneWorld.environment.navigationAnchors ?? [],p => {
+        const ground = world.bounds.groundHeight?.(p.x,p.z) ?? 0;
+        const support = footMovement.supportHeight(p.x,p.z,ground+.4,.38,1.8);
+        return support !== null && footMovement.canOccupy(p.x,support,p.z,.38,1.8,vehicles.footObstacles().slice(world.obstacles.length));
+      }),
+    }) : mode === 'llm' ? createStrategyPlanner(llmPilotStrategy()) : null;
     pilot = createPlayerPilot(strategicPlanner ?? undefined);
     hud.pilotStrategy = mode; hud.pilotPlan = mode === 'llm' ? 'Waiting for the strategist' : 'Local utility planner';
     nextPilotAt = 0; publish();

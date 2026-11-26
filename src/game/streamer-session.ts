@@ -1,3 +1,4 @@
+import { sessionNotes } from './streamer-notes';
 import { castMemory } from './ai-cast';
 import { menuTrip } from './streamer-menu';
 import type { FpsHud } from './fps-engine';
@@ -12,7 +13,7 @@ export function phaseForHud(hud: Pick<FpsHud,'phase'|'deathRecap'|'arenaSelf'>):
 
 /** Owns cancellation, hand-offs and memory for one tab. Nothing here is persisted. */
 export function streamerSession() {
-  const memory = castMemory(), listeners = new Set<() => void>();
+  const notes = sessionNotes(), memory = castMemory(), listeners = new Set<() => void>();
   let state = {phase:'off' as StreamPhase, reason:'', caption:'', serial:0};
   let abort = new AbortController();
   let events: string[] = [];
@@ -23,7 +24,7 @@ export function streamerSession() {
     listeners.forEach(fn => fn());
   };
   const session = {
-    settings: {personaId:'pro',clean:false,screenshots:true,voice:false} as StreamSettings, trip:menuTrip(), memory,
+    settings: {personaId:'pro',clean:false,screenshots:true,voice:false} as StreamSettings, trip:menuTrip(), memory, notes, started:0,
     wallet:{credits:1600,tokens:300} as Wallet,
     interrupt: () => {},
     voiceLine: (_text:string,_ticket:string) => {},
@@ -31,12 +32,12 @@ export function streamerSession() {
     snapshot: () => state, signal: () => abort.signal,
     subscribe(fn:()=>void) { listeners.add(fn); return () => {listeners.delete(fn);}; },
     start(settings:StreamSettings) {
-      session.settings = {...settings}; memory.clear(); events = []; session.trip = menuTrip();
+      session.started = Date.now(); session.settings = {...settings}; notes.clear(); memory.clear(); events = []; session.trip = menuTrip();
       state = {...state,caption:'',serial:state.serial+1}; set('menu');
     },
     stop(reason = '') {
       if (state.phase !== 'off') session.game?.pause();
-      session.game = null; memory.clear(); events = []; state = {...state,caption:''}; set('off',reason);
+      session.game = null; notes.clear(); memory.clear(); events = []; state = {...state,caption:''}; set('off',reason);
     },
     pause() { if (state.phase === 'play' || state.phase === 'menu') { set('paused'); session.game?.pause(); } },
     resume() { if (state.phase === 'paused') { set('menu'); session.game?.resume(); } },

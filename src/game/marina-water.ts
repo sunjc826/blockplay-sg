@@ -1,5 +1,5 @@
-import { marinaBounds } from './marina-layout';
-import { type Obstacle } from './region-collision';
+import { marinaBounds } from './marina-layout.ts';
+import type { Obstacle } from './region-collision.ts';
 
 /** Gameplay metres, shared by rendering, authority and boat movement. */
 export const MARINA_WATER = { ...marinaBounds({ minX: -80, maxX: 80, minZ: -90, maxZ: 50 }), surface: -.24, bed: -1.8 };

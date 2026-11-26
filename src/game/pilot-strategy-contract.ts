@@ -1,20 +1,21 @@
 import type { PilotGoal, PilotObservation } from './fps-pilot';
 export const PILOT_GOALS: readonly PilotGoal[] = ['engage', 'resupply', 'travel', 'explore'];
-export interface PilotPlan { goal: PilotGoal; waypointId: string | null; summary: string }
+export interface PilotPlan { goal: PilotGoal; waypointId: string | null; sectorId?: string | null; summary: string }
 export interface PilotStrategy { id: string; accepted?(plan: PilotPlan): void; plan(observation: Readonly<PilotObservation>, signal: AbortSignal): Promise<PilotPlan> }
-export function validPilotPlan(value: unknown, observation: PilotObservation): value is PilotPlan {
+export function validPilotPlan(value: unknown, observation: PilotObservation, sectorIds: readonly string[] = []): value is PilotPlan {
   if (!value || typeof value !== 'object') return false;
   const p = value as PilotPlan;
   return PILOT_GOALS.includes(p.goal) && typeof p.summary === 'string' && p.summary.length > 0 && p.summary.length <= 180 &&
+    (p.sectorId == null || p.waypointId === null && sectorIds.includes(p.sectorId)) &&
     (p.waypointId === null || observation.waypoints.some(w => w.id === p.waypointId));
 }
 /** Whitelist the public observation. Even an augmented request cannot leak extra engine fields to a strategy. */
-export function parsePilotObservation(value: unknown): PilotObservation | null {
+export function parsePilotObservation(value: unknown, weaponFamilies = 2): PilotObservation | null {
   if (!value || typeof value !== 'object') return null;
   const o = value as PilotObservation;
   const finite = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 1e9;
   if (!['time', 'health', 'maxHealth', 'armor', 'magazine', 'reserve', 'weapon', 'yaw', 'pitch'].every(k => finite(o[k as keyof PilotObservation])) ||
-    !o.position || !finite(o.position.x) || !finite(o.position.z) || ![0, 1].includes(o.weapon) ||
+    !o.position || !finite(o.position.x) || !finite(o.position.z) || !Number.isInteger(o.weapon) || o.weapon < 0 || o.weapon >= weaponFamilies ||
     !['alive', 'reloading', 'aiming'].every(k => typeof o[k as keyof PilotObservation] === 'boolean') ||
     typeof o.lootPrompt !== 'string' || o.lootPrompt.length > 180 || typeof o.travelPrompt !== 'string' || o.travelPrompt.length > 180 ||
     !Array.isArray(o.contacts) || o.contacts.length > 20 || !Array.isArray(o.waypoints) || o.waypoints.length > 40) return null;

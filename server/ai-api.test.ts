@@ -1,3 +1,5 @@
+import { exampleHud } from '../src/game/cast-test-fixture';
+import { mapBrief } from './cast-map-brief';
 import { expect,it,vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
@@ -9,7 +11,7 @@ import { PLACE_CARDS } from '../src/data/place-cards';
 import { observation } from '../src/game/cast-contract';
 const personaId = CAST_PERSONAS.find(p=>p.role==='commentator')!.id;
 const body = {personaId,clean:true,regionId:'changi',mode:'range',memory:['Earlier'],events:['New event'],
-  snapshot:{health:95,armor:0,weapon:'SAR 21',magazine:10,reserve:60,score:1,seconds:10,streak:1,stance:'standing',vehicle:'on-foot'}};
+  snapshot:exampleHud};
 it('accepts public data and rejects extra fields, bad roles, regions, bounds and non-JPEGs',()=>{
   expect(REGION_IDS.filter(id=>!PLACE_CARDS[id])).toEqual([]);
   expect(observation(body)).toEqual(body);
@@ -59,7 +61,7 @@ it('assembles the authored blocks, keeps dynamic data ordered and maps silence a
   const call = harness({CAST_PROVIDER:'openai',OPENAI_API_KEY:'test'},f);
   expect((await call('commentary',body)).data.line).toBeNull();
   const payload = JSON.parse(f.mock.calls[0][1].body);
-  expect(payload.instructions).toBe([COMMENTATOR_FRAME,castPersona(personaId)!.voice,LANGUAGE_RULES.clean,renderPlaceCard('changi','Changi')].join('\n\n'));
+  expect(payload.instructions).toBe([COMMENTATOR_FRAME,castPersona(personaId)!.voice,LANGUAGE_RULES.clean,renderPlaceCard('changi','Changi'),mapBrief('changi')].join('\n\n'));
   expect(payload.input).toMatch(/Earlier.*New event.*Current snapshot/s);
   expect((await call('commentary',body)).data.line).toBeNull();
 });

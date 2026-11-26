@@ -1,5 +1,14 @@
 import { localPilotPlanner, type PilotObservation, type PilotPlanner } from './fps-pilot';
 import { validPilotPlan, type PilotPlan, type PilotStrategy } from './pilot-strategy-contract';
+import { containsPoint } from './pilot-sector';
+import type { ZoneSector } from './zone-sectors';
+import type { Position2D } from './region-collision';
+
+interface SectorTravel {
+  sectors:readonly ZoneSector[];
+  approach?(target:Position2D):{next():Position2D;blocked():void};
+  point(sector:ZoneSector, from:Position2D):Position2D | null;
+}
 export const localPilotStrategy: PilotStrategy = {
   id: 'local', async plan(o) { return { goal: localPilotPlanner.chooseGoal(o), waypointId: null, summary: 'Local utility planner' }; },
 };
@@ -15,35 +24,55 @@ export function llmPilotStrategy(fetcher: typeof fetch = (...args) => fetch(...a
 }
 
 /** Async strategy plugins never block the action loop. Plans expire and late replies are discarded. */
-export function createStrategyPlanner(strategy: PilotStrategy, now: () => number = () => performance.now()) {
+export function createStrategyPlanner(strategy: PilotStrategy, now: () => number = () => performance.now(), travel?:SectorTravel) {
   let current: PilotPlan | null = null, nextAt = 0, generation = 0, acceptedAt = 0;
+  const sectors = strategy.id === 'streamer' ? travel?.sectors ?? [] : [];
+  const ids = sectors.map(s => s.id);
+  let destination: {sector:ZoneSector;point:Position2D;route?:ReturnType<NonNullable<SectorTravel['approach']>>} | null = null;
   let earliest = 0;
   let request: AbortController | null = null, description = 'Local fallback · awaiting strategy';
   let latest: PilotObservation | null = null;
   const planner: PilotPlanner & { status(): string; reset(): void; replan(): void } = {
     chooseGoal(observation) {
+      if (strategy.id === 'streamer' && !observation.alive && (current || request)) planner.reset();
       latest = observation;
-      if (current && (now() - acceptedAt > 20000 || current.waypointId && !observation.waypoints.some(w => w.id === current!.waypointId))) {
+      if (destination && containsPoint(destination.sector.bounds,observation.position)) {
+        const arrived = destination.sector.name;
+        planner.reset(); // Ignore an answer based on the unfinished walk.
+        description = 'Arrived in '+arrived;
+      }
+      if (current && (!destination && now() - acceptedAt > 20000 || current.waypointId && !observation.waypoints.some(w => w.id === current!.waypointId))) {
         current = null; description = 'Plan finished or expired · local fallback';
       }
       if (!request && now() >= nextAt && observation.alive) {
         const ticket = generation, controller = new AbortController(); request = controller; earliest = now()+3000; nextAt = now() + 10000;
-        description = current ? 'Replanning · ' + current.summary : 'Planning · local fallback active';
+        description = current ? 'Replanning · ' + (destination?.sector.name ?? current.summary) : 'Planning · local fallback active';
         void strategy.plan(structuredClone(observation), controller.signal).then(plan => {
           if (ticket !== generation || controller.signal.aborted) return;
-          if (!latest || !validPilotPlan(plan, latest)) throw new Error('Strategy waypoint no longer available');
-          current = plan; acceptedAt = now(); description = plan.summary; strategy.accepted?.(plan);
+          if (!latest || !validPilotPlan(plan, latest, ids)) throw new Error('Strategy waypoint no longer available');
+          const sector = sectors.find(s => s.id === plan.sectorId);
+          if (sector && destination?.sector !== sector) {
+            const point = travel?.point(sector,latest.position);
+            if (!point) throw new Error('Sector outside walkable play area');
+            destination = {sector,point,route:travel?.approach?.(point)};
+          } else if (!sector) destination = null;
+          current = plan; acceptedAt = now();
+          description = sector ? 'Heading to '+sector.name : plan.summary;
+          strategy.accepted?.(plan);
         }).catch(error => {
           if (ticket !== generation) return;
+          if (destination) { description = 'Continuing to '+destination.sector.name; return; }
           current = null; description = `${error instanceof Error ? error.message : 'Strategy unavailable'} · local fallback`;
         }).finally(() => { if (ticket === generation) request = null; });
       }
       return current?.goal ?? localPilotPlanner.chooseGoal(observation);
     },
+    blocked: () => destination?.route?.blocked(),
+    preferredSector: () => destination && {...(destination.route?.next() ?? destination.point),name:destination.sector.name},
     preferredWaypoint: () => current?.waypointId ?? null,
     status: () => description,
     replan() { nextAt = Math.min(nextAt, earliest); },
-    reset() { generation++; request?.abort(); request = null; current = null; latest = null; nextAt = strategy.id === 'streamer' ? earliest : 0; description = 'Local fallback · awaiting strategy'; },
+    reset() { generation++; request?.abort(); request = null; current = null; destination = null; latest = null; nextAt = strategy.id === 'streamer' ? earliest : 0; description = 'Local fallback · awaiting strategy'; },
   };
   return planner;
 }

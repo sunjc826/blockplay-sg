@@ -1,9 +1,10 @@
+import { hudReadout, type HudPresentation } from '../game/cast-hud';
 import { createCastVoice } from '../lib/cast-voice';
 import { CastVoiceSwitch } from './CastVoiceSwitch';
 import { StreamerGame, StreamerCaption, useStreamerActive } from './StreamerMode';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { holdCaption } from '../game/caption-time';
-import { castDirector, castSnapshot, hudEvents } from '../game/ai-cast';
+import { castDirector, hudEvents } from '../game/ai-cast';
 import { castPersona, CAST_PERSONAS } from '../game/ai-cast-personas';
 import type { CastMode } from '../game/cast-contract';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
@@ -22,8 +23,8 @@ function saved(): Settings {
   } catch { return defaults; }
 }
 interface Status { available:boolean; admin:boolean; model:string; provider:string; quota:CastQuota; voice?:CastVoiceStatus }
-type Props = { hud:FpsHud; engine:RefObject<FpsEngine|null>; mode:CastMode; session:number };
-function useCast({hud,engine,mode,session}:Props) {
+type Props = { hud:FpsHud; engine:RefObject<FpsEngine|null>; mode:CastMode; session:number; presentation:()=>HudPresentation };
+function useCast({hud,engine,mode,session,presentation}:Props) {
   const streaming = useStreamerActive();
   const [stored,setSettings] = useState(saved), [status,setStatus] = useState<Status|null>(null);
   const settings = streaming ? {...stored,enabled:false} : stored;
@@ -100,8 +101,8 @@ function useCast({hud,engine,mode,session}:Props) {
     if (!active && !ended) return;
     if (region !== track.region) { director.event('Arrived in '+region,true); track.region = region; }
     track.diff(hud,Date.now());
-    void director.tick({mode,regionId:region,snapshot:castSnapshot(hud,e.getLoadout().weapons[hud.weapon]?.name ?? 'Unarmed',Math.floor((Date.now()-track.started)/1000))},ended);
-  },[hud,engine,mode,settings,status?.available,director,player,track]);
+    void director.tick(() => ({mode,regionId:region,snapshot:hudReadout(hud,{...presentation(),region,mode,weapons:e.getLoadout().weapons,seconds:(Date.now()-track.started)/1000})}),ended);
+  },[hud,engine,mode,presentation,settings,status?.available,director,player,track]);
   return { settings,update,status,reason:panelError || reason,caption,cost,tokens,refresh };
 }
 const Cast = createContext<ReturnType<typeof useCast>|null>(null);

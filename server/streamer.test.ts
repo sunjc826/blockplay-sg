@@ -1,3 +1,5 @@
+import { exampleHud } from '../src/game/cast-test-fixture';
+import { mapBrief } from './cast-map-brief';
 import { it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseStreamerTurn, type MenuTurn, type PlayTurn } from '../src/game/streamer-contract.ts';
@@ -11,11 +13,16 @@ import type { Completion } from './llm/types.ts';
 const base = {clean:true,personaId:'rager',memory:['Earlier line']};
 const menu:MenuTurn = {...base,phase:'menu',wallet:{credits:1600,tokens:300},note:'Choose a district',
   screen:{screenId:'setup',title:'Setup',actions:[{id:'deploy',kind:'start',label:'Enter range'},{id:'rent',kind:'buy',label:'Rent',state:'disabled'}]}};
-const play:PlayTurn = {...base,phase:'play',mode:'range',regionId:'changi',events:['Arrived in changi'],
+const play:PlayTurn = {...base,phase:'play',hud:exampleHud,notes:['Visited Changi · 10s ago'],mode:'range',regionId:'changi',events:['Arrived in changi'],
   observation:{time:1,health:80,maxHealth:100,armor:0,magazine:20,reserve:60,weapon:0,yaw:0,pitch:0,position:{x:1,z:2},
     alive:true,reloading:false,aiming:false,contacts:[],waypoints:[{id:'crate',kind:'ammo',x:1,z:2}],
     ballistics:{velocity:300,drop:0},lootPrompt:'',travelPrompt:''}};
-const make = (json:unknown,refused = false) => vi.fn(async (_r:Completion)=>({json,refused,model:'fake',usage:{inputTokens:3,cachedInputTokens:0,outputTokens:1}}));
+function providerReply(value:unknown) {
+  if (!value || typeof value !== 'object' || !('waypointId' in value) || !('sectorId' in value)) return value;
+  const {waypointId,sectorId,...reply} = value;
+  return {...reply,destination:{waypointId,sectorId}};
+}
+const make = (value:unknown,refused = false) => vi.fn(async (_r:Completion)=>({json:providerReply(value),refused,model:'fake',usage:{inputTokens:3,cachedInputTokens:0,outputTokens:1}}));
 it('registers an independently configured streamer provider and validates both envelopes before admission',()=>{
   expect(selectModel({},'STREAMER')).toMatchObject({provider:'anthropic',model:'claude-sonnet-5-5'});
   expect(selectModel({STREAMER_PROVIDER:'openai',STREAMER_MODEL:'alternate'},'STREAMER')).toMatchObject({provider:'openai',model:'alternate'});
@@ -37,13 +44,13 @@ it('registers an independently configured streamer provider and validates both e
   expect(parseStreamerTurn({...play,observation:{...play.observation,hiddenActors:[]}})).toEqual(play);
 });
 it('uses the authored blocks and public IDs, and validates a play decision even when silent',async()=>{
-  const decision = {goal:'resupply',waypointId:'crate',say:true,line:'  One   crate.  '};
+  const decision = {goal:'resupply',waypointId:'crate',sectorId:null,say:true,line:'  One   crate.  '};
   const provider = make(decision);
   expect(await streamTurn(play,provider,'test')).toMatchObject({...decision,line:'One crate.'});
   const [request] = provider.mock.calls[0];
-  expect(request.system).toEqual([STREAMER_FRAME,castPersona('rager')!.voice,LANGUAGE_RULES.clean,renderPlaceCard('changi','Changi')]);
+  expect(request.system).toEqual([STREAMER_FRAME,castPersona('rager')!.voice,LANGUAGE_RULES.clean,renderPlaceCard('changi','Changi'),mapBrief('changi')]);
   expect(request.user).toMatch(/Earlier line.*Arrived in changi.*Pilot observation/s);
-  expect(request.schema).toMatchObject({properties:{waypointId:{anyOf:[{type:'string',enum:['crate']},{type:'null'}]}}});
+  expect(request.schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'string',enum:['crate']},sectorId:{type:'null'}}})])}}});
   for (const patch of [{goal:'invented'},{waypointId:'hidden'},{say:1},{line:4},{extra:2}])
     await expect(streamTurn(play,make({...decision,...patch}),'test')).rejects.toThrow();
   expect(await streamTurn(play,make({...decision,say:false}),'test')).toMatchObject({goal:'resupply',line:null});
@@ -58,4 +65,17 @@ it('limits a menu decision to an enabled action and rejects a refusal with no de
   for (const bad of [null,{...decision,actionId:'rent'},{...decision,actionId:'other'},{...decision,say:'no'}])
     await expect(streamTurn(menu,make(bad),'test')).rejects.toThrow();
   expect(await streamTurn(menu,make({...decision,say:false}),'test')).toMatchObject({actionId:'deploy',line:null});
+});
+
+it('restricts sector destinations to the district, including silent decisions, and refuses mixed destinations',async()=>{
+  const { zoneSectors } = await import('../src/game/zone-sectors');
+  const ids = zoneSectors('changi').map(s => s.id);
+  const pick = {goal:'travel',waypointId:null,sectorId:ids[0],say:false,line:''};
+  const model = make(pick);
+  expect(await streamTurn(play,model,'test')).toMatchObject({sectorId:ids[0],line:null});
+  expect(model.mock.calls[0][0].schema).toMatchObject({properties:{destination:{anyOf:expect.arrayContaining([expect.objectContaining({properties:{waypointId:{type:'null'},sectorId:{type:'string',enum:ids}}})])}}});
+  for (const invalid of [{...pick,sectorId:'tanglin-gate'},{...pick,waypointId:'crate'}])
+    await expect(streamTurn(play,make(invalid),'test')).rejects.toThrow();
+  for (const patch of [{hud:{...play.hud,x:7}},{notes:Array(21).fill('too many')},{notes:[{}]},{mapBrief:'untrusted'}])
+    expect(parseStreamerTurn({...play,...patch})).toBeNull();
 });
