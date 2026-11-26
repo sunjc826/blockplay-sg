@@ -1,0 +1,28 @@
+.streamer-facecam {
+  position: fixed;
+  z-index: 2147482999;
+  box-sizing: border-box;
+  margin: 0;
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  border: 1px solid #71827f;
+  border-radius: 5px;
+  background: #1c262d;
+  pointer-events: none;
+  box-shadow: 0 2px 9px #10141c52;
+}
+.streamer-facecam canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.streamer-facecam small {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  color: #fff;
+  background: #172228e8;
+  padding: 2px 6px;
+  border-radius: 0 3px 0 0;
+  font: 600 clamp(9px, 0.8vw, 12px) / 1.25 system-ui;
+}

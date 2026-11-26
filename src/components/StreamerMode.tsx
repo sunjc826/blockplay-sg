@@ -1,3 +1,6 @@
+import type { CamState } from '../game/facecam/scene';
+import type { Signal } from '../game/facecam/acting';
+import type { PilotAction, PilotObservation } from '../game/fps-pilot';
 import { chosenDestination, destinationLabel, POLL_VOTE_SECONDS } from '../game/streamer-variety';
 import { StreamerPoll, type PollCard } from './StreamerPoll';
 import { gameRecorder } from '../game/streamer-game-record';
@@ -7,7 +10,7 @@ import { noteHudEvents } from '../game/streamer-notes';
 import { holdCaption } from '../game/caption-time';
 import { createCastVoice } from '../lib/cast-voice';
 import { CastVoiceSwitch } from './CastVoiceSwitch';
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
+import { lazy, Suspense, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { castPersona } from '../game/ai-cast-personas';
 import { CastFailure, hudEvents } from '../game/ai-cast';
@@ -28,15 +31,22 @@ import { StreamerClip } from './StreamerClip';
 import { createClipRecorder, type ClipState } from '../lib/streamer-clip';
 import './streamer-mode.css';
 
+const Facecam=lazy(()=>import('./StreamerFacecam'));
+export function FacecamSlot({running,shown,...props}:React.ComponentProps<typeof Facecam>&{running:boolean;shown:boolean}) {
+  return running && shown ? <Suspense fallback={null}><Facecam {...props}/></Suspense> : null;
+}
+const defaultCamera=()=>!!window.matchMedia?.('(min-width: 760px) and (min-height: 520px)').matches;
 function controller() {
   const session = streamerSession();
   const key = 'blockplay-sg-streamer-v1';
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '{}');
     session.settings = {personaId:castPersona(saved.personaId)?.role === 'streamer' ? saved.personaId : 'pro',
-      clean:saved.clean === true, screenshots:saved.screenshots !== false, voice:saved.voice === true, keepLearning:saved.keepLearning === true};
+      facecam:typeof saved.facecam==='boolean'?saved.facecam:undefined, clean:saved.clean === true, screenshots:saved.screenshots !== false, voice:saved.voice === true, keepLearning:saved.keepLearning === true};
   } catch { /* Use the session defaults. */ }
   const s = Object.assign(session, {
+    face:null as {engine(e:FpsEngine|null):void;signal(s:Signal):void;hud(h:FpsHud):void;pilot(action:PilotAction,o:PilotObservation):void;click():void}|null,
+    camState:null as {run:number;model:CamState}|null,
     engine:null as FpsEngine|null, menuAudio:null as AudioContext|null,
     save() { try { localStorage.setItem(key,JSON.stringify(s.settings)); } catch { /* session only */ } },
     player:createCastVoice(),
@@ -57,7 +67,7 @@ function controller() {
     },
     closeAudio() { s.player.stop(); void s.menuAudio?.close().catch(() => {}); s.menuAudio = null; },
     dock: (_node:HTMLDivElement|null) => {},
-    nextPlan:0,
+    nextPlan:0, defaultFacecam:false,
     startRegion:undefined as RegionId | undefined,
     account: (_result:CastAccounting) => {},
     open: (_region?:RegionId) => {},
@@ -70,6 +80,7 @@ function controller() {
   };
   return s;
 }
+export type StreamController=ReturnType<typeof controller>;
 const Context = createContext<ReturnType<typeof controller>|null>(null);
 export const SoloStreamer = createContext(false);
 export const useStreamer = () => useContext(Context);
@@ -112,7 +123,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
       forgetPlan() { e.forgetPilotPlan(); },
       line(text:string) { e.addCastLine(name,text); },
     };
-    s.game = game; s.engine = e;
+    s.game = game; s.engine = e; s.face?.engine(e);
     const off = e.onCastAudioStop(s.player.stop);
     const strategy = streamerPilotStrategy(async (observation,planSignal,current,target) => {
       // The first pilot tick can precede React's deployment hand-off.
@@ -144,7 +155,7 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
     const timer = mode !== 'tutorial' ? window.setInterval(() => learnFromHud(s,e.castRegion,latest.current.hud),1000) : undefined;
     return () => {
       window.clearInterval(timer); s.leaveSector();
-      off(); s.player.stop();
+      s.face?.engine(null);off(); s.player.stop();
       if (s.game === game) { s.game = null; s.engine = null; s.handoff('menu'); }
     };
   },[s,e,mode]);
@@ -155,11 +166,11 @@ export function StreamerGame({hud,engine,mode,presentation}:{presentation:()=>Hu
       track.engine = e; track.notes = noteHudEvents(s.notes,e.castRegion,mode,latest.current.presentation().bounds,(h,kind) => {
         if (mode !== 'tutorial') learnFromHud(s,e.castRegion,h,kind);
       });
-      track.diff = hudEvents((text,major) => { s.event(text); if (major) e.replanPilot(); }); s.event('Arrived in '+e.castRegion); e.replanPilot();
+      track.diff = hudEvents((text,major) => { s.event(text); if (major) e.replanPilot(); },()=>s.face?.signal('damage')); s.face?.signal('district'); s.event('Arrived in '+e.castRegion); e.replanPilot();
     }
     recordGame(mode,e.castRegion,hud);
     track.notes?.(hud,Date.now());
-    track.diff(hud,Date.now());
+    track.diff(hud,Date.now());s.face?.hud(hud);
     if (hud.phase === 'loading') return;
     const phase = phaseForHud(hud);
     lastPhase.current = phase;
@@ -225,7 +236,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   },[active,s,recorder]);
   useEffect(() => {
     if (state.phase === 'off') {
-      currentPoll.current = null; setTarget(null); setCard(null);
+      s.camState=null;currentPoll.current = null; setTarget(null); setCard(null);
     }
     if (state.phase !== 'menu') return;
     const abort = new AbortController(), signal = AbortSignal.any([s.signal(),abort.signal]);
@@ -236,6 +247,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         if (!poll && previous?.chosen) return; // Keep the verdict through navigation.
         if (poll?.rows === previous?.rows && !poll?.voting && !previous?.voting) return;
         if (poll?.voting && !previous?.voting) setTarget(null);
+        if(poll?.viewerVote && poll.viewerVote!==previous?.viewerVote)s.face?.signal('vote');
         currentPoll.current = poll;
         setCard(poll);
       },
@@ -243,7 +255,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         if (!advice.poll && s.settings.voice) await s.player.idle();
         signal.throwIfAborted();
         const reply = await requestCast<CastReply & {actionId:string}>('streamer',{
-          phase:'menu',screen,note,...advice,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
+          phase:'menu',screen,note:s.menuNote(note),...advice,wallet:s.wallet,personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),
         },signal,s.account,fetch,s.speechPermission);
         // The viewer can send the request during the last line. Let that caption and its voice
         // finish their normal lifetime before clicking into the next screen or speaking again.
@@ -258,11 +270,12 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         if (poll?.screenId === screen.screenId) {
           const chosen = chosenDestination(screen,id);
           if (poll.chosen !== chosen) {
+            s.face?.signal('poll');
             currentPoll.current = {...poll,chosen,until:Date.now()+3000};
             setCard(currentPoll.current);
           }
         }
-        onClick();
+        s.face?.click();onClick();
       }),
       speak:s.speak,
     },s.trip,signal).catch(err => { if (!signal.aborted) s.stop(err instanceof Error ? err.message : 'Menu connection interrupted.'); });
@@ -278,25 +291,30 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   };
   const voiceReady = !!status?.voice?.available, voiceOn = !!s.settings.voice && voiceReady;
   if (!host || !active && !panel && !state.reason && !clipVisible) return null;
+  const showCamera=s.settings.facecam??s.defaultFacecam;
   const q = status?.quota, name = castPersona(s.settings.personaId)?.name;
   const keepLearning = (value:boolean) => {
     setSettings({...settings,keepLearning:value});
     s.keepLearning(value); s.save();
   };
   const usageLabel = usage.priced ? 'Est. $'+usage.cost.toFixed(4) : usage.tokens+' tokens';
-  return createPortal(<>
+  return <>{createPortal(<>
     {panel && <StreamerSetup status={status} onStatus={setStatus} settings={settings} onSettings={setSettings}
       memorySummary={s.savedSummary(settings.personaId)} onForget={()=>s.forget(settings.personaId)} onKeepLearning={keepLearning}
       usage={usageLabel} onClose={()=>setPanel(false)} onStart={()=>{
-        setPanel(false); requestLeave(() => {setUsage({cost:0,tokens:0,priced:false}); s.nextPlan=0; s.start(settings); s.save(); s.unlock();});
+        setPanel(false); requestLeave(() => {setUsage({cost:0,tokens:0,priced:false}); s.nextPlan=0; s.defaultFacecam=defaultCamera(); s.start(settings); s.save(); s.unlock();});
       }}/>}
     {active && createPortal(<div className="streamer-chip" data-streamer-controls><strong>{name}</strong>
       {state.phase === 'paused' && <><span>Paused</span><button onClick={()=>s.stop()}>Take control</button><button ref={resumeButton} onClick={()=>{ s.unlock(); s.resume(); }}>Resume</button></>}
       <button onClick={()=>s.stop()}>Stop</button>
+      {/* Switches, not buttons with a word on them: "Voice off" read as the action as often as the state. */}
+      <button className="streamer-switch" role="switch" aria-checked={showCamera} title="Show the streamer\u2019s facecam" onClick={()=>{
+        s.settings={...s.settings,facecam:!showCamera};setSettings(s.settings);s.save();
+      }}><span>Cam</span><i aria-hidden="true"/></button>
       {/* One click, mid-match: off cuts the line being spoken, and captions carry on. */}
-      <button className="streamer-voice" aria-pressed={voiceOn} disabled={!voiceReady}
-        title={voiceReady ? (voiceOn ? 'Turn the streamer\u2019s voice off' : 'Turn the streamer\u2019s voice on') : (status?.voice?.reason ?? 'Voice unavailable') + ' \u00b7 captions only'}
-        onClick={()=>setVoice(!voiceOn)}>{voiceOn ? 'Voice on' : 'Voice off'}</button>
+      <button className="streamer-switch streamer-voice" role="switch" aria-checked={voiceOn} disabled={!voiceReady}
+        title={voiceReady ? 'The streamer\u2019s voice' : (status?.voice?.reason ?? 'Voice unavailable') + ' \u00b7 captions only'}
+        onClick={()=>setVoice(!voiceOn)}><span>Voice</span><i aria-hidden="true"/></button>
       <StreamerClip clip={clip} recorder={recorder} persona={s.settings.personaId}/>
       {q && <details className="streamer-usage"><summary aria-label="Streamer AI usage">Usage</summary><div>
         <progress aria-label="Daily AI calls" value={q.used} max={Math.max(q.limit,1)}/>
@@ -320,7 +338,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
       <StreamerClip clip={clip} recorder={recorder} persona={s.settings.personaId}/>
     </div>}
     {!active && state.reason && <div className="streamer-chip" role="status">{state.reason}<button onClick={()=>s.stop()}>Dismiss</button></div>}
-  </>,host);
+  </>,host)}<FacecamSlot host={host} running={active} shown={showCamera} s={s} name={name!} target={target} voting={!!card?.voting}/></>;
 }
 
 export function StreamerCaption() {

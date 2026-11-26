@@ -22,7 +22,8 @@ function fixture() {
     }),
     createBufferSource() { const s = source(); sources.push(s); return s; },
     createGain() { const gain = makeGain(); gains.push(gain); return gain; },
-    createDynamicsCompressor:()=>({...node(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param()}),
+    createAnalyser:vi.fn(()=>({...node(),fftSize:512,getFloatTimeDomainData:(samples:Float32Array)=>samples.fill(.125)})),
+    createDynamicsCompressor(){return {...node(),context:this,threshold:param(),knee:param(),ratio:param(),attack:param(),release:param()};},
   });
   const ctx = context as unknown as AudioContext;
   const player = createCastVoice();
@@ -232,4 +233,14 @@ it('plays the audio handle returned with a caption using a single fetch',async()
   expect(h.sources[0].start).toHaveBeenCalledOnce();
   expect(ask).toHaveBeenCalledOnce();
   h.player.stop(); await h.player.idle();
+});
+
+it('meters the audible signal only while the camera samples it and disconnects on hide or silence',async()=>{
+  const h=fixture();
+  expect(h.player.level()).toBe(0);
+  h.play('speech');await vi.advanceTimersByTimeAsync(CAST_MIX.lead*1000);
+  expect(h.context.createAnalyser).not.toHaveBeenCalled();
+  expect(h.player.level()).toBe(.125);
+  h.player.releaseMeter();expect(h.context.createAnalyser.mock.results[0].value.disconnect).toHaveBeenCalledOnce();
+  expect(h.player.level()).toBe(.125);h.sources[0].onended!();expect(h.player.level()).toBe(0);
 });

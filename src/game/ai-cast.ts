@@ -59,7 +59,7 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
   };
 }
 
-export function hudEvents(event: (text:string,major?:boolean)=>void) {
+export function hudEvents(event: (text:string,major?:boolean)=>void, sharpDamage?:()=>void) {
   let prev: FpsHud | undefined, health: {time:number;hp:number}[] = [];
   return (h: FpsHud, now: number) => {
     const p = prev; prev = h;
@@ -77,7 +77,7 @@ export function hudEvents(event: (text:string,major?:boolean)=>void) {
     }
     if (h.streakNotice && h.streakNotice !== p.streakNotice) event(h.streakNotice,true);
     health = health.filter(s => now-s.time <= 2000);
-    if (health.some(s => s.hp-h.health >= h.maxHealth/3)) { event('Health fell sharply to '+Math.round(h.health),true); health = []; }
+    if (health.some(s => s.hp-h.health >= h.maxHealth/3)) { event('Health fell sharply to '+Math.round(h.health),true); sharpDamage?.(); health = []; }
     health.push({time:now,hp:h.health});
     if (!h.magazine && !h.reserve && (p.magazine > 0 || p.reserve > 0)) event('Weapon empty with no reserve',true);
     if (h.reloading && h.reloadEmpty && !p.reloading) event('Reloading an empty magazine');

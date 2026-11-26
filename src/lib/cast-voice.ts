@@ -24,6 +24,21 @@ function playable(context: AudioContext | null | undefined) {
 }
 
 export function createCastVoice() {
+  let output:AudioNode|undefined, analyser:AnalyserNode|undefined, samples:Float32Array<ArrayBuffer>|undefined;
+  function releaseMeter() {
+    if(analyser){output?.disconnect(analyser);analyser.disconnect();}
+    analyser=undefined;samples=undefined;
+  }
+  function level() {
+    if(!output || output.context.state!=='running' || !getVoiceVolume())return 0;
+    if(!analyser){
+      analyser=output.context.createAnalyser();analyser.fftSize=512;
+      samples=new Float32Array(analyser.fftSize);output.connect(analyser);
+    }
+    analyser.getFloatTimeDomainData(samples!);
+    let power=0;for(const v of samples!)power+=v*v;
+    return Math.sqrt(power/samples!.length);
+  }
   let permission = new AbortController();
   let waitTimer: ReturnType<typeof setTimeout> | undefined;
   let waiting: Turn | undefined;
@@ -65,6 +80,7 @@ export function createCastVoice() {
         worklet.disconnect();
       }
       if (source) { source.onended = null; if (started) source.stop(); source.disconnect(); }
+      releaseMeter();output=undefined;
       gain?.disconnect(); compressor?.disconnect(); release?.();
       const advance = () => {
         clearTimeout(timer);
@@ -89,6 +105,7 @@ export function createCastVoice() {
       compressor.ratio.value = CAST_MIX.ratio; compressor.attack.value = CAST_MIX.compressorAttack;
       compressor.release.value = CAST_MIX.compressorRelease;
       node.connect(gain).connect(compressor).connect(voiceOutput(context));
+      output=compressor;
       release = beginCastSpeech();
       mixTimer = setTimeout(() => {
         if (!current()) { finish(false); return; }
@@ -168,7 +185,7 @@ export function createCastVoice() {
     cancel?.();
   }
   return {
-    stop,
+    stop, level, releaseMeter,
     idle: () => idle,
     permission: (context: AudioContext | null | undefined) =>
       playable(context) ? permission.signal : undefined,

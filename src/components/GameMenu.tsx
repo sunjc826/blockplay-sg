@@ -306,7 +306,10 @@ function MenuScreens({screen,armory,sandbox}:{screen:Screen;armory:ReturnType<ty
       <main className="game-screen-body"><DebugMode.Provider value={false}>
         <LoadoutStore store={sandbox && streamer ? {...armory,buyLoadout:(id,term,target,quantity) => {
           const bought = armory.buyLoadout(id,term,target,quantity);
-          if (bought) streamer.notes.add('Bought '+(quantity ?? 1)+' × '+(itemById(id)?.name ?? id)+(term ? ' · '+term+' rental' : ''),Date.now());
+          if (bought) {
+            streamer.face?.signal('purchase');
+            streamer.notes.add('Bought '+(quantity ?? 1)+' × '+(itemById(id)?.name ?? id)+(term ? ' · '+term+' rental' : ''),Date.now());
+          }
           return bought;
         }} : armory} mode={screen} onModeChange={mode => { setStoreTour(false); navigate(mode); }} onPlay={route => transitionTo(route)} tutorial={storeTour ? { onComplete: () => setStoreTour(false), onExit: () => setStoreTour(false) } : undefined}
           onHelp={() => { if (screen === 'inventory') navigate('store'); setStoreTour(true); }}

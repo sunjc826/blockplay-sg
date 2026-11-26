@@ -57,6 +57,8 @@ During a stream, choose **Record clip**, select the game tab in the browser pick
 
 **Stop** and Escape end the session immediately. You can move the pointer freely while watching. Clicking, dragging, scrolling or pressing a key outside the streamer controls pauses the session, except when casting a numbered poll vote. **Resume** continues the sandbox run. **Take control** ends the sandbox and returns the player's own profile to the current route. Changing tabs also pauses the streamer.
 
+The streamer chip’s **Cam** control shows the persona at their desk during menus and play. The camera guide covers reactions, physical event notes, the controller mapping, rendering cost and the deterministic review fixture. [Streamer desk cameras](STREAMER-FACECAM.md)
+
 ### Two tiers of play
 
 The infantry controller acts at 10 Hz through the usual game controls. The streamer strategy asks `POST /api/ai/streamer` for a goal, an optional waypoint, named sector or remembered place, and a caption about every ten seconds. Death, respawn, a sharp health loss, an elimination streak, exhausting ammunition, arriving in a district and round completion feed the shared HUD event detector or the menu hand-off. Major events can bring the next decision forward. Play requests are single-flight and spaced by at least three seconds. A failed re-ask keeps an active sector or remembered-place destination. Other strategy failures use the local planner. The pilot follows known waypoints and plays on foot. A round ending or a respawn choice returns control to the menu director.

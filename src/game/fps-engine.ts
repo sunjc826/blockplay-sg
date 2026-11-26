@@ -938,6 +938,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   let pilot = options.playerPilot ?? createPlayerPilot(strategicPlanner ?? undefined);
   hud.pilotStrategy = strategyMode;
   let pilotEnabled = false, nextPilotAt = 0, pilotDestination: WorldZoneId | undefined;
+  let pilotObserver: ((action:import('./fps-pilot').PilotAction, observation:PilotObservation)=>void) | undefined;
   let lastPilotObservation: PilotObservation | null = null;
   let pilotGunfireUntil = 0;
   let capturePending = false, capturePromisePending = false;
@@ -2575,6 +2576,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (action.callout) radioCall(action.callout);
       for (const [key, held] of [['w', action.forward], ['s', action.backward], ['a', action.left], ['d', action.right], ['shift', action.sprint], ['c', action.crouch]] as const) setInput(key, held === true);
       setInput('fire', action.fire === true);
+      pilotObserver?.(action,lastPilotObservation);
       look(action.lookX ?? 0, action.lookY ?? 0);
       touchAim = action.aim === true; ads = false;
       if (action.weapon !== undefined) switchWeapon(action.weapon);
@@ -4794,7 +4796,7 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
   }
   const animate = (now: number) => {
     if (disposed) return;
-    if (!frameLimiter(now, getGraphicsSettings().frameCap)) { frame = requestAnimationFrame(animate); return; }
+    if (!frameLimiter(now, getGraphicsSettings().frameCap)) { frame = requestAnimationFrame(renderFrame); return; }
     beginProfiledFrame(now, renderer);
     const realDt = Math.max((now - lastTime) / 1000, 0), dt = Math.min(realDt, 0.05); lastTime = now;
     if (hud.phase === 'playing' && hud.arenaSelf?.alive !== false && !document.hidden) {
@@ -5219,9 +5221,21 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (roundsAfterDraw) { advanceRounds(realDt, true); resolveVehicleDestruction(); }
     if (now - lastReport > 100) { publish(); lastReport = now; }
     endProfiledFrame(renderer);
-    frame = requestAnimationFrame(animate);
+    frame = requestAnimationFrame(renderFrame);
   };
-  frame = requestAnimationFrame(animate);
+  // An attached desk camera can spend the remainder of a completed game frame.
+  // Ordinary play continues to schedule animate directly.
+  let afterGameFrame: ((time: number, budget: number) => void) | undefined;
+  let renderFrame: FrameRequestCallback = animate;
+  const drawObservedFrame = (now: number) => {
+    animate(now);
+    if (!disposed && lastTime === now) afterGameFrame?.(now, 1000 / (getGraphicsSettings().frameCap || 60));
+  };
+  function setAfterGameFrame(listener?: typeof afterGameFrame) {
+    afterGameFrame = listener;
+    renderFrame = listener ? drawObservedFrame : animate;
+  }
+  frame = requestAnimationFrame(renderFrame);
 
   /**
    * Compiles every shader the exercise can draw while it is still loading.
@@ -5528,6 +5542,8 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     triggerLevolution,
     adjustScopeZoom, merlionAction, chooseDeployment, zoomDeployment, resetDeploymentView, skipDeployment: finishDeployment, deploymentBriefingTime: () => briefing.time, start, startPilot, setPilotStrategy, replanPilot: () => strategicPlanner?.replan(), forgetPilotPlan: () => strategicPlanner?.reset(), takeControl, pause, reset, reload, inspectWeapon, switchWeapon, useQuickItem, useUtility, jump, setInput, setMoveAxis, lookBy, interactVehicle, switchVehicleSeat, interactLoot, interactNpc, interactFacility, travelZone, configureDebug, refillHealth, triggerCombatEvent, triggerAmbient,
     setPilotDestination(destination?: WorldZoneId) { pilotDestination = destination; },
+    setAfterGameFrame,
+    setPilotObserver(observer:typeof pilotObserver) { pilotObserver=observer; },
     getPilotObservation() { return lastPilotObservation ? structuredClone(lastPilotObservation) : null; },
     toggleVehicleView, toggleAim, toggleMap, toggleObjectiveHints, toggleRail, toggleCant, toggleWeaponMode,
     toggleWeaponLight: () => toggleDevice('light'), toggleWeaponLaser: () => toggleDevice('laser'),

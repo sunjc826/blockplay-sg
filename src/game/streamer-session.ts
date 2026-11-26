@@ -10,7 +10,7 @@ import type { FpsHud } from './fps-engine';
 import type { Wallet } from './streamer-contract';
 
 export type StreamPhase = 'off' | 'menu' | 'play' | 'paused';
-export interface StreamSettings { personaId:string; clean:boolean; screenshots:boolean; voice?:boolean; keepLearning?:boolean }
+export interface StreamSettings { personaId:string; clean:boolean; screenshots:boolean; facecam?:boolean; voice?:boolean; keepLearning?:boolean }
 
 export function phaseForHud(hud: Pick<FpsHud,'phase'|'deathRecap'|'arenaSelf'>): 'menu' | 'play' {
   return hud.phase === 'deploying' || hud.phase === 'playing' && !hud.deathRecap && hud.arenaSelf?.alive !== false ? 'play' : 'menu';
@@ -32,6 +32,7 @@ export function streamerSession() {
   let history = playHistory(), historyDirty = false, historySavedAt = 0;
   let currentRun:object|null = null, forgottenRun:object|null = null;
   let abort = new AbortController();
+  let physical:string[]=[];
   let events: string[] = [];
   const set = (phase: StreamPhase, reason = '') => {
     learning.suspend();
@@ -107,14 +108,14 @@ export function streamerSession() {
       saveHistory(); history = playHistory(settings.keepLearning ? savedHistory(settings.personaId) : []); historyDirty = false;
       currentRun = forgottenRun = null;
       saveLearning(); learning = familiarity(settings.keepLearning ? savedLearning(settings.personaId) : {}); dirty = false;
-      session.started = Date.now(); session.settings = {...settings}; notes.clear(); memory.clear(); events = []; session.trip = menuTrip();
+      session.started = Date.now(); session.settings = {...settings}; notes.clear(); memory.clear(); events = []; physical=[]; session.trip = menuTrip();
       state = {...state,caption:'',serial:state.serial+1}; set('menu');
     },
     stop(reason = '') {
       if (state.phase !== 'off') session.game?.pause();
       saveHistory(); history = playHistory(); historyDirty = false; currentRun = forgottenRun = null;
       saveLearning(); learning = familiarity(); dirty = false;
-      session.game = null; notes.clear(); memory.clear(); events = []; state = {...state,caption:''}; set('off',reason);
+      session.game = null; notes.clear(); memory.clear(); events = []; physical=[]; state = {...state,caption:''}; set('off',reason);
     },
     pause() { if (state.phase === 'play' || state.phase === 'menu') { set('paused'); session.game?.pause(); } },
     resume() { if (state.phase === 'paused') { set('menu'); session.game?.resume(); } },
@@ -124,7 +125,13 @@ export function streamerSession() {
       set(phase);
     },
     event(text:string) { events = [...events.slice(-19),text.replace(/\s+/g,' ').slice(0,240)]; },
-    takeEvents() { const batch = events; events = []; return batch; },
+    physicalMoment(text:string) { physical=[...physical.slice(-2),text.slice(0,120)]; },
+    menuNote(note:string) {
+      if(!physical.length)return note;
+      const moment=physical.at(-1)!;physical=[];
+      return note.slice(0,237-moment.length)+' · '+moment;
+    },
+    takeEvents() { const batch = physical.length ? [...events,...physical].slice(-20) : events; physical=[]; events = []; return batch; },
     speak(text:string,audio?:CastAudio) {
       if (state.phase === 'off' || state.phase === 'paused') { audio?.cancel(); return; }
       memory.remember(text); state = {...state,caption:text,serial:state.serial+1}; session.game?.line(text); listeners.forEach(fn => fn());

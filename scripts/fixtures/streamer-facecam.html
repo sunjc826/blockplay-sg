@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Streamer desk cameras</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #182124;
+        color: #edf0e9;
+        font: 15px/1.5 system-ui, sans-serif;
+      }
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: clamp(16px, 4vw, 60px);
+      }
+      h1 {
+        font-size: clamp(30px, 5vw, 56px);
+        letter-spacing: -0.05em;
+        margin: 0 0 20px;
+        font-weight: 650;
+      }
+      nav,
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      a {
+        color: #bce2d1;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 12px;
+        color: #becbc8;
+      }
+      button,
+      select {
+        font: inherit;
+        color: #f2f3ea;
+        background: #2c383c;
+        border: 1px solid #677a75;
+        padding: 6px 12px;
+        border-radius: 4px;
+      }
+      #views {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+        gap: 18px;
+      }
+      figure {
+        margin: 0;
+        max-width: min(660px, max(310px, calc((100dvh - 305px) * 1.333)));
+      }
+      canvas {
+        width: 100%;
+        aspect-ratio: 4/3;
+        display: block;
+        border-radius: 4px;
+      }
+      figcaption {
+        padding: 8px 0;
+        font-weight: 650;
+      }
+      output {
+        display: block;
+        min-height: 1.5em;
+        color: #c2d8cf;
+        font-size: 13px;
+      }
+      .cost {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Streamer desk cameras</h1>
+      <nav>
+        <a href="?persona=all">All desks</a><a href="?persona=pro&inputs=all">Pro inputs</a
+        ><a href="?persona=rager&reaction=slam&tilt=1">Keyboard slam</a
+        ><a href="?persona=comic-streamer&reaction=slide">Chair slide</a>
+      </nav>
+      <form id="controls">
+        <label>Reaction<select id="reaction"></select></label><button type="submit">Play reaction</button
+        ><button id="inputs" type="button">Play inputs</button><button id="slam" type="button">Slam again</button
+        ><button id="pause" type="button">Pause</button><button id="step" type="button">Step 100 ms</button
+        ><button id="measure" type="button">Measure cost</button>
+      </form>
+      <div id="views"></div>
+    </main>
+    <script type="module" src="./streamer-facecam.ts"></script>
+  </body>
+</html>
