@@ -17980,3 +17980,9 @@ Owner: "It doesn't make sense to do two requests." Implemented by Codex (GPT-6.2
 Streamer mode now uses the player-menu controls, artwork, persona cards, switches and a visible account bar. Admin sign-in and sign-out return the streamer's provider status and the caller's current AI and voice allowances. The existing production credential is named `AI_ADMIN_KEY`. The server accepts it when `AI_ADMIN_TOKEN` is unset. Moving the pointer without pressing a button leaves the streamer running.
 
 Checked the isolated release with TypeScript and the API and input suites. Chrome covered wrong and correct passphrases, quota changes, closing and reopening with an admin cookie, sign-out, desktop and phone layouts, pointer movement, click-to-pause, Resume and Escape.
+
+## 2026-11-26 — Downloadable streamer clips
+
+The live toolbar can record a browser-selected game tab, including overlays and optional tab audio. Finish the clip, stop browser sharing, or end the session to get the download. The recorder survives route and fullscreen portal changes. Closing the picker or denying access leaves the game available.
+
+Verified a local Chrome tab recording with a visible test marker and an audible test tone, decoded both from the result, and checked the downloaded file size. The session-stop path also produced a download. The focused tests cover late permission grants, encoder failures, track cleanup and the final data chunk.

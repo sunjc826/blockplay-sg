@@ -53,6 +53,8 @@ Open **Streamer mode** on the main menu or in a solo FPS briefing or pause menu.
 
 The persona chooses solo activities, shops, picks a district and configures deployment before playing. Its latest line appears on the menu or in the game's subtitle area. Game lines also enter the Cast comms channel with the speaker's name. The last 30 lines follow the session through store visits, matches and district crossings. Stopping or starting a new persona clears them.
 
+During a stream, choose **Record clip**, select the game tab in the browser picker and enable tab audio to include the game and streamer voice. **Finish** makes a local video available through **Download clip**. Ending the session or stopping browser sharing also finishes it. Download before closing or reloading the page. Recording requires a browser with display capture and MediaRecorder support.
+
 **Stop** and Escape end the session immediately. You can move the pointer freely while watching. Clicking, dragging, scrolling or pressing a key outside the streamer controls pauses the session, except when casting a numbered poll vote. **Resume** continues the sandbox run. **Take control** ends the sandbox and returns the player's own profile to the current route. Changing tabs also pauses the streamer.
 
 ### Two tiers of play

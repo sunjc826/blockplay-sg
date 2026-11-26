@@ -1,8 +1,8 @@
 .streamer-chip,.streamer-menu-caption,.streamer-cursor{position:fixed;z-index:2147483000}
 .streamer-chip{color:#f4f6f5;background:#172228;border:1px solid #637575;border-radius:8px}
-.streamer-chip{top:max(5px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.5em;padding:3px 6px;font:600 12px/1.25 system-ui;max-width:94vw}
+.streamer-chip{top:max(5px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.5em;padding:3px 6px;font:600 12px/1.25 system-ui;width:max-content;max-width:94vw}
 .streamer-chip button{color:#fff;background:#314648;border:1px solid #809997;border-radius:5px;min-height:30px;cursor:pointer}
-.streamer-menu-caption{top:calc(max(5px,env(safe-area-inset-top)) + 40px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(88vw,560px);pointer-events:none}
+.streamer-menu-caption{position:absolute;top:calc(100% + 5px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(88vw,560px);pointer-events:none}
 .streamer-cursor{pointer-events:none;top:0;left:0;transform:translate(50vw,50vh);width:15px;height:19px;background:#afffe9;filter:drop-shadow(0 1px 2px black);clip-path:polygon(0 0,100% 59%,53% 64%,31% 100%);transition:transform .48s ease-in-out}
 @media(prefers-reduced-motion:reduce){.streamer-cursor{transition:none}}
 .streamer-dock{display:flex;flex:0 0 auto;justify-content:center;align-items:center;background:#131f24;z-index:100}
@@ -30,3 +30,14 @@
 @media(prefers-reduced-motion:reduce){.streamer-poll-clock{display:none}}
 
 .streamer-voice[aria-pressed=true]{background:#2f6b57;border-color:#8fd0b6}.streamer-voice:disabled{opacity:.55;cursor:not-allowed}
+
+.streamer-record,.streamer-download{display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.streamer-record svg{color:#ffaaa0}
+.streamer-chip .is-recording{background:#572d33;color:#fff1ed;border-color:#dd928c;font-variant-numeric:tabular-nums}
+.streamer-download{min-height:30px;padding:4px 9px;background:#d8bd83;color:#1c271e;border-radius:5px;text-decoration:none}
+.streamer-clip-result{top:auto;bottom:max(12px,env(safe-area-inset-bottom));padding:6px 8px}
+
+.streamer-choosing{display:inline-flex;align-items:center;gap:5px}
+.streamer-choosing svg{animation:streamer-choosing-spin 1s linear infinite}
+@keyframes streamer-choosing-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.streamer-choosing svg{animation:none}}

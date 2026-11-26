@@ -24,6 +24,8 @@ import { clickStreamerAction, readStreamerScreen } from '../lib/streamer-screen'
 import { Radio } from 'lucide-react';
 import { StreamerSetup, type StreamerStatus } from './StreamerSetup';
 import { requestLeave } from '../lib/navigation-guard';
+import { StreamerClip } from './StreamerClip';
+import { createClipRecorder, type ClipState } from '../lib/streamer-clip';
 import './streamer-mode.css';
 
 function controller() {
@@ -192,6 +194,11 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   const resumeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (state.phase === "paused") resumeButton.current?.focus(); },[state.phase]);
   const active = state.phase !== 'off';
+  const [clip, setClip] = useState<ClipState>({phase:'idle'});
+  const [recorder] = useState(() => createClipRecorder(setClip));
+  useLayoutEffect(() => { if (!active) recorder.stop(); }, [active, recorder]);
+  useEffect(() => () => recorder.dispose(), [recorder]);
+  const clipVisible = clip.phase !== 'idle';
   s.open = region => {s.startRegion = ['/world','/training'].includes(window.location.pathname) ? region : undefined;setStatus(null);setPanel(true);};
   s.account = ({quota,voice,usage,costUsd}) => {
     setStatus(old => old && {...old,quota,voice});
@@ -199,22 +206,23 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
   };
   useEffect(() => { if (active) return s.closeAudio; },[active,s]);
   useEffect(() => {
-    if (!active && !panel && !state.reason) return;
+    if (!active && !panel && !state.reason && !clipVisible) return;
     const sync = () => setHost(document.fullscreenElement ?? document.body);
     sync(); document.addEventListener('fullscreenchange',sync);
     return () => document.removeEventListener('fullscreenchange',sync);
-  },[active,panel,state.reason]);
+  },[active,panel,state.reason,clipVisible]);
   useEffect(() => {
     if (!active) return;
     const input = (ev:Event) => handleStreamerInput(ev,currentPoll.current,s);
     const events = ['keydown','pointerdown','pointermove','pointerup','click','wheel'];
     for (const event of events) window.addEventListener(event,input,{capture:true,passive:false});
-    const blur = () => s.pause();
+    const blur = () => { if (!recorder.choosing()) s.pause(); };
+    const leavePage = () => { recorder.stop(); s.pause(); };
     const visibility = () => { if (document.hidden) s.pause(); };
     document.addEventListener('visibilitychange',visibility);
-    window.addEventListener('blur',blur); window.addEventListener('pagehide',blur);
-    return () => { for (const event of events) window.removeEventListener(event,input,true); window.removeEventListener('blur',blur); window.removeEventListener('pagehide',blur); document.removeEventListener('visibilitychange',visibility); };
-  },[active,s]);
+    window.addEventListener('blur',blur); window.addEventListener('pagehide',leavePage);
+    return () => { for (const event of events) window.removeEventListener(event,input,true); window.removeEventListener('blur',blur); window.removeEventListener('pagehide',leavePage); document.removeEventListener('visibilitychange',visibility); };
+  },[active,s,recorder]);
   useEffect(() => {
     if (state.phase === 'off') {
       currentPoll.current = null; setTarget(null); setCard(null);
@@ -269,7 +277,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     if (voice) s.unlock(); else s.closeAudio();
   };
   const voiceReady = !!status?.voice?.available, voiceOn = !!s.settings.voice && voiceReady;
-  if (!host || !active && !panel && !state.reason) return null;
+  if (!host || !active && !panel && !state.reason && !clipVisible) return null;
   const q = status?.quota, name = castPersona(s.settings.personaId)?.name;
   const keepLearning = (value:boolean) => {
     setSettings({...settings,keepLearning:value});
@@ -289,6 +297,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
       <button className="streamer-voice" aria-pressed={voiceOn} disabled={!voiceReady}
         title={voiceReady ? (voiceOn ? 'Turn the streamer\u2019s voice off' : 'Turn the streamer\u2019s voice on') : (status?.voice?.reason ?? 'Voice unavailable') + ' \u00b7 captions only'}
         onClick={()=>setVoice(!voiceOn)}>{voiceOn ? 'Voice on' : 'Voice off'}</button>
+      <StreamerClip clip={clip} recorder={recorder} persona={s.settings.personaId}/>
       {q && <details className="streamer-usage"><summary aria-label="Streamer AI usage">Usage</summary><div>
         <progress aria-label="Daily AI calls" value={q.used} max={Math.max(q.limit,1)}/>
         <span>{q.used} / {q.limit} calls · Resets at {castResetTime(q.resetsAt)}</span>
@@ -299,6 +308,7 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
         </div>
         <span>{usageLabel}</span>
       </div></details>}
+      {state.phase !== 'play' && state.caption && <div className="streamer-menu-caption cast-caption" aria-live="polite"><b>{name}</b> {state.caption}</div>}
     </div>,dock ?? host)}
     {active && <span className="streamer-poll-announcement" role="status" aria-live="polite">
       {card?.voting ? `Chat poll open for ${POLL_VOTE_SECONDS} seconds. Choose an option or press its number to vote.`
@@ -306,7 +316,9 @@ function StreamerOverlay({session:s}:{session:ReturnType<typeof controller>}) {
     </span>}
     {active && card && <StreamerPoll card={card} target={target}/>}
     {state.phase === 'menu' && <div ref={cursor} className="streamer-cursor" aria-hidden="true"/>}
-    {active && state.phase !== 'play' && state.caption && <div className="streamer-menu-caption cast-caption" aria-live="polite"><b>{name}</b> {state.caption}</div>}
+    {!active && !panel && clipVisible && <div className="streamer-chip streamer-clip-result" aria-label="Stream recording">
+      <StreamerClip clip={clip} recorder={recorder} persona={s.settings.personaId}/>
+    </div>}
     {!active && state.reason && <div className="streamer-chip" role="status">{state.reason}<button onClick={()=>s.stop()}>Dismiss</button></div>}
   </>,host);
 }
