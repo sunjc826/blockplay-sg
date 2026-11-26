@@ -71,13 +71,13 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       let body;
       try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { return await reply(400,{error:'Invalid JSON'}); }
       const valid = login && typeof body?.passphrase === 'string' && Object.keys(body).length === 1 && matches(body.passphrase,adminToken!);
-      // Speech is transport metadata. The model sees only the validated observation.
+      // Speech is transport metadata: it never reaches the model as data. It only selects the spoken-line rule.
       const wantsVoice = !planning && !login && body?.spoken === true;
       if (endpoint && !planning && body && typeof body === 'object' && 'spoken' in body) {
         if (typeof body.spoken !== 'boolean') return await reply(400,{error:'Invalid game observation'});
         delete body.spoken;
       }
-      const run = endpoint?.prepare(body);
+      const run = endpoint?.prepare(body,wantsVoice && !!speech);
       if (endpoint && !run) return await reply(400,{error:'Invalid game observation'});
       const started = Date.now();
       decision = login ? await check(valid ? 'login-good' : 'login-bad')

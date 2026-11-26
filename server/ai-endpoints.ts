@@ -11,21 +11,22 @@ interface ModelEndpoint {
   feature: 'PILOT' | 'CAST' | 'STREAMER';
   bodyLimit: number;
   // Parsing creates a bounded model call. The handler executes it only after admission.
-  prepare(body: unknown): ((complete: Provider, model: string, pilotBudget: number) => Promise<object>) | null;
+  /** `spoken`: this line will be voiced, so it is written to be said aloud. */
+  prepare(body: unknown, spoken?: boolean): ((complete: Provider, model: string, pilotBudget: number) => Promise<object>) | null;
 }
 export const modelEndpoints = new Map<string,ModelEndpoint>([
   ['/api/ai/streamer', {
     feature: 'STREAMER', bodyLimit: 310000,
-    prepare(body) {
+    prepare(body, spoken) {
       const turn = parseStreamerTurn(body);
-      return turn && ((complete, model) => streamTurn(turn, complete, model));
+      return turn && ((complete, model) => streamTurn(turn, complete, model, spoken));
     },
   }],
   ['/api/ai/commentary',{
     feature: 'CAST', bodyLimit: 290000,
-    prepare(body) {
+    prepare(body, spoken) {
       const data = observation(body);
-      return data && ((complete,model) => commentary(data,complete,model));
+      return data && ((complete,model) => commentary(data,complete,model,spoken));
     },
   }],
   ['/api/adventure/pilot-plan',{

@@ -4,7 +4,7 @@ import arenaCatalog from '../src/game/arena-catalog.json' with {type:'json'};
 import { learnedMap } from './learned-map.ts';
 import { mapBrief } from './cast-map-brief.ts';
 import { zoneSectors } from '../src/game/zone-sectors.ts';
-import { STREAMER_FRAME, LANGUAGE_RULES, castPersona } from '../src/game/ai-cast-personas.ts';
+import { STREAMER_FRAME, LANGUAGE_RULES, castPersona, SPOKEN_RULE } from '../src/game/ai-cast-personas.ts';
 import { renderPlaceCard } from '../src/data/place-cards.ts';
 import { REGION_NAMES } from '../src/game/region-ids.ts';
 import { record, only } from '../src/game/cast-contract.ts';
@@ -39,7 +39,7 @@ export function menuAdvice(turn:MenuTurn) {
   return lines.length ? '\n'+lines.join(' ') : '';
 }
 
-export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, model: string) {
+export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, model: string, spoken = false) {
   const persona = castPersona(turn.personaId)!;
   const play = turn.phase === 'play';
   const choices = play ? turn.observation.waypoints.map(w => w.id) : turn.screen.actions.filter(a => a.state !== 'disabled').map(a => a.id);
@@ -63,7 +63,7 @@ export async function streamTurn(turn: PlayTurn | MenuTurn, complete: Provider, 
   const region = play ? turn.regionId : '';
   const result = await complete({ model, effort:'low', maxOutputTokens:2000, schemaName:'streamer_'+turn.phase,
     schema:{type:'object', additionalProperties:false, properties, required:Object.keys(properties)},
-    system:[STREAMER_FRAME,persona.voice,LANGUAGE_RULES[turn.clean ? 'clean' : persona.language],
+    system:[STREAMER_FRAME,persona.voice,LANGUAGE_RULES[turn.clean ? 'clean' : persona.language],...(spoken ? [SPOKEN_RULE] : []),
       play ? renderPlaceCard(region,REGION_NAMES[turn.regionId]) : 'Where you are: in the game\'s menus, not yet in a district.',...(play && turn.mode !== 'tutorial' ? [mapBrief(turn.regionId)] : [])].filter(Boolean),
     user:'Lines already said (oldest first)\n'+JSON.stringify(turn.memory)+'\nWhat happened\n'+JSON.stringify(play ? turn.events : turn.note)+
       (play ? '\nSession notes (oldest first)\n'+JSON.stringify(turn.notes)+(learned?.text ? '\nLearned places\n'+learned.text : '')+'\nHUD readout\n'+JSON.stringify(turn.hud)+'\nPilot observation\n'+JSON.stringify({mode:turn.mode,regionId:region,...turn.observation})

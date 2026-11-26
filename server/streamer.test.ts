@@ -142,3 +142,18 @@ it('renders bounded history and simulated votes, keeping every enabled action in
     expect(parseStreamerTurn({...turn,history:bad})).toBeNull();
   for (const screenId of ['store','landing']) expect(parseStreamerTurn({...turn,screen:{...screen,screenId},history,poll})).toBeNull();
 });
+
+it('adds the spoken-line rule only when the line will be voiced', async () => {
+  const { SPOKEN_RULE, LANGUAGE_RULES } = await import('../src/game/ai-cast-personas.ts');
+  const { modelEndpoints } = await import('./ai-endpoints.ts');
+  const body = {phase:'menu',personaId:'pro',clean:true,memory:[],note:'Back at the menu',wallet:{credits:1000,tokens:300},
+    screen:{screenId:'main-menu',title:'Main menu',actions:[{id:'store',label:'Store',kind:'navigate'}]}};
+  const seen: string[][] = [];
+  const complete = async (request: {system: string[]}) => { seen.push(request.system); return {model:'m',json:{actionId:'store',say:true,line:'Okay lah.'},usage:{inputTokens:1,cachedInputTokens:0,outputTokens:1}}; };
+  const endpoint = modelEndpoints.get('/api/ai/streamer')!;
+  await endpoint.prepare(structuredClone(body),true)!(complete as never,'m',0);
+  await endpoint.prepare(structuredClone(body),false)!(complete as never,'m',0);
+  expect(seen[0]).toContain(SPOKEN_RULE);
+  expect(seen[0].indexOf(SPOKEN_RULE)).toBe(seen[0].indexOf(LANGUAGE_RULES.clean)+1);
+  expect(seen[1]).not.toContain(SPOKEN_RULE);
+});

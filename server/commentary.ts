@@ -1,6 +1,6 @@
 import { CAST_LINE_MAX } from '../src/game/cast-wire.ts';
 import { mapBrief } from './cast-map-brief.ts';
-import { COMMENTATOR_FRAME, LANGUAGE_RULES, castPersona } from '../src/game/ai-cast-personas.ts';
+import { COMMENTATOR_FRAME, LANGUAGE_RULES, castPersona, SPOKEN_RULE } from '../src/game/ai-cast-personas.ts';
 import { renderPlaceCard } from '../src/data/place-cards.ts';
 import { REGION_NAMES } from '../src/game/region-ids.ts';
 import type { Observation } from '../src/game/cast-contract.ts';
@@ -15,11 +15,11 @@ export function tidyLine(raw: string) {
   return line;
 }
 
-export async function commentary(o: Observation, complete: Provider, model: string) {
+export async function commentary(o: Observation, complete: Provider, model: string, spoken = false) {
   const persona = castPersona(o.personaId)!, district = REGION_NAMES[o.regionId];
   const result = await complete({ model, effort: 'low', maxOutputTokens: 2000, schemaName: 'commentary',
     schema: { type: 'object', properties: { say: { type: 'boolean' }, line: { type: 'string' } }, required: ['say','line'], additionalProperties: false },
-    system: [COMMENTATOR_FRAME,persona.voice,LANGUAGE_RULES[o.clean ? 'clean' : persona.language],renderPlaceCard(o.regionId,district),o.mode !== 'tutorial' && mapBrief(o.regionId)].filter((block):block is string => !!block),
+    system: [COMMENTATOR_FRAME,persona.voice,LANGUAGE_RULES[o.clean ? 'clean' : persona.language],spoken && SPOKEN_RULE,renderPlaceCard(o.regionId,district),o.mode !== 'tutorial' && mapBrief(o.regionId)].filter((block):block is string => !!block),
     user: 'Lines already said (oldest first)\n'+JSON.stringify(o.memory)+'\nEvents since last line\n'+JSON.stringify(o.events)+'\nCurrent snapshot\n'+JSON.stringify({mode:o.mode,...o.snapshot}),
     image: o.frame ? {mediaType:'image/jpeg',base64:o.frame} : undefined });
   const caption = result.json;
