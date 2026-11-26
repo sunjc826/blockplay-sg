@@ -25,9 +25,9 @@ function harness(env:Record<string,string>,fetcher=vi.fn()) {
   return async (path:string,body:unknown={},cookie='',ip='a',origin='http://localhost:5173')=>{
     const req = Object.assign(Readable.from([JSON.stringify(body)]),{url:'/api/ai/'+path,method:path==='status'?'GET':'POST',socket:{remoteAddress:ip},headers:{origin,cookie,'content-type':'application/json','cf-connecting-ip':Math.random().toString()}});
     let code=0,headers:Record<string,string>={},data;
-    const res = {writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string){data=JSON.parse(s);}};
+    const res = {once:vi.fn(),off:vi.fn(),writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string | Uint8Array){data=typeof s === 'string' ? JSON.parse(s) : s;}};
     await handler(req as unknown as IncomingMessage,res as unknown as ServerResponse);
-    return {code,headers,data:data as unknown as {admin:boolean;quota:{used:number;limit:number};line:string}};
+    return {code,headers,data:data as unknown as {admin:boolean;quota:{used:number;limit:number};line:string;ticket:string}};
   };
 }
 it('authenticates cookies, rejects tampering, caps attempts by socket, and logs out',async()=>{
@@ -75,4 +75,37 @@ it('accounts for streamer turns through the shared handler using the streamer mo
   expect(await call('streamer',menu)).toMatchObject({code:200,data:{actionId:'range',line:'Range time.',quota:{used:1}}});
   expect((await call('streamer',menu)).code).toBe(429);
   expect(fetcher).toHaveBeenCalledOnce();
+});
+
+const generated = () => Response.json({output:[{content:[{type:'output_text',text:'{"say":true,"line":"Nice one."}'}]}]});
+const speechEnv = {CAST_PROVIDER:'openai',OPENAI_API_KEY:'test',ELEVENLABS_API_KEY:'speech-test'};
+it('redeems only genuine lines once, returns private audio and preserves model quota',async()=>{
+  const f = vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(new Response(new Uint8Array([7])));
+  const call = harness({...speechEnv,AI_DAILY_CALLS_PER_IP:'1'},f);
+  const {line,ticket} = (await call('commentary',body)).data, payload = {line,ticket,personaId};
+  expect((await call('voice',{...payload,line:'Changed'})).code).toBe(403);
+  expect((await call('voice',payload,'','a','https://elsewhere.test')).code).toBe(403);
+  const [a,b] = await Promise.all([call('voice',payload),call('voice',payload)]);
+  expect([a.code,b.code].sort()).toEqual([200,429]);
+  const audio = a.code === 200 ? a : b;
+  expect(audio.headers).toMatchObject({'Content-Type':'audio/mpeg','Cache-Control':'no-store'});
+  expect(JSON.parse(audio.headers['X-Cast-Voice'])).toMatchObject({available:true,quota:{used:9}});
+  expect(audio.data).toEqual(new Uint8Array([7]));
+  expect((await call('status')).data).toMatchObject({quota:{used:1},voice:{quota:{used:9}}});
+  expect(f).toHaveBeenCalledTimes(2);
+});
+it('remembers exhausted provider credits across callers while returning caption-only turns',async()=>{
+  const clock = vi.spyOn(Date,'now'), now = Date.now(); clock.mockReturnValue(now);
+  try {
+    const f = vi.fn().mockResolvedValueOnce(generated()).mockResolvedValueOnce(Response.json({detail:{status:'quota_exceeded'}},{status:401})).mockResolvedValueOnce(generated());
+    const call = harness(speechEnv,f);
+    const {line,ticket} = (await call('commentary',body)).data;
+    expect(await call('voice',{line,ticket,personaId})).toMatchObject({code:503,data:{voice:{available:false,quota:{used:9}}}});
+    expect((await call('voice',{line,ticket,personaId},'','b')).code).toBe(503);
+    const caption = await call('commentary',body,'','b');
+    expect(caption.data).toMatchObject({line,voice:{available:false}});
+    expect(caption.data.ticket).toBeUndefined(); expect(f).toHaveBeenCalledTimes(3);
+    clock.mockReturnValue(now+600000);
+    expect((await call('status')).data).toMatchObject({voice:{available:true}});
+  } finally { clock.mockRestore(); }
 });

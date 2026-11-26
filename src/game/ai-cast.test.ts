@@ -36,3 +36,15 @@ it('reads rapid cumulative damage, streaks, reloads, local comms, death and resp
   expect(add).toHaveBeenCalledWith('Reloading an empty magazine');expect(add).toHaveBeenCalledWith('Field · Supplies');
   feed({...base,health:0},700);feed(base,1000);expect(add).toHaveBeenCalledWith('Player died',true);expect(add).toHaveBeenCalledWith('Player respawned',true);
 });
+
+it('holds incoming events until the spoken caption and breath have finished',async()=>{
+  let now=0, ended!:()=>void;
+  const req=vi.fn(async()=>({line:'Hello',ticket:'signed'}));
+  const speak=vi.fn(()=>new Promise<void>(resolve=>{ ended=resolve; }));
+  const director=castDirector(()=>now,req,speak,vi.fn());
+  director.event('first',true); const active=director.tick(scene);
+  await Promise.resolve(); expect(speak).toHaveBeenCalledWith('Hello','signed');
+  now=10000; director.event('second',true); await director.tick(scene); expect(req).toHaveBeenCalledOnce();
+  ended(); await active; speak.mockResolvedValueOnce();
+  await director.tick(scene); expect(req).toHaveBeenCalledTimes(2);
+});

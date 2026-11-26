@@ -1,10 +1,11 @@
+import { CAST_MIX, mixLevel, onCastSpeaking, rampLevel } from './cast-mix';
 import { useSyncExternalStore } from 'react';
 
 // Full volume is the mix the game has always had.
 const DEFAULT_VOLUME = 1;
 
 /** A saved volume and, for Web Audio, one gain per context that follows it. */
-export function createVolumeSetting(key: string) {
+export function createVolumeSetting(key: string, bus?: 'effects') {
   let volume: number | undefined;
   const listeners = new Set<() => void>();
   const outputs = new Map<BaseAudioContext, GainNode>();
@@ -21,13 +22,26 @@ export function createVolumeSetting(key: string) {
   function forgetClosed() {
     for (const context of outputs.keys()) if (context.state === 'closed') outputs.delete(context);
   }
+  const rampUntil = new WeakMap<BaseAudioContext,number>();
+  const level = () => bus ? mixLevel(bus,get()) : get();
+  if (bus) onCastSpeaking(active => {
+    forgetClosed();
+    const seconds = active ? CAST_MIX.attack : CAST_MIX.release;
+    for (const [context, output] of outputs) {
+      rampLevel(output, context.currentTime, level(), seconds);
+      rampUntil.set(context,context.currentTime + seconds);
+    }
+  });
   return {
     get,
     set(next: number) {
       volume = Math.min(1, Math.max(0, next));
       try { localStorage.setItem(key, String(volume)); } catch { /* The setting still applies to this visit. */ }
       forgetClosed();
-      for (const [context, output] of outputs) output.gain.setTargetAtTime(volume, context.currentTime, .02);
+      for (const [context, output] of outputs) {
+        if ((rampUntil.get(context) ?? 0) > context.currentTime) output.gain.cancelScheduledValues(context.currentTime);
+        output.gain.setTargetAtTime(level(), context.currentTime, .02);
+      }
       listeners.forEach(listener => listener());
     },
     use() {
@@ -38,7 +52,7 @@ export function createVolumeSetting(key: string) {
       if (!output) {
         forgetClosed();
         output = context.createGain();
-        output.gain.value = get();
+        output.gain.value = level();
         output.connect(context.destination);
         outputs.set(context, output);
       }

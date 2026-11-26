@@ -25,3 +25,19 @@ it('expires burst and sign-in state without forgiving daily calls',async()=>{
   expect((await store({...id,action:'login-good'})).reason).toBe('Sign-in attempts');
   now=3600000; expect((await store({...id,action:'login-good'})).reason).toBeUndefined();
 });
+
+it('charges voice characters atomically by IP, shared pool or admin independently of model calls',async () => {
+  let now = Date.UTC(2026,1,2,15,59,59), n = 0;
+  const store = memoryLimits({VOICE_DAILY_CHARS_PER_IP:'4',VOICE_DAILY_CHARS_ANON_TOTAL:'6',VOICE_DAILY_CHARS_ADMIN:'3',AI_DAILY_CALLS_PER_IP:'1'},()=>now);
+  const speak = (ip:string,characters:number,admin=false) => store({action:'voice-accept',ip,characters,admin,lease:String(++n),ticket:'t'+n,expiresAt:now+120000});
+  await store({action:'accept',ip:'a',admin:false,lease:'model'});
+  expect(await speak('a',4)).toMatchObject({voiceQuota:{used:4},quota:{used:1}});
+  expect((await speak('a',1)).reason).toBe('Voice character limit');
+  expect((await speak('b',3)).reason).toBe('Voice character limit');
+  expect(await speak('b',2)).toMatchObject({voiceQuota:{used:2},quota:{used:0}});
+  expect((await speak('c',1)).reason).toBe('Voice character limit');
+  expect(await speak('a',3,true)).toMatchObject({voiceQuota:{used:3,limit:3},voiceRemaining:0});
+  expect((await speak('elsewhere',1,true)).reason).toBe('Voice character limit');
+  now += 1000;
+  expect(await speak('a',1)).toMatchObject({voiceQuota:{used:1},quota:{used:0},voiceRemaining:3});
+});

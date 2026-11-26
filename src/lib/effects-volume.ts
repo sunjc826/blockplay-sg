@@ -1,6 +1,6 @@
 import { createVolumeSetting } from './volume-setting';
 
-const effects = createVolumeSetting('blockplay-sg-effects-volume-v1');
+const effects = createVolumeSetting('blockplay-sg-effects-volume-v1','effects');
 export const getEffectsVolume = effects.get;
 export const setEffectsVolume = effects.set;
 export const useEffectsVolume = effects.use;

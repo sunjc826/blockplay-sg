@@ -1126,7 +1126,10 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     if (!debugAvailable || disposed || hud.health <= 0) return;
     hud.health = hud.maxHealth; arenaRuntime?.setVitals({ health: hud.health }); recoveryDelay = 0; publish();
   }
+  const castStops = new Set<() => void>();
+  function stopCastAudio() { castStops.forEach(stop => stop()); }
   function pause() {
+    stopCastAudio();
     cancelStreak();
     if (hud.phase === 'playing') playMenuSound('click');
     options.onRentalTime?.(0);
@@ -5455,6 +5458,16 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
       if (COURSE_STEPS[step]?.id === 'reload') loadout[hud.weapon].magazine = Math.max(0, loadout[hud.weapon].magazine - 1);
       updateCameras(0, false, false); publish();
     },
+    getCastAudio(unlock = false) {
+      if (disposed || hud.muted || (!unlock && hud.phase === 'paused')) return null;
+      if (unlock) initAudio();
+      return audio;
+    },
+    get castMuted() { return disposed || hud.muted || hud.phase === 'paused'; },
+    onCastAudioStop(stop: () => void) {
+      castStops.add(stop);
+      return () => { castStops.delete(stop); };
+    },
     castRegion: region, captureFrame, addCastLine: (name: string, line: string) => { comms.add('cast',name,line); publish(); },
     getLoadout: () => equipment,
     configureMatchBots(count: number, composition: string) {
@@ -5506,8 +5519,9 @@ export function createFpsEngine(host: HTMLDivElement, onHud: (hud: FpsHud) => vo
     chooseRecovery, closeRecoveryPicker: () => closeRecoveryPicker(),
     toggleVision: () => useVision('toggle'), cycleVisionPalette: () => useVision('palette'), pressVision: () => useVision('button'),
     toggleEncikVoice() { hud.encikVoice = !hud.encikVoice; if (!hud.encikVoice) stopVoice(); publish(); },
-    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopVoice(); impactAudio.clear(); bulletFlybys.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
+    toggleSound() { hud.muted = !hud.muted; if (hud.muted) { stopCastAudio(); stopVoice(); impactAudio.clear(); bulletFlybys.clear(); gunshots.clear(); emptyFireAudio.clear(); reloadAudio.clear(); } if (hud.phase === 'playing') { canvas.focus({ preventScroll: true }); if (!hud.muted) initAudio(); } publish(); },
     dispose() {
+      stopCastAudio(); castStops.clear();
       options.onRentalTime?.(0);
       const infrastructure = arenaRuntime?.getWorldState();
       if (expedition && infrastructure) expedition.infrastructure?.set(expedition.zone, infrastructure);

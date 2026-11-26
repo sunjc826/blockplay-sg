@@ -239,3 +239,14 @@ describe('stingers', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 });
+
+it('ducks the music master and restores the current slider after cast speech',async()=>{
+  const music = await import('./music'), {beginCastSpeech,CAST_MIX} = await import('./cast-mix');
+  music.setMusicCue('menu'); await settled();
+  const master = contexts[0].gains[0].gain;
+  const end = beginCastSpeech();
+  expect(master.linearRampToValueAtTime).toHaveBeenLastCalledWith(.4*CAST_MIX.music,CAST_MIX.attack);
+  music.setMusicVolume(.6);
+  expect(master.linearRampToValueAtTime).toHaveBeenLastCalledWith(.6*CAST_MIX.music,.08);
+  end(); expect(master.linearRampToValueAtTime).toHaveBeenLastCalledWith(.6,CAST_MIX.release);
+});

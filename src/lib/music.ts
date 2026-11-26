@@ -1,3 +1,4 @@
+import { CAST_MIX, mixLevel, onCastSpeaking } from './cast-mix';
 import { useSyncExternalStore } from 'react';
 import manifest from '../audio/music/manifest.json';
 
@@ -49,11 +50,13 @@ function ramp(gain: GainNode | null, target: number, seconds: number) {
   gain.gain.linearRampToValueAtTime(target, now + seconds);
 }
 
+onCastSpeaking(active => ramp(master, mixLevel('music', getMusicVolume()), active ? CAST_MIX.attack : CAST_MIX.release));
+
 export function setMusicVolume(next: number) {
   volume = Math.min(1, Math.max(0, next));
   try { localStorage.setItem(KEY, String(volume)); } catch { /* The setting still applies to this visit. */ }
   listeners.forEach(listener => listener());
-  ramp(master, volume, .08);
+  ramp(master, mixLevel('music',volume), .08);
   start();
 }
 
@@ -69,7 +72,7 @@ function context() {
     if (!Context) return null;
     ctx = new Context();
     master = ctx.createGain();
-    master.gain.value = getMusicVolume();
+    master.gain.value = mixLevel('music',getMusicVolume());
     master.connect(ctx.destination);
   }
   void ctx.resume().catch(() => {});

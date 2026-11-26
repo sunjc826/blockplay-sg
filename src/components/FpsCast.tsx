@@ -1,24 +1,27 @@
+import { createCastVoice } from '../lib/cast-voice';
+import { CastVoiceSwitch } from './CastVoiceSwitch';
 import { StreamerGame, StreamerCaption, useStreamerActive } from './StreamerMode';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { holdCaption } from '../game/caption-time';
 import { castDirector, castSnapshot, hudEvents } from '../game/ai-cast';
 import { castPersona, CAST_PERSONAS } from '../game/ai-cast-personas';
 import type { CastMode } from '../game/cast-contract';
 import type { FpsEngine, FpsHud } from '../game/fps-engine';
-import { requestCast, castResetTime, type CastQuota } from '../lib/cast-client';
+import { requestCast, castResetTime, type CastQuota, type CastVoiceStatus } from '../lib/cast-client';
 import './fps-cast.css';
 
 const voices = CAST_PERSONAS.filter(p => p.role === 'commentator');
-const defaults = { enabled:false, personaId:voices[0].id, clean:false, screenshots:true };
+const defaults = { enabled:false, voice:false, personaId:voices[0].id, clean:false, screenshots:true };
 type Settings = typeof defaults;
 const key = 'blockplay-sg-cast-v1';
 function saved(): Settings {
   try {
     const s = JSON.parse(localStorage.getItem(key) || '{}');
-    return {enabled:s.enabled === true, clean:s.clean === true, screenshots:s.screenshots !== false,
+    return {voice:s.voice === true, enabled:s.enabled === true, clean:s.clean === true, screenshots:s.screenshots !== false,
       personaId:castPersona(s.personaId)?.role === 'commentator' ? s.personaId : defaults.personaId};
   } catch { return defaults; }
 }
-interface Status { available:boolean; admin:boolean; model:string; provider:string; quota:CastQuota }
+interface Status { available:boolean; admin:boolean; model:string; provider:string; quota:CastQuota; voice?:CastVoiceStatus }
 type Props = { hud:FpsHud; engine:RefObject<FpsEngine|null>; mode:CastMode; session:number };
 function useCast({hud,engine,mode,session}:Props) {
   const streaming = useStreamerActive();
@@ -27,22 +30,37 @@ function useCast({hud,engine,mode,session}:Props) {
   const [reason,report] = useState(''), [panelError,panelReport] = useState(''), [caption,setCaption] = useState<{name:string;text:string}|null>(null);
   const [cost,setCost] = useState<number|null>(null), [tokens,setTokens] = useState(0);
   const latest = useRef(settings); latest.current = settings;
+  const [player] = useState(() => createCastVoice(voice => setStatus(prev => prev && {...prev,voice})));
+  const audioEngine = engine.current;
+  useEffect(() => {
+    if (!settings.enabled || !settings.voice || !audioEngine) return;
+    const off = audioEngine.onCastAudioStop(player.stop);
+    return () => { off(); player.stop(); };
+  },[audioEngine,settings.enabled,settings.voice,player]);
   const update = (patch:Partial<Settings>) => {
     const next = {...settings,...patch}; latest.current = next; setSettings(next);
+    if (!next.enabled || !next.voice || next.personaId !== settings.personaId) player.stop();
+    else if (patch.enabled || patch.voice) engine.current?.getCastAudio(true);
     try { localStorage.setItem(key,JSON.stringify(next)); } catch { /* session only */ }
   };
   const [director] = useState(() => castDirector(Date.now,async (scene,events,memory,signal) => {
     const s = latest.current;
     const frame = s.screenshots ? await engine.current?.captureFrame() : undefined;
     signal.throwIfAborted();
-    return requestCast('commentary',{...scene,events,memory,personaId:s.personaId,clean:s.clean,frame:frame || undefined},signal,({quota,usage,costUsd}) => {
-      setStatus(prev => prev && {...prev,quota});
+    return requestCast('commentary',{...scene,events,memory,personaId:s.personaId,clean:s.clean,frame:frame || undefined},signal,({quota,voice,usage,costUsd}) => {
+      setStatus(prev => prev && {...prev,quota,voice});
       if (typeof costUsd === 'number') setCost(c => (c ?? 0)+costUsd);
       if (usage) setTokens(n => n+usage.inputTokens+usage.outputTokens);
     });
-  },text => {
+  },(text,ticket) => {
     const name = castPersona(latest.current.personaId)!.name;
     setCaption({name,text}); engine.current?.addCastLine(name,text);
+    const personaId = latest.current.personaId;
+    if (ticket && latest.current.voice) {
+      player.play({line:text,personaId,ticket}, engine.current?.getCastAudio() ?? null,
+        () => latest.current.enabled && latest.current.voice && latest.current.personaId === personaId);
+      return player.idle();
+    }
   },report));
   const refresh = useCallback(async (action = 'status',passphrase?:string) => {
     try {
@@ -57,14 +75,14 @@ function useCast({hud,engine,mode,session}:Props) {
   useEffect(() => { if (settings.enabled) void refresh(); },[settings.enabled,refresh]);
   useEffect(() => {
     if (!caption) return;
-    const t = setTimeout(() => setCaption(null),6000); return () => clearTimeout(t);
-  },[caption]);
+    return holdCaption(caption.text,() => player.idle(),() => setCaption(value => value === caption ? null : value));
+  },[caption,player]);
   const [track] = useState(() => ({engine:null as FpsEngine|null, region:'', phase:'', diff:hudEvents(director.event), started:Date.now()}));
   useEffect(() => {
     director.reset(); setCaption(null); track.phase = ''; track.region = ''; track.diff = hudEvents(director.event);
-    return () => director.reset();
-  },[director,settings.enabled,settings.personaId,session,track]);
-  useEffect(() => { director.reset(true); setCaption(null); },[director,settings.clean,settings.screenshots]);
+    return () => { director.reset(); player.stop(); };
+  },[director,player,settings.enabled,settings.personaId,session,track]);
+  useEffect(() => { director.reset(true); player.stop(); setCaption(null); },[director,player,settings.clean,settings.screenshots]);
   useEffect(() => { track.started = Date.now(); setCost(null); setTokens(0); },[session,track]);
   useEffect(() => {
     const e = engine.current;
@@ -74,7 +92,7 @@ function useCast({hud,engine,mode,session}:Props) {
     const respawning = hud.phase === 'deploying' && hud.deploymentIntro?.respawn;
     if (changed || (!respawning && !active && !ended && track.phase !== hud.phase)) {
       const restarted = hud.phase === 'ready' && track.region === region && track.phase !== 'deploying';
-      director.reset(!restarted);
+      director.reset(!restarted); player.stop();
       if (restarted) { track.started = Date.now(); setCost(null); setTokens(0); }
       track.diff = hudEvents(director.event); setCaption(null);
     }
@@ -83,7 +101,7 @@ function useCast({hud,engine,mode,session}:Props) {
     if (region !== track.region) { director.event('Arrived in '+region,true); track.region = region; }
     track.diff(hud,Date.now());
     void director.tick({mode,regionId:region,snapshot:castSnapshot(hud,e.getLoadout().weapons[hud.weapon]?.name ?? 'Unarmed',Math.floor((Date.now()-track.started)/1000))},ended);
-  },[hud,engine,mode,settings,status?.available,director,track]);
+  },[hud,engine,mode,settings,status?.available,director,player,track]);
   return { settings,update,status,reason:panelError || reason,caption,cost,tokens,refresh };
 }
 const Cast = createContext<ReturnType<typeof useCast>|null>(null);
@@ -98,8 +116,9 @@ export function CastPanel() {
   const {settings:s,update,status,reason,refresh,cost,tokens} = cast, q = status?.quota;
   return <details className="cast-panel" onToggle={e => { if (e.target === e.currentTarget && e.currentTarget.open) void refresh(); }}>
     <summary>AI commentary{s.enabled && status?.available ? ' · On' : ''}</summary>
-    <p>Enabling commentary sends game state and, with screenshots on, a small picture of the game view to the AI provider.</p>
+    <p>Enabling commentary sends game state and, with screenshots on, a small picture of the game view to the AI provider. With Voice on, the cast’s lines go to the voice provider.</p>
     <label><input type="checkbox" checked={s.enabled && status?.available === true} disabled={!status?.available} onChange={e=>update({enabled:e.target.checked})}/> Live commentary</label>
+    <CastVoiceSwitch voice={status?.voice} enabled={s.voice} change={voice=>update({voice})}/>
     <label>Commentator <select value={s.personaId} onChange={e=>update({personaId:e.target.value})}>{voices.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
     <small>{castPersona(s.personaId)?.blurb}</small>
     <label><input type="checkbox" checked={s.clean} onChange={e=>update({clean:e.target.checked})}/> Clean language</label>

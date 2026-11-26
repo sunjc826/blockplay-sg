@@ -4,7 +4,7 @@ import type { FpsHud } from './fps-engine';
 import type { Wallet } from './streamer-contract';
 
 export type StreamPhase = 'off' | 'menu' | 'play' | 'paused';
-export interface StreamSettings { personaId:string; clean:boolean; screenshots:boolean }
+export interface StreamSettings { personaId:string; clean:boolean; screenshots:boolean; voice?:boolean }
 
 export function phaseForHud(hud: Pick<FpsHud,'phase'|'deathRecap'|'arenaSelf'>): 'menu' | 'play' {
   return hud.phase === 'deploying' || hud.phase === 'playing' && !hud.deathRecap && hud.arenaSelf?.alive !== false ? 'play' : 'menu';
@@ -17,13 +17,16 @@ export function streamerSession() {
   let abort = new AbortController();
   let events: string[] = [];
   const set = (phase: StreamPhase, reason = '') => {
+    session.interrupt();
     abort.abort(); abort = new AbortController();
     state = {...state,phase,reason};
     listeners.forEach(fn => fn());
   };
   const session = {
-    settings: {personaId:'pro',clean:false,screenshots:true}, trip:menuTrip(), memory,
+    settings: {personaId:'pro',clean:false,screenshots:true,voice:false} as StreamSettings, trip:menuTrip(), memory,
     wallet:{credits:1600,tokens:300} as Wallet,
+    interrupt: () => {},
+    voiceLine: (_text:string,_ticket:string) => {},
     game:null as {pause():void; resume():void; line(text:string):void} | null,
     snapshot: () => state, signal: () => abort.signal,
     subscribe(fn:()=>void) { listeners.add(fn); return () => {listeners.delete(fn);}; },
@@ -44,9 +47,10 @@ export function streamerSession() {
     },
     event(text:string) { events = [...events.slice(-19),text.replace(/\s+/g,' ').slice(0,240)]; },
     takeEvents() { const batch = events; events = []; return batch; },
-    speak(text:string) {
+    speak(text:string,ticket?:string) {
       if (state.phase === 'off' || state.phase === 'paused') return;
       memory.remember(text); state = {...state,caption:text,serial:state.serial+1}; session.game?.line(text); listeners.forEach(fn => fn());
+      if (ticket && session.settings.voice) session.voiceLine(text,ticket);
     },
     dismissCaption() { state = {...state,caption:''}; listeners.forEach(fn => fn()); },
   };

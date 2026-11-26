@@ -63,3 +63,29 @@ Each menu turn exposes up to 40 choices. The cursor moves for half a second, or 
 ### Profile isolation
 
 The game keeps the player's armory mounted while the sandbox has its own armory and game instance. A fresh sandbox starts with 1,600 credits, 300 tokens and issued gear. Purchases, rentals and play time, equipped items, consumables, XP and rewards persist under `blockplay.armory.v1.streamer`. Later streamer sessions reuse that balance. Every save callback retains its original storage key, including cleanup and page-exit callbacks. The active-session flag lives only in memory. Reopening the tab starts with the player's profile even if the previous tab closed during a sandbox purchase or match.
+
+## Optional live voice
+
+**Voice** starts off. Each cast panel saves its own preference. Turning it on sends only the server-generated line to the voice provider. Captions appear immediately. If audio takes more than 2.5 seconds to prepare, the player keeps the caption and drops the audio. The director waits for playback and a 350 ms breath before requesting another line. Pause, mute, taking control, hiding the tab and leaving play cancel pending or playing speech.
+
+The private server adapter lives in `server/tts/`. Its injected fetch makes a single streaming MP3 request and buffers the short reply for both Node and the Worker. A provider implements `Speak` and registers its factory, credential name and default model in `index.ts`.
+
+| Server setting | Default or purpose |
+| --- | --- |
+| CAST_VOICE_PROVIDER | elevenlabs |
+| CAST_VOICE_MODEL | eleven_flash_v2_5 |
+| ELEVENLABS_API_KEY | Enables live voice on the server |
+| CAST_VOICE_IDS | Optional JSON object mapping persona IDs to 20-character alphanumeric voice IDs. The seven built-in voices are in the provider registry. |
+| VOICE_DAILY_CHARS_PER_IP | 4,000 characters per anonymous IP |
+| VOICE_DAILY_CHARS_ANON_TOTAL | 8,000 characters across anonymous callers |
+| VOICE_DAILY_CHARS_ADMIN | 20,000 characters across signed-in admins |
+
+A nonempty commentary or streamer response can include a two-minute ticket. Its HMAC covers the exact line, persona, expiry and a unique nonce, using a signing key derived from the private provider credential. The browser redeems it once at `POST /api/ai/voice`. Admission atomically marks the ticket used and charges the line length before contacting the provider. An ambiguous failure still consumes that allowance. Model-call counters are independent. Node uses the in-memory store and the Worker uses the shared AI usage Durable Object. Both reset daily totals at Singapore midnight. An upstream credit or authorization refusal pauses speech for ten minutes across callers. Captions and game decisions continue.
+
+Status and cast JSON responses include `voice.available`, the caller’s `voice.quota` (used, limit, resetsAt), and remaining characters after the shared cap. Successful audio carries the same voice accounting in the `X-Cast-Voice` header. The response is marked no-store and the service worker bypasses the API.
+
+At the owner's stated Flash rate of half a credit per character, a 110-character line costs about 55 credits. A 40,000-credit month covers about 727 such lines. The estimated 22,000 credits remaining cover about 400. The daily character limits control game usage independently of the provider’s monthly balance.
+
+### Mixing and tuning
+
+Edit `CAST_MIX` in `src/lib/cast-mix.ts` to tune playback gain, compressor, duck levels, lead, fade, recovery and breath. Speech goes through the Voice slider. A 160 ms lead gives a playing Encik clip 150 ms to fade out and lets music and effects duck over 120 ms. During speech, music plays at one third of its selected level and the effects bus, including the combat limiter, drops 4 dB. Both recover to the current slider values over 400 ms. New Encik recordings stay silent during the line. Their subtitles and comms entries continue normally.

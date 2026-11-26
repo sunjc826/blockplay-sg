@@ -11,9 +11,9 @@ export function waitFor(ms: number, signal: AbortSignal): Promise<void> {
 
 interface MenuIO {
   read(): MenuScreen | null;
-  request(screen: MenuScreen, note: string, signal: AbortSignal): Promise<{actionId:string;line:string|null}>;
+  request(screen: MenuScreen, note: string, signal: AbortSignal): Promise<{actionId:string;line:string|null;ticket?:string}>;
   act(screen: MenuScreen, id: string, signal: AbortSignal, onClick: () => void): Promise<void>;
-  speak(line: string): void;
+  speak(line: string, ticket?: string): void;
   wait(ms: number, signal: AbortSignal): Promise<void>;
   now(): number;
 }
@@ -40,7 +40,7 @@ export async function runMenu(io: MenuIO, trip: ReturnType<typeof menuTrip>, sig
     trip.repeats = trip.previous === key ? trip.repeats+1 : 1;
     trip.previous = key;
     if (trip.repeats >= 3) throw new Error('The streamer repeated the same menu choice three times.');
-    await io.act(screen,choice.id,signal,() => { if (reply.line) io.speak(reply.line); });
+    await io.act(screen,choice.id,signal,() => { if (reply.line) io.speak(reply.line,reply.ticket); });
     signal.throwIfAborted();
     trip.count++;
     trip.note = 'Last choice: '+choice.label+'. Finish shopping and setup, then play. Menu choices so far: '+trip.count+'.';

@@ -2,8 +2,10 @@ import { CastFailure } from '../game/ai-cast';
 import type { CastReply } from '../game/ai-cast';
 
 export interface CastQuota { used: number; limit: number; resetsAt: number }
+export interface CastVoiceStatus { available: boolean; quota: CastQuota; remaining: number; reason?: string }
 export interface CastAccounting {
   quota: CastQuota;
+  voice?: CastVoiceStatus;
   usage?: { inputTokens: number; cachedInputTokens: number; outputTokens: number };
   costUsd?: number;
 }

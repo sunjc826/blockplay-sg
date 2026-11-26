@@ -25,9 +25,9 @@ Enable the companion by supplying its existing server API key at the private pro
 pnpm exec wrangler secret put OPENAI_API_KEY
 ```
 
-Do not upload `.env.local` wholesale. ElevenLabs credentials are not needed: all recordings are bundled. Cloudflare stores the OpenAI key as a Worker secret, not in JavaScript delivered to browsers. Keep `OPENAI_BASE_URL` and `PILOT_MODEL` in `wrangler.jsonc` aligned with the existing event backend; this does not change the companion's requested models or protocols.
+Do not upload `.env.local` wholesale. Recorded Encik callouts and sound effects ship with the game. For live AI cast speech, set the Worker secret with `pnpm exec wrangler secret put ELEVENLABS_API_KEY`. Without it, commentary and streamer captions still work and both panels show voice as unavailable. Cloudflare stores the OpenAI key as a Worker secret, not in JavaScript delivered to browsers. Keep `OPENAI_BASE_URL` and `PILOT_MODEL` in `wrangler.jsonc` aligned with the existing event backend; this does not change the companion's requested models or protocols.
 
-The API accepts its own HTTPS origin automatically, including a custom domain. To restrict it to specific origins, set `ADVENTURE_ALLOWED_ORIGINS` in `vars`. `ADVENTURE_ENABLED=false` and `ADVENTURE_VOICE_ENABLED=false` remain available. Existing request quotas are per Worker isolate, not a global billing cap.
+The API accepts its own HTTPS origin automatically, including a custom domain. To restrict it to specific origins, set `ADVENTURE_ALLOWED_ORIGINS` in `vars`. `ADVENTURE_ENABLED=false` and `ADVENTURE_VOICE_ENABLED=false` remain available. The adventure companion’s request guards run per Worker isolate. The global AI usage Durable Object enforces the cast’s daily model-call and voice-character limits and shares the provider credit cooldown.
 
 ## Verify and preview
 

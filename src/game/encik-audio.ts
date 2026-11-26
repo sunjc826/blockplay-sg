@@ -1,3 +1,4 @@
+import { castSpeaking, onCastSpeaking, CAST_MIX, rampLevel } from '../lib/cast-mix';
 import { voiceOutput } from '../lib/voice-volume';
 
 export const ENCIK_LEVEL = .7;
@@ -15,10 +16,21 @@ export function createEncikAudio(getContext: () => AudioContext | null, fetcher:
       source.onended = null; source.stop(); source.disconnect(); gain.disconnect();
     }
   }
+  const unsubscribe = onCastSpeaking(speaking => {
+    if (!speaking) return;
+    sequence++;
+    loading?.abort(); loading = null;
+    if (active) {
+      const {source, gain} = active, now = gain.context.currentTime;
+      rampLevel(gain,now,0,CAST_MIX.encikFade);
+      source.stop(now + CAST_MIX.encikFade);
+    }
+  });
   return {
     stop,
-    dispose() { stop(); cache.clear(); },
+    dispose() { unsubscribe(); stop(); cache.clear(); },
     async play(url: string): Promise<boolean> {
+      if (castSpeaking()) return false;
       stop();
       const ticket = sequence, context = getContext();
       if (!context) return false;
