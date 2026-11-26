@@ -1,5 +1,12 @@
 import type { Env } from './llm/index.ts';
 const minute = 60_000, hour = 60 * minute, day = 24 * hour;
+/** Calls one caller may have running at once. An IP is often several tabs or devices, and a
+ * client that drops a request and asks again holds the old lease until the model returns. */
+export const MAX_IN_FLIGHT = 4;
+/** A lease nobody released (a crashed isolate) stops counting after this long. */
+const LEASE_MS = minute;
+/** Refusals that clear on their own within a minute; clients wait and retry instead of stopping. */
+export const TRANSIENT_REASONS: readonly string[] = ['Concurrent calls', 'Minute limit'];
 export type Action = 'status' | 'accept' | 'release' | 'login-good' | 'login-bad' | 'voice-accept' | 'voice-release' | 'voice-unavailable';
 export interface Operation { action: Action; ip: string; admin: boolean; lease?: string; ticket?: string; expiresAt?: number; characters?: number }
 export interface Quota { used: number; limit: number; resetsAt: number }
@@ -53,8 +60,8 @@ export function decide(db: Counters, env: Env, op: Operation, now: number): Deci
   if (!voice && !op.admin && anonymous >= limit(env.AI_DAILY_CALLS_ANON_TOTAL,10000)) return denied('Anonymous daily limit', resetsAt);
   const times = db.read('burst/'+lane).filter(t => t > now-minute);
   if (times.length >= 20) return denied('Minute limit', times[0]+minute);
-  if (leases.length >= 2) return denied('Concurrent calls', Math.min(...leases));
-  db.write(leaseKey,[now+120000],now+120000); db.write('flight/'+lane,[...leases,now+120000],now+120000);
+  if (leases.length >= MAX_IN_FLIGHT) return denied('Concurrent calls', Math.min(...leases));
+  db.write(leaseKey,[now+LEASE_MS],now+LEASE_MS); db.write('flight/'+lane,[...leases,now+LEASE_MS],now+LEASE_MS);
   db.write('burst/'+lane,[...times,now],now+minute);
   if (voice) {
     voiceQuota.used += characters;

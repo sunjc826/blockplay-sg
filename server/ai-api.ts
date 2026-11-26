@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { selectModel, type Env } from './llm/index.ts';
 import { ProviderError } from './llm/types.ts';
 import { adminCookie, caller, matches } from './ai-admin.ts';
-import { memoryLimits, type LimitStore, type Action } from './ai-limits.ts';
+import { memoryLimits, TRANSIENT_REASONS, type LimitStore, type Action } from './ai-limits.ts';
 
 export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = memoryLimits(env), cloud = false) {
   const speech = selectSpeech(env,fetcher);
@@ -102,18 +102,23 @@ export function createAiHandler(env: Env, fetcher = fetch, store: LimitStore = m
       const run = endpoint && 'prepare' in endpoint ? endpoint.prepare(body) : null;
       if (endpoint && !run) return reply(400,{error:'Invalid game observation'});
       decision = await check(login ? valid ? 'login-good' : 'login-bad' : 'accept');
-      if (decision.reason) return reply(429,{error:decision.reason,resetsAt:decision.resetsAt},{'Retry-After':String(Math.max(1,Math.ceil((decision.resetsAt!-Date.now())/1000)))});
+      if (decision.reason) return reply(429,{error:decision.reason,resetsAt:decision.resetsAt,...(TRANSIENT_REASONS.includes(decision.reason) && {transient:true})},{'Retry-After':String(Math.max(1,Math.ceil((decision.resetsAt!-Date.now())/1000)))});
       if (login) {
         if (!valid) return reply(401,{error:'Incorrect passphrase'});
         decision = await store({...id,admin:true,action:'status'});
         return reply(200,{...status,admin:true},cookie());
       }
       let data, code = 200;
-      try { data = await run!(model.complete!,model.model,model.pilotBudget); }
+      // A client that gave up (a stale line, a replan, a closed tab) should not hold its lease for the rest of the model call.
+      const gone = new AbortController(), hangUp = () => { if (!res.writableEnded) gone.abort(); };
+      res.on?.('close',hangUp);
+      const complete: NonNullable<typeof model.complete> = request => model.complete!({...request,signal:request.signal ? AbortSignal.any([request.signal,gone.signal]) : gone.signal});
+      try { data = await run!(complete,model.model,model.pilotBudget); }
       catch (e) {
         code = e instanceof ProviderError ? e.status : 502;
         data = {error:code === 429 ? 'Provider rate limit' : 'Model provider unavailable', ...(code === 429 && {resetsAt:Date.now()+60000})};
-      } finally { decision = await check('release'); }
+      } finally { res.off?.('close',hangUp); decision = await check('release'); }
+      if (gone.signal.aborted) return;
       // Existing pilot clients expect exactly { plan }. Carry accounting in the header.
       if (planning && code === 200) return send(code,data,{'X-AI-Quota':JSON.stringify(decision.quota)});
       if (code === 200 && speech && 'line' in data && typeof data.line === 'string') {

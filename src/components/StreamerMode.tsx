@@ -105,7 +105,7 @@ export function StreamerGame({hud,engine,mode}:{hud:FpsHud;engine:RefObject<FpsE
         phase:'play',personaId:s.settings.personaId,clean:s.settings.clean,memory:s.memory.read(),regionId:e.castRegion,
         mode,events:s.takeEvents(),observation,frame:frame || undefined,
       },signal,s.account).catch(error => {
-        if (!signal.aborted && error instanceof CastFailure && (error.status === 429 || error.status === 503)) s.stop(error.message);
+        if (!signal.aborted && error instanceof CastFailure && !error.transient && (error.status === 429 || error.status === 503)) s.stop(error.message);
         throw error;
       });
       signal.throwIfAborted();

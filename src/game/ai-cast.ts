@@ -6,7 +6,9 @@ export interface CastReply { line: string | null; ticket?: string }
 export class CastFailure extends Error {
   until: number;
   status?: number;
-  constructor(reason: string, until: number, status?:number) { super(reason); this.until = until; this.status = status; }
+  /** A refusal that clears by itself within a minute (too many calls at once): wait, do not alarm the player. */
+  transient: boolean;
+  constructor(reason: string, until: number, status?:number, transient = false) { super(reason); this.until = until; this.status = status; this.transient = transient; }
 }
 export function castMemory() {
   let memory: string[] = [];
@@ -48,7 +50,7 @@ export function castDirector(now: () => number, request: (scene: Scene, events: 
       } catch (err) {
         if (!controller.signal.aborted) {
           blocked = err instanceof CastFailure ? err.until : now()+30000;
-          report(err instanceof CastFailure ? err.message : 'Cast connection interrupted');
+          if (!(err instanceof CastFailure && err.transient)) report(err instanceof CastFailure ? err.message : 'Cast connection interrupted');
         }
       } finally { if (ended && !controller.signal.aborted) memory.clear(); pending = null; }
     },

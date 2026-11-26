@@ -13,8 +13,8 @@ it('limits active leases and sliding minute admissions',async()=>{
   let now = 0;
   const check = memoryLimits({},()=>now), op = {ip:'one',admin:false};
   const call = (lease:string) => check({...op,action:'accept',lease}), release = (lease:string)=>check({...op,action:'release',lease});
-  await call('a'); await call('b'); expect((await call('c')).reason).toBe('Concurrent calls'); await release('a'); await release('b');
-  for(let i=2;i<20;i++) {await call(String(i));await release(String(i));}
+  for (const l of 'abcd') await call(l); expect((await call('e')).reason).toBe('Concurrent calls'); for (const l of 'abcd') await release(l);
+  for(let i=4;i<20;i++) {await call(String(i));await release(String(i));}
   expect(await call('x')).toMatchObject({reason:'Minute limit',resetsAt:60000,quota:{used:20}});
   now += 60000; expect((await call('x')).quota.used).toBe(21);
 });
