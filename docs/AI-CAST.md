@@ -18,7 +18,7 @@ Put the selected provider key in the private server environment. Start `pnpm ser
 | AI_DAILY_CALLS_ANON_TOTAL | 10000 across all anonymous callers |
 | AI_DAILY_CALLS_ADMIN | 5000 across signed-in admins |
 
-The status panel shows the caller's daily allowance and reset time in the player's local clock. The day ends at midnight in Singapore. The server checks the IP and global anonymous budgets together. A signed-in admin uses the shared admin allowance. Each identity can start 20 calls per rolling minute and hold two active requests. Admission happens after input and credential checks. An accepted call consumes one slot even if the provider fails or the caption arrives too late to display. The cost display estimates USD from token usage for known Claude models. Other models display tokens.
+The status panel shows the caller's daily allowance and reset time in the player's local clock. The day ends at midnight in Singapore. The server checks the IP and global anonymous budgets together. A signed-in admin uses the shared admin allowance. Each identity can start 20 calls per rolling minute and hold four active requests. Admission happens after input and credential checks. An accepted call consumes one slot even if the provider fails or the caption arrives too late to display. The cost display estimates USD from token usage for known Claude models. Other models display tokens.
 
 Open **Admin sign-in** in the panel and enter the private passphrase. The server compares fixed-length digests, limits failed sign-ins to five per IP per rolling hour and issues a signed HttpOnly cookie for 30 days. The cookie is SameSite=Strict and Secure except on loopback. Sign out to clear it in this browser. Changing the secret invalidates all sessions.
 
@@ -121,23 +121,34 @@ The game keeps the player's armory mounted while the sandbox has its own armory 
 
 ## Optional live voice
 
-**Voice** starts off. Each cast panel saves its own preference. Turning it on sends only the server-generated line to the voice provider. Captions appear immediately. If audio takes more than 6 seconds to prepare, the player keeps the caption and drops the audio. The director waits for playback and a 350 ms breath before requesting another line. Pause, mute, taking control, hiding the tab and leaving play cancel pending or playing speech.
+**Voice** starts off. Each cast panel saves its own preference. Turning it on sends only the server-generated line to the voice provider. Captions appear immediately. Speech has three seconds from the caption to start (`CAST_MIX.readyMs`). A superseded or expired caption stays silent. The director waits for playback and a 350 ms breath before requesting another line. Pause, mute, taking control, hiding the tab and leaving play cancel pending or playing speech.
 
-The private server adapter lives in `server/tts/`. Its injected fetch makes a single streaming MP3 request and buffers the short reply for both Node and the Worker. A provider implements `Speak` and registers its factory, credential name and default model in `index.ts`.
+The private server adapter lives in `server/tts/`. It requests ElevenLabs `pcm_24000` in one streaming POST. Each sample is a signed 16-bit little-endian value, mono at 24 kHz. Node writes chunks as they arrive. The Worker uses the same handler through `handleAsNodeRequest`. Both commit the audio headers with the first nonempty chunk so a provider rejection, empty body or early failure can still return JSON. A later failure ends the received audio. Closing the client aborts the provider and releases the lease. The Worker enables `enable_request_signal`, passes the original request signal and keeps the release alive with `waitUntil`. A provider implements `Speak` and registers its factory, credential name and default model in `index.ts`.
 
 | Server setting | Default or purpose |
 | --- | --- |
 | CAST_VOICE_PROVIDER | elevenlabs |
 | CAST_VOICE_MODEL | eleven_flash_v2_5 |
 | ELEVENLABS_API_KEY | Enables live voice on the server |
+| ELEVENLABS_BASE_URL | Optional private API origin for a local stand-in. Defaults to https://api.elevenlabs.io. The adapter appends the versioned speech path. |
 | CAST_VOICE_IDS | Optional JSON object mapping persona IDs to 20-character alphanumeric voice IDs. The seven built-in voices are in the provider registry. |
 | VOICE_DAILY_CHARS_PER_IP | 4,000 characters per anonymous IP |
 | VOICE_DAILY_CHARS_ANON_TOTAL | 8,000 characters across anonymous callers |
 | VOICE_DAILY_CHARS_ADMIN | 20,000 characters across signed-in admins |
 
-A nonempty commentary or streamer response can include a two-minute ticket. Its HMAC covers the exact line, persona, expiry and a unique nonce, using a signing key derived from the private provider credential. The browser redeems it once at `POST /api/ai/voice`. Admission atomically marks the ticket used and charges the line length before contacting the provider. An ambiguous failure still consumes that allowance. Model-call counters are independent. Node uses the in-memory store and the Worker uses the shared AI usage Durable Object. Both reset daily totals at Singapore midnight. An upstream credit or authorization refusal pauses speech for ten minutes across callers. Captions and game decisions continue.
+A nonempty commentary or streamer response can include a two-minute ticket. Its HMAC covers the exact line, persona, expiry and a unique nonce, using a signing key derived from the private provider credential. The browser redeems it once at `POST /api/ai/voice`. One admission call checks the voice pause, ticket redemption, daily character pools, per-minute limit and in-flight leases, records the charge and returns the quota snapshot. A successful voice request now makes two usage calls, admission before the provider and release after the stream. Commentary and streamer also use one admission before their model call and one release afterwards. All three previously made a separate status read before admission. An ambiguous failure still consumes that allowance. Model-call counters are independent. Node uses the in-memory store and the Worker uses the shared AI usage Durable Object. Both reset daily totals at Singapore midnight. An upstream credit or authorization refusal pauses speech for ten minutes across callers. Captions and game decisions continue.
 
-Status and cast JSON responses include `voice.available`, the caller’s `voice.quota` (used, limit, resetsAt), and remaining characters after the shared cap. Successful audio carries the same voice accounting in the `X-Cast-Voice` header. The response is marked no-store and the service worker bypasses the API.
+Status and cast JSON responses include `voice.available`, the caller’s `voice.quota` (used, limit, resetsAt), and remaining characters after the shared cap. Successful audio carries the same voice accounting in the `X-Cast-Voice` header. The `audio/pcm` response declares `X-Cast-PCM: s16le;rate=24000;channels=1` and `Cache-Control: no-store, no-transform`. The service worker bypasses the API.
+
+The browser cues speech after 250 ms of PCM arrives (`CAST_MIX.bufferLeadMs`), or at EOF for a shorter line. One AudioWorklet keeps a ring of source samples, carries a split sample’s low byte across reads, and keeps the interpolation phase across audio render blocks at the device rate. An underrun fades to silence and re-primes the lead. Two seconds of starvation (`CAST_MIX.stallMs`) ends the line. Browsers without a readable response body or usable worklet play the whole PCM response as one AudioBuffer. The game and menu use their own unlocked contexts. The worklet module loads on first voice use and the service worker runtime-caches the built asset.
+
+### Measuring the delay
+
+Before streaming, the live caption-to-speech delay was 2.0–3.3 s. A forged-ticket voice request took about 1 s there, versus about 0.2 s for health. Direct provider measurements saw the first PCM in 140–460 ms and all 4.4 s of speech in 450–760 ms, across about 170 chunks with a longest gap of 19 ms. These are the baseline measurements. The target for the streaming path is about one second from caption to speech on the live site.
+
+In a local `workerd` comparison with a stand-in sending three PCM chunks 200 ms apart, all bytes arrived at 416 ms on the buffered path. On the streaming path the first bytes arrived at 4 ms and the last at 412 ms. Local SQLite Durable Object round trips took 2 ms for the old status read, 1 ms for admission and 3 ms for release. The new path took 1 ms for admission and 5 ms for release, with the release off the audio delivery path. These timings measure the local Worker and stand-in.
+
+Run `pnpm build:cloudflare` followed by `pnpm test:cloudflare:voice` to check the local Wrangler path. The script starts its own loopback provider and Worker with a disposable credential and fresh usage database. It checks the worklet asset, first-byte delivery while the provider is still sending, PCM integrity, a single charge, refusal on replay and upstream cancellation when a client hangs up.
 
 At the owner's stated Flash rate of half a credit per character, a 110-character line costs about 55 credits. A 40,000-credit month covers about 727 such lines. The estimated 22,000 credits remaining cover about 400. The daily character limits control game usage independently of the provider’s monthly balance.
 

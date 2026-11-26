@@ -35,3 +35,12 @@ it('loads navigation graphs on demand instead of precaching every district', () 
 it('leaves the optional simulation worker to be fetched by players who turn it on', () => {
   expect(shellPaths([...BUNDLE, 'assets/sim-worker-abc123.js', 'assets/sim-remote-abc123.js'], PUBLIC)).toEqual(shellPaths([...BUNDLE, 'assets/sim-remote-abc123.js'], PUBLIC));
 });
+
+it('runtime-caches the optional cast worklet on first use', async () => {
+  const {routeFor} = await import('./sw-policy');
+  const asset = 'assets/cast-pcm-worklet-Xa39pJTe.js';
+  const shell = shellPaths([...BUNDLE,asset], PUBLIC);
+  expect(shell).not.toContain('/'+asset);
+  const origin='https://game.test';
+  expect(routeFor({method:'GET',url:origin+'/'+asset,origin,navigate:false},new Set(shell))).toBe('runtime');
+});

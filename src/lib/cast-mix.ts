@@ -1,11 +1,9 @@
-/** Times in seconds except for the client deadline and breath. */
+/** Times in seconds unless named in milliseconds. */
 export const CAST_MIX = {
   music: 1 / 3, effects: 10 ** (-4 / 20), attack: .12, release: .4,
   encikFade: .15, lead: .16, level: .9,
   threshold: -16, knee: 12, ratio: 2, compressorAttack: .012, compressorRelease: .18,
-  // How long a line's audio may take to arrive before it stays caption-only. Measured from the live
-  // site, speech takes 2 to 3.5 s to come back, so 2.5 s dropped most lines unheard.
-  readyMs: 6000, breathMs: 350,
+  readyMs: 3000, bufferLeadMs: 250, stallMs: 2000, breathMs: 350,
 } as const;
 
 let speakers = 0;

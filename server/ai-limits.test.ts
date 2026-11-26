@@ -41,3 +41,20 @@ it('charges voice characters atomically by IP, shared pool or admin independentl
   now += 1000;
   expect(await speak('a',1)).toMatchObject({voiceQuota:{used:1},quota:{used:0},voiceRemaining:3});
 });
+
+it('checks voice concurrency, burst and ticket expiry in the admission transaction',async () => {
+  let now = 0;
+  const store = memoryLimits({},()=>now);
+  const id = {ip:'one',admin:false};
+  const accept = (lease:string,expiresAt=120000) => store({...id,lease,action:'voice-accept',ticket:lease,characters:1,expiresAt});
+  const release = (lease:string) => store({...id,lease,action:'voice-release'});
+  for (const lease of ['a','b','c','d']) await accept(lease);
+  expect(await accept('e')).toMatchObject({reason:'Concurrent calls',voiceQuota:{used:4}});
+  for (const lease of ['a','b','c','d']) await release(lease);
+  expect(await accept('a')).toMatchObject({reason:'Voice ticket expired or used',voiceQuota:{used:4}});
+  for(let i=4;i<20;i++) { await accept(String(i)); await release(String(i)); }
+  expect(await accept('e')).toMatchObject({reason:'Minute limit',voiceQuota:{used:20}});
+  now = 60000;
+  expect(await accept('e',now)).toMatchObject({reason:'Voice ticket expired or used',voiceQuota:{used:20}});
+  expect(await accept('e')).toMatchObject({voiceQuota:{used:21}});
+});

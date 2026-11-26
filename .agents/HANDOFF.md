@@ -17956,3 +17956,12 @@ Owner turned Voice on and heard nothing in the menus.
 - **Why it was missed:** voice was only ever exercised against `pnpm server` under Node. Anything that touches fetch in `server/` needs one request through the deployed Worker (or `wrangler dev`, though workerd here cannot reach outside hosts through the VM proxy).
 - **Checked on blockplaysg.fun after the first fix:** three ticketed lines returned `audio/mpeg`, 55 to 57 KB each.
 - **Not checked:** hearing it in a browser on the live site after the deadline change.
+
+## 2026-11-26: Cast speech streams, and admission is one Durable Object call
+Implemented by Codex (GPT-6.2-Astra) from a brief. Next, agreed with the owner: fold speech into the line's own response (one request, no `/api/ai/voice`, no tickets).
+- **Server:** ElevenLabs is asked for `pcm_24000` and `/api/ai/voice` pipes chunks through (`Content-Type: audio/pcm`, `X-Cast-PCM: s16le;rate=24000;channels=1`). `handleAsNodeRequest` does not buffer. `ELEVENLABS_BASE_URL` points the adapter at a stand-in.
+- **Admission:** voice, commentary and streamer requests each make one Durable Object call before the provider (was a status read plus the accept), and the release after.
+- **Client:** `src/lib/cast-pcm.ts` and `cast-pcm-worklet.ts`: one AudioWorklet resampler per line, 250 ms lead, split samples carried across chunks, silence on a stall, whole-buffer fallback. A sine sweep in awkward chunk sizes matches the continuous reference at 44.1 and 48 kHz.
+- **Measured:** provider alone, first bytes at 140 to 460 ms and a 4.4 s line delivered within 760 ms. Through `pnpm server`, first byte 0.86 s and total 1.34 s for 6.5 s of audio (the old path waited for the whole file).
+- **Checked:** vitest (4873 pass), `tsc --noEmit`, `pnpm build`, `pnpm build:cloudflare`; `pnpm test:cloudflare:voice` through `wrangler dev` (first bytes at 10 ms, last at 615 ms, one charge, replay refused, worklet served); in the Browser pane with Voice on, two lines each created a worklet node on a running 48 kHz context with no errors. Nobody has listened to it.
+- **Known:** under `wrangler dev` a client hang-up does not reach the Node response's `close` event, so the provider or model call runs to its end; the check reports this instead of failing. Whether the deployed runtime differs is unknown. The earlier "free the slot on hang-up" fix depends on the same event.

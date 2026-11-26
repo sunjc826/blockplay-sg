@@ -2,6 +2,9 @@ import { exampleHud } from '../src/game/cast-test-fixture';
 import { mapBrief } from './cast-map-brief';
 import { expect,it,vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { memoryLimits, type LimitStore } from './ai-limits';
+import { voiceTickets } from './tts/tickets';
 import { Readable } from 'node:stream';
 import type { IncomingMessage,ServerResponse } from 'node:http';
 import { createAdventureHandler } from './adventure-api';
@@ -22,12 +25,12 @@ it('accepts public data and rejects extra fields, bad roles, regions, bounds and
     {events:Array(21).fill('x')},{memory:Array(31).fill('a')},{memory:['a'.repeat(241)]},{snapshot:{...body.snapshot,actors:[]}},
     {snapshot:{...body.snapshot,health:NaN}},{frame:'bm90LWpwZWc='},{frame:'/9j/'+'A'.repeat(280000)}]) expect(observation({...body,...patch})).toBeNull();
 });
-function harness(env:Record<string,string>,fetcher=vi.fn()) {
-  const handler = createAdventureHandler(env,fetcher);
+function harness(env:Record<string,string>,fetcher=vi.fn(), aiStore?:LimitStore) {
+  const handler = createAdventureHandler(env,fetcher,{aiStore});
   return async (path:string,body:unknown={},cookie='',ip='a',origin='http://localhost:5173')=>{
     const req = Object.assign(Readable.from([JSON.stringify(body)]),{url:'/api/ai/'+path,method:path==='status'?'GET':'POST',socket:{remoteAddress:ip},headers:{origin,cookie,'content-type':'application/json','cf-connecting-ip':Math.random().toString()}});
     let code=0,headers:Record<string,string>={},data;
-    const res = {once:vi.fn(),off:vi.fn(),writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string | Uint8Array){data=typeof s === 'string' ? JSON.parse(s) : s;}};
+    const res = {once:vi.fn(),off:vi.fn(),write(s:Uint8Array){data=s;return true;},writeHead(c:number,h:Record<string,string>){code=c;headers=h;},end(s:string | Uint8Array){if (s !== undefined) data=typeof s === 'string' ? JSON.parse(s) : s;}};
     await handler(req as unknown as IncomingMessage,res as unknown as ServerResponse);
     return {code,headers,data:data as unknown as {admin:boolean;quota:{used:number;limit:number};line:string;ticket:string}};
   };
@@ -90,7 +93,7 @@ it('redeems only genuine lines once, returns private audio and preserves model q
   const [a,b] = await Promise.all([call('voice',payload),call('voice',payload)]);
   expect([a.code,b.code].sort()).toEqual([200,429]);
   const audio = a.code === 200 ? a : b;
-  expect(audio.headers).toMatchObject({'Content-Type':'audio/mpeg','Cache-Control':'no-store'});
+  expect(audio.headers).toMatchObject({'Content-Type':'audio/pcm','Cache-Control':'no-store, no-transform','X-Cast-PCM':'s16le;rate=24000;channels=1'});
   expect(JSON.parse(audio.headers['X-Cast-Voice'])).toMatchObject({available:true,quota:{used:9}});
   expect(audio.data).toEqual(new Uint8Array([7]));
   expect((await call('status')).data).toMatchObject({quota:{used:1},voice:{quota:{used:9}}});
@@ -110,4 +113,64 @@ it('remembers exhausted provider credits across callers while returning caption-
     clock.mockReturnValue(now+600000);
     expect((await call('status')).data).toMatchObject({voice:{available:true}});
   } finally { clock.mockRestore(); }
+});
+
+it.each(['end','early-error','late-error','hang-up'])('pipes voice with one admission and releases on %s',async ending => {
+  const store = vi.fn(memoryLimits({}));
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  let signal!: AbortSignal;
+  let accepted!: () => void, wrote!: () => void;
+  const fetching = new Promise<void>(resolve => { accepted = resolve; });
+  const firstWrite = new Promise<void>(resolve => { wrote = resolve; });
+  const handler = createAdventureHandler(speechEnv, async (_url,init) => {
+    expect(store.mock.calls.map(([op]) => op.action)).toEqual(['voice-accept']);
+    signal = init!.signal!;
+    accepted();
+    return new Response(new ReadableStream({start(c) {
+      controller = c;
+      signal.addEventListener('abort', () => c.error(new Error('disconnected')), {once:true});
+    }}));
+  },{aiStore:store});
+  const line = 'Timed chunks.', ticket = voiceTickets(speechEnv.ELEVENLABS_API_KEY).issue(personaId,line);
+  const req = Object.assign(Readable.from([JSON.stringify({personaId,line,ticket})]), {
+    url:'/api/ai/voice', method:'POST', headers:{origin:'http://localhost:5173','content-type':'application/json'},
+  });
+  const res = Object.assign(new EventEmitter(),{writeHead:vi.fn(),write:vi.fn(() => { wrote();return true; }),end:vi.fn()});
+  const handled = handler(req as unknown as IncomingMessage,res as unknown as ServerResponse);
+  await fetching;
+  if (ending === 'early-error') controller.error(new Error('broken before PCM'));
+  else {
+    controller.enqueue(Uint8Array.of(1,2)); await firstWrite;
+    expect(res.end).not.toHaveBeenCalled();
+    if (ending === 'hang-up') res.emit('close');
+    else if (ending === 'late-error') controller.error(new Error('broken after PCM'));
+    else { controller.enqueue(Uint8Array.of(3,4)); controller.close(); }
+  }
+  await handled;
+  expect(store.mock.calls.map(([op]) => op.action)).toEqual(['voice-accept','voice-release']);
+  if (ending === 'early-error') {
+    expect(res.writeHead).toHaveBeenCalledWith(502,expect.objectContaining({'Content-Type':'application/json'}));
+    expect(JSON.parse(res.end.mock.calls[0][0])).toMatchObject({error:'Voice provider unavailable',voice:{quota:{used:line.length}}});
+  } else {
+    expect(res.writeHead).toHaveBeenCalledTimes(1);
+    expect(res.write).toHaveBeenCalledTimes(ending === 'end' ? 2 : 1);
+    if (ending === 'hang-up') expect(signal.aborted).toBe(true);
+    else expect(res.end).toHaveBeenCalledWith();
+  }
+});
+
+it('admits each valid commentary and streamer turn on the first usage call',async () => {
+  for (const path of ['commentary','streamer']) {
+    const store = vi.fn(memoryLimits({}));
+    const fetcher = vi.fn(async () => {
+      expect(store.mock.calls.map(([op]) => op.action)).toEqual(['accept']);
+      return generated();
+    });
+    const call = harness({...speechEnv,STREAMER_PROVIDER:'openai'},fetcher,store);
+    const menu = {phase:'menu',personaId:'pro',clean:true,memory:[],wallet:{credits:1600,tokens:300},note:'Play a round',
+      screen:{screenId:'solo',title:'Solo',actions:[{id:'range',label:'Enter range',kind:'start'}]}};
+    await call(path,path === 'commentary' ? body : menu);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(store.mock.calls.map(([op]) => op.action)).toEqual(['accept','release']);
+  }
 });

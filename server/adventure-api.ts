@@ -64,8 +64,8 @@ export function createAdventureHandler(env: Record<string, string | undefined>, 
   const allowed = new Set((env.ADVENTURE_ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3001,http://127.0.0.1:3001').split(',').map(origin => origin.trim()));
   const ai = createAiHandler(env, fetcher, options.aiStore, options.cloud);
   const reserve = createRequestGuard();
-  return async (req: IncomingMessage, res: ServerResponse) => {
-    if (req.url?.startsWith('/api/ai/') || req.url === '/api/adventure/pilot-plan') return ai(req,res,options.isOriginAllowed ?? (req => allowed.has(req.headers.origin ?? '')));
+  return async (req: IncomingMessage, res: ServerResponse, clientSignal?: AbortSignal) => {
+    if (req.url?.startsWith('/api/ai/') || req.url === '/api/adventure/pilot-plan') return ai(req,res,options.isOriginAllowed ?? (req => allowed.has(req.headers.origin ?? '')),clientSignal);
     const reply = (status: number, data: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...(status === 429 ? { 'Retry-After': '60' } : {}) }); res.end(JSON.stringify(data)); };
     if (req.method !== 'POST' || !['/api/adventure/change', '/api/adventure/voice-session'].includes(req.url ?? '')) return reply(404, { error: 'Not found' });
     if (!(options.isOriginAllowed ? options.isOriginAllowed(req) : allowed.has(req.headers.origin ?? ''))) return reply(403, { error: 'Unexpected origin' });

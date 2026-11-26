@@ -24,5 +24,5 @@ export function selectSpeech(env: Env, fetcher = fetch) {
       if (ids.has(persona) && typeof id === 'string' && /^[A-Za-z0-9]{20}$/.test(id)) ids.set(persona, id);
     }
   } catch { /* Use the built-in cast when the optional override is malformed. */ }
-  return { ids, model: env.CAST_VOICE_MODEL?.trim() || provider.model, speak: provider.create(key, fetcher), tickets: voiceTickets(key) };
+  return { ids, model: env.CAST_VOICE_MODEL?.trim() || provider.model, speak: provider.create(key, fetcher, env.ELEVENLABS_BASE_URL?.trim() || undefined), tickets: voiceTickets(key) };
 }

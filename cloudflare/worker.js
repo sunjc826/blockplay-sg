@@ -19,6 +19,7 @@ const companion = createCloudflareAdventureHandler({
   VOICE_DAILY_CHARS_PER_IP: env.VOICE_DAILY_CHARS_PER_IP,
   VOICE_DAILY_CHARS_ANON_TOTAL: env.VOICE_DAILY_CHARS_ANON_TOTAL,
   VOICE_DAILY_CHARS_ADMIN: env.VOICE_DAILY_CHARS_ADMIN,
+  ELEVENLABS_BASE_URL: env.ELEVENLABS_BASE_URL,
   ELEVENLABS_API_KEY: env.ELEVENLABS_API_KEY,
   CAST_PROVIDER: env.CAST_PROVIDER,
   CAST_MODEL: env.CAST_MODEL,
@@ -39,10 +40,19 @@ const companion = createCloudflareAdventureHandler({
   if (!response.ok) throw new Error('Usage unavailable');
   return response.json();
 });
-createServer(companion).listen(3001);
+createServer((req, res) => {
+  // The Node bridge emits 'close' when it publishes the response headers.
+  // The original Request signal tracks the actual client throughout the body.
+  if (req.url === '/api/ai/voice') {
+    const { env: lifecycle, ctx } = req.cloudflare;
+    ctx.waitUntil(companion(req, res, lifecycle.signal));
+  } else {
+    void companion(req, res);
+  }
+}).listen(3001);
 
 export default {
-  async fetch(request) {
+  async fetch(request, _bindings, ctx) {
     const path = new URL(request.url).pathname;
     if (path === '/api/level-review' || path.startsWith('/api/level-review/') || path === '/api/asset-review' || path.startsWith('/api/asset-review/')) return handleLevelReviews(request, env);
     if (path === '/api/rooms' || path.startsWith('/api/rooms/')) {
@@ -64,6 +74,7 @@ export default {
       return Response.json({ service: 'blockplay-cloudflare', companion: !!env.OPENAI_API_KEY && env.ADVENTURE_ENABLED !== 'false' },
         { headers: { 'Cache-Control': 'no-store' } });
     }
+    if (path === '/api/ai/voice') return handleAsNodeRequest(3001, request, { signal: request.signal }, ctx);
     if (path.startsWith('/api/adventure/') || path.startsWith('/api/ai/')) return handleAsNodeRequest(3001, request);
     return Response.json({ error: path.startsWith('/api/lan/')
       ? 'LAN rooms require the local pnpm lan server. Solo bots are available here.' : 'Not found' },

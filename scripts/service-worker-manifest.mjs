@@ -19,8 +19,8 @@ const IGNORED = /\.(map|txt)$/i;
  */
 export function shellPaths(bundleFiles, publicFiles = []) {
   const paths = [...bundleFiles, ...publicFiles]
-    // District navigation graphs and the simulation worker (an optional setting) are fetched when first wanted.
-    .filter(file => !IGNORED.test(file) && !/(?:^|\/)(?:navigation-[^/]+\.json|sim-worker-[^/]+\.js)$/.test(file))
+    // District navigation graphs and optional simulation/audio workers are fetched when first wanted.
+    .filter(file => !IGNORED.test(file) && !/(?:^|\/)(?:navigation-[^/]+\.json|(?:sim-worker|cast-pcm-worklet)-[^/]+\.js)$/.test(file))
     .map(file => (file.startsWith('/') ? file : `/${file}`))
     .map(path => (path === '/index.html' ? '/' : path));
   return [...new Set(paths)].sort();
